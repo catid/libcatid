@@ -9,6 +9,16 @@ I am releasing LibCat under the LGPL so that other developers may benefit from t
 LibCat can be linked statically, dynamically, or included directly into your project. Since it is open-source software, I encourage you to look through what is available and re-use what you find, in whole or in part.
 
 
+= Features =
+
+See the Wiki section on LibCatFeatures.
+
+
 = Getting Started =
 
 See the Wiki section on GettingStarted.
+
+
+= What's new? =
+
+See the Wiki section on ChangeLog.
