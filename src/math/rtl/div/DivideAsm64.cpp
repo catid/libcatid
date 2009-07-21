@@ -17,24 +17,26 @@
     License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <cat/math/BigPseudoMersenne.hpp>
-#include <cat/asm/big_x64_asm.hpp>
+#include <cat/math/BigRTL.hpp>
 using namespace cat;
 
-void BigPseudoMersenne::MrMultiply(const Leg *in_a, const Leg *in_b, Leg *out)
+#if defined(CAT_ARCH_64)
+
+#include <cat/asm/big_x64_asm.hpp>
+
+Leg BigRTL::DivideX(const Leg *in_a, Leg in_b, Leg *out)
 {
-#if defined(CAT_USE_LEGS_ASM64)
-    if (library_legs == 4)
-    {
-        bpm_mul_4(modulus_c, in_a, in_b, out);
-        return;
-    }
-#endif
-
-    Leg *T_hi = Get(pm_regs - 2);
-    Leg *T_lo = Get(pm_regs - 3);
-
-    Multiply(in_a, in_b, T_lo);
-
-    MrReduceProduct(T_hi, T_lo, out);
+    return divide64_x(library_legs, in_a, in_b, out);
 }
+
+Leg BigRTL::ModulusX(const Leg *in_a, Leg in_b)
+{
+    return modulus64_x(library_legs, in_a, in_b);
+}
+
+void BigRTL::DivideCore(int A_used, Leg A_overflow, Leg *A, int B_used, Leg *B, Leg *Q)
+{
+    divide64_core(A_used, A_overflow, A, B_used, B, Q);
+}
+
+#endif // CAT_X64_ASM

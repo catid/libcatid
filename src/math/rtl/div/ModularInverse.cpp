@@ -17,24 +17,41 @@
     License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <cat/math/BigPseudoMersenne.hpp>
-#include <cat/asm/big_x64_asm.hpp>
+#include <cat/math/BigRTL.hpp>
 using namespace cat;
 
-void BigPseudoMersenne::MrMultiply(const Leg *in_a, const Leg *in_b, Leg *out)
+void BigRTL::ModularInverse(const Leg *x, const Leg *modulus, Leg *inverse)
 {
-#if defined(CAT_USE_LEGS_ASM64)
-    if (library_legs == 4)
+    if (EqualX(x, 1))
     {
-        bpm_mul_4(modulus_c, in_a, in_b, out);
+        CopyX(1, inverse);
         return;
     }
-#endif
 
-    Leg *T_hi = Get(pm_regs - 2);
-    Leg *T_lo = Get(pm_regs - 3);
+    Leg *t1 = inverse;
+    Leg *t0 = Get(library_regs - 3);
+    Leg *b = Get(library_regs - 4);
+    Leg *c = Get(library_regs - 5);
+    Leg *q = Get(library_regs - 6);
+    Leg *p = Get(library_regs - 7);
 
-    Multiply(in_a, in_b, T_lo);
+    Copy(x, b);
+    Divide(modulus, b, t0, c);
+    CopyX(1, t1);
 
-    MrReduceProduct(T_hi, T_lo, out);
+    while (!EqualX(c, 1))
+    {
+        Divide(b, c, q, b);
+        MultiplyLow(q, t0, p);
+        Add(t1, p, t1);
+
+        if (EqualX(b, 1))
+            return;
+
+        Divide(c, b, q, c);
+        MultiplyLow(q, t1, p);
+        Add(t0, p, t0);
+    }
+
+    Subtract(modulus, t0, inverse);
 }

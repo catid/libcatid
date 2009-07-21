@@ -17,24 +17,21 @@
     License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <cat/math/BigPseudoMersenne.hpp>
-#include <cat/asm/big_x64_asm.hpp>
+#include <cat/math/BigRTL.hpp>
 using namespace cat;
 
-void BigPseudoMersenne::MrMultiply(const Leg *in_a, const Leg *in_b, Leg *out)
+void BigRTL::Multiply(const Leg *in_a, const Leg *in_b, Leg *out)
 {
-#if defined(CAT_USE_LEGS_ASM64)
-    if (library_legs == 4)
-    {
-        bpm_mul_4(modulus_c, in_a, in_b, out);
-        return;
-    }
-#endif
+    out[library_legs] = MultiplyX(in_a, in_b[0], out);
 
-    Leg *T_hi = Get(pm_regs - 2);
-    Leg *T_lo = Get(pm_regs - 3);
+    for (int ii = 1; ii < library_legs; ++ii)
+        out[library_legs + ii] = MultiplyXAdd(in_a, in_b[ii], out + ii, out + ii);
+}
 
-    Multiply(in_a, in_b, T_lo);
+void BigRTL::MultiplyLow(const Leg *in_a, const Leg *in_b, Leg *out)
+{
+    MultiplyX(in_a, in_b[0], out);
 
-    MrReduceProduct(T_hi, T_lo, out);
+    for (int ii = 1; ii < library_legs; ++ii)
+        MultiplyXAdd(library_legs - ii, in_a, in_b[ii], out + ii, out + ii);
 }
