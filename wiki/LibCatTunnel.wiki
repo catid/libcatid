@@ -1,5 +1,7 @@
 #summary Tunnel protocol headers
 
+Part of LibCatFeatures.
+
 = #include <cat/AllTunnel.hpp> =
 
  * <cat/crypt/tunnel/KeyAgreementInitiator.hpp>
