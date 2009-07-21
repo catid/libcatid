@@ -47,8 +47,8 @@ namespace cat {
         Leg *CachedModulus;
         Leg modulus_c;
 
-        void ReduceProductX(Leg overflow, Leg *inout);
-        void ReduceProduct(const Leg *in_hi, const Leg *in_lo, Leg *out);
+        void MrReduceProductX(Leg overflow, Leg *inout);
+        void MrReduceProduct(const Leg *in_hi, const Leg *in_lo, Leg *out);
 
     public:
         BigPseudoMersenne(int regs, int bits, int C);

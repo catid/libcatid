@@ -18,23 +18,30 @@
 */
 
 #include <cat/math/BigPseudoMersenne.hpp>
-#include "big_x64_asm.hpp"
 using namespace cat;
 
-BigPseudoMersenne::BigPseudoMersenne(int regs, int bits, int C)
-    : BigRTL(regs + PM_OVERHEAD, bits)
+void BigPseudoMersenne::MrNegate(const Leg *in, Leg *out)
 {
-    pm_regs = regs + PM_OVERHEAD;
-    modulus_c = C;
+    // It's like SubtractX: out = m - in = ~in-c+1 = ~in - (c-1)
+    Leg t = ~in[0];
+    Leg x = modulus_c - 1;
+    out[0] = t - x;
 
-    // Reserve a register to contain the full modulus
-    CachedModulus = Get(pm_regs - 1);
-    CopyModulus(CachedModulus);
-}
+    int ii = 1;
 
-void BigPseudoMersenne::CopyModulus(Leg *out)
-{
-    // Set low leg to -C, set all bits on the rest
-    out[0] = 0 - modulus_c;
-    memset(&out[1], 0xFF, (library_legs-1) * sizeof(Leg));
+    // If the initial difference borrowed in,
+    if (t < x)
+    {
+        // Ripple the borrow in as far as needed
+        while (ii < library_legs)
+        {
+            t = ~in[ii];
+            out[ii++] = t - 1;
+            if (t) break;
+        }
+    }
+
+    // Invert remaining bits
+    for (; ii < library_legs; ++ii)
+        out[ii] = ~in[ii];
 }

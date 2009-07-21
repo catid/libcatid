@@ -407,6 +407,66 @@
 					</File>
 				</Filter>
 			</Filter>
+			<Filter
+				Name="pm"
+				>
+				<Filter
+					Name="reduce"
+					>
+					<File
+						RelativePath="..\..\src\math\mersenne\reduce\MrReduce.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\..\src\math\mersenne\reduce\MrReduceProduct.cpp"
+						>
+					</File>
+				</Filter>
+				<Filter
+					Name="addsub"
+					>
+					<File
+						RelativePath="..\..\src\math\mersenne\addsub\MrAdd.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\..\src\math\mersenne\addsub\MrNegate.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\..\src\math\mersenne\addsub\MrSubtract.cpp"
+						>
+					</File>
+				</Filter>
+				<Filter
+					Name="mul"
+					>
+					<File
+						RelativePath="..\..\src\math\mersenne\mul\MrMultiply.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\..\src\math\mersenne\mul\MrMultiplyX.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\..\src\math\mersenne\mul\MrSquare.cpp"
+						>
+					</File>
+				</Filter>
+				<Filter
+					Name="expm"
+					>
+					<File
+						RelativePath="..\..\src\math\mersenne\expm\MrInvert.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\..\src\math\mersenne\expm\MrSquareRoot.cpp"
+						>
+					</File>
+				</Filter>
+			</Filter>
 		</Filter>
 		<Filter
 			Name="Header Files"

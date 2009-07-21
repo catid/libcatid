@@ -20,6 +20,16 @@
 #include <cat/math/BigTwistedEdward.hpp>
 using namespace cat;
 
+// Extended Twisted Edwards Scalar Multiplication k*p
+// CAN *NOT* BE followed by a Pt[E]Add()
+void BigTwistedEdward::PtMultiply(const Leg *in_p, const Leg *in_k, u8 k_msb, Leg *out)
+{
+    Leg *DefaultPrecomp = Get(te_regs - TE_OVERHEAD);
+
+    PtMultiplyPrecomp(in_p, WINDOW_BITS, DefaultPrecomp);
+    PtMultiply(DefaultPrecomp, WINDOW_BITS, in_k, k_msb, out);
+}
+
 // w-MOF lookup table for PtMultiply()
 struct {
     u8 add_index; // nth odd number to add: 0=0,1=1,2=3,3=5,4=7,...
@@ -149,92 +159,4 @@ void BigTwistedEdward::PtMultiply(const Leg *in_precomp, int w, const Leg *in_k,
         while (doubles_before--)
             PtDouble(out, out);
     }
-}
-
-// Extended Twisted Edwards Scalar Multiplication k*p
-// CAN *NOT* BE followed by a Pt[E]Add()
-void BigTwistedEdward::PtMultiply(const Leg *in_p, const Leg *in_k, u8 k_msb, Leg *out)
-{
-    const int w = WINDOW_BITS;
-
-    Leg *DefaultPrecomp = Get(te_regs - TE_OVERHEAD);
-
-#if defined(CAT_USE_W6_CONJUGATE_ADDITION)
-
-    // More efficient than naive approach by +4S -6M -5D -20a
-    // Inspired by Longa-Gebotys 2008, but it is an original algorithm
-
-    int neg_offset = POINT_STRIDE << (w - 2);
-
-    // Precompute P and -P
-    Leg *pre_a = DefaultPrecomp;
-    PtCopy(in_p, pre_a);
-    PtNegate(in_p, pre_a+neg_offset);
-
-    Leg *P1 = pre_a;
-
-    // Precompute 2P
-    Leg *pre_2 = TempPt;
-    PtEDouble(in_p, pre_2);
-
-    // Precompute 3P and -3P
-    Leg *pre_b = pre_a+POINT_STRIDE;
-    PtEAdd(pre_a, pre_2, pre_b);
-    PtNegate(pre_b, pre_b+neg_offset);
-
-    Leg *P3 = pre_b;
-
-    // Precompute 5P and -5P
-    pre_a = pre_b+POINT_STRIDE;
-    PtEAdd(pre_b, pre_2, pre_a);
-    PtNegate(pre_a, pre_a+neg_offset);
-
-    Leg *P5 = pre_a;
-
-    // Precompute 7P and -7P
-    pre_b = pre_a+POINT_STRIDE;
-    PtEAdd(pre_a, pre_2, pre_b);
-    PtNegate(pre_b, pre_b+neg_offset);
-
-    Leg *P7 = pre_b;
-
-    // Precompute 9P and -9P
-    pre_a = pre_b+POINT_STRIDE;
-    PtEAdd(pre_b, pre_2, pre_a);
-    PtNegate(pre_a, pre_a+neg_offset);
-
-    Leg *P9 = pre_a;
-
-    // Precompute 11P and -11P
-    pre_b = pre_a+POINT_STRIDE;
-    PtEAdd(pre_a, pre_2, pre_b);
-    PtNegate(pre_b, pre_b+neg_offset);
-
-    // Precompute 22P
-    PtEDouble(pre_b, pre_2);
-
-    pre_b += POINT_STRIDE*5;
-    pre_a = pre_b + POINT_STRIDE;
-
-    PtPrecompAddSub(pre_2, P1, pre_a, pre_b, neg_offset);
-    pre_b -= POINT_STRIDE;
-    pre_a += POINT_STRIDE;
-    PtPrecompAddSub(pre_2, P3, pre_a, pre_b, neg_offset);
-    pre_b -= POINT_STRIDE;
-    pre_a += POINT_STRIDE;
-    PtPrecompAddSub(pre_2, P5, pre_a, pre_b, neg_offset);
-    pre_b -= POINT_STRIDE;
-    pre_a += POINT_STRIDE;
-    PtPrecompAddSub(pre_2, P7, pre_a, pre_b, neg_offset);
-    pre_b -= POINT_STRIDE;
-    pre_a += POINT_STRIDE;
-    PtPrecompAddSub(pre_2, P9, pre_a, pre_b, neg_offset);
-
-#else
-
-    PtMultiplyPrecomp(in_p, w, DefaultPrecomp);
-
-#endif // CAT_USE_W6_CONJUGATE_ADDITION
-
-    PtMultiply(DefaultPrecomp, w, in_k, k_msb, out);
 }

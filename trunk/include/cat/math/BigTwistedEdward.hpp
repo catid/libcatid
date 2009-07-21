@@ -57,8 +57,6 @@
 
 namespace cat {
 
-#define CAT_USE_W6_CONJUGATE_ADDITION /* speed up precomputation for w=6 */
-
 
 class BigTwistedEdward : public BigPseudoMersenne
 {
