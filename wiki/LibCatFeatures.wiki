@@ -39,17 +39,13 @@
     Portable 16 byte aligned heap allocation
 
 
-========================================================================
-                   #include <cat/AllCodec.hpp>
-========================================================================
+= #include <cat/AllCodec.hpp> =
 
   <cat/codec/RangeCoder.hpp>
     Fast ~60% short text compression and range coder
 
 
-========================================================================
-                   #include <cat/AllMath.hpp>
-========================================================================
+= #include <cat/AllMath.hpp> =
 
   <cat/math/Legs.hpp>
     Basic definitions for multi-precision arithmetic
@@ -64,9 +60,7 @@
     RTL for fast point math on Twisted Edwards elliptic curves
 
 
-========================================================================
-                   #include <cat/AllCrypt.hpp>
-========================================================================
+= #include <cat/AllCrypt.hpp> =
 
   <cat/crypt/symmetric/ChaCha.hpp>
     Fast stream cipher based on Salsa
@@ -90,9 +84,7 @@
     "Cat For Tuna" implementation of Bruce Schneier's Fortuna with Skein
 
 
-========================================================================
-                   #include <cat/AllTunnel.hpp>
-========================================================================
+= #include <cat/AllTunnel.hpp> =
 
   <cat/crypt/tunnel/KeyAgreementInitiator.hpp>
     Fast key agreement scheme with PFS: Initiator/client object
@@ -110,9 +102,7 @@
     Creates public/private key pairs for Tunnel responders
 
 
-========================================================================
-                  #include <cat/AllFramework.hpp>
-========================================================================
+= #include <cat/AllFramework.hpp> =
 
   <cat/io/Logging.hpp>
     Multithreaded disk and console logging
