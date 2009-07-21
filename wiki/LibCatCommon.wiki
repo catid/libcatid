@@ -2,7 +2,7 @@
 
 Part of LibCatFeatures.
 
-= #include <cat/AllCommon?.hpp> =
+= #include <cat/AllCommon.hpp> =
 
  * <cat/Platform.hpp>
     Portability header defining basic datatypes and macros 
