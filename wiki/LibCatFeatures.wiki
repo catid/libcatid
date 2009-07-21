@@ -1,0 +1,3 @@
+#summary Summary of the features provided by LibCat.
+
+= Details =
