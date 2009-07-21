@@ -1,0 +1,6 @@
+#summary Common headers
+
+= Introduction =
+
+
+= Details =
