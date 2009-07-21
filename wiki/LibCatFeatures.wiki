@@ -1,10 +1,23 @@
 #summary Summary of the features provided by LibCat.
 
-LibCat is a highly modular library so that pieces of it can be selected for use with little to no modification.
+= Overview =
+
+The library is broken into several modular components so that only the interesting subset of features may be selected for use with little to no modification:
+
+ * LibCatCommon includes basic, shared features used by the rest of LibCat.
+
+ * LibCatCodec provides compression.
+
+ * LibCatMath provides assembly-optimized large unsigned integer arithmetic, arithmetic in a finite field with a pseudo-Mersenne modulus, and arithmetic on Twisted Edwards elliptic curves.
+
+ * LibCatCrypt provides implementations of modern cryptographic primitives.
+
+ * LibCatTunnel provides fast, secure Key Agreement and Authenticated Encryption for networking.
+
+ * LibCatFramework provides a scalable, multithreaded framework for application development.
+
 
 = #include <cat/AllCommon.hpp> =
-
-LibCatCommon includes basic, shared features used by the rest of LibCat.
 
  * <cat/Platform.hpp>
     Portability header defining basic datatypes and macros
@@ -45,15 +58,11 @@ LibCatCommon includes basic, shared features used by the rest of LibCat.
 
 = #include <cat/AllCodec.hpp> =
 
-LibCatCodec provides compression.
-
  * <cat/codec/RangeCoder.hpp>
     Fast ~60% short text compression and range coder
 
 
 = #include <cat/AllMath.hpp> =
-
-LibCatMath provides assembly-optimized large unsigned integer arithmetic, arithmetic in a finite field with a pseudo-Mersenne modulus, and arithmetic on Twisted Edwards elliptic curves.
 
  * <cat/math/Legs.hpp>
     Basic definitions for multi-precision arithmetic
@@ -69,8 +78,6 @@ LibCatMath provides assembly-optimized large unsigned integer arithmetic, arithm
 
 
 = #include <cat/AllCrypt.hpp> =
-
-LibCatCrypt provides implementations of modern cryptographic primitives.
 
  * <cat/crypt/symmetric/ChaCha.hpp>
     Fast stream cipher based on Salsa
@@ -96,8 +103,6 @@ LibCatCrypt provides implementations of modern cryptographic primitives.
 
 = #include <cat/AllTunnel.hpp> =
 
-LibCatTunnel provides fast, secure Key Agreement and Authenticated Encryption for networking.
-
  * <cat/crypt/tunnel/KeyAgreementInitiator.hpp>
     Fast key agreement scheme with forward secrecy: Initiator/client object
 
@@ -115,8 +120,6 @@ LibCatTunnel provides fast, secure Key Agreement and Authenticated Encryption fo
 
 
 = #include <cat/AllFramework.hpp> =
-
-LibCatFramework provides a scalable, multithreaded framework for application development.
 
  * <cat/io/Logging.hpp>
     Multithreaded lockless disk and console logging
