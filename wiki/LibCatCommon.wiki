@@ -4,50 +4,38 @@ Part of LibCatFeatures.
 
 = #include <cat/AllCommon?.hpp> =
 
-    * <cat/Platform.hpp>
+* <cat/Platform.hpp>
+    Portability header defining basic datatypes and macros 
 
-          Portability header defining basic datatypes and macros 
+* <cat/Singleton.hpp>
+    Singleton design pattern 
 
-    * <cat/Singleton.hpp>
+* <cat/time/Clock.hpp>
+    Time counters 
 
-          Singleton design pattern 
+* <cat/hash/MurmurHash2?.hpp>
+    Fast 32/64-bit noncryptographic hash function 
 
-    * <cat/time/Clock.hpp>
+* <cat/port/EndianNeutral?.hpp>
+    Functions designed to fix byte order at compile time 
 
-          Time counters 
+* <cat/rand/IRandom.hpp>
+    Interface implemented by all noncryptographic PRNGs 
 
-    * <cat/hash/MurmurHash2?.hpp>
+* <cat/rand/MersenneTwister?.hpp>
+    Fast MT-19937 noncryptographic pseudo-random number generator 
 
-          Fast 32/64-bit noncryptographic hash function 
+* <cat/rand/StdRand?.hpp>
+    Several noncryptographic PRNGs 
 
-    * <cat/port/EndianNeutral?.hpp>
+* <cat/math/BitMath?.hpp>
+    Portable bit twiddling macros and BSR/BSL opcodes 
 
-          Functions designed to fix byte order at compile time 
+* <cat/math/EndianNeutral?.hpp>
+    Routines to make your code endian neutral 
 
-    * <cat/rand/IRandom.hpp>
+* <cat/threads/Atomic.hpp>
+    Portable atomic operations 
 
-          Interface implemented by all noncryptographic PRNGs 
-
-    * <cat/rand/MersenneTwister?.hpp>
-
-          Fast MT-19937 noncryptographic pseudo-random number generator 
-
-    * <cat/rand/StdRand?.hpp>
-
-          Several noncryptographic PRNGs 
-
-    * <cat/math/BitMath?.hpp>
-
-          Portable bit twiddling macros and BSR/BSL opcodes 
-
-    * <cat/math/EndianNeutral?.hpp>
-
-          Routines to make your code endian neutral 
-
-    * <cat/threads/Atomic.hpp>
-
-          Portable atomic operations 
-
-    * <cat/port/AlignedAlloc?.hpp>
-
-          Portable 16 byte aligned heap allocation 
+* <cat/port/AlignedAlloc?.hpp>
+    Portable 16 byte aligned heap allocation
