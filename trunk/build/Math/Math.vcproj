@@ -316,11 +316,7 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\src\math\DivideAsm64.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\src\math\DivideGeneric.cpp"
+				RelativePath="..\..\src\math\rtl\addsub\SubtractX.cpp"
 				>
 			</File>
 			<Filter
@@ -463,6 +459,106 @@
 					</File>
 					<File
 						RelativePath="..\..\src\math\mersenne\expm\MrSquareRoot.cpp"
+						>
+					</File>
+				</Filter>
+			</Filter>
+			<Filter
+				Name="rtl"
+				>
+				<Filter
+					Name="addsub"
+					>
+					<File
+						RelativePath="..\..\src\math\rtl\addsub\Add.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\..\src\math\rtl\addsub\Add1.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\..\src\math\rtl\addsub\AddX.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\..\src\math\rtl\addsub\Compare.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\..\src\math\rtl\addsub\Double.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\..\src\math\rtl\addsub\DoubleAdd.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\..\src\math\rtl\addsub\Negate.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\..\src\math\rtl\addsub\Shift.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\..\src\math\rtl\addsub\Subtract.cpp"
+						>
+					</File>
+				</Filter>
+				<Filter
+					Name="mul"
+					>
+					<File
+						RelativePath="..\..\src\math\rtl\mul\Multiply.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\..\src\math\rtl\mul\MultiplyX.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\..\src\math\rtl\mul\MultiplyXAdd.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\..\src\math\rtl\mul\Square.cpp"
+						>
+					</File>
+				</Filter>
+				<Filter
+					Name="div"
+					>
+					<File
+						RelativePath="..\..\src\math\rtl\div\Divide.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\..\src\math\rtl\div\DivideAsm64.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\..\src\math\rtl\div\DivideGeneric.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\..\src\math\rtl\div\ModularInverse.cpp"
+						>
+					</File>
+				</Filter>
+				<Filter
+					Name="io"
+					>
+					<File
+						RelativePath="..\..\src\math\rtl\io\Load.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\..\src\math\rtl\io\LoadString.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\..\src\math\rtl\io\Save.cpp"
 						>
 					</File>
 				</Filter>

@@ -18,24 +18,21 @@
 */
 
 #include <cat/math/BigRTL.hpp>
-#include "big_x64_asm.hpp"
 using namespace cat;
 
-#if defined(CAT_ARCH_64)
-
-Leg BigRTL::DivideX(const Leg *in_a, Leg in_b, Leg *out)
+u8 BigRTL::Double(const Leg *in, Leg *out)
 {
-    return divide64_x(library_legs, in_a, in_b, out);
-}
+    // Double low leg first
+    Leg last = in[0];
+    out[0] = last << 1;
 
-Leg BigRTL::ModulusX(const Leg *in_a, Leg in_b)
-{
-    return modulus64_x(library_legs, in_a, in_b);
-}
+    // Shift up the rest by 1 bit; actually pretty fast this way!
+    for (int ii = 1; ii < library_legs; ++ii)
+    {
+        Leg next = in[ii];
+        out[ii] = (next << 1) | (last >> (CAT_LEG_BITS-1));
+        last = next;
+    }
 
-void BigRTL::DivideCore(int A_used, Leg A_overflow, Leg *A, int B_used, Leg *B, Leg *Q)
-{
-    divide64_core(A_used, A_overflow, A, B_used, B, Q);
+    return (u8)(last >> (CAT_LEG_BITS-1));
 }
-
-#endif // CAT_X64_ASM

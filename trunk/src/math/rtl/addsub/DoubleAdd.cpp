@@ -17,24 +17,40 @@
     License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <cat/math/BigPseudoMersenne.hpp>
-#include <cat/asm/big_x64_asm.hpp>
+#include <cat/math/BigRTL.hpp>
 using namespace cat;
 
-void BigPseudoMersenne::MrMultiply(const Leg *in_a, const Leg *in_b, Leg *out)
+Leg BigRTL::DoubleAdd(const Leg *in_a, const Leg *in_b, Leg *out)
 {
-#if defined(CAT_USE_LEGS_ASM64)
-    if (library_legs == 4)
+    return DoubleAdd(library_legs, in_a, in_b, out);
+}
+
+// out = in_a[] * 2 + in_b[]
+Leg BigRTL::DoubleAdd(int legs, const Leg *in_a, const Leg *in_b, Leg *out)
+{
+#if !defined(CAT_NO_LEGPAIR)
+
+    LegPair x = ((LegPair)in_a[0] << 1) + in_b[0];
+    out[0] = (Leg)x;
+
+    for (int ii = 1; ii < legs; ++ii)
     {
-        bpm_mul_4(modulus_c, in_a, in_b, out);
-        return;
+        x = (x >> CAT_LEG_BITS) + ((LegPair)in_a[ii] << 1) + in_b[ii];
+        out[ii] = (Leg)x;
     }
+
+    return x >> CAT_LEG_BITS;
+
+#else
+
+    Leg p_hi;
+
+    CAT_LEG_MULADD(in_a[0], 2, in_b[0], p_hi, out[0]);
+
+    for (int ii = 1; ii < legs; ++ii)
+        CAT_LEG_MULADD2(in_a[ii], 2, in_b[ii], p_hi, p_hi, out[ii]);
+
+    return p_hi;
+
 #endif
-
-    Leg *T_hi = Get(pm_regs - 2);
-    Leg *T_lo = Get(pm_regs - 3);
-
-    Multiply(in_a, in_b, T_lo);
-
-    MrReduceProduct(T_hi, T_lo, out);
 }

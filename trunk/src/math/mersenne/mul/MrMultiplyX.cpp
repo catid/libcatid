@@ -18,7 +18,7 @@
 */
 
 #include <cat/math/BigPseudoMersenne.hpp>
-#include "../../big_x64_asm.hpp"
+#include <cat/asm/big_x64_asm.hpp>
 using namespace cat;
 
 void BigPseudoMersenne::MrMultiplyX(const Leg *in_a, Leg in_b, Leg *out)

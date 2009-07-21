@@ -18,7 +18,6 @@
 */
 
 #include <cat/math/BigPseudoMersenne.hpp>
-#include "big_x64_asm.hpp"
 using namespace cat;
 
 BigPseudoMersenne::BigPseudoMersenne(int regs, int bits, int C)
