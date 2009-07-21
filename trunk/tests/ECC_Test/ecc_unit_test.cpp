@@ -293,7 +293,7 @@ int TestTwistedEdward()
 
     for (;;)
     {
-		x.PtGenerate(&mtprng, pt);
+        x.PtGenerate(&mtprng, pt);
 
         x.PtEAdd(pt, pt, pt);
         x.PtEAdd(pt, pt, pt);
