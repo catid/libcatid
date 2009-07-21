@@ -3,8 +3,8 @@
 = Major Changes =
 
 07/21/2009
-             LibCat is now hosted at Google Code!
-             Split math code across many source files
+* LibCat is now hosted at Google Code!
+* Split math code across many source files
 
 
 = Daily Changes =
