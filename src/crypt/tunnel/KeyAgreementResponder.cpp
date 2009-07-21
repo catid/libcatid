@@ -97,7 +97,7 @@ bool KeyAgreementResponder::ProcessChallenge(const u8 *initiator_challenge, int 
                                              AuthenticatedEncryption *encryption)
 {
     // Verify that inputs are of the correct length
-    if (challenge_bytes != KeyBytes*4 || answer_bytes != KeyBytes*3)
+    if (challenge_bytes != KeyBytes*2 || answer_bytes != KeyBytes*3)
         return false;
 
     // Create a math object

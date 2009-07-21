@@ -422,8 +422,8 @@ void TCPServer::OnAcceptExComplete(int error, AcceptExOverlapped *overlapped)
 {
     if (error)
     {
-        // ERROR_SEM_TIMEOUT: This means a half-open connection has reset
-        // ERROR_NETNAME_DELETED: This means a three-way handshake reset before completion
+        // ERROR_SEM_TIMEOUT     : This means a half-open connection has reset
+        // ERROR_NETNAME_DELETED : This means a three-way handshake reset before completion
         if (error == ERROR_SEM_TIMEOUT || error == ERROR_NETNAME_DELETED)
         {
             // Queue up another AcceptEx to fill in for this one
@@ -1538,10 +1538,10 @@ unsigned int WINAPI SocketManager::CompletionThread(void *port)
             {
             case WSA_OPERATION_ABORTED:
             case ERROR_CONNECTION_ABORTED:
-            case ERROR_NETNAME_DELETED: // Operation on closed socket failed
-            case ERROR_MORE_DATA: // UDP buffer not large enough for whole packet
+            case ERROR_NETNAME_DELETED:  // Operation on closed socket failed
+            case ERROR_MORE_DATA:        // UDP buffer not large enough for whole packet
             case ERROR_PORT_UNREACHABLE: // Got an ICMP response back that the destination port is unreachable
-            case ERROR_SEM_TIMEOUT: // Half-open TCP AcceptEx() has reset
+            case ERROR_SEM_TIMEOUT:      // Half-open TCP AcceptEx() has reset
                 // Operation failure codes (we don't differentiate between them)
                 break;
 

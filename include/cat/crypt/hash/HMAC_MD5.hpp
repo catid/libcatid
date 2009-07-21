@@ -48,7 +48,7 @@ protected:
     static const int WORK_WORDS = WORK_BYTES / sizeof(u32);
 
     u32 CachedInitialState[4]; // Cached state for H(K||inner padding)
-    u32 CachedFinalState[4]; // Cached state for H(K||outer padding)
+    u32 CachedFinalState[4];   // Cached state for H(K||outer padding)
 
     u64 byte_counter;
     u32 State[4];

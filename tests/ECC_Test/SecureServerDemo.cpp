@@ -42,14 +42,14 @@ void SecureServerDemo::OnHello(const Address &source, u8 *buffer)
 
 void SecureServerDemo::OnChallenge(const Address &source, u8 *buffer)
 {
-    u32 *cookie = (u32*)(buffer + 128);
-/*
+    u32 *cookie = (u32*)(buffer + 64);
+
     if (!cookie_jar.Verify(source.ip, source.port, getLE(*cookie)))
     {
         cout << "Server: Ignoring stale cookie" << endl;
         return;
     }
-*/
+
     cout << "Server: Creating a new connection" << endl;
 
     // Create the connection
@@ -58,7 +58,7 @@ void SecureServerDemo::OnChallenge(const Address &source, u8 *buffer)
     u8 answer[96];
 
     double t1 = Clock::usec();
-    if (!tun_server.ProcessChallenge(buffer, 128, answer, 96, &client->auth_enc))
+    if (!tun_server.ProcessChallenge(buffer, 64, answer, 96, &client->auth_enc))
     {
         cout << "Server: Ignoring invalid challenge message" << endl;
         delete client;

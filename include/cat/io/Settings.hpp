@@ -31,12 +31,12 @@ namespace cat {
 enum SettingsValueFlags
 {
     SETTINGS_FILLED = 1, // s[] array has been set
-    SETTINGS_INT = 2, // value has been promoted to int 'i'
+    SETTINGS_INT = 2,    // value has been promoted to int 'i'
 };
 
 struct SettingsValue
 {
-    u8 flags; // sum of SettingsValueFlags
+    u8 flags;    // sum of SettingsValueFlags
     char s[256]; // always nul-terminated
     int i;
 };
@@ -71,7 +71,7 @@ protected:
     SettingsKey *hbtrees[SETTINGS_HASH_BINS]; // hash table of binary trees
 
     bool readSettings; // Flag set when settings have been read from disk
-    bool modified; // Flag set when settings have been modified since last write
+    bool modified;     // Flag set when settings have been modified since last write
 
 protected:
     SettingsKey *addKey(const char *name);
