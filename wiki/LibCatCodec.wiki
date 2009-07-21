@@ -1,5 +1,7 @@
 #summary Compression headers
 
+Part of LibCatFeatures.
+
 = #include <cat/AllCodec.hpp> =
 
  * <cat/codec/RangeCoder.hpp>
