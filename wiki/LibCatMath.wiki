@@ -1,5 +1,7 @@
 #summary Math headers
 
+Part of LibCatFeatures.
+
 = #include <cat/AllMath.hpp> =
 
  * <cat/math/Legs.hpp>
