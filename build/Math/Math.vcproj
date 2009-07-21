@@ -315,10 +315,6 @@
 				RelativePath="..\..\src\math\BigTwistedEdward.cpp"
 				>
 			</File>
-			<File
-				RelativePath="..\..\src\math\rtl\addsub\SubtractX.cpp"
-				>
-			</File>
 			<Filter
 				Name="edward"
 				>
@@ -404,7 +400,7 @@
 				</Filter>
 			</Filter>
 			<Filter
-				Name="pm"
+				Name="mersenne"
 				>
 				<Filter
 					Name="reduce"
@@ -503,6 +499,10 @@
 					</File>
 					<File
 						RelativePath="..\..\src\math\rtl\addsub\Subtract.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\..\src\math\rtl\addsub\SubtractX.cpp"
 						>
 					</File>
 				</Filter>
