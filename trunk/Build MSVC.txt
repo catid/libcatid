@@ -1,0 +1,69 @@
+                      ____________________________
+        ______________) Quick Start Instructions (_____________
+       |                                                       |
+       |    Add ./libcat-1.0/include/ to your include path     |
+       |                                                       |
+       |    Build with Visual Studio .NET 2005/2008            |
+       |                                                       |
+       |    To use a unit test, set it as StartUp Project      |
+       |                                                       |
+       |    Otherwise, link statically with the libraries      |
+       |_______________________________________________________|
+
+
+========================================================================
+                        Build Instructions
+========================================================================
+
+You should be able to just open the solution file (LibCat.sln) and
+perform a Batch Build to create all the static libraries for LibCat.
+
+To rebuild the assembly code yourself, run msvc_build_asm64.bat
+
+
+========================================================================
+                   Visual Studio Static Libraries
+========================================================================
+
+------------------------------------------------------------------------
+                   #include <cat/AllCommon.hpp>
+------------------------------------------------------------------------
+Link to: /lib/cat/libcatcommon-m##-1.0.lib
+
+m = 'r' or 'd' for release or debug version
+## = 32/64 for 32-bit or 64-bit version
+
+
+------------------------------------------------------------------------
+                   #include <cat/AllCodec.hpp>
+------------------------------------------------------------------------
+Includes AllCommon
+Link to: /lib/cat/libcatcodec-m##-1.0.lib
+
+
+------------------------------------------------------------------------
+                   #include <cat/AllMath.hpp>
+------------------------------------------------------------------------
+Includes AllCommon
+Link to: /lib/cat/libcatmath-m##-1.0.lib
+
+
+------------------------------------------------------------------------
+                   #include <cat/AllCrypt.hpp>
+------------------------------------------------------------------------
+Includes AllCommon, AllMath
+Link to: /lib/cat/libcatcrypt-m##-1.0.lib
+
+
+------------------------------------------------------------------------
+                   #include <cat/AllTunnel.hpp>
+------------------------------------------------------------------------
+Includes AllCommon, AllMath, AllCrypt
+Link to: /lib/cat/libcattunnel-m##-1.0.lib
+
+
+------------------------------------------------------------------------
+                  #include <cat/AllFramework.hpp>
+------------------------------------------------------------------------
+Includes AllCommon, AllMath, AllCrypt, AllTunnel, AllCodec
+Link to: /lib/cat/libcatframework-m##-1.0.lib
