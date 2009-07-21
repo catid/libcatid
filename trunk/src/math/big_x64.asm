@@ -777,8 +777,8 @@ divide_core:
 
     push r12 r13 r14 r15 rbx rsi rdi
 
-    sub rcx, r9                            ; rcx = offset = A_used - B_used
-    mov r12, qword[r10 + (r9-1)*8]        ; r12 = B_high = B[B_used-1]
+    sub rcx, r9                         ; rcx = offset = A_used - B_used
+    mov r12, qword[r10 + (r9-1)*8]      ; r12 = B_high = B[B_used-1]
     lea r8, [r8 + rcx*8]                ; r8 = A_offset = A + offset
 
     ; --------------------
@@ -787,45 +787,45 @@ divide_core:
 
     xor r13, r13                        ; r13 = q_hi = 0
     cmp r12, rdx                        ; compare B_high to A_overflow
-    jb divide_core_b_less_a                ; skip if B_high < A_overflow
-    ja divide_core_a_less_b                ; skip if B_high > A_overflow
+    jb divide_core_b_less_a             ; skip if B_high < A_overflow
+    ja divide_core_a_less_b             ; skip if B_high > A_overflow
 
-    lea r14, [r9 - 2]                    ; r14 = ii = B_used-2
+    lea r14, [r9 - 2]                   ; r14 = ii = B_used-2
 
 divide_core_a_comp_b:
-    mov rax, qword[r8 + r14*8]            ; rax = a = A_offset[ii]
-    cmp qword[r10 + r14*8], rax            ; compare b to a
-    jb divide_core_b_less_a                ; done if b < a
-    ja divide_core_a_less_b                ; done if b > a
+    mov rax, qword[r8 + r14*8]          ; rax = a = A_offset[ii]
+    cmp qword[r10 + r14*8], rax         ; compare b to a
+    jb divide_core_b_less_a             ; done if b < a
+    ja divide_core_a_less_b             ; done if b > a
 
-    sub r14, 1                            ; --ii
+    sub r14, 1                          ; --ii
     jae divide_core_a_comp_b            ; loop while ii >= 0
 
 divide_core_b_less_a:
-    lea r13, [r13 + 1]                    ; q_hi = 1
+    lea r13, [r13 + 1]                  ; q_hi = 1
 
     ; ---------------------------------
     ; If q_hi is set, subtract B from A
     ; ---------------------------------
 
-    lea r14, [r9 - 1]                    ; r14 = B_used-1
+    lea r14, [r9 - 1]                   ; r14 = B_used-1
     xor r15, r15                        ; r15 = ii = 0
     xor rbx, rbx                        ; rbx = borrow_in = 0
 
 divide_core_sub_b_a:
-    add bl, 255                            ; restore carry flag if bl != 0
-    mov rax, qword[r10 + r15*8]            ; rax = b = B[ii]
-    sbb qword[r8 + (r15+1)*8], rax        ; A_offset[ii+1] -= b + borrow_in
-    setc bl                                ; store carry flag in al
+    add bl, 255                         ; restore carry flag if bl != 0
+    mov rax, qword[r10 + r15*8]         ; rax = b = B[ii]
+    sbb qword[r8 + (r15+1)*8], rax      ; A_offset[ii+1] -= b + borrow_in
+    setc bl                             ; store carry flag in al
     lea r15, [r15+1]                    ; r15 = ii++
     cmp r15, r14                        ; compare ii to B_used-1
-    jb divide_core_sub_b_a                ; loop if ii < B_used-1
+    jb divide_core_sub_b_a              ; loop if ii < B_used-1
 
     sub rdx, r12                        ; A_overflow -= B_high
     sub rdx, rbx                        ; A_overflow -= borrow_in
 
 divide_core_a_less_b:
-    mov qword[r11 + (rcx+1)*8], r13        ; Q[offset+1] = q_hi
+    mov qword[r11 + (rcx+1)*8], r13     ; Q[offset+1] = q_hi
 
     ; ---------------------------------
     ; Main divide loop
@@ -844,8 +844,8 @@ divide_core_loop_head:
     ; ---------------------------------
     ; A -= (1 | q_lo) * B
 
-    mov rax, qword[r8 + (r9-1)*8]        ; rax = A_offset[B_used-1]
-    div r12                                ; rax = q_lo = rdx:rax/B_high
+    mov rax, qword[r8 + (r9-1)*8]       ; rax = A_offset[B_used-1]
+    div r12                             ; rax = q_lo = rdx:rax/B_high
     mov r13, rax                        ; r13 = q_lo
 
     xor r14, r14                        ; r14 = ii = 0
@@ -854,26 +854,26 @@ divide_core_loop_head:
     xor rdi, rdi                        ; rdi = B_last = 0
 
 divide_core_q_hi_one_loop:
-    mov rax, qword[r10 + r14*8]            ; rax = B[ii]
-    mul r13                                ; rdx:rax = B[ii] * q_lo
+    mov rax, qword[r10 + r14*8]         ; rax = B[ii]
+    mul r13                             ; rdx:rax = B[ii] * q_lo
     add rax, r15                        ; rdx:rax += p_hi
-    adc rdx, 0                            ; "
+    adc rdx, 0                          ; "
     add rax, rdi                        ; rdx:rax += B_last
-    adc rdx, 0                            ; p_lo = rax
+    adc rdx, 0                          ; p_lo = rax
     mov r15, rdx                        ; r15 = p_hi = rdx
-    mov rdi, qword[r10 + r14*8]            ; rdi = B[ii]
+    mov rdi, qword[r10 + r14*8]         ; rdi = B[ii]
 
-    add bl, 255                            ; restore borrow-in from bl
-    sbb qword[r8 + r14*8], rax            ; A_offset[ii] -= p_lo
-    setc bl                                ; store borrow-in to bl
+    add bl, 255                         ; restore borrow-in from bl
+    sbb qword[r8 + r14*8], rax          ; A_offset[ii] -= p_lo
+    setc bl                             ; store borrow-in to bl
 
     lea r14, [r14+1]                    ; r14 = ii++
-    cmp r14, r9                            ; compare ii to B_used
+    cmp r14, r9                         ; compare ii to B_used
     jb divide_core_q_hi_one_loop        ; loop while ii < B_used
 
     sub rsi, rdi                        ; A_overflow -= B_last
 
-    jmp divide_core_fix_up                ; skip the q_hi == 0 case
+    jmp divide_core_fix_up              ; skip the q_hi == 0 case
 
     ; ---------------------------------
     ; Main divide loop : q_hi == 0
@@ -881,8 +881,8 @@ divide_core_q_hi_one_loop:
     ; A -= q_lo * B
 
 divide_core_q_hi_zero:
-    mov rax, qword[r8 + (r9-1)*8]        ; rax = A_offset[B_used-1]
-    div r12                                ; rax = q_lo = rdx:rax/B_high
+    mov rax, qword[r8 + (r9-1)*8]       ; rax = A_offset[B_used-1]
+    div r12                             ; rax = q_lo = rdx:rax/B_high
     mov r13, rax                        ; r13 = q_lo
 
     xor r14, r14                        ; r14 = ii = 0
@@ -890,19 +890,19 @@ divide_core_q_hi_zero:
     xor rbx, rbx                        ; rbx = borrow-in = 0
 
 divide_core_q_hi_zero_loop:
-    mov rax, qword[r10 + r14*8]            ; rax = B[ii]
-    mul r13                                ; rdx:rax = B[ii] * q_lo
+    mov rax, qword[r10 + r14*8]         ; rax = B[ii]
+    mul r13                             ; rdx:rax = B[ii] * q_lo
     add rax, r15                        ; p_lo = rax
-    adc rdx, 0                            ; rdx:rax += p_hi
+    adc rdx, 0                          ; rdx:rax += p_hi
     mov r15, rdx                        ; r15 = p_hi = rdx
 
-    add bl, 255                            ; restore borrow-in from bl
-    sbb qword[r8 + r14*8], rax            ; A_offset[ii] -= p_lo
-    setc bl                                ; store borrow-in to bl
+    add bl, 255                         ; restore borrow-in from bl
+    sbb qword[r8 + r14*8], rax          ; A_offset[ii] -= p_lo
+    setc bl                             ; store borrow-in to bl
 
     lea r14, [r14+1]                    ; r14 = ii++
-    cmp r14, r9                            ; compare ii to B_used
-    jb divide_core_q_hi_zero_loop        ; loop while ii < B_used
+    cmp r14, r9                         ; compare ii to B_used
+    jb divide_core_q_hi_zero_loop       ; loop while ii < B_used
 
     ; --------------------------------------------
     ; Main divide loop : Fix until A_overflow == 0
@@ -912,33 +912,33 @@ divide_core_fix_up:
     sub rsi, r15                        ; A_overflow -= p_hi
     sub rsi, rbx                        ; A_overflow -= borrow-in
 
-    jz divide_core_fix_up_tail            ; if A_overflow == 0, go to tail
+    jz divide_core_fix_up_tail          ; if A_overflow == 0, go to tail
 
 divide_core_fix_up_head:
-    lea r13, [r13 - 1]                    ; --q_lo
+    lea r13, [r13 - 1]                  ; --q_lo
     xor r14, r14                        ; r14 = ii = 0
     xor rbx, rbx                        ; rbx = borrow-in = 0
 
 divide_core_fix_up_add:
-    mov rax, qword[r10 + r14*8]            ; rax = B[ii]
-    add bl, 255                            ; restore carry-out from bl
-    adc qword[r8 + r14*8], rax            ; A_offset[ii] += B[ii] + carry-in
-    setc bl                                ; store carry-out to bl
+    mov rax, qword[r10 + r14*8]         ; rax = B[ii]
+    add bl, 255                         ; restore carry-out from bl
+    adc qword[r8 + r14*8], rax          ; A_offset[ii] += B[ii] + carry-in
+    setc bl                             ; store carry-out to bl
 
     lea r14, [r14+1]                    ; r14 = ii++
-    cmp r14, r9                            ; compare ii to B_used
-    jb divide_core_fix_up_add            ; loop while ii < B_used
+    cmp r14, r9                         ; compare ii to B_used
+    jb divide_core_fix_up_add           ; loop while ii < B_used
 
     add rsi, rbx                        ; A_overflow += carry-in
-    jnz divide_core_fix_up_head            ; if A_overflow is still not zero, loop
+    jnz divide_core_fix_up_head         ; if A_overflow is still not zero, loop
 
 divide_core_fix_up_tail:
-    mov qword[r11 + rcx*8], r13            ; Q[offset] = q_lo
+    mov qword[r11 + rcx*8], r13         ; Q[offset] = q_lo
     
-    mov rdx, qword[r8 + (r9-1)*8]        ; rdx = A_overflow = A_offset[B_used-1]
-    sub rcx, 1                            ; rcx = offset--
+    mov rdx, qword[r8 + (r9-1)*8]       ; rdx = A_overflow = A_offset[B_used-1]
+    sub rcx, 1                          ; rcx = offset--
     lea r8, [r8 - 8]                    ; A_offset = A + offset
-    jae divide_core_loop_head            ; loop while offset >= 0
+    jae divide_core_loop_head           ; loop while offset >= 0
 
     ; --------
     ; Epilogue
