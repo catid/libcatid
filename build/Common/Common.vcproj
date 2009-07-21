@@ -62,7 +62,7 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				OutputFile="$(SolutionDir)\lib\cat\libcatcommon-d32-1.0.lib"
+				OutputFile="$(SolutionDir)\..\lib\cat\libcatcommon-d32-1.0.lib"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -125,7 +125,7 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				OutputFile="$(SolutionDir)\lib\cat\libcatcommon-d64-1.0.lib"
+				OutputFile="$(SolutionDir)\..\lib\cat\libcatcommon-d64-1.0.lib"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -192,7 +192,7 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				OutputFile="$(SolutionDir)\lib\cat\libcatcommon-r32-1.0.lib"
+				OutputFile="$(SolutionDir)\..\lib\cat\libcatcommon-r32-1.0.lib"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -260,7 +260,7 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				OutputFile="$(SolutionDir)\lib\cat\libcatcommon-r64-1.0.lib"
+				OutputFile="$(SolutionDir)\..\lib\cat\libcatcommon-r64-1.0.lib"
 			/>
 			<Tool
 				Name="VCALinkTool"

@@ -62,7 +62,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="&quot;$(SolutionDir)lib\cat\libcatcrypt-d32-1.0.lib&quot;"
+				AdditionalDependencies="&quot;$(SolutionDir)\..\lib\cat\libcatcrypt-d32-1.0.lib&quot;"
 				GenerateDebugInformation="true"
 				RandomizedBaseAddress="1"
 				DataExecutionPrevention="0"
@@ -135,7 +135,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="&quot;$(SolutionDir)lib\cat\libcatcrypt-d64-1.0.lib&quot;"
+				AdditionalDependencies="&quot;$(SolutionDir)\..\lib\cat\libcatcrypt-d64-1.0.lib&quot;"
 				GenerateDebugInformation="true"
 				RandomizedBaseAddress="1"
 				DataExecutionPrevention="0"
@@ -212,7 +212,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="&quot;$(SolutionDir)lib\cat\libcatcrypt-r32-1.0.lib&quot;"
+				AdditionalDependencies="&quot;$(SolutionDir)\..\lib\cat\libcatcrypt-r32-1.0.lib&quot;"
 				GenerateDebugInformation="true"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
@@ -293,7 +293,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="&quot;$(SolutionDir)lib\cat\libcatcrypt-r64-1.0.lib&quot;"
+				AdditionalDependencies="&quot;$(SolutionDir)\..\lib\cat\libcatcrypt-r64-1.0.lib&quot;"
 				GenerateDebugInformation="true"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
