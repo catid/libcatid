@@ -1,0 +1,13 @@
+#summary How to use LibCat
+
+
+= Microsoft Visual Studio 2005/2008 =
+
+Solution files have been provided for MSVC.
+
+See "Build MSVC.txt" for more information.
+
+
+= GNU C++ Compiler =
+
+*I am currently porting to this compiler.*
