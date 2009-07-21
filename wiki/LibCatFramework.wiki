@@ -1,5 +1,7 @@
 #summary Framework headers
 
+Part of LibCatFeatures.
+
 = #include <cat/AllFramework.hpp> =
 
  * <cat/io/Logging.hpp>
