@@ -1,12 +1,12 @@
 /*
-	Copyright 2009 Christopher A. Taylor
+    Copyright 2009 Christopher A. Taylor
 
     This file is part of LibCat.
 
     LibCat is free software: you can redistribute it and/or modify
     it under the terms of the Lesser GNU General Public License as
-	published by the Free Software Foundation, either version 3 of
-	the License, or (at your option) any later version.
+    published by the Free Software Foundation, either version 3 of
+    the License, or (at your option) any later version.
 
     LibCat is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -14,7 +14,7 @@
     Lesser GNU General Public License for more details.
 
     You should have received a copy of the Lesser GNU General Public
-	License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
+    License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 // 06/11/09 part of libcat-1.0
@@ -45,22 +45,22 @@ namespace cat {
 
 
 /*
-	IOCPSockets library
+    IOCPSockets library
 
-	Provides a framework for rapidly developing TCP server and client objects
-	that make use of the high performance IO Completion Ports API for Windows.
+    Provides a framework for rapidly developing TCP server and client objects
+    that make use of the high performance IO Completion Ports API for Windows.
 
-	All operations are performed asynchronously except ResolveHostname().
+    All operations are performed asynchronously except ResolveHostname().
 
-	All network events are processed by a thread pool managed by SocketManager.
+    All network events are processed by a thread pool managed by SocketManager.
 
-	Example library usage:
+    Example library usage:
 
-		SocketManager::ref()->Startup();
+        SocketManager::ref()->Startup();
 
-		Create and use TCPServer and TCPClient objects here
+        Create and use TCPServer and TCPClient objects here
 
-		SocketManager::ref()->Shutdown();
+        SocketManager::ref()->Shutdown();
 */
 
 class TCPServer;
@@ -106,16 +106,16 @@ void ReleasePostBuffer(void *buffer);
 // Overlapped opcodes that describe the purpose of the OVERLAPPED structure
 enum OverlappedOpcodes
 {
-	OVOP_ACCEPT_EX,		// AcceptEx() completion, remote client connected
-	OVOP_SERVER_RECV,	// WSARecv() completion for local server
-	OVOP_CLIENT_RECV,	// WSARecv() completion, for local client
-	OVOP_RECVFROM,		// WSARecvFrom() completion, for local endpoint
-	OVOP_CONNECT_EX,	// ConnectEx() completion, local client connected
-	OVOP_SERVER_SEND,	// WSASend() completion, local server sent something
-	OVOP_CLIENT_SEND,	// WSASend() completion, local client sent something
-	OVOP_SENDTO,		// WSASendTo() completion, local endpoint sent something
-	OVOP_SERVER_CLOSE,	// DisconnectEx() completion, graceful close
-	OVOP_CLIENT_CLOSE,	// DisconnectEx() completion, graceful close
+    OVOP_ACCEPT_EX,        // AcceptEx() completion, remote client connected
+    OVOP_SERVER_RECV,    // WSARecv() completion for local server
+    OVOP_CLIENT_RECV,    // WSARecv() completion, for local client
+    OVOP_RECVFROM,        // WSARecvFrom() completion, for local endpoint
+    OVOP_CONNECT_EX,    // ConnectEx() completion, local client connected
+    OVOP_SERVER_SEND,    // WSASend() completion, local server sent something
+    OVOP_CLIENT_SEND,    // WSASend() completion, local client sent something
+    OVOP_SENDTO,        // WSASendTo() completion, local endpoint sent something
+    OVOP_SERVER_CLOSE,    // DisconnectEx() completion, graceful close
+    OVOP_CLIENT_CLOSE,    // DisconnectEx() completion, graceful close
 };
 
 #if defined(CAT_COMPILER_MSVC)
@@ -126,45 +126,45 @@ enum OverlappedOpcodes
 // Base class for any typed OVERLAPPED structure
 struct TypedOverlapped
 {
-	OVERLAPPED ov;
-	int opcode;
+    OVERLAPPED ov;
+    int opcode;
 
-	void Set(int opcode);
+    void Set(int opcode);
 
-	// Reset after an I/O operation to prepare for the next one
-	void Reset();
+    // Reset after an I/O operation to prepare for the next one
+    void Reset();
 } CAT_PACKED;
 
 // AcceptEx() OVERLAPPED structure
 struct AcceptExOverlapped : public TypedOverlapped
 {
-	SOCKET acceptSocket;
+    SOCKET acceptSocket;
 
-	// Space pre-allocated to receive addresses
-	struct
-	{
-		sockaddr_in address[2];
-		u8 padding[2*16];
-	} addresses;
+    // Space pre-allocated to receive addresses
+    struct
+    {
+        sockaddr_in address[2];
+        u8 padding[2*16];
+    } addresses;
 
-	void Set(SOCKET s);
+    void Set(SOCKET s);
 } CAT_PACKED;
 
 // WSASendTo()/WSASend()/WSARecv() OVERLAPPED structure
 struct DataOverlapped : public TypedOverlapped
 {
-	u8 data[1];
+    u8 data[1];
 } CAT_PACKED;
 
 // WSARecvFrom() OVERLAPPED structure
 struct RecvFromOverlapped : public TypedOverlapped
 {
-	int addrLen;
-	sockaddr_in addr;
+    int addrLen;
+    sockaddr_in addr;
 
-	u8 data[1];
+    u8 data[1];
 
-	void Reset();
+    void Reset();
 } CAT_PACKED;
 
 #if defined(CAT_COMPILER_MSVC)
@@ -173,290 +173,290 @@ struct RecvFromOverlapped : public TypedOverlapped
 
 
 /*
-	class SocketRefObject
+    class SocketRefObject
 
-	Base class for any thread-safe reference-counted socket object
+    Base class for any thread-safe reference-counted socket object
 */
 class SocketRefObject
 {
-	friend class SocketManager;
-	SocketRefObject *last, *next;
+    friend class SocketManager;
+    SocketRefObject *last, *next;
 
-	volatile long refCount;
-
-public:
-	SocketRefObject();
-	virtual ~SocketRefObject() {}
+    volatile long refCount;
 
 public:
-	void AddRef();
-	void ReleaseRef();
+    SocketRefObject();
+    virtual ~SocketRefObject() {}
+
+public:
+    void AddRef();
+    void ReleaseRef();
 };
 
 
 /*
-	class TCPServer
+    class TCPServer
 
-	Object that represents a TCP server bound to a single port
+    Object that represents a TCP server bound to a single port
 
-	Overload InstantiateServerConnection() to subclass connections with the server
+    Overload InstantiateServerConnection() to subclass connections with the server
 */
 class TCPServer : public SocketRefObject
 {
-	friend class TCPServerConnection;
-	friend class SocketManager;
+    friend class TCPServerConnection;
+    friend class SocketManager;
 
 public:
-	TCPServer();
-	virtual ~TCPServer();
+    TCPServer();
+    virtual ~TCPServer();
 
-	bool ValidServer();
-	Port GetPort();
+    bool ValidServer();
+    Port GetPort();
 
-	bool Bind(Port port = 0);
-	void Close();
+    bool Bind(Port port = 0);
+    void Close();
 
 protected:
-	virtual TCPServerConnection *InstantiateServerConnection() = 0;
+    virtual TCPServerConnection *InstantiateServerConnection() = 0;
 
 private:
-	SOCKET listenSocket;
-	LPFN_ACCEPTEX lpfnAcceptEx;
-	LPFN_GETACCEPTEXSOCKADDRS lpfnGetAcceptExSockAddrs;
-	LPFN_DISCONNECTEX lpfnDisconnectEx;
-	Port port;
+    SOCKET listenSocket;
+    LPFN_ACCEPTEX lpfnAcceptEx;
+    LPFN_GETACCEPTEXSOCKADDRS lpfnGetAcceptExSockAddrs;
+    LPFN_DISCONNECTEX lpfnDisconnectEx;
+    Port port;
 
 private:
-	bool QueueAcceptEx();
-	bool QueueAccepts();
+    bool QueueAcceptEx();
+    bool QueueAccepts();
 
-	void OnAcceptExComplete(int error, AcceptExOverlapped *overlapped);
+    void OnAcceptExComplete(int error, AcceptExOverlapped *overlapped);
 };
 
 
 /*
-	class TCPServerConnection
+    class TCPServerConnection
 
-	Object that represents a TCPServer's connection from a TCPClient
+    Object that represents a TCPServer's connection from a TCPClient
 
-	Object is instantiated just before accepting a connection
+    Object is instantiated just before accepting a connection
 
-	DisconnectClient() : Disconnect the client
-	PostToClient() : Send a message to the client
-	ValidServerConnection() : Returns true iff the connection is valid
+    DisconnectClient() : Disconnect the client
+    PostToClient() : Send a message to the client
+    ValidServerConnection() : Returns true iff the connection is valid
 
-	OnConnectFromClient() : Return false to deny this connection
-	OnReadFromClient() : Return false to disconnect the client in response to a message
-	OnWriteToClient() : Informs the derived class that data has been sent
-	OnDisconectFromClient() : Informs the derived class that the client has disconnected
+    OnConnectFromClient() : Return false to deny this connection
+    OnReadFromClient() : Return false to disconnect the client in response to a message
+    OnWriteToClient() : Informs the derived class that data has been sent
+    OnDisconectFromClient() : Informs the derived class that the client has disconnected
 */
 class TCPServerConnection : public SocketRefObject
 {
-	friend class TCPServer;
-	friend class SocketManager;
+    friend class TCPServer;
+    friend class SocketManager;
 
 public:
-	TCPServerConnection();
-	virtual ~TCPServerConnection();
+    TCPServerConnection();
+    virtual ~TCPServerConnection();
 
-	bool ValidServerConnection();
+    bool ValidServerConnection();
 
-	void DisconnectClient();
-	bool PostToClient(void *buffer, u32 bytes);
+    void DisconnectClient();
+    bool PostToClient(void *buffer, u32 bytes);
 
 protected:
-	virtual bool OnConnectFromClient(const sockaddr_in &remoteClientAddress) = 0; // false = disconnect
-	virtual bool OnReadFromClient(u8 *data, u32 bytes) = 0; // false = disconnect
-	virtual void OnWriteToClient(u32 bytes) = 0;
-	virtual void OnDisconnectFromClient() = 0;
+    virtual bool OnConnectFromClient(const sockaddr_in &remoteClientAddress) = 0; // false = disconnect
+    virtual bool OnReadFromClient(u8 *data, u32 bytes) = 0; // false = disconnect
+    virtual void OnWriteToClient(u32 bytes) = 0;
+    virtual void OnDisconnectFromClient() = 0;
 
 private:
-	SOCKET acceptSocket;
-	LPFN_DISCONNECTEX lpfnDisconnectEx;
-	DataOverlapped *recvOv;
-	volatile long disconnecting;
+    SOCKET acceptSocket;
+    LPFN_DISCONNECTEX lpfnDisconnectEx;
+    DataOverlapped *recvOv;
+    volatile long disconnecting;
 
 private:
-	bool AcceptConnection(SOCKET listenSocket, SOCKET acceptSocket,
-				LPFN_DISCONNECTEX lpfnDisconnectEx, sockaddr_in *acceptAddress,
-				sockaddr_in *remoteClientAddress);
+    bool AcceptConnection(SOCKET listenSocket, SOCKET acceptSocket,
+                LPFN_DISCONNECTEX lpfnDisconnectEx, sockaddr_in *acceptAddress,
+                sockaddr_in *remoteClientAddress);
 
-	bool QueueWSARecv();
-	void OnWSARecvComplete(int error, u32 bytes);
+    bool QueueWSARecv();
+    void OnWSARecvComplete(int error, u32 bytes);
 
-	bool QueueWSASend(DataOverlapped *sendOv, u32 bytes);
-	void OnWSASendComplete(int error, u32 bytes);
+    bool QueueWSASend(DataOverlapped *sendOv, u32 bytes);
+    void OnWSASendComplete(int error, u32 bytes);
 
-	bool QueueDisconnectEx();
-	void OnDisconnectExComplete(int error);
+    bool QueueDisconnectEx();
+    void OnDisconnectExComplete(int error);
 };
 
 
 /*
-	class TCPClient
+    class TCPClient
 
-	Object that represents a TCPClient bound to a single port
+    Object that represents a TCPClient bound to a single port
 
-	ValidClient() : Returns true iff the client socket is valid
+    ValidClient() : Returns true iff the client socket is valid
 
-	ConnectToServer() : Connects to the given address
-	DisconnectServer() : Disconnects from the server
-	PostToServer() : Send a message to the server (will fail if not connected)
+    ConnectToServer() : Connects to the given address
+    DisconnectServer() : Disconnects from the server
+    PostToServer() : Send a message to the server (will fail if not connected)
 
-	OnConnectToServer() : Called when connection is accepted
-	OnReadFromServer() : Return false to disconnect the server in response to data
-	OnWriteToServer() : Informs the derived class that data has been sent
-	OnDisconnectFromServer() : Informs the derived class that the server has disconnected
+    OnConnectToServer() : Called when connection is accepted
+    OnReadFromServer() : Return false to disconnect the server in response to data
+    OnWriteToServer() : Informs the derived class that data has been sent
+    OnDisconnectFromServer() : Informs the derived class that the server has disconnected
 */
 class TCPClient : public SocketRefObject
 {
-	friend class SocketManager;
+    friend class SocketManager;
 
 public:
-	TCPClient();
-	virtual ~TCPClient();
+    TCPClient();
+    virtual ~TCPClient();
 
-	bool ValidClient();
+    bool ValidClient();
 
-	bool ConnectToServer(const sockaddr_in &remoteServerAddress);
-	void DisconnectServer();
-	bool PostToServer(void *buffer, u32 bytes);
+    bool ConnectToServer(const sockaddr_in &remoteServerAddress);
+    void DisconnectServer();
+    bool PostToServer(void *buffer, u32 bytes);
 
 protected:
-	virtual void OnConnectToServer() = 0;
-	virtual bool OnReadFromServer(u8 *data, u32 bytes) = 0; // false = disconnect
-	virtual void OnWriteToServer(u32 bytes) = 0;
-	virtual void OnDisconnectFromServer() = 0;
+    virtual void OnConnectToServer() = 0;
+    virtual bool OnReadFromServer(u8 *data, u32 bytes) = 0; // false = disconnect
+    virtual void OnWriteToServer(u32 bytes) = 0;
+    virtual void OnDisconnectFromServer() = 0;
 
 private:
-	SOCKET connectSocket;
-	DataOverlapped *recvOv;
-	volatile long disconnecting;
+    SOCKET connectSocket;
+    DataOverlapped *recvOv;
+    volatile long disconnecting;
 
 private:
-	bool QueueConnectEx(const sockaddr_in &remoteServerAddress);
-	void OnConnectExComplete(int error);
+    bool QueueConnectEx(const sockaddr_in &remoteServerAddress);
+    void OnConnectExComplete(int error);
 
-	bool QueueWSARecv();
-	void OnWSARecvComplete(int error, u32 bytes);
+    bool QueueWSARecv();
+    void OnWSARecvComplete(int error, u32 bytes);
 
-	bool QueueWSASend(DataOverlapped *sendOv, u32 bytes);
-	void OnWSASendComplete(int error, u32 bytes);
+    bool QueueWSASend(DataOverlapped *sendOv, u32 bytes);
+    void OnWSASendComplete(int error, u32 bytes);
 
-	bool QueueDisconnectEx();
-	void OnDisconnectExComplete(int error);
+    bool QueueDisconnectEx();
+    void OnDisconnectExComplete(int error);
 };
 
 
 /*
-	class TCPClientQueued
+    class TCPClientQueued
 
-	Base class for a TCP client that needs to queue up data for sending before
-	a connection has been established.  e.g. Uplink for a proxy server.
+    Base class for a TCP client that needs to queue up data for sending before
+    a connection has been established.  e.g. Uplink for a proxy server.
 
-	PostQueuedToServer() : Call in OnConnectToServer() to post the queued messages.
+    PostQueuedToServer() : Call in OnConnectToServer() to post the queued messages.
 */
 class TCPClientQueued : public TCPClient
 {
 private:
-	volatile bool queuing;
+    volatile bool queuing;
 
-	Mutex queueLock;
-	void *queueBuffer;
-	u32 queueBytes;
+    Mutex queueLock;
+    void *queueBuffer;
+    u32 queueBytes;
 
 protected:
-	void PostQueuedToServer();
+    void PostQueuedToServer();
 
 public:
-	TCPClientQueued();
-	virtual ~TCPClientQueued();
+    TCPClientQueued();
+    virtual ~TCPClientQueued();
 
-	bool PostToServer(void *buffer, u32 bytes);
+    bool PostToServer(void *buffer, u32 bytes);
 };
 
 
 /*
-	class UDPEndpoint
+    class UDPEndpoint
 
-	Object that represents a UDP endpoint bound to a single port
+    Object that represents a UDP endpoint bound to a single port
 */
 class UDPEndpoint : public SocketRefObject
 {
-	friend class SocketManager;
+    friend class SocketManager;
 
 public:
-	UDPEndpoint();
-	virtual ~UDPEndpoint();
+    UDPEndpoint();
+    virtual ~UDPEndpoint();
 
-	bool Valid();
-	Port GetPort();
+    bool Valid();
+    Port GetPort();
 
-	// For servers: Bind() with ignoreUnreachable = true ((default))
-	// For clients: Bind() with ignoreUnreachable = false and call this
-	//              after the first packet from the server is received.
-	void IgnoreUnreachable();
+    // For servers: Bind() with ignoreUnreachable = true ((default))
+    // For clients: Bind() with ignoreUnreachable = false and call this
+    //              after the first packet from the server is received.
+    void IgnoreUnreachable();
 
-	void Close(); // Invalidates this object
-	bool Bind(Port port = 0, bool ignoreUnreachable = true);
-	bool Post(IP ip, Port port, void *data, u32 bytes);
-	bool QueueWSARecvFrom();
+    void Close(); // Invalidates this object
+    bool Bind(Port port = 0, bool ignoreUnreachable = true);
+    bool Post(IP ip, Port port, void *data, u32 bytes);
+    bool QueueWSARecvFrom();
 
 protected:
-	virtual void OnRead(IP srcIP, Port srcPort, u8 *data, u32 bytes) = 0; // false = close
-	virtual void OnWrite(u32 bytes) = 0;
-	virtual void OnClose() = 0;
-	virtual void OnUnreachable(IP srcIP) {}
+    virtual void OnRead(IP srcIP, Port srcPort, u8 *data, u32 bytes) = 0; // false = close
+    virtual void OnWrite(u32 bytes) = 0;
+    virtual void OnClose() = 0;
+    virtual void OnUnreachable(IP srcIP) {}
 
 private:
-	SOCKET endpointSocket;
-	Port port;
-	volatile long closing;
+    SOCKET endpointSocket;
+    Port port;
+    volatile long closing;
 
 private:
-	bool QueueWSARecvFrom(RecvFromOverlapped *recvOv);
-	void OnWSARecvFromComplete(int error, RecvFromOverlapped *recvOv, u32 bytes);
+    bool QueueWSARecvFrom(RecvFromOverlapped *recvOv);
+    void OnWSARecvFromComplete(int error, RecvFromOverlapped *recvOv, u32 bytes);
 
-	bool QueueWSASendTo(IP ip, Port port, DataOverlapped *sendOv, u32 bytes);
-	void OnWSASendToComplete(int error, u32 bytes);
+    bool QueueWSASendTo(IP ip, Port port, DataOverlapped *sendOv, u32 bytes);
+    void OnWSASendToComplete(int error, u32 bytes);
 };
 
 
 /*
-	class SocketManager
+    class SocketManager
 
-	Startup() : Call to start up the thread pool and stuff
-	Shutdown() : Call to destroy the thread pool and objects
+    Startup() : Call to start up the thread pool and stuff
+    Shutdown() : Call to destroy the thread pool and objects
 */
 class SocketManager : public Singleton<SocketManager>
 {
-	friend class TCPServer;
-	friend class TCPServerConnection;
-	friend class TCPClient;
-	friend class UDPEndpoint;
-	static unsigned int WINAPI CompletionThread(void *port);
+    friend class TCPServer;
+    friend class TCPServerConnection;
+    friend class TCPClient;
+    friend class UDPEndpoint;
+    static unsigned int WINAPI CompletionThread(void *port);
 
-	CAT_SINGLETON(SocketManager);
+    CAT_SINGLETON(SocketManager);
 
-	HANDLE port;
-	std::vector<HANDLE> threads;
+    HANDLE port;
+    std::vector<HANDLE> threads;
 
-	// Track other sockets for graceful termination
-	Mutex socketLock;
-	SocketRefObject *socketRefHead;
+    // Track other sockets for graceful termination
+    Mutex socketLock;
+    SocketRefObject *socketRefHead;
 
-	friend class SocketRefObject;
-	void TrackSocket(SocketRefObject *object);
-	void UntrackSocket(SocketRefObject *object);
+    friend class SocketRefObject;
+    void TrackSocket(SocketRefObject *object);
+    void UntrackSocket(SocketRefObject *object);
 
 protected:
-	bool SpawnThread();
-	bool SpawnThreads();
-	bool Associate(SOCKET s, void *key);
+    bool SpawnThread();
+    bool SpawnThreads();
+    bool Associate(SOCKET s, void *key);
 
 public:
-	void Startup();
-	void Shutdown();
+    void Startup();
+    void Shutdown();
 };
 
 

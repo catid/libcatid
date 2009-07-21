@@ -1,12 +1,12 @@
 /*
-	Copyright 2009 Christopher A. Taylor
+    Copyright 2009 Christopher A. Taylor
 
     This file is part of LibCat.
 
     LibCat is free software: you can redistribute it and/or modify
     it under the terms of the Lesser GNU General Public License as
-	published by the Free Software Foundation, either version 3 of
-	the License, or (at your option) any later version.
+    published by the Free Software Foundation, either version 3 of
+    the License, or (at your option) any later version.
 
     LibCat is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -14,7 +14,7 @@
     Lesser GNU General Public License for more details.
 
     You should have received a copy of the Lesser GNU General Public
-	License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
+    License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include <cat/io/Logging.hpp>
@@ -40,52 +40,52 @@ static const char *const EVENT_NAME[5] = { "Inane", "Info", "Warn", "Oops", "Fat
 
 region_string HexDumpString(const void *vdata, u32 bytes)
 {
-	/* xxxx  xx xx xx xx xx xx xx xx  xx xx xx xx xx xx xx xx   aaaaaaaaaaaaaaaa*/
+    /* xxxx  xx xx xx xx xx xx xx xx  xx xx xx xx xx xx xx xx   aaaaaaaaaaaaaaaa*/
 
-	const u8 *data = (const u8*)vdata;
-	u32 ii, offset;
+    const u8 *data = (const u8*)vdata;
+    u32 ii, offset;
 
-	char ascii[17];
-	ascii[16] = 0;
+    char ascii[17];
+    ascii[16] = 0;
 
-	region_ostringstream oss;
+    region_ostringstream oss;
 
-	for (offset = 0; offset < bytes; offset += 16)
-	{
-		oss << endl << setfill('0') << hex << setw(4) << offset << "  ";
+    for (offset = 0; offset < bytes; offset += 16)
+    {
+        oss << endl << setfill('0') << hex << setw(4) << offset << "  ";
 
-		for (ii = 0; ii < 16; ++ii)
-		{
-			if (ii == 8)
-				oss << ' ';
+        for (ii = 0; ii < 16; ++ii)
+        {
+            if (ii == 8)
+                oss << ' ';
 
-			if (offset + ii < bytes)
-			{
-				u8 ch = data[offset + ii];
+            if (offset + ii < bytes)
+            {
+                u8 ch = data[offset + ii];
 
-				oss << setw(2) << (u32)ch << ' ';
-				ascii[ii] = (ch >= ' ' && ch <= '~') ? ch : '.';
-			}
-			else
-			{
-				oss << "   ";
-				ascii[ii] = 0;
-			}
-		}
+                oss << setw(2) << (u32)ch << ' ';
+                ascii[ii] = (ch >= ' ' && ch <= '~') ? ch : '.';
+            }
+            else
+            {
+                oss << "   ";
+                ascii[ii] = 0;
+            }
+        }
 
-		oss << " " << ascii;
-	}
+        oss << " " << ascii;
+    }
 
-	return oss.str();
+    return oss.str();
 }
 
 static void OutputConsoleDebug(LogEvent *logEvent)
 {
-	region_ostringstream oss;
-	oss << "[" << Clock::format("%b %d %H:%M") << "] <" << logEvent->subsystem << "> "
-		<< logEvent->msg.str().c_str() << endl;
-	cout << oss.str();
-	OutputDebugStringA(oss.str().c_str());
+    region_ostringstream oss;
+    oss << "[" << Clock::format("%b %d %H:%M") << "] <" << logEvent->subsystem << "> "
+        << logEvent->msg.str().c_str() << endl;
+    cout << oss.str();
+    OutputDebugStringA(oss.str().c_str());
 }
 
 
@@ -93,14 +93,14 @@ static void OutputConsoleDebug(LogEvent *logEvent)
 
 LogEvent::LogEvent()
 {
-	subsystem = 0;
-	severity = LVL_FATAL;
+    subsystem = 0;
+    severity = LVL_FATAL;
 }
 
 LogEvent::LogEvent(const char *subsystem, EventSeverity severity)
 {
-	this->subsystem = subsystem;
-	this->severity = severity;
+    this->subsystem = subsystem;
+    this->severity = severity;
 }
 
 
@@ -108,61 +108,61 @@ LogEvent::LogEvent(const char *subsystem, EventSeverity severity)
 
 unsigned int WINAPI Logging::EventProcessorThread(void *param)
 {
-	( (Logging*)param )->EventDequeueProcessor();
-	return 0;
+    ( (Logging*)param )->EventDequeueProcessor();
+    return 0;
 }
 
 Logging::Logging()
 {
-	callback = 0;
-	log_threshold = LVL_INANE;
+    callback = 0;
+    log_threshold = LVL_INANE;
 
-	hThread = (HANDLE)_beginthreadex(0, 0, EventProcessorThread, this, 0, 0);
+    hThread = (HANDLE)_beginthreadex(0, 0, EventProcessorThread, this, 0, 0);
 }
 
 __declspec(dllexport) void SetLogCallback(LogCallback cb)
 {
-	Logging::ref()->SetLogCallback(cb);
+    Logging::ref()->SetLogCallback(cb);
 }
 
 void Logging::Initialize()
 {
-	log_threshold = Settings::ii->getInt("Log.Threshold", LVL_INANE);
+    log_threshold = Settings::ii->getInt("Log.Threshold", LVL_INANE);
 }
 
 void Logging::Shutdown()
 {
-	if (hThread != (HANDLE)-1)
-	{
-		queue.Enqueue(new (RegionAllocator::ii) LogEvent);
+    if (hThread != (HANDLE)-1)
+    {
+        queue.Enqueue(new (RegionAllocator::ii) LogEvent);
 
-		WaitForSingleObject(hThread, INFINITE);
+        WaitForSingleObject(hThread, INFINITE);
 
-		CloseHandle(hThread);
+        CloseHandle(hThread);
 
-		// Dequeue and process late messages
-		LogEvent *logEvent;
-		while ((logEvent = queue.Dequeue()) && logEvent->subsystem)
-			OutputConsoleDebug(logEvent);
-	}
+        // Dequeue and process late messages
+        LogEvent *logEvent;
+        while ((logEvent = queue.Dequeue()) && logEvent->subsystem)
+            OutputConsoleDebug(logEvent);
+    }
 }
 
 void Logging::QueueEvent(LogEvent *logEvent)
 {
-	queue.Enqueue(logEvent);
+    queue.Enqueue(logEvent);
 }
 
 void Logging::EventDequeueProcessor()
 {
-	LogEvent *logEvent;
+    LogEvent *logEvent;
 
-	while ((logEvent = queue.DequeueWait()) && logEvent->subsystem)
-	{
-		if (callback)
-			callback(EVENT_NAME[logEvent->severity], logEvent->subsystem, logEvent->msg.str().c_str());
-		else
-			OutputConsoleDebug(logEvent);
-	}
+    while ((logEvent = queue.DequeueWait()) && logEvent->subsystem)
+    {
+        if (callback)
+            callback(EVENT_NAME[logEvent->severity], logEvent->subsystem, logEvent->msg.str().c_str());
+        else
+            OutputConsoleDebug(logEvent);
+    }
 }
 
 
@@ -170,15 +170,15 @@ void Logging::EventDequeueProcessor()
 
 Recorder::Recorder(const char *subsystem, EventSeverity severity)
 {
-	logEvent = new (RegionAllocator::ii) LogEvent(subsystem, severity);
+    logEvent = new (RegionAllocator::ii) LogEvent(subsystem, severity);
 
-	if (!logEvent)
-		throw std::runtime_error("Out of region memory while recording an event");
+    if (!logEvent)
+        throw std::runtime_error("Out of region memory while recording an event");
 }
 
 Recorder::~Recorder()
 {
-	Logging::ii->QueueEvent(logEvent);
+    Logging::ii->QueueEvent(logEvent);
 }
 
 
@@ -186,18 +186,18 @@ Recorder::~Recorder()
 
 Enforcer::Enforcer(const char *locus)
 {
-	oss << locus;
+    oss << locus;
 }
 
 Enforcer::~Enforcer()
 {
 #if defined(BREAK_ON_ERROR)
 # if defined(__GNUC__)
-	__asm__ ( "int $3" );
+    __asm__ ( "int $3" );
 # elif defined(_MSC_VER)
-	__asm int 3;
+    __asm int 3;
 # endif
 #endif
 
-	throw std::runtime_error(oss.str());
+    throw std::runtime_error(oss.str());
 }

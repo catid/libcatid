@@ -1,12 +1,12 @@
 /*
-	Copyright 2009 Christopher A. Taylor
+    Copyright 2009 Christopher A. Taylor
 
     This file is part of LibCat.
 
     LibCat is free software: you can redistribute it and/or modify
     it under the terms of the Lesser GNU General Public License as
-	published by the Free Software Foundation, either version 3 of
-	the License, or (at your option) any later version.
+    published by the Free Software Foundation, either version 3 of
+    the License, or (at your option) any later version.
 
     LibCat is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -14,7 +14,7 @@
     Lesser GNU General Public License for more details.
 
     You should have received a copy of the Lesser GNU General Public
-	License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
+    License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include <cat/parse/BufferTok.hpp>
@@ -23,10 +23,10 @@ using namespace cat;
 
 BufferTok::BufferTok(const char *bufferi, int leni)
 {
-	buffer = bufferi;
-	len = leni;
-	delimiter = ' ';
-	newline = true;
+    buffer = bufferi;
+    len = leni;
+    delimiter = ' ';
+    newline = true;
 }
 
 /*
@@ -38,8 +38,8 @@ BufferTok::BufferTok(const char *bufferi, int leni)
  */
 BufferTok &BufferTok::operator()(char ch)
 {
-	delimiter = ch;
-	return *this;
+    delimiter = ch;
+    return *this;
 }
 
 /*
@@ -51,114 +51,114 @@ BufferTok &BufferTok::operator()(char ch)
  */
 BufferTok &BufferTok::operator[](char ch)
 {
-	delimiter = ch;
-	if (!newline)
-	{
-		char last = 0;
+    delimiter = ch;
+    if (!newline)
+    {
+        char last = 0;
 
-		while (len)
-		{
-			ch = *buffer;
+        while (len)
+        {
+            ch = *buffer;
 
-			if (ch == '\r' || ch == '\n')
-			{
-				if (newline && ch != last)
-				{
-					++buffer;
-					--len;
-					break;
-				}
+            if (ch == '\r' || ch == '\n')
+            {
+                if (newline && ch != last)
+                {
+                    ++buffer;
+                    --len;
+                    break;
+                }
 
-				newline = true;
-				last = ch;
+                newline = true;
+                last = ch;
 
-				++buffer;
-				--len;
-			}
-			else
-			{
-				if (newline) break;
+                ++buffer;
+                --len;
+            }
+            else
+            {
+                if (newline) break;
 
-				++buffer;
-				--len;
-			}
-		}
-	}
-	newline = false;
-	return *this;
+                ++buffer;
+                --len;
+            }
+        }
+    }
+    newline = false;
+    return *this;
 }
 
 // Read more bytes from the buffer
 u32 BufferTok::readNext(char *token, u32 tokenBufferSize)
 {
-	if (!len || newline)
-	{
-		*token = 0;
-		return 0;
-	}
+    if (!len || newline)
+    {
+        *token = 0;
+        return 0;
+    }
 
-	bool seenNonSpace = false;
-	char ch, last = 0;
-	u32 copied = 0;
+    bool seenNonSpace = false;
+    char ch, last = 0;
+    u32 copied = 0;
 
-	while (len)
-	{
-		ch = *buffer;
+    while (len)
+    {
+        ch = *buffer;
 
-		if (newline)
-		{
-			if (ch != last && (ch == '\r' || ch == '\n'))
-			{
-				++buffer;
-				--len;
-			}
-			break;
-		}
+        if (newline)
+        {
+            if (ch != last && (ch == '\r' || ch == '\n'))
+            {
+                ++buffer;
+                --len;
+            }
+            break;
+        }
 
-		if (ch == delimiter)
-		{
-			if (delimiter != ' ' || seenNonSpace)
-			{
-				++buffer;
-				--len;
-				break;
-			}
-		}
+        if (ch == delimiter)
+        {
+            if (delimiter != ' ' || seenNonSpace)
+            {
+                ++buffer;
+                --len;
+                break;
+            }
+        }
 
-		switch (ch)
-		{
-		case ' ':
-			if (seenNonSpace && last != ' ')
-			{
-				if (copied < tokenBufferSize-1)
-					token[copied++] = ch;
-				last = ch;
-			}
-			break;
-		case '\r':
-		case '\n':
-			newline = true;
-			last = ch;
-			break;
-		default:
-			if ((u8)(ch - '!') < 94)
-			{
-				seenNonSpace = true;
-				if (copied < tokenBufferSize-1)
-					token[copied++] = ch;
-				last = ch;
-			}
-		}
+        switch (ch)
+        {
+        case ' ':
+            if (seenNonSpace && last != ' ')
+            {
+                if (copied < tokenBufferSize-1)
+                    token[copied++] = ch;
+                last = ch;
+            }
+            break;
+        case '\r':
+        case '\n':
+            newline = true;
+            last = ch;
+            break;
+        default:
+            if ((u8)(ch - '!') < 94)
+            {
+                seenNonSpace = true;
+                if (copied < tokenBufferSize-1)
+                    token[copied++] = ch;
+                last = ch;
+            }
+        }
 
-		++buffer;
-		--len;
-	}
+        ++buffer;
+        --len;
+    }
 
-	if (last == ' ') --copied;
+    if (last == ' ') --copied;
 
-	token[copied] = 0;
+    token[copied] = 0;
 
-	return copied;
+    return copied;
 }
 
 /*
@@ -174,18 +174,18 @@ u32 BufferTok::readNext(char *token, u32 tokenBufferSize)
  */
 BufferTok &BufferTok::operator>>(int &n)
 {
-	char work[256];
+    char work[256];
 
-	u32 copied = readNext(work, sizeof(work));
+    u32 copied = readNext(work, sizeof(work));
 
-	n = copied ? atoi(work) : 0;
+    n = copied ? atoi(work) : 0;
 
-	return *this;
+    return *this;
 }
 
 BufferTok &BufferTok::operator>>(char *n)
 {
-	readNext(n, 256);
+    readNext(n, 256);
 
-	return *this;
+    return *this;
 }
