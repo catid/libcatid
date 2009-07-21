@@ -1,0 +1,243 @@
+   ___      _    _____    _     ___                                      
+  / __\__ _| |_  \_   \__| |   / __\___  _ __ ___  _ __ ___   ___  _ __  
+ / /  / _` | __|  / /\/ _` |  / /  / _ \| '_ ` _ \| '_ ` _ \ / _ \| '_ \ 
+/ /__| (_| | |_/\/ /_| (_| | / /__| (_) | | | | | | | | | | | (_) | | | |
+\____/\__,_|\__\____/ \__,_| \____/\___/|_| |_| |_|_| |_| |_|\___/|_| |_|
+                                                                         
+   ___          _          __ _ _                              _   ___  
+  / __\___   __| | ___    / /(_) |__  _ __ __ _ _ __ _   _    / | / _ \ 
+ / /  / _ \ / _` |/ _ \  / / | | '_ \| '__/ _` | '__| | | |   | || | | |
+/ /__| (_) | (_| |  __/ / /__| | |_) | | | (_| | |  | |_| |   | || |_| |
+\____/\___/ \__,_|\___| \____/_|_.__/|_|  \__,_|_|   \__, |   |_(_)___/ 
+                                                     |___/            
+      CatId Common Code Library 1.0                           07/20/2009
+
+
+------------------------------------------------------------------------
+=========================== What's New =================================
+------------------------------------------------------------------------
+
+07/20/2009 - New key agreement protocol "Tabby" is working
+             New functions added to BigTwistedEdward to support it
+             Added <cat/port/AlignedAlloc.hpp> to align all math regs
+             Optimized 32-bit version; now twice as fast as before
+07/19/2009 - Pulled out all the old Tunnel code and rewrote it
+07/17/2009 - Added <cat/crypt/rand/Fortuna.hpp>
+
+
+========================================================================
+                   #include <cat/AllCommon.hpp>
+========================================================================
+
+  <cat/Platform.hpp>
+    Portability header defining basic datatypes and macros
+
+  <cat/Singleton.hpp>
+    Singleton design pattern
+
+  <cat/time/Clock.hpp>
+    Time counters
+
+  <cat/hash/MurmurHash2.hpp>
+    Fast 32/64-bit noncryptographic hash function
+
+  <cat/port/EndianNeutral.hpp>
+    Functions designed to fix byte order at compile time
+
+  <cat/rand/IRandom.hpp>
+    Interface implemented by all noncryptographic PRNGs
+
+  <cat/rand/MersenneTwister.hpp>
+    Fast MT-19937 noncryptographic pseudo-random number generator
+
+  <cat/rand/StdRand.hpp>
+    Several noncryptographic PRNGs
+
+  <cat/math/BitMath.hpp>
+    Portable bit twiddling macros and BSR/BSL opcodes
+
+  <cat/math/EndianNeutral.hpp>
+    Routines to make your code endian neutral
+
+  <cat/threads/Atomic.hpp>
+    Portable atomic operations
+
+  <cat/port/AlignedAlloc.hpp>
+    Portable 16 byte aligned heap allocation
+
+
+========================================================================
+                   #include <cat/AllCodec.hpp>
+========================================================================
+
+  <cat/codec/RangeCoder.hpp>
+    Fast ~60% short text compression and range coder
+
+
+========================================================================
+                   #include <cat/AllMath.hpp>
+========================================================================
+
+  <cat/math/Legs.hpp>
+    Basic definitions for multi-precision arithmetic
+
+  <cat/math/BigRTL.hpp>
+    Register transfer language (RTL) for multi-precision (MP) arithmetic
+
+  <cat/math/BigPseudoMersenne.hpp>
+    RTL for fast MP arithmetic modulo 2^bits-C, C=1 (mod 4)
+
+  <cat/math/BigTwistedEdward.hpp>
+    RTL for fast point math on Twisted Edwards elliptic curves
+
+
+========================================================================
+                   #include <cat/AllCrypt.hpp>
+========================================================================
+
+  <cat/crypt/symmetric/ChaCha.hpp>
+    Fast stream cipher based on Salsa
+
+  <cat/crypt/cookie/CookieJar.hpp>
+    Fast SYN cookie implementation based on Salsa6
+
+  <cat/crypt/hash/ICryptoHash.hpp>
+    Interface implemented by all cryptographic hash functions
+
+  <cat/crypt/hash/Skein.hpp>
+    Fast Skein cryptographic hash function with up to 512-bit security
+
+  <cat/crypt/hash/HMAC_MD5.hpp>
+    Fast HMAC-MD5 for use as up to a 128-bit MAC
+
+  <cat/crypt/SecureCompare.hpp>
+    Fast timing-attack resistant binary comparison
+
+  <cat/crypt/rand/Fortuna.hpp>
+    "Cat For Tuna" implementation of Bruce Schneier's Fortuna with Skein
+
+
+========================================================================
+                   #include <cat/AllTunnel.hpp>
+========================================================================
+
+  <cat/crypt/tunnel/KeyAgreementInitiator.hpp>
+    Fast key agreement scheme with PFS: Initiator/client object
+
+  <cat/crypt/tunnel/KeyAgreementResponder.hpp>
+    Fast key agreement scheme with PFS: Responder/server object
+
+  <cat/crypt/tunnel/AuthenticatedEncryption.hpp>
+    Fast authenticated encryption scheme keyed by KeyAgreement objects
+
+  <cat/crypt/tunnel/KeyAgreement.hpp>
+    Common header for Key Agreement objects
+
+  <cat/crypt/tunnel/KeyMaker.hpp>
+    Creates public/private key pairs for Tunnel responders
+
+
+========================================================================
+                  #include <cat/AllFramework.hpp>
+========================================================================
+
+  <cat/io/Logging.hpp>
+    Multithreaded disk and console logging
+
+  <cat/io/MMapFile.hpp>
+    Portable memory-mapped files
+
+  <cat/io/Settings.hpp>
+    Disk-based application settings database
+
+  <cat/net/IOCPSockets.hpp>
+    Windows IO Completion Ports
+
+  <cat/parse/BitStream.hpp>
+    Friendly bit-aligned buffer packing/unpacking
+
+  <cat/parse/BufferTok.hpp>
+    Parses token-delimited text data
+
+  <cat/parse/MessageRouter.hpp>
+    Simple C++ delegate-based jump table
+
+  <cat/threads/LocklessFIFO.hpp>
+    Lockless opportunistic FIFO queue
+
+  <cat/threads/Mutex.hpp>
+    Simple Mutex wrapper
+
+  <cat/threads/RegionAllocator.hpp>
+    Custom lockless memory allocator
+
+
+------------------------------------------------------------------------
+============================== TODO ====================================
+------------------------------------------------------------------------
+
+Tunnel:
+  Update the documentation
+    .docx and .pdfs with lots of pictures
+
+Portability:
+  Port the code to GCC and Linux, CMAKE
+  Integrate it into RakNet
+
+
+------------------------------------------------------------------------
+============================= History ==================================
+------------------------------------------------------------------------
+
+07/15/2009 - Half way through writing Fortuna
+             Slightly faster scalar point multiplication precomputation
+             Worked on basic outline for new AKE protocol
+07/14/2009 - Implemented and tested HMAC-MD5; this is now the Tunnel MAC
+             Several bug fixes
+07/13/2009 - Fixed Tunnel vulnerability to active small subgroup attack
+             Fixed a bug in MrNegate()
+07/12/2009 - Added inline assembly code for MultiplyXAdd()
+             Added fast timing-attack resistant modular inversion
+             Optimized MrSquareRoot() with a smaller window
+07/11/2009 - All the math code is working again! Woohoo! =)
+             Added <cat/crypt/SecureCompare.hpp> to replace memcmp()
+07/10/2009 - Wrote 64-bit assembly code version of Divide()
+07/09/2009 - In the middle of getting math working again
+07/07/2009 - Merged Skein256 and Skein512 into the same object
+07/02/2009 - Refactored math code; put a lot of unused code in the attic
+             Added specialized 256-bit assembly code to math library
+06/25/2009 - Improved replay attack protection to 1024 bits
+06/24/2009 - Increased IV bits to 24 and moved IV code to TunnelSession
+             Tunnel now has replay attack protection
+             Fix: Tunnel only updates remote IV if it increased
+             Split BigInt source across many files
+06/23/2009 - Tunnel uses Skein for a MAC
+             Tunnel no longer requires a cookie exchange
+             Removed support for SHA-2 in favor of Skein
+             Added math/EndianNeutral.hpp to Common
+             Added math/BitMath.hpp to Common
+             Added threads/Atomic.hpp to Common
+06/20/2009 - Supports 512-bit ECC
+             CookieJar now Supports IPv6 and variable-length addresses
+             Put CAT_ before global macros
+             Split up library into even more projects
+06/19/2009 - Now can select a bit-twiddling version of w-MOF
+06/16/2009 - Implemented Skein-256 and Skein-512 and timing tests
+06/15/2009 - Implemented SHA-512 (and SHA-384) and unit tests
+             ChaCha cipher now accepts up to 384-bit keys
+             Hash and PRNG objects are now implemented from an interface
+             Improved lockless FIFO code with opportunistic algorithm
+             Now supports 384-bit ECC
+06/14/2009 - Added <cat/crypto/Tunnel.hpp> and /docs/tunnel.pdf
+06/13/2009 - Added ChaCha::ReconstructIV
+06/12/2009 - Fixed endian neutrality of the Sha256 hash, so also ECC
+             Added full handshake demo to the ECC unit test
+06/11/2009 - Split the math code off from the framework code
+06/10/2009 - Merged my code into this library for the first time
+
+
+
+Contact the author:
+   Christopher A. Taylor
+   AIM: MrCatid
+   Email: mrcatid@gmail.com

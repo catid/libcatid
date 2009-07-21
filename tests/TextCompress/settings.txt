@@ -1,0 +1,4 @@
+This file is regenerated on shutdown and reread on startup
+
+Log.Threshold = 0
+override.unlink = 0
