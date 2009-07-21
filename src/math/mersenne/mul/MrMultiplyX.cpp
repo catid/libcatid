@@ -18,23 +18,20 @@
 */
 
 #include <cat/math/BigPseudoMersenne.hpp>
-#include "big_x64_asm.hpp"
+#include "../../big_x64_asm.hpp"
 using namespace cat;
 
-BigPseudoMersenne::BigPseudoMersenne(int regs, int bits, int C)
-    : BigRTL(regs + PM_OVERHEAD, bits)
+void BigPseudoMersenne::MrMultiplyX(const Leg *in_a, Leg in_b, Leg *out)
 {
-    pm_regs = regs + PM_OVERHEAD;
-    modulus_c = C;
+#if defined(CAT_USE_LEGS_ASM64)
+    if (library_legs == 4)
+    {
+        bpm_mulx_4(modulus_c, in_a, in_b, out);
+        return;
+    }
+#endif
 
-    // Reserve a register to contain the full modulus
-    CachedModulus = Get(pm_regs - 1);
-    CopyModulus(CachedModulus);
-}
+    Leg overflow = MultiplyX(in_a, in_b, out);
 
-void BigPseudoMersenne::CopyModulus(Leg *out)
-{
-    // Set low leg to -C, set all bits on the rest
-    out[0] = 0 - modulus_c;
-    memset(&out[1], 0xFF, (library_legs-1) * sizeof(Leg));
+    MrReduceProductX(overflow, out);
 }
