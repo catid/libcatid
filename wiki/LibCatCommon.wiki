@@ -1,12 +1,6 @@
 #summary Common headers
 
-= Introduction =
-
-
-
-= Details =
-
-#include <cat/AllCommon?.hpp>
+= #include <cat/AllCommon?.hpp> =
 
     * <cat/Platform.hpp>
 
