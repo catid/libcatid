@@ -51,14 +51,14 @@ protected:
     static const u64 T1_MASK_TREE_LVL = (u64)0x7F << T1_POS_TREE_LVL;
     static const u64 T1_MASK_BLK_TYPE = (u64)63 << T1_POS_BLK_TYPE;
 
-    static const int BLK_TYPE_KEY = 0;        // key, for MAC and KDF
-    static const int BLK_TYPE_CFG = 4;        // configuration block
-    static const int BLK_TYPE_PERS = 8;        // personalization string
-    static const int BLK_TYPE_PK = 12;        // public key (for digital signature hashing)
-    static const int BLK_TYPE_KDF = 16;        // key identifier for KDF
-    static const int BLK_TYPE_NONCE = 20;    // nonce for PRNG
-    static const int BLK_TYPE_MSG = 48;        // message processing
-    static const int BLK_TYPE_OUT = 63;        // output stage
+    static const int BLK_TYPE_KEY = 0;    // key, for MAC and KDF
+    static const int BLK_TYPE_CFG = 4;    // configuration block
+    static const int BLK_TYPE_PERS = 8;   // personalization string
+    static const int BLK_TYPE_PK = 12;    // public key (for digital signature hashing)
+    static const int BLK_TYPE_KDF = 16;   // key identifier for KDF
+    static const int BLK_TYPE_NONCE = 20; // nonce for PRNG
+    static const int BLK_TYPE_MSG = 48;   // message processing
+    static const int BLK_TYPE_OUT = 63;   // output stage
 
     static const u32 ID_STRING_LE = 0x33414853;
     static const u32 VERSION = 1;

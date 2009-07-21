@@ -38,12 +38,12 @@ public:
     Clock();
     ~Clock();
 
-    static u32 cycles();    // timestamp in cycles
+    static u32 cycles();  // timestamp in cycles
 
-    static u32 sec();         // timestamp in seconds
-    static u32 hsec();         // timestamp in hundredths of a second
-    static u32 msec();         // timestamp in milliseconds
-    static double usec();     // timestamp in microseconds
+    static u32 sec();     // timestamp in seconds
+    static u32 hsec();    // timestamp in hundredths of a second
+    static u32 msec();    // timestamp in milliseconds
+    static double usec(); // timestamp in microseconds
 
     static std::string format(const char *format_string);
 

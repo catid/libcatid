@@ -37,7 +37,7 @@ enum EventSeverity
     LVL_OOPS,
     LVL_FATAL,
 
-    LVL_SILENT,    // invalid for an actual event's level, valid value for a threshold
+    LVL_SILENT, // invalid for an actual event's level, valid value for a threshold
 };
 
 

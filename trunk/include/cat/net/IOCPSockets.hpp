@@ -106,16 +106,16 @@ void ReleasePostBuffer(void *buffer);
 // Overlapped opcodes that describe the purpose of the OVERLAPPED structure
 enum OverlappedOpcodes
 {
-    OVOP_ACCEPT_EX,        // AcceptEx() completion, remote client connected
-    OVOP_SERVER_RECV,    // WSARecv() completion for local server
-    OVOP_CLIENT_RECV,    // WSARecv() completion, for local client
-    OVOP_RECVFROM,        // WSARecvFrom() completion, for local endpoint
-    OVOP_CONNECT_EX,    // ConnectEx() completion, local client connected
-    OVOP_SERVER_SEND,    // WSASend() completion, local server sent something
-    OVOP_CLIENT_SEND,    // WSASend() completion, local client sent something
-    OVOP_SENDTO,        // WSASendTo() completion, local endpoint sent something
-    OVOP_SERVER_CLOSE,    // DisconnectEx() completion, graceful close
-    OVOP_CLIENT_CLOSE,    // DisconnectEx() completion, graceful close
+    OVOP_ACCEPT_EX,    // AcceptEx() completion, remote client connected
+    OVOP_SERVER_RECV,  // WSARecv() completion for local server
+    OVOP_CLIENT_RECV,  // WSARecv() completion, for local client
+    OVOP_RECVFROM,     // WSARecvFrom() completion, for local endpoint
+    OVOP_CONNECT_EX,   // ConnectEx() completion, local client connected
+    OVOP_SERVER_SEND,  // WSASend() completion, local server sent something
+    OVOP_CLIENT_SEND,  // WSASend() completion, local client sent something
+    OVOP_SENDTO,       // WSASendTo() completion, local endpoint sent something
+    OVOP_SERVER_CLOSE, // DisconnectEx() completion, graceful close
+    OVOP_CLIENT_CLOSE, // DisconnectEx() completion, graceful close
 };
 
 #if defined(CAT_COMPILER_MSVC)
@@ -241,13 +241,13 @@ private:
 
     Object is instantiated just before accepting a connection
 
-    DisconnectClient() : Disconnect the client
-    PostToClient() : Send a message to the client
+    DisconnectClient()      : Disconnect the client
+    PostToClient()          : Send a message to the client
     ValidServerConnection() : Returns true iff the connection is valid
 
-    OnConnectFromClient() : Return false to deny this connection
-    OnReadFromClient() : Return false to disconnect the client in response to a message
-    OnWriteToClient() : Informs the derived class that data has been sent
+    OnConnectFromClient()   : Return false to deny this connection
+    OnReadFromClient()      : Return false to disconnect the client in response to a message
+    OnWriteToClient()       : Informs the derived class that data has been sent
     OnDisconectFromClient() : Informs the derived class that the client has disconnected
 */
 class TCPServerConnection : public SocketRefObject
@@ -297,15 +297,15 @@ private:
 
     Object that represents a TCPClient bound to a single port
 
-    ValidClient() : Returns true iff the client socket is valid
+    ValidClient()      : Returns true iff the client socket is valid
 
-    ConnectToServer() : Connects to the given address
+    ConnectToServer()  : Connects to the given address
     DisconnectServer() : Disconnects from the server
-    PostToServer() : Send a message to the server (will fail if not connected)
+    PostToServer()     : Send a message to the server (will fail if not connected)
 
-    OnConnectToServer() : Called when connection is accepted
-    OnReadFromServer() : Return false to disconnect the server in response to data
-    OnWriteToServer() : Informs the derived class that data has been sent
+    OnConnectToServer()      : Called when connection is accepted
+    OnReadFromServer()       : Return false to disconnect the server in response to data
+    OnWriteToServer()        : Informs the derived class that data has been sent
     OnDisconnectFromServer() : Informs the derived class that the server has disconnected
 */
 class TCPClient : public SocketRefObject
@@ -425,7 +425,7 @@ private:
 /*
     class SocketManager
 
-    Startup() : Call to start up the thread pool and stuff
+    Startup()  : Call to start up the thread pool and stuff
     Shutdown() : Call to destroy the thread pool and objects
 */
 class SocketManager : public Singleton<SocketManager>

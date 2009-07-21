@@ -91,9 +91,9 @@ public:
             The first 32 entries are used for reverse lookup (freq->symbol):
             GET_SYMBOL_LUT() will get this address:
             frequencies[0..15] = array of 16 bytes creating a lookup table (LUT) given
-                                the high 4 bits of the frequency, for the low range
+                                 the high 4 bits of the frequency, for the low range
             frequencies[16..31] = array of 16 bytes creating a lookup table (LUT) given
-                                the high 4 bits of the frequency, for the high range
+                                  the high 4 bits of the frequency, for the high range
 
             GET_SYMBOL_BASE() will get this address:
             frequencies[32] = cumulative frequency for (last=0, this=1) out of 2^16 trials

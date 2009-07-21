@@ -330,6 +330,10 @@
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
 			<File
+				RelativePath="..\..\include\cat\AllMath.hpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\src\math\big_x64_asm.hpp"
 				>
 			</File>

@@ -32,10 +32,10 @@ using namespace cat;
 
 // Include and link to various Windows libraries needed to collect system info
 #include <Psapi.h>
-#include <Lmcons.h> // LAN-MAN constants for "UNLEN" username max length
+#include <Lmcons.h>   // LAN-MAN constants for "UNLEN" username max length
 #include <Iphlpapi.h> // GetAdaptersInfo()
-#include <Rpc.h> // RPC header for UuidCreate()
-#include <Process.h> // _beginthreadex()
+#include <Rpc.h>      // RPC header for UuidCreate()
+#include <Process.h>  // _beginthreadex()
 
 #pragma comment(lib, "rpcrt4")
 #pragma comment(lib, "iphlpapi")

@@ -106,7 +106,7 @@ class FortunaFactory : public Singleton<FortunaFactory>
 
 protected:
     static const int ENTROPY_POOLS = 32; // Setting this higher would break something
-    static const int POOL_BITS = 256; // Tuned for 256-bit hash
+    static const int POOL_BITS = 256;    // Tuned for 256-bit hash
     static const int POOL_BYTES = POOL_BITS / 8;
     static const int POOL_QWORDS = POOL_BYTES / sizeof(u64);
 
