@@ -1,0 +1,30 @@
+#summary All Common headers
+
+= Introduction =
+
+LibCat's Common project includes core code used by the rest of LibCat.
+
+
+= Provides: =
+
+    <cat/Platform.hpp>
+
+    <cat/Singleton.hpp>
+
+    <cat/time/Clock.hpp>
+
+    <cat/hash/MurmurHash2.hpp>
+
+    <cat/port/EndianNeutral.hpp>
+
+    <cat/rand/IRandom.hpp>
+
+    <cat/rand/MersenneTwister.hpp>
+
+    <cat/rand/StdRand.hpp>
+
+    <cat/math/BitMath.hpp>
+
+    <cat/threads/Atomic.hpp>
+
+    <cat/port/AlignedAlloc.hpp>
