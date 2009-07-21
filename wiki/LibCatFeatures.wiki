@@ -2,7 +2,7 @@
 
 = Overview =
 
-The library is broken into several modular components so that only the interesting subset of features may be selected for use with little to no modification:
+LibCat is broken into several modular components so that only the interesting subset of features may be selected for use with little to no modification:
 
  * *LibCatCommon* includes basic, shared features used by the rest of LibCat.
 
