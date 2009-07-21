@@ -64,8 +64,8 @@
 			<Tool
 				Name="VCLibrarianTool"
 				AdditionalDependencies="libcatcommon-d32-1.0.lib"
-				OutputFile="$(SolutionDir)\lib\cat\libcatmath-d32-1.0.lib"
-				AdditionalLibraryDirectories="&quot;$(SolutionDir)\lib\cat\&quot;"
+				OutputFile="$(SolutionDir)\..\lib\cat\libcatmath-d32-1.0.lib"
+				AdditionalLibraryDirectories="&quot;$(SolutionDir)\..\lib\cat\&quot;"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -130,8 +130,8 @@
 			<Tool
 				Name="VCLibrarianTool"
 				AdditionalDependencies="libcatcommon-d64-1.0.lib big_x64.obj"
-				OutputFile="$(SolutionDir)\lib\cat\libcatmath-d64-1.0.lib"
-				AdditionalLibraryDirectories="&quot;$(SolutionDir)\lib\cat\&quot;"
+				OutputFile="$(SolutionDir)\..\lib\cat\libcatmath-d64-1.0.lib"
+				AdditionalLibraryDirectories="&quot;$(SolutionDir)\..\lib\cat\&quot;"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -200,8 +200,8 @@
 			<Tool
 				Name="VCLibrarianTool"
 				AdditionalDependencies="libcatcommon-r32-1.0.lib"
-				OutputFile="$(SolutionDir)\lib\cat\libcatmath-r32-1.0.lib"
-				AdditionalLibraryDirectories="&quot;$(SolutionDir)\lib\cat\&quot;"
+				OutputFile="$(SolutionDir)\..\lib\cat\libcatmath-r32-1.0.lib"
+				AdditionalLibraryDirectories="&quot;$(SolutionDir)\..\lib\cat\&quot;"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -271,8 +271,8 @@
 			<Tool
 				Name="VCLibrarianTool"
 				AdditionalDependencies="libcatcommon-r64-1.0.lib big_x64.obj"
-				OutputFile="$(SolutionDir)\lib\cat\libcatmath-r64-1.0.lib"
-				AdditionalLibraryDirectories="&quot;$(SolutionDir)\lib\cat\&quot;"
+				OutputFile="$(SolutionDir)\..\lib\cat\libcatmath-r64-1.0.lib"
+				AdditionalLibraryDirectories="&quot;$(SolutionDir)\..\lib\cat\&quot;"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -573,26 +573,34 @@
 				RelativePath="..\..\include\cat\AllMath.hpp"
 				>
 			</File>
-			<File
-				RelativePath="..\..\src\math\big_x64_asm.hpp"
+			<Filter
+				Name="asm"
 				>
-			</File>
-			<File
-				RelativePath="..\..\include\cat\math\BigPseudoMersenne.hpp"
+				<File
+					RelativePath="..\..\src\math\big_x64_asm.hpp"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="math"
 				>
-			</File>
-			<File
-				RelativePath="..\..\include\cat\math\BigRTL.hpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\include\cat\math\BigTwistedEdward.hpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\include\cat\math\Legs.hpp"
-				>
-			</File>
+				<File
+					RelativePath="..\..\include\cat\math\BigPseudoMersenne.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\math\BigRTL.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\math\BigTwistedEdward.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\math\Legs.hpp"
+					>
+				</File>
+			</Filter>
 		</Filter>
 		<Filter
 			Name="Resource Files"

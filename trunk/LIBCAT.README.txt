@@ -10,166 +10,32 @@
 / /__| (_) | (_| |  __/ / /__| | |_) | | | (_| | |  | |_| |   | || |_| |
 \____/\___/ \__,_|\___| \____/_|_.__/|_|  \__,_|_|   \__, |   |_(_)___/ 
                                                      |___/            
-      CatId Common Code Library 1.0                           07/20/2009
+      CatId Common Code Library 1.0                           07/21/2009
+
+
+------------------------------------------------------------------------
+======================= Contact the Author =============================
+------------------------------------------------------------------------
+
+Christopher A. Taylor
+
+  Email: mrcatid@gmail.com
+  AIM: MrCatid
+  MSN: MrCatid@hotmail.com
 
 
 ------------------------------------------------------------------------
 =========================== What's New =================================
 ------------------------------------------------------------------------
 
+07/21/2009 - Split math code across many source files
+             Reorganized the project for easier reuse
 07/20/2009 - New key agreement protocol "Tabby" is working
              New functions added to BigTwistedEdward to support it
              Added <cat/port/AlignedAlloc.hpp> to align all math regs
              Optimized 32-bit version; now twice as fast as before
 07/19/2009 - Pulled out all the old Tunnel code and rewrote it
 07/17/2009 - Added <cat/crypt/rand/Fortuna.hpp>
-
-
-========================================================================
-                   #include <cat/AllCommon.hpp>
-========================================================================
-
-  <cat/Platform.hpp>
-    Portability header defining basic datatypes and macros
-
-  <cat/Singleton.hpp>
-    Singleton design pattern
-
-  <cat/time/Clock.hpp>
-    Time counters
-
-  <cat/hash/MurmurHash2.hpp>
-    Fast 32/64-bit noncryptographic hash function
-
-  <cat/port/EndianNeutral.hpp>
-    Functions designed to fix byte order at compile time
-
-  <cat/rand/IRandom.hpp>
-    Interface implemented by all noncryptographic PRNGs
-
-  <cat/rand/MersenneTwister.hpp>
-    Fast MT-19937 noncryptographic pseudo-random number generator
-
-  <cat/rand/StdRand.hpp>
-    Several noncryptographic PRNGs
-
-  <cat/math/BitMath.hpp>
-    Portable bit twiddling macros and BSR/BSL opcodes
-
-  <cat/math/EndianNeutral.hpp>
-    Routines to make your code endian neutral
-
-  <cat/threads/Atomic.hpp>
-    Portable atomic operations
-
-  <cat/port/AlignedAlloc.hpp>
-    Portable 16 byte aligned heap allocation
-
-
-========================================================================
-                   #include <cat/AllCodec.hpp>
-========================================================================
-
-  <cat/codec/RangeCoder.hpp>
-    Fast ~60% short text compression and range coder
-
-
-========================================================================
-                   #include <cat/AllMath.hpp>
-========================================================================
-
-  <cat/math/Legs.hpp>
-    Basic definitions for multi-precision arithmetic
-
-  <cat/math/BigRTL.hpp>
-    Register transfer language (RTL) for multi-precision (MP) arithmetic
-
-  <cat/math/BigPseudoMersenne.hpp>
-    RTL for fast MP arithmetic modulo 2^bits-C, C=1 (mod 4)
-
-  <cat/math/BigTwistedEdward.hpp>
-    RTL for fast point math on Twisted Edwards elliptic curves
-
-
-========================================================================
-                   #include <cat/AllCrypt.hpp>
-========================================================================
-
-  <cat/crypt/symmetric/ChaCha.hpp>
-    Fast stream cipher based on Salsa
-
-  <cat/crypt/cookie/CookieJar.hpp>
-    Fast SYN cookie implementation based on Salsa6
-
-  <cat/crypt/hash/ICryptoHash.hpp>
-    Interface implemented by all cryptographic hash functions
-
-  <cat/crypt/hash/Skein.hpp>
-    Fast Skein cryptographic hash function with up to 512-bit security
-
-  <cat/crypt/hash/HMAC_MD5.hpp>
-    Fast HMAC-MD5 for use as up to a 128-bit MAC
-
-  <cat/crypt/SecureCompare.hpp>
-    Fast timing-attack resistant binary comparison
-
-  <cat/crypt/rand/Fortuna.hpp>
-    "Cat For Tuna" implementation of Bruce Schneier's Fortuna with Skein
-
-
-========================================================================
-                   #include <cat/AllTunnel.hpp>
-========================================================================
-
-  <cat/crypt/tunnel/KeyAgreementInitiator.hpp>
-    Fast key agreement scheme with PFS: Initiator/client object
-
-  <cat/crypt/tunnel/KeyAgreementResponder.hpp>
-    Fast key agreement scheme with PFS: Responder/server object
-
-  <cat/crypt/tunnel/AuthenticatedEncryption.hpp>
-    Fast authenticated encryption scheme keyed by KeyAgreement objects
-
-  <cat/crypt/tunnel/KeyAgreement.hpp>
-    Common header for Key Agreement objects
-
-  <cat/crypt/tunnel/KeyMaker.hpp>
-    Creates public/private key pairs for Tunnel responders
-
-
-========================================================================
-                  #include <cat/AllFramework.hpp>
-========================================================================
-
-  <cat/io/Logging.hpp>
-    Multithreaded disk and console logging
-
-  <cat/io/MMapFile.hpp>
-    Portable memory-mapped files
-
-  <cat/io/Settings.hpp>
-    Disk-based application settings database
-
-  <cat/net/IOCPSockets.hpp>
-    Windows IO Completion Ports
-
-  <cat/parse/BitStream.hpp>
-    Friendly bit-aligned buffer packing/unpacking
-
-  <cat/parse/BufferTok.hpp>
-    Parses token-delimited text data
-
-  <cat/parse/MessageRouter.hpp>
-    Simple C++ delegate-based jump table
-
-  <cat/threads/LocklessFIFO.hpp>
-    Lockless opportunistic FIFO queue
-
-  <cat/threads/Mutex.hpp>
-    Simple Mutex wrapper
-
-  <cat/threads/RegionAllocator.hpp>
-    Custom lockless memory allocator
 
 
 ------------------------------------------------------------------------
@@ -235,9 +101,3 @@ Portability:
 06/11/2009 - Split the math code off from the framework code
 06/10/2009 - Merged my code into this library for the first time
 
-
-
-Contact the author:
-   Christopher A. Taylor
-   AIM: MrCatid
-   Email: mrcatid@gmail.com
