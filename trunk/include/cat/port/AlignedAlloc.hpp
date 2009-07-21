@@ -1,12 +1,12 @@
 /*
-	Copyright 2009 Christopher A. Taylor
+    Copyright 2009 Christopher A. Taylor
 
     This file is part of LibCat.
 
     LibCat is free software: you can redistribute it and/or modify
     it under the terms of the Lesser GNU General Public License as
-	published by the Free Software Foundation, either version 3 of
-	the License, or (at your option) any later version.
+    published by the Free Software Foundation, either version 3 of
+    the License, or (at your option) any later version.
 
     LibCat is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -14,7 +14,7 @@
     Lesser GNU General Public License for more details.
 
     You should have received a copy of the Lesser GNU General Public
-	License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
+    License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 // 07/20/09 began
@@ -30,17 +30,17 @@ namespace cat {
 class Aligned
 {
 public:
-	// Allocates memory aligned to a 16 byte boundary from the heap
-	static void *Alloc(int bytes);
+    // Allocates memory aligned to a 16 byte boundary from the heap
+    static void *Alloc(int bytes);
 
-	// Allocates an array of a given type on a 16 byte boundary from the heap
-	template<typename T> static T *New(int array_size)
-	{
-		return (T *)Alloc(sizeof(T) * array_size);
-	}
+    // Allocates an array of a given type on a 16 byte boundary from the heap
+    template<typename T> static T *New(int array_size)
+    {
+        return (T *)Alloc(sizeof(T) * array_size);
+    }
 
-	// Frees an aligned pointer
-	static void Delete(void *ptr);
+    // Frees an aligned pointer
+    static void Delete(void *ptr);
 };
 
 

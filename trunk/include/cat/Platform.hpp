@@ -1,12 +1,12 @@
 /*
-	Copyright 2009 Christopher A. Taylor
+    Copyright 2009 Christopher A. Taylor
 
     This file is part of LibCat.
 
     LibCat is free software: you can redistribute it and/or modify
     it under the terms of the Lesser GNU General Public License as
-	published by the Free Software Foundation, either version 3 of
-	the License, or (at your option) any later version.
+    published by the Free Software Foundation, either version 3 of
+    the License, or (at your option) any later version.
 
     LibCat is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -14,7 +14,7 @@
     Lesser GNU General Public License for more details.
 
     You should have received a copy of the Lesser GNU General Public
-	License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
+    License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 // 06/11/09 added 64-bit stuff; part of libcat-1.0
@@ -90,30 +90,30 @@ namespace cat {
 # if defined(_DEBUG)
 #  define DEBUG
 # endif
-				  }
+                  }
 # include <cstdlib> // Intrinsics
 # include <intrin.h> // Intrinsics
-	namespace cat {
+    namespace cat {
 #endif
 
 //// Architecture Endianness ////
 
 #if defined(__sparc) || defined(__sparc__) || defined(__powerpc__) || \
-	defined(__ppc__) || defined(__hppa) || defined(_MIPSEB) || defined(_POWER) || \
-	defined(_M_PPC) || defined(_M_MPPC) || defined(_M_MRX000) || \
-	defined(__POWERPC) || defined(m68k) || defined(powerpc) || \
-	defined(sel) || defined(pyr) || defined(mc68000) || defined(is68k) || \
-	defined(tahoe) || defined(ibm032) || defined(ibm370) || defined(MIPSEB) || \
-	defined(__convex__) || defined(DGUX) || defined(hppa) || defined(apollo) || \
-	defined(_CRAY) || defined(__hp9000) || defined(__hp9000s300) || defined(_AIX) || \
-	defined(__AIX) || defined(__pyr__) || defined(hp9000s700) || defined(_IBMR2) || \
-	defined(_PS3) || defined(__PS3__) || defined(SN_TARGET_PS3)
+    defined(__ppc__) || defined(__hppa) || defined(_MIPSEB) || defined(_POWER) || \
+    defined(_M_PPC) || defined(_M_MPPC) || defined(_M_MRX000) || \
+    defined(__POWERPC) || defined(m68k) || defined(powerpc) || \
+    defined(sel) || defined(pyr) || defined(mc68000) || defined(is68k) || \
+    defined(tahoe) || defined(ibm032) || defined(ibm370) || defined(MIPSEB) || \
+    defined(__convex__) || defined(DGUX) || defined(hppa) || defined(apollo) || \
+    defined(_CRAY) || defined(__hp9000) || defined(__hp9000s300) || defined(_AIX) || \
+    defined(__AIX) || defined(__pyr__) || defined(hp9000s700) || defined(_IBMR2) || \
+    defined(_PS3) || defined(__PS3__) || defined(SN_TARGET_PS3)
 # define CAT_ENDIAN_BIG
 #elif defined(__i386__) || defined(i386) || defined(intel) || defined(_M_IX86) || \
-	  defined(__alpha__) || defined(__alpha) || defined(__ia64) || defined(__ia64__) || \
-	  defined(_M_ALPHA) || defined(ns32000) || defined(__ns32000__) || defined(sequent) || \
-	  defined(MIPSEL) || defined(_MIPSEL) || defined(sun386) || defined(__sun386__) || \
-	  defined(__x86_64) || defined(_M_IA64) || defined(_M_X64) || defined(__bfin__)
+      defined(__alpha__) || defined(__alpha) || defined(__ia64) || defined(__ia64__) || \
+      defined(_M_ALPHA) || defined(ns32000) || defined(__ns32000__) || defined(sequent) || \
+      defined(MIPSEL) || defined(_MIPSEL) || defined(sun386) || defined(__sun386__) || \
+      defined(__x86_64) || defined(_M_IA64) || defined(_M_X64) || defined(__bfin__)
 # define CAT_ENDIAN_LITTLE
 #else
 # error "Add your architecture to the endianness list"
@@ -154,31 +154,31 @@ namespace cat {
 
 #if defined(CAT_COMPILER_MSVC)
 
-	typedef unsigned __int8		u8;
-	typedef signed __int8		s8;
-	typedef unsigned __int16	u16;
-	typedef signed __int16		s16;
-	typedef unsigned __int32	u32;
-	typedef signed __int32		s32;
-	typedef unsigned __int64	u64;
-	typedef signed __int64		s64;
+    typedef unsigned __int8        u8;
+    typedef signed __int8        s8;
+    typedef unsigned __int16    u16;
+    typedef signed __int16        s16;
+    typedef unsigned __int32    u32;
+    typedef signed __int32        s32;
+    typedef unsigned __int64    u64;
+    typedef signed __int64        s64;
 
 #elif defined(CAT_COMPILER_GCC)
-				  }
+                  }
 # include <inttypes.h>
-	namespace cat {
+    namespace cat {
 
-	typedef uint8_t		u8;
-	typedef int8_t		s8;
-	typedef uint16_t	u16;
-	typedef int16_t		s16;
-	typedef uint32_t	u32;
-	typedef int32_t		s32;
-	typedef uint64_t	u64;
-	typedef int64_t		s64;
+    typedef uint8_t        u8;
+    typedef int8_t        s8;
+    typedef uint16_t    u16;
+    typedef int16_t        s16;
+    typedef uint32_t    u32;
+    typedef int32_t        s32;
+    typedef uint64_t    u64;
+    typedef int64_t        s64;
 #if defined(CAT_ARCH_64)
-	typedef uint128_t	u128;
-	typedef int128_t	s128;
+    typedef uint128_t    u128;
+    typedef int128_t    s128;
 #endif
 
 #else
@@ -186,11 +186,11 @@ namespace cat {
 #endif
 
 union Float32 {
-	float f;
-	u32 i;
+    float f;
+    u32 i;
 
-	Float32(float n) { f = n; }
-	Float32(u32 n) { i = n; }
+    Float32(float n) { f = n; }
+    Float32(u32 n) { i = n; }
 };
 
 /*
@@ -199,10 +199,10 @@ union Float32 {
 // Order of vertices in any quad
 enum QuadCoords
 {
-	QUAD_UL, // upper left  (0,0)
-	QUAD_LL, // lower left  (0,1)
-	QUAD_LR, // lower right (1,1)
-	QUAD_UR, // upper right (1,0)
+    QUAD_UL, // upper left  (0,0)
+    QUAD_LL, // lower left  (0,1)
+    QUAD_LR, // lower right (1,1)
+    QUAD_UR, // upper right (1,0)
 };
 */
 
