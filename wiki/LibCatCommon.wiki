@@ -1,5 +1,7 @@
 #summary Common headers
 
+Part of LibCatFeatures.
+
 = #include <cat/AllCommon?.hpp> =
 
     * <cat/Platform.hpp>
