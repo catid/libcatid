@@ -107,7 +107,7 @@ public:
     void PtSolveAffineY(Leg *inout);
 
     // Verify that the point (x,y) exists on the given curve
-    bool IsValidAffineXY(const Leg *in);
+    bool PtValidAffine(const Leg *in);
 
 public:
     // out(x) = X/Z
@@ -126,36 +126,24 @@ public:
     void PtNormalize(const Leg *in, Leg *out);
 
 public:
-    // Extended Twisted Edwards Negation Formula in 2a
+    // Extended Twisted Edwards Negation Formula
     void PtNegate(const Leg *in, Leg *out);
 
     // Extended Twisted Edwards Unified Addition Formula (works when both inputs are the same) in 8M 1D 8a
-    // CAN BE followed by a Pt[E]Add()
     void PtEAdd(const Leg *in_a, const Leg *in_b, Leg *out);
-
-    // Extended Twisted Edwards Unified Addition Formula (works when both inputs are the same) in 7M 1D 8a
-    // CAN *NOT* BE followed by a Pt[E]Add()
-    void PtAdd(const Leg *in_a, const Leg *in_b, Leg *out);
+    void PtAdd(const Leg *in_a, const Leg *in_b, Leg *out); // -1M, cannot be followed by PtAdd
 
     // Extended Twisted Edwards Unified Subtraction Formula (works when both inputs are the same) in 8M 1D 8a
-    // CAN BE followed by a Pt[E]Add()
     void PtESubtract(const Leg *in_a, const Leg *in_b, Leg *out);
-
-    // Extended Twisted Edwards Unified Subtraction Formula (works when both inputs are the same) in 7M 1D 8a
-    // CAN *NOT* BE followed by a Pt[E]Add()
-    void PtSubtract(const Leg *in_a, const Leg *in_b, Leg *out);
+    void PtSubtract(const Leg *in_a, const Leg *in_b, Leg *out); // -1M, cannot be followed by PtAdd
 
     // Extended Twisted Edwards Dedicated Doubling Formula in 4M 4S 5a
-    // CAN BE followed by a Pt[E]Add()
     void PtEDouble(const Leg *in, Leg *out);
+    void PtDouble(const Leg *in, Leg *out); // -1M, cannot be followed by PtAdd
 
-    // Extended Twisted Edwards Dedicated Doubling Formula in 3M 4S 5a
-    // CAN *NOT* BE followed by a Pt[E]Add()
-    void PtDouble(const Leg *in, Leg *out);
-
-    // Extended Twisted Edwards Dedicated Doubling Formula in 3M 3S 4a
-    // Assumes Z=1, CAN *NOT* BE followed by a Pt[E]Add()
-    void PtDoubleZ1(const Leg *in, Leg *out);
+    // Extended Twisted Edwards Dedicated Doubling Formula Assuming Z=1, in 4M 3S 4a
+    void PtEDoubleZ1(const Leg *in, Leg *out);
+    void PtDoubleZ1(const Leg *in, Leg *out); // -1M, cannot be followed by PtAdd
 
 public:
     // Precompute odd multiples of input point

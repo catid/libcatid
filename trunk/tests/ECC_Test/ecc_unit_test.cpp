@@ -293,14 +293,7 @@ int TestTwistedEdward()
 
     for (;;)
     {
-        do
-        {
-            x.PtFillRandomX(&mtprng, pt);
-            x.PtSolveAffineY(pt);
-        } while (!x.IsValidAffineXY(pt));
-
-        x.PtDoubleZ1(pt, pt);
-        x.PtEDouble(pt, pt);
+		x.PtGenerate(&mtprng, pt);
 
         x.PtEAdd(pt, pt, pt);
         x.PtEAdd(pt, pt, pt);
