@@ -1,9 +1,25 @@
 #summary How to use LibCat
 
+This section describes how to download and build LibCat for use in another application.
+
+
+= How to get a copy =
+
+Releases are available here: http://code.google.com/p/libcatid/downloads/list
+
+To download the latest code from SVN: http://code.google.com/p/libcatid/source/checkout
+
 
 = Microsoft Visual Studio 2005/2008 =
 
-Solution files have been provided for MSVC.
+Solution files have been provided for MSVC, so re-building is easy.
+
+To statically link with some part of LibCat:
+ * Specify the path to \lib\cat\ in "Additional Library Directories" in your project linker settings.
+ * Specify the name of the LibCat static library to link to in "Additional Dependencies."
+ * Under C/C++ "General", specify the path to LibCat's \include\ folder in "Additional Include Directories."
+ * In your source, #include <cat/AllTunnel.hpp> or whatever part you want to include.
+ * You may want to examine some of the test projects to get ideas for how to use the code.
 
 See "Build MSVC.txt" for more information.
 
