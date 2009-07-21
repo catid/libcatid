@@ -37,5 +37,5 @@ Part of LibCatFeatures.
  * <cat/threads/Atomic.hpp>
     Portable atomic operations 
 
-* <cat/port/AlignedAlloc?.hpp>
+ * <cat/port/AlignedAlloc?.hpp>
     Portable 16 byte aligned heap allocation
