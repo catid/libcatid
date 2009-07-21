@@ -17,21 +17,6 @@ The library is broken into several modular components so that only the interesti
  * *LibCatFramework* provides a scalable, multithreaded framework for application development.
 
 
-= #include <cat/AllMath.hpp> =
-
- * <cat/math/Legs.hpp>
-    Basic definitions for multi-precision arithmetic
-
- * <cat/math/BigRTL.hpp>
-    Register transfer language (RTL) for multi-precision (MP) arithmetic
-
- * <cat/math/BigPseudoMersenne.hpp>
-    RTL for fast MP arithmetic modulo 2^bits-C, C=1 (mod 4)
-
- * <cat/math/BigTwistedEdward.hpp>
-    RTL for fast point math on Twisted Edwards elliptic curves
-
-
 = #include <cat/AllCrypt.hpp> =
 
  * <cat/crypt/symmetric/ChaCha.hpp>
