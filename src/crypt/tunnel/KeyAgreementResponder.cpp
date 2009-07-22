@@ -143,7 +143,7 @@ bool KeyAgreementResponder::ProcessChallenge(const u8 *initiator_challenge, int 
     // k = H(T,A,B,Y)
     encryption->SetKey(KeyBytes, T, A, B, Y, false);
 
-#else // defined(CAT_ENDIAN_LITTLE)
+#else // !defined(CAT_ENDIAN_LITTLE)
 
     u8 A_big[MAX_BYTES*2], B_big[MAX_BYTES*2], Y_big[MAX_BYTES*2];
     math->SaveProjectiveXY(A, A_big, A_big + KeyBytes);
@@ -153,7 +153,7 @@ bool KeyAgreementResponder::ProcessChallenge(const u8 *initiator_challenge, int 
     // k = H(T,A,B,Y)
     encryption->SetKey(KeyBytes, T, A_big, B_big, Y_big, false);
 
-#endif // defined(CAT_ENDIAN_LITTLE)
+#endif
 
     // Write response
     math->SaveAffineXY(Y, responder_answer, responder_answer + KeyBytes);

@@ -148,7 +148,7 @@ bool KeyAgreementInitiator::ProcessAnswer(const u8 *responder_answer, int answer
     // k = H(T,A,B,Y)
     encryption->SetKey(KeyBytes, T, A, B, Y, true);
 
-#else // defined(CAT_ENDIAN_LITTLE)
+#else // !defined(CAT_ENDIAN_LITTLE)
 
     u8 A_big[MAX_BYTES*2], B_big[MAX_BYTES*2], Y_big[MAX_BYTES*2];
     math->SaveProjectiveXY(A, A_big, A_big + KeyBytes);
@@ -158,7 +158,7 @@ bool KeyAgreementInitiator::ProcessAnswer(const u8 *responder_answer, int answer
     // k = H(T,A,B,Y)
     encryption->SetKey(KeyBytes, T, A_big, B_big, Y_big, true);
 
-#endif // defined(CAT_ENDIAN_LITTLE)
+#endif
 
     // Validate the server proof of key
     return encryption->ValidateProof(responder_answer + KeyBytes*2, KeyBytes);
