@@ -39,7 +39,7 @@ Leg BigRTL::DoubleAdd(int legs, const Leg *in_a, const Leg *in_b, Leg *out)
         out[ii] = (Leg)x;
     }
 
-    return x >> CAT_LEG_BITS;
+    return (Leg)(x >> CAT_LEG_BITS);
 
 #else
 

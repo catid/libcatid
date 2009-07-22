@@ -838,7 +838,7 @@ void HandshakeTest()
 
 bool got_iv(u64 correct)
 {
-    u32 new_iv_low = correct & AuthenticatedEncryption::IV_MASK;
+    u32 new_iv_low = (u32)(correct & AuthenticatedEncryption::IV_MASK);
 
     static u64 last_iv = 0;
 

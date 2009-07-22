@@ -42,7 +42,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="../include/"
+				AdditionalIncludeDirectories="../../include/"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
@@ -61,7 +61,7 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				OutputFile="$(SolutionDir)\lib\cat\libcatcommon-d32-1.0.lib"
+				OutputFile="$(SolutionDir)\..\lib\cat\libcatcommon-d32-1.0.lib"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -105,7 +105,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="../include/"
+				AdditionalIncludeDirectories="../../include/"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
@@ -124,7 +124,7 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				OutputFile="$(SolutionDir)\lib\cat\libcatcommon-d64-1.0.lib"
+				OutputFile="$(SolutionDir)\..\lib\cat\libcatcommon-d64-1.0.lib"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -173,7 +173,7 @@
 				FavorSizeOrSpeed="1"
 				OmitFramePointers="true"
 				EnableFiberSafeOptimizations="true"
-				AdditionalIncludeDirectories="../include/"
+				AdditionalIncludeDirectories="../../include/"
 				RuntimeLibrary="2"
 				BufferSecurityCheck="false"
 				WarningLevel="3"
@@ -191,7 +191,7 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				OutputFile="$(SolutionDir)\lib\cat\libcatcommon-r32-1.0.lib"
+				OutputFile="$(SolutionDir)\..\lib\cat\libcatcommon-r32-1.0.lib"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -241,7 +241,7 @@
 				FavorSizeOrSpeed="1"
 				OmitFramePointers="true"
 				EnableFiberSafeOptimizations="true"
-				AdditionalIncludeDirectories="../include/"
+				AdditionalIncludeDirectories="../../include/"
 				RuntimeLibrary="2"
 				BufferSecurityCheck="false"
 				WarningLevel="3"
@@ -259,7 +259,7 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				OutputFile="$(SolutionDir)\lib\cat\libcatcommon-r64-1.0.lib"
+				OutputFile="$(SolutionDir)\..\lib\cat\libcatcommon-r64-1.0.lib"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -286,14 +286,50 @@
 			Filter="cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx"
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
-			<Filter
-				Name="time"
+			<File
+				RelativePath="..\..\src\port\AlignedAlloc.cpp"
 				>
-				<File
-					RelativePath=".\src\time\Clock.cpp"
-					>
-				</File>
-			</Filter>
+			</File>
+			<File
+				RelativePath="..\..\src\threads\atomic\Atomic_32.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\threads\atomic\Atomic_64.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\threads\atomic\Atomic_UnitTest.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\math\bits\BitMath_32.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\math\bits\BitMath_64.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\math\bits\BitMath_UnitTest.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\time\Clock.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\rand\MersenneTwister.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\hash\MurmurHash2.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\rand\StdRand.cpp"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Header Files"
@@ -301,20 +337,72 @@
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
 			<File
-				RelativePath="..\include\cat\Platform.hpp"
+				RelativePath="..\..\include\cat\AllCommon.hpp"
 				>
 			</File>
 			<File
-				RelativePath="..\include\cat\Singleton.hpp"
+				RelativePath="..\..\include\cat\Platform.hpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\include\cat\Singleton.hpp"
 				>
 			</File>
 			<Filter
 				Name="time"
 				>
 				<File
-					RelativePath="..\include\cat\time\Clock.hpp"
+					RelativePath="..\..\include\cat\time\Clock.hpp"
 					>
 				</File>
+			</Filter>
+			<Filter
+				Name="hash"
+				>
+				<File
+					RelativePath="..\..\include\cat\hash\MurmurHash2.hpp"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="math"
+				>
+				<File
+					RelativePath="..\..\include\cat\math\BitMath.hpp"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="port"
+				>
+				<File
+					RelativePath="..\..\include\cat\port\AlignedAlloc.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\port\EndianNeutral.hpp"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="rand"
+				>
+				<File
+					RelativePath="..\..\include\cat\rand\IRandom.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\rand\MersenneTwister.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\rand\StdRand.hpp"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="threads"
+				>
 			</Filter>
 		</Filter>
 		<Filter

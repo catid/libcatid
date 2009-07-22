@@ -61,7 +61,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="&quot;$(SolutionDir)lib\cat\libcatcommon-d32-1.0.lib&quot; &quot;$(SolutionDir)lib\cat\libcatmath-d32-1.0.lib&quot;"
+				AdditionalDependencies="&quot;$(SolutionDir)\..\lib\cat\libcatcrypt-d32-1.0.lib&quot;"
 				GenerateDebugInformation="true"
 				TargetMachine="1"
 			/>
@@ -135,7 +135,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="&quot;$(SolutionDir)lib\cat\libcatcommon-d64-1.0.lib&quot; &quot;$(SolutionDir)lib\cat\libcatmath-d64-1.0.lib&quot;"
+				AdditionalDependencies="&quot;$(SolutionDir)\..\lib\cat\libcatcrypt-d64-1.0.lib&quot;"
 				GenerateDebugInformation="true"
 				TargetMachine="17"
 			/>
@@ -213,7 +213,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="&quot;$(SolutionDir)lib\cat\libcatcommon-r32-1.0.lib&quot; &quot;$(SolutionDir)lib\cat\libcatmath-r32-1.0.lib&quot;"
+				AdditionalDependencies="&quot;$(SolutionDir)\..\lib\cat\libcatcrypt-r32-1.0.lib&quot;"
 				GenerateDebugInformation="true"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
@@ -294,7 +294,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="&quot;$(SolutionDir)lib\cat\libcatcommon-r64-1.0.lib&quot; &quot;$(SolutionDir)lib\cat\libcatmath-r64-1.0.lib&quot;"
+				AdditionalDependencies="&quot;$(SolutionDir)\..\lib\cat\libcatcrypt-r64-1.0.lib&quot;"
 				GenerateDebugInformation="true"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
@@ -338,12 +338,28 @@
 				RelativePath=".\ecc_unit_test.cpp"
 				>
 			</File>
+			<File
+				RelativePath=".\SecureClientDemo.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\SecureServerDemo.cpp"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Header Files"
 			Filter="h;hpp;hxx;hm;inl;inc;xsd"
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
+			<File
+				RelativePath=".\SecureClientDemo.hpp"
+				>
+			</File>
+			<File
+				RelativePath=".\SecureServerDemo.hpp"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Resource Files"

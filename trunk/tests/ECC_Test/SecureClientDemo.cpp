@@ -105,7 +105,7 @@ void SecureClientDemo::OnSessionMessage(u8 *buffer, int bytes)
 
     if (id >= 5)
     {
-        cout << "Client: Got the last pong from the server!" << endl;
+        //cout << "Client: Got the last pong from the server!" << endl;
         success = true;
         return;
     }

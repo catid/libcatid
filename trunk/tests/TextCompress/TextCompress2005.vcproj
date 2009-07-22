@@ -61,7 +61,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="&quot;$(SolutionDir)lib\cat\libcatcommon-d32-1.0.lib&quot; &quot;$(SolutionDir)lib\cat\libcatframework-d32-1.0.lib&quot; &quot;$(SolutionDir)lib\cat\libcatmath-d32-1.0.lib&quot;"
+				AdditionalDependencies="&quot;$(SolutionDir)\..\lib\cat\libcatframework-d32-1.0.lib&quot;"
 				GenerateDebugInformation="true"
 				TargetMachine="1"
 			/>
@@ -135,7 +135,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="&quot;$(SolutionDir)lib\cat\libcatcommon-d64-1.0.lib&quot; &quot;$(SolutionDir)lib\cat\libcatframework-d64-1.0.lib&quot; &quot;$(SolutionDir)lib\cat\libcatmath-d64-1.0.lib&quot;"
+				AdditionalDependencies="&quot;$(SolutionDir)\..\lib\cat\libcatframework-d64-1.0.lib&quot;"
 				GenerateDebugInformation="true"
 				TargetMachine="17"
 			/>
@@ -213,7 +213,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="&quot;$(SolutionDir)lib\cat\libcatcommon-r32-1.0.lib&quot; &quot;$(SolutionDir)lib\cat\libcatframework-r32-1.0.lib&quot; &quot;$(SolutionDir)lib\cat\libcatmath-r32-1.0.lib&quot;"
+				AdditionalDependencies="&quot;$(SolutionDir)\..\lib\cat\libcatframework-r32-1.0.lib&quot;"
 				GenerateDebugInformation="true"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
@@ -294,7 +294,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="&quot;$(SolutionDir)lib\cat\libcatcommon-r64-1.0.lib&quot; &quot;$(SolutionDir)lib\cat\libcatframework-r64-1.0.lib&quot; &quot;$(SolutionDir)lib\cat\libcatmath-r64-1.0.lib&quot;"
+				AdditionalDependencies="&quot;$(SolutionDir)\..\lib\cat\libcatframework-r64-1.0.lib&quot;"
 				GenerateDebugInformation="true"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"

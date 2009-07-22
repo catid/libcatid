@@ -15,8 +15,12 @@
                         Build Instructions
 ========================================================================
 
-You should be able to just open the solution file (LibCat.sln) and
-perform a Batch Build to create all the static libraries for LibCat.
+You should be able to just open the solution file and perform a Batch
+Build to create all the static libraries for LibCat.
+
+In Visual Studio 2005, 64-bit compilation is unsupported at this time
+since it is missing some intrinsics.  If you need this, please Email me
+and I will work to add it for you.
 
 To rebuild the assembly code yourself, run msvc_build_asm64.bat
 
