@@ -170,11 +170,16 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				Optimization="2"
+				Optimization="3"
+				InlineFunctionExpansion="2"
 				EnableIntrinsicFunctions="true"
+				FavorSizeOrSpeed="0"
+				OmitFramePointers="true"
+				EnableFiberSafeOptimizations="true"
 				AdditionalIncludeDirectories="../../include"
 				RuntimeLibrary="2"
-				EnableFunctionLevelLinking="true"
+				BufferSecurityCheck="false"
+				EnableFunctionLevelLinking="false"
 				WarningLevel="3"
 				DebugInformationFormat="3"
 			/>
@@ -235,11 +240,19 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				Optimization="2"
+				Optimization="3"
+				InlineFunctionExpansion="2"
 				EnableIntrinsicFunctions="true"
+				FavorSizeOrSpeed="0"
+				OmitFramePointers="true"
+				EnableFiberSafeOptimizations="true"
 				AdditionalIncludeDirectories="../../include"
+				StringPooling="false"
+				BasicRuntimeChecks="0"
 				RuntimeLibrary="2"
-				EnableFunctionLevelLinking="true"
+				BufferSecurityCheck="false"
+				EnableFunctionLevelLinking="false"
+				EnableEnhancedInstructionSet="0"
 				WarningLevel="3"
 				DebugInformationFormat="3"
 			/>
