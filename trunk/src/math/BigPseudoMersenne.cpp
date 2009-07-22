@@ -37,3 +37,18 @@ void BigPseudoMersenne::CopyModulus(Leg *out)
     out[0] = 0 - modulus_c;
     memset(&out[1], 0xFF, (library_legs-1) * sizeof(Leg));
 }
+
+// Strangely enough, including these all in the same source file improves performance
+// in Visual Studio by almost 50%, which is odd because MSVC was one of the first
+// compilers to support "link time optimization."
+
+#include "mersenne/addsub/MrAdd.cpp"
+#include "mersenne/addsub/MrNegate.cpp"
+#include "mersenne/addsub/MrSubtract.cpp"
+#include "mersenne/expm/MrInvert.cpp"
+#include "mersenne/expm/MrSquareRoot.cpp"
+#include "mersenne/mul/MrMultiply.cpp"
+#include "mersenne/mul/MrMultiplyX.cpp"
+#include "mersenne/mul/MrSquare.cpp"
+#include "mersenne/reduce/MrReduce.cpp"
+#include "mersenne/reduce/MrReduceProduct.cpp"

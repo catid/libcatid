@@ -64,3 +64,29 @@ int BigRTL::LegsUsed(const Leg *in)
 
     return 0;
 }
+
+// Strangely enough, including these all in the same source file improves performance
+// in Visual Studio by almost 50%, which is odd because MSVC was one of the first
+// compilers to support "link time optimization."
+
+#include "rtl/io/Load.cpp"
+#include "rtl/io/LoadString.cpp"
+#include "rtl/io/Save.cpp"
+#include "rtl/addsub/Add.cpp"
+#include "rtl/addsub/Add1.cpp"
+#include "rtl/addsub/AddX.cpp"
+#include "rtl/addsub/Compare.cpp"
+#include "rtl/addsub/Double.cpp"
+#include "rtl/addsub/DoubleAdd.cpp"
+#include "rtl/addsub/Negate.cpp"
+#include "rtl/addsub/Shift.cpp"
+#include "rtl/addsub/Subtract.cpp"
+#include "rtl/addsub/SubtractX.cpp"
+#include "rtl/mul/Square.cpp"
+#include "rtl/mul/Multiply.cpp"
+#include "rtl/mul/MultiplyX.cpp"
+#include "rtl/mul/MultiplyXAdd.cpp"
+#include "rtl/div/Divide.cpp"
+#include "rtl/div/DivideAsm64.cpp"
+#include "rtl/div/DivideGeneric.cpp"
+#include "rtl/div/ModularInverse.cpp"

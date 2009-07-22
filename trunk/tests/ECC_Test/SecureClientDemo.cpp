@@ -24,7 +24,7 @@ using namespace cat;
 
 void SecureClientDemo::OnCookie(u8 *buffer)
 {
-    cout << "Client: Got cookie from the server" << endl;
+    //cout << "Client: Got cookie from the server" << endl;
 
     u8 challenge[64 + CAT_S2C_COOKIE_BYTES];
 
@@ -37,9 +37,9 @@ void SecureClientDemo::OnCookie(u8 *buffer)
     memcpy(challenge + 64, buffer, CAT_S2C_COOKIE_BYTES); // copy cookie
     double t2 = Clock::usec();
 
-    cout << "Client: Filling challenge message time = " << (t2 - t1) << " usec" << endl;
+    //cout << "Client: Filling challenge message time = " << (t2 - t1) << " usec" << endl;
 
-    cout << "Client: Sending challenge to server" << endl;
+    //cout << "Client: Sending challenge to server" << endl;
 
     server_ref->OnPacket(my_addr, challenge, sizeof(challenge));
 }
@@ -53,14 +53,14 @@ void SecureClientDemo::OnAnswer(u8 *buffer)
         return;
     }
     double t2 = Clock::usec();
-    cout << "Client: Processing answer time = " << (t2 - t1) << " usec" << endl;
+    //cout << "Client: Processing answer time = " << (t2 - t1) << " usec" << endl;
 
     OnConnect();
 }
 
 void SecureClientDemo::OnConnect()
 {
-    cout << "Client: Connected!  Sending first ping message" << endl;
+    //cout << "Client: Connected!  Sending first ping message" << endl;
 
     connected = true;
 
@@ -84,14 +84,14 @@ void SecureClientDemo::OnConnect()
 
     double t2 = Clock::usec();
 
-    cout << "Client: Message 0 construction time = " << (t2 - t1) << " usec" << endl;
+    //cout << "Client: Message 0 construction time = " << (t2 - t1) << " usec" << endl;
 
     server_ref->OnPacket(my_addr, buffer, sizeof(buffer));
 }
 
 void SecureClientDemo::OnSessionMessage(u8 *buffer, int bytes)
 {
-    cout << "Client: Got pong message from server (" << bytes << " bytes)" << endl;
+    //cout << "Client: Got pong message from server (" << bytes << " bytes)" << endl;
 
     if (bytes != 1500)
     {
@@ -112,7 +112,7 @@ void SecureClientDemo::OnSessionMessage(u8 *buffer, int bytes)
 
     ++id;
 
-    cout << "Client: Sending ping message #" << id << endl;
+    //cout << "Client: Sending ping message #" << id << endl;
 
     double t1 = Clock::usec();
 
@@ -126,14 +126,14 @@ void SecureClientDemo::OnSessionMessage(u8 *buffer, int bytes)
 
     double t2 = Clock::usec();
 
-    cout << "Client: Message " << id << " construction time = " << (t2 - t1) << " usec" << endl;
+    //cout << "Client: Message " << id << " construction time = " << (t2 - t1) << " usec" << endl;
 
     server_ref->OnPacket(my_addr, response, sizeof(response));
 }
 
 void SecureClientDemo::Reset(SecureServerDemo *cserver_ref, const u8 *server_public_key)
 {
-    cout << "Client: Reset!" << endl;
+    //cout << "Client: Reset!" << endl;
 
     server_ref = cserver_ref;
     server_addr = cserver_ref->GetAddress();
@@ -151,12 +151,12 @@ void SecureClientDemo::Reset(SecureServerDemo *cserver_ref, const u8 *server_pub
 
     double t2 = Clock::usec();
 
-    cout << "Client: Initialization time = " << (t2 - t1) << " usec" << endl;
+    //cout << "Client: Initialization time = " << (t2 - t1) << " usec" << endl;
 }
 
 void SecureClientDemo::SendHello()
 {
-    cout << "Client: Sending hello message" << endl;
+    //cout << "Client: Sending hello message" << endl;
 
     u8 buffer[CAT_C2S_HELLO_BYTES];
 
@@ -167,7 +167,7 @@ void SecureClientDemo::SendHello()
 
 void SecureClientDemo::OnPacket(const Address &source, u8 *buffer, int bytes)
 {
-    cout << "Client: Got packet (" << bytes << " bytes)" << endl;
+    //cout << "Client: Got packet (" << bytes << " bytes)" << endl;
 
     if (source != server_addr)
     {
@@ -181,7 +181,7 @@ void SecureClientDemo::OnPacket(const Address &source, u8 *buffer, int bytes)
         if (auth_enc.Decrypt(buffer, bytes))
         {
             double t2 = Clock::usec();
-            cout << "Client: Decryption overhead time = " << (t2 - t1) << " usec" << endl;
+            //cout << "Client: Decryption overhead time = " << (t2 - t1) << " usec" << endl;
             OnSessionMessage(buffer, bytes - AuthenticatedEncryption::OVERHEAD_BYTES);
         }
         else

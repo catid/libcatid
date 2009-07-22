@@ -32,7 +32,7 @@ void SecureServerDemo::OnHello(const Address &source, u8 *buffer)
         return;
     }
 
-    cout << "Server: I got a valid Hello message. Sending a cookie back" << endl;
+    //cout << "Server: I got a valid Hello message. Sending a cookie back" << endl;
 
     u8 response[CAT_S2C_COOKIE_BYTES];
     *(u32*)response = getLE(cookie_jar.Generate(source.ip, source.port));
@@ -50,7 +50,7 @@ void SecureServerDemo::OnChallenge(const Address &source, u8 *buffer)
         return;
     }
 
-    cout << "Server: Creating a new connection" << endl;
+    //cout << "Server: Creating a new connection" << endl;
 
     // Create the connection
     Connection *client = new Connection(source);
@@ -75,7 +75,7 @@ void SecureServerDemo::OnChallenge(const Address &source, u8 *buffer)
 
 void SecureServerDemo::OnSessionMessage(Connection *client, u8 *buffer, int bytes)
 {
-    cout << "Server: Processing valid message from client (" << bytes << " bytes)" << endl;
+    //cout << "Server: Processing valid message from client (" << bytes << " bytes)" << endl;
 
     u8 response[AuthenticatedEncryption::OVERHEAD_BYTES + 2560];
     if (bytes > 2560) bytes = 2560;
@@ -102,16 +102,16 @@ void SecureServerDemo::OnSessionMessage(Connection *client, u8 *buffer, int byte
     double t1 = Clock::usec();
     client->auth_enc.Encrypt(response, bytes);
     double t2 = Clock::usec();
-    cout << "Server: Encryption time = " << (t2 - t1) << " usec" << endl;
+    //cout << "Server: Encryption time = " << (t2 - t1) << " usec" << endl;
 
-    cout << "Server: Sending pong message back to client" << endl;
+    //cout << "Server: Sending pong message back to client" << endl;
 
     client_ref->OnPacket(my_addr, response, AuthenticatedEncryption::OVERHEAD_BYTES + bytes);
 }
 
 void SecureServerDemo::Reset(SecureClientDemo *cclient_ref, const u8 *server_public_key, const u8 *server_private_key)
 {
-    cout << "Server: Reset!" << endl;
+    //cout << "Server: Reset!" << endl;
 
     client_ref = cclient_ref;
     my_addr = Address(0x11223344, 0x5566);
@@ -128,7 +128,7 @@ void SecureServerDemo::Reset(SecureClientDemo *cclient_ref, const u8 *server_pub
 
 void SecureServerDemo::OnPacket(const Address &source, u8 *buffer, int bytes)
 {
-    cout << "Server: Got packet (" << bytes << " bytes)" << endl;
+    //cout << "Server: Got packet (" << bytes << " bytes)" << endl;
 
     Connection *client = connections[source];
 
@@ -141,7 +141,7 @@ void SecureServerDemo::OnPacket(const Address &source, u8 *buffer, int bytes)
             return;
         }
         double t2 = Clock::usec();
-        cout << "Server: Decryption time = " << (t2 - t1) << " usec" << endl;
+        //cout << "Server: Decryption time = " << (t2 - t1) << " usec" << endl;
 
         OnSessionMessage(client, buffer, bytes - AuthenticatedEncryption::OVERHEAD_BYTES);
     }
