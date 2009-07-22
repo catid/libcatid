@@ -239,10 +239,8 @@ void Skein::Generate(void *out, int bytes)
         // Produce next output
         (this->*hash_func)(FinalMessage, 1, 8, out64);
 
-#if defined(BIG_ENDIAN)
         for (int ii = 0; ii < digest_words; ++ii)
             swapLE(out64[ii]);
-#endif
 
         // Next counter
         out64 += digest_words;
@@ -259,10 +257,8 @@ void Skein::Generate(void *out, int bytes)
         // Produce final output
         (this->*hash_func)(FinalMessage, 1, 8, FinalMessage);
 
-#if defined(BIG_ENDIAN)
         for (int ii = CAT_CEIL_UNIT(bytes, sizeof(u64)); ii >= 0; --ii)
             swapLE(FinalMessage[ii]);
-#endif
 
         // Copy however many bytes they wanted
         memcpy(out64, FinalMessage, bytes);
