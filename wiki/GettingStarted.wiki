@@ -10,6 +10,11 @@ Releases are available here: http://code.google.com/p/libcatid/downloads/list
 To download the latest code from SVN: http://code.google.com/p/libcatid/source/checkout
 
 
+= Microsoft Windows =
+
+LibCat requires Windows XP SP1 or newer.
+
+
 = Microsoft Visual Studio 2005/2008 =
 
 Solution files have been provided for MSVC, so re-building is easy.
