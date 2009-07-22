@@ -61,9 +61,11 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				AdditionalDependencies="libcatmath-d32-1.0.lib"
+				LinkLibraryDependencies="true"
+				AdditionalOptions="/IGNORE:4006&#x0D;&#x0A;/IGNORE:4221"
+				AdditionalDependencies=" "
 				OutputFile="$(SolutionDir)\..\lib\cat\libcatcrypt-d32-1.0.lib"
-				AdditionalLibraryDirectories="&quot;$(SolutionDir)\..\lib\cat\&quot;"
+				AdditionalLibraryDirectories=" "
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -125,9 +127,11 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				AdditionalDependencies="libcatmath-d64-1.0.lib"
+				LinkLibraryDependencies="true"
+				AdditionalOptions="/IGNORE:4006&#x0D;&#x0A;/IGNORE:4221"
+				AdditionalDependencies=" "
 				OutputFile="$(SolutionDir)\..\lib\cat\libcatcrypt-d64-1.0.lib"
-				AdditionalLibraryDirectories="&quot;$(SolutionDir)\..\lib\cat\&quot;"
+				AdditionalLibraryDirectories=" "
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -195,9 +199,11 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				AdditionalDependencies="libcatmath-r32-1.0.lib"
+				LinkLibraryDependencies="true"
+				AdditionalOptions="/IGNORE:4006&#x0D;&#x0A;/IGNORE:4221"
+				AdditionalDependencies=" "
 				OutputFile="$(SolutionDir)\..\lib\cat\libcatcrypt-r32-1.0.lib"
-				AdditionalLibraryDirectories="&quot;$(SolutionDir)\..\lib\cat\&quot;"
+				AdditionalLibraryDirectories=" "
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -266,9 +272,11 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				AdditionalDependencies="libcatmath-r64-1.0.lib"
+				LinkLibraryDependencies="true"
+				AdditionalOptions="/IGNORE:4006&#x0D;&#x0A;/IGNORE:4221"
+				AdditionalDependencies=" "
 				OutputFile="$(SolutionDir)\..\lib\cat\libcatcrypt-r64-1.0.lib"
-				AdditionalLibraryDirectories="&quot;$(SolutionDir)\..\lib\cat\&quot;"
+				AdditionalLibraryDirectories=" "
 			/>
 			<Tool
 				Name="VCALinkTool"

@@ -17,6 +17,8 @@
     License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#define _WIN32_WINNT 0x0501 /* Windows XP SP1 or later */
+
 #include <cat/crypt/rand/Fortuna.hpp>
 using namespace cat;
 
@@ -249,8 +251,8 @@ void FortunaFactory::PollSlowEntropySources(int pool_index)
     }
 
     // Process memory info
-    PROCESS_MEMORY_COUNTERS_EX mem_counters;
-    if (GetProcessMemoryInfo(CurrentProcess, (PPROCESS_MEMORY_COUNTERS)&mem_counters, sizeof(mem_counters)))
+    PROCESS_MEMORY_COUNTERS mem_counters;
+    if (GetProcessMemoryInfo(CurrentProcess, &mem_counters, sizeof(mem_counters)))
         pool.Crunch(&mem_counters, sizeof(mem_counters));
 
     // Performance info

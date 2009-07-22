@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="Windows-1252"?>
 <VisualStudioProject
 	ProjectType="Visual C++"
-	Version="9.00"
-	Name="Tunnel"
-	ProjectGUID="{16931DD6-245D-4DBF-AB0A-A49BEC946526}"
-	RootNamespace="Tunnel"
-	TargetFrameworkVersion="196613"
+	Version="8.00"
+	Name="Crypt"
+	ProjectGUID="{968A63E0-ABA9-452D-AC10-9BB25C0E4C9D}"
+	RootNamespace="Crypt"
 	>
 	<Platforms>
 		<Platform
@@ -43,11 +42,12 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="../../include"
+				AdditionalIncludeDirectories="../../include/"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
 				WarningLevel="3"
+				Detect64BitPortabilityProblems="true"
 				DebugInformationFormat="4"
 			/>
 			<Tool
@@ -63,8 +63,9 @@
 				Name="VCLibrarianTool"
 				LinkLibraryDependencies="true"
 				AdditionalOptions="/IGNORE:4006&#x0D;&#x0A;/IGNORE:4221"
-				OutputFile="$(SolutionDir)\..\lib\cat\libcattunnel-d32-1.0.lib"
-				AdditionalLibraryDirectories=""
+				AdditionalDependencies=" "
+				OutputFile="$(SolutionDir)\..\lib\cat\libcatcrypt-d32-1.0.lib"
+				AdditionalLibraryDirectories=" "
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -108,11 +109,12 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="../../include"
+				AdditionalIncludeDirectories="../../include/"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
 				WarningLevel="3"
+				Detect64BitPortabilityProblems="true"
 				DebugInformationFormat="3"
 			/>
 			<Tool
@@ -128,8 +130,9 @@
 				Name="VCLibrarianTool"
 				LinkLibraryDependencies="true"
 				AdditionalOptions="/IGNORE:4006&#x0D;&#x0A;/IGNORE:4221"
-				OutputFile="$(SolutionDir)\..\lib\cat\libcattunnel-d64-1.0.lib"
-				AdditionalLibraryDirectories=""
+				AdditionalDependencies=" "
+				OutputFile="$(SolutionDir)\..\lib\cat\libcatcrypt-d64-1.0.lib"
+				AdditionalLibraryDirectories=" "
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -175,15 +178,14 @@
 				Optimization="3"
 				InlineFunctionExpansion="2"
 				EnableIntrinsicFunctions="true"
-				FavorSizeOrSpeed="0"
+				FavorSizeOrSpeed="1"
 				OmitFramePointers="true"
 				EnableFiberSafeOptimizations="true"
-				AdditionalIncludeDirectories="../../include"
+				AdditionalIncludeDirectories="../../include/"
 				RuntimeLibrary="2"
 				BufferSecurityCheck="false"
-				EnableFunctionLevelLinking="false"
-				EnableEnhancedInstructionSet="2"
 				WarningLevel="3"
+				Detect64BitPortabilityProblems="true"
 				DebugInformationFormat="3"
 			/>
 			<Tool
@@ -199,8 +201,9 @@
 				Name="VCLibrarianTool"
 				LinkLibraryDependencies="true"
 				AdditionalOptions="/IGNORE:4006&#x0D;&#x0A;/IGNORE:4221"
-				OutputFile="$(SolutionDir)\..\lib\cat\libcattunnel-r32-1.0.lib"
-				AdditionalLibraryDirectories=""
+				AdditionalDependencies=" "
+				OutputFile="$(SolutionDir)\..\lib\cat\libcatcrypt-r32-1.0.lib"
+				AdditionalLibraryDirectories=" "
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -247,17 +250,14 @@
 				Optimization="3"
 				InlineFunctionExpansion="2"
 				EnableIntrinsicFunctions="true"
-				FavorSizeOrSpeed="0"
+				FavorSizeOrSpeed="1"
 				OmitFramePointers="true"
 				EnableFiberSafeOptimizations="true"
-				AdditionalIncludeDirectories="../../include"
-				StringPooling="false"
-				BasicRuntimeChecks="0"
+				AdditionalIncludeDirectories="../../include/"
 				RuntimeLibrary="2"
 				BufferSecurityCheck="false"
-				EnableFunctionLevelLinking="false"
-				EnableEnhancedInstructionSet="0"
 				WarningLevel="3"
+				Detect64BitPortabilityProblems="true"
 				DebugInformationFormat="3"
 			/>
 			<Tool
@@ -273,8 +273,9 @@
 				Name="VCLibrarianTool"
 				LinkLibraryDependencies="true"
 				AdditionalOptions="/IGNORE:4006&#x0D;&#x0A;/IGNORE:4221"
-				OutputFile="$(SolutionDir)\..\lib\cat\libcattunnel-r64-1.0.lib"
-				AdditionalLibraryDirectories=""
+				AdditionalDependencies=" "
+				OutputFile="$(SolutionDir)\..\lib\cat\libcatcrypt-r64-1.0.lib"
+				AdditionalLibraryDirectories=" "
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -302,23 +303,43 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
-				RelativePath="..\..\src\crypt\tunnel\AuthenticatedEncryption.cpp"
+				RelativePath="..\..\src\crypt\privatekey\ChaCha.cpp"
 				>
 			</File>
 			<File
-				RelativePath="..\..\src\crypt\tunnel\KeyAgreement.cpp"
+				RelativePath="..\..\src\crypt\cookie\CookieJar.cpp"
 				>
 			</File>
 			<File
-				RelativePath="..\..\src\crypt\tunnel\KeyAgreementInitiator.cpp"
+				RelativePath="..\..\src\crypt\rand\EntropyLinux.cpp"
 				>
 			</File>
 			<File
-				RelativePath="..\..\src\crypt\tunnel\KeyAgreementResponder.cpp"
+				RelativePath="..\..\src\crypt\rand\EntropyWindows.cpp"
 				>
 			</File>
 			<File
-				RelativePath="..\..\src\crypt\tunnel\KeyMaker.cpp"
+				RelativePath="..\..\src\crypt\rand\Fortuna.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\crypt\hash\HMAC_MD5.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\crypt\SecureCompare.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\crypt\hash\Skein.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\crypt\hash\Skein256.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\crypt\hash\Skein512.cpp"
 				>
 			</File>
 		</Filter>
@@ -328,30 +349,50 @@
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
 			<File
-				RelativePath="..\..\include\cat\AllTunnel.hpp"
+				RelativePath="..\..\include\cat\AllCrypt.hpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\include\cat\crypt\SecureCompare.hpp"
 				>
 			</File>
 			<Filter
-				Name="tunnel"
+				Name="cookie"
 				>
 				<File
-					RelativePath="..\..\include\cat\crypt\tunnel\AuthenticatedEncryption.hpp"
+					RelativePath="..\..\include\cat\crypt\cookie\CookieJar.hpp"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="hash"
+				>
+				<File
+					RelativePath="..\..\include\cat\crypt\hash\HMAC_MD5.hpp"
 					>
 				</File>
 				<File
-					RelativePath="..\..\include\cat\crypt\tunnel\KeyAgreement.hpp"
+					RelativePath="..\..\include\cat\crypt\hash\ICryptHash.hpp"
 					>
 				</File>
 				<File
-					RelativePath="..\..\include\cat\crypt\tunnel\KeyAgreementInitiator.hpp"
+					RelativePath="..\..\include\cat\crypt\hash\Skein.hpp"
 					>
 				</File>
+			</Filter>
+			<Filter
+				Name="rand"
+				>
 				<File
-					RelativePath="..\..\include\cat\crypt\tunnel\KeyAgreementResponder.hpp"
+					RelativePath="..\..\include\cat\crypt\rand\Fortuna.hpp"
 					>
 				</File>
+			</Filter>
+			<Filter
+				Name="symmetric"
+				>
 				<File
-					RelativePath="..\..\include\cat\crypt\tunnel\KeyMaker.hpp"
+					RelativePath="..\..\include\cat\crypt\symmetric\ChaCha.hpp"
 					>
 				</File>
 			</Filter>

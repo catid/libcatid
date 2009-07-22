@@ -42,7 +42,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="../include/"
+				AdditionalIncludeDirectories="../../include/"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
@@ -61,7 +61,11 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				OutputFile="$(SolutionDir)\lib\cat\libcatframework-d32-1.0.lib"
+				LinkLibraryDependencies="true"
+				AdditionalOptions="/IGNORE:4006&#x0D;&#x0A;/IGNORE:4221"
+				AdditionalDependencies=" "
+				OutputFile="$(SolutionDir)\..\lib\cat\libcatframework-d32-1.0.lib"
+				AdditionalLibraryDirectories=" "
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -105,7 +109,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="../include/"
+				AdditionalIncludeDirectories="../../include/"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
@@ -124,7 +128,11 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				OutputFile="$(SolutionDir)\lib\cat\libcatframework-d64-1.0.lib"
+				LinkLibraryDependencies="true"
+				AdditionalOptions="/IGNORE:4006&#x0D;&#x0A;/IGNORE:4221"
+				AdditionalDependencies=" "
+				OutputFile="$(SolutionDir)\..\lib\cat\libcatframework-d64-1.0.lib"
+				AdditionalLibraryDirectories=" "
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -173,7 +181,7 @@
 				FavorSizeOrSpeed="1"
 				OmitFramePointers="true"
 				EnableFiberSafeOptimizations="true"
-				AdditionalIncludeDirectories="../include/"
+				AdditionalIncludeDirectories="../../include/"
 				RuntimeLibrary="2"
 				BufferSecurityCheck="false"
 				WarningLevel="3"
@@ -191,7 +199,11 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				OutputFile="$(SolutionDir)\lib\cat\libcatframework-r32-1.0.lib"
+				LinkLibraryDependencies="true"
+				AdditionalOptions="/IGNORE:4006&#x0D;&#x0A;/IGNORE:4221"
+				AdditionalDependencies=" "
+				OutputFile="$(SolutionDir)\..\lib\cat\libcatframework-r32-1.0.lib"
+				AdditionalLibraryDirectories=" "
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -241,7 +253,7 @@
 				FavorSizeOrSpeed="1"
 				OmitFramePointers="true"
 				EnableFiberSafeOptimizations="true"
-				AdditionalIncludeDirectories="../include/"
+				AdditionalIncludeDirectories="../../include/"
 				RuntimeLibrary="2"
 				BufferSecurityCheck="false"
 				WarningLevel="3"
@@ -259,7 +271,11 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				OutputFile="$(SolutionDir)\lib\cat\libcatframework-r64-1.0.lib"
+				LinkLibraryDependencies="true"
+				AdditionalOptions="/IGNORE:4006&#x0D;&#x0A;/IGNORE:4221"
+				AdditionalDependencies=" "
+				OutputFile="$(SolutionDir)\..\lib\cat\libcatframework-r64-1.0.lib"
+				AdditionalLibraryDirectories=" "
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -286,77 +302,65 @@
 			Filter="cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx"
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
-			<Filter
-				Name="io"
+			<File
+				RelativePath="..\..\src\parse\BitStream.cpp"
 				>
-				<File
-					RelativePath=".\src\io\Logging.cpp"
-					>
-				</File>
-				<File
-					RelativePath=".\src\io\MMapFile.cpp"
-					>
-				</File>
-				<File
-					RelativePath=".\src\io\Settings.cpp"
-					>
-				</File>
-			</Filter>
-			<Filter
-				Name="net"
+			</File>
+			<File
+				RelativePath="..\..\src\parse\BufferTok.cpp"
 				>
-				<File
-					RelativePath=".\src\net\IOCPSockets.cpp"
-					>
-				</File>
-			</Filter>
-			<Filter
-				Name="parse"
+			</File>
+			<File
+				RelativePath="..\..\src\net\IOCPSockets.cpp"
 				>
-				<File
-					RelativePath=".\src\parse\BitStream.cpp"
-					>
-				</File>
-				<File
-					RelativePath=".\src\parse\BufferTok.cpp"
-					>
-				</File>
-				<File
-					RelativePath=".\src\parse\MessageRouter.cpp"
-					>
-				</File>
-			</Filter>
-			<Filter
-				Name="threads"
+			</File>
+			<File
+				RelativePath="..\..\src\io\Logging.cpp"
 				>
-				<File
-					RelativePath=".\src\threads\Mutex.cpp"
-					>
-				</File>
-				<File
-					RelativePath=".\src\threads\RegionAllocator.cpp"
-					>
-				</File>
-			</Filter>
+			</File>
+			<File
+				RelativePath="..\..\src\parse\MessageRouter.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\io\MMapFile.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\threads\Mutex.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\threads\RegionAllocator.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\io\Settings.cpp"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Header Files"
 			Filter="h;hpp;hxx;hm;inl;inc;xsd"
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
+			<File
+				RelativePath="..\..\include\cat\AllFramework.hpp"
+				>
+			</File>
 			<Filter
 				Name="io"
 				>
 				<File
-					RelativePath="..\include\cat\io\Logging.hpp"
+					RelativePath="..\..\include\cat\io\Logging.hpp"
 					>
 				</File>
 				<File
-					RelativePath="..\include\cat\io\MMapFile.hpp"
+					RelativePath="..\..\include\cat\io\MMapFile.hpp"
 					>
 				</File>
 				<File
-					RelativePath="..\include\cat\io\Settings.hpp"
+					RelativePath="..\..\include\cat\io\Settings.hpp"
 					>
 				</File>
 			</Filter>
@@ -364,7 +368,7 @@
 				Name="net"
 				>
 				<File
-					RelativePath="..\include\cat\net\IOCPSockets.hpp"
+					RelativePath="..\..\include\cat\net\IOCPSockets.hpp"
 					>
 				</File>
 			</Filter>
@@ -372,19 +376,19 @@
 				Name="parse"
 				>
 				<File
-					RelativePath="..\include\cat\parse\BitStream.hpp"
+					RelativePath="..\..\include\cat\parse\BitStream.hpp"
 					>
 				</File>
 				<File
-					RelativePath="..\include\cat\parse\BufferTok.hpp"
+					RelativePath="..\..\include\cat\parse\BufferTok.hpp"
 					>
 				</File>
 				<File
-					RelativePath="..\include\cat\parse\FastDelegate.h"
+					RelativePath="..\..\include\cat\parse\FastDelegate.h"
 					>
 				</File>
 				<File
-					RelativePath="..\include\cat\parse\MessageRouter.hpp"
+					RelativePath="..\..\include\cat\parse\MessageRouter.hpp"
 					>
 				</File>
 			</Filter>
@@ -392,15 +396,15 @@
 				Name="threads"
 				>
 				<File
-					RelativePath="..\include\cat\threads\MSQueue.hpp"
+					RelativePath="..\..\include\cat\threads\LocklessFIFO.hpp"
 					>
 				</File>
 				<File
-					RelativePath="..\include\cat\threads\Mutex.hpp"
+					RelativePath="..\..\include\cat\threads\Mutex.hpp"
 					>
 				</File>
 				<File
-					RelativePath="..\include\cat\threads\RegionAllocator.hpp"
+					RelativePath="..\..\include\cat\threads\RegionAllocator.hpp"
 					>
 				</File>
 			</Filter>
