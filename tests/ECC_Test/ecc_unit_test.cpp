@@ -802,7 +802,7 @@ void HandshakeTest()
         u8 server_public_key[128];
         KeyMaker bob_the_key_maker;
 
-        cout << "Generating server public and private keys..." << endl;
+        //cout << "Generating server public and private keys..." << endl;
         if (!bob_the_key_maker.GenerateKeyPair(256, server_public_key, sizeof(server_public_key), server_private_key, sizeof(server_private_key)))
         {
             cout << "FAILURE: Unable to generate key pair" << endl;
@@ -811,7 +811,7 @@ void HandshakeTest()
 
         // Startup:
 
-        cout << "Starting up..." << endl;
+        //cout << "Starting up..." << endl;
         SecureServerDemo server;
         SecureClientDemo client;
 
@@ -821,12 +821,12 @@ void HandshakeTest()
 
         // Online:
 
-        cout << "Client wants to connect." << endl;
+        //cout << "Client wants to connect." << endl;
         client.SendHello();
 
         if (client.success)
         {
-            cout << "SUCCESS: Handshake succeeded and we were able to exchange messages securely!" << endl;
+            //cout << "SUCCESS: Handshake succeeded and we were able to exchange messages securely!" << endl;
         }
         else
         {

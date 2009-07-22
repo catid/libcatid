@@ -21,6 +21,7 @@
 using namespace cat;
 
 #if defined(EXTENDED_T)
+# undef PT_FN
 # define PT_FN PtEAdd /* Version that does produce the T coord */
 #else
 # define EXTENDED_T
@@ -64,3 +65,5 @@ void BigTwistedEdward::PT_FN(const Leg *in_a, const Leg *in_b, Leg *out)
 #endif
     MrMultiply(F, G, out+ZOFF);
 }
+
+#undef EXTENDED_T

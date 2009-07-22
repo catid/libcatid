@@ -72,3 +72,24 @@ bool BigTwistedEdward::LoadVerifyAffineXY(const void *in_x, const void *in_y, Le
 
     return PtValidAffine(out);
 }
+
+// Strangely enough, including these all in the same source file improves performance
+// in Visual Studio by almost 50%, which is odd because MSVC was one of the first
+// compilers to support "link time optimization."
+
+#include "edward/io/PtFillRandomX.cpp"
+#include "edward/io/PtGenerate.cpp"
+#include "edward/io/PtNormalize.cpp"
+#include "edward/io/PtSolveAffineY.cpp"
+#include "edward/io/PtValidAffine.cpp"
+#include "edward/io/SaveAffineX.cpp"
+#include "edward/io/SaveAffineXY.cpp"
+#include "edward/addsub/PtAdd.cpp"
+#include "edward/addsub/PtNegate.cpp"
+#include "edward/addsub/PtSubtract.cpp"
+#include "edward/addsub/PtDouble.cpp"
+#include "edward/addsub/PtDoubleZ1.cpp"
+#include "edward/mul/PtMultiplyPrecomp.cpp"
+#include "edward/mul/PtPrecompAddSub.cpp"
+#include "edward/mul/PtMultiply.cpp"
+#include "edward/mul/RefMul.cpp"
