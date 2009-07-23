@@ -63,6 +63,7 @@ void BigTwistedEdward::PtMultiply(const Leg *in_precomp, int w, const Leg *in_k,
     Leg bits, last_leg;
     int offset, doubles_before = 0, doubles_skip = 0;
 
+	// Extend input scalar by one bit so it will work for the sum of two scalars
     if (k_msb)
     {
         last_leg = k_msb;
