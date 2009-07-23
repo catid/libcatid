@@ -798,12 +798,12 @@ void HandshakeTest()
     {
         // Offline:
 
-        u8 server_private_key[32];
-        u8 server_public_key[128];
+        u8 server_private_key[CAT_DEMO_PRIVATE_KEY_BYTES];
+        u8 server_public_key[CAT_DEMO_PUBLIC_KEY_BYTES];
         KeyMaker bob_the_key_maker;
 
         //cout << "Generating server public and private keys..." << endl;
-        if (!bob_the_key_maker.GenerateKeyPair(256, server_public_key, sizeof(server_public_key), server_private_key, sizeof(server_private_key)))
+        if (!bob_the_key_maker.GenerateKeyPair(CAT_DEMO_BITS, server_public_key, CAT_DEMO_PUBLIC_KEY_BYTES, server_private_key, CAT_DEMO_PRIVATE_KEY_BYTES))
         {
             cout << "FAILURE: Unable to generate key pair" << endl;
             return;
