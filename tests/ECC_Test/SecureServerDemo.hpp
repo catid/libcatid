@@ -120,6 +120,8 @@ class SecureServerDemo
     std::map<Address, Connection*> connections;
     Address my_addr;
 
+	void Cleanup();
+
 protected:
     void OnHello(const Address &source, u8 *buffer);
     void OnChallenge(const Address &source, u8 *buffer);
@@ -127,6 +129,8 @@ protected:
     void OnSessionMessage(Connection *client, u8 *buffer, int bytes);
 
 public:
+	~SecureServerDemo();
+
     void Reset(SecureClientDemo *client_ref, const u8 *server_public_key, const u8 *server_private_key);
     void OnPacket(const Address &source, u8 *buffer, int bytes);
 

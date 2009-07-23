@@ -109,6 +109,22 @@ void SecureServerDemo::OnSessionMessage(Connection *client, u8 *buffer, int byte
     client_ref->OnPacket(my_addr, response, AuthenticatedEncryption::OVERHEAD_BYTES + bytes);
 }
 
+SecureServerDemo::~SecureServerDemo()
+{
+	Cleanup();
+}
+
+void SecureServerDemo::Cleanup()
+{
+	for (std::map<Address, Connection*>::iterator ii = connections.begin(); ii != connections.end(); ++ii)
+	{
+		if (ii->second)
+			delete ii->second;
+	}
+
+    connections.clear();
+}
+
 void SecureServerDemo::Reset(SecureClientDemo *cclient_ref, const u8 *server_public_key, const u8 *server_private_key)
 {
     //cout << "Server: Reset!" << endl;
@@ -123,7 +139,7 @@ void SecureServerDemo::Reset(SecureClientDemo *cclient_ref, const u8 *server_pub
         return;
     }
 
-    connections.clear(); // WARN: leaks memory but i don't care
+	Cleanup();
 }
 
 void SecureServerDemo::OnPacket(const Address &source, u8 *buffer, int bytes)

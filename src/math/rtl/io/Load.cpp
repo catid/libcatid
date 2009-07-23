@@ -40,9 +40,9 @@ void BigRTL::Load(const void *in, int bytes, Leg *out_leg)
     // Copy remaining legs
     switch (legs % 4)
     {
-    case 3: out_leg[ii - 1] = getLE(in_leg[ii - 1]);
-    case 2: out_leg[ii - 2] = getLE(in_leg[ii - 2]);
-    case 1: out_leg[ii - 3] = getLE(in_leg[ii - 3]);
+    case 3: out_leg[legs - 3] = getLE(in_leg[legs - 3]);
+    case 2: out_leg[legs - 2] = getLE(in_leg[legs - 2]);
+    case 1: out_leg[legs - 1] = getLE(in_leg[legs - 1]);
     }
 
     // Zero remaining buffer bytes
