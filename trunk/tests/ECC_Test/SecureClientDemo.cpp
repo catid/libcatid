@@ -26,15 +26,15 @@ void SecureClientDemo::OnCookie(u8 *buffer)
 {
     //cout << "Client: Got cookie from the server" << endl;
 
-    u8 challenge[64 + CAT_S2C_COOKIE_BYTES];
+    u8 challenge[CAT_C2S_CHALLENGE_BYTES + CAT_S2C_COOKIE_BYTES];
 
     double t1 = Clock::usec();
-    if (!tun_client.GenerateChallenge(challenge, 64))
+    if (!tun_client.GenerateChallenge(challenge, CAT_C2S_CHALLENGE_BYTES))
     {
         cout << "Client: Unable to generate challenge" << endl;
         return;
     }
-    memcpy(challenge + 64, buffer, CAT_S2C_COOKIE_BYTES); // copy cookie
+    memcpy(challenge + CAT_C2S_CHALLENGE_BYTES, buffer, CAT_S2C_COOKIE_BYTES); // copy cookie
     double t2 = Clock::usec();
 
     //cout << "Client: Filling challenge message time = " << (t2 - t1) << " usec" << endl;
@@ -47,7 +47,7 @@ void SecureClientDemo::OnCookie(u8 *buffer)
 void SecureClientDemo::OnAnswer(u8 *buffer)
 {
     double t1 = Clock::usec();
-    if (!tun_client.ProcessAnswer(buffer, 96, &auth_enc))
+    if (!tun_client.ProcessAnswer(buffer, CAT_S2C_ANSWER_BYTES, &auth_enc))
     {
         cout << "Client: Ignoring invalid answer from server" << endl;
         return;
@@ -73,7 +73,7 @@ void SecureClientDemo::OnConnect()
     *(u32*)&buffer[1] = 1; // counter starts at 1
 
     // 32 bytes at offset 5 used for proof of key
-    if (!auth_enc.GenerateProof(buffer + 5, 32))
+    if (!auth_enc.GenerateProof(buffer + 5, CAT_C2S_PROOF_BYTES))
     {
         cout << "Client: Unable to generate proof" << endl;
         return;
@@ -143,7 +143,7 @@ void SecureClientDemo::Reset(SecureServerDemo *cserver_ref, const u8 *server_pub
 
     double t1 = Clock::usec();
 
-    if (!tun_client.Initialize(256, server_public_key, 128))
+    if (!tun_client.Initialize(CAT_DEMO_BITS, server_public_key, CAT_DEMO_PUBLIC_KEY_BYTES))
     {
         cout << "Client: Unable to initialize" << endl;
         return;
@@ -195,7 +195,7 @@ void SecureClientDemo::OnPacket(const Address &source, u8 *buffer, int bytes)
         {
             OnCookie(buffer);
         }
-        else if (bytes == 96)
+        else if (bytes == CAT_S2C_ANSWER_BYTES)
         {
             OnAnswer(buffer);
         }

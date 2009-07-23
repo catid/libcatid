@@ -42,7 +42,7 @@ void SecureServerDemo::OnHello(const Address &source, u8 *buffer)
 
 void SecureServerDemo::OnChallenge(const Address &source, u8 *buffer)
 {
-    u32 *cookie = (u32*)(buffer + 64);
+    u32 *cookie = (u32*)(buffer + CAT_C2S_CHALLENGE_BYTES);
 
     if (!cookie_jar.Verify(source.ip, source.port, getLE(*cookie)))
     {
@@ -55,10 +55,10 @@ void SecureServerDemo::OnChallenge(const Address &source, u8 *buffer)
     // Create the connection
     Connection *client = new Connection(source);
 
-    u8 answer[96];
+    u8 answer[CAT_S2C_ANSWER_BYTES];
 
     double t1 = Clock::usec();
-    if (!tun_server.ProcessChallenge(buffer, 64, answer, 96, &client->auth_enc))
+    if (!tun_server.ProcessChallenge(buffer, CAT_C2S_CHALLENGE_BYTES, answer, CAT_S2C_ANSWER_BYTES, &client->auth_enc))
     {
         cout << "Server: Ignoring invalid challenge message" << endl;
         delete client;
@@ -70,7 +70,7 @@ void SecureServerDemo::OnChallenge(const Address &source, u8 *buffer)
 
     connections[source] = client;
 
-    client_ref->OnPacket(my_addr, answer, 96);
+    client_ref->OnPacket(my_addr, answer, CAT_S2C_ANSWER_BYTES);
 }
 
 void SecureServerDemo::OnSessionMessage(Connection *client, u8 *buffer, int bytes)
@@ -85,7 +85,7 @@ void SecureServerDemo::OnSessionMessage(Connection *client, u8 *buffer, int byte
     {
         // type 0 message includes a proof of key
 
-        if (!client->auth_enc.ValidateProof(buffer + 5, 32))
+        if (!client->auth_enc.ValidateProof(buffer + 5, CAT_C2S_PROOF_BYTES))
         {
             cout << "Server: Ignoring invalid proof of key" << endl;
             return;
@@ -117,7 +117,7 @@ void SecureServerDemo::Reset(SecureClientDemo *cclient_ref, const u8 *server_pub
     my_addr = Address(0x11223344, 0x5566);
     cookie_jar.Initialize();
 
-    if (!tun_server.Initialize(256, server_public_key, 128, server_private_key, 32))
+    if (!tun_server.Initialize(CAT_DEMO_BITS, server_public_key, CAT_DEMO_PUBLIC_KEY_BYTES, server_private_key, CAT_DEMO_PRIVATE_KEY_BYTES))
     {
         cout << "Server: Unable to initialize" << endl;
         return;
@@ -151,7 +151,7 @@ void SecureServerDemo::OnPacket(const Address &source, u8 *buffer, int bytes)
         {
             OnHello(source, buffer);
         }
-        else if (bytes == 64 + CAT_S2C_COOKIE_BYTES)
+        else if (bytes == CAT_C2S_CHALLENGE_BYTES + CAT_S2C_COOKIE_BYTES)
         {
             OnChallenge(source, buffer);
         }

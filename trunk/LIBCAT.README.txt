@@ -10,7 +10,7 @@
 / /__| (_) | (_| |  __/ / /__| | |_) | | | (_| | |  | |_| |   | || |_| |
 \____/\___/ \__,_|\___| \____/_|_.__/|_|  \__,_|_|   \__, |   |_(_)___/ 
                                                      |___/            
-      CatId Common Code Library 1.0                           07/22/2009
+      CatId Common Code Library 1.0                           07/23/2009
 
 
 ------------------------------------------------------------------------
@@ -29,6 +29,7 @@ Christopher A. Taylor
 =========================== What's New =================================
 ------------------------------------------------------------------------
 
+07/23/2009 - Added switches for demo of 384-bit and 512-bit security
 07/22/2009 - Visual Studio 2005 version works again
 07/21/2009 - Split math code across many source files
              Reorganized the project for easier reuse
