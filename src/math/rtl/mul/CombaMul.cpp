@@ -30,7 +30,6 @@ template<int Index> class CombaT {};
 template<int I, int J, int Count> CAT_INLINE void Comba2(const Leg *a, const Leg *b, Leg &c0, Leg &c1, Leg &c2, CombaT<I>, CombaT<J>, CombaT<Count>)
 {
 	CAT_LEG_COMBA3(a[I], b[J], c0, c1, c2);
-
 	Comba2(a, b, c0, c1, c2, CombaT<I-1>(), CombaT<J+1>(), CombaT<Count-1>());
 }
 
@@ -44,20 +43,14 @@ template<int I, int J> CAT_INLINE void Comba2(const Leg *a, const Leg *b, Leg &c
 template<int L, int Count> CAT_INLINE void Comba3(const Leg *a, const Leg *b, Leg *out, Leg &c0, Leg &c1, Leg &c2, CombaT<L>, CombaT<Count>)
 {
 	CAT_LEG_COMBA2(a[L-1], b[L-1 - Count], c0, c1, c2);
-
 	Comba2(a, b, c0, c1, c2, CombaT<L-2>(), CombaT<L - Count>(), CombaT<Count-1>());
-
 	out[2*L - Count - 2] = c0;
-
 	Comba3(a, b, out, c1, c2, c0, CombaT<L>(), CombaT<Count-1>());
 }
 
-template<int L> CAT_INLINE void Comba3(const Leg *a, const Leg *b, Leg *out, Leg &c0, Leg &c1, Leg &c2, CombaT<L>, CombaT<0>)
+template<int L> CAT_INLINE void Comba3(const Leg *a, const Leg *b, Leg *out, Leg &c0, Leg &c1, Leg &c2, CombaT<L>, CombaT<-1>)
 {
-	CAT_LEG_COMBA2(a[L-1], b[L-1], c0, c1, c2);
-
-	out[2*L - 2] = c0;
-	out[2*L - 1] = c1;
+	out[2*L - 1] = c0;
 }
 
 
@@ -66,11 +59,8 @@ template<int L> CAT_INLINE void Comba3(const Leg *a, const Leg *b, Leg *out, Leg
 template<int L, int Count> CAT_INLINE void Comba1(const Leg *a, const Leg *b, Leg *out, Leg &c0, Leg &c1, Leg &c2, CombaT<L>, CombaT<Count>)
 {
 	CAT_LEG_COMBA2(a[Count], b[0], c0, c1, c2);
-
 	Comba2(a, b, c0, c1, c2, CombaT<Count-1>(), CombaT<1>(), CombaT<Count-1>());
-
 	out[Count] = c0;
-
 	Comba1(a, b, out, c1, c2, c0, CombaT<L>(), CombaT<Count+1>());
 }
 
@@ -85,8 +75,6 @@ template<int L> CAT_INLINE void Comba1(const Leg *a, const Leg *b, Leg *out, Leg
 template<int L> void CombaMul(const Leg *a, const Leg *b, Leg *out)
 {
 	Leg c0, c1 = 0, c2;
-
 	CAT_LEG_MUL(a[0], b[0], c0, out[0]);
-
 	Comba1(a, b, out, c0, c1, c2, CombaT<L>(), CombaT<1>());
 }
