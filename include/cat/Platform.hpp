@@ -82,7 +82,7 @@ namespace cat {
 // Pull out MSVC case here since it applies to several compilers that are MSVC-compatible
 #if defined(CAT_COMPILER_MSVC)
 # define CAT_PACKED
-# define CAT_INLINE __inline
+# define CAT_INLINE __forceinline
 # define CAT_ASSEMBLY_INTEL_SYNTAX
 # define CAT_ASSEMBLY_BLOCK __asm
 
