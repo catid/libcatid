@@ -30,6 +30,8 @@ Christopher A. Taylor
 ------------------------------------------------------------------------
 
 07/23/2009 - Added switches for demo of 384-bit and 512-bit security
+             Fixed 384-bit version of BigRTL::Load and BigRTL::Store
+             Implemented template metaprogramming Comba Multiply
 07/22/2009 - Visual Studio 2005 version works again
 07/21/2009 - Split math code across many source files
              Reorganized the project for easier reuse

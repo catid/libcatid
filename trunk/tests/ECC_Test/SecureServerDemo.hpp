@@ -31,7 +31,7 @@ class SecureClientDemo;
 class SecureServerDemo;
 
 
-#define CAT_DEMO_BITS 256
+#define CAT_DEMO_BITS 384
 #define CAT_DEMO_BYTES (CAT_DEMO_BITS/8)
 #define CAT_DEMO_PUBLIC_KEY_BYTES (CAT_DEMO_BYTES*4)
 #define CAT_DEMO_PRIVATE_KEY_BYTES CAT_DEMO_BYTES
