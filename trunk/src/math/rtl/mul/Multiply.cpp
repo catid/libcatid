@@ -24,9 +24,10 @@ using namespace cat;
 
 void BigRTL::Multiply(const Leg *in_a, const Leg *in_b, Leg *out)
 {
+	// ICC improves performance of multiplication by about 15% over MSVC, and it compiles the template metaprogramming very fast
 	switch (library_legs)
 	{
-	// The compiler really grinds to build this, so I have limited the number of cases that use template metaprogramming
+	// MSVC really grinds to build this, so I have limited the number of cases that use template metaprogramming
 #if defined(CAT_ARCH_64)
 	case 4: CombaMul<4>(in_a, in_b, out); return;
 	case 6: CombaMul<6>(in_a, in_b, out); return;
