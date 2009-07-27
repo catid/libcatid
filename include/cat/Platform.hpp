@@ -32,7 +32,6 @@ namespace cat {
 #if defined(__INTEL_COMPILER) || defined(__ICL) || defined(__ICC) || defined(__ECC)
 # define CAT_COMPILER_ICC /* Intel C++ Compiler */
 # define CAT_COMPILER_MSVC /* Compatible with MSVC */
-# define CAT_TLS __thread
 
 #elif defined(__GNUC__)
 # define CAT_COMPILER_GCC /* GNU C++ Compiler */
@@ -73,7 +72,6 @@ namespace cat {
 
 #elif defined(_MSC_VER)
 # define CAT_COMPILER_MSVC /* Microsoft Visual Studio C++ Compiler */
-# define CAT_TLS __declspec( thread )
 
 #else
 # error "Add your compiler to the list"
@@ -85,6 +83,7 @@ namespace cat {
 # define CAT_INLINE __forceinline
 # define CAT_ASSEMBLY_INTEL_SYNTAX
 # define CAT_ASSEMBLY_BLOCK __asm
+# define CAT_TLS __declspec( thread )
 
 # define WIN32_LEAN_AND_MEAN
 # if defined(_DEBUG)

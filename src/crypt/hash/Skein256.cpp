@@ -64,7 +64,7 @@ void Skein::HashComputation256(const void *_message, int blocks, u32 byte_count,
 
         // 72 rounds
 
-        const enum {
+        enum {
             R_256_0_0= 5, R_256_0_1=56,
             R_256_1_0=36, R_256_1_1=28,
             R_256_2_0=13, R_256_2_1=46,
