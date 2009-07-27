@@ -85,7 +85,7 @@ void Skein::HashComputation512(const void *_message, int blocks, u32 byte_count,
 
         // 72 rounds
 
-        const enum {
+        enum {
             R_512_0_0=38, R_512_0_1=30, R_512_0_2=50, R_512_0_3=53,
             R_512_1_0=48, R_512_1_1=20, R_512_1_2=43, R_512_1_3=31,
             R_512_2_0=34, R_512_2_1=14, R_512_2_2=15, R_512_2_3=27,
