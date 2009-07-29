@@ -25,7 +25,7 @@ u8 BigRTL::Add(const Leg *in_a, const Leg *in_b, Leg *out)
     return Add(library_legs, in_a, in_b, out);
 }
 
-u8 BigRTL::Add(int legs_a, const Leg *in_a, int legs_b, const Leg *in_b, Leg *out)
+u8 BigRTL::Add(int legs, const Leg *in_a, const Leg *in_b, Leg *out)
 {
 #if !defined(CAT_NO_LEGPAIR)
 
@@ -34,16 +34,9 @@ u8 BigRTL::Add(int legs_a, const Leg *in_a, int legs_b, const Leg *in_b, Leg *ou
     out[0] = (Leg)sum;
 
     // Add remaining legs
-    int ii;
-    for (ii = 1; ii < legs_b; ++ii)
+    for (int ii = 1; ii < legs; ++ii)
     {
         sum = ((sum >> CAT_LEG_BITS) + in_a[ii]) + in_b[ii];
-        out[ii] = (Leg)sum;
-    }
-
-    for (; ii < legs_a; ++ii)
-    {
-        sum = (sum >> CAT_LEG_BITS) + in_a[ii];
         out[ii] = (Leg)sum;
     }
 
@@ -59,25 +52,12 @@ u8 BigRTL::Add(int legs_a, const Leg *in_a, int legs_b, const Leg *in_b, Leg *ou
     out[0] = s;
 
     // Add remaining legs
-    int ii;
-    for (ii = 1; ii < legs_b; ++ii)
+    for (int ii = 1; ii < legs; ++ii)
     {
         // Calculate sum
         Leg a = in_a[ii];
         Leg b = in_b[ii];
         Leg sum = a + b + c;
-
-        // Calculate carry
-        c = c ? sum <= a : sum < a;
-
-        out[ii] = sum;
-    }
-
-    for (; ii < legs_a; ++ii)
-    {
-        // Calculate sum
-        Leg a = in_a[ii];
-        Leg sum = a + c;
 
         // Calculate carry
         c = c ? sum <= a : sum < a;
