@@ -44,48 +44,30 @@ bool Atomic::CAS(volatile void *x, const void *expected_old_value, const void *n
 
 #elif defined(CAT_ASM_INTEL)
 
-    CAT_ASM
-    {
-		push ebx
-        mov eax,new_value
-		push esi
-        mov ebx,[eax]
-        mov ecx,[eax+4]
-        mov edx,expected_old_value
-        mov esi,x
-        mov eax,[edx]
-        mov edx,[edx+4]
-        lock CMPXCHG8B [esi]
-		pop ebx
-        mov eax,0
-		pop esi
-        setz al
-    }
+	// TODO
 
 #elif defined(CAT_ASM_ATT)
 
 	u32 bit;
-    CAT_ASM
-    (
+    CAT_ASM_BEGIN
         "BSR %%rdx,%%rax"
 		:"=a"(bit)
 		:"d"(x)
-	);
+    CAT_ASM_END
 	return bit;
 
 #endif
 }
 
 
-#else // !defined(CAT_ARCH_64)
+#else // 32-bit version:
 
 
 bool Atomic::CAS(volatile void *x, const void *expected_old_value, const void *new_value)
 {
 #if defined(CAT_ASM_INTEL)
 
-    CAT_ASM
-    {
+    CAT_ASM_BEGIN
 		push ebx
         mov eax,new_value
 		push esi
@@ -100,13 +82,12 @@ bool Atomic::CAS(volatile void *x, const void *expected_old_value, const void *n
         mov eax,0
 		pop esi
         setz al
-    }
+    CAT_ASM_END
 
 #elif defined(CAT_ASM_ATT)
 
 	u32 success;
-    CAT_ASM
-    (
+    CAT_ASM_BEGIN
         "movl %%esi,new_value;
          movl %%ebx,[%%esi];
          movl %%ecx,[%%esi+4];
@@ -122,7 +103,7 @@ bool Atomic::CAS(volatile void *x, const void *expected_old_value, const void *n
         "BSF %%edx,%%eax"
 		:"=a"(bit)
 		:"d"(x)
-	);
+    CAT_ASM_END
 	return bit;
 
 #endif
@@ -141,22 +122,20 @@ u32 Atomic::Add(volatile u32 *x, s32 y)
 
 #elif defined(CAT_ASM_INTEL)
 
-    CAT_ASM
-    {
+    CAT_ASM_BEGIN
         mov edx,x
         mov eax,y
         lock XADD [edx],eax
-    }
+    CAT_ASM_END
 
 #elif defined(CAT_ASM_ATT)
 
 	u32 bit;
-    CAT_ASM
-    (
+    CAT_ASM_BEGIN
         "BSR %%rdx,%%rax"
 		:"=a"(bit)
 		:"d"(x)
-	);
+    CAT_ASM_END
 	return bit;
 
 #endif
@@ -172,22 +151,20 @@ u32 Atomic::Set(volatile u32 *x, u32 new_value)
 
 #elif defined(CAT_ASM_INTEL)
 
-    CAT_ASM
-    {
+    CAT_ASM_BEGIN
         mov edx,x
         mov eax,new_value
         lock XCHG [edx],eax
-    }
+    CAT_ASM_END
 
 #elif defined(CAT_ASM_ATT)
 
 	u32 bit;
-    CAT_ASM
-    (
+    CAT_ASM_BEGIN
         "BSR %%rdx,%%rax"
 		:"=a"(bit)
 		:"d"(x)
-	);
+    CAT_ASM_END
 	return bit;
 
 #endif
@@ -204,24 +181,22 @@ bool Atomic::BTS(volatile u32 *x, int bit)
 
 #elif defined(CAT_ASM_INTEL)
 
-    CAT_ASM
-    {
+    CAT_ASM_BEGIN
         mov edx,x
         mov ecx,bit
         lock BTS [edx],ecx
         mov eax,0
         setc al
-    }
+    CAT_ASM_END
 
 #elif defined(CAT_ASM_ATT)
 
 	u32 bit;
-    CAT_ASM
-    (
+    CAT_ASM_BEGIN
         "BSR %%rdx,%%rax"
 		:"=a"(bit)
 		:"d"(x)
-	);
+    CAT_ASM_END
 	return bit;
 
 #endif
@@ -238,24 +213,22 @@ bool Atomic::BTR(volatile u32 *x, int bit)
 
 #elif defined(CAT_ASM_INTEL)
 
-    CAT_ASM
-    {
+    CAT_ASM_BEGIN
         mov edx,x
         mov ecx,bit
         lock BTR [edx],ecx
         mov eax,0
         setc al
-    }
+    CAT_ASM_END
 
 #elif defined(CAT_ASM_ATT)
 
 	u32 bit;
-    CAT_ASM
-    (
+    CAT_ASM_BEGIN
         "BSR %%rdx,%%rax"
 		:"=a"(bit)
 		:"d"(x)
-	);
+    CAT_ASM_END
 	return bit;
 
 #endif

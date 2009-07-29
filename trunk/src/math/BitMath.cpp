@@ -35,18 +35,16 @@ u32 BitMath::BSF32(u32 x)
 
 #elif defined(CAT_ASM_INTEL)
 
-    CAT_ASM
-    {
+    CAT_ASM_BEGIN
         BSF eax, [x]
-    }
+    CAT_ASM_END
 
 #elif defined(CAT_ASM_ATT)
 
-    CAT_ASM
-    (
+    CAT_ASM_BEGIN
 		"BSF %[x],%eax"
 		:[x]"mr"(x)
-	);
+    CAT_ASM_END
 
 #else
 
@@ -66,18 +64,16 @@ u32 BitMath::BSR32(u32 x)
 
 #elif defined(CAT_ASM_INTEL)
 
-    CAT_ASM
-    {
+    CAT_ASM_BEGIN
         BSR eax, [x]
-    }
+    CAT_ASM_END
 
 #elif defined(CAT_ASM_ATT)
 
-    CAT_ASM
-    (
+    CAT_ASM_BEGIN
 		"BSR %[x],%eax"
 		:[x]"mr"(x)
-	);
+    CAT_ASM_END
 
 #else
 
@@ -105,11 +101,10 @@ u32 BitMath::BSF64(u64 x)
 
 #elif defined(CAT_ASM_ATT) && defined(CAT_ARCH_64)
 
-    CAT_ASM
-    (
+    CAT_ASM_BEGIN
 		"BSF %[x],%rax"
 		:[x]"mr"(x)
-	);
+    CAT_ASM_END
 
 #else
 
@@ -129,11 +124,10 @@ u32 BitMath::BSR64(u64 x)
 
 #elif defined(CAT_ASM_ATT) && defined(CAT_ARCH_64)
 
-    CAT_ASM
-    (
+    CAT_ASM_BEGIN
 		"BSR %[x],%rax"
 		:[x]"mr"(x)
-	);
+    CAT_ASM_END
 
 #else
 
@@ -145,7 +139,7 @@ u32 BitMath::BSR64(u64 x)
     shift = (x > 0xFF) << 3; x >>= shift; r |= shift;
     shift = (x > 0xF) << 2; x >>= shift; r |= shift;
     shift = (x > 0x3) << 1; x >>= shift; r |= shift;
-    r |= (x >> 1);
+    r |= (u32)(x >> 1);
     return r;
 
 #endif

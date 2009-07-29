@@ -26,12 +26,11 @@ void BigRTL::Square(const Leg *input, Leg *output)
 
     // ICC does a better job than my hand-written version by using SIMD instructions,
     // so I use its optimizer instead.
-#if !defined(CAT_COMPILER_ICC) && defined(CAT_ASM_INTEL)
+#if !defined(CAT_COMPILER_ICC) && defined(CAT_ASM_INTEL) && defined(CAT_ARCH_32)
 
     int legs = library_legs;
 
-    CAT_ASM // VS.NET, x86, 32-bit words
-    {
+    CAT_ASM_BEGIN
         mov esi, [input]     ; esi = in
         mov ecx, [output]    ; ecx = output
         mov edi, [legs]      ; edi = leg count
@@ -47,7 +46,7 @@ loop_head:
 
         sub edi, 1
         ja loop_head
-    }
+    CAT_ASM_END
 
 #else
 
