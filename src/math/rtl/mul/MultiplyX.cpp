@@ -31,8 +31,7 @@ Leg BigRTL::MultiplyX(int legs, const Leg *in_a, Leg in_b, Leg *output)
     // so I use its optimizer instead.
 #if !defined(CAT_COMPILER_ICC) && defined(CAT_ASM_INTEL)
 
-    CAT_ASM // VS.NET, x86, 32-bit words
-    {
+    CAT_ASM_BEGIN
         mov esi, [in_a]        ; esi = in_a
         mov ecx, [output]    ; ecx = output
         mov edi, [in_b]        ; edi = in_b
@@ -60,7 +59,7 @@ loop_head:
 
 loop_done:
         mov eax, edx
-    }
+    CAT_ASM_END
 
 #else
 

@@ -39,7 +39,8 @@ namespace cat {
 # define CAT_PACKED __attribute__((packed)) __attribute__((aligned(4)));
 # define CAT_INLINE inline
 # define CAT_ASM_ATT
-# define CAT_ASM __asm__
+# define CAT_ASM_BEGIN __asm__ __volatile__ (
+# define CAT_ASM_END );
 # define CAT_TLS __thread
 
 #if defined(DEBUG)
@@ -51,7 +52,8 @@ namespace cat {
 
 # define CAT_INLINE __inline
 # define CAT_ASM_INTEL
-# define CAT_ASM _asm
+# define CAT_ASM_BEGIN _asm {
+# define CAT_ASM_END }
 # define CAT_TLS __declspec(thread)
 
 #if !defined(NDEBUG)
@@ -84,7 +86,8 @@ namespace cat {
 # define CAT_PACKED
 # define CAT_INLINE __forceinline
 # define CAT_ASM_INTEL
-# define CAT_ASM __asm
+# define CAT_ASM_BEGIN __asm {
+# define CAT_ASM_END }
 # define CAT_TLS __declspec( thread )
 
 # define WIN32_LEAN_AND_MEAN
@@ -132,7 +135,6 @@ namespace cat {
 // 64-bit MSVC does not support inline assembly
 # if defined(CAT_COMPILER_MSVC)
 #  undef CAT_ASM_INTEL
-#  undef CAT_ASM
 # endif
 
 #else // Assuming 32-bit otherwise!

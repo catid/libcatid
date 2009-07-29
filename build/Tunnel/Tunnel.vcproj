@@ -185,6 +185,7 @@
 				EnableEnhancedInstructionSet="2"
 				WarningLevel="3"
 				DebugInformationFormat="3"
+				CallingConvention="0"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -198,7 +199,7 @@
 			<Tool
 				Name="VCLibrarianTool"
 				LinkLibraryDependencies="true"
-				AdditionalOptions="/IGNORE:4006&#x0D;&#x0A;/IGNORE:4221"
+				AdditionalOptions="/IGNORE:4006&#x0A;/IGNORE:4221"
 				OutputFile="$(SolutionDir)\..\lib\cat\libcattunnel-r32-1.0.lib"
 				AdditionalLibraryDirectories=""
 			/>
