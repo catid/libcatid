@@ -51,9 +51,6 @@ extern CAT_INLINE bool BTS(volatile u32 *x, int bit);
 extern CAT_INLINE bool BTR(volatile u32 *x, int bit);
 
 
-extern bool UnitTest();
-
-
 } // namespace Atomic
 
 

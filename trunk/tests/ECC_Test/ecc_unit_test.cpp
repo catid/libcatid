@@ -368,7 +368,7 @@ int main()
         cout << "FAILURE: Unable to initialize the Fortuna factory" << endl;
         return 1;
     }
-
+/*
     cout << endl << "Atomic testing:" << endl;
     if (!Atomic::UnitTest())
     {
@@ -377,13 +377,6 @@ int main()
     }
     cout << "SUCCESS: Atomic functions work!" << endl;
 
-    cout << endl << "BitMath testing:" << endl;
-    if (!BitMath::UnitTest())
-    {
-        cout << "FAILURE: BitMath test failed" << endl;
-        return 1;
-    }
-    cout << "SUCCESS: BitMath functions work!" << endl;
 /*
     cout << endl << "ECC testing:" << endl;
     ECCTest();

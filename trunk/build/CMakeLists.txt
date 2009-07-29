@@ -12,12 +12,8 @@ link_directories(${LIB}/cat)
 
 add_library(libcatcommon STATIC
 ${SRC}/port/AlignedAlloc.cpp
-${SRC}/threads/atomic/Atomic_32.cpp
-${SRC}/threads/atomic/Atomic_64.cpp
-${SRC}/threads/atomic/Atomic_UnitTest.cpp
-${SRC}/math/bits/BitMath_32.cpp
-${SRC}/math/bits/BitMath_64.cpp
-${SRC}/math/bits/BitMath_UnitTest.cpp
+${SRC}/threads/Atomic.cpp
+${SRC}/math/BitMath.cpp
 ${SRC}/time/Clock.cpp
 ${SRC}/rand/MersenneTwister.cpp
 ${SRC}/rand/StdRand.cpp

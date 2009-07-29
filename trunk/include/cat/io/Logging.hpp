@@ -165,7 +165,7 @@ public:
 #define ENFORCE(exp) if ( (exp) == 0 ) Enforcer(ENFORCE_EXPRESSION_STRING(exp) ENFORCE_FILE_LINE_STRING "\n")
 #define EXCEPTION() Enforcer("Exception" ENFORCE_FILE_LINE_STRING "\n")
 
-#if defined(DEBUG)
+#if defined(CAT_DEBUG)
 # define TESTCASE(exp) ENFORCE(exp)
 #else
 # define TESTCASE(exp) if (0) ENFORCE(exp) /* hopefully will be optimized out of existence */

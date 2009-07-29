@@ -29,9 +29,9 @@ Leg BigRTL::MultiplyX(int legs, const Leg *in_a, Leg in_b, Leg *output)
 {
     // ICC does a better job than my hand-written version by using SIMD instructions,
     // so I use its optimizer instead.
-#if !defined(CAT_COMPILER_ICC) && defined(CAT_ASSEMBLY_INTEL_SYNTAX)
+#if !defined(CAT_COMPILER_ICC) && defined(CAT_ASM_INTEL)
 
-    CAT_ASSEMBLY_BLOCK // VS.NET, x86, 32-bit words
+    CAT_ASM // VS.NET, x86, 32-bit words
     {
         mov esi, [in_a]        ; esi = in_a
         mov ecx, [output]    ; ecx = output
