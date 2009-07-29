@@ -294,27 +294,11 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\src\threads\atomic\Atomic_32.cpp"
+				RelativePath="..\..\src\threads\Atomic.cpp"
 				>
 			</File>
 			<File
-				RelativePath="..\..\src\threads\atomic\Atomic_64.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\src\threads\atomic\Atomic_UnitTest.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\src\math\bits\BitMath_32.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\src\math\bits\BitMath_64.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\src\math\bits\BitMath_UnitTest.cpp"
+				RelativePath="..\..\src\math\BitMath.cpp"
 				>
 			</File>
 			<File

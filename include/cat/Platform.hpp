@@ -33,27 +33,29 @@ namespace cat {
 # define CAT_COMPILER_ICC /* Intel C++ Compiler */
 # define CAT_COMPILER_MSVC /* Compatible with MSVC */
 
-#elif defined(__GNUC__)
+#elif defined(__GNUC__) || defined(__APPLE_CC__)
 # define CAT_COMPILER_GCC /* GNU C++ Compiler */
 
 # define CAT_PACKED __attribute__((packed)) __attribute__((aligned(4)));
 # define CAT_INLINE inline
-# define CAT_ASSEMBLY_ATT_SYNTAX
-# define CAT_ASSEMBLY_BLOCK asm
+# define CAT_ASM_ATT
+# define CAT_ASM __asm__
 # define CAT_TLS __thread
-// NOTE: Please define DEBUG externally to signal that the application is under a debugger
+
+#if defined(DEBUG)
+# define CAT_DEBUG
+#endif
 
 #elif defined(__BORLANDC__)
 # define CAT_COMPILER_BORLAND /* Borland C++ Compiler */
 
 # define CAT_INLINE __inline
-# define CAT_ASSEMBLY_INTEL_SYNTAX
-# define CAT_ASSEMBLY_BLOCK _asm
+# define CAT_ASM_INTEL
+# define CAT_ASM _asm
 # define CAT_TLS __declspec(thread)
 
 #if !defined(NDEBUG)
-# undef DEBUG
-# define DEBUG
+# define CAT_DEBUG
 #endif
 
 #elif defined(__DMC__)
@@ -81,13 +83,13 @@ namespace cat {
 #if defined(CAT_COMPILER_MSVC)
 # define CAT_PACKED
 # define CAT_INLINE __forceinline
-# define CAT_ASSEMBLY_INTEL_SYNTAX
-# define CAT_ASSEMBLY_BLOCK __asm
+# define CAT_ASM_INTEL
+# define CAT_ASM __asm
 # define CAT_TLS __declspec( thread )
 
 # define WIN32_LEAN_AND_MEAN
 # if defined(_DEBUG)
-#  define DEBUG
+#  define CAT_DEBUG
 # endif
                   }
 # include <cstdlib> // Intrinsics
@@ -106,41 +108,45 @@ namespace cat {
     defined(__convex__) || defined(DGUX) || defined(hppa) || defined(apollo) || \
     defined(_CRAY) || defined(__hp9000) || defined(__hp9000s300) || defined(_AIX) || \
     defined(__AIX) || defined(__pyr__) || defined(hp9000s700) || defined(_IBMR2) || \
-    defined(_PS3) || defined(__PS3__) || defined(SN_TARGET_PS3)
+    defined(_PS3) || defined(__PS3__) || defined(SN_TARGET_PS3) || defined(__ppc64__) || \
+	defined(__BIG_ENDIAN__)
 # define CAT_ENDIAN_BIG
 #elif defined(__i386__) || defined(i386) || defined(intel) || defined(_M_IX86) || \
       defined(__alpha__) || defined(__alpha) || defined(__ia64) || defined(__ia64__) || \
       defined(_M_ALPHA) || defined(ns32000) || defined(__ns32000__) || defined(sequent) || \
       defined(MIPSEL) || defined(_MIPSEL) || defined(sun386) || defined(__sun386__) || \
-      defined(__x86_64) || defined(_M_IA64) || defined(_M_X64) || defined(__bfin__)
+      defined(__x86_64) || defined(_M_IA64) || defined(_M_X64) || defined(__bfin__) || \
+	  defined(__LITTLE_ENDIAN__)
 # define CAT_ENDIAN_LITTLE
 #else
 # error "Add your architecture to the endianness list"
 #endif
 
 
-//// Architecture 64-bit / 32-bit ////
+//// Target Word Size ////
 
-#if defined(_WIN64)
+#if defined(_LP64) || defined(__LP64__) || defined(__arch64__) || defined(_WIN64)
+
 # define CAT_ARCH_64
 
 // 64-bit MSVC does not support inline assembly
 # if defined(CAT_COMPILER_MSVC)
-#  undef CAT_ASSEMBLY_INTEL_SYNTAX
-#  undef CAT_ASSEMBLY_BLOCK
+#  undef CAT_ASM_INTEL
+#  undef CAT_ASM
 # endif
 
-#elif defined(_WIN32) // Assuming 32-bit otherwise!
+#else // Assuming 32-bit otherwise!
+
 # define CAT_ARCH_32
 
-#else
-# error "Add your 64-bit architecture define to the list"
 #endif
 
 
 //// Operating System ////
 
-#if defined(__linux__)
+#if defined(__APPLE__)
+# define CAT_OS_APPLE
+#elif defined(__linux__)
 # define CAT_OS_LINUX
 #elif defined(_WIN32)
 # define CAT_OS_WINDOWS
@@ -153,31 +159,31 @@ namespace cat {
 
 #if defined(CAT_COMPILER_MSVC)
 
-    typedef unsigned __int8        u8;
-    typedef signed __int8        s8;
-    typedef unsigned __int16    u16;
-    typedef signed __int16        s16;
-    typedef unsigned __int32    u32;
-    typedef signed __int32        s32;
-    typedef unsigned __int64    u64;
-    typedef signed __int64        s64;
+    typedef unsigned __int8  u8;
+    typedef signed __int8    s8;
+    typedef unsigned __int16 u16;
+    typedef signed __int16   s16;
+    typedef unsigned __int32 u32;
+    typedef signed __int32   s32;
+    typedef unsigned __int64 u64;
+    typedef signed __int64   s64;
 
 #elif defined(CAT_COMPILER_GCC)
                   }
 # include <inttypes.h>
     namespace cat {
 
-    typedef uint8_t        u8;
-    typedef int8_t        s8;
-    typedef uint16_t    u16;
-    typedef int16_t        s16;
-    typedef uint32_t    u32;
-    typedef int32_t        s32;
-    typedef uint64_t    u64;
-    typedef int64_t        s64;
+    typedef uint8_t   u8;
+    typedef int8_t    s8;
+    typedef uint16_t  u16;
+    typedef int16_t   s16;
+    typedef uint32_t  u32;
+    typedef int32_t   s32;
+    typedef uint64_t  u64;
+    typedef int64_t   s64;
 #if defined(CAT_ARCH_64)
-    typedef uint128_t    u128;
-    typedef int128_t    s128;
+    typedef uint128_t u128;
+    typedef int128_t  s128;
 #endif
 
 #else

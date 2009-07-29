@@ -44,9 +44,6 @@ extern CAT_INLINE u32 BSR32(u32 x);
 extern CAT_INLINE u32 BSR64(u64 x);
 
 
-extern bool UnitTest();
-
-
 } // namespace BitMath
 
 
