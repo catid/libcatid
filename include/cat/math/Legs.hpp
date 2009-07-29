@@ -37,8 +37,9 @@ namespace cat {
 #if !defined(CAT_COMPILER_MSVC)
     typedef u128 LegPair;
     typedef s128 LegPairSigned;
+# define CAT_LEG_PAIRMUL(A, B) ((LegPair)A * B)
 #else
-#define CAT_NO_LEGPAIR
+# define CAT_NO_LEGPAIR
 #endif
 
 #elif defined(CAT_ARCH_32)
@@ -48,6 +49,12 @@ namespace cat {
     typedef u32 Leg;
     typedef u64 LegPair;
     typedef s64 LegPairSigned;
+
+#if defined(CAT_COMPILER_MSVC)
+# define CAT_LEG_PAIRMUL(A, B) __emulu(A, B) /* slightly faster in ICC */
+#else
+# define CAT_LEG_PAIRMUL(A, B) ((LegPair)A * B)
+#endif
 
 #endif // CAT_ARCH_32
 
@@ -103,7 +110,7 @@ namespace cat {
 // p(hi:lo) = A * B
 #define CAT_LEG_MUL(A, B, p_hi, p_lo)      \
 {                                          \
-    LegPair _mt = (LegPair)(A) * (Leg)(B); \
+    LegPair _mt = CAT_LEG_PAIRMUL(A, B);   \
     (p_lo) = (Leg)_mt;                     \
     (p_hi) = (Leg)(_mt >> CAT_LEG_BITS);   \
 }
@@ -111,7 +118,7 @@ namespace cat {
 // p(hi:lo) = A * B + C
 #define CAT_LEG_MULADD(A, B, C, p_hi, p_lo)           \
 {                                                     \
-    LegPair _mt = (LegPair)(A) * (Leg)(B) + (Leg)(C); \
+    LegPair _mt = CAT_LEG_PAIRMUL(A, B) + (Leg)(C);   \
     (p_lo) = (Leg)_mt;                                \
     (p_hi) = (Leg)(_mt >> CAT_LEG_BITS);              \
 }
@@ -119,29 +126,29 @@ namespace cat {
 // p(hi:lo) = A * B + C + D
 #define CAT_LEG_MULADD2(A, B, C, D, p_hi, p_lo)                  \
 {                                                                \
-    LegPair _mt = (LegPair)(A) * (Leg)(B) + (Leg)(C) + (Leg)(D); \
+    LegPair _mt = CAT_LEG_PAIRMUL(A, B) + (Leg)(C) + (Leg)(D);   \
     (p_lo) = (Leg)_mt;                                           \
     (p_hi) = (Leg)(_mt >> CAT_LEG_BITS);                         \
 }
 
 // p(C2:C1:C0) = A * B + (C1:C0)
-#define CAT_LEG_COMBA2(A, B, C0, C1, C2)     \
-{                                            \
-	LegPair _cp = (LegPair)(A) * (B) + (C0); \
-	(C0) = (Leg)_cp;                         \
-	_cp = (_cp >> CAT_LEG_BITS) + (C1);      \
-	(C1) = (Leg)_cp;                         \
-	(C2) = (Leg)(_cp >> CAT_LEG_BITS);       \
+#define CAT_LEG_COMBA2(A, B, C0, C1, C2)        \
+{                                               \
+	LegPair _cp = CAT_LEG_PAIRMUL(A, B) + (C0); \
+	(C0) = (Leg)_cp;                            \
+	_cp = (_cp >> CAT_LEG_BITS) + (C1);         \
+	(C1) = (Leg)_cp;                            \
+	(C2) = (Leg)(_cp >> CAT_LEG_BITS);          \
 }
 
 // p(C2:C1:C0) = A * B + (C2:C1:C0)
-#define CAT_LEG_COMBA3(A, B, C0, C1, C2)     \
-{                                            \
-	LegPair _cp = (LegPair)(A) * (B) + (C0); \
-	(C0) = (Leg)_cp;                         \
-	_cp = (_cp >> CAT_LEG_BITS) + (C1);      \
-	(C1) = (Leg)_cp;                         \
-	(C2) += (Leg)(_cp >> CAT_LEG_BITS);      \
+#define CAT_LEG_COMBA3(A, B, C0, C1, C2)        \
+{                                               \
+	LegPair _cp = CAT_LEG_PAIRMUL(A, B) + (C0); \
+	(C0) = (Leg)_cp;                            \
+	_cp = (_cp >> CAT_LEG_BITS) + (C1);         \
+	(C1) = (Leg)_cp;                            \
+	(C2) += (Leg)(_cp >> CAT_LEG_BITS);         \
 }
 
 // Q(hi:lo) = A(hi:lo) / B
