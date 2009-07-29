@@ -30,10 +30,10 @@ namespace cat {
 
 // Structure packing syntax
 #if defined(__INTEL_COMPILER) || defined(__ICL) || defined(__ICC) || defined(__ECC)
-# define CAT_COMPILER_ICC /* Intel C++ Compiler */
-# define CAT_COMPILER_MSVC /* Compatible with MSVC */
+# define CAT_COMPILER_ICC /* Intel C++ Compiler; compatible with MSVC and GCC */
+#endif
 
-#elif defined(__GNUC__) || defined(__APPLE_CC__)
+#if defined(__GNUC__) || defined(__APPLE_CC__)
 # define CAT_COMPILER_GCC /* GNU C++ Compiler */
 
 # define CAT_PACKED __attribute__((packed)) __attribute__((aligned(4)));
@@ -42,6 +42,7 @@ namespace cat {
 # define CAT_ASM_BEGIN __asm__ __volatile__ (
 # define CAT_ASM_END );
 # define CAT_TLS __thread
+# define__restrict__
 
 #if defined(DEBUG)
 # define CAT_DEBUG
@@ -55,6 +56,7 @@ namespace cat {
 # define CAT_ASM_BEGIN _asm {
 # define CAT_ASM_END }
 # define CAT_TLS __declspec(thread)
+# define__restrict
 
 #if !defined(NDEBUG)
 # define CAT_DEBUG
@@ -89,6 +91,7 @@ namespace cat {
 # define CAT_ASM_BEGIN __asm {
 # define CAT_ASM_END }
 # define CAT_TLS __declspec( thread )
+//# define__restrict
 
 # define WIN32_LEAN_AND_MEAN
 # if defined(_DEBUG)
@@ -290,6 +293,7 @@ enum QuadCoords
 #pragma intrinsic(_byteswap_uint64)
 #pragma intrinsic(_BitScanForward)
 #pragma intrinsic(_BitScanReverse)
+#pragma intrinsic(__emulu)
 
 #if defined(CAT_ARCH_64)
 #pragma intrinsic(__rdtsc)
