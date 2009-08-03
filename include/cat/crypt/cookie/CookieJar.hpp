@@ -23,7 +23,7 @@
 #ifndef CAT_COOKIE_JAR_HPP
 #define CAT_COOKIE_JAR_HPP
 
-#include <cat/Platform.hpp>
+#include <cat/crypt/rand/Fortuna.hpp>
 
 namespace cat {
 
@@ -47,7 +47,7 @@ class CookieJar
 
 public:
     // Initialize to a random 512-bit key on startup
-    void Initialize();
+    void Initialize(FortunaOutput *csprng);
 
     // Thread-safe and lock-free
     u32 Generate(u32 ip, u16 port);

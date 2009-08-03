@@ -30,20 +30,43 @@ namespace cat {
 class Aligned
 {
 public:
-    // Allocates memory aligned to a 16 byte boundary from the heap
-    static void *Alloc(int bytes);
+	Aligned() {}
 
-    // Allocates an array of a given type on a 16 byte boundary from the heap
-    template<typename T> static T *New(int array_size)
+	// Acquires memory aligned to a CPU cache-line byte boundary from the heap
+    static void *Acquire(int bytes);
+
+    // Release an aligned pointer
+    static void Release(void *ptr);
+
+    template<class T>
+    static inline void Delete(T *ptr)
     {
-        return (T *)Alloc(sizeof(T) * array_size);
+        ptr->~T();
+        Release(ptr);
     }
 
-    // Frees an aligned pointer
-    static void Delete(void *ptr);
+	static Aligned ii;
 };
 
 
 } // namespace cat
+
+#include <cstddef>
+
+// Provide placement new constructor and delete pair to allow for
+// an easy syntax to create objects from the RegionAllocator:
+//   T *a = new (Aligned()) T();
+// The object can be freed with:
+//   Aligned::Delete(a);
+// Which insures that the destructor is called before freeing memory
+inline void *operator new[](std::size_t bytes, cat::Aligned &) throw()
+{
+	return cat::Aligned::Acquire((int)bytes);
+}
+
+inline void operator delete(void *ptr, cat::Aligned &) throw()
+{
+	cat::Aligned::Release(ptr);
+}
 
 #endif // CAT_ENDIAN_NEUTRAL_HPP

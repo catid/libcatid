@@ -20,14 +20,11 @@
 #include <cat/crypt/cookie/CookieJar.hpp>
 #include <cat/time/Clock.hpp>
 #include <cat/math/BitMath.hpp>
-#include <cat/crypt/rand/Fortuna.hpp>
 using namespace cat;
 
 // Initialize to a random 512-bit key on startup
-void CookieJar::Initialize()
+void CookieJar::Initialize(FortunaOutput *csprng)
 {
-    FortunaOutput *csprng = FortunaFactory::GetLocalOutput();
-
     csprng->Generate(key, sizeof(key));
 }
 

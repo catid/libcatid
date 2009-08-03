@@ -20,7 +20,7 @@
 #include <cat/math/BigRTL.hpp>
 using namespace cat;
 
-bool BigRTL::LoadString(const char *in, int base, Leg *out)
+bool BigRTL::LoadFromString(const char *in, int base, Leg *out)
 {
     char ch;
     CopyX(0, out);

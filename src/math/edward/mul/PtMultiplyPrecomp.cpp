@@ -27,7 +27,7 @@ Leg *BigTwistedEdward::PtMultiplyPrecompAlloc(const Leg *in, int w)
 {
     int points = (POINT_STRIDE << (w - 1));
 
-    Leg *out = Aligned::New<Leg>(points * POINT_STRIDE);
+    Leg *out = new (Aligned::ii) Leg[points * POINT_STRIDE];
 
     PtMultiplyPrecomp(in, w, out);
 

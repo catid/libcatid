@@ -20,16 +20,67 @@
 #include <cat/port/AlignedAlloc.hpp>
 using namespace cat;
 
-// Returns a pointer aligned to a 16 byte boundary
-void *Aligned::Alloc(int bytes)
+
+Aligned Aligned::ii;
+
+
+static int CPU_CACHELINE_BYTES = 0;
+
+static int DetermineCacheLineBytes()
 {
-    u8 *buffer = new u8[16 + bytes];
+#if defined(CAT_ASM_INTEL) && defined(CAT_ISA_X86)
+	u32 cacheline = 0;
+	CAT_ASM_BEGIN
+		push ebx
+		xor ecx, ecx
+next:	mov eax, 4
+		cpuid
+		test eax, 31
+		jz done
+		or [cacheline], ebx
+		lea ecx, [ecx+1]
+		jmp next
+done:	pop ebx
+	CAT_ASM_END
+
+	return (cacheline & 4095) + 1;
+#elif defined(CAT_ASM_ATT) && defined(CAT_ISA_X86)
+	u32 cacheline = 0;
+	CAT_ASM_BEGIN
+		"pushl %%ebx\n\t"
+		"xorl %%ecx, %%ecx\n\t"
+		"next: movl $4, %%eax\n\t"
+		"cpuid\n\t"
+		"testl $31, %%eax\n\t"
+		"jz done\n\t"
+		"orl %%ebx, %0\n\t"
+		"leal 1(%%ecx), %%ecx\n\t"
+		"jmp next\n\t"
+		"done: popl %%ebx"
+		: "=r" (cacheline)
+		: /* no inputs */
+		: "cc"
+	CAT_ASM_END
+
+	return (cacheline & 4095) + 1;
+#else
+	return 64;
+#endif
+}
+
+// Allocates memory aligned to a CPU cache-line byte boundary from the heap
+void *Aligned::Acquire(int bytes)
+{
+	if (!CPU_CACHELINE_BYTES)
+		CPU_CACHELINE_BYTES = DetermineCacheLineBytes();
+
+    u8 *buffer = new u8[CPU_CACHELINE_BYTES + bytes];
     if (!buffer) return 0;
 
-#if defined(CAT_ARCH_64)
-    u8 offset = 16 - ((u8)*(u64*)&buffer & 15);
+#if defined(CAT_WORD_64)
+    u8 offset = CPU_CACHELINE_BYTES - ((u8)*(u64*)&buffer & (CPU_CACHELINE_BYTES-1));
 #else
-    u8 offset = 16 - ((u8)*(u32*)&buffer & 15);
+    u8 offset = CPU_CACHELINE_BYTES - ((u8)*(u32*)&buffer & (CPU_CACHELINE_BYTES-1));
 #endif
 
     buffer += offset;
@@ -39,7 +90,7 @@ void *Aligned::Alloc(int bytes)
 }
 
 // Frees an aligned pointer
-void Aligned::Delete(void *ptr)
+void Aligned::Release(void *ptr)
 {
     if (ptr)
     {

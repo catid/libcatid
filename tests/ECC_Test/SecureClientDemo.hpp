@@ -36,8 +36,8 @@ class SecureClientDemo
     AuthenticatedEncryption auth_enc;
 
 protected:
-    void OnCookie(u8 *buffer);
-    void OnAnswer(u8 *buffer);
+    void OnCookie(BigTwistedEdward *math, FortunaOutput *csprng, u8 *buffer);
+    void OnAnswer(BigTwistedEdward *math, u8 *buffer);
     void OnConnect();
     void OnSessionMessage(u8 *buffer, int bytes);
 

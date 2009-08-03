@@ -64,13 +64,13 @@ template<class T> class Queue;
             struct
             {
                 Node<T> *ptr;
-#if defined(CAT_ARCH_64)
+#if defined(CAT_WORD_64)
                 u64 tag;
 #else
                 u32 tag;
 #endif
             } CAT_PACKED;
-#if defined(CAT_ARCH_64)
+#if defined(CAT_WORD_64)
             volatile u64 N[2];
 #else
             volatile u64 N;
@@ -143,7 +143,7 @@ template<class T> class Queue;
     template<class T>
     Ptr<T>::Ptr()
     {
-#if defined(CAT_ARCH_64)
+#if defined(CAT_WORD_64)
         N[0] = 0;
         N[1] = 0;
 #else
@@ -154,7 +154,7 @@ template<class T> class Queue;
     template<class T>
     bool Ptr<T>::operator==(const Ptr<T> &n)
     {
-#if defined(CAT_ARCH_64)
+#if defined(CAT_WORD_64)
         return N[0] == n.N[0] && N[1] == n.N[1];
 #else
         return N == n.N;
@@ -164,7 +164,7 @@ template<class T> class Queue;
     template<class T>
     bool Ptr<T>::operator!=(const Ptr<T> &n)
     {
-#if defined(CAT_ARCH_64)
+#if defined(CAT_WORD_64)
         return N[0] != n.N[0] || N[1] != n.N[1];
 #else
         return N != n.N;

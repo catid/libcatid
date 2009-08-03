@@ -24,6 +24,7 @@
 #define CAT_KEY_AGREEMENT_HPP
 
 #include <cat/math/BigTwistedEdward.hpp>
+#include <cat/crypt/rand/Fortuna.hpp>
 
 namespace cat {
 
@@ -88,7 +89,9 @@ namespace cat {
 class KeyAgreementCommon
 {
 public:
-    // Math library register usage
+	static BigTwistedEdward *InstantiateMath(int bits);
+
+	// Math library register usage
     static const int ECC_REG_OVERHEAD = 31;
 
     // C: field prime modulus (2^bits - C)
@@ -109,11 +112,6 @@ protected:
     int KeyBits, KeyBytes, KeyLegs;
 
     bool Initialize(int bits);
-    BigTwistedEdward *InstantiateMath();
-    BigTwistedEdward *GetLocalMath();
-
-public:
-    static void DeleteLocalMath();
 };
 
 

@@ -17,7 +17,7 @@
     License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define _WIN32_WINNT 0x0501 /* Windows XP SP1 or later */
+#define _WIN32_WINNT 0x0502 /* Windows XP SP2 or later */
 
 #include <cat/crypt/rand/Fortuna.hpp>
 using namespace cat;
@@ -165,7 +165,7 @@ void FortunaFactory::PollInvariantSources(int pool_index)
 
     // Hardware profile
     HW_PROFILE_INFO hw_profile;
-    if (GetCurrentHwProfile(&hw_profile))
+    if (GetCurrentHwProfileA(&hw_profile))
         pool.Crunch(&hw_profile, sizeof(hw_profile));
 
     // Windows version
@@ -255,10 +255,10 @@ void FortunaFactory::PollSlowEntropySources(int pool_index)
     if (GetProcessMemoryInfo(CurrentProcess, &mem_counters, sizeof(mem_counters)))
         pool.Crunch(&mem_counters, sizeof(mem_counters));
 
-    // Performance info
-    PERFORMANCE_INFORMATION perf_info;
-    if (GetPerformanceInfo(&perf_info, sizeof(perf_info)))
-        pool.Crunch(&perf_info, sizeof(perf_info));
+    // Global memory status
+    MEMORYSTATUSEX mem_stats;
+	if (GlobalMemoryStatusEx(&mem_stats))
+		pool.Crunch(&mem_stats, sizeof(mem_stats));
 
     // Cycles at the end
     u32 cycles_end = Clock::cycles();

@@ -40,7 +40,7 @@ void SecureServerDemo::OnHello(const Address &source, u8 *buffer)
     client_ref->OnPacket(my_addr, response, sizeof(response));
 }
 
-void SecureServerDemo::OnChallenge(const Address &source, u8 *buffer)
+void SecureServerDemo::OnChallenge(BigTwistedEdward *math, FortunaOutput *csprng, const Address &source, u8 *buffer)
 {
     u32 *cookie = (u32*)(buffer + CAT_C2S_CHALLENGE_BYTES);
 
@@ -58,7 +58,7 @@ void SecureServerDemo::OnChallenge(const Address &source, u8 *buffer)
     u8 answer[CAT_S2C_ANSWER_BYTES];
 
     double t1 = Clock::usec();
-    if (!tun_server.ProcessChallenge(buffer, CAT_C2S_CHALLENGE_BYTES, answer, CAT_S2C_ANSWER_BYTES, &client->auth_enc))
+    if (!tun_server.ProcessChallenge(math, csprng, buffer, CAT_C2S_CHALLENGE_BYTES, answer, CAT_S2C_ANSWER_BYTES, &client->auth_enc))
     {
         cout << "Server: Ignoring invalid challenge message" << endl;
         delete client;
@@ -125,15 +125,24 @@ void SecureServerDemo::Cleanup()
     connections.clear();
 }
 
+static BigTwistedEdward *tls_math = 0;
+static FortunaOutput *tls_csprng = 0;
+
 void SecureServerDemo::Reset(SecureClientDemo *cclient_ref, const u8 *server_public_key, const u8 *server_private_key)
 {
     //cout << "Server: Reset!" << endl;
 
+	if (!tls_math)
+	{
+		tls_math = KeyAgreementCommon::InstantiateMath(CAT_DEMO_BITS);
+		tls_csprng = FortunaFactory::ii->Create();
+	}
+
     client_ref = cclient_ref;
     my_addr = Address(0x11223344, 0x5566);
-    cookie_jar.Initialize();
+    cookie_jar.Initialize(tls_csprng);
 
-    if (!tun_server.Initialize(CAT_DEMO_BITS, server_public_key, CAT_DEMO_PUBLIC_KEY_BYTES, server_private_key, CAT_DEMO_PRIVATE_KEY_BYTES))
+    if (!tun_server.Initialize(tls_math, server_public_key, CAT_DEMO_PUBLIC_KEY_BYTES, server_private_key, CAT_DEMO_PRIVATE_KEY_BYTES))
     {
         cout << "Server: Unable to initialize" << endl;
         return;
@@ -163,13 +172,13 @@ void SecureServerDemo::OnPacket(const Address &source, u8 *buffer, int bytes)
     }
     else
     {
-        if (bytes == CAT_C2S_HELLO_BYTES)
+		if (bytes == CAT_C2S_HELLO_BYTES)
         {
             OnHello(source, buffer);
         }
         else if (bytes == CAT_C2S_CHALLENGE_BYTES + CAT_S2C_COOKIE_BYTES)
         {
-            OnChallenge(source, buffer);
+            OnChallenge(tls_math, tls_csprng, source, buffer);
         }
         else
             cout << "Server: Ignoring unrecognized length packet from client (before connection)" << endl;

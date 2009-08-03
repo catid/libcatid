@@ -22,14 +22,14 @@
 using namespace std;
 using namespace cat;
 
-void SecureClientDemo::OnCookie(u8 *buffer)
+void SecureClientDemo::OnCookie(BigTwistedEdward *math, FortunaOutput *csprng, u8 *buffer)
 {
     //cout << "Client: Got cookie from the server" << endl;
 
     u8 challenge[CAT_C2S_CHALLENGE_BYTES + CAT_S2C_COOKIE_BYTES];
 
     double t1 = Clock::usec();
-    if (!tun_client.GenerateChallenge(challenge, CAT_C2S_CHALLENGE_BYTES))
+    if (!tun_client.GenerateChallenge(math, csprng, challenge, CAT_C2S_CHALLENGE_BYTES))
     {
         cout << "Client: Unable to generate challenge" << endl;
         return;
@@ -44,10 +44,10 @@ void SecureClientDemo::OnCookie(u8 *buffer)
     server_ref->OnPacket(my_addr, challenge, sizeof(challenge));
 }
 
-void SecureClientDemo::OnAnswer(u8 *buffer)
+void SecureClientDemo::OnAnswer(BigTwistedEdward *math, u8 *buffer)
 {
     double t1 = Clock::usec();
-    if (!tun_client.ProcessAnswer(buffer, CAT_S2C_ANSWER_BYTES, &auth_enc))
+    if (!tun_client.ProcessAnswer(math, buffer, CAT_S2C_ANSWER_BYTES, &auth_enc))
     {
         cout << "Client: Ignoring invalid answer from server" << endl;
         return;
@@ -131,9 +131,18 @@ void SecureClientDemo::OnSessionMessage(u8 *buffer, int bytes)
     server_ref->OnPacket(my_addr, response, sizeof(response));
 }
 
+static BigTwistedEdward *tls_math = 0;
+static FortunaOutput *tls_csprng = 0;
+
 void SecureClientDemo::Reset(SecureServerDemo *cserver_ref, const u8 *server_public_key)
 {
     //cout << "Client: Reset!" << endl;
+
+	if (!tls_math)
+	{
+		tls_math = KeyAgreementCommon::InstantiateMath(CAT_DEMO_BITS);
+		tls_csprng = FortunaFactory::ii->Create();
+	}
 
     server_ref = cserver_ref;
     server_addr = cserver_ref->GetAddress();
@@ -143,7 +152,7 @@ void SecureClientDemo::Reset(SecureServerDemo *cserver_ref, const u8 *server_pub
 
     double t1 = Clock::usec();
 
-    if (!tun_client.Initialize(CAT_DEMO_BITS, server_public_key, CAT_DEMO_PUBLIC_KEY_BYTES))
+    if (!tun_client.Initialize(tls_math, server_public_key, CAT_DEMO_PUBLIC_KEY_BYTES))
     {
         cout << "Client: Unable to initialize" << endl;
         return;
@@ -193,11 +202,11 @@ void SecureClientDemo::OnPacket(const Address &source, u8 *buffer, int bytes)
     {
         if (bytes == CAT_S2C_COOKIE_BYTES)
         {
-            OnCookie(buffer);
+            OnCookie(tls_math, tls_csprng, buffer);
         }
         else if (bytes == CAT_S2C_ANSWER_BYTES)
         {
-            OnAnswer(buffer);
+            OnAnswer(tls_math, buffer);
         }
         else
         {

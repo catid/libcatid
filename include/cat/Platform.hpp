@@ -28,7 +28,6 @@ namespace cat {
 
 //// Compiler ////
 
-// Structure packing syntax
 #if defined(__INTEL_COMPILER) || defined(__ICL) || defined(__ICC) || defined(__ECC)
 # define CAT_COMPILER_ICC /* Intel C++ Compiler; compatible with MSVC and GCC */
 #endif
@@ -37,12 +36,12 @@ namespace cat {
 # define CAT_COMPILER_GCC /* GNU C++ Compiler */
 
 # define CAT_PACKED __attribute__((packed)) __attribute__((aligned(4)));
-# define CAT_INLINE inline
+# define CAT_INLINE inline /* __inline__ __attribute__((always_inline)) */
 # define CAT_ASM_ATT
 # define CAT_ASM_BEGIN __asm__ __volatile__ (
 # define CAT_ASM_END );
 # define CAT_TLS __thread
-# define__restrict__
+# define CAT_RESTRICT __restrict__
 
 #if defined(DEBUG)
 # define CAT_DEBUG
@@ -56,7 +55,7 @@ namespace cat {
 # define CAT_ASM_BEGIN _asm {
 # define CAT_ASM_END }
 # define CAT_TLS __declspec(thread)
-# define__restrict
+# define CAT_RESTRICT __restrict
 
 #if !defined(NDEBUG)
 # define CAT_DEBUG
@@ -91,7 +90,7 @@ namespace cat {
 # define CAT_ASM_BEGIN __asm {
 # define CAT_ASM_END }
 # define CAT_TLS __declspec( thread )
-//# define__restrict
+# define CAT_RESTRICT __restrict
 
 # define WIN32_LEAN_AND_MEAN
 # if defined(_DEBUG)
@@ -103,37 +102,38 @@ namespace cat {
     namespace cat {
 #endif
 
-//// Architecture Endianness ////
 
-#if defined(__sparc) || defined(__sparc__) || defined(__powerpc__) || \
-    defined(__ppc__) || defined(__hppa) || defined(_MIPSEB) || defined(_POWER) || \
-    defined(_M_PPC) || defined(_M_MPPC) || defined(_M_MRX000) || \
-    defined(__POWERPC) || defined(m68k) || defined(powerpc) || \
-    defined(sel) || defined(pyr) || defined(mc68000) || defined(is68k) || \
-    defined(tahoe) || defined(ibm032) || defined(ibm370) || defined(MIPSEB) || \
-    defined(__convex__) || defined(DGUX) || defined(hppa) || defined(apollo) || \
-    defined(_CRAY) || defined(__hp9000) || defined(__hp9000s300) || defined(_AIX) || \
-    defined(__AIX) || defined(__pyr__) || defined(hp9000s700) || defined(_IBMR2) || \
-    defined(_PS3) || defined(__PS3__) || defined(SN_TARGET_PS3) || defined(__ppc64__) || \
-	defined(__BIG_ENDIAN__)
-# define CAT_ENDIAN_BIG
+//// Instruction Set Architecture ////
+
+#if defined(__powerpc__) || defined(__ppc__) || defined(_POWER) || defined(_M_PPC) || \
+	defined(_M_MPPC) || defined(__POWERPC) || defined(powerpc) || defined(_PS3) || \
+	defined(__PS3__) || defined(SN_TARGET_PS3) || defined(__ppc64__)
+# define CAT_ISA_PPC
 #elif defined(__i386__) || defined(i386) || defined(intel) || defined(_M_IX86) || \
-      defined(__alpha__) || defined(__alpha) || defined(__ia64) || defined(__ia64__) || \
-      defined(_M_ALPHA) || defined(ns32000) || defined(__ns32000__) || defined(sequent) || \
-      defined(MIPSEL) || defined(_MIPSEL) || defined(sun386) || defined(__sun386__) || \
-      defined(__x86_64) || defined(_M_IA64) || defined(_M_X64) || defined(__bfin__) || \
-	  defined(__LITTLE_ENDIAN__)
+      defined(__ia64) || defined(__ia64__) || defined(__x86_64) || defined(_M_IA64) || \
+	  defined(_M_X64)
+# define CAT_ISA_X86
+#else
+# error "Add your architecture to the instruction set list"
+#endif
+
+
+//// Endianness ////
+
+#if defined(CAT_ISA_PPC)
+# define CAT_ENDIAN_BIG
+#elif defined(CAT_ISA_X86)
 # define CAT_ENDIAN_LITTLE
 #else
 # error "Add your architecture to the endianness list"
 #endif
 
 
-//// Target Word Size ////
+//// Word Size ////
 
 #if defined(_LP64) || defined(__LP64__) || defined(__arch64__) || defined(_WIN64)
 
-# define CAT_ARCH_64
+# define CAT_WORD_64
 
 // 64-bit MSVC does not support inline assembly
 # if defined(CAT_COMPILER_MSVC)
@@ -142,7 +142,7 @@ namespace cat {
 
 #else // Assuming 32-bit otherwise!
 
-# define CAT_ARCH_32
+# define CAT_WORD_32
 
 #endif
 
@@ -186,7 +186,7 @@ namespace cat {
     typedef int32_t   s32;
     typedef uint64_t  u64;
     typedef int64_t   s64;
-#if defined(CAT_ARCH_64)
+#if defined(CAT_WORD_64)
     typedef uint128_t u128;
     typedef int128_t  s128;
 #endif
@@ -295,7 +295,7 @@ enum QuadCoords
 #pragma intrinsic(_BitScanReverse)
 #pragma intrinsic(__emulu)
 
-#if defined(CAT_ARCH_64)
+#if defined(CAT_WORD_64)
 #pragma intrinsic(__rdtsc)
 #pragma intrinsic(_umul128)
 #pragma intrinsic(_BitScanForward64)

@@ -18,6 +18,7 @@
 */
 
 #include <cat/math/BigPseudoMersenne.hpp>
+#include <cstring>
 using namespace cat;
 
 BigPseudoMersenne::BigPseudoMersenne(int regs, int bits, int C)

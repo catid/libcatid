@@ -177,21 +177,8 @@ void FortunaFactory::Shutdown()
     ShutdownEntropySources();
 }
 
-static CAT_TLS FortunaOutput *TLS_Output = 0;
-
-// Allocate/Get the Fortuna object for the current thread
-FortunaOutput *FortunaFactory::GetLocalOutput()
+// Create a new Fortuna object
+FortunaOutput *FortunaFactory::Create()
 {
-    if (!TLS_Output) TLS_Output = new FortunaOutput;
-    return TLS_Output;
-}
-
-// Free memory associated with this thread to avoid a memory leak
-void FortunaFactory::DeleteLocalOutput()
-{
-    if (TLS_Output)
-    {
-        delete TLS_Output;
-        TLS_Output = 0;
-    }
+    return new FortunaOutput;
 }

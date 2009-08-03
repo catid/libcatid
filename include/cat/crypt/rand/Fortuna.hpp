@@ -60,8 +60,7 @@
     + FortunaFactory
         + Must be initialized on startup and shut down on shutdown
         + Spawns a thread to periodically collect additional entropy
-        + Manages the thread-local storage (TLS) of FortunaOutput objects
-        + Provides an interface to get the FortunaOutput for the current thread
+        + Can create FortunaOutput objects
 
     + FortunaOutput
         + Reseeds based on master seed in the FortunaFactory
@@ -77,8 +76,8 @@
 #include <cat/Singleton.hpp>
 
 #if defined(CAT_OS_WINDOWS)
-#include <windows.h>
-#include <wincrypt.h>
+# include <windows.h>
+# include <wincrypt.h>
 #endif
 
 namespace cat {
@@ -130,11 +129,8 @@ public:
     // Stop the entropy generator
     void Shutdown();
 
-    // Allocate/Get the Fortuna object for the current thread
-    static FortunaOutput *GetLocalOutput();
-
-    // Free memory associated with this thread to avoid a memory leak
-    static void DeleteLocalOutput();
+    // Create a new Fortuna object
+    static FortunaOutput *Create();
 };
 
 

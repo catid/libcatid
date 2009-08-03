@@ -408,9 +408,6 @@ int main()
     cout << endl << "ChaCha testing and timing:" << endl;
     TestChaCha();
 
-    FortunaFactory::DeleteLocalOutput();
-    KeyAgreementCommon::DeleteLocalMath();
-
     return 0;
 }
 /*
@@ -787,7 +784,10 @@ void ECCTest()
 */
 void HandshakeTest()
 {
-    for (;;)
+	BigTwistedEdward *tls_math = KeyAgreementCommon::InstantiateMath(CAT_DEMO_BITS);
+	FortunaOutput *tls_csprng = FortunaFactory::ii->Create();
+
+	for (;;)
     {
         // Offline:
 
@@ -796,7 +796,7 @@ void HandshakeTest()
         KeyMaker bob_the_key_maker;
 
         //cout << "Generating server public and private keys..." << endl;
-        if (!bob_the_key_maker.GenerateKeyPair(CAT_DEMO_BITS, server_public_key, CAT_DEMO_PUBLIC_KEY_BYTES, server_private_key, CAT_DEMO_PRIVATE_KEY_BYTES))
+        if (!bob_the_key_maker.GenerateKeyPair(tls_math, tls_csprng, server_public_key, CAT_DEMO_PUBLIC_KEY_BYTES, server_private_key, CAT_DEMO_PRIVATE_KEY_BYTES))
         {
             cout << "FAILURE: Unable to generate key pair" << endl;
             return;

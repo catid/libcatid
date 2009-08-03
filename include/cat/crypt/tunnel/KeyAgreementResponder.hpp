@@ -33,8 +33,7 @@ class KeyAgreementResponder : public KeyAgreementCommon
     Leg *b; // Responder's private key (kept secret)
     Leg *B; // Responder's public key (pre-shared with initiator)
     Leg *G; // Generator point (pre-shared with initiator as part of public key)
-
-    Leg *G_MultPrecomp;
+    Leg *G_MultPrecomp; // 8-bit table for multiplication
 
     bool AllocateMemory();
     void FreeMemory();
@@ -43,10 +42,12 @@ public:
     KeyAgreementResponder();
     ~KeyAgreementResponder();
 
-    bool Initialize(int bits, const u8 *responder_public_key, int public_bytes,
-                              const u8 *responder_private_key, int private_bytes);
+    bool Initialize(BigTwistedEdward *math,
+					const u8 *responder_public_key, int public_bytes,
+                    const u8 *responder_private_key, int private_bytes);
 
-    bool ProcessChallenge(const u8 *initiator_challenge, int challenge_bytes,
+    bool ProcessChallenge(BigTwistedEdward *math, FortunaOutput *csprng,
+						  const u8 *initiator_challenge, int challenge_bytes,
                           u8 *responder_answer, int answer_bytes,
                           AuthenticatedEncryption *encryption);
 };
