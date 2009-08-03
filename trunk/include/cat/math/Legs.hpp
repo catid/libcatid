@@ -28,7 +28,7 @@
 namespace cat {
 
 
-#if defined(CAT_ARCH_64)
+#if defined(CAT_WORD_64)
 
 #define CAT_LEG_BITS 64
 #define CAT_USE_LEGS_ASM64 /* use 64-bit assembly code inner loops */
@@ -42,7 +42,7 @@ namespace cat {
 # define CAT_NO_LEGPAIR
 #endif
 
-#elif defined(CAT_ARCH_32)
+#elif defined(CAT_WORD_32)
 
 #define CAT_LEG_BITS 32
 #define CAT_USED_BITS(x) BitMath::BSR32(x) /* does not work if x = 0 */
@@ -56,7 +56,7 @@ namespace cat {
 # define CAT_LEG_PAIRMUL(A, B) ((LegPair)A * B)
 #endif
 
-#endif // CAT_ARCH_32
+#endif // CAT_WORD_32
 
 
 #if defined(CAT_NO_LEGPAIR)

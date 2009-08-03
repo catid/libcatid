@@ -20,7 +20,6 @@
 #include <cat/crypt/tunnel/KeyAgreementResponder.hpp>
 #include <cat/crypt/tunnel/AuthenticatedEncryption.hpp>
 #include <cat/crypt/SecureCompare.hpp>
-#include <cat/crypt/rand/Fortuna.hpp>
 #include <cat/port/AlignedAlloc.hpp>
 using namespace cat;
 
@@ -28,7 +27,7 @@ bool KeyAgreementResponder::AllocateMemory()
 {
     FreeMemory();
 
-    b = Aligned::New<Leg>(KeyLegs * 9);
+    b = new (Aligned::ii) Leg[KeyLegs * 9];
     B = b + KeyLegs;
     G = B + KeyLegs * 4;
 
@@ -59,8 +58,13 @@ KeyAgreementResponder::~KeyAgreementResponder()
     FreeMemory();
 }
 
-bool KeyAgreementResponder::Initialize(int bits, const u8 *responder_public_key, int public_bytes, const u8 *responder_private_key, int private_bytes)
+bool KeyAgreementResponder::Initialize(BigTwistedEdward *math,
+									   const u8 *responder_public_key, int public_bytes,
+									   const u8 *responder_private_key, int private_bytes)
 {
+	if (!math) return false;
+	int bits = math->RegBytes() * 8;
+
     // Validate and accept number of bits
     if (!KeyAgreementCommon::Initialize(bits))
         return false;
@@ -73,10 +77,6 @@ bool KeyAgreementResponder::Initialize(int bits, const u8 *responder_public_key,
     if (private_bytes != KeyBytes) return false;
     if (public_bytes != KeyBytes*4) return false;
 
-    // Create a math object
-    BigTwistedEdward *math = GetLocalMath();
-    if (!math) return false;
-
     // Unpack the responder's key pair and generator point
     math->Load(responder_private_key, KeyBytes, b);
     if (!math->LoadVerifyAffineXY(responder_public_key, responder_public_key+KeyBytes, G))
@@ -86,23 +86,23 @@ bool KeyAgreementResponder::Initialize(int bits, const u8 *responder_public_key,
     math->PtUnpack(G);
     math->PtUnpack(B);
 
+	// Precompute an 8-bit table for multiplication
     G_MultPrecomp = math->PtMultiplyPrecompAlloc(G, 8);
     if (!G_MultPrecomp) return false;
 
     return true;
 }
 
-bool KeyAgreementResponder::ProcessChallenge(const u8 *initiator_challenge, int challenge_bytes,
+bool KeyAgreementResponder::ProcessChallenge(BigTwistedEdward *math, FortunaOutput *csprng,
+											 const u8 *initiator_challenge, int challenge_bytes,
                                              u8 *responder_answer, int answer_bytes,
                                              AuthenticatedEncryption *encryption)
 {
     // Verify that inputs are of the correct length
+#if defined(DEBUG)
     if (challenge_bytes != KeyBytes*2 || answer_bytes != KeyBytes*3)
         return false;
-
-    // Create a math object
-    BigTwistedEdward *math = GetLocalMath();
-    if (!math) return false;
+#endif
 
     Leg *A = math->Get(0);
     Leg *y = math->Get(4);
@@ -118,10 +118,6 @@ bool KeyAgreementResponder::ProcessChallenge(const u8 *initiator_challenge, int 
     // hA = h * A for small subgroup attack resistance
     math->PtDoubleZ1(A, hA);
     math->PtEDouble(hA, hA);
-
-    // Create a PRNG
-    FortunaOutput *csprng = FortunaFactory::GetLocalOutput();
-    if (!csprng) return false;
 
     // y = ephemeral key
     do csprng->Generate(y, KeyBytes);

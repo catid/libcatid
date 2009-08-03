@@ -43,11 +43,14 @@ public:
     KeyAgreementInitiator();
     ~KeyAgreementInitiator();
 
-    bool Initialize(int bits, const u8 *responder_public_key, int public_bytes);
+    bool Initialize(BigTwistedEdward *math,
+					const u8 *responder_public_key, int public_bytes);
 
-    bool GenerateChallenge(u8 *initiator_challenge, int challenge_bytes);
+    bool GenerateChallenge(BigTwistedEdward *math, FortunaOutput *csprng,
+						   u8 *initiator_challenge, int challenge_bytes);
 
-    bool ProcessAnswer(const u8 *responder_answer, int answer_bytes,
+    bool ProcessAnswer(BigTwistedEdward *math,
+					   const u8 *responder_answer, int answer_bytes,
                        AuthenticatedEncryption *encryption);
 };
 

@@ -18,11 +18,13 @@
 */
 
 #include <cat/crypt/tunnel/KeyMaker.hpp>
-#include <cat/crypt/rand/Fortuna.hpp>
 using namespace cat;
 
-bool KeyMaker::GenerateKeyPair(int bits, u8 *public_key, int public_bytes, u8 *private_key, int private_bytes)
+bool KeyMaker::GenerateKeyPair(BigTwistedEdward *math, FortunaOutput *csprng, u8 *public_key, int public_bytes, u8 *private_key, int private_bytes)
 {
+    if (!csprng || !math) return false;
+	int bits = math->RegBytes() * 8;
+
     // Validate and accept number of bits
     if (!KeyAgreementCommon::Initialize(bits))
         return false;
@@ -30,14 +32,6 @@ bool KeyMaker::GenerateKeyPair(int bits, u8 *public_key, int public_bytes, u8 *p
     // Verify that inputs are of the correct length
     if (private_bytes != KeyBytes) return false;
     if (public_bytes != KeyBytes*4) return false;
-
-    // Create a math object
-    BigTwistedEdward *math = GetLocalMath();
-    if (!math) return false;
-
-    // Create a PRNG
-    FortunaOutput *csprng = FortunaFactory::GetLocalOutput();
-    if (!csprng) return false;
 
     Leg *b = math->Get(0);
     Leg *B = math->Get(1);

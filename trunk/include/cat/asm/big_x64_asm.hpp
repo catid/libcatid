@@ -26,7 +26,7 @@
 
 #include <cat/math/Legs.hpp>
 
-#if defined(CAT_ARCH_64)
+#if defined(CAT_WORD_64)
 
 namespace cat {
 
@@ -43,6 +43,6 @@ extern "C" void divide64_core(Leg A_used, Leg A_overflow, const Leg *A, Leg B_us
 
 } // namespace cat
 
-#endif // CAT_ARCH_64
+#endif // CAT_WORD_64
 
 #endif // CAT_BIG_X64_ASM_HPP

@@ -124,7 +124,7 @@ class SecureServerDemo
 
 protected:
     void OnHello(const Address &source, u8 *buffer);
-    void OnChallenge(const Address &source, u8 *buffer);
+    void OnChallenge(BigTwistedEdward *math, FortunaOutput *csprng, const Address &source, u8 *buffer);
 
     void OnSessionMessage(Connection *client, u8 *buffer, int bytes);
 

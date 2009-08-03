@@ -19,7 +19,6 @@
 
 #include <cat/crypt/tunnel/KeyAgreementInitiator.hpp>
 #include <cat/crypt/SecureCompare.hpp>
-#include <cat/crypt/rand/Fortuna.hpp>
 #include <cat/port/AlignedAlloc.hpp>
 using namespace cat;
 
@@ -27,7 +26,7 @@ bool KeyAgreementInitiator::AllocateMemory()
 {
     FreeMemory();
 
-    B = Aligned::New<Leg>(KeyLegs*17);
+    B = new (Aligned::ii) Leg[KeyLegs * 17];
     G = B + KeyLegs*4;
     a = G + KeyLegs*4;
     A = a + KeyLegs;
@@ -56,8 +55,11 @@ KeyAgreementInitiator::~KeyAgreementInitiator()
     FreeMemory();
 }
 
-bool KeyAgreementInitiator::Initialize(int bits, const u8 *responder_public_key, int public_bytes)
+bool KeyAgreementInitiator::Initialize(BigTwistedEdward *math, const u8 *responder_public_key, int public_bytes)
 {
+	if (!math) return false;
+	int bits = math->RegBytes() * 8;
+
     // Validate and accept number of bits
     if (!KeyAgreementCommon::Initialize(bits))
         return false;
@@ -68,10 +70,6 @@ bool KeyAgreementInitiator::Initialize(int bits, const u8 *responder_public_key,
 
     // Verify that inputs are of the correct length
     if (public_bytes != KeyBytes*4) return false;
-
-    // Create a math object
-    BigTwistedEdward *math = GetLocalMath();
-    if (!math) return false;
 
     // Unpack the responder's key pair and generator point
     if (!math->LoadVerifyAffineXY(responder_public_key, responder_public_key + KeyBytes, G))
@@ -87,18 +85,11 @@ bool KeyAgreementInitiator::Initialize(int bits, const u8 *responder_public_key,
     return true;
 }
 
-bool KeyAgreementInitiator::GenerateChallenge(u8 *initiator_challenge, int challenge_bytes)
+bool KeyAgreementInitiator::GenerateChallenge(BigTwistedEdward *math, FortunaOutput *csprng,
+											  u8 *initiator_challenge, int challenge_bytes)
 {
     // Verify that inputs are of the correct length
     if (challenge_bytes != KeyBytes*2) return false;
-
-    // Create a math object
-    BigTwistedEdward *math = GetLocalMath();
-    if (!math) return false;
-
-    // Create a PRNG
-    FortunaOutput *csprng = FortunaFactory::GetLocalOutput();
-    if (!csprng) return false;
 
     // a = initiator private key
     do csprng->Generate(a, KeyBytes);
@@ -113,15 +104,12 @@ bool KeyAgreementInitiator::GenerateChallenge(u8 *initiator_challenge, int chall
     return true;
 }
 
-bool KeyAgreementInitiator::ProcessAnswer(const u8 *responder_answer, int answer_bytes,
+bool KeyAgreementInitiator::ProcessAnswer(BigTwistedEdward *math,
+										  const u8 *responder_answer, int answer_bytes,
                                           AuthenticatedEncryption *encryption)
 {
     // Verify that inputs are of the correct length
     if (answer_bytes != KeyBytes*3) return false;
-
-    // Create a math object
-    BigTwistedEdward *math = GetLocalMath();
-    if (!math) return false;
 
     Leg *Y = math->Get(0);
     Leg *S = math->Get(4);

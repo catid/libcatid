@@ -28,12 +28,12 @@ void BigRTL::Multiply(const Leg *in_a, const Leg *in_b, Leg *out)
 	switch (library_legs)
 	{
 	// MSVC really grinds to build this, so I have limited the number of cases that use template metaprogramming
-#if defined(CAT_ARCH_64)
+#if defined(CAT_WORD_64)
 	case 4: CombaMul<4>(in_a, in_b, out); return;
 	case 6: CombaMul<6>(in_a, in_b, out); return;
 #endif
 	case 8: CombaMul<8>(in_a, in_b, out); return;
-#if defined(CAT_ARCH_32)
+#if defined(CAT_WORD_32)
 	case 12: CombaMul<12>(in_a, in_b, out); return;
 	case 16: CombaMul<16>(in_a, in_b, out); return;
 #endif

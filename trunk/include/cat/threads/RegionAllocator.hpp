@@ -72,7 +72,7 @@ public:
     void Release(void *ptr);
 
     template<class T>
-    inline void Delete(T *ptr)
+    CAT_INLINE void Delete(T *ptr)
     {
         ptr->~T();
         Release(ptr);

@@ -96,7 +96,7 @@ void Skein::HashComputation512(const void *_message, int blocks, u32 byte_count,
             R_512_7_0=33, R_512_7_1=51, R_512_7_2=39, R_512_7_3=35,
         };
 
-#if defined(CAT_ARCH_64)
+#if defined(CAT_WORD_64)
         // Should unroll farther on 64-bit OS
         for (int round = 1; round <= 18; round += 6)
         {

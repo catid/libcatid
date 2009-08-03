@@ -20,7 +20,7 @@
 #include <cat/math/BigRTL.hpp>
 using namespace cat;
 
-#if defined(CAT_ARCH_64)
+#if defined(CAT_WORD_64)
 
 #include <cat/asm/big_x64_asm.hpp>
 
@@ -39,4 +39,4 @@ void BigRTL::DivideCore(int A_used, Leg A_overflow, Leg *A, int B_used, Leg *B, 
     divide64_core(A_used, A_overflow, A, B_used, B, Q);
 }
 
-#endif // CAT_X64_ASM
+#endif // CAT_WORD_64

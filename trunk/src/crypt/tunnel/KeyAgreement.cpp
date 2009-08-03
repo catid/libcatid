@@ -37,34 +37,13 @@ bool KeyAgreementCommon::Initialize(int bits)
     return false;
 }
 
-BigTwistedEdward *KeyAgreementCommon::InstantiateMath()
+BigTwistedEdward *KeyAgreementCommon::InstantiateMath(int bits)
 {
-    switch (KeyBits)
+    switch (bits)
     {
-    case 256:    return new BigTwistedEdward(ECC_REG_OVERHEAD, 256, EDWARD_C_256, EDWARD_D_256);
-    case 384:    return new BigTwistedEdward(ECC_REG_OVERHEAD, 384, EDWARD_C_384, EDWARD_D_384);
-    case 512:    return new BigTwistedEdward(ECC_REG_OVERHEAD, 512, EDWARD_C_512, EDWARD_D_512);
-    default:    return 0;
-    }
-}
-
-static CAT_TLS BigTwistedEdward *TLS_MathLib = 0;
-
-BigTwistedEdward *KeyAgreementCommon::GetLocalMath()
-{
-    BigTwistedEdward *math = TLS_MathLib;
-
-    if (math) return math;
-    else return TLS_MathLib = InstantiateMath();
-}
-
-void KeyAgreementCommon::DeleteLocalMath()
-{
-    BigTwistedEdward *math = TLS_MathLib;
-
-    if (math)
-    {
-        delete math;
-        TLS_MathLib = 0;
+    case 256: return new BigTwistedEdward(ECC_REG_OVERHEAD, 256, EDWARD_C_256, EDWARD_D_256);
+    case 384: return new BigTwistedEdward(ECC_REG_OVERHEAD, 384, EDWARD_C_384, EDWARD_D_384);
+    case 512: return new BigTwistedEdward(ECC_REG_OVERHEAD, 512, EDWARD_C_512, EDWARD_D_512);
+    default:  return 0;
     }
 }

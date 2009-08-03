@@ -23,6 +23,7 @@
 #define CAT_I_CRYPT_HASH_HPP
 
 #include <cat/Platform.hpp>
+#include <cstring>
 
 namespace cat {
 
@@ -39,7 +40,7 @@ public:
     // Returns the number of bytes in a message digest produced by this hash
     CAT_INLINE int GetDigestByteCount() { return digest_bytes; }
 
-    CAT_INLINE void CrunchString(const char *s) { Crunch(s, (int)strlen(s) + 1); }
+	CAT_INLINE void CrunchString(const char *s) { Crunch(s, (int)std::strlen(s) + 1); }
 
 public:
     // Begin a new key

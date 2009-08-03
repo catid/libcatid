@@ -77,7 +77,7 @@ namespace cat {
         void Load(const void *in, int bytes, Leg *out);
         void Save(const Leg *in, void *out, int bytes);
 
-        bool LoadString(const char *in, int base, Leg *out);
+        bool LoadFromString(const char *in, int base, Leg *out);
 
     public:
         void Copy(const Leg *in, Leg *out);

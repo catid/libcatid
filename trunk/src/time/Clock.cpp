@@ -24,9 +24,7 @@
 #elif defined(CAT_OS_WINDOWS)
 # include <windows.h>
 # include <mmsystem.h>
-# ifdef CAT_COMPILER_MSVC
-#  pragma comment (lib, "winmm")
-# endif
+# pragma comment (lib, "winmm")
 #endif
 
 #include <ctime>
@@ -188,7 +186,7 @@ u32 Clock::cycles()
 
 #elif defined(CAT_COMPILER_MSVC)
 
-# if defined(CAT_ARCH_64)
+# if defined(CAT_WORD_64)
     x[0] = (u32)__rdtsc();
 # else
     _asm { push edx };
