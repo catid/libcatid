@@ -21,6 +21,7 @@
 
 #if defined(CAT_OS_LINUX)
 # include <sys/time.h>
+# include <stdlib.h> // qsort
 #elif defined(CAT_OS_WINDOWS)
 # include <windows.h>
 # include <mmsystem.h>
@@ -163,7 +164,10 @@ std::string Clock::format(const char *format_string)
     pLocalTime = localtime(&long_time);
 # endif
 #else
-    localtime_r(&localTime, &long_time);
+    struct tm localTime;
+    time_t long_time;
+    localtime_r(&long_time, &localTime);
+    pLocalTime = &localTime;
 #endif
 
     strftime(ts, sizeof(ts), format_string, pLocalTime);

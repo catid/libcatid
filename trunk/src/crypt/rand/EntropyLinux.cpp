@@ -22,8 +22,4 @@ using namespace cat;
 
 #if defined(CAT_OS_LINUX)
 
-void Fortuna::PollEntropySources()
-{
-}
-
 #endif
