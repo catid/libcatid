@@ -22,7 +22,7 @@
 #ifndef CAT_ENDIAN_NEUTRAL_HPP
 #define CAT_ENDIAN_NEUTRAL_HPP
 
-#include <cat/Math/BitMath.hpp>
+#include <cat/math/BitMath.hpp>
 
 namespace cat {
 

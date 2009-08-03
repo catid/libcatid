@@ -187,8 +187,8 @@ namespace cat {
     typedef uint64_t  u64;
     typedef int64_t   s64;
 #if defined(CAT_WORD_64)
-    typedef uint128_t u128;
-    typedef int128_t  s128;
+    typedef __uint128_t u128;
+    typedef __int128_t  s128;
 #endif
 
 #else

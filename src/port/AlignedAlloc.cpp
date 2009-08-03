@@ -47,7 +47,6 @@ done:	pop ebx
 #elif defined(CAT_ASM_ATT) && defined(CAT_ISA_X86)
 	u32 cacheline = 0;
 	CAT_ASM_BEGIN
-		"pushl %%ebx\n\t"
 		"xorl %%ecx, %%ecx\n\t"
 		"next: movl $4, %%eax\n\t"
 		"cpuid\n\t"
@@ -56,10 +55,10 @@ done:	pop ebx
 		"orl %%ebx, %0\n\t"
 		"leal 1(%%ecx), %%ecx\n\t"
 		"jmp next\n\t"
-		"done: popl %%ebx"
+		"done: ;"
 		: "=r" (cacheline)
 		: /* no inputs */
-		: "cc"
+		: "cc", "%ebx"
 	CAT_ASM_END
 
 	return (cacheline & 4095) + 1;

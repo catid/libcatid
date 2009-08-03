@@ -142,7 +142,7 @@ u32 BitMath::BSF64(u64 x)
 	u32 retval;
 
     CAT_ASM_BEGIN
-		"BSFq %1, %%eax"
+		"BSFq %1, %%rax"
 		: "=a" (retval)
 		: "r" (x)
 		: "cc"
@@ -171,7 +171,7 @@ u32 BitMath::BSR64(u64 x)
 	u32 retval;
 
     CAT_ASM_BEGIN
-		"BSRq %1, %%eax"
+		"BSRq %1, %%rax"
 		: "=a" (retval)
 		: "r" (x)
 		: "cc"
