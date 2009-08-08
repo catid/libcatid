@@ -75,10 +75,24 @@
 #include <cat/crypt/hash/Skein.hpp>
 #include <cat/Singleton.hpp>
 
+
 #if defined(CAT_OS_WINDOWS)
 # include <windows.h>
 # include <wincrypt.h>
+
+namespace cat {
+
+	typedef NTSTATUS (WINAPI *PtNtQuerySystemInformation)(
+		int SystemInformationClass,
+		PVOID SystemInformation,
+		ULONG SystemInformationLength,
+		PULONG ReturnLength
+	);
+
+}
+
 #endif
+
 
 namespace cat {
 
@@ -98,6 +112,8 @@ class FortunaFactory : public Singleton<FortunaFactory>
 #if defined(CAT_OS_WINDOWS)
     HANDLE EntropyThread, EntropySignal;
     HANDLE CurrentProcess;
+    HMODULE NTDLL;
+	PtNtQuerySystemInformation NtQuerySystemInformation;
     HCRYPTPROV hCryptProv;
     static unsigned int __stdcall EntropyCollectionThreadWrapper(void *factory);
     void EntropyCollectionThread();
