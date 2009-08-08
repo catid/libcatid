@@ -21,7 +21,7 @@
 #include <cat/math/BitMath.hpp>
 using namespace cat;
 
-#if defined(CAT_WORD_32)
+#if !defined(CAT_NO_LEGPAIR)
 
 Leg BigRTL::DivideX(const Leg *in_a, Leg in_b, Leg *out)
 {
