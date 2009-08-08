@@ -36,14 +36,10 @@ using namespace cat;
 #include <Psapi.h>
 #include <Lmcons.h>   // LAN-MAN constants for "UNLEN" username max length
 #include <Iphlpapi.h> // GetAdaptersInfo()
-#include <Rpc.h>      // RPC header for UuidCreate()
 #include <Process.h>  // _beginthreadex()
 
-#pragma comment(lib, "rpcrt4")
 #pragma comment(lib, "iphlpapi")
-#pragma comment(lib, "psapi")
 #pragma comment(lib, "advapi32")
-
 
 void FortunaFactory::EntropyCollectionThread()
 {
@@ -97,11 +93,17 @@ bool FortunaFactory::InitializeEntropySources()
 {
     EntropySignal = 0;
     EntropyThread = 0;
+	NtQuerySystemInformation = 0;
+	NTDLL = 0;
 
     // Initialize a session with the CryptoAPI using newer cryptoprimitives (AES)
     CurrentProcess = GetCurrentProcess();
     if (!CryptAcquireContext(&hCryptProv, 0, 0, PROV_RSA_AES, CRYPT_VERIFYCONTEXT))
         return false;
+
+	NTDLL = LoadLibrary("NtDll.dll");
+	if (NTDLL)
+		NtQuerySystemInformation = (PtNtQuerySystemInformation)GetProcAddress(NTDLL, "NtQuerySystemInformation");
 
     // Fire poll for entropy all goes into pool 0
     PollInvariantSources(0);
@@ -131,56 +133,65 @@ void FortunaFactory::ShutdownEntropySources()
     if (EntropySignal) CloseHandle(EntropySignal);
     if (EntropyThread) CloseHandle(EntropyThread);
     if (hCryptProv) CryptReleaseContext(hCryptProv, 0);
+	if (NTDLL) FreeLibrary(NTDLL);
 }
 
 void FortunaFactory::PollInvariantSources(int pool_index)
 {
     Skein &pool = Pool[pool_index];
 
-    // Cycles at the start
-    u32 cycles_start = Clock::cycles();
-    pool.Crunch(&cycles_start, sizeof(cycles_start));
+	struct {
+		u32 cycles_start;
+	    u8 system_prng[32];
+	    SYSTEM_INFO sys_info;
+	    TCHAR computer_name[MAX_COMPUTERNAME_LENGTH + 1];
+	    HW_PROFILE_INFO hw_profile;
+		DWORD win_ver;
+	    DWORD reg_quota[2];
+	    STARTUPINFO startup_info;
+	    MEMORYSTATUS mem_status;
+		u32 cycles_end;
+	} Sources;
 
-    // Operating System PRNG: Large request
-    u8 system_prng[32];
-    if (CryptGenRandom(hCryptProv, sizeof(system_prng), (BYTE*)system_prng))
-        pool.Crunch(system_prng, 32);
+    // Cycles at the start
+    Sources.cycles_start = Clock::cycles();
+
+	// System information
+	if (NtQuerySystemInformation)
+	{
+		u8 sysbuf[640];
+		for (int ii = 0; ii < 128; ++ii)
+		{
+			ULONG retlen = 0;
+			if (NtQuerySystemInformation(ii, sysbuf, sizeof(sysbuf), &retlen) == 0 && retlen > 0)
+				pool.Crunch(sysbuf, retlen);
+		}
+	}
+
+    // CryptoAPI PRNG: Large request
+    CryptGenRandom(hCryptProv, sizeof(Sources.system_prng), (BYTE*)Sources.system_prng);
 
     // System info
-    SYSTEM_INFO sys_info;
-    GetSystemInfo(&sys_info);
-    pool.Crunch(&sys_info, sizeof(sys_info));
+    GetSystemInfo(&Sources.sys_info);
 
     // NetBIOS name
-    TCHAR computer_name[MAX_COMPUTERNAME_LENGTH + 1];
-    DWORD name_len = sizeof(computer_name) / sizeof(TCHAR);
-    if (GetComputerName(computer_name, &name_len))
-        pool.Crunch(computer_name, name_len);
+    DWORD name_len = sizeof(Sources.computer_name) / sizeof(TCHAR);
+    GetComputerName(Sources.computer_name, &name_len);
 
     // User name
     TCHAR user_name[UNLEN + 1];
     DWORD user_len = sizeof(user_name) / sizeof(TCHAR);
-    if (GetComputerName(user_name, &user_len))
-        pool.Crunch(user_name, user_len);
+    if (GetUserName(user_name, &user_len))
+		pool.Crunch(user_name, user_len);
 
     // Hardware profile
-    HW_PROFILE_INFO hw_profile;
-    if (GetCurrentHwProfileA(&hw_profile))
-        pool.Crunch(&hw_profile, sizeof(hw_profile));
+    GetCurrentHwProfileA(&Sources.hw_profile);
 
     // Windows version
-    DWORD win_ver = GetVersion();
-    pool.Crunch(&win_ver, sizeof(win_ver));
+    Sources.win_ver = GetVersion();
 
     // Registry quota
-    DWORD reg_quota[2];
-    if (GetSystemRegistryQuota(&reg_quota[0], &reg_quota[1]))
-        pool.Crunch(&reg_quota, sizeof(reg_quota));
-
-    // Create a UUID
-    UUID uuid;
-    UuidCreate(&uuid);
-    pool.Crunch(&uuid, sizeof(uuid));
+    GetSystemRegistryQuota(&Sources.reg_quota[0], &Sources.reg_quota[1]);
 
     // Network adapter info
     IP_ADAPTER_INFO adapter_info[16];
@@ -190,102 +201,110 @@ void FortunaFactory::PollInvariantSources(int pool_index)
             pool.Crunch(adapter, sizeof(*adapter));
 
     // Startup info
-    STARTUPINFO startup_info;
-    GetStartupInfo(&startup_info);
-    pool.Crunch(&startup_info, sizeof(startup_info));
+    GetStartupInfo(&Sources.startup_info);
 
     // Global memory status
-    MEMORYSTATUS mem_status;
-    GlobalMemoryStatus(&mem_status);
-    pool.Crunch(&mem_status, sizeof(mem_status));
+    GlobalMemoryStatus(&Sources.mem_status);
 
     // Current process handle
     pool.Crunch(&CurrentProcess, sizeof(CurrentProcess));
 
     // Cycles at the end
-    u32 cycles_end = Clock::cycles();
-    pool.Crunch(&cycles_end, sizeof(cycles_end));
+    Sources.cycles_end = Clock::cycles();
+
+	pool.Crunch(&Sources, sizeof(Sources));
 }
 
 void FortunaFactory::PollSlowEntropySources(int pool_index)
 {
     Skein &pool = Pool[pool_index];
 
+	struct {
+		u32 cycles_start;
+		POINT cursor_pos;
+		u8 system_prng[8];
+		double this_request;
+		double request_diff;
+	    FILETIME ft_creation, ft_exit, ft_kernel, ft_user;
+	    FILETIME ft_idle, ft_sys_kernel, ft_sys_user;
+	    MEMORYSTATUSEX mem_stats;
+		u32 cycles_end;
+	} Sources;
+
+	ULONG retlen;
+	u8 sysbuf[640];
+
     // Cycles at the start
-    u32 cycles_start = Clock::cycles();
-    pool.Crunch(&cycles_start, sizeof(cycles_start));
+    Sources.cycles_start = Clock::cycles();
+
+	if (NtQuerySystemInformation)
+	{
+		// System performance info
+		retlen = 0;
+		if (NtQuerySystemInformation(2, sysbuf, sizeof(sysbuf), &retlen) == 0 && retlen > 0)
+			pool.Crunch(sysbuf, retlen);
+
+		// System interrupt info
+		retlen = 0;
+		if (NtQuerySystemInformation(23, sysbuf, sizeof(sysbuf), &retlen) == 0 && retlen > 0)
+			pool.Crunch(sysbuf, retlen);
+	}
 
     // Cursor position
-    POINT cursor_pos;
-    GetCursorPos(&cursor_pos);
-    pool.Crunch(&cursor_pos, sizeof(cursor_pos));
+    GetCursorPos(&Sources.cursor_pos);
 
     // CryptoAPI PRNG: Small request
-    u8 system_prng[8];
-    if (CryptGenRandom(hCryptProv, sizeof(system_prng), (BYTE*)system_prng))
-        pool.Crunch(system_prng, 8);
+    CryptGenRandom(hCryptProv, sizeof(Sources.system_prng), (BYTE*)Sources.system_prng);
 
     // Poll time in microseconds
-    double this_request = Clock::usec();
-    pool.Crunch(&this_request, sizeof(this_request));
+    Sources.this_request = Clock::usec();
 
     // Time since last poll in microseconds
     static double last_request = 0;
-    double request_diff = this_request - last_request;
-    pool.Crunch(&request_diff, sizeof(request_diff));
-    last_request = this_request;
-
-    // IO Counters
-    IO_COUNTERS io_counters;
-    if (GetProcessIoCounters(CurrentProcess, &io_counters))
-        pool.Crunch(&io_counters, sizeof(io_counters));
+    Sources.request_diff = Sources.this_request - last_request;
+    last_request = Sources.this_request;
 
     // Process times
-    FILETIME ft_creation, ft_exit, ft_kernel, ft_user;
-    if (GetProcessTimes(CurrentProcess, &ft_creation, &ft_exit, &ft_kernel, &ft_user))
-    {
-        pool.Crunch(&ft_creation, sizeof(ft_creation));
-        pool.Crunch(&ft_exit, sizeof(ft_exit));
-        pool.Crunch(&ft_kernel, sizeof(ft_kernel));
-        pool.Crunch(&ft_user, sizeof(ft_user));
-    }
+    GetProcessTimes(CurrentProcess, &Sources.ft_creation, &Sources.ft_exit, &Sources.ft_kernel, &Sources.ft_user);
 
-    // Process memory info
-    PROCESS_MEMORY_COUNTERS mem_counters;
-    if (GetProcessMemoryInfo(CurrentProcess, &mem_counters, sizeof(mem_counters)))
-        pool.Crunch(&mem_counters, sizeof(mem_counters));
+	// System times
+	GetSystemTimes(&Sources.ft_idle, &Sources.ft_sys_kernel, &Sources.ft_sys_user);
 
     // Global memory status
-    MEMORYSTATUSEX mem_stats;
-	if (GlobalMemoryStatusEx(&mem_stats))
-		pool.Crunch(&mem_stats, sizeof(mem_stats));
+	GlobalMemoryStatusEx(&Sources.mem_stats);
 
     // Cycles at the end
-    u32 cycles_end = Clock::cycles();
-    pool.Crunch(&cycles_end, sizeof(cycles_end));
+    Sources.cycles_end = Clock::cycles();
+
+    pool.Crunch(&Sources, sizeof(Sources));
 }
 
 void FortunaFactory::PollFastEntropySources(int pool_index)
 {
     Skein &pool = Pool[pool_index];
 
+	struct {
+		u32 cycles_start;
+		double this_request;
+		double request_diff;
+		u32 cycles_end;
+	} Sources;
+
     // Cycles at the start
-    u32 cycles_start = Clock::cycles();
-    pool.Crunch(&cycles_start, sizeof(cycles_start));
+    Sources.cycles_start = Clock::cycles();
 
     // Poll time in microseconds
-    double this_request = Clock::usec();
-    pool.Crunch(&this_request, sizeof(this_request));
+    Sources.this_request = Clock::usec();
 
     // Time since last poll in microseconds
     static double last_request = 0;
-    double request_diff = this_request - last_request;
-    pool.Crunch(&request_diff, sizeof(request_diff));
-    last_request = this_request;
+    Sources.request_diff = Sources.this_request - last_request;
+    last_request = Sources.this_request;
 
     // Cycles at the end
-    u32 cycles_end = Clock::cycles();
-    pool.Crunch(&cycles_end, sizeof(cycles_end));
+    Sources.cycles_end = Clock::cycles();
+
+    pool.Crunch(&Sources, sizeof(Sources));
 }
 
 #endif
