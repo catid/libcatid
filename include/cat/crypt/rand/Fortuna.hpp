@@ -82,7 +82,7 @@
 
 namespace cat {
 
-	typedef NTSTATUS (WINAPI *PtNtQuerySystemInformation)(
+	typedef LONG (WINAPI *PtNtQuerySystemInformation)(
 		int SystemInformationClass,
 		PVOID SystemInformation,
 		ULONG SystemInformationLength,
