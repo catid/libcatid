@@ -19,7 +19,7 @@
 
 // 06/27/09 began
 
-// Forward declaration for assembly routines in big_x64.asm
+// Forward declaration for assembly routines in big_x64_*.asm
 
 #ifndef CAT_BIG_X64_ASM_HPP
 #define CAT_BIG_X64_ASM_HPP
