@@ -47,7 +47,7 @@ ${SRC}/math/BigTwistedEdward.cpp)
 
 add_dependencies(libcatmath libcatcommon)
 
-set(big_x64_files ${LIB}/cat/big_x64.obj)
+set(big_x64_files ${LIB}/cat/big_x64.o)
 add_library(big_x64_obj STATIC EXCLUDE_FROM_ALL ${big_x64_files})
 set_source_files_properties(${big_x64_files} PROPERTIES EXTERNAL_OBJECT true GENERATED true)
 set_target_properties(big_x64_obj PROPERTIES LINKER_LANGUAGE C ARCHIVE_OUTPUT_DIRECTORY ${LIB}/cat)
@@ -75,4 +75,4 @@ target_link_libraries (libcatcommon winmm.lib)
 target_link_libraries (libcatcrypt rpcrt4.lib iphlpapi.lib psapi.lib advapi32.lib)
 endif (WIN32)
 
-target_link_libraries (TEST_ECC libcattunnel libcatcommon libcatcrypt libcatmath)
+target_link_libraries (TEST_ECC libcattunnel libcatcommon libcatcrypt libcatmath big_x64_obj)
