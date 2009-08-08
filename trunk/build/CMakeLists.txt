@@ -2,9 +2,9 @@ cmake_minimum_required(VERSION 2.6) # or other version
 
 project(LIBCAT)
 
-IF(CMAKE_COMPILER_IS_GNUCXX)
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
-ENDIF(CMAKE_COMPILER_IS_GNUCXX)
+if (CMAKE_COMPILER_IS_GNUCXX)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
+endif (CMAKE_COMPILER_IS_GNUCXX)
 
 SET(SRC ../src/)
 SET(LIB ../lib/)
@@ -47,7 +47,12 @@ ${SRC}/math/BigTwistedEdward.cpp)
 
 add_dependencies(libcatmath libcatcommon)
 
-set(big_x64_files ${LIB}/cat/big_x64.o)
+if (WIN32)
+  set(big_x64_files ${LIB}/cat/big_x64.obj)
+else (WIN32)
+  set(big_x64_files ${LIB}/cat/big_x64.o)
+endif (WIN32)
+
 add_library(big_x64_obj STATIC EXCLUDE_FROM_ALL ${big_x64_files})
 set_source_files_properties(${big_x64_files} PROPERTIES EXTERNAL_OBJECT true GENERATED true)
 set_target_properties(big_x64_obj PROPERTIES LINKER_LANGUAGE C ARCHIVE_OUTPUT_DIRECTORY ${LIB}/cat)
@@ -71,8 +76,12 @@ ${TESTS}/ECC_Test/SecureServerDemo.cpp)
 add_dependencies(TEST_ECC libcattunnel)
 
 if (WIN32)
-target_link_libraries (libcatcommon winmm.lib)
-target_link_libraries (libcatcrypt rpcrt4.lib iphlpapi.lib psapi.lib advapi32.lib)
+  target_link_libraries (libcatcommon winmm.lib)
+  target_link_libraries (libcatcrypt rpcrt4.lib iphlpapi.lib psapi.lib advapi32.lib)
 endif (WIN32)
 
-target_link_libraries (TEST_ECC libcattunnel libcatcommon libcatcrypt libcatmath big_x64_obj)
+if (WIN32)
+  target_link_libraries (TEST_ECC libcattunnel libcatcommon libcatcrypt libcatmath)
+else (WIN32)
+  target_link_libraries (TEST_ECC libcattunnel libcatcommon libcatcrypt libcatmath big_x64_obj)
+endif (WIN32)
