@@ -20,7 +20,7 @@
 #include <cat/math/BigRTL.hpp>
 using namespace cat;
 
-#if defined(CAT_WORD_64)
+#if defined(CAT_WORD_64) && defined(CAT_NO_LEGPAIR)
 
 #include <cat/asm/big_x64_asm.hpp>
 
