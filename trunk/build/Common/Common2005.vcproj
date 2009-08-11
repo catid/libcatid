@@ -291,14 +291,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\src\threads\Atomic.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\src\math\BitMath.cpp"
-				>
-			</File>
-			<File
 				RelativePath="..\..\src\time\Clock.cpp"
 				>
 			</File>
