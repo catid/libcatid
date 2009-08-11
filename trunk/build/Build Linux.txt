@@ -1,0 +1,65 @@
+                      ____________________________
+        ______________) Quick Start Instructions (_____________
+       |                                                       |
+       |    Add ./libcat-1.0/include/ to your include path     |
+       |                                                       |
+       |    Enter the ./build/ directory and run CMAKE         |
+       |                                                       |
+       |    Link statically with the libraries                 |
+       |_______________________________________________________|
+
+
+========================================================================
+                        Build Instructions
+========================================================================
+
+You can use CMAKE to generate a Makefile for your platform.  Simply
+invoke "cmake" from within the ./build directory.
+
+After building, the LibCat static libraries should be present in the
+./lib/cat/ directory.
+
+You can now link to these static libraries in your own application
+(see the documentation below for which libraries to link).
+
+To rebuild the assembly code yourself, run linux_build_asm64.sh
+
+
+========================================================================
+                      GCC Static Libraries
+========================================================================
+
+------------------------------------------------------------------------
+                   #include <cat/AllCommon.hpp>
+------------------------------------------------------------------------
+Link to: /lib/cat/libcatcommon.a
+
+
+------------------------------------------------------------------------
+                   #include <cat/AllCodec.hpp>
+------------------------------------------------------------------------
+Link to: /lib/cat/libcatcodec.a
+
+
+------------------------------------------------------------------------
+                   #include <cat/AllMath.hpp>
+------------------------------------------------------------------------
+Link to: /lib/cat/libcatmath.a
+
+
+------------------------------------------------------------------------
+                   #include <cat/AllCrypt.hpp>
+------------------------------------------------------------------------
+Link to: /lib/cat/libcatcrypt.a
+
+
+------------------------------------------------------------------------
+                   #include <cat/AllTunnel.hpp>
+------------------------------------------------------------------------
+Link to: /lib/cat/libcattunnel.a
+
+
+------------------------------------------------------------------------
+                  #include <cat/AllFramework.hpp>
+------------------------------------------------------------------------
+Link to: /lib/cat/libcatframework.a
