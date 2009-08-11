@@ -56,7 +56,7 @@ void FortunaFactory::EntropyCollectionThread()
     // Loop while the wait is timing out; will break on error or signalled termination
     while (WaitForSingleObject(EntropySignal, COLLECTION_PERIOD) == WAIT_TIMEOUT)
     {
-        // Poll fast entropy sources once every half-second
+        // Poll fast entropy sources once every COLLECTION_PERIOD
         PollFastEntropySources(fast_pool);
 
         // Poll slow entropy sources 4 times slower
