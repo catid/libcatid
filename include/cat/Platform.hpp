@@ -43,7 +43,7 @@ namespace cat {
 # define CAT_TLS __thread
 # define CAT_RESTRICT __restrict__
 
-#if defined(DEBUG)
+#if !defined(NDEBUG)
 # define CAT_DEBUG
 #endif
 
