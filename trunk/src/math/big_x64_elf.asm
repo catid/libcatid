@@ -34,19 +34,23 @@ public bpm_sub_4   as 'bpm_sub_4'
 public bpm_mul_4   as 'bpm_mul_4'
 public bpm_mulx_4  as 'bpm_mulx_4'
 public bpm_sqr_4   as 'bpm_sqr_4'
-public divide_x    as 'divide64_x'
-public modulus_x   as 'modulus64_x'
-public divide_core as 'divide64_core'
+; Does not provide these -- just extra complexity i don't need
+;public divide_x    as 'divide64_x'
+;public modulus_x   as 'modulus64_x'
+;public divide_core as 'divide64_core'
+
+
+
 
 
 ;-----------------------------------------------------------------------------
 ;                                bpm_add_4
 ;-----------------------------------------------------------------------------
 ; Arguments:
-;   rcx      (arg 1) : modulus parameter C
-;   rdx      (arg 2) : pointer to input A first leg
-;   r8       (arg 3) : pointer to input B first leg
-;   r9       (arg 4) : pointer to output first leg
+;   rdi      (arg 1) : modulus parameter C
+;   rsi      (arg 2) : pointer to input A first leg
+;   rdx      (arg 3) : pointer to input B first leg
+;   rcx      (arg 4) : pointer to output first leg
 ; Preconditions:
 ;   legs per bigint = 4
 ; Output:
@@ -55,33 +59,33 @@ public divide_core as 'divide64_core'
 bpm_add_4:
 
     ; perform addition chain
-    mov r10, qword[rdx]
-    add r10, qword[r8]
-    mov qword[r9], r10
-    mov r11, qword[rdx+8]
-    adc r11, qword[r8+8]
-    mov qword[r9+8], r11
-    mov rax, qword[rdx+16]
-    adc rax, qword[r8+16]
-    mov qword[r9+16], rax
-    mov rdx, qword[rdx+24]
-    adc rdx, qword[r8+24]
+    mov r8, qword[rsi]
+    add r8, qword[rdx]
+    mov qword[rcx], r8
+    mov r9, qword[rsi+8]
+    adc r9, qword[rdx+8]
+    mov qword[rcx+8], r9
+    mov r10, qword[rsi+16]
+    adc r10, qword[rdx+16]
+    mov qword[rcx+16], r10
+    mov r11, qword[rsi+24]
+    adc r11, qword[rdx+24]
     jnc bpm_add_4_done
 
     ; add C when it overflows
-    add r10, rcx
-    mov qword[r9], r10
+    add r8, rdi
+    mov qword[rcx], r8
+    jnc bpm_add_4_done
+    add r9, 1
+    mov qword[rcx+8], r9
+    jnc bpm_add_4_done
+    add r10, 1
+    mov qword[rcx+16], r10
     jnc bpm_add_4_done
     add r11, 1
-    mov qword[r9+8], r11
-    jnc bpm_add_4_done
-    add rax, 1
-    mov qword[r9+16], rax
-    jnc bpm_add_4_done
-    add rdx, 1
 
 bpm_add_4_done:
-    mov qword[r9+24], rdx
+    mov qword[rcx+24], r11
 
     ret
 
@@ -90,10 +94,10 @@ bpm_add_4_done:
 ;                                bpm_sub_4
 ;-----------------------------------------------------------------------------
 ; Arguments:
-;   rcx      (arg 1) : modulus parameter C
-;   rdx      (arg 2) : pointer to input A first leg
-;   r8       (arg 3) : pointer to input B first leg
-;   r9       (arg 4) : pointer to output first leg
+;   rdi      (arg 1) : modulus parameter C
+;   rsi      (arg 2) : pointer to input A first leg
+;   rdx      (arg 3) : pointer to input B first leg
+;   rcx      (arg 4) : pointer to output first leg
 ; Preconditions:
 ;   legs per bigint = 4
 ; Output:
@@ -102,33 +106,33 @@ bpm_add_4_done:
 bpm_sub_4:
 
     ; perform subtraction chain
-    mov r10, qword[rdx]
-    sub r10, qword[r8]
-    mov qword[r9], r10
-    mov r11, qword[rdx+8]
-    sbb r11, qword[r8+8]
-    mov qword[r9+8], r11
-    mov rax, qword[rdx+16]
-    sbb rax, qword[r8+16]
-    mov qword[r9+16], rax
-    mov rdx, qword[rdx+24]
-    sbb rdx, qword[r8+24]
+    mov r8, qword[rsi]
+    sub r8, qword[rdx]
+    mov qword[rcx], r8
+    mov r9, qword[rsi+8]
+    sbb r9, qword[rdx+8]
+    mov qword[rcx+8], r9
+    mov r10, qword[rsi+16]
+    sbb r10, qword[rdx+16]
+    mov qword[rcx+16], r10
+    mov r11, qword[rsi+24]
+    sbb r11, qword[rdx+24]
     jnc bpm_sub_4_done
 
     ; subtract C when it overflows
-    sub r10, rcx
-    mov qword[r9], r10
+    sub r8, rdi
+    mov qword[rcx], r8
+    jnc bpm_sub_4_done
+    sub r9, 1
+    mov qword[rcx+8], r9
+    jnc bpm_sub_4_done
+    sub r10, 1
+    mov qword[rcx+16], r10
     jnc bpm_sub_4_done
     sub r11, 1
-    mov qword[r9+8], r11
-    jnc bpm_sub_4_done
-    sub rax, 1
-    mov qword[r9+16], rax
-    jnc bpm_sub_4_done
-    sub rdx, 1
 
 bpm_sub_4_done:
-    mov qword[r9+24], rdx
+    mov qword[rcx+24], r11
 
     ret
 
@@ -137,10 +141,10 @@ bpm_sub_4_done:
 ;                                bpm_mul_4
 ;-----------------------------------------------------------------------------
 ; Arguments:
-;   rcx      (arg 1) : modulus parameter C
-;   rdx      (arg 2) : pointer to input A first leg
-;   r8       (arg 3) : pointer to input B first leg
-;   r9       (arg 4) : pointer to output first leg
+;   rcx->rdi      (arg 1) : modulus parameter C
+;   rdx->rsi      (arg 2) : pointer to input A first leg
+;   r8->rdx       (arg 3) : pointer to input B first leg
+;   r9->rcx       (arg 4) : pointer to output first leg
 ; Preconditions:
 ;   legs per bigint = 4
 ; Output:
@@ -160,7 +164,7 @@ bpm_mul_4:
     push rbp
     mov rbp, rsp
     sub    rsp, 8*10
-    push r12 r13 r14 r15 rbx rsi
+    push r12 r13 r14 r15
 
 label .pro1 qword at rbp-8
 label .pro2 qword at rbp-16
@@ -173,19 +177,19 @@ label .pro8 qword at rbp-64
 label .modc qword at rbp-72
 label .out qword at rbp-80
 
-    mov qword[.modc], rcx
-    mov qword[.out], r9
+    mov qword[.modc], rdi
+    mov qword[.out], rcx
 
     ; ---- 4x4 comba multiply
 
-    mov r9, [rdx+8]
-    mov r10, [rdx+16]
-    mov r11, [rdx+24]
-    mov r12, [r8]
-    mov r13, [r8+8]
-    mov r14, [r8+16]
-    mov r15, [r8+24]
-    mov r8, [rdx]
+    mov r8, [rsi]
+    mov r9, [rsi+8]
+    mov r10, [rsi+16]
+    mov r11, [rsi+24]
+    mov r12, [rdx]
+    mov r13, [rdx+8]
+    mov r14, [rdx+16]
+    mov r15, [rdx+24]
 
     ; column 1
     mov rax, r8
@@ -193,43 +197,43 @@ label .out qword at rbp-80
     mul r12 ; dh
 
     mov qword[.pro1], rax
-        mov rbx, rdx
+        mov rdi, rdx
 
     ; column 2
     mov rax, r9
     xor rsi, rsi
     mul r12 ; ch
-        add rbx, rax
+        add rdi, rax
         adc rcx, rdx
         adc rsi, 0
 
     mov rax, r8
     mul r13 ; dg
-        add rbx, rax
+        add rdi, rax
         adc rcx, rdx
         adc rsi, 0
 
-    mov qword[.pro2], rbx
+    mov qword[.pro2], rdi
 
     ; column 3
     mov rax, r10
-    xor rbx, rbx
+    xor rdi, rdi
     mul r12 ; bh
         add rcx, rax
         adc rsi, rdx
-        adc rbx, 0
+        adc rdi, 0
 
     mov rax, r9
     mul r13 ; cg
         add rcx, rax
         adc rsi, rdx
-        adc rbx, 0
+        adc rdi, 0
 
     mov rax, r8
     mul r14 ; df
         add rcx, rax
         adc rsi, rdx
-        adc rbx, 0
+        adc rdi, 0
 
     mov qword[.pro3], rcx
 
@@ -238,25 +242,25 @@ label .out qword at rbp-80
     xor rcx, rcx
     mul r12 ; ah
         add rsi, rax
-        adc rbx, rdx
+        adc rdi, rdx
         adc rcx, 0
 
     mov rax, r10
     mul r13 ; bg
         add rsi, rax
-        adc rbx, rdx
+        adc rdi, rdx
         adc rcx, 0
 
     mov rax, r9
     mul r14 ; cf
         add rsi, rax
-        adc rbx, rdx
+        adc rdi, rdx
         adc rcx, 0
 
     mov rax, r8
     mul r15 ; de
         add rsi, rax
-        adc rbx, rdx
+        adc rdi, rdx
         adc rcx, 0
 
     mov rax, r11
@@ -265,38 +269,38 @@ label .out qword at rbp-80
     ; column 5
     xor rsi, rsi
     mul r13 ; ag
-        add rbx, rax
+        add rdi, rax
         adc rcx, rdx
         adc rsi, 0
 
     mov rax, r10
     mul r14 ; bf
-        add rbx, rax
+        add rdi, rax
         adc rcx, rdx
         adc rsi, 0
 
     mov rax, r9
     mul r15 ; ce
-        add rbx, rax
+        add rdi, rax
         adc rcx, rdx
         adc rsi, 0
 
     ; mov qword[.pro5], rbx
-    mov r8, rbx
+    mov r8, rdi
 
     ; column 6
     mov rax, r11
-    xor rbx, rbx
+    xor rdi, rdi
     mul r14 ; af
         add rcx, rax
         adc rsi, rdx
-        adc rbx, 0
+        adc rdi, 0
 
     mov rax, r10
     mul r15 ; be
         add rcx, rax
         adc rsi, rdx
-        adc rbx, 0
+        adc rdi, 0
 
     ; mov qword[.pro6], rcx
     mov r12, rcx ; r12 gets .pro6 from rcx
@@ -305,7 +309,7 @@ label .out qword at rbp-80
     mov rax, r11
     mul r15 ; ae
         add rsi, rax
-        adc rbx, rdx
+        adc rdi, rdx
 
     ; mov qword[.pro7], rsi
 
@@ -340,7 +344,7 @@ label .out qword at rbp-80
         add r10, qword[.pro3]
         adc r11, 0
 
-    mov rax, rbx
+    mov rax, rdi
     mul rcx
         xor r12, r12
         add r11, rax
@@ -376,7 +380,7 @@ bpm_mul_4_out:
     mov qword[rsi+16], r10
     mov qword[rsi+24], r11
 
-    pop rsi rbx r15 r14 r13 r12
+    pop r15 r14 r13 r12
     mov    rsp, rbp
     pop    rbp
 
@@ -387,10 +391,10 @@ bpm_mul_4_out:
 ;                                bpm_mulx_4
 ;-----------------------------------------------------------------------------
 ; Arguments:
-;   rcx      (arg 1) : modulus parameter C
-;   rdx      (arg 2) : pointer to input A first leg
-;   r8       (arg 3) : single leg input B
-;   r9       (arg 4) : pointer to output first leg
+;   rcx->rdi      (arg 1) : modulus parameter C
+;   rdx->rsi      (arg 2) : pointer to input A first leg
+;   r8->rdx       (arg 3) : single leg input B
+;   r9->rcx       (arg 4) : pointer to output first leg
 ; Preconditions:
 ;   legs per bigint = 4
 ; Output:
@@ -398,58 +402,54 @@ bpm_mul_4_out:
 ;-----------------------------------------------------------------------------
 bpm_mulx_4:
 
-    push rsi r12 r13
+    mov r8, rdx
 
-    mov rsi, rdx
-
-    mov rax, qword[rdx]
+    mov rax, qword[rsi]
     mul r8
-        mov r10, rax
-        mov r11, rdx
+        mov r9, rax
+        mov r10, rdx
 
     mov rax, qword[rsi+8]
     mul r8
-        xor r12, r12
-        add r11, rax
-        adc r12, rdx
+        xor r11, r11
+        add r10, rax
+        adc r11, rdx
 
     mov rax, qword[rsi+16]
     mul r8
-        xor r13, r13
-        add r12, rax
-        adc r13, rdx
+        add r11, rax
+        adc rdx, 0
 
     mov rax, qword[rsi+24]
+    mov rsi, rdx
     mul r8
-        add r13, rax
+        add rsi, rax
         adc rdx, 0
 
     ; ---- modular reduction 5->4
 
-    mov rax, rdx
-    mul rcx
-        add r10, rax
-        adc r11, rdx
-        adc r12, 0
-        adc r13, 0
+    mov rax, rdi
+    mul rdx
+        add r9, rax
+        adc r10, rdx
+        adc r11, 0
+        adc rsi, 0
 
     ; ---- modular reduction 4.1->4
 
     jnc bpm_mulx_4_out
 
     ; final add carried out so add once more
-    add r10, rcx
+    add r9, rdi
+    adc r10, 0
     adc r11, 0
-    adc r12, 0
-    adc r13, 0
+    adc rsi, 0
 
 bpm_mulx_4_out:
-    mov qword[r9], r10
-    mov qword[r9+8], r11
-    mov qword[r9+16], r12
-    mov qword[r9+24], r13
-
-    pop r13 r12 rsi
+    mov qword[rcx], r9
+    mov qword[rcx+8], r10
+    mov qword[rcx+16], r11
+    mov qword[rcx+24], rsi
 
     ret
 
@@ -458,9 +458,9 @@ bpm_mulx_4_out:
 ;                                bpm_sqr_4
 ;-----------------------------------------------------------------------------
 ; Arguments:
-;   rcx      (arg 1) : modulus parameter C
-;   rdx      (arg 2) : pointer to input first leg
-;   r8       (arg 3) : pointer to output first leg
+;   rcx->rdi      (arg 1) : modulus parameter C
+;   rdx->rsi      (arg 2) : pointer to input first leg
+;   r8->rdx       (arg 3) : pointer to output first leg
 ; Preconditions:
 ;   legs per bigint = 4
 ; Output:
@@ -487,7 +487,7 @@ bpm_sqr_4:
     push rbp
     mov rbp, rsp
     sub    rsp, 8*10
-    push r12 r13 r14
+    push r12
 
 label .pro1 qword at rbp-8
 label .pro2 qword at rbp-16
@@ -500,34 +500,34 @@ label .pro8 qword at rbp-64
 label .modc qword at rbp-72
 label .out qword at rbp-80
 
-    mov qword[.modc], rcx
-    mov qword[.out], r8
+    mov qword[.modc], rdi
+    mov qword[.out], rdx
 
     ; ---- 4x4 comba square
 
-    mov r8, qword[rdx]
-    mov r9, qword[rdx+8]
-    mov r10, qword[rdx+16]
-    mov r11, qword[rdx+24]
+    mov r8, qword[rsi]
+    mov r9, qword[rsi+8]
+    mov r10, qword[rsi+16]
+    mov r11, qword[rsi+24]
 
     ; column 1
     mov rax, r8
     mul r8 ; dd
         mov qword[.pro1], rax
         mov r12, rdx
-        xor r13, r13
-        xor r14, r14
+        xor rsi, rsi
+        xor rdi, rdi
 
     ; column 2
     mov rax, r8
     mul r9 ; cd
         ; r14:r13:r12 = 2(rdx:rax) + r12
         add r12, rax
-        adc r13, rdx
-        adc r14, 0
+        adc rsi, rdx
+        adc rdi, 0
         add r12, rax
-        adc r13, rdx
-        adc r14, 0
+        adc rsi, rdx
+        adc rdi, 0
         mov qword[.pro2], r12
 
     ; column 3
@@ -535,62 +535,62 @@ label .out qword at rbp-80
     xor r12, r12
     mul r10 ; bd
         ; r12:r14:r13 = 2(rdx:rax) + 0:r14:r13
-        add r13, rax
-        adc r14, rdx
+        add rsi, rax
+        adc rdi, rdx
         adc r12, 0
-        add r13, rax
-        adc r14, rdx
+        add rsi, rax
+        adc rdi, rdx
         adc r12, 0
 
     mov rax, r9
     mul r9 ; cc
         ; r12:r14:r13 += 0:rdx:rax
-        add r13, rax
-        adc r14, rdx
+        add rsi, rax
+        adc rdi, rdx
         adc r12, 0
-        mov qword[.pro3], r13
+        mov qword[.pro3], rsi
 
     ; column 4
     mov rax, r8
-    xor r13, r13
+    xor rsi, rsi
     mul r11 ; ad
         ; r13:r12:r14 = 2(rdx:rax) + 0:r12:r14
-        add r14, rax
+        add rdi, rax
         adc r12, rdx
-        adc r13, 0
-        add r14, rax
+        adc rsi, 0
+        add rdi, rax
         adc r12, rdx
-        adc r13, 0
+        adc rsi, 0
 
     mov rax, r9
     mul r10 ; bc
         ; r13:r12:r14 += 2(rdx:rax)
-        add r14, rax
+        add rdi, rax
         adc r12, rdx
-        adc r13, 0
-        add r14, rax
+        adc rsi, 0
+        add rdi, rax
         adc r12, rdx
-        adc r13, 0
-        mov qword[.pro4], r14
+        adc rsi, 0
+        mov qword[.pro4], rdi
 
     ; column 5
     mov rax, r9
-    xor r14, r14
+    xor rdi, rdi
     mul r11 ; ac
         ; r14:r13:r12 = 2(rdx:rax) + 0:r13:r12
         add r12, rax
-        adc r13, rdx
-        adc r14, 0
+        adc rsi, rdx
+        adc rdi, 0
         add r12, rax
-        adc r13, rdx
-        adc r14, 0
+        adc rsi, rdx
+        adc rdi, 0
 
     mov rax, r10
     mul r10 ; bb
         ; r14:r13:r12 += 0:rdx:rax
         add r12, rax
-        adc r13, rdx
-        adc r14, 0
+        adc rsi, rdx
+        adc rdi, 0
         ; mov qword[.pro5], r12
         mov r8, r12
 
@@ -599,11 +599,11 @@ label .out qword at rbp-80
     xor r12, r12
     mul r11 ; ab
         ; r12:r14:r13 = 2(rdx:rax) + 0:r14:r13
-        add r13, rax
-        adc r14, rdx
+        add rsi, rax
+        adc rdi, rdx
         adc r12, 0
-        add r13, rax
-        adc r14, rdx
+        add rsi, rax
+        adc rdi, rdx
         adc r12, 0
         ; mov qword[.pro6], r13
 
@@ -611,7 +611,7 @@ label .out qword at rbp-80
     mov rax, r11
     mul r11 ; aa
         ; r13:r12:r14 = rdx:rax + 0:r12:r14
-        add r14, rax
+        add rdi, rax
         adc r12, rdx
         ; mov qword[.pro7], r14
 
@@ -630,7 +630,7 @@ label .out qword at rbp-80
         add r8, qword[.pro1]
         adc r9, 0
 
-    mov rax, r13
+    mov rax, rsi
     mul rcx
         xor r10, r10
         add r9, rax
@@ -638,7 +638,7 @@ label .out qword at rbp-80
         add r9, qword[.pro2]
         adc r10, 0
 
-    mov rax, r14
+    mov rax, rdi
     mul rcx
         xor r11, r11
         add r10, rax
@@ -664,7 +664,7 @@ label .out qword at rbp-80
         adc r10, 0
         adc r11, 0
 
-    mov r13, qword[.out]
+    mov rsi, qword[.out]
 
     ; ---- modular reduction 4.1->4
 
@@ -677,12 +677,12 @@ label .out qword at rbp-80
     adc r11, 0
 
 bpm_sqr_4_out:
-    mov qword[r13], r8
-    mov qword[r13+8], r9
-    mov qword[r13+16], r10
-    mov qword[r13+24], r11
+    mov qword[rsi], r8
+    mov qword[rsi+8], r9
+    mov qword[rsi+16], r10
+    mov qword[rsi+24], r11
 
-    pop r14 r13 r12
+    pop r12
     mov    rsp, rbp
     pop    rbp
 
@@ -690,267 +690,7 @@ bpm_sqr_4_out:
 
 
 ;-----------------------------------------------------------------------------
-;                                divide_x
+;                    Appendix: x86-ELF64 Calling Convention
 ;-----------------------------------------------------------------------------
-; Arguments:
-;   rcx      (arg 1) : leg count
-;   rdx      (arg 2) : pointer to input A first leg
-;   r8       (arg 3) : input B leg
-;   r9       (arg 4) : pointer to output quotient
-; Output:
-;   out = A / B, return A % B
-;-----------------------------------------------------------------------------
-divide_x:
-
-    mov r10, rdx
-    xor rdx, rdx
-
-    lea r10, [r10 + (rcx-1)*8]
-    lea r9, [r9 + (rcx-1)*8]
-
-divide_x_loop:
-    mov rax, qword[r10]
-    div r8
-    mov qword[r9], rax
-    lea r10, [r10-8]
-    lea r9, [r9-8]
-    sub rcx, 1
-    jg divide_x_loop
-
-    mov rax, rdx
-
-    ret
-
-
-;-----------------------------------------------------------------------------
-;                                modulus_x
-;-----------------------------------------------------------------------------
-; Arguments:
-;   rcx      (arg 1) : leg count
-;   rdx      (arg 2) : pointer to input A first leg
-;   r8       (arg 3) : input B leg
-; Output:
-;   return A % B
-;-----------------------------------------------------------------------------
-modulus_x:
-
-    mov r10, rdx
-    xor rdx, rdx
-
-    lea r10, [r10 + (rcx-1)*8]
-
-modulus_x_loop:
-    mov rax, qword[r10]
-    div r8
-    lea r10, [r10-8]
-    sub rcx, 1
-    jg modulus_x_loop
-
-    mov rax, rdx
-
-    ret
-
-
-;-----------------------------------------------------------------------------
-;                                divide_core
-;-----------------------------------------------------------------------------
-; Arguments:
-;   rcx       (arg 1) : A_used
-;   rdx       (arg 2) : A_overflow
-;   r8        (arg 3) : pointer to input A first leg
-;   r9        (arg 4) : B_used
-;   [rsp+28h] (arg 5) : pointer to input B first leg
-;   [rsp+32h] (arg 6) : pointer to output quotient
-; Preconditions:
-;   Same as BigRTL::DivideCore()
-; Output:
-;   {Q=quotient,A=remainder} = (A_ov | A) / B
-;-----------------------------------------------------------------------------
-divide_core:
-
-    ; --------
-    ; Prologue
-    ; --------
-
-    mov r10, qword[rsp+0x28]            ; r10 = B[]
-    mov r11, qword[rsp+0x30]            ; r11 = Quotient output
-
-    push r12 r13 r14 r15 rbx rsi rdi
-
-    sub rcx, r9                         ; rcx = offset = A_used - B_used
-    mov r12, qword[r10 + (r9-1)*8]      ; r12 = B_high = B[B_used-1]
-    lea r8, [r8 + rcx*8]                ; r8 = A_offset = A + offset
-
-    ; --------------------
-    ; Set q_hi when A >= B
-    ; --------------------
-
-    xor r13, r13                        ; r13 = q_hi = 0
-    cmp r12, rdx                        ; compare B_high to A_overflow
-    jb divide_core_b_less_a             ; skip if B_high < A_overflow
-    ja divide_core_a_less_b             ; skip if B_high > A_overflow
-
-    lea r14, [r9 - 2]                   ; r14 = ii = B_used-2
-
-divide_core_a_comp_b:
-    mov rax, qword[r8 + r14*8]          ; rax = a = A_offset[ii]
-    cmp qword[r10 + r14*8], rax         ; compare b to a
-    jb divide_core_b_less_a             ; done if b < a
-    ja divide_core_a_less_b             ; done if b > a
-
-    sub r14, 1                          ; --ii
-    jae divide_core_a_comp_b            ; loop while ii >= 0
-
-divide_core_b_less_a:
-    lea r13, [r13 + 1]                  ; q_hi = 1
-
-    ; ---------------------------------
-    ; If q_hi is set, subtract B from A
-    ; ---------------------------------
-
-    lea r14, [r9 - 1]                   ; r14 = B_used-1
-    xor r15, r15                        ; r15 = ii = 0
-    xor rbx, rbx                        ; rbx = borrow_in = 0
-
-divide_core_sub_b_a:
-    add bl, 255                         ; restore carry flag if bl != 0
-    mov rax, qword[r10 + r15*8]         ; rax = b = B[ii]
-    sbb qword[r8 + (r15+1)*8], rax      ; A_offset[ii+1] -= b + borrow_in
-    setc bl                             ; store carry flag in al
-    lea r15, [r15+1]                    ; r15 = ii++
-    cmp r15, r14                        ; compare ii to B_used-1
-    jb divide_core_sub_b_a              ; loop if ii < B_used-1
-
-    sub rdx, r12                        ; A_overflow -= B_high
-    sub rdx, rbx                        ; A_overflow -= borrow_in
-
-divide_core_a_less_b:
-    mov qword[r11 + (rcx+1)*8], r13     ; Q[offset+1] = q_hi
-
-    ; ---------------------------------
-    ; Main divide loop
-    ; ---------------------------------
-
-divide_core_loop_head:
-    ; going into this loop, rdx = A_overflow
-    mov rsi, rdx                        ; rsi = A_overflow
-    ; q_hi(1/0), q_lo = A_overflow | A[B_used+offset-1] / B_high
-    cmp rdx, r12                        ; compare A_overflow to B_high
-    jb divide_core_q_hi_zero            ; skip if q_hi == 0
-    sub rdx, r12                        ; rdx -= B_high
-
-    ; ---------------------------------
-    ; Main divide loop : q_hi == 1
-    ; ---------------------------------
-    ; A -= (1 | q_lo) * B
-
-    mov rax, qword[r8 + (r9-1)*8]       ; rax = A_offset[B_used-1]
-    div r12                             ; rax = q_lo = rdx:rax/B_high
-    mov r13, rax                        ; r13 = q_lo
-
-    xor r14, r14                        ; r14 = ii = 0
-    xor r15, r15                        ; r15 = p_hi = 0
-    xor rbx, rbx                        ; rbx = borrow-in = 0
-    xor rdi, rdi                        ; rdi = B_last = 0
-
-divide_core_q_hi_one_loop:
-    mov rax, qword[r10 + r14*8]         ; rax = B[ii]
-    mul r13                             ; rdx:rax = B[ii] * q_lo
-    add rax, r15                        ; rdx:rax += p_hi
-    adc rdx, 0                          ; "
-    add rax, rdi                        ; rdx:rax += B_last
-    adc rdx, 0                          ; p_lo = rax
-    mov r15, rdx                        ; r15 = p_hi = rdx
-    mov rdi, qword[r10 + r14*8]         ; rdi = B[ii]
-
-    add bl, 255                         ; restore borrow-in from bl
-    sbb qword[r8 + r14*8], rax          ; A_offset[ii] -= p_lo
-    setc bl                             ; store borrow-in to bl
-
-    lea r14, [r14+1]                    ; r14 = ii++
-    cmp r14, r9                         ; compare ii to B_used
-    jb divide_core_q_hi_one_loop        ; loop while ii < B_used
-
-    sub rsi, rdi                        ; A_overflow -= B_last
-
-    jmp divide_core_fix_up              ; skip the q_hi == 0 case
-
-    ; ---------------------------------
-    ; Main divide loop : q_hi == 0
-    ; ---------------------------------
-    ; A -= q_lo * B
-
-divide_core_q_hi_zero:
-    mov rax, qword[r8 + (r9-1)*8]       ; rax = A_offset[B_used-1]
-    div r12                             ; rax = q_lo = rdx:rax/B_high
-    mov r13, rax                        ; r13 = q_lo
-
-    xor r14, r14                        ; r14 = ii = 0
-    xor r15, r15                        ; r15 = p_hi = 0
-    xor rbx, rbx                        ; rbx = borrow-in = 0
-
-divide_core_q_hi_zero_loop:
-    mov rax, qword[r10 + r14*8]         ; rax = B[ii]
-    mul r13                             ; rdx:rax = B[ii] * q_lo
-    add rax, r15                        ; p_lo = rax
-    adc rdx, 0                          ; rdx:rax += p_hi
-    mov r15, rdx                        ; r15 = p_hi = rdx
-
-    add bl, 255                         ; restore borrow-in from bl
-    sbb qword[r8 + r14*8], rax          ; A_offset[ii] -= p_lo
-    setc bl                             ; store borrow-in to bl
-
-    lea r14, [r14+1]                    ; r14 = ii++
-    cmp r14, r9                         ; compare ii to B_used
-    jb divide_core_q_hi_zero_loop       ; loop while ii < B_used
-
-    ; --------------------------------------------
-    ; Main divide loop : Fix until A_overflow == 0
-    ; --------------------------------------------
-
-divide_core_fix_up:
-    sub rsi, r15                        ; A_overflow -= p_hi
-    sub rsi, rbx                        ; A_overflow -= borrow-in
-
-    jz divide_core_fix_up_tail          ; if A_overflow == 0, go to tail
-
-divide_core_fix_up_head:
-    lea r13, [r13 - 1]                  ; --q_lo
-    xor r14, r14                        ; r14 = ii = 0
-    xor rbx, rbx                        ; rbx = borrow-in = 0
-
-divide_core_fix_up_add:
-    mov rax, qword[r10 + r14*8]         ; rax = B[ii]
-    add bl, 255                         ; restore carry-out from bl
-    adc qword[r8 + r14*8], rax          ; A_offset[ii] += B[ii] + carry-in
-    setc bl                             ; store carry-out to bl
-
-    lea r14, [r14+1]                    ; r14 = ii++
-    cmp r14, r9                         ; compare ii to B_used
-    jb divide_core_fix_up_add           ; loop while ii < B_used
-
-    add rsi, rbx                        ; A_overflow += carry-in
-    jnz divide_core_fix_up_head         ; if A_overflow is still not zero, loop
-
-divide_core_fix_up_tail:
-    mov qword[r11 + rcx*8], r13         ; Q[offset] = q_lo
-    
-    mov rdx, qword[r8 + (r9-1)*8]       ; rdx = A_overflow = A_offset[B_used-1]
-    sub rcx, 1                          ; rcx = offset--
-    lea r8, [r8 - 8]                    ; A_offset = A + offset
-    jae divide_core_loop_head           ; loop while offset >= 0
-
-    ; --------
-    ; Epilogue
-    ; --------
-
-    pop rdi rsi rbx r15 r14 r13 r12
-
-    ret
-
-
-;-----------------------------------------------------------------------------
-;                    Appendix: x86-64 Calling Convention
-;-----------------------------------------------------------------------------
-; Callee save: rsp(stack), rbx(base), rbp(frame), r12-r15, rdi, rsi
-; Caller save: rax(ret), rcx, rdx, r8-r11
+; Callee save: rsp(stack), rbx(base), rbp(frame), r12-r15
+; Caller save: rax(ret), rcx, rdx, r8-r11, rdi, rsi
