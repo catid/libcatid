@@ -137,9 +137,14 @@ double Clock::usec()
 void Clock::sleep(u32 milliseconds)
 {
 #if defined(CAT_OS_LINUX)
-    usleep(milliseconds * 1000);
+    struct timespec ts;
+    ts.tv_sec = milliseconds / 1000;
+    ts.tv_nsec = milliseconds * 1000000 - ts.tv_sec * 1000;
+    while (nanosleep(&ts, &ts) == -1);
+
 #elif defined(CAT_OS_WINDOWS)
     Sleep(milliseconds);
+
 #endif
 }
 
