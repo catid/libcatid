@@ -21,6 +21,7 @@
 #include <cat/hash/MurmurHash2.hpp>
 #include <cat/port/EndianNeutral.hpp>
 #include <cmath>
+#include <cstring>
 using namespace cat;
 using namespace std;
 
