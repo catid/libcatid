@@ -31,7 +31,7 @@ using namespace cat;
 void FortunaFactory::EntropyCollectionThread()
 {
     // Assume ~16 bits of entropy per fast poll, so it takes 16 fast polls to get 256 bits of entropy
-    // This means there will be 4 slow polls in pool 0 for each reseed, which is 256 bits from CryptoAPI
+    // This means there will be 4 slow polls in pool 0 for each reseed, which is 256 bits from /dev/urandom
     const int POOL0_RESEED_RATE = 16;
 
     // Milliseconds between fast polls
