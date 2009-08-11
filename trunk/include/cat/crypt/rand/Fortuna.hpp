@@ -91,6 +91,9 @@ namespace cat {
 
 }
 
+#elif defined(CAT_OS_LINUX)
+# include <pthread.h>
+
 #endif
 
 
@@ -113,11 +116,19 @@ class FortunaFactory : public Singleton<FortunaFactory>
     HANDLE EntropyThread, EntropySignal;
     HANDLE CurrentProcess;
     HMODULE NTDLL;
-	PtNtQuerySystemInformation NtQuerySystemInformation;
+    PtNtQuerySystemInformation NtQuerySystemInformation;
     HCRYPTPROV hCryptProv;
     static unsigned int __stdcall EntropyCollectionThreadWrapper(void *factory);
-    void EntropyCollectionThread();
+
+#elif defined(CAT_OS_LINUX)
+    pthread_t pthread_handle;
+    volatile bool thread_running;
+    int urandom_fd;
+    static void *EntropyCollectionThreadWrapper(void *factory);
+
 #endif
+
+    void EntropyCollectionThread();
 
 protected:
     static const int ENTROPY_POOLS = 32; // Setting this higher would break something
