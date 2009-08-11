@@ -24,7 +24,7 @@
 #ifndef CAT_RANGE_CODER_HPP
 #define CAT_RANGE_CODER_HPP
 
-#include <cat/platform.hpp>
+#include <cat/Platform.hpp>
 #include <ostream>
 #include <map>
 #include <string>
