@@ -10,6 +10,7 @@ SET(TESTS ../tests/)
 
 include_directories(${INC})
 link_directories(${LIB}/cat)
+set(LIBRARY_OUTPUT_PATH ${LIB}/cat)
 
 # Common
 add_library(libcatcommon STATIC
