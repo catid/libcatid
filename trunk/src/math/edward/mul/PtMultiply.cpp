@@ -22,60 +22,58 @@ using namespace cat;
 
 // Extended Twisted Edwards Scalar Multiplication k*p
 // CAN *NOT* BE followed by a Pt[E]Add()
-void BigTwistedEdward::PtMultiply(const Leg *in_p, const Leg *in_k, u8 k_msb, Leg *out)
+void BigTwistedEdward::PtMultiply(const Leg *in_p, const Leg *in_k, u8 msb_k, Leg *out)
 {
     Leg *DefaultPrecomp = Get(te_regs - TE_OVERHEAD);
 
     PtMultiplyPrecomp(in_p, WINDOW_BITS, DefaultPrecomp);
-    PtMultiply(DefaultPrecomp, WINDOW_BITS, in_k, k_msb, out);
+    PtMultiply(DefaultPrecomp, WINDOW_BITS, in_k, msb_k, out);
 }
 
 // w-MOF lookup table for PtMultiply()
 struct {
     u8 add_index; // nth odd number to add: 0=0,1=1,2=3,3=5,4=7,...
     u8 doubles_after; // number of doubles to perform after add
-} static const MOF_LUT[128] = {
-    {0,0},{0,1},{1,0},{0,2},{2,0},{1,1},{3,0},{0,3},
-    {4,0},{2,1},{5,0},{1,2},{6,0},{3,1},{7,0},{0,4},
-    {8,0},{4,1},{9,0},{2,2},{10,0},{5,1},{11,0},{1,3},
-    {12,0},{6,1},{13,0},{3,2},{14,0},{7,1},{15,0},{0,5},
-    {16,0},{8,1},{17,0},{4,2},{18,0},{9,1},{19,0},{2,3},
-    {20,0},{10,1},{21,0},{5,2},{22,0},{11,1},{23,0},{1,4},
-    {24,0},{12,1},{25,0},{6,2},{26,0},{13,1},{27,0},{3,3},
-    {28,0},{14,1},{29,0},{7,2},{30,0},{15,1},{31,0},{0,6},
-    {32,0},{16,1},{33,0},{8,2},{34,0},{17,1},{35,0},{4,3},
-    {36,0},{18,1},{37,0},{9,2},{38,0},{19,1},{39,0},{2,4},
-    {40,0},{20,1},{41,0},{10,2},{42,0},{21,1},{43,0},{5,3},
-    {44,0},{22,1},{45,0},{11,2},{46,0},{23,1},{47,0},{1,5},
-    {48,0},{24,1},{49,0},{12,2},{50,0},{25,1},{51,0},{6,3},
-    {52,0},{26,1},{53,0},{13,2},{54,0},{27,1},{55,0},{3,4},
-    {56,0},{28,1},{57,0},{14,2},{58,0},{29,1},{59,0},{7,3},
-    {60,0},{30,1},{61,0},{15,2},{62,0},{31,1},{63,0},{0,7}
+} static const MOF_LUT[129] = {
+	{0,0},{1,0},{1,1},{2,0},{1,2},{3,0},{2,1},{4,0},{1,3},
+	{5,0},{3,1},{6,0},{2,2},{7,0},{4,1},{8,0},{1,4},
+	{9,0},{5,1},{10,0},{3,2},{11,0},{6,1},{12,0},{2,3},
+	{13,0},{7,1},{14,0},{4,2},{15,0},{8,1},{16,0},{1,5},
+	{17,0},{9,1},{18,0},{5,2},{19,0},{10,1},{20,0},{3,3},
+	{21,0},{11,1},{22,0},{6,2},{23,0},{12,1},{24,0},{2,4},
+	{25,0},{13,1},{26,0},{7,2},{27,0},{14,1},{28,0},{4,3},
+	{29,0},{15,1},{30,0},{8,2},{31,0},{16,1},{32,0},{1,6},
+	{33,0},{17,1},{34,0},{9,2},{35,0},{18,1},{36,0},{5,3},
+	{37,0},{19,1},{38,0},{10,2},{39,0},{20,1},{40,0},{3,4},
+	{41,0},{21,1},{42,0},{11,2},{43,0},{22,1},{44,0},{6,3},
+	{45,0},{23,1},{46,0},{12,2},{47,0},{24,1},{48,0},{2,5},
+	{49,0},{25,1},{50,0},{13,2},{51,0},{26,1},{52,0},{7,3},
+	{53,0},{27,1},{54,0},{14,2},{55,0},{28,1},{56,0},{4,4},
+	{57,0},{29,1},{58,0},{15,2},{59,0},{30,1},{60,0},{8,3},
+	{61,0},{31,1},{62,0},{16,2},{63,0},{32,1},{64,0},{1,7}
 };
 
 // Extended Twisted Edwards Scalar Multiplication k*p
 // CAN *NOT* BE followed by a Pt[E]Add()
-void BigTwistedEdward::PtMultiply(const Leg *in_precomp, int w, const Leg *in_k, u8 k_msb, Leg *out)
+void BigTwistedEdward::PtMultiply(const Leg *in_precomp, int w, const Leg *in_k, u8 msb_k, Leg *out)
 {
     // Begin multiplication loop
-    bool seen_high_bit;
     int leg = library_legs - 1;
     Leg bits, last_leg;
     int offset, doubles_before = 0, doubles_skip = 0;
 
 	// Extend input scalar by one bit so it will work for the sum of two scalars
-    if (k_msb)
+    if (msb_k)
     {
-        last_leg = k_msb;
+        last_leg = 1;
         offset = CAT_LEG_BITS + w;
-        seen_high_bit = true;
-        PtCopy(in_precomp, out);
+        PtCopy(in_precomp + POINT_STRIDE, out); // copy base point
     }
     else
     {
         last_leg = in_k[leg--];
         offset = w;
-        seen_high_bit = false;
+        PtCopy(in_precomp, out); // copy additive identity
     }
 
     for (;;)
@@ -104,8 +102,124 @@ void BigTwistedEdward::PtMultiply(const Leg *in_precomp, int w, const Leg *in_k,
         }
         else break;
 
+        // Invert low bits if negative, mask out high bit, and get table entry
+        Leg z = (((bits ^ (0 - ((bits >> w) & 1))) & ((1 << w) - 1)) + 1) >> 1;
+
+        // Extract the operation for this table entry
+        int neg_mask = (bits & ((Leg)1 << w)) >> 2;
+        const Leg *precomp = in_precomp + (MOF_LUT[z].add_index + neg_mask) * POINT_STRIDE;
+        int doubles_after = MOF_LUT[z].doubles_after;
+
+		// Perform doubles before addition
+		doubles_before += w - doubles_after;
+
+		if (z)
+		{
+			// There will always be at least one doubling to perform here
+			while (--doubles_before)
+				PtDouble(out, out);
+			PtEDouble(out, out);
+
+			// Perform addition or subtraction from the precomputed table
+			PtAdd(out, precomp, out);
+
+			// Accumulate doubles after addition
+			doubles_before = doubles_after;
+		}
+
+        // set up offset for next time around
+        offset += w;
+    }
+
+    // Skip some doubles at the end due to window underrun
+    if (doubles_before > doubles_skip)
+    {
+        doubles_before -= doubles_skip;
+
+        // Perform trailing doubles
+        while (doubles_before--)
+            PtDouble(out, out);
+    }
+}
+/*
+// Extended Twisted Edwards Simultaneous Scalar Multiplication k*P + l*Q
+// Requires precomputation with PtMultiplyPrecomp()
+// CAN *NOT* BE followed by a Pt[E]Add()
+void BigTwistedEdward::PtSiMultiply(const Leg *precomp_p, const Leg *precomp_q, int w,
+									const Leg *in_k, u8 msb_k, const Leg *in_l, u8 msb_l, Leg *out)
+{
+    // Begin multiplication loop
+    bool seen_high_bit;
+    int leg = library_legs - 1;
+    Leg bits_k, last_leg_k;
+    Leg bits_l, last_leg_l;
+    int offset, doubles_before = 0, doubles_skip = 0;
+
+	// Extend input scalar by one bit so it will work for the sum of two scalars
+    if (msb_k)
+    {
+        last_leg_k = 1;
+        offset = CAT_LEG_BITS + w;
+        seen_high_bit = true;
+        PtCopy(in_precomp, out);
+    }
+    else
+    {
+        last_leg = in_k[leg--];
+        offset = w;
+        seen_high_bit = false;
+    }
+
+    for (;;)
+    {
+        // If still processing bits from current leg of k,
+        if (offset <= CAT_LEG_BITS)
+        {
+            // Select next bits from current leg of k
+            bits_k = last_leg_k >> (CAT_LEG_BITS - offset);
+            bits_l = last_leg_l >> (CAT_LEG_BITS - offset);
+        }
+        else if (leg >= 0)
+        {
+            // Next bits straddle the previous and next legs of k
+            Leg new_leg_k = in_k[leg--];
+            Leg new_leg_l = in_l[leg--];
+            offset -= CAT_LEG_BITS;
+            bits_k = (last_leg_k << offset) | (new_leg_k >> (CAT_LEG_BITS - offset));
+            last_leg_k = new_leg_k;
+            bits_l = (last_leg_l << offset) | (new_leg_l >> (CAT_LEG_BITS - offset));
+            last_leg_l = new_leg_l;
+        }
+        else if (offset <= CAT_LEG_BITS + w)
+        {
+            // Pad zeroes on the right
+            bits_k = last_leg_k << (offset - CAT_LEG_BITS);
+            bits_l = last_leg_l << (offset - CAT_LEG_BITS);
+
+            // Skip padding - 1 doubles after leaving this loop
+            doubles_skip = offset - CAT_LEG_BITS - 1;
+        }
+        else break;
+
         // Invert low bits if negative, and mask out high bit
-        Leg z = (bits ^ (0 - ((bits >> w) & 1))) & ((1 << w) - 1);
+        Leg z_k = (bits_k ^ (0 - ((bits_k >> w) & 1))) & ((1 << w) - 1);
+        Leg z_l = (bits_l ^ (0 - ((bits_l >> w) & 1))) & ((1 << w) - 1);
+
+        Leg t_k = (z_k - 1) >> 1;
+        Leg t_l = (z_l - 1) >> 1;
+        int neg_mask_k = (bits_k & ((Leg)1 << w)) >> 2;
+        int neg_mask_l = (bits_l & ((Leg)1 << w)) >> 2;
+        const Leg *precomp_k = precomp_p + (MOF_LUT[t_k].add_index + neg_mask_k) * POINT_STRIDE;
+        const Leg *precomp_l = precomp_q + (MOF_LUT[t_l].add_index + neg_mask_l) * POINT_STRIDE;
+        int doubles_after_k = MOF_LUT[t_k].doubles_after;
+        int doubles_after_l = MOF_LUT[t_l].doubles_after;
+
+		if (doubles_after_k > doubles_after_l)
+		{
+		}
+		else
+		{
+		}
 
         if (!z)
         {
@@ -161,3 +275,4 @@ void BigTwistedEdward::PtMultiply(const Leg *in_precomp, int w, const Leg *in_k,
             PtDouble(out, out);
     }
 }
+*/

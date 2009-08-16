@@ -35,13 +35,7 @@ void BigPseudoMersenne::MrReduceProductX(Leg overflow, Leg *inout)
         for (int ii = 2; ii < library_legs; ++ii)
             if (++inout[ii]) return;
 
-        // If we get here the sum carried out, so add C to low leg
-        if ((inout[0] += modulus_c) < modulus_c)
-        {
-            // Ripple the carry out as far as needed
-            for (int ii = 1; ii < library_legs; ++ii)
-                if (++inout[ii]) break;
-        }
+		while (AddX(inout, modulus_c));
     }
 }
 

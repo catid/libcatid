@@ -25,7 +25,7 @@ void BigPseudoMersenne::MrSubtractX(Leg *inout, Leg x)
 {
     // If the addition overflowed, add C
     if (SubtractX(inout, x))
-        SubtractX(inout, modulus_c);
+        while (SubtractX(inout, modulus_c));
 }
 
 void BigPseudoMersenne::MrSubtract(const Leg *in_a, const Leg *in_b, Leg *out)
@@ -40,5 +40,5 @@ void BigPseudoMersenne::MrSubtract(const Leg *in_a, const Leg *in_b, Leg *out)
 
     // If the subtraction overflowed, subtract C
     if (Subtract(in_a, in_b, out))
-        SubtractX(out, modulus_c);
+        while (SubtractX(out, modulus_c));
 }

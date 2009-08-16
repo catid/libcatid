@@ -33,13 +33,13 @@ using namespace cat;
 // Extended Twisted Edwards Dedicated Doubling Formula in 4M 4S 5a
 void BigTwistedEdward::PT_FN(const Leg *in, Leg *out)
 {
-    // A = X1^2, B = Y1^2, C = 2 * Z1^2
+	// A = X1^2, B = Y1^2, C = 2 * Z1^2
     MrSquare(in+XOFF, A);
     MrSquare(in+YOFF, B);
     MrSquare(in+ZOFF, C);
     MrDouble(C, C);
 
-    // G = -A + B, F = G - C, H = -A - B
+	// G = -A + B, F = G - C, H = -A - B
     MrNegate(A, A);
     MrAdd(A, B, G);
     MrSubtract(G, C, F);

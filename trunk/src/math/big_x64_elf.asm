@@ -73,18 +73,17 @@ bpm_add_4:
     jnc bpm_add_4_done
 
     ; add C when it overflows
+bpm_add_4_mod:
     add r8, rdi
-    mov qword[rcx], r8
-    jnc bpm_add_4_done
-    add r9, 1
-    mov qword[rcx+8], r9
-    jnc bpm_add_4_done
-    add r10, 1
-    mov qword[rcx+16], r10
-    jnc bpm_add_4_done
-    add r11, 1
+    adc r9, 0
+    adc r10, 0
+    adc r11, 0
+    jc bpm_add_4_mod
 
 bpm_add_4_done:
+    mov qword[rcx], r8
+    mov qword[rcx+8], r9
+    mov qword[rcx+16], r10
     mov qword[rcx+24], r11
 
     ret
@@ -120,18 +119,17 @@ bpm_sub_4:
     jnc bpm_sub_4_done
 
     ; subtract C when it overflows
+bpm_sub_4_mod:
     sub r8, rdi
-    mov qword[rcx], r8
-    jnc bpm_sub_4_done
-    sub r9, 1
-    mov qword[rcx+8], r9
-    jnc bpm_sub_4_done
-    sub r10, 1
-    mov qword[rcx+16], r10
-    jnc bpm_sub_4_done
-    sub r11, 1
+    sbb r9, 0
+    sbb r10, 0
+    sbb r11, 0
+    jc bpm_sub_4_mod
 
 bpm_sub_4_done:
+    mov qword[rcx], r8
+    mov qword[rcx+8], r9
+    mov qword[rcx+16], r10
     mov qword[rcx+24], r11
 
     ret
@@ -369,10 +367,12 @@ label .out qword at rbp-80
     jnc bpm_mul_4_out
 
     ; final add carried out so add once more
+bpm_mul_4_mod:
     add r8, rcx
     adc r9, 0
     adc r10, 0
     adc r11, 0
+    jc bpm_mul_4_mod
 
 bpm_mul_4_out:
     mov qword[rsi], r8
@@ -381,8 +381,8 @@ bpm_mul_4_out:
     mov qword[rsi+24], r11
 
     pop r15 r14 r13 r12
-    mov    rsp, rbp
-    pop    rbp
+    mov rsp, rbp
+    pop rbp
 
     ret
 
@@ -440,10 +440,12 @@ bpm_mulx_4:
     jnc bpm_mulx_4_out
 
     ; final add carried out so add once more
+bpm_mulx_4_mod:
     add r9, rdi
     adc r10, 0
     adc r11, 0
     adc rsi, 0
+    jc bpm_mulx_4_mod
 
 bpm_mulx_4_out:
     mov qword[rcx], r9
@@ -671,10 +673,12 @@ label .out qword at rbp-80
     jnc bpm_sqr_4_out
 
     ; final add carried out so add once more
+bpm_sqr_4_mod:
     add r8, rcx
     adc r9, 0
     adc r10, 0
     adc r11, 0
+    jc bpm_sqr_4_mod
 
 bpm_sqr_4_out:
     mov qword[rsi], r8
@@ -683,8 +687,8 @@ bpm_sqr_4_out:
     mov qword[rsi+24], r11
 
     pop r12
-    mov    rsp, rbp
-    pop    rbp
+    mov rsp, rbp
+    pop rbp
 
     ret
 

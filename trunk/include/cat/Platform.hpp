@@ -106,8 +106,8 @@ namespace cat {
 //// Instruction Set Architecture ////
 
 #if defined(__powerpc__) || defined(__ppc__) || defined(_POWER) || defined(_M_PPC) || \
-	defined(_M_MPPC) || defined(__POWERPC) || defined(powerpc) || defined(_PS3) || \
-	defined(__PS3__) || defined(SN_TARGET_PS3) || defined(__ppc64__)
+	defined(_M_MPPC) || defined(__POWERPC) || defined(powerpc) || defined(__ppc64__) || \
+	defined(_PS3) || defined(__PS3__) || defined(SN_TARGET_PS3)
 # define CAT_ISA_PPC
 #elif defined(__i386__) || defined(i386) || defined(intel) || defined(_M_IX86) || \
       defined(__ia64) || defined(__ia64__) || defined(__x86_64) || defined(_M_IA64) || \
@@ -149,14 +149,14 @@ namespace cat {
 
 //// Operating System ////
 
-#if defined(__APPLE__)
-# define CAT_OS_APPLE
+#if defined(__APPLE__) && defined(__MACH__)
+# define CAT_OS_OSX
 #elif defined(__linux__)
 # define CAT_OS_LINUX
 #elif defined(_WIN32)
 # define CAT_OS_WINDOWS
-#else
-# error "Add your operating system to the list"
+#else // Otherwise assume POSIX-compliance
+# define CAT_OS_POSIX
 #endif
 
 
