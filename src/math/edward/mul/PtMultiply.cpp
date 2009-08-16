@@ -107,27 +107,26 @@ void BigTwistedEdward::PtMultiply(const Leg *in_precomp, int w, const Leg *in_k,
 
         // Extract the operation for this table entry
         int neg_mask = (bits & ((Leg)1 << w)) >> 2;
+		if (!z) neg_mask = 0; // "negative zero" -- occurs when bits are all ones
         const Leg *precomp = in_precomp + (MOF_LUT[z].add_index + neg_mask) * POINT_STRIDE;
         int doubles_after = MOF_LUT[z].doubles_after;
+		if (!z) doubles_after = w - 1; // fixes trailing doubles for final partial window of all zeroes
 
 		// Perform doubles before addition
 		doubles_before += w - doubles_after;
 
-		if (z)
-		{
-			// There will always be at least one doubling to perform here
-			while (--doubles_before)
-				PtDouble(out, out);
-			PtEDouble(out, out);
+		// There will always be at least one doubling to perform here
+		while (--doubles_before)
+			PtDouble(out, out);
+		PtEDouble(out, out);
 
-			// Perform addition or subtraction from the precomputed table
-			PtAdd(out, precomp, out);
+		// Perform addition or subtraction from the precomputed table
+		PtAdd(out, precomp, out);
 
-			// Accumulate doubles after addition
-			doubles_before = doubles_after;
-		}
+		// Accumulate doubles after addition
+		doubles_before = doubles_after;
 
-        // set up offset for next time around
+        // Set up offset for next time around
         offset += w;
     }
 
@@ -141,6 +140,8 @@ void BigTwistedEdward::PtMultiply(const Leg *in_precomp, int w, const Leg *in_k,
             PtDouble(out, out);
     }
 }
+
+
 /*
 // Extended Twisted Edwards Simultaneous Scalar Multiplication k*P + l*Q
 // Requires precomputation with PtMultiplyPrecomp()
