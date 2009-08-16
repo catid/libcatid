@@ -25,7 +25,7 @@ using namespace cat;
 // Free the table with Aligned::Delete()
 Leg *BigTwistedEdward::PtMultiplyPrecompAlloc(const Leg *in, int w)
 {
-    int points = 1 + (POINT_STRIDE << (w - 1));
+    int points = 1 + (1 << (w - 1));
 
     Leg *out = new (Aligned::ii) Leg[points * POINT_STRIDE];
 

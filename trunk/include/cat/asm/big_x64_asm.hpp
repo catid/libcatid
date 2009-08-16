@@ -41,6 +41,7 @@ extern "C" Leg divide64_x(Leg legs, const Leg *in_a, const Leg in_b, Leg *out_q)
 extern "C" Leg modulus64_x(Leg legs, const Leg *in_a, const Leg in_b);
 extern "C" void divide64_core(Leg A_used, Leg A_overflow, const Leg *A, Leg B_used, const Leg *B, Leg *Q);
 
+
 } // namespace cat
 
 #endif // CAT_WORD_64

@@ -340,7 +340,7 @@
 				Name="asm"
 				>
 				<File
-					RelativePath="..\..\src\math\big_x64_asm.hpp"
+					RelativePath="..\..\include\cat\asm\big_x64_asm.hpp"
 					>
 				</File>
 			</Filter>
