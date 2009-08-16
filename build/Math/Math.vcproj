@@ -307,7 +307,11 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
-				RelativePath="..\..\src\math\big_x64.asm"
+				RelativePath="..\..\src\math\big_x64_elf.asm"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\math\big_x64_mscoff.asm"
 				>
 			</File>
 			<File

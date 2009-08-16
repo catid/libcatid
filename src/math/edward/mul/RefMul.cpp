@@ -21,7 +21,7 @@
 using namespace cat;
 
 // A reference multiplier to verify that PtMultiply() is functionally the same
-void BigTwistedEdward::RefMul(const Leg *in_p, const Leg *in_k, u8 k_msb, Leg *out)
+void BigTwistedEdward::RefMul(const Leg *in_p, const Leg *in_k, u8 msb_k, Leg *out)
 {
     Leg *one = Get(te_regs - TE_OVERHEAD);
 
@@ -29,7 +29,7 @@ void BigTwistedEdward::RefMul(const Leg *in_p, const Leg *in_k, u8 k_msb, Leg *o
 
     bool seen = false;
 
-    if (k_msb)
+    if (msb_k)
     {
         seen = true;
         PtCopy(one, out);

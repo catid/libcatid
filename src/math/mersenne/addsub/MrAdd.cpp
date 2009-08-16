@@ -25,7 +25,7 @@ void BigPseudoMersenne::MrAddX(Leg *inout, Leg x)
 {
     // If the addition overflowed, add C
     if (AddX(inout, x))
-        AddX(inout, modulus_c);
+        while (AddX(inout, modulus_c));
 }
 
 void BigPseudoMersenne::MrAdd(const Leg *in_a, const Leg *in_b, Leg *out)
@@ -40,12 +40,12 @@ void BigPseudoMersenne::MrAdd(const Leg *in_a, const Leg *in_b, Leg *out)
 
     // If the addition overflowed, add C
     if (Add(in_a, in_b, out))
-        AddX(out, modulus_c);
+        while (AddX(out, modulus_c));
 }
 
 void BigPseudoMersenne::MrDouble(const Leg *in, Leg *out)
 {
     // If the doubling overflowed, add C
     if (Double(in, out))
-        AddX(out, modulus_c);
+        while (AddX(out, modulus_c));
 }

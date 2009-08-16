@@ -25,7 +25,7 @@ using namespace cat;
 // Free the table with Aligned::Delete()
 Leg *BigTwistedEdward::PtMultiplyPrecompAlloc(const Leg *in, int w)
 {
-    int points = (POINT_STRIDE << (w - 1));
+    int points = 1 + (POINT_STRIDE << (w - 1));
 
     Leg *out = new (Aligned::ii) Leg[points * POINT_STRIDE];
 
@@ -38,6 +38,10 @@ Leg *BigTwistedEdward::PtMultiplyPrecompAlloc(const Leg *in, int w)
 void BigTwistedEdward::PtMultiplyPrecomp(const Leg *in, int w, Leg *out)
 {
     int neg_offset = POINT_STRIDE << (w - 2);
+
+	// Identity
+	PtIdentity(out);
+	out += POINT_STRIDE;
 
     // Precompute P and -P
     Leg *pre_a = out;

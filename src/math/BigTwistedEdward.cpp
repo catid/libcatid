@@ -49,6 +49,15 @@ void BigTwistedEdward::PtUnpack(Leg *inout)
     MrMultiply(inout+XOFF, inout+YOFF, inout+TOFF);
 }
 
+// Set a point to the identity
+void BigTwistedEdward::PtIdentity(Leg *inout)
+{
+    CopyX(0, inout+XOFF);
+    CopyX(1, inout+YOFF);
+    CopyX(0, inout+TOFF);
+    CopyX(1, inout+ZOFF);
+}
+
 void BigTwistedEdward::PtCopy(const Leg *in, Leg *out)
 {
     Copy(in+XOFF, out+XOFF);

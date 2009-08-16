@@ -76,6 +76,8 @@ void GenerateWMOFTable()
 
     const int W = 1 << w;
 
+	cout << "{" << 0 << "," << 0 << "},";
+
     int print = 0;
     for (int kk = 0; kk < 2; ++kk)
     {
@@ -111,7 +113,7 @@ void GenerateWMOFTable()
                 int neg = val < 0;
                 if (val < 0) val = -val;
 
-                int index = (val - 1) / 2;
+                int index = (val + 1) / 2;
 
                 if (neg)
                 {

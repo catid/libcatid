@@ -69,7 +69,7 @@ class BigTwistedEdward : public BigPseudoMersenne
     static const int PRECOMP_POINTS = 1 << (WINDOW_BITS-1);
     static const int PRECOMP_NEG_OFFSET = PRECOMP_POINTS / 2;
 
-    static const int TE_OVERHEAD = PRECOMP_POINTS * POINT_REGS + 8 + POINT_REGS;
+    static const int TE_OVERHEAD = (1 + PRECOMP_POINTS) * POINT_REGS + 8 + POINT_REGS;
     int te_regs;
 
     // Local registers
@@ -90,6 +90,9 @@ public:
 public:
     // Unpack an EdPoint from affine point (x,y)
     void PtUnpack(Leg *inout);
+
+	// Set a point to the identity
+	void PtIdentity(Leg *inout);
 
 public:
     void PtCopy(const Leg *in, Leg *out);
@@ -155,15 +158,22 @@ public:
     // Extended Twisted Edwards Scalar Multiplication k*p
     // Requires precomputation with PtMultiplyPrecomp()
     // CAN *NOT* BE followed by a Pt[E]Add()
-    void PtMultiply(const Leg *in_precomp, int w, const Leg *in_k, u8 k_msb, Leg *out);
+    void PtMultiply(const Leg *in_precomp, int w, const Leg *in_k, u8 msb_k, Leg *out);
 
     // Extended Twisted Edwards Scalar Multiplication k*p
     // Uses default precomputation
     // CAN *NOT* BE followed by a Pt[E]Add()
-    void PtMultiply(const Leg *in_p, const Leg *in_k, u8 k_msb, Leg *out);
+    void PtMultiply(const Leg *in_p, const Leg *in_k, u8 msb_k, Leg *out);
 
     // A reference multiplier to verify that PtMultiply() is functionally the same
-    void RefMul(const Leg *in_p, const Leg *in_k, u8 k_msb, Leg *out);
+    void RefMul(const Leg *in_p, const Leg *in_k, u8 msb_k, Leg *out);
+
+public:
+    // Extended Twisted Edwards Simultaneous Scalar Multiplication k*P + l*Q
+    // Requires precomputation with PtMultiplyPrecomp()
+    // CAN *NOT* BE followed by a Pt[E]Add()
+    void PtSiMultiply(const Leg *precomp_p, const Leg *precomp_q, int w,
+					  const Leg *in_k, u8 msb_k, const Leg *in_l, u8 msb_l, Leg *out);
 };
 
 
