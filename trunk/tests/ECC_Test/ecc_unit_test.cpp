@@ -278,98 +278,151 @@ int TestSquareRoot()
     return 0;
 }
 
+#include <iomanip>
+
 int TestTwistedEdward()
 {
-    BigTwistedEdward x(100, 256, 189, 321);
-    Leg *a = x.Get(0);
-    Leg *modulus = x.Get(1);
-    Leg *inverse = x.Get(2);
-    Leg *p = x.Get(3);
-    Leg *s = x.Get(4);
-    Leg *t = x.Get(5);
-    Leg *u = x.Get(6);
-    Leg *pt = x.Get(7);
+	BigTwistedEdward *x = KeyAgreementCommon::InstantiateMath(256);
+	FortunaOutput *out = FortunaFactory::ref()->Create();
 
-    MersenneTwister mtprng;
-    mtprng.Initialize();
+	Leg *a = x->Get(0);
+    Leg *modulus = x->Get(1);
+    Leg *inverse = x->Get(2);
+	Leg *p = x->Get(3);
+    Leg *s = x->Get(4);
+    Leg *t = x->Get(5);
+    Leg *u = x->Get(6);
+    Leg *pt = x->Get(7);
+
+	x->LoadFromString("57896044618658097711785492504343953926856930875039260848015607506283634007912", 10, a);
+
+	Leg mod = x->DivideX(a, 8, a);
+	if (mod != 0)
+	{
+		cout << " WHAT THE FUCKL" <<endl;
+	}
+
+	cout << "prime = ";
+	for (int ii = x->Legs() - 1; ii >= 0; --ii)
+	{
+		cout << setw(16) << setfill('0') << hex << a[ii] << ".";
+	}
+	cout << endl;
+
+	x->LoadFromString("27742317777372353535851937790883648493", 10, a);
+
+	cout << "prime = ";
+	for (int ii = x->Legs() - 1; ii >= 0; --ii)
+	{
+		cout << setw(16) << setfill('0') << hex << a[ii] << ".";
+	}
+	cout << endl;
+
+	//x->LoadFromString("28948022309329048855892746252171976963449087812878447882682178384830544116457", 10, a);
+
+	x->Copy(x->GetCurveQ(), a);
+
+	cout << "NP/4 = ";
+	for (int ii = x->Legs() - 1; ii >= 0; --ii)
+	{
+		cout << setw(16) << setfill('0') << hex << a[ii] << ".";
+	}
+	cout << endl << dec;
+
+	Leg d = x->GetCurveD();
+	//for (d = 1; d < 1000000; ++d)
+	{
+		x->CopyX(d, a);
+		x->MrSquareRoot(a, p);
+		x->MrSquare(p, p);
+		x->MrReduce(p);
+
+		if (x->Equal(a, p))
+		{
+			cout << "FAILURE: D is a square in Fp" << endl;
+		}
+		else
+		{
+			cout << "SUCCESS: D is not a square in Fp. D = " << d << endl;
+		}
+	}
+
 
     for (;;)
     {
-        x.PtGenerate(&mtprng, pt);
+        x->PtGenerate(out, pt);
+		x->PtNormalize(pt, pt);
 
-        x.PtEAdd(pt, pt, pt);
-        x.PtEAdd(pt, pt, pt);
-        x.PtEDouble(pt, pt);
-        x.PtEAdd(pt, pt, pt);
-        x.PtEAdd(pt, pt, pt);
-        x.PtEAdd(pt, pt, pt);
-        x.PtEAdd(pt, pt, pt);
-        x.PtDouble(pt, pt);
-        x.PtDouble(pt, pt);
-        x.PtDouble(pt, pt);
-        x.PtDouble(pt, pt);
-        x.PtDouble(pt, pt);
-        x.PtDouble(pt, pt);
-        x.PtDouble(pt, pt);
-        x.PtDouble(pt, pt);
-        x.PtDouble(pt, pt);
-        x.PtDouble(pt, pt);
-        x.PtDouble(pt, pt);
-        x.PtDouble(pt, pt);
-        x.PtEDouble(pt, pt);
-        x.PtEAdd(pt, pt, pt);
-        x.PtEAdd(pt, pt, pt);
-        x.PtDouble(pt, pt);
-        x.PtEDouble(pt, pt);
-        x.PtEAdd(pt, pt, pt);
-        x.PtEAdd(pt, pt, pt);
-        x.PtEAdd(pt, pt, pt);
-        x.PtEAdd(pt, pt, pt);
-        x.PtEAdd(pt, pt, pt);
-        x.PtEAdd(pt, pt, pt);
-        x.PtEAdd(pt, pt, pt);
-        x.PtEAdd(pt, pt, pt);
-        x.PtEAdd(pt, pt, pt);
-        x.PtAdd(pt, pt, pt);
-        x.PtDouble(pt, pt);
-        x.PtDouble(pt, pt);
-        x.PtDouble(pt, pt);
-        x.PtDouble(pt, pt);
-        x.PtDouble(pt, pt);
-        x.PtEDouble(pt, pt);
-        x.PtEAdd(pt, pt, pt);
-        x.PtEAdd(pt, pt, pt);
-        x.PtAdd(pt, pt, pt);
+		x->PtMultiply(pt, x->GetCurveQ(), 0, p);
+		//x->PtDouble(p, p);
+		//x->PtDouble(p, p);
 
-        x.SaveAffineXY(pt, t, u);
+		u64 tt = 0;
+		for (;;)
+		{
+			x->PtNormalize(p, p);
 
-        if (!x.LoadVerifyAffineXY(t, u, pt))
-        {
-            cout << "FAILURE: TE" << endl;
-        }
-        else
-        {
-            //cout << "SUCCESS: TE" << endl;
-        }
+			if (!x->Equal(pt, p))
+			{
+				//cout << "FAILURE: TE" << endl;
+				if ((tt & 0xffff) == 0)
+				{
+					cout << "Working.. " << tt << endl;
+				}
+			}
+			else
+			{
+				cout << "SUCCESS: TE " << tt << endl;
+				break;
+			}
+
+			++tt;
+			x->PtEAdd(p, pt, p);
+		}
     }
+
+	for (u32 c = 1; c < 0x80000000; c += 2)
+	{
+		BigPseudoMersenne bpm(32, 256, c);
+		Leg *r0 = bpm.Get(0);
+		bpm.CopyX(0, r0);
+		bpm.MrSubtractX(r0, 1);
+		Leg *r1 = bpm.Get(1);
+		bpm.MrSquareRoot(r0, r1);
+		bpm.MrSquare(r1, r1);
+		bpm.MrReduce(r1);
+		if (bpm.Equal(r1, r0))
+		{
+			cout << "SUCCESS: Found c so that (c-1) is a square.  c = " << c << endl;
+		}
+		else
+		{
+			if ((c & 0xfffe) == 0)
+			{
+				cout << "Crunching...  c = " << c << endl;
+			}
+		}
+	}
+	delete out;
+	delete x;
 
     return 0;
 }
 
 int main()
 {
-    //GenerateWMOFTable();
-    //return 0;
-    //return TestDivide();
-    //return TestModularInverse();
-    //return TestSquareRoot();
-    //return TestTwistedEdward();
-
     if (!FortunaFactory::ref()->Initialize())
     {
         cout << "FAILURE: Unable to initialize the Fortuna factory" << endl;
         return 1;
     }
+
+	//GenerateWMOFTable();
+    //return 0;
+    //return TestDivide();
+    //return TestModularInverse();
+    //return TestSquareRoot();
+    return TestTwistedEdward();
 /*
     cout << endl << "Atomic testing:" << endl;
     if (!Atomic::UnitTest())
