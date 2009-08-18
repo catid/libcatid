@@ -37,51 +37,51 @@
 namespace cat {
 
 
-    // Performs fast arithmetic modulo 2^bits-C, C = 1 (mod 4), C < 16384
-    class BigPseudoMersenne : public BigRTL
-    {
-        static const int PM_OVERHEAD = 5; // overhead for MrSquareRoot()
-        int pm_regs;
+// Performs fast arithmetic modulo 2^bits-C, C = 1 (mod 4), C < 16384
+class BigPseudoMersenne : public BigRTL
+{
+    static const int PM_OVERHEAD = 5; // overhead for MrSquareRoot()
+    int pm_regs;
 
-    protected:
-        Leg *CachedModulus;
-        Leg modulus_c;
+protected:
+    Leg *CachedModulus;
+    Leg modulus_c;
 
-        void MrReduceProductX(Leg overflow, Leg *inout);
-        void MrReduceProduct(const Leg *in_hi, const Leg *in_lo, Leg *out);
+    void MrReduceProductX(Leg overflow, Leg *inout);
+    void MrReduceProduct(const Leg *in_hi, const Leg *in_lo, Leg *out);
 
-    public:
-        BigPseudoMersenne(int regs, int bits, int C);
+public:
+    BigPseudoMersenne(int regs, int bits, int C);
 
-    public:
-        const Leg *GetModulus() { return CachedModulus; }
-        void CopyModulus(Leg *out);
+public:
+    const Leg *GetModulus() { return CachedModulus; }
+    void CopyModulus(Leg *out);
 
-    public:
-        // Result may be one modulus too large, so efficiently correct that
-        void MrReduce(Leg *inout);
+public:
+    // Result may be one modulus too large, so efficiently correct that
+    void MrReduce(Leg *inout);
 
-    public:
-        void MrAdd(const Leg *in_a, const Leg *in_b, Leg *out);
-        void MrAddX(Leg *inout, Leg x);
-        void MrSubtract(const Leg *in_a, const Leg *in_b, Leg *out);
-        void MrSubtractX(Leg *inout, Leg x);
-        void MrNegate(const Leg *in, Leg *out);
+public:
+    void MrAdd(const Leg *in_a, const Leg *in_b, Leg *out);
+    void MrAddX(Leg *inout, Leg x);
+    void MrSubtract(const Leg *in_a, const Leg *in_b, Leg *out);
+    void MrSubtractX(Leg *inout, Leg x);
+    void MrNegate(const Leg *in, Leg *out);
 
-    public:
-        void MrDouble(const Leg *in, Leg *out);
+public:
+    void MrDouble(const Leg *in, Leg *out);
 
-    public:
-        void MrMultiply(const Leg *in_a, const Leg *in_b, Leg *out);
-        void MrMultiplyX(const Leg *in_a, Leg in_b, Leg *out);
-        void MrSquare(const Leg *in, Leg *out);
+public:
+    void MrMultiply(const Leg *in_a, const Leg *in_b, Leg *out);
+    void MrMultiplyX(const Leg *in_a, Leg in_b, Leg *out);
+    void MrSquare(const Leg *in, Leg *out);
 
-    public:
-        void MrInvert(const Leg *in, Leg *out);
+public:
+    void MrInvert(const Leg *in, Leg *out);
 
-    public:
-        void MrSquareRoot(const Leg *in, Leg *out);
-    };
+public:
+    void MrSquareRoot(const Leg *in, Leg *out);
+};
 
 
 } // namespace cat

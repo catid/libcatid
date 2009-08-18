@@ -91,3 +91,4 @@ int BigRTL::LegsUsed(const Leg *in)
 #include "rtl/div/DivideAsm64.cpp"
 #include "rtl/div/DivideGeneric.cpp"
 #include "rtl/div/ModularInverse.cpp"
+#include "rtl/div/MultiplicativeInverse.cpp"
