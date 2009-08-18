@@ -315,6 +315,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\src\math\BigMontgomery.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\src\math\BigPseudoMersenne.cpp"
 				>
 			</File>
@@ -347,6 +351,10 @@
 			<Filter
 				Name="math"
 				>
+				<File
+					RelativePath="..\..\include\cat\math\BigMontgomery.hpp"
+					>
+				</File>
 				<File
 					RelativePath="..\..\include\cat\math\BigPseudoMersenne.hpp"
 					>

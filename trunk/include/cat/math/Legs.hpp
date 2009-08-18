@@ -34,6 +34,7 @@ namespace cat {
 #define CAT_USE_LEGS_ASM64 /* use 64-bit assembly code inner loops */
 #define CAT_USED_BITS(x) BitMath::BSR64(x) /* does not work if x = 0 */
     typedef u64 Leg;
+    typedef s64 LegSigned;
 #if !defined(CAT_COMPILER_MSVC)
     typedef u128 LegPair;
     typedef s128 LegPairSigned;
@@ -47,6 +48,7 @@ namespace cat {
 #define CAT_LEG_BITS 32
 #define CAT_USED_BITS(x) BitMath::BSR32(x) /* does not work if x = 0 */
     typedef u32 Leg;
+    typedef s32 LegSigned;
     typedef u64 LegPair;
     typedef s64 LegPairSigned;
 
@@ -57,6 +59,9 @@ namespace cat {
 #endif
 
 #endif // CAT_WORD_32
+
+// Largest value that can be taken on by a Leg
+const Leg CAT_LEG_LARGEST = ~(Leg)0;
 
 
 #if defined(CAT_NO_LEGPAIR)
