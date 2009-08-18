@@ -58,23 +58,15 @@ struct {
 void BigTwistedEdward::PtMultiply(const Leg *in_precomp, int w, const Leg *in_k, u8 msb_k, Leg *out)
 {
     // Begin multiplication loop
-    int leg = library_legs - 1;
+    int leg = library_legs - 1, offset = CAT_LEG_BITS + w;
     Leg bits, last_leg;
-    int offset, doubles_before = 0, doubles_skip = 0;
+    int doubles_before = 0, doubles_skip = 0;
 
 	// Extend input scalar by one bit so it will work for the sum of two scalars
-    if (msb_k)
-    {
-        last_leg = 1;
-        offset = CAT_LEG_BITS + w;
+    if ((last_leg = msb_k))
         PtCopy(in_precomp + POINT_STRIDE, out); // copy base point
-    }
     else
-    {
-        last_leg = in_k[leg--];
-        offset = w;
         PtCopy(in_precomp, out); // copy additive identity
-    }
 
     for (;;)
     {
@@ -142,7 +134,6 @@ void BigTwistedEdward::PtMultiply(const Leg *in_precomp, int w, const Leg *in_k,
 }
 
 
-/*
 // Extended Twisted Edwards Simultaneous Scalar Multiplication k*P + l*Q
 // Requires precomputation with PtMultiplyPrecomp()
 // CAN *NOT* BE followed by a Pt[E]Add()
@@ -150,26 +141,20 @@ void BigTwistedEdward::PtSiMultiply(const Leg *precomp_p, const Leg *precomp_q, 
 									const Leg *in_k, u8 msb_k, const Leg *in_l, u8 msb_l, Leg *out)
 {
     // Begin multiplication loop
-    bool seen_high_bit;
-    int leg = library_legs - 1;
-    Leg bits_k, last_leg_k;
-    Leg bits_l, last_leg_l;
-    int offset, doubles_before = 0, doubles_skip = 0;
+    int leg = library_legs - 1, offset = CAT_LEG_BITS + w;
+    Leg bits_k, last_leg_k, bits_l, last_leg_l;
+    int doubles_before = 0, doubles_skip = 0;
 
 	// Extend input scalar by one bit so it will work for the sum of two scalars
-    if (msb_k)
-    {
-        last_leg_k = 1;
-        offset = CAT_LEG_BITS + w;
-        seen_high_bit = true;
-        PtCopy(in_precomp, out);
-    }
+    if ((last_leg_k = msb_k))
+        PtCopy(precomp_p + POINT_STRIDE, out); // copy base point
     else
-    {
-        last_leg = in_k[leg--];
-        offset = w;
-        seen_high_bit = false;
-    }
+        PtCopy(precomp_p, out); // copy additive identity
+
+    if ((last_leg_l = msb_l))
+        PtAdd(out, precomp_q + POINT_STRIDE, out); // add base point
+    else
+        PtAdd(out, precomp_q, out); // add additive identity
 
     for (;;)
     {
@@ -183,7 +168,7 @@ void BigTwistedEdward::PtSiMultiply(const Leg *precomp_p, const Leg *precomp_q, 
         else if (leg >= 0)
         {
             // Next bits straddle the previous and next legs of k
-            Leg new_leg_k = in_k[leg--];
+            Leg new_leg_k = in_k[leg];
             Leg new_leg_l = in_l[leg--];
             offset -= CAT_LEG_BITS;
             bits_k = (last_leg_k << offset) | (new_leg_k >> (CAT_LEG_BITS - offset));
@@ -202,67 +187,75 @@ void BigTwistedEdward::PtSiMultiply(const Leg *precomp_p, const Leg *precomp_q, 
         }
         else break;
 
-        // Invert low bits if negative, and mask out high bit
-        Leg z_k = (bits_k ^ (0 - ((bits_k >> w) & 1))) & ((1 << w) - 1);
-        Leg z_l = (bits_l ^ (0 - ((bits_l >> w) & 1))) & ((1 << w) - 1);
+        // Invert low bits if negative, mask out high bit, and get table entry
+        Leg z_k = (((bits_k ^ (0 - ((bits_k >> w) & 1))) & ((1 << w) - 1)) + 1) >> 1;
+        Leg z_l = (((bits_l ^ (0 - ((bits_l >> w) & 1))) & ((1 << w) - 1)) + 1) >> 1;
 
-        Leg t_k = (z_k - 1) >> 1;
-        Leg t_l = (z_l - 1) >> 1;
+        // Extract the operation for this table entry
         int neg_mask_k = (bits_k & ((Leg)1 << w)) >> 2;
         int neg_mask_l = (bits_l & ((Leg)1 << w)) >> 2;
-        const Leg *precomp_k = precomp_p + (MOF_LUT[t_k].add_index + neg_mask_k) * POINT_STRIDE;
-        const Leg *precomp_l = precomp_q + (MOF_LUT[t_l].add_index + neg_mask_l) * POINT_STRIDE;
-        int doubles_after_k = MOF_LUT[t_k].doubles_after;
-        int doubles_after_l = MOF_LUT[t_l].doubles_after;
+		if (!z_k) neg_mask_k = 0; // "negative zero" -- occurs when bits are all ones
+		if (!z_l) neg_mask_l = 0; // "negative zero" -- occurs when bits are all ones
+        const Leg *precomp_k = precomp_p + (MOF_LUT[z_k].add_index + neg_mask_k) * POINT_STRIDE;
+        const Leg *precomp_l = precomp_q + (MOF_LUT[z_l].add_index + neg_mask_l) * POINT_STRIDE;
+        int doubles_after_k = MOF_LUT[z_k].doubles_after;
+        int doubles_after_l = MOF_LUT[z_l].doubles_after;
+		if (!z_k) doubles_after_k = w - 1; // fixes trailing doubles for final partial window of all zeroes
+		if (!z_l) doubles_after_l = w - 1; // fixes trailing doubles for final partial window of all zeroes
 
-		if (doubles_after_k > doubles_after_l)
+		int after1, after2;
+		const Leg *add1, *add2;
+
+		if (doubles_after_k >= doubles_after_l)
 		{
+			after1 = doubles_after_k;
+			after2 = doubles_after_l;
+			add1 = precomp_p;
+			add2 = precomp_q;
 		}
 		else
 		{
+			after1 = doubles_after_l;
+			after2 = doubles_after_k;
+			add1 = precomp_q;
+			add2 = precomp_p;
 		}
 
-        if (!z)
-        {
-            doubles_before += w;
+		// Perform doubles before addition
+		doubles_before += w - after1;
 
-            // Timing attack protection
-            PtAdd(out, in_precomp, TempPt);
-        }
-        else
-        {
-            // Extract the operation for this table entry
-            z = (z - 1) >> 1;
-            int neg_mask = (bits & ((Leg)1 << w)) >> 2;
-            const Leg *precomp = in_precomp + (MOF_LUT[z].add_index + neg_mask) * POINT_STRIDE;
-            int doubles_after = MOF_LUT[z].doubles_after;
+		// There will always be at least one doubling to perform here
+		while (--doubles_before)
+			PtDouble(out, out);
+		PtEDouble(out, out);
 
-            // Perform doubles before addition
-            doubles_before += w - doubles_after;
+		doubles_before = after1 - after2;
+		if (doubles_before)
+		{
+			// Perform addition or subtraction from the precomputed table
+			PtAdd(out, add1, out);
 
-            // There will always be at least one doubling to perform here
-            while (--doubles_before)
-                PtDouble(out, out);
-            PtEDouble(out, out);
+			// Perform doubles between the two interleaved adds
+			while (--doubles_before)
+				PtDouble(out, out);
+			PtEDouble(out, out);
+		}
+		else
+		{
+			// Perform addition or subtraction from the precomputed table
+			PtEAdd(out, add1, out);
 
-            // If we have seen the high bit yet,
-            if (seen_high_bit)
-            {
-                // Perform addition or subtraction from the precomputed table
-                PtAdd(out, precomp, out);
-            }
-            else
-            {
-                // On the first seen bit, product = precomputed point
-                PtCopy(precomp, out);
-                seen_high_bit = true;
-            }
+			// Note: Has resistance from timing attack since PtEAdd() and
+			// PtEDouble() both have just one multiply more than usual.
+		}
 
-            // Accumulate doubles after addition
-            doubles_before = doubles_after;
-        }
+		// Perform addition or subtraction from the precomputed table
+		PtAdd(out, add2, out);
 
-        // set up offset for next time around
+		// Accumulate doubles after addition
+		doubles_before = after2;
+
+        // Set up offset for next time around
         offset += w;
     }
 
@@ -276,4 +269,3 @@ void BigTwistedEdward::PtSiMultiply(const Leg *precomp_p, const Leg *precomp_q, 
             PtDouble(out, out);
     }
 }
-*/

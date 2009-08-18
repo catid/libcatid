@@ -322,6 +322,10 @@
 				RelativePath="..\..\src\crypt\tunnel\KeyMaker.cpp"
 				>
 			</File>
+			<File
+				RelativePath="..\..\src\crypt\tunnel\SchnorrSignature.cpp"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Header Files"
@@ -353,6 +357,10 @@
 				</File>
 				<File
 					RelativePath="..\..\include\cat\crypt\tunnel\KeyMaker.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\crypt\tunnel\SchnorrSignature.hpp"
 					>
 				</File>
 			</Filter>
