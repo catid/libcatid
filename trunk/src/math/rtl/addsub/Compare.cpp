@@ -35,6 +35,14 @@ bool BigRTL::Greater(const Leg *in_a, const Leg *in_b)
     return false;
 }
 
+bool BigRTL::GreaterX(const Leg *in, Leg x)
+{
+    for (int ii = library_legs - 1; ii > 0; --ii)
+        if (in[ii]) return true;
+
+    return in[0] > x;
+}
+
 bool BigRTL::Less(const Leg *in_a, const Leg *in_b)
 {
     int legs = library_legs;
@@ -48,6 +56,14 @@ bool BigRTL::Less(const Leg *in_a, const Leg *in_b)
     }
 
     return false;
+}
+
+bool BigRTL::LessX(const Leg *in, Leg x)
+{
+    for (int ii = library_legs - 1; ii > 0; --ii)
+        if (in[ii]) return false;
+
+    return in[0] < x;
 }
 
 bool BigRTL::Equal(const Leg *in_a, const Leg *in_b)

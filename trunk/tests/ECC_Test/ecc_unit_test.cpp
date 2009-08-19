@@ -20,7 +20,7 @@
 /*
     Unit test for the Elliptic Curve Cryptography code
 
-    Performs 10,000 simulated key exchanges, terminating on any error
+    Performs simulated runs of the Tunnel protocol, terminating on any error
 
     Demonstrates how to use the ECC code
 */
@@ -278,12 +278,56 @@ int TestSquareRoot()
     return 0;
 }
 
+int GenerateCurveParameterC()
+{
+	FortunaOutput *out = FortunaFactory::ref()->Create();
+
+	for (int ii = 0; ii < 10000; ++ii)
+	{
+		BigMontgomery mont(16, 256);
+		Leg *x = mont.Get(1);
+		Leg *y = mont.Get(2);
+		Leg *z = mont.Get(3);
+
+		Leg *ctest = mont.Get(0);
+		mont.CopyX(0, ctest);
+		mont.SubtractX(ctest, ii);
+
+		if (mont.ModulusX(ctest, 4) != 3)
+		{
+			// Only suggest p = 3 mod 4 because we can use a simple square root formula for these
+			continue;
+		}
+/*
+		mont.SetModulus(ctest);
+		mont.CopyX(12, x);
+		mont.CopyX(9, y);
+		mont.MonInput(x, x);
+		mont.MonExpMod(x, y, z);
+		mont.MonOutput(z, z);
+
+		cout << "prime = ";
+		for (int ii = mont.Legs() - 1; ii >= 0; --ii)
+		{
+			cout << setw(16) << setfill('0') << hex << z[ii] << ".";
+		}
+		cout << endl;
+*/
+		if (mont.IsRabinMillerPrime(out, ctest))
+		{
+			cout << "Candidate value for c (with p = 3 mod 4): " << ii << endl;
+		}
+	}
+
+	return 0;
+}
+
 #include <iomanip>
 
 int TestTwistedEdward()
 {
-	BigTwistedEdward *x = KeyAgreementCommon::InstantiateMath(256);
 	FortunaOutput *out = FortunaFactory::ref()->Create();
+	BigTwistedEdward *x = KeyAgreementCommon::InstantiateMath(256);
 
 	Leg *a = x->Get(0);
     Leg *modulus = x->Get(1);
@@ -417,6 +461,7 @@ int main()
         return 1;
     }
 
+	return GenerateCurveParameterC();
 	//GenerateWMOFTable();
     //return 0;
     //return TestDivide();

@@ -68,3 +68,9 @@ Leg BigRTL::ShiftRight(int legs, const Leg *in, int shift, Leg *out)
 
     return carry << (CAT_LEG_BITS - shift);
 }
+
+void BigRTL::MoveLegsRight(const Leg *in, int legs, Leg *out)
+{
+	memmove(out, in + legs, (library_legs - legs) * sizeof(Leg));
+	memset(out + library_legs - legs, 0, legs * sizeof(Leg));
+}

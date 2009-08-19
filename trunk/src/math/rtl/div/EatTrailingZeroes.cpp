@@ -17,12 +17,24 @@
     License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <cat/math/BigMontgomery.hpp>
+#include <cat/math/BigRTL.hpp>
 using namespace cat;
 
-void BigMontgomery::MonSubtract(const Leg *in_a, const Leg *in_b, Leg *out)
+int BigRTL::EatTrailingZeroes(Leg *inout)
 {
-    // If the subtraction overflowed, add modulus
-    if (Subtract(in_a, in_b, out))
-        while (Add(out, CachedModulus, out));
+	// Count number of trailing zero legs
+	int trailing_zero_legs = 0;
+	for (; trailing_zero_legs < library_legs && !inout[trailing_zero_legs]; ++trailing_zero_legs);
+
+	// Move out the zero legs
+	MoveLegsRight(inout, trailing_zero_legs, inout);
+
+	// Count number of trailing zero bits
+	int trailing_zero_bits = CAT_TRAILING_ZEROES(inout[0]);
+
+	// Shift out the zero bits
+	ShiftRight(library_legs, inout, trailing_zero_bits, inout);
+
+	// Return number of eatten zero bits
+	return trailing_zero_legs * CAT_LEG_BITS + trailing_zero_bits;
 }

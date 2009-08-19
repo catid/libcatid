@@ -17,24 +17,14 @@
     License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <cat/math/BigPseudoMersenne.hpp>
-#include <cat/asm/big_x64_asm.hpp>
+#include <cat/math/BigMontgomery.hpp>
 using namespace cat;
 
-void BigPseudoMersenne::MrSquare(const Leg *in, Leg *out)
+void BigMontgomery::MonSquare(const Leg *in, Leg *out)
 {
-#if defined(CAT_USE_LEGS_ASM64)
-    if (library_legs == 4)
-    {
-        bpm_sqr_4(modulus_c, in, out);
-        return;
-    }
-#endif
+	// Perform normal squaring
+	Square(in, TempProduct);
 
-    Leg *T_hi = Get(pm_regs - 2);
-    Leg *T_lo = Get(pm_regs - 3);
-
-    Square(in, T_lo);
-
-    MrReduceProduct(T_hi, T_lo, out);
+	// Followed by Montgomery reduction
+	MonReduceProduct(TempProduct, out);
 }

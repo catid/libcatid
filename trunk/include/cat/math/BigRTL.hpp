@@ -88,13 +88,16 @@ public:
 
 public:
     bool Greater(const Leg *in_a, const Leg *in_b);
+    bool GreaterX(const Leg *in, Leg x);
     bool Less(const Leg *in_a, const Leg *in_b);
+    bool LessX(const Leg *in, Leg x);
     bool Equal(const Leg *in_a, const Leg *in_b);
     bool EqualX(const Leg *in, Leg x);
     bool IsZero(const Leg *in);
 
 public:
     Leg ShiftLeft(const Leg *in, int shift, Leg *out);
+	void MoveLegsRight(const Leg *in, int legs, Leg *out);
 
 public:
     u8 Add(const Leg *in_a, const Leg *in_b, Leg *out);
@@ -105,6 +108,10 @@ public:
 
 public:
     u8 Double(const Leg *in, Leg *out);
+
+public:
+	// Eat all trailing least significant zeroes from the argument and return the number eatten
+	int EatTrailingZeroes(Leg *inout);
 
 public:
     Leg MultiplyX(const Leg *in_a, Leg in_b, Leg *out); // out = a[] * b

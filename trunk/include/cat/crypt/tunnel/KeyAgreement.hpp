@@ -97,7 +97,7 @@ public:
     // C: field prime modulus (2^bits - C)
     // D: curve (yy-xx=1+Dxxyy)
     static const int EDWARD_C_256 = 189;
-    static const int EDWARD_D_256 = 12462;
+    static const int EDWARD_D_256 = 66124;
     static const int EDWARD_C_384 = 317;
     static const int EDWARD_D_384 = 2857;
     static const int EDWARD_C_512 = 569;

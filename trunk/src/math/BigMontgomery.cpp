@@ -48,9 +48,12 @@ void BigMontgomery::CopyModulus(Leg *out)
 // compilers to support "link time optimization."
 
 #include "montgomery/reduce/MonInput.cpp"
+#include "montgomery/reduce/MonOutput.cpp"
 #include "montgomery/reduce/MonReduceProduct.cpp"
 #include "montgomery/addsub/MonAdd.cpp"
 #include "montgomery/addsub/MonNegate.cpp"
 #include "montgomery/addsub/MonSubtract.cpp"
 #include "montgomery/mul/MonMultiply.cpp"
 #include "montgomery/mul/MonSquare.cpp"
+#include "montgomery/expm/MonExpMod.cpp"
+#include "montgomery/expm/IsRabinMillerPrime.cpp"

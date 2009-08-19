@@ -26,6 +26,7 @@
 #define CAT_BIG_MONTGOMERY_HPP
 
 #include <cat/math/BigRTL.hpp>
+#include <cat/rand/IRandom.hpp>
 
 namespace cat {
 
@@ -33,7 +34,7 @@ namespace cat {
 // Performs fast modular arithmetic in the Montgomery Residue Number System
 class BigMontgomery : public BigRTL
 {
-    static const int MON_OVERHEAD = 3;
+    static const int MON_OVERHEAD = 3 + 3;
     int mon_regs;
 
 protected:
@@ -53,8 +54,11 @@ public:
     void CopyModulus(Leg *out);
 
 public:
-	// Put the contents of a register into the RNS, stored in out
+	// Convert value in register into RNS, stored in out
 	void MonInput(const Leg *in, Leg *out);
+
+	// Convert value in register from RNS, stored in out
+	void MonOutput(const Leg *in, Leg *out);
 
 	// Note: This will clobber the input product!
 	// Reduce a double-register product to a single register in the RNS
@@ -63,9 +67,7 @@ public:
 public:
 	// Inputs and outputs must be in the Montgomery RNS
     void MonAdd(const Leg *in_a, const Leg *in_b, Leg *out);
-    void MonAddX(Leg *inout, Leg x);
     void MonSubtract(const Leg *in_a, const Leg *in_b, Leg *out);
-    void MonSubtractX(Leg *inout, Leg x);
     void MonNegate(const Leg *in, Leg *out);
     void MonDouble(const Leg *in, Leg *out);
 
@@ -73,6 +75,15 @@ public:
 	// Inputs and outputs must be in the Montgomery RNS
     void MonMultiply(const Leg *in_a, const Leg *in_b, Leg *out);
     void MonSquare(const Leg *in, Leg *out);
+
+public:
+	// Base must be in the Montgomery RNS.  in_base != out
+	void MonExpMod(const Leg *in_base, const Leg *in_exp, Leg *out);
+
+public:
+	// Input is NOT in the RNS (don't call MonInput)
+	// Probably a prime, certainty = 4^-trials.  20: %99.9999999999 certainty
+	bool IsRabinMillerPrime(IRandom *prng, const Leg *n, int trials = 20);
 };
 
 

@@ -17,21 +17,45 @@
     License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <cat/math/BigPseudoMersenne.hpp>
-#include <cat/asm/big_x64_asm.hpp>
+#include <cat/math/BigMontgomery.hpp>
 using namespace cat;
 
-void BigPseudoMersenne::MrMultiplyX(const Leg *in_a, Leg in_b, Leg *out)
+// Base must be in the Montgomery RNS.  in_base != out
+void BigMontgomery::MonExpMod(const Leg *in_base, const Leg *in_exp, Leg *out)
 {
-#if defined(CAT_USE_LEGS_ASM64)
-    if (library_legs == 4)
-    {
-        bpm_mulx_4(modulus_c, in_a, in_b, out);
-        return;
-    }
-#endif
+	bool seen_high_bit = false;
 
-    Leg overflow = MultiplyX(in_a, in_b, out);
+	// Left-to-right square and multiply method
+	for (int ii = library_legs - 1; ii >= 0; --ii)
+	{
+		Leg e_i = in_exp[ii];
 
-    MrReduceProductX(overflow, out);
+		for (Leg mask = CAT_LEG_MSB; mask; mask >>= 1)
+		{
+			if (seen_high_bit)
+			{
+				// out = out*out (mod p)
+				MonSquare(out, out);
+
+				if (e_i & mask)
+				{
+					// out *= base (mod p)
+					MonMultiply(out, in_base, out);
+				}
+			}
+			else
+			{
+				if (e_i & mask)
+				{
+					// out = base
+					Copy(in_base, out);
+					seen_high_bit = true;
+				}
+			}
+		}
+	}
+
+	// 0^e = 0
+	if (!seen_high_bit)
+		CopyX(0, out);
 }

@@ -20,9 +20,14 @@
 #include <cat/math/BigMontgomery.hpp>
 using namespace cat;
 
-void BigMontgomery::MonSubtract(const Leg *in_a, const Leg *in_b, Leg *out)
+void BigMontgomery::MonOutput(const Leg *in, Leg *out)
 {
-    // If the subtraction overflowed, add modulus
-    if (Subtract(in_a, in_b, out))
-        while (Add(out, CachedModulus, out));
+	// out = in * R^-1 (mod p)
+	Copy(in, TempProduct);
+	CopyX(0, TempProductHi);
+	MonReduceProduct(TempProduct, out);
+
+	// Result after reduction may still be too large by one modulus
+	if (!Less(out, CachedModulus))
+		Subtract(out, CachedModulus, out);
 }

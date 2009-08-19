@@ -22,7 +22,6 @@
 #include <cat/AllCommon.hpp>
 
 #include <cat/math/BigRTL.hpp>
-
+#include <cat/math/BigMontgomery.hpp>
 #include <cat/math/BigPseudoMersenne.hpp>
-
 #include <cat/math/BigTwistedEdward.hpp>
