@@ -17,35 +17,19 @@
     License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <cat/math/BigPseudoMersenne.hpp>
-#include <cat/asm/big_x64_asm.hpp>
+#include <cat/math/BigMontgomery.hpp>
 using namespace cat;
 
-void BigPseudoMersenne::MrAddX(Leg *inout, Leg x)
+void BigMontgomery::MonAdd(const Leg *in_a, const Leg *in_b, Leg *out)
 {
-    // If the addition overflowed, add C
-    if (AddX(inout, x))
-        while (AddX(inout, modulus_c));
-}
-
-void BigPseudoMersenne::MrAdd(const Leg *in_a, const Leg *in_b, Leg *out)
-{
-#if defined(CAT_USE_LEGS_ASM64)
-    if (library_legs == 4)
-    {
-        bpm_add_4(modulus_c, in_a, in_b, out);
-        return;
-    }
-#endif
-
-    // If the addition overflowed, add C
+    // If the addition overflowed, subtract modulus
     if (Add(in_a, in_b, out))
-        while (AddX(out, modulus_c));
+        while (Subtract(out, CachedModulus, out));
 }
 
-void BigPseudoMersenne::MrDouble(const Leg *in, Leg *out)
+void BigMontgomery::MonDouble(const Leg *in, Leg *out)
 {
-    // If the doubling overflowed, add C
+    // If the doubling overflowed, subtract modulus
     if (Double(in, out))
-        while (AddX(out, modulus_c));
+        while (Subtract(out, CachedModulus, out));
 }

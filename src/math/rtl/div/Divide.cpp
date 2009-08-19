@@ -68,6 +68,7 @@ bool BigRTL::Divide(const Leg *in_a, const Leg *in_b, Leg *out_q, Leg *out_r)
     return true;
 }
 
+
 // Divide the product of two registers (a+1:a) by single register (b)
 // Resulting quotient is two registers (q+1:q) and remainder is one register (r)
 bool BigRTL::DivideProduct(const Leg *in_a, const Leg *in_b, Leg *out_q, Leg *out_r)
@@ -86,19 +87,16 @@ bool BigRTL::DivideProduct(const Leg *in_a, const Leg *in_b, Leg *out_q, Leg *ou
 		if (Less(in_a, in_b))
 		{
 			Copy(in_a, out_r);
-			CopyX(0, out_q);
-			CopyX(0, out_q_hi);
+			memset(out_q, 0, library_legs * 2);
 			return true;
 		}
 
 		A_used = LegsUsed(in_a);
 	}
 
-	// TODO: implement from here on!!
-
     // {q, r} = a / b
-    Leg *A = Get(library_regs - 1); // shifted numerator
-    Leg *B = Get(library_regs - 2); // shifted denominator
+    Leg *A = Get(library_regs - 2); // shifted numerator
+    Leg *B = Get(library_regs - 3); // shifted denominator
 
     // Determine shift required to set high bit of highest leg in b
     int shift = CAT_LEG_BITS - CAT_USED_BITS(in_b[B_used-1]) - 1;
@@ -111,7 +109,7 @@ bool BigRTL::DivideProduct(const Leg *in_a, const Leg *in_b, Leg *out_q, Leg *ou
 
     // Zero the unused legs of the quotient
     int offset = A_used - B_used + 1;
-    memset(out_q + offset, 0, (library_legs - offset) * sizeof(Leg));
+    memset(out_q + offset, 0, (library_legs*2 - offset) * sizeof(Leg));
 
     // Fix remainder shift and zero its unused legs
     memset(out_r + B_used, 0, (library_legs - B_used) * sizeof(Leg));

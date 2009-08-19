@@ -22,9 +22,8 @@ using namespace cat;
 
 void BigMontgomery::MonInput(const Leg *in, Leg *out)
 {
-	// TempProduct = in * 2^k
+	// out = in * R (mod p)
 	CopyX(0, TempProduct);
 	Copy(in, TempProductHi);
-
-	Divide(TempProduct, Modulus
+	DivideProduct(TempProduct, CachedModulus, TempProduct, out);
 }
