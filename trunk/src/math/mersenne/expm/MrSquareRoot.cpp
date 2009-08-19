@@ -22,50 +22,105 @@ using namespace cat;
 
 void BigPseudoMersenne::MrSquareRoot(const Leg *in, Leg *out)
 {
-    // Square root for specially formed modulus:
-    // out = in ^ (m + 1)/4
+	if ((CachedModulus[0] & 3) == 3)
+	{
+	    // Square root for specially formed modulus:
+		// out = in ^ (m + 1)/4
 
-    // Same algorithm from MrInvert()
-    Leg *T = Get(pm_regs - 4);
-    Leg *S = Get(pm_regs - 5);
+		// Same algorithm from MrInvert()
+		Leg *T = Get(pm_regs - 4);
+		Leg *S = Get(pm_regs - 5);
 
-    // Optimal window size is sqrt(bits-16)
-    const int w = 16; // Constant window size, optimal for 256-bit modulus
+		// Optimal window size is sqrt(bits-16)
+		const int w = 16; // Constant window size, optimal for 256-bit modulus
 
-    // Perform exponentiation for the first w bits
-    Copy(in, S);
-    int ctr = w - 1;
-    while (ctr--)
-    {
-        MrSquare(S, S);
-        MrMultiply(S, in, S);
-    }
+		// Perform exponentiation for the first w bits
+		Copy(in, S);
+		int ctr = w - 1;
+		while (ctr--)
+		{
+			MrSquare(S, S);
+			MrMultiply(S, in, S);
+		}
 
-    // Store result in a temporary register
-    Copy(S, T);
+		// Store result in a temporary register
+		Copy(S, T);
 
-    // NOTE: This assumes that modulus_c < 16384 = 2^(w-2)
-    int one_frames = (RegBytes()*8 - w*2) / w;
-    while (one_frames--)
-    {
-        // Just multiply once re-using the first result, every 16 bits
-        MrSquare(S, S); MrSquare(S, S); MrSquare(S, S); MrSquare(S, S);
-        MrSquare(S, S); MrSquare(S, S); MrSquare(S, S); MrSquare(S, S);
-        MrSquare(S, S); MrSquare(S, S); MrSquare(S, S); MrSquare(S, S);
-        MrSquare(S, S); MrSquare(S, S); MrSquare(S, S); MrSquare(S, S);
-        MrMultiply(S, T, S);
-    }
+		// NOTE: This assumes that modulus_c < 16384 = 2^(w-2)
+		int one_frames = (RegBytes()*8 - w*2) / w;
+		while (one_frames--)
+		{
+			// Just multiply once re-using the first result, every 16 bits
+			MrSquare(S, S); MrSquare(S, S); MrSquare(S, S); MrSquare(S, S);
+			MrSquare(S, S); MrSquare(S, S); MrSquare(S, S); MrSquare(S, S);
+			MrSquare(S, S); MrSquare(S, S); MrSquare(S, S); MrSquare(S, S);
+			MrSquare(S, S); MrSquare(S, S); MrSquare(S, S); MrSquare(S, S);
+			MrMultiply(S, T, S);
+		}
 
-    // For the final leg just do bitwise exponentiation
-    // NOTE: Makes use of the fact that the window size is a power of two
-    Leg m_low = 1 - modulus_c;
-    for (Leg bit = (Leg)1 << (w - 1); bit >= 4; bit >>= 1)
-    {
-        MrSquare(S, S);
+		// For the final leg just do bitwise exponentiation
+		// NOTE: Makes use of the fact that the window size is a power of two
+		Leg m_low = 1 - modulus_c;
+		for (Leg bit = (Leg)1 << (w - 1); bit >= 4; bit >>= 1)
+		{
+			MrSquare(S, S);
 
-        if (m_low & bit)
-            MrMultiply(S, in, S);
-    }
+			if (m_low & bit)
+				MrMultiply(S, in, S);
+		}
 
-    Copy(S, out);
+		Copy(S, out);
+	}
+	else if ((CachedModulus[0] & 7) == 5)
+	{
+	    // Square root for specially formed modulus:
+		// A = (2*in) ^ (m - 5)/8
+		// out = in * A * ((2*in * A^2) - 1)
+
+		// TODO!
+
+		// Same algorithm from MrInvert()
+		Leg *T = Get(pm_regs - 4);
+		Leg *S = Get(pm_regs - 5);
+
+		// Optimal window size is sqrt(bits-16)
+		const int w = 16; // Constant window size, optimal for 256-bit modulus
+
+		// Perform exponentiation for the first w bits
+		Copy(in, S);
+		int ctr = w - 1;
+		while (ctr--)
+		{
+			MrSquare(S, S);
+			MrMultiply(S, in, S);
+		}
+
+		// Store result in a temporary register
+		Copy(S, T);
+
+		// NOTE: This assumes that modulus_c < 16384 = 2^(w-2)
+		int one_frames = (RegBytes()*8 - w*2) / w;
+		while (one_frames--)
+		{
+			// Just multiply once re-using the first result, every 16 bits
+			MrSquare(S, S); MrSquare(S, S); MrSquare(S, S); MrSquare(S, S);
+			MrSquare(S, S); MrSquare(S, S); MrSquare(S, S); MrSquare(S, S);
+			MrSquare(S, S); MrSquare(S, S); MrSquare(S, S); MrSquare(S, S);
+			MrSquare(S, S); MrSquare(S, S); MrSquare(S, S); MrSquare(S, S);
+			MrMultiply(S, T, S);
+		}
+
+		// For the final leg just do bitwise exponentiation
+		// NOTE: Makes use of the fact that the window size is a power of two
+		Leg m_low = 1 - modulus_c;
+		for (Leg bit = (Leg)1 << (w - 1); bit >= 4; bit >>= 1)
+		{
+			MrSquare(S, S);
+
+			if (m_low & bit)
+				MrMultiply(S, in, S);
+		}
+
+		Copy(S, out);
+	}
 }
