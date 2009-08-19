@@ -374,7 +374,7 @@ int TestTwistedEdward()
 	cout << endl << dec;
 
 	Leg d = x->GetCurveD();
-	//for (d = 1; d < 1000000; ++d)
+	for (d = 1; d < 1000000; ++d)
 	{
 		x->CopyX(d, a);
 		x->MrSquareRoot(a, p);
@@ -461,7 +461,7 @@ int main()
         return 1;
     }
 
-	return GenerateCurveParameterC();
+	//return GenerateCurveParameterC();
 	//GenerateWMOFTable();
     //return 0;
     //return TestDivide();
