@@ -1145,7 +1145,7 @@ int main()
         return 1;
     }
 
-	return GenerateCurveParameterC();
+	//return GenerateCurveParameterC();
 	//GenerateWMOFTable();
     //return 0;
     //return TestDivide();
