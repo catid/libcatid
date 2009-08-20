@@ -101,7 +101,7 @@ public:
     static const int EDWARD_C_384 = 2147;
     static const int EDWARD_D_384 = 13036;
     static const int EDWARD_C_512 = 875;
-    static const int EDWARD_D_512 = 3042;
+    static const int EDWARD_D_512 = 32;
 
     // Limits on field prime
     static const int MAX_BITS = 512;

@@ -344,74 +344,82 @@ int GenerateCurveParameterC()
 
 bool TestCurveParameters()
 {
-	FortunaOutput *out = FortunaFactory::ref()->Create();
-	BigTwistedEdward *x = KeyAgreementCommon::InstantiateMath(256);
+	const int BITS[] = {256, 384, 512};
 
-	Leg *a = x->Get(0);
-    Leg *modulus = x->Get(1);
-    Leg *inverse = x->Get(2);
-	Leg *p = x->Get(3);
-    Leg *s = x->Get(4);
-    Leg *t = x->Get(5);
-    Leg *u = x->Get(6);
-    Leg *pt = x->Get(7);
-
-	Leg d = x->GetCurveD();
+	for (int ii = 0; ii < 3; ++ii)
 	{
-		x->CopyX(d, a);
+		cout << "Testing curve parameters for " << BITS[ii] << "-bit modulus:" << endl;
+		FortunaOutput *out = FortunaFactory::ref()->Create();
+		BigTwistedEdward *x = KeyAgreementCommon::InstantiateMath(BITS[ii]);
+
+		Leg *a = x->Get(0);
+		Leg *modulus = x->Get(1);
+		Leg *inverse = x->Get(2);
+		Leg *p = x->Get(3);
+		Leg *s = x->Get(4);
+		Leg *t = x->Get(5);
+		Leg *u = x->Get(6);
+		Leg *pt = x->Get(7);
+
+		Leg d = x->GetCurveD();
+		{
+			x->CopyX(d, a);
+			x->MrSquareRoot(a, p);
+			x->MrSquare(p, p);
+			x->MrReduce(p);
+
+			if (x->Equal(a, p))
+			{
+				cout << "FAILURE: d is a square in Fp" << endl;
+				return false;
+			}
+			else
+			{
+				cout << "SUCCESS: d is not a square in Fp. d = " << d << endl;
+			}
+		}
+
+		// Test a = -1
+
+		x->CopyX(0, a);
+		x->MrSubtractX(a, 1);
 		x->MrSquareRoot(a, p);
 		x->MrSquare(p, p);
 		x->MrReduce(p);
 
 		if (x->Equal(a, p))
 		{
-			cout << "FAILURE: d is a square in Fp" << endl;
+			cout << "SUCCESS: a = -1 is a square in Fp" << endl;
+		}
+		else
+		{
+			cout << "FAILURE: a = -1 is NOT a square in Fp" << endl;
+			return false;
+		}
+
+		x->PtGenerate(out, pt);
+		x->PtNormalize(pt, pt);
+
+		x->PtMultiply(pt, x->GetCurveQ(), 0, p);
+		x->PtNormalize(p, p); // needed since PtMultiply() result cannot normally be followed by a PtAdd()
+		x->PtEAdd(p, pt, p);
+		x->PtNormalize(p, p);
+
+		if (!x->Equal(pt, p))
+		{
+			cout << "FAILURE: G*(q+1) != G" << endl;
 			return false;
 		}
 		else
 		{
-			cout << "SUCCESS: d is not a square in Fp. d = " << d << endl;
+			cout << "SUCCESS: G*(q+1) = G -- Verifies order of large prime subgroup" << endl;
 		}
+
+		delete out;
+		delete x;
+
+		cout << endl;
 	}
-
-	// Test a = -1
-
-	x->CopyX(0, a);
-	x->MrSubtractX(a, 1);
-	x->MrSquareRoot(a, p);
-	x->MrSquare(p, p);
-	x->MrReduce(p);
-
-	if (x->Equal(a, p))
-	{
-		cout << "SUCCESS: a = -1 is a square in Fp" << endl;
-	}
-	else
-	{
-		cout << "FAILURE: a = -1 is NOT a square in Fp" << endl;
-		return false;
-	}
-
-	x->PtGenerate(out, pt);
-	x->PtNormalize(pt, pt);
-
-	x->PtMultiply(pt, x->GetCurveQ(), 0, p);
-	x->PtNormalize(p, p); // needed since PtMultiply() result cannot normally be followed by a PtAdd()
-	x->PtEAdd(p, pt, p);
-	x->PtNormalize(p, p);
-
-	if (!x->Equal(pt, p))
-	{
-		cout << "FAILURE: G*(q+1) != G" << endl;
-		return false;
-	}
-	else
-	{
-		cout << "SUCCESS: G*(q+1) = G -- Verifies order of large prime subgroup" << endl;
-    }
-
-	delete out;
-	delete x;
 
     return true;
 }
