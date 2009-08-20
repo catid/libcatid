@@ -22,17 +22,21 @@ using namespace cat;
 
 void BigPseudoMersenne::MrSquareRoot(const Leg *in, Leg *out)
 {
+	// Uses the left-to-right square and multiply exponentiation algorithm,
+	// which is sped up a bit by recognizing that the exponent is all one bits
+	// until about the last 13 bits.  So it avoids a lot of multiplies.
+
+	Leg *T = Get(pm_regs - 4);
+	Leg *S = Get(pm_regs - 5);
+	Leg *D = Get(pm_regs - 6);
+
+	// Optimal window size is sqrt(bits-16)
+	const int w = 16; // Constant window size, optimal for 256-bit modulus
+
 	if ((CachedModulus[0] & 3) == 3)
 	{
 	    // Square root for modulus p = 3 mod 4
-		// out = in ^ (m + 1)/4
-
-		// Same algorithm from MrInvert()
-		Leg *T = Get(pm_regs - 4);
-		Leg *S = Get(pm_regs - 5);
-
-		// Optimal window size is sqrt(bits-16)
-		const int w = 16; // Constant window size, optimal for 256-bit modulus
+		// out = in ^ (p + 1)/4
 
 		// Perform exponentiation for the first w bits
 		Copy(in, S);
@@ -74,24 +78,19 @@ void BigPseudoMersenne::MrSquareRoot(const Leg *in, Leg *out)
 	else if ((CachedModulus[0] & 7) == 5)
 	{
 	    // Square root for modulus p = 5 mod 8 using Atkin's method:
-		// S = (2*in) ^ (m - 5)/8
-		// out = in * S * ((2*in * S^2) - 1)
-
-		// Same algorithm from MrInvert()
-		Leg *T = Get(pm_regs - 4);
-		Leg *S = Get(pm_regs - 5);
-
-		// Optimal window size is sqrt(bits-16)
-		const int w = 16; // Constant window size, optimal for 256-bit modulus
+		// D = 2 * in
+		// S = D ^ (p - 5)/8
+		// out = in * S * ((D * S^2) - 1)
 
 		// Perform exponentiation for the first w bits
-		Copy(in, S);
-		MrDouble(S, S);
-		int ctr = w - 1;
+		MrDouble(in, D);
+		MrSquare(D, S);
+		MrMultiply(S, D, S);
+		int ctr = w - 2;
 		while (ctr--)
 		{
 			MrSquare(S, S);
-			MrMultiply(S, in, S);
+			MrMultiply(S, D, S);
 		}
 
 		// Store result in a temporary register
@@ -117,13 +116,12 @@ void BigPseudoMersenne::MrSquareRoot(const Leg *in, Leg *out)
 			MrSquare(S, S);
 
 			if (m_low & bit)
-				MrMultiply(S, in, S);
+				MrMultiply(S, D, S);
 		}
 
-		// T = 2*in * S^2 - 1
+		// T = S^2 * D - 1
 		MrSquare(S, T);
-		MrMultiply(T, in, T);
-		MrDouble(T, T);
+		MrMultiply(T, D, T);
 		MrSubtractX(T, 1);
 
 		// out = in * S * T

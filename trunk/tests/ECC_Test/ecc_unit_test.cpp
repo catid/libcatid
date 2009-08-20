@@ -282,9 +282,9 @@ int GenerateCurveParameterC()
 {
 	FortunaOutput *out = FortunaFactory::ref()->Create();
 
-	for (int ii = 0; ii < 10000; ++ii)
+	for (int ii = 1; true; ii += 2)
 	{
-		BigMontgomery mont(16, 256);
+		BigMontgomery mont(16, 512);
 		Leg *x = mont.Get(1);
 		Leg *y = mont.Get(2);
 		Leg *z = mont.Get(3);
@@ -292,12 +292,12 @@ int GenerateCurveParameterC()
 		Leg *ctest = mont.Get(0);
 		mont.CopyX(0, ctest);
 		mont.SubtractX(ctest, ii);
-
-		if (mont.ModulusX(ctest, 4) != 3)
+/*
+		if (mont.ModulusX(ctest, 4) != 1)
 		{
 			// Only suggest p = 3 mod 4 because we can use a simple square root formula for these
 			continue;
-		}
+		}*/
 /*
 		mont.SetModulus(ctest);
 		mont.CopyX(12, x);
@@ -315,16 +315,34 @@ int GenerateCurveParameterC()
 */
 		if (mont.IsRabinMillerPrime(out, ctest))
 		{
-			cout << "Candidate value for c (with p = 3 mod 4): " << ii << endl;
+			//cout << "Candidate value for c (with p = 3 mod 4): " << ii << endl;
+
+			BigPseudoMersenne mer(4, 512, ii);
+			Leg *a = mer.Get(0);
+			Leg *p = mer.Get(1);
+			mer.CopyX(0, a);
+			mer.MrSubtractX(a, 1);
+			mer.MrSquareRoot(a, p);
+			mer.MrSquare(p, p);
+			mer.MrReduce(p);
+
+			if (mer.Equal(a, p))
+			{
+				//cout << "SUCCESS: a = -1 is a square in Fp" << endl;
+				cout << "Candidate value for c: " << ii << " -- p mod 8 = " << mont.ModulusX(ctest, 8) << endl;
+			}
+			else
+			{
+				//cout << "FAILURE: a = -1 is NOT a square in Fp" << endl;
+				//cout << "NOT Candidate value for c: " << ii << " -- p mod 8 = " << mont.ModulusX(ctest, 8) << endl;
+			}
 		}
 	}
 
 	return 0;
 }
 
-#include <iomanip>
-
-int TestTwistedEdward()
+bool TestCurveParameters()
 {
 	FortunaOutput *out = FortunaFactory::ref()->Create();
 	BigTwistedEdward *x = KeyAgreementCommon::InstantiateMath(256);
@@ -338,43 +356,7 @@ int TestTwistedEdward()
     Leg *u = x->Get(6);
     Leg *pt = x->Get(7);
 
-	x->LoadFromString("57896044618658097711785492504343953926856930875039260848015607506283634007912", 10, a);
-
-	Leg mod = x->DivideX(a, 8, a);
-	if (mod != 0)
-	{
-		cout << " WHAT THE FUCKL" <<endl;
-	}
-
-	cout << "prime = ";
-	for (int ii = x->Legs() - 1; ii >= 0; --ii)
-	{
-		cout << setw(16) << setfill('0') << hex << a[ii] << ".";
-	}
-	cout << endl;
-
-	x->LoadFromString("27742317777372353535851937790883648493", 10, a);
-
-	cout << "prime = ";
-	for (int ii = x->Legs() - 1; ii >= 0; --ii)
-	{
-		cout << setw(16) << setfill('0') << hex << a[ii] << ".";
-	}
-	cout << endl;
-
-	//x->LoadFromString("28948022309329048855892746252171976963449087812878447882682178384830544116457", 10, a);
-
-	x->Copy(x->GetCurveQ(), a);
-
-	cout << "NP/4 = ";
-	for (int ii = x->Legs() - 1; ii >= 0; --ii)
-	{
-		cout << setw(16) << setfill('0') << hex << a[ii] << ".";
-	}
-	cout << endl << dec;
-
 	Leg d = x->GetCurveD();
-	for (d = 1; d < 1000000; ++d)
 	{
 		x->CopyX(d, a);
 		x->MrSquareRoot(a, p);
@@ -383,153 +365,57 @@ int TestTwistedEdward()
 
 		if (x->Equal(a, p))
 		{
-			cout << "FAILURE: D is a square in Fp" << endl;
+			cout << "FAILURE: d is a square in Fp" << endl;
+			return false;
 		}
 		else
 		{
-			cout << "SUCCESS: D is not a square in Fp. D = " << d << endl;
+			cout << "SUCCESS: d is not a square in Fp. d = " << d << endl;
 		}
 	}
 
+	// Test a = -1
 
-    for (;;)
-    {
-        x->PtGenerate(out, pt);
-		x->PtNormalize(pt, pt);
+	x->CopyX(0, a);
+	x->MrSubtractX(a, 1);
+	x->MrSquareRoot(a, p);
+	x->MrSquare(p, p);
+	x->MrReduce(p);
 
-		x->PtMultiply(pt, x->GetCurveQ(), 0, p);
-		//x->PtDouble(p, p);
-		//x->PtDouble(p, p);
+	if (x->Equal(a, p))
+	{
+		cout << "SUCCESS: a = -1 is a square in Fp" << endl;
+	}
+	else
+	{
+		cout << "FAILURE: a = -1 is NOT a square in Fp" << endl;
+		return false;
+	}
 
-		u64 tt = 0;
-		for (;;)
-		{
-			x->PtNormalize(p, p);
+	x->PtGenerate(out, pt);
+	x->PtNormalize(pt, pt);
 
-			if (!x->Equal(pt, p))
-			{
-				//cout << "FAILURE: TE" << endl;
-				if ((tt & 0xffff) == 0)
-				{
-					cout << "Working.. " << tt << endl;
-				}
-			}
-			else
-			{
-				cout << "SUCCESS: TE " << tt << endl;
-				break;
-			}
+	x->PtMultiply(pt, x->GetCurveQ(), 0, p);
+	x->PtNormalize(p, p); // needed since PtMultiply() result cannot normally be followed by a PtAdd()
+	x->PtEAdd(p, pt, p);
+	x->PtNormalize(p, p);
 
-			++tt;
-			x->PtEAdd(p, pt, p);
-		}
+	if (!x->Equal(pt, p))
+	{
+		cout << "FAILURE: G*(q+1) != G" << endl;
+		return false;
+	}
+	else
+	{
+		cout << "SUCCESS: G*(q+1) = G -- Verifies order of large prime subgroup" << endl;
     }
 
-	for (u32 c = 1; c < 0x80000000; c += 2)
-	{
-		BigPseudoMersenne bpm(32, 256, c);
-		Leg *r0 = bpm.Get(0);
-		bpm.CopyX(0, r0);
-		bpm.MrSubtractX(r0, 1);
-		Leg *r1 = bpm.Get(1);
-		bpm.MrSquareRoot(r0, r1);
-		bpm.MrSquare(r1, r1);
-		bpm.MrReduce(r1);
-		if (bpm.Equal(r1, r0))
-		{
-			cout << "SUCCESS: Found c so that (c-1) is a square.  c = " << c << endl;
-		}
-		else
-		{
-			if ((c & 0xfffe) == 0)
-			{
-				cout << "Crunching...  c = " << c << endl;
-			}
-		}
-	}
 	delete out;
 	delete x;
 
-    return 0;
+    return true;
 }
 
-int main()
-{
-    if (!FortunaFactory::ref()->Initialize())
-    {
-        cout << "FAILURE: Unable to initialize the Fortuna factory" << endl;
-        return 1;
-    }
-
-	//return GenerateCurveParameterC();
-	//GenerateWMOFTable();
-    //return 0;
-    //return TestDivide();
-    //return TestModularInverse();
-    //return TestSquareRoot();
-    return TestTwistedEdward();
-/*
-    cout << endl << "Atomic testing:" << endl;
-    if (!Atomic::UnitTest())
-    {
-        cout << "FAILURE: Atomic test failed" << endl;
-        return 1;
-    }
-    cout << "SUCCESS: Atomic functions work!" << endl;
-
-/*
-    cout << endl << "ECC testing:" << endl;
-    ECCTest();
-*/
-    //return 0;
-/*
-    cout << endl << "Testing curve parameter d:" << endl;
-    TestCurveParameterD();
-
-    cout << "Candidate primes for ECC:" << endl;
-    GenerateCandidatePrimes();
-*/
-    cout << endl << "w-MOF table generation:" << endl;
-    GenerateMOFTable(4);
-/*
-    cout << endl << "Modulus code timing:" << endl;
-    TimeModulusCode();
-*/
-    cout << endl << "Full handshake testing:" << endl;
-    HandshakeTest();
-
-    cout << endl << "IV reconstruction testing:" << endl;
-    TestIVReconstruction();
-
-    cout << endl << "Hash testing and timing:" << endl;
-    TestSkein256();
-    TestSkein512();
-
-    cout << endl << "ChaCha testing and timing:" << endl;
-    TestChaCha();
-
-    return 0;
-}
-/*
-void GenerateCandidatePrimes()
-{
-    u32 k[CAT_EDWARD_LIMBS];
-
-    MersenneTwister prng;
-    prng.Initialize();
-
-    for (int ii = 1; ii < 1000; ii += 4)
-    {
-        Set32(k, CAT_EDWARD_LIMBS, 0);
-        Subtract32(k, CAT_EDWARD_LIMBS, ii);
-
-        if (RabinMillerPrimeTest(&prng, k, CAT_EDWARD_LIMBS, 40))
-        {
-            cout << "Candidate prime c = " << ii << endl;
-        }
-    }
-}
-*/
 void GenerateMOFTable(int window_bits)
 {
     cout << "When we see each combinations of w+1 bits, what operations should be performed?" << endl;
@@ -1242,4 +1128,72 @@ void TestChaCha()
         cc_bytes = TIMING_BYTES[ii];
         cout << cc_bytes << " bytes: " << Clock::MeasureClocks(1000, ChaChaOnce)/(float)cc_bytes << " cycles/byte" << endl;
     }
+}
+
+
+
+
+
+
+
+
+int main()
+{
+    if (!FortunaFactory::ref()->Initialize())
+    {
+        cout << "FAILURE: Unable to initialize the Fortuna factory" << endl;
+        return 1;
+    }
+
+	return GenerateCurveParameterC();
+	//GenerateWMOFTable();
+    //return 0;
+    //return TestDivide();
+    //return TestModularInverse();
+    //return TestSquareRoot();
+
+    if (!TestCurveParameters())
+		return 0;
+
+/*
+    cout << endl << "Atomic testing:" << endl;
+    if (!Atomic::UnitTest())
+    {
+        cout << "FAILURE: Atomic test failed" << endl;
+        return 1;
+    }
+    cout << "SUCCESS: Atomic functions work!" << endl;
+
+/*
+    cout << endl << "ECC testing:" << endl;
+    ECCTest();
+*/
+    //return 0;
+/*
+    cout << endl << "Testing curve parameter d:" << endl;
+    TestCurveParameterD();
+
+    cout << "Candidate primes for ECC:" << endl;
+    GenerateCandidatePrimes();
+*/
+    //cout << endl << "w-MOF table generation:" << endl;
+    //GenerateMOFTable(4);
+/*
+    cout << endl << "Modulus code timing:" << endl;
+    TimeModulusCode();
+*/
+    cout << endl << "Full handshake testing:" << endl;
+    HandshakeTest();
+
+    cout << endl << "IV reconstruction testing:" << endl;
+    TestIVReconstruction();
+
+    cout << endl << "Hash testing and timing:" << endl;
+    TestSkein256();
+    TestSkein512();
+
+    cout << endl << "ChaCha testing and timing:" << endl;
+    TestChaCha();
+
+    return 0;
 }
