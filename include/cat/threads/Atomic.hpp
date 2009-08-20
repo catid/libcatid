@@ -81,13 +81,13 @@ bool Atomic::CAS(volatile void *x, const void *expected_old_value, const void *n
 	u128 *expected = (u128*)expected_old_value;
 	bool retval;
 
-    asm (
+    CAT_ASM_BEGIN
 		"lock; CMPXCHG16B %0\n\t"
 		"sete %%al"
 		: "=m" (*target), "=a" (retval)
 		: "m" (*target), "b" (replace[0]), "c" (replace[1]), "A" (*expected)
 		: "memory", "cc"
-    );
+    CAT_ASM_END
 
     return retval;
 

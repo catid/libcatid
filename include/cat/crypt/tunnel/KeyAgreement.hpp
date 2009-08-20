@@ -94,13 +94,13 @@ public:
 	// Math library register usage
     static const int ECC_REG_OVERHEAD = 31;
 
-    // C: field prime modulus (2^bits - C)
-    // D: curve (yy-xx=1+Dxxyy)
+    // C: field prime modulus p = 2^bits - C, p = 5 mod 8 s.t. -1 is a square in Fp
+    // D: curve coefficient (yy-xx=1+Dxxyy), not a square in Fp
     static const int EDWARD_C_256 = 435;
-    static const int EDWARD_D_256 = 66124;
-    static const int EDWARD_C_384 = 317;
+    static const int EDWARD_D_256 = 31720;
+    static const int EDWARD_C_384 = 2147;
     static const int EDWARD_D_384 = 2857;
-    static const int EDWARD_C_512 = 569;
+    static const int EDWARD_C_512 = 875;
     static const int EDWARD_D_512 = 3042;
 
     // Limits on field prime
