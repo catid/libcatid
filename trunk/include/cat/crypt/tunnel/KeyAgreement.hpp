@@ -99,7 +99,7 @@ public:
     static const int EDWARD_C_256 = 435;
     static const int EDWARD_D_256 = 31720;
     static const int EDWARD_C_384 = 2147;
-    static const int EDWARD_D_384 = 2857;
+    static const int EDWARD_D_384 = 13036;
     static const int EDWARD_C_512 = 875;
     static const int EDWARD_D_512 = 3042;
 
