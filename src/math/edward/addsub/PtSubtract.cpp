@@ -30,7 +30,7 @@ using namespace cat;
 # define PT_FN PtSubtract /* Version that does not produce the T coord */
 #endif
 
-// Extended Twisted Edwards Unified Subtraction Formula (works when both inputs are the same) in 8M 1D 8A
+// Extended Twisted Edwards Unified Subtraction Formula (works when both inputs are the same) in 8M 1D 9a
 void BigTwistedEdward::PT_FN(const Leg *in_a, const Leg *in_b, Leg *out)
 {
     // Negation: X2 = -X2, T2 = -T2
