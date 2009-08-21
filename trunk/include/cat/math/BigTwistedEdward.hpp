@@ -133,11 +133,11 @@ public:
     // Extended Twisted Edwards Negation Formula
     void PtNegate(const Leg *in, Leg *out);
 
-    // Extended Twisted Edwards Unified Addition Formula (works when both inputs are the same) in 8M 1D 8a
+    // Extended Twisted Edwards Unified Addition Formula (works when both inputs are the same) in 8M 1D 9a
     void PtEAdd(const Leg *in_a, const Leg *in_b, Leg *out);
     void PtAdd(const Leg *in_a, const Leg *in_b, Leg *out); // -1M, cannot be followed by PtAdd
 
-    // Extended Twisted Edwards Unified Subtraction Formula (works when both inputs are the same) in 8M 1D 8a
+    // Extended Twisted Edwards Unified Subtraction Formula (works when both inputs are the same) in 8M 1D 9a
     void PtESubtract(const Leg *in_a, const Leg *in_b, Leg *out);
     void PtSubtract(const Leg *in_a, const Leg *in_b, Leg *out); // -1M, cannot be followed by PtAdd
 
