@@ -33,6 +33,10 @@ using namespace cat;
 // Extended Twisted Edwards Dedicated Doubling Formula in 4M 4S 5a
 void BigTwistedEdward::PT_FN(const Leg *in, Leg *out)
 {
+    // E = (X1 + Y1)^2 + H
+    MrAdd(in+XOFF, in+YOFF, E);
+    MrSquare(E, E); // Keep MrSquare() in cache
+
 	// A = X1^2, B = Y1^2, C = 2 * Z1^2
     MrSquare(in+XOFF, A);
     MrSquare(in+YOFF, B);
@@ -42,12 +46,8 @@ void BigTwistedEdward::PT_FN(const Leg *in, Leg *out)
 	// G = -A + B, F = G - C, H = -A - B
     MrNegate(A, A);
     MrAdd(A, B, G);
-    MrSubtract(G, C, F);
     MrSubtract(A, B, H);
-
-    // E = (X1 + Y1)^2 + H
-    MrAdd(in+XOFF, in+YOFF, E);
-    MrSquare(E, E);
+    MrSubtract(G, C, F);
     MrAdd(E, H, E);
 
     // X3 = E * F, Y3 = G * H, T3 = E * H, Z3 = F * G
