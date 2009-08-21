@@ -30,7 +30,7 @@ using namespace cat;
 # define PT_FN PtAdd /* Version that does not produce the T coord */
 #endif
 
-// Extended Twisted Edwards Unified Addition Formula (works when both inputs are the same) in 8M 1D 8A
+// Extended Twisted Edwards Unified Addition Formula (works when both inputs are the same) in 8M 1D 8a
 void BigTwistedEdward::PT_FN(const Leg *in_a, const Leg *in_b, Leg *out)
 {
     // A = (Y1 - X1) * (Y2 - X2)
@@ -39,9 +39,9 @@ void BigTwistedEdward::PT_FN(const Leg *in_a, const Leg *in_b, Leg *out)
     MrMultiply(C, D, A);
 
     // B = (Y1 + X1) * (Y2 + X2)
-    MrAdd(in_a+YOFF, in_a+XOFF, C);
-    MrAdd(in_b+YOFF, in_b+XOFF, D);
-    MrMultiply(C, D, B);
+    MrAdd(in_a+YOFF, in_a+XOFF, G);
+    MrAdd(in_b+YOFF, in_b+XOFF, H);
+    MrMultiply(G, H, B);
 
     // C = 2 * d * T1 * T2 (can remove multiplication by d if inputs are known to be different)
     MrMultiply(in_a+TOFF, in_b+TOFF, C);
