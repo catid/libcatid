@@ -26,7 +26,6 @@ void BigRTL::Save(const Leg *in_leg, void *out, int bytes)
     // Prepare to copy
     Leg *out_leg = (Leg*)out;
     int ii, legs = bytes / sizeof(Leg);
-    if (legs > library_legs) legs = library_legs;
 
     // Copy 4 legs at a time
     for (ii = 4; ii <= legs; ii += 4)

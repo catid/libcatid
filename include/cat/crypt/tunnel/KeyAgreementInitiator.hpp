@@ -31,10 +31,10 @@ namespace cat {
 class KeyAgreementInitiator : public KeyAgreementCommon
 {
     Leg *B; // Responder's public key (pre-shared with initiator)
-    Leg *G; // Generator point (pre-shared with initiator as part of public key)
     Leg *a; // Initiator's private key (kept secret)
     Leg *A; // Initiator's public key (shared with responder in Challenge message)
     Leg *hB; // h*B
+    Leg *G_MultPrecomp; // 8-bit table for multiplication
 
     bool AllocateMemory();
     void FreeMemory();

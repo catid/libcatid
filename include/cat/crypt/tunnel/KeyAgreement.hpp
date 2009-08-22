@@ -31,9 +31,12 @@ namespace cat {
 
 /*
     Tunnel Key Agreement "Tabby" protocol:
+	An unauthenticated Diffie-Hellman key agreement protocol with perfect forward secrecy
 
-    Provides perfect forward secrecy if server private key is revealed
-    Using Elliptic Curve Cryptography over finite field Fq, cofactor h
+    Using Elliptic Curve Cryptography over finite field Fp, p = 2^bits - c, c small
+	Shape of curve: a * x^2 + y^2 = 1 + d * x^2 * y^2, a = -1 (square in Fp)
+	d (non square in Fp) -> order of curve = q * cofactor h, order of generator point = q
+	Curves satisfy MOV conditions and are not anomalous
 
     Here the protocol initiator is the (c)lient, and the responder is the (s)erver:
 
@@ -94,8 +97,8 @@ public:
 	// Math library register usage
     static const int ECC_REG_OVERHEAD = 31;
 
-    // C: field prime modulus p = 2^bits - C, p = 5 mod 8 s.t. -1 is a square in Fp
-    // D: curve coefficient (yy-xx=1+Dxxyy), not a square in Fp
+    // c: field prime modulus p = 2^bits - C, p = 5 mod 8 s.t. a=-1 is a square in Fp
+    // d: curve coefficient (yy-xx=1+Dxxyy), not a square in Fp
     static const int EDWARD_C_256 = 435;
     static const int EDWARD_D_256 = 31720;
     static const int EDWARD_C_384 = 2147;

@@ -36,27 +36,33 @@ bool SchnorrSignature::Sign(BigTwistedEdward *math, FortunaOutput *csprng,
     if (public_bytes != KeyBytes*4) return false;
     if (signature_bytes != KeyBytes*2) return false;
 
-    Leg *x = math->Get(0);
     Leg *G = math->Get(1);
+    Leg *x = math->Get(0);
     Leg *X = math->Get(5);
-    if (!math->LoadVerifyAffineXY(public_key, public_key + KeyBytes, G))
+    Leg *k = math->Get(0);
+    Leg *K = math->Get(9);
+    Leg *e = math->Get(13);
+    Leg *s = math->Get(13);
+    Leg *xe = math->Get(14);
+
+	if (!math->LoadVerifyAffineXY(public_key, public_key + KeyBytes, G))
         return false;
     if (!math->LoadVerifyAffineXY(public_key + KeyBytes*2, public_key + KeyBytes*3, X))
         return false;
 	math->Load(private_key, KeyBytes, x);
 
-	// secret random 0 < k < q
-    Leg *k = math->Get(0);
-    Leg *K = math->Get(9);
-
+	// secret random 2 < k < q
     do csprng->Generate(k, KeyBytes);
     while (math->LegsUsed(k) < math->Legs());
 
+	// K = kG
 	math->PtMultiply(G, k, 0, K);
 	math->SaveAffineX(K, K);
 
-	// e = H(M || kG)
-    Leg *e = math->Get(13);
+	// Convert K to an endian-neutral byte array
+	math->Save(K, K, KeyBytes);
+
+	// e = H(M || K)
 	Skein H;
 	if (!H.BeginKey(bits)) return false;
 	H.Crunch(message, message_bytes);
@@ -66,9 +72,9 @@ bool SchnorrSignature::Sign(BigTwistedEdward *math, FortunaOutput *csprng,
 	math->Load(signature, KeyBytes, e);
 
 	// s = k - xe (mod q)
-    Leg *s = math->Get(13);
-    Leg *xe = math->Get(14);
 	math->Multiply(x, e, xe);
+	math->DivideProduct(xe, math->GetCurveQ(), xe, s);
+	math->Subtract(math->GetCurveQ(), s, s);
 }
 
 bool SchnorrSignature::Verify(BigTwistedEdward *math, FortunaOutput *csprng,

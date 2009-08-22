@@ -26,9 +26,8 @@ bool KeyAgreementInitiator::AllocateMemory()
 {
     FreeMemory();
 
-    B = new (Aligned::ii) Leg[KeyLegs * 17];
-    G = B + KeyLegs*4;
-    a = G + KeyLegs*4;
+    B = new (Aligned::ii) Leg[KeyLegs * 13];
+    a = B + KeyLegs*4;
     A = a + KeyLegs;
     hB = A + KeyLegs*4;
 
@@ -43,11 +42,18 @@ void KeyAgreementInitiator::FreeMemory()
         Aligned::Delete(B);
         B = 0;
     }
+
+	if (G_MultPrecomp)
+	{
+		Aligned::Delete(G_MultPrecomp);
+		G_MultPrecomp = 0;
+	}
 }
 
 KeyAgreementInitiator::KeyAgreementInitiator()
 {
     B = 0;
+    G_MultPrecomp = 0;
 }
 
 KeyAgreementInitiator::~KeyAgreementInitiator()
@@ -69,14 +75,15 @@ bool KeyAgreementInitiator::Initialize(BigTwistedEdward *math, const u8 *respond
         return false;
 
     // Verify that inputs are of the correct length
-    if (public_bytes != KeyBytes*4) return false;
+    if (public_bytes != KeyBytes*2) return false;
+
+	// Precompute an 8-bit table for multiplication
+	G_MultPrecomp = math->PtMultiplyPrecompAlloc(math->GetGenerator(), 8);
+    if (!G_MultPrecomp) return false;
 
     // Unpack the responder's key pair and generator point
-    if (!math->LoadVerifyAffineXY(responder_public_key, responder_public_key + KeyBytes, G))
+    if (!math->LoadVerifyAffineXY(responder_public_key, responder_public_key + KeyBytes, B))
         return false;
-    if (!math->LoadVerifyAffineXY(responder_public_key + KeyBytes*2, responder_public_key + KeyBytes*3, B))
-        return false;
-    math->PtUnpack(G);
 
     // hB = h * B for small subgroup attack resistance
     math->PtDoubleZ1(B, hB);
@@ -96,7 +103,7 @@ bool KeyAgreementInitiator::GenerateChallenge(BigTwistedEdward *math, FortunaOut
     while (math->LegsUsed(a) < math->Legs());
 
     // A = a * G
-    math->PtMultiply(G, a, 0, A);
+    math->PtMultiply(G_MultPrecomp, 8, a, 0, A);
     math->PtNormalize(A, A);
 
     math->SaveAffineXY(A, initiator_challenge, initiator_challenge + KeyBytes);
