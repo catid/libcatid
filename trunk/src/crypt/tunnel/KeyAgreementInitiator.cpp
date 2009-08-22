@@ -99,8 +99,7 @@ bool KeyAgreementInitiator::GenerateChallenge(BigTwistedEdward *math, FortunaOut
     if (challenge_bytes != KeyBytes*2) return false;
 
     // a = initiator private key
-    do csprng->Generate(a, KeyBytes);
-    while (math->LegsUsed(a) < math->Legs());
+	GenerateKey(math, csprng, a);
 
     // A = a * G
     math->PtMultiply(G_MultPrecomp, 8, a, 0, A);
@@ -126,6 +125,10 @@ bool KeyAgreementInitiator::ProcessAnswer(BigTwistedEdward *math,
     // Unpack the responder's h*Y into registers
     if (!math->LoadVerifyAffineXY(responder_answer, responder_answer + KeyBytes, Y))
         return false;
+
+	// Verify the point is not the additive identity (should never happen unless being attacked)
+	if (math->IsAffineIdentity(Y))
+		return false;
 
     // hY = h * Y for small subgroup attack resistance
     math->PtDoubleZ1(Y, hY);

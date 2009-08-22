@@ -114,13 +114,16 @@ bool KeyAgreementResponder::ProcessChallenge(BigTwistedEdward *math, FortunaOutp
     if (!math->LoadVerifyAffineXY(initiator_challenge, initiator_challenge + KeyBytes, A))
         return false;
 
+	// Verify the point is not the additive identity (should never happen unless being attacked)
+	if (math->IsAffineIdentity(A))
+		return false;
+
     // hA = h * A for small subgroup attack resistance
     math->PtDoubleZ1(A, hA);
     math->PtEDouble(hA, hA);
 
     // y = ephemeral key
-    do csprng->Generate(y, KeyBytes);
-    while (math->LegsUsed(y) < math->Legs());
+	GenerateKey(math, csprng, y);
 
     // Y = y * G
     math->PtMultiply(G_MultPrecomp, 8, y, 0, Y);

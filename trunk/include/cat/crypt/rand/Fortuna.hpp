@@ -80,17 +80,6 @@
 # include <windows.h>
 # include <wincrypt.h>
 
-namespace cat {
-
-	typedef LONG (WINAPI *PtNtQuerySystemInformation)(
-		int SystemInformationClass,
-		PVOID SystemInformation,
-		ULONG SystemInformationLength,
-		PULONG ReturnLength
-	);
-
-}
-
 #elif defined(CAT_OS_LINUX)
 # include <pthread.h>
 
@@ -113,7 +102,14 @@ class FortunaFactory : public Singleton<FortunaFactory>
     friend class FortunaOutput;
 
 #if defined(CAT_OS_WINDOWS)
-    HANDLE EntropyThread, EntropySignal;
+	typedef LONG (WINAPI *PtNtQuerySystemInformation)(
+		int SystemInformationClass,
+		PVOID SystemInformation,
+		ULONG SystemInformationLength,
+		PULONG ReturnLength
+	);
+
+	HANDLE EntropyThread, EntropySignal;
     HANDLE CurrentProcess;
     HMODULE NTDLL;
     PtNtQuerySystemInformation NtQuerySystemInformation;
