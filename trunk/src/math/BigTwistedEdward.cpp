@@ -20,7 +20,7 @@
 #include <cat/math/BigTwistedEdward.hpp>
 using namespace cat;
 
-BigTwistedEdward::BigTwistedEdward(int regs, int bits, int modulusC, int paramD, const char *Q)
+BigTwistedEdward::BigTwistedEdward(int regs, int bits, int modulusC, int paramD, const u8 *Q, const u8 *GenPt)
     : BigPseudoMersenne(regs + TE_OVERHEAD, bits, modulusC)
 {
     te_regs = regs + TE_OVERHEAD;
@@ -41,15 +41,20 @@ BigTwistedEdward::BigTwistedEdward(int regs, int bits, int modulusC, int paramD,
     H = Get(te_regs - 8);
 	CurveQ = Get(te_regs - 9);
     TempPt = Get(te_regs - 13);
+    Generator = Get(te_regs - 17);
 
-	LoadFromString(Q, 10, CurveQ);
+	Load(GenPt, RegBytes(), Generator);
+	Load(GenPt + RegBytes(), RegBytes(), Generator + library_legs);
+	PtUnpack(Generator);
+
+	Load(Q, RegBytes(), CurveQ);
 }
 
-// Unpack an EdPoint from affine point (x,y)
+// Unpack an Extended Projective point (X,Y,T,Z) from affine point (x,y)
 void BigTwistedEdward::PtUnpack(Leg *inout)
 {
-    CopyX(1, inout+ZOFF);
     MrMultiply(inout+XOFF, inout+YOFF, inout+TOFF);
+    CopyX(1, inout+ZOFF);
 }
 
 // Set a point to the identity

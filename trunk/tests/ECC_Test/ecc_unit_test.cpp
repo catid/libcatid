@@ -397,15 +397,15 @@ bool TestCurveParameters()
 			return false;
 		}
 
-		x->PtGenerate(out, pt);
-		x->PtNormalize(pt, pt);
+		//x->PtGenerate(out, pt);
+		//x->PtNormalize(pt, pt);
 
-		x->PtMultiply(pt, x->GetCurveQ(), 0, p);
+		x->PtMultiply(x->GetGenerator(), x->GetCurveQ(), 0, p);
 		x->PtNormalize(p, p); // needed since PtMultiply() result cannot normally be followed by a PtAdd()
-		x->PtEAdd(p, pt, p);
+		x->PtEAdd(p, x->GetGenerator(), p);
 		x->PtNormalize(p, p);
 
-		if (!x->Equal(pt, p))
+		if (!x->Equal(x->GetGenerator(), p))
 		{
 			cout << "FAILURE: G*(q+1) != G" << endl;
 			return false;
@@ -795,7 +795,24 @@ void HandshakeTest()
             cout << "FAILURE: Unable to generate key pair" << endl;
             return;
         }
+/*
+		cout << "Generator point = " << endl;
+		for (int ii = 0; ii < tls_math->Legs() * 2 * CAT_LEG_BITS/8; ++ii)
+		{
+			cout << (int)server_public_key[ii] << ",";
+		}
+		cout << endl;
 
+		u8 q[CAT_DEMO_PRIVATE_KEY_BYTES];
+		tls_math->Save(tls_math->GetCurveQ(), q, sizeof(q));
+
+		cout << "Q = " << endl;
+		for (int ii = 0; ii < tls_math->Legs() * CAT_LEG_BITS/8; ++ii)
+		{
+			cout << (int)q[ii] << ",";
+		}
+		cout << endl;
+*/
         // Startup:
 
         //cout << "Starting up..." << endl;

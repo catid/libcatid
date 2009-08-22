@@ -69,11 +69,11 @@ class BigTwistedEdward : public BigPseudoMersenne
     static const int PRECOMP_POINTS = 1 << (WINDOW_BITS-1);
     static const int PRECOMP_NEG_OFFSET = PRECOMP_POINTS / 2;
 
-    static const int TE_OVERHEAD = (1 + PRECOMP_POINTS) * POINT_REGS + 9 + POINT_REGS;
+    static const int TE_OVERHEAD = (1 + PRECOMP_POINTS) * POINT_REGS + 9 + POINT_REGS * 2;
     int te_regs;
 
     // Local workspace
-    Leg *A, *B, *C, *D, *E, *F, *G, *H, *CurveQ;
+    Leg *A, *B, *C, *D, *E, *F, *G, *H, *CurveQ, *Generator;
     Leg *TempPt;
 
 protected:
@@ -83,15 +83,16 @@ protected:
     void PtPrecompAddSub(const Leg *in_a, const Leg *in_b, Leg *sum, Leg *diff, int neg_offset);
 
 public:
-    BigTwistedEdward(int regs, int bits, int C, int D, const char *Q);
+    BigTwistedEdward(int regs, int bits, int C, int D, const u8 *Q, const u8 *GenPt);
 
     int PtLegs() { return Legs() * POINT_REGS; }
 
 	Leg GetCurveD() { return curve_d; }
 	const Leg *GetCurveQ() { return CurveQ; }
+	const Leg *GetGenerator() { return Generator; }
 
 public:
-    // Unpack an EdPoint from affine point (x,y)
+    // Unpack an Extended Projective point (X,Y,T,Z) from affine point (x,y)
     void PtUnpack(Leg *inout);
 
 	// Set a point to the identity

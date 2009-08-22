@@ -32,7 +32,6 @@ class KeyAgreementResponder : public KeyAgreementCommon
 {
     Leg *b; // Responder's private key (kept secret)
     Leg *B; // Responder's public key (pre-shared with initiator)
-    Leg *G; // Generator point (pre-shared with initiator as part of public key)
     Leg *G_MultPrecomp; // 8-bit table for multiplication
 
     bool AllocateMemory();

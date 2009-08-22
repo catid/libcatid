@@ -31,7 +31,7 @@ bool KeyMaker::GenerateKeyPair(BigTwistedEdward *math, FortunaOutput *csprng, u8
 
     // Verify that inputs are of the correct length
     if (private_bytes != KeyBytes) return false;
-    if (public_bytes != KeyBytes*4) return false;
+    if (public_bytes != KeyBytes*2) return false;
 
     Leg *b = math->Get(0);
     Leg *B = math->Get(1);
@@ -41,15 +41,11 @@ bool KeyMaker::GenerateKeyPair(BigTwistedEdward *math, FortunaOutput *csprng, u8
     do csprng->Generate(b, KeyBytes);
     while (math->LegsUsed(b) < math->Legs());
 
-    // Create a generator point
-    math->PtGenerate(csprng, G);
-
     // Generate public key
-    math->PtMultiply(G, b, 0, B);
+	math->PtMultiply(math->GetGenerator(), b, 0, B);
 
     // Save key pair and generator point
-    math->SaveAffineXY(G, public_key, public_key + KeyBytes);
-    math->SaveAffineXY(B, public_key + KeyBytes*2, public_key + KeyBytes*3);
+    math->SaveAffineXY(B, public_key, public_key + KeyBytes);
     math->Save(b, private_key, private_bytes);
 
     return true;

@@ -27,9 +27,8 @@ bool KeyAgreementResponder::AllocateMemory()
 {
     FreeMemory();
 
-    b = new (Aligned::ii) Leg[KeyLegs * 9];
+    b = new (Aligned::ii) Leg[KeyLegs * 5];
     B = b + KeyLegs;
-    G = B + KeyLegs * 4;
 
     return !!b;
 }
@@ -43,8 +42,11 @@ void KeyAgreementResponder::FreeMemory()
         b = 0;
     }
 
-    Aligned::Delete(G_MultPrecomp);
-    G_MultPrecomp = 0;
+	if (G_MultPrecomp)
+	{
+		Aligned::Delete(G_MultPrecomp);
+		G_MultPrecomp = 0;
+	}
 }
 
 KeyAgreementResponder::KeyAgreementResponder()
@@ -75,20 +77,17 @@ bool KeyAgreementResponder::Initialize(BigTwistedEdward *math,
 
     // Verify that inputs are of the correct length
     if (private_bytes != KeyBytes) return false;
-    if (public_bytes != KeyBytes*4) return false;
+    if (public_bytes != KeyBytes*2) return false;
+
+	// Precompute an 8-bit table for multiplication
+	G_MultPrecomp = math->PtMultiplyPrecompAlloc(math->GetGenerator(), 8);
+    if (!G_MultPrecomp) return false;
 
     // Unpack the responder's key pair and generator point
     math->Load(responder_private_key, KeyBytes, b);
-    if (!math->LoadVerifyAffineXY(responder_public_key, responder_public_key+KeyBytes, G))
+    if (!math->LoadVerifyAffineXY(responder_public_key, responder_public_key+KeyBytes, B))
         return false;
-    if (!math->LoadVerifyAffineXY(responder_public_key+KeyBytes*2, responder_public_key+KeyBytes*3, B))
-        return false;
-    math->PtUnpack(G);
     math->PtUnpack(B);
-
-	// Precompute an 8-bit table for multiplication
-    G_MultPrecomp = math->PtMultiplyPrecompAlloc(G, 8);
-    if (!G_MultPrecomp) return false;
 
     return true;
 }
