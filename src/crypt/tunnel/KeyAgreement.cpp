@@ -88,6 +88,25 @@ BigTwistedEdward *KeyAgreementCommon::InstantiateMath(int bits)
     case 256: return new BigTwistedEdward(ECC_REG_OVERHEAD, 256, EDWARD_C_256, EDWARD_D_256, Q_256, GeneratorPoint_256);
     case 384: return new BigTwistedEdward(ECC_REG_OVERHEAD, 384, EDWARD_C_384, EDWARD_D_384, Q_384, GeneratorPoint_384);
     case 512: return new BigTwistedEdward(ECC_REG_OVERHEAD, 512, EDWARD_C_512, EDWARD_D_512, Q_512, GeneratorPoint_512);
-    default:  return 0;
+	default: return 0;
     }
+}
+
+// Generates an unbiased random key in the range 1 < key < q
+void KeyAgreementCommon::GenerateKey(BigTwistedEdward *math, IRandom *prng, Leg *key)
+{
+	do
+	{
+		prng->Generate(key, KeyBytes);
+
+		// Turn off the high bit(s) to speed up unbiased key generation
+		// NOTE: Only works for the values of q above
+#if defined(CAT_DETERMINISTIC_KEY_GENERATION)
+		key[KeyLegs-1] &= ~(CAT_LEG_MSB | (CAT_LEG_MSB >> 1));
+#else
+		key[KeyLegs-1] &= ~CAT_LEG_MSB;
+#endif
+	}
+	while (!math->Less(key, math->GetCurveQ()) ||
+		   !math->GreaterX(key, 1));
 }

@@ -34,20 +34,20 @@ namespace cat {
 	An unauthenticated Diffie-Hellman key agreement protocol with perfect forward secrecy
 
     Using Elliptic Curve Cryptography over finite field Fp, p = 2^bits - c, c small
-	Shape of curve: a * x^2 + y^2 = 1 + d * x^2 * y^2, a = -1 (square in Fp)
-	d (non square in Fp) -> order of curve = q * cofactor h, order of generator point = q
+	Shape of curve: a' * x^2 + y^2 = 1 + d' * x^2 * y^2, a' = -1 (square in Fp)
+	d' (non square in Fp) -> order of curve = q * cofactor h, order of generator point = q
 	Curves satisfy MOV conditions and are not anomalous
 
     Here the protocol initiator is the (c)lient, and the responder is the (s)erver:
 
-        s: private key b, public key B=b*G
+        s: long-term private key 1 < b < q, long-term public key B=b*G
 
         256-bit security: B = 64 bytes for public key,  b = 32 bytes for private key
         384-bit security: B = 96 bytes for public key,  b = 48 bytes for private key
         512-bit security: B = 128 bytes for public key, b = 64 bytes for private key
 
         c: Client already knows the server's public key B before Key Agreement
-        c: ephemeral private key a, ephemeral public key A=a*G
+        c: ephemeral private key 1 < a < q, ephemeral public key A=a*G
 
     Initiator Challenge: c2s A
 
@@ -56,9 +56,9 @@ namespace cat {
         512-bit security: A = 128 bytes
 
         s: validate A, ignore invalid
+		Invalid A(x,y) would be the additive identity (0,1) or any point not on the curve
 
-        s: ephemeral key y
-        s: Y = y * G
+        s: ephemeral private key 1 < y < q, ephemeral public key Y=y*G
         s: T = (b + y) * h*A
         s: k = H(T,A,B,Y)
 
@@ -69,6 +69,7 @@ namespace cat {
         512-bit security: Y(128by) MAC(64by) = 192 bytes
 
         c: validate Y, ignore invalid
+		Invalid Y(x,y) would be the additive identity (0,1) or any point not on the curve
 
         c: T = a * (h*B + h*Y)
         c: k = H(T,A,B,Y)
@@ -87,7 +88,11 @@ namespace cat {
 */
 
 
-//// KeyAgreementCommon
+// If CAT_DETERMINISTIC_KEY_GENERATION is undefined, the time to generate a
+// key is unbounded, but tends to be 1 try.  I think this is a good thing
+// because it randomizes the runtime and helps avoid timing attacks
+//#define CAT_DETERMINISTIC_KEY_GENERATION
+
 
 class KeyAgreementCommon
 {
@@ -115,6 +120,10 @@ protected:
     int KeyBits, KeyBytes, KeyLegs;
 
     bool Initialize(int bits);
+
+public:
+	// Generates an unbiased random key in the range 1 < key < q
+	void GenerateKey(BigTwistedEdward *math, IRandom *prng, Leg *key);
 };
 
 

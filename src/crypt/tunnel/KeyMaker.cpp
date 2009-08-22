@@ -38,8 +38,7 @@ bool KeyMaker::GenerateKeyPair(BigTwistedEdward *math, FortunaOutput *csprng, u8
     Leg *G = math->Get(5);
 
     // Generate private key
-    do csprng->Generate(b, KeyBytes);
-    while (math->LegsUsed(b) < math->Legs());
+	GenerateKey(math, csprng, b);
 
     // Generate public key
 	math->PtMultiply(math->GetGenerator(), b, 0, B);

@@ -35,19 +35,29 @@ namespace cat {
     Tunnel Authenticated Encryption "Calico" protocol:
 
     Run after the Key Agreement protocol completes.
+    Uses a 1024-bit anti-replay sliding window, suitable for Internet file transfer over UDP.
 
-    Uses a 1024-bit anti-replay sliding window, efficient for Internet file transfer over UDP.
-
-    The cipher used is limited to either 256-bit or 384-bit keys.
+	Cipher: 12-round ChaCha with 256-bit or 384-bit keys
+	KDF: Key derivation function (Skein)
+	MAC: 64-bit truncated HMAC-MD5
+	IV: Initialization vector always starting at 0 and incrementing by 1 each time
 
     c2sMKey = KDF(k) { "upstream-MAC" }
     s2cMKey = KDF(k) { "downstream-MAC" }
     c2sEKey = KDF(k) { "upstream-ENC" }
     s2cEKey = KDF(k) { "downstream-ENC" }
 
+	To transmit a message, the client calculates a MAC with the c2sMKey of the IV concatenated with
+	the plaintext message and then appends the 8-byte MAC and low 3 bytes of the IV to the message,
+	which is encrypted using the c2sEKey and the IV.
+
     c2s Encrypt(c2sEKey) { message || MAC(c2sMKey) { full-iv-us||message } } || Obfuscated { trunc-iv-us }
 
         encrypted { MESSAGE(X) MAC(8by) } IV(3by) = 11 bytes overhead at end of packet
+
+	To transmit a message, the server calculates a MAC with the s2cMKey of the IV concatenated with
+	the plaintext message and then appends the 8-byte MAC and low 3 bytes of the IV to the message,
+	which is encrypted using the s2cEKey and the IV.
 
     s2c Encrypt(s2cEKey) { message || MAC(s2cMKey) { full-iv-ds||message } } || Obfuscated { trunc-iv-ds }
 

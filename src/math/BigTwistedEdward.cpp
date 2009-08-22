@@ -66,6 +66,12 @@ void BigTwistedEdward::PtIdentity(Leg *inout)
     CopyX(1, inout+ZOFF);
 }
 
+// Check if the affine point (x,y) is the additive identity (0,1)
+bool BigTwistedEdward::IsAffineIdentity(const Leg *in)
+{
+	return EqualX(in+XOFF, 0) && EqualX(in+YOFF, 1);
+}
+
 void BigTwistedEdward::PtCopy(const Leg *in, Leg *out)
 {
     Copy(in+XOFF, out+XOFF);
