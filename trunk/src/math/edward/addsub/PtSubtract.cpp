@@ -17,7 +17,7 @@
     License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <cat/math/BigTwistedEdward.hpp>
+#include <cat/math/BigTwistedEdwards.hpp>
 using namespace cat;
 
 #if defined(EXTENDED_T)
@@ -31,7 +31,7 @@ using namespace cat;
 #endif
 
 // Extended Twisted Edwards Unified Subtraction Formula (works when both inputs are the same) in 8M 1D 9a
-void BigTwistedEdward::PT_FN(const Leg *in_a, const Leg *in_b, Leg *out)
+void BigTwistedEdwards::PT_FN(const Leg *in_a, const Leg *in_b, Leg *out)
 {
     // Negation: X2 = -X2, T2 = -T2
 

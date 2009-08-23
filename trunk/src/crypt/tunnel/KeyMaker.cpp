@@ -20,7 +20,7 @@
 #include <cat/crypt/tunnel/KeyMaker.hpp>
 using namespace cat;
 
-bool KeyMaker::GenerateKeyPair(BigTwistedEdward *math, FortunaOutput *csprng, u8 *public_key, int public_bytes, u8 *private_key, int private_bytes)
+bool KeyMaker::GenerateKeyPair(BigTwistedEdwards *math, FortunaOutput *csprng, u8 *public_key, int public_bytes, u8 *private_key, int private_bytes)
 {
     if (!csprng || !math) return false;
 	int bits = math->RegBytes() * 8;

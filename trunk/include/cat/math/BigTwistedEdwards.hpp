@@ -49,8 +49,8 @@
         doubling, add      -> Ee = 2E, E = Ee + Ee
 */
 
-#ifndef CAT_BIG_TWISTED_EDWARD_HPP
-#define CAT_BIG_TWISTED_EDWARD_HPP
+#ifndef CAT_BIG_TWISTED_EDWARDS_HPP
+#define CAT_BIG_TWISTED_EDWARDS_HPP
 
 #include <cat/math/BigPseudoMersenne.hpp>
 #include <cat/rand/IRandom.hpp>
@@ -58,7 +58,7 @@
 namespace cat {
 
 
-class BigTwistedEdward : public BigPseudoMersenne
+class BigTwistedEdwards : public BigPseudoMersenne
 {
     static const int POINT_REGS = 4;
     static const int XOFF = 0;
@@ -83,7 +83,7 @@ protected:
     void PtPrecompAddSub(const Leg *in_a, const Leg *in_b, Leg *sum, Leg *diff, int neg_offset);
 
 public:
-    BigTwistedEdward(int regs, int bits, int C, int D, const u8 *Q, const u8 *GenPt);
+    BigTwistedEdwards(int regs, int bits, int C, int D, const u8 *Q, const u8 *GenPt);
 
     int PtLegs() { return Legs() * POINT_REGS; }
 
@@ -186,4 +186,4 @@ public:
 
 } // namespace cat
 
-#endif // CAT_BIG_TWISTED_EDWARD_HPP
+#endif // CAT_BIG_TWISTED_EDWARDS_HPP

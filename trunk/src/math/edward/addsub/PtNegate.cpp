@@ -17,11 +17,11 @@
     License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <cat/math/BigTwistedEdward.hpp>
+#include <cat/math/BigTwistedEdwards.hpp>
 using namespace cat;
 
 // Extended Twisted Edwards Negation Formula
-void BigTwistedEdward::PtNegate(const Leg *in, Leg *out)
+void BigTwistedEdwards::PtNegate(const Leg *in, Leg *out)
 {
     // -(X : Y : T : Z) = (-X : Y : -T : Z)
     MrNegate(in+XOFF, out+XOFF);

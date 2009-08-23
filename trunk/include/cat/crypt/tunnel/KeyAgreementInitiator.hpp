@@ -44,19 +44,19 @@ public:
     KeyAgreementInitiator();
     ~KeyAgreementInitiator();
 
-    bool Initialize(BigTwistedEdward *math,
+    bool Initialize(BigTwistedEdwards *math,
 					const u8 *responder_public_key, int public_bytes);
 
 public:
-    bool GenerateChallenge(BigTwistedEdward *math, FortunaOutput *csprng,
+    bool GenerateChallenge(BigTwistedEdwards *math, FortunaOutput *csprng,
 						   u8 *initiator_challenge, int challenge_bytes);
 
-    bool ProcessAnswer(BigTwistedEdward *math,
+    bool ProcessAnswer(BigTwistedEdwards *math,
 					   const u8 *responder_answer, int answer_bytes,
                        AuthenticatedEncryption *encryption);
 
 public:
-	bool Verify(BigTwistedEdward *math, FortunaOutput *csprng,
+	bool Verify(BigTwistedEdwards *math, FortunaOutput *csprng,
 				const u8 *message, int message_bytes,
 				const u8 *signature, int signature_bytes);
 };

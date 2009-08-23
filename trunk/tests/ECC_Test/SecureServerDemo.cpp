@@ -24,7 +24,7 @@
 using namespace std;
 using namespace cat;
 
-void SecureServerDemo::OnHello(BigTwistedEdward *math, FortunaOutput *csprng, const Address &source, u8 *buffer)
+void SecureServerDemo::OnHello(BigTwistedEdwards *math, FortunaOutput *csprng, const Address &source, u8 *buffer)
 {
     if (*(u32*)buffer != getLE(0xca7eed))
     {
@@ -46,7 +46,7 @@ void SecureServerDemo::OnHello(BigTwistedEdward *math, FortunaOutput *csprng, co
     client_ref->OnPacket(my_addr, response, sizeof(response));
 }
 
-void SecureServerDemo::OnChallenge(BigTwistedEdward *math, FortunaOutput *csprng, const Address &source, u8 *buffer)
+void SecureServerDemo::OnChallenge(BigTwistedEdwards *math, FortunaOutput *csprng, const Address &source, u8 *buffer)
 {
     u32 *cookie = (u32*)(buffer + CAT_C2S_CHALLENGE_BYTES);
 
@@ -131,7 +131,7 @@ void SecureServerDemo::Cleanup()
     connections.clear();
 }
 
-static BigTwistedEdward *tls_math = 0;
+static BigTwistedEdwards *tls_math = 0;
 static FortunaOutput *tls_csprng = 0;
 
 void SecureServerDemo::Reset(SecureClientDemo *cclient_ref, const u8 *server_public_key, const u8 *server_private_key)

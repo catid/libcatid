@@ -81,19 +81,19 @@ static u8 GeneratorPoint_512[128] = {
 	228,99,172,83,95,26
 };
 
-BigTwistedEdward *KeyAgreementCommon::InstantiateMath(int bits)
+BigTwistedEdwards *KeyAgreementCommon::InstantiateMath(int bits)
 {
 	switch (bits)
     {
-    case 256: return new BigTwistedEdward(ECC_REG_OVERHEAD, 256, EDWARD_C_256, EDWARD_D_256, Q_256, GeneratorPoint_256);
-    case 384: return new BigTwistedEdward(ECC_REG_OVERHEAD, 384, EDWARD_C_384, EDWARD_D_384, Q_384, GeneratorPoint_384);
-    case 512: return new BigTwistedEdward(ECC_REG_OVERHEAD, 512, EDWARD_C_512, EDWARD_D_512, Q_512, GeneratorPoint_512);
+    case 256: return new BigTwistedEdwards(ECC_REG_OVERHEAD, 256, EDWARD_C_256, EDWARD_D_256, Q_256, GeneratorPoint_256);
+    case 384: return new BigTwistedEdwards(ECC_REG_OVERHEAD, 384, EDWARD_C_384, EDWARD_D_384, Q_384, GeneratorPoint_384);
+    case 512: return new BigTwistedEdwards(ECC_REG_OVERHEAD, 512, EDWARD_C_512, EDWARD_D_512, Q_512, GeneratorPoint_512);
 	default: return 0;
     }
 }
 
 // Generates an unbiased random key in the range 1 < key < q
-void KeyAgreementCommon::GenerateKey(BigTwistedEdward *math, IRandom *prng, Leg *key)
+void KeyAgreementCommon::GenerateKey(BigTwistedEdwards *math, IRandom *prng, Leg *key)
 {
 	do
 	{

@@ -22,7 +22,7 @@
 using namespace std;
 using namespace cat;
 
-void SecureClientDemo::OnCookie(BigTwistedEdward *math, FortunaOutput *csprng, u8 *buffer)
+void SecureClientDemo::OnCookie(BigTwistedEdwards *math, FortunaOutput *csprng, u8 *buffer)
 {
     //cout << "Client: Got cookie from the server" << endl;
 
@@ -54,7 +54,7 @@ void SecureClientDemo::OnCookie(BigTwistedEdward *math, FortunaOutput *csprng, u
     server_ref->OnPacket(my_addr, challenge, sizeof(challenge));
 }
 
-void SecureClientDemo::OnAnswer(BigTwistedEdward *math, u8 *buffer)
+void SecureClientDemo::OnAnswer(BigTwistedEdwards *math, u8 *buffer)
 {
     double t1 = Clock::usec();
     if (!tun_client.ProcessAnswer(math, buffer, CAT_S2C_ANSWER_BYTES, &auth_enc))
@@ -141,7 +141,7 @@ void SecureClientDemo::OnSessionMessage(u8 *buffer, int bytes)
     server_ref->OnPacket(my_addr, response, sizeof(response));
 }
 
-static BigTwistedEdward *tls_math = 0;
+static BigTwistedEdwards *tls_math = 0;
 static FortunaOutput *tls_csprng = 0;
 
 void SecureClientDemo::Reset(SecureServerDemo *cserver_ref, const u8 *server_public_key)

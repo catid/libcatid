@@ -17,12 +17,12 @@
     License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <cat/math/BigTwistedEdward.hpp>
+#include <cat/math/BigTwistedEdwards.hpp>
 using namespace cat;
 
 // Extended Twisted Edwards Scalar Multiplication k*p
 // CAN *NOT* BE followed by a Pt[E]Add()
-void BigTwistedEdward::PtMultiply(const Leg *in_p, const Leg *in_k, u8 msb_k, Leg *out)
+void BigTwistedEdwards::PtMultiply(const Leg *in_p, const Leg *in_k, u8 msb_k, Leg *out)
 {
     Leg *DefaultPrecomp = Get(te_regs - TE_OVERHEAD);
 
@@ -55,7 +55,7 @@ struct {
 
 // Extended Twisted Edwards Scalar Multiplication k*p
 // CAN *NOT* BE followed by a Pt[E]Add()
-void BigTwistedEdward::PtMultiply(const Leg *in_precomp, int w, const Leg *in_k, u8 msb_k, Leg *out)
+void BigTwistedEdwards::PtMultiply(const Leg *in_precomp, int w, const Leg *in_k, u8 msb_k, Leg *out)
 {
     // Begin multiplication loop
     int leg = library_legs - 1, offset = CAT_LEG_BITS + w;
@@ -137,8 +137,8 @@ void BigTwistedEdward::PtMultiply(const Leg *in_precomp, int w, const Leg *in_k,
 // Extended Twisted Edwards Simultaneous Scalar Multiplication k*P + l*Q
 // Requires precomputation with PtMultiplyPrecomp()
 // CAN *NOT* BE followed by a Pt[E]Add()
-void BigTwistedEdward::PtSiMultiply(const Leg *precomp_p, const Leg *precomp_q, int w,
-									const Leg *in_k, u8 msb_k, const Leg *in_l, u8 msb_l, Leg *out)
+void BigTwistedEdwards::PtSiMultiply(const Leg *precomp_p, const Leg *precomp_q, int w,
+									 const Leg *in_k, u8 msb_k, const Leg *in_l, u8 msb_l, Leg *out)
 {
     // Begin multiplication loop
     int leg = library_legs - 1, offset = CAT_LEG_BITS + w;

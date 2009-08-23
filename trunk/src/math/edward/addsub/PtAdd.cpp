@@ -17,7 +17,7 @@
     License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <cat/math/BigTwistedEdward.hpp>
+#include <cat/math/BigTwistedEdwards.hpp>
 using namespace cat;
 
 #if defined(EXTENDED_T)
@@ -31,7 +31,7 @@ using namespace cat;
 #endif
 
 // Extended Twisted Edwards Unified Addition Formula (works when both inputs are the same) in 8M 1D 9a
-void BigTwistedEdward::PT_FN(const Leg *in_a, const Leg *in_b, Leg *out)
+void BigTwistedEdwards::PT_FN(const Leg *in_a, const Leg *in_b, Leg *out)
 {
     // A = (Y1 - X1) * (Y2 - X2)
     MrSubtract(in_a+YOFF, in_a+XOFF, C);

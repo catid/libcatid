@@ -31,7 +31,7 @@ namespace cat {
 class KeyMaker : public KeyAgreementCommon
 {
 public:
-    bool GenerateKeyPair(BigTwistedEdward *math, FortunaOutput *csprng, u8 *public_key, int public_bytes, u8 *private_key, int private_bytes);
+    bool GenerateKeyPair(BigTwistedEdwards *math, FortunaOutput *csprng, u8 *public_key, int public_bytes, u8 *private_key, int private_bytes);
 };
 
 

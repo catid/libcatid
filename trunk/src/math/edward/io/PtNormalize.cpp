@@ -17,11 +17,11 @@
     License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <cat/math/BigTwistedEdward.hpp>
+#include <cat/math/BigTwistedEdwards.hpp>
 using namespace cat;
 
 // Compute affine coordinates for (X,Y), set Z=1, and compute T = xy
-void BigTwistedEdward::PtNormalize(const Leg *in, Leg *out)
+void BigTwistedEdwards::PtNormalize(const Leg *in, Leg *out)
 {
     // A = 1 / in.Z
     MrInvert(in+ZOFF, A);

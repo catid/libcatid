@@ -123,8 +123,8 @@ class SecureServerDemo
 	void Cleanup();
 
 protected:
-    void OnHello(BigTwistedEdward *math, FortunaOutput *csprng, const Address &source, u8 *buffer);
-    void OnChallenge(BigTwistedEdward *math, FortunaOutput *csprng, const Address &source, u8 *buffer);
+    void OnHello(BigTwistedEdwards *math, FortunaOutput *csprng, const Address &source, u8 *buffer);
+    void OnChallenge(BigTwistedEdwards *math, FortunaOutput *csprng, const Address &source, u8 *buffer);
 
     void OnSessionMessage(Connection *client, u8 *buffer, int bytes);
 

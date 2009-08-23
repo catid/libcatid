@@ -327,7 +327,7 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\src\math\BigTwistedEdward.cpp"
+				RelativePath="..\..\src\math\BigTwistedEdwards.cpp"
 				>
 			</File>
 		</Filter>
@@ -364,7 +364,7 @@
 					>
 				</File>
 				<File
-					RelativePath="..\..\include\cat\math\BigTwistedEdward.hpp"
+					RelativePath="..\..\include\cat\math\BigTwistedEdwards.hpp"
 					>
 				</File>
 				<File

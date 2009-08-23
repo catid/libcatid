@@ -17,7 +17,7 @@
     License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <cat/math/BigTwistedEdward.hpp>
+#include <cat/math/BigTwistedEdwards.hpp>
 using namespace cat;
 
 #if defined(EXTENDED_T)
@@ -31,7 +31,7 @@ using namespace cat;
 #endif
 
 // Extended Twisted Edwards Dedicated Doubling Formula in 4M 4S 5a
-void BigTwistedEdward::PT_FN(const Leg *in, Leg *out)
+void BigTwistedEdwards::PT_FN(const Leg *in, Leg *out)
 {
     // E = (X1 + Y1)^2 + H
     MrAdd(in+XOFF, in+YOFF, E);

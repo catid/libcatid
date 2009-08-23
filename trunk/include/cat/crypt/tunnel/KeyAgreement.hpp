@@ -23,21 +23,22 @@
 #ifndef CAT_KEY_AGREEMENT_HPP
 #define CAT_KEY_AGREEMENT_HPP
 
-#include <cat/math/BigTwistedEdward.hpp>
+#include <cat/math/BigTwistedEdwards.hpp>
 #include <cat/crypt/rand/Fortuna.hpp>
 
 namespace cat {
 
 
 /*
-    Tunnel Key Agreement "Tabby" protocol:
-	An unauthenticated Diffie-Hellman key agreement protocol with perfect forward secrecy
+    CMQV Key Agreement protocol from
+	Ustaoglu paper "Obtaining a secure and efficient key agreement protocol from (H)MQV and NAXOS" (2009)
 
     Using Elliptic Curve Cryptography over finite field Fp, p = 2^bits - c, c small
 	Shape of curve: a' * x^2 + y^2 = 1 + d' * x^2 * y^2, a' = -1 (square in Fp)
 	d' (non square in Fp) -> order of curve = q * cofactor h, order of generator point = q
 	Curves satisfy MOV conditions and are not anomalous
 	Point operations performed with Extended Twisted Edwards group laws
+	See BigTwistedEdwards.hpp for more information
 
 	H: Skein-Key, either 256-bit or 512-bit based on security level
 	MAC: Skein-MAC, keyed from output of H()
@@ -147,7 +148,7 @@ namespace cat {
 class KeyAgreementCommon
 {
 public:
-	static BigTwistedEdward *InstantiateMath(int bits);
+	static BigTwistedEdwards *InstantiateMath(int bits);
 
 	// Math library register usage
     static const int ECC_REG_OVERHEAD = 21;
@@ -173,7 +174,7 @@ protected:
 
 public:
 	// Generates an unbiased random key in the range 1 < key < q
-	void GenerateKey(BigTwistedEdward *math, IRandom *prng, Leg *key);
+	void GenerateKey(BigTwistedEdwards *math, IRandom *prng, Leg *key);
 };
 
 

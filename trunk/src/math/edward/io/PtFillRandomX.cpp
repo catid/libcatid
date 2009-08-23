@@ -17,11 +17,11 @@
     License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <cat/math/BigTwistedEdward.hpp>
+#include <cat/math/BigTwistedEdwards.hpp>
 using namespace cat;
 
 // Fill the X coordinate of the point with a random value
-void BigTwistedEdward::PtFillRandomX(IRandom *prng, Leg *out)
+void BigTwistedEdwards::PtFillRandomX(IRandom *prng, Leg *out)
 {
     // Generate an affine X coordinate point that is unbiased
     do prng->Generate(out+XOFF, RegBytes());

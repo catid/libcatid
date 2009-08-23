@@ -41,18 +41,18 @@ public:
     KeyAgreementResponder();
     ~KeyAgreementResponder();
 
-    bool Initialize(BigTwistedEdward *math,
+    bool Initialize(BigTwistedEdwards *math,
 					const u8 *responder_public_key, int public_bytes,
                     const u8 *responder_private_key, int private_bytes);
 
 public:
-    bool ProcessChallenge(BigTwistedEdward *math, FortunaOutput *csprng,
+    bool ProcessChallenge(BigTwistedEdwards *math, FortunaOutput *csprng,
 						  const u8 *initiator_challenge, int challenge_bytes,
                           u8 *responder_answer, int answer_bytes,
                           AuthenticatedEncryption *encryption);
 
 public:
-    bool Sign(BigTwistedEdward *math, FortunaOutput *csprng,
+    bool Sign(BigTwistedEdwards *math, FortunaOutput *csprng,
 			  const u8 *message, int message_bytes,
 			  u8 *signature, int signature_bytes);
 };

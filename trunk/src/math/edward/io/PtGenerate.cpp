@@ -17,11 +17,11 @@
     License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <cat/math/BigTwistedEdward.hpp>
+#include <cat/math/BigTwistedEdwards.hpp>
 using namespace cat;
 
 // Generate a random point on the curve that is not part of a small subgroup
-void BigTwistedEdward::PtGenerate(IRandom *prng, Leg *out)
+void BigTwistedEdwards::PtGenerate(IRandom *prng, Leg *out)
 {
     // Generate affine (x,y) point on the curve
     do {
