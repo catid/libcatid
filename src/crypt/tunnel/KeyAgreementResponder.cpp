@@ -60,7 +60,7 @@ KeyAgreementResponder::~KeyAgreementResponder()
     FreeMemory();
 }
 
-bool KeyAgreementResponder::Initialize(BigTwistedEdward *math,
+bool KeyAgreementResponder::Initialize(BigTwistedEdwards *math,
 									   const u8 *responder_public_key, int public_bytes,
 									   const u8 *responder_private_key, int private_bytes)
 {
@@ -92,7 +92,7 @@ bool KeyAgreementResponder::Initialize(BigTwistedEdward *math,
     return true;
 }
 
-bool KeyAgreementResponder::ProcessChallenge(BigTwistedEdward *math, FortunaOutput *csprng,
+bool KeyAgreementResponder::ProcessChallenge(BigTwistedEdwards *math, FortunaOutput *csprng,
 											 const u8 *initiator_challenge, int challenge_bytes,
                                              u8 *responder_answer, int answer_bytes,
                                              AuthenticatedEncryption *encryption)
@@ -158,7 +158,7 @@ bool KeyAgreementResponder::ProcessChallenge(BigTwistedEdward *math, FortunaOutp
     return encryption->GenerateProof(responder_answer + KeyBytes*2, KeyBytes);
 }
 
-bool KeyAgreementResponder::Sign(BigTwistedEdward *math, FortunaOutput *csprng,
+bool KeyAgreementResponder::Sign(BigTwistedEdwards *math, FortunaOutput *csprng,
 								 const u8 *message, int message_bytes,
 								 u8 *signature, int signature_bytes)
 {
@@ -191,6 +191,10 @@ bool KeyAgreementResponder::Sign(BigTwistedEdward *math, FortunaOutput *csprng,
 			H.Generate(signature, KeyBytes);
 
 			math->Load(signature, KeyBytes, e);
+
+			// e = e (mod q), for checking if it is congruent to q
+			while (!math->Less(e, math->GetCurveQ()))
+				math->Subtract(e, math->GetCurveQ(), e);
 
 		} while (math->IsZero(e));
 

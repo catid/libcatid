@@ -17,13 +17,13 @@
     License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <cat/math/BigTwistedEdward.hpp>
+#include <cat/math/BigTwistedEdwards.hpp>
 #include <cat/port/AlignedAlloc.hpp>
 using namespace cat;
 
 // Allocate a precomputed table of odd multiples of input point
 // Free the table with Aligned::Delete()
-Leg *BigTwistedEdward::PtMultiplyPrecompAlloc(const Leg *in, int w)
+Leg *BigTwistedEdwards::PtMultiplyPrecompAlloc(const Leg *in, int w)
 {
     int points = 1 + (1 << (w - 1));
 
@@ -35,7 +35,7 @@ Leg *BigTwistedEdward::PtMultiplyPrecompAlloc(const Leg *in, int w)
 }
 
 // Precompute odd multiples of input point
-void BigTwistedEdward::PtMultiplyPrecomp(const Leg *in, int w, Leg *out)
+void BigTwistedEdwards::PtMultiplyPrecomp(const Leg *in, int w, Leg *out)
 {
     int neg_offset = POINT_STRIDE << (w - 2);
 

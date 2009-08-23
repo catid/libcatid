@@ -17,11 +17,11 @@
     License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <cat/math/BigTwistedEdward.hpp>
+#include <cat/math/BigTwistedEdwards.hpp>
 using namespace cat;
 
 // Verify that the point (x,y) exists on the given curve
-bool BigTwistedEdward::PtValidAffine(const Leg *in)
+bool BigTwistedEdwards::PtValidAffine(const Leg *in)
 {
     // 0 = 1 + d*x^2*y^2 + x^2 - y^2
 

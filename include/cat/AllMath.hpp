@@ -24,4 +24,4 @@
 #include <cat/math/BigRTL.hpp>
 #include <cat/math/BigMontgomery.hpp>
 #include <cat/math/BigPseudoMersenne.hpp>
-#include <cat/math/BigTwistedEdward.hpp>
+#include <cat/math/BigTwistedEdwards.hpp>

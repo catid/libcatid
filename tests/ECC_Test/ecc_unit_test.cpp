@@ -350,7 +350,7 @@ bool TestCurveParameters()
 	{
 		cout << "Testing curve parameters for " << BITS[ii] << "-bit modulus:" << endl;
 		FortunaOutput *out = FortunaFactory::ref()->Create();
-		BigTwistedEdward *x = KeyAgreementCommon::InstantiateMath(BITS[ii]);
+		BigTwistedEdwards *x = KeyAgreementCommon::InstantiateMath(BITS[ii]);
 
 		Leg *a = x->Get(0);
 		Leg *modulus = x->Get(1);
@@ -778,7 +778,7 @@ void ECCTest()
 */
 void HandshakeTest()
 {
-	BigTwistedEdward *tls_math = KeyAgreementCommon::InstantiateMath(CAT_DEMO_BITS);
+	BigTwistedEdwards *tls_math = KeyAgreementCommon::InstantiateMath(CAT_DEMO_BITS);
 	FortunaOutput *tls_csprng = FortunaFactory::ii->Create();
 
 	for (;;)

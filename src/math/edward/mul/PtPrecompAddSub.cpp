@@ -17,11 +17,11 @@
     License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <cat/math/BigTwistedEdward.hpp>
+#include <cat/math/BigTwistedEdwards.hpp>
 using namespace cat;
 
 // Simultaneous Add and Subtract for efficient precomputation (A +/- B) in 14M 1D 11a (versus 16M 2D 16a)
-void BigTwistedEdward::PtPrecompAddSub(const Leg *in_a, const Leg *in_b, Leg *sum, Leg *diff, int neg_offset)
+void BigTwistedEdwards::PtPrecompAddSub(const Leg *in_a, const Leg *in_b, Leg *sum, Leg *diff, int neg_offset)
 {
     // A = (Y1 - X1) * (Y2 - X2)
     MrSubtract(in_a+YOFF, in_a+XOFF, C);

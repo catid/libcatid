@@ -17,11 +17,11 @@
     License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <cat/math/BigTwistedEdward.hpp>
+#include <cat/math/BigTwistedEdwards.hpp>
 using namespace cat;
 
 // Solve for Y given the X point on a curve
-void BigTwistedEdward::PtSolveAffineY(Leg *inout)
+void BigTwistedEdwards::PtSolveAffineY(Leg *inout)
 {
     // y = sqrt[(1 + x^2) / (1 - d*x^2)]
 

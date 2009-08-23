@@ -68,7 +68,7 @@ KeyAgreementInitiator::~KeyAgreementInitiator()
     FreeMemory();
 }
 
-bool KeyAgreementInitiator::Initialize(BigTwistedEdward *math, const u8 *responder_public_key, int public_bytes)
+bool KeyAgreementInitiator::Initialize(BigTwistedEdwards *math, const u8 *responder_public_key, int public_bytes)
 {
 	if (!math) return false;
 	int bits = math->RegBytes() * 8;
@@ -99,7 +99,7 @@ bool KeyAgreementInitiator::Initialize(BigTwistedEdward *math, const u8 *respond
     return true;
 }
 
-bool KeyAgreementInitiator::GenerateChallenge(BigTwistedEdward *math, FortunaOutput *csprng,
+bool KeyAgreementInitiator::GenerateChallenge(BigTwistedEdwards *math, FortunaOutput *csprng,
 											  u8 *initiator_challenge, int challenge_bytes)
 {
     // Verify that inputs are of the correct length
@@ -117,7 +117,7 @@ bool KeyAgreementInitiator::GenerateChallenge(BigTwistedEdward *math, FortunaOut
     return true;
 }
 
-bool KeyAgreementInitiator::ProcessAnswer(BigTwistedEdward *math,
+bool KeyAgreementInitiator::ProcessAnswer(BigTwistedEdwards *math,
 										  const u8 *responder_answer, int answer_bytes,
                                           AuthenticatedEncryption *encryption)
 {
@@ -169,7 +169,7 @@ bool KeyAgreementInitiator::ProcessAnswer(BigTwistedEdward *math,
     return encryption->ValidateProof(responder_answer + KeyBytes*2, KeyBytes);
 }
 
-bool KeyAgreementInitiator::Verify(BigTwistedEdward *math, FortunaOutput *csprng,
+bool KeyAgreementInitiator::Verify(BigTwistedEdwards *math, FortunaOutput *csprng,
 								   const u8 *message, int message_bytes,
 								   const u8 *signature, int signature_bytes)
 {
@@ -193,6 +193,10 @@ bool KeyAgreementInitiator::Verify(BigTwistedEdward *math, FortunaOutput *csprng
 	// Load e, s from signature
 	math->Load(signature, KeyBytes, e);
 	math->Load(signature + KeyBytes, KeyBytes, s);
+
+	// e = e (mod q), for checking if it is congruent to q
+	while (!math->Less(e, math->GetCurveQ()))
+		math->Subtract(e, math->GetCurveQ(), e);
 
 	// Check e, s are in the range [1,q-1]
 	if (math->IsZero(e) || math->IsZero(s) ||

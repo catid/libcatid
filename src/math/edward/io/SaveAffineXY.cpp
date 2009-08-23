@@ -17,11 +17,11 @@
     License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <cat/math/BigTwistedEdward.hpp>
+#include <cat/math/BigTwistedEdwards.hpp>
 using namespace cat;
 
 // out(x,y) = (X/Z,Y/Z)
-void BigTwistedEdward::SaveAffineXY(const Leg *in, void *out_x, void *out_y)
+void BigTwistedEdwards::SaveAffineXY(const Leg *in, void *out_x, void *out_y)
 {
     // If the coordinates are already normalized to affine, then we can just save what is there
     if (EqualX(in+ZOFF, 1))

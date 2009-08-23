@@ -17,11 +17,11 @@
     License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <cat/math/BigTwistedEdward.hpp>
+#include <cat/math/BigTwistedEdwards.hpp>
 using namespace cat;
 
 // A reference multiplier to verify that PtMultiply() is functionally the same
-void BigTwistedEdward::RefMul(const Leg *in_p, const Leg *in_k, u8 msb_k, Leg *out)
+void BigTwistedEdwards::RefMul(const Leg *in_p, const Leg *in_k, u8 msb_k, Leg *out)
 {
     Leg *one = Get(te_regs - TE_OVERHEAD);
 
