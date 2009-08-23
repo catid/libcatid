@@ -157,3 +157,46 @@ bool KeyAgreementResponder::ProcessChallenge(BigTwistedEdward *math, FortunaOutp
     math->SaveAffineXY(Y, responder_answer, responder_answer + KeyBytes);
     return encryption->GenerateProof(responder_answer + KeyBytes*2, KeyBytes);
 }
+
+bool KeyAgreementResponder::Sign(BigTwistedEdward *math, FortunaOutput *csprng,
+								 const u8 *message, int message_bytes,
+								 u8 *signature, int signature_bytes)
+{
+    // Verify that inputs are of the correct length
+    if (signature_bytes != KeyBytes*2) return false;
+
+    Leg *k = math->Get(0);
+    Leg *K = math->Get(1);
+    Leg *e = math->Get(5);
+    Leg *s = math->Get(6);
+    Leg *be = math->Get(7);
+
+    // k = ephemeral key
+	GenerateKey(math, csprng, k);
+
+	// K = k * G
+	math->PtMultiply(G_MultPrecomp, 8, k, 0, K);
+	math->SaveAffineX(K, K);
+
+	// e = H(M || K)
+	Skein H;
+	if (!H.BeginKey(KeyBits)) return false;
+	H.Crunch(message, message_bytes);
+	H.Crunch(K, KeyBytes);
+	H.End();
+	H.Generate(signature, KeyBytes);
+	math->Load(signature, KeyBytes, e);
+
+	// s = k - b * e (mod q)
+	math->Multiply(b, e, be);
+	math->DivideProduct(be, math->GetCurveQ(), be, s);
+	if (!math->IsZero(s)) math->Subtract(math->GetCurveQ(), s, s);
+	if (math->Add(s, k, s))
+		while (!math->Subtract(s, math->GetCurveQ(), s));
+	while (!math->Less(s, math->GetCurveQ()))
+		math->Subtract(s, math->GetCurveQ(), s);
+
+	math->Save(s, signature + KeyBytes, KeyBytes);
+
+	return true;
+}

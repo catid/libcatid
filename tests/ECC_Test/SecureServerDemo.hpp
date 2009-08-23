@@ -39,8 +39,8 @@ class SecureServerDemo;
 #define CAT_S2C_ANSWER_BYTES (CAT_DEMO_BYTES*3)
 #define CAT_C2S_PROOF_BYTES CAT_DEMO_BYTES
 
-#define CAT_C2S_HELLO_BYTES 4
-#define CAT_S2C_COOKIE_BYTES 4
+#define CAT_C2S_HELLO_BYTES (4)
+#define CAT_S2C_COOKIE_BYTES (4 + CAT_DEMO_BYTES*2)
 
 
 // ip,port address pair
@@ -123,7 +123,7 @@ class SecureServerDemo
 	void Cleanup();
 
 protected:
-    void OnHello(const Address &source, u8 *buffer);
+    void OnHello(BigTwistedEdward *math, FortunaOutput *csprng, const Address &source, u8 *buffer);
     void OnChallenge(BigTwistedEdward *math, FortunaOutput *csprng, const Address &source, u8 *buffer);
 
     void OnSessionMessage(Connection *client, u8 *buffer, int bytes);

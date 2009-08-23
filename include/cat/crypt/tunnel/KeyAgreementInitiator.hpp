@@ -35,6 +35,7 @@ class KeyAgreementInitiator : public KeyAgreementCommon
     Leg *A; // Initiator's public key (shared with responder in Challenge message)
     Leg *hB; // h*B
     Leg *G_MultPrecomp; // 8-bit table for multiplication
+    Leg *B_MultPrecomp; // 8-bit table for multiplication
 
     bool AllocateMemory();
     void FreeMemory();
@@ -46,12 +47,18 @@ public:
     bool Initialize(BigTwistedEdward *math,
 					const u8 *responder_public_key, int public_bytes);
 
+public:
     bool GenerateChallenge(BigTwistedEdward *math, FortunaOutput *csprng,
 						   u8 *initiator_challenge, int challenge_bytes);
 
     bool ProcessAnswer(BigTwistedEdward *math,
 					   const u8 *responder_answer, int answer_bytes,
                        AuthenticatedEncryption *encryption);
+
+public:
+	bool Verify(BigTwistedEdward *math, FortunaOutput *csprng,
+				const u8 *message, int message_bytes,
+				const u8 *signature, int signature_bytes);
 };
 
 

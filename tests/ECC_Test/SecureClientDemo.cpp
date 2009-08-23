@@ -26,16 +26,26 @@ void SecureClientDemo::OnCookie(BigTwistedEdward *math, FortunaOutput *csprng, u
 {
     //cout << "Client: Got cookie from the server" << endl;
 
+    double t1 = Clock::usec();
+	if (!tun_client.Verify(math, csprng, buffer, 4, buffer + 4, CAT_DEMO_BYTES*2))
+	{
+        cout << "Client: Unable to verify signature" << endl;
+        return;
+	}
+    double t2 = Clock::usec();
+
+    cout << "Client: Verifying signature time = " << (t2 - t1) << " usec" << endl;
+
     u8 challenge[CAT_C2S_CHALLENGE_BYTES + CAT_S2C_COOKIE_BYTES];
 
-    double t1 = Clock::usec();
+    t1 = Clock::usec();
     if (!tun_client.GenerateChallenge(math, csprng, challenge, CAT_C2S_CHALLENGE_BYTES))
     {
         cout << "Client: Unable to generate challenge" << endl;
         return;
     }
     memcpy(challenge + CAT_C2S_CHALLENGE_BYTES, buffer, CAT_S2C_COOKIE_BYTES); // copy cookie
-    double t2 = Clock::usec();
+    t2 = Clock::usec();
 
     //cout << "Client: Filling challenge message time = " << (t2 - t1) << " usec" << endl;
 
