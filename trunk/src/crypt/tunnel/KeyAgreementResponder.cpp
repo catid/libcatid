@@ -178,23 +178,36 @@ bool KeyAgreementResponder::Sign(BigTwistedEdward *math, FortunaOutput *csprng,
 	math->PtMultiply(G_MultPrecomp, 8, k, 0, K);
 	math->SaveAffineX(K, K);
 
-	// e = H(M || K)
-	Skein H;
-	if (!H.BeginKey(KeyBits)) return false;
-	H.Crunch(message, message_bytes);
-	H.Crunch(K, KeyBytes);
-	H.End();
-	H.Generate(signature, KeyBytes);
-	math->Load(signature, KeyBytes, e);
+	do {
 
-	// s = k - b * e (mod q)
-	math->Multiply(b, e, be);
-	math->DivideProduct(be, math->GetCurveQ(), be, s);
-	if (!math->IsZero(s)) math->Subtract(math->GetCurveQ(), s, s);
-	if (math->Add(s, k, s))
-		while (!math->Subtract(s, math->GetCurveQ(), s));
-	while (!math->Less(s, math->GetCurveQ()))
-		math->Subtract(s, math->GetCurveQ(), s);
+		do {
+			// e = H(M || K)
+			Skein H;
+
+			if (!H.BeginKey(KeyBits)) return false;
+			H.Crunch(message, message_bytes);
+			H.Crunch(K, KeyBytes);
+			H.End();
+			H.Generate(signature, KeyBytes);
+
+			math->Load(signature, KeyBytes, e);
+
+		} while (math->IsZero(e));
+
+		// s = b * e (mod q)
+		math->Multiply(b, e, be);
+		math->DivideProduct(be, math->GetCurveQ(), be, s);
+
+		// s = -s (mod q)
+		if (!math->IsZero(s)) math->Subtract(math->GetCurveQ(), s, s);
+
+		// s = s + k (mod q)
+		if (math->Add(s, k, s))
+			while (!math->Subtract(s, math->GetCurveQ(), s));
+		while (!math->Less(s, math->GetCurveQ()))
+			math->Subtract(s, math->GetCurveQ(), s);
+
+	} while (math->IsZero(s));
 
 	math->Save(s, signature + KeyBytes, KeyBytes);
 
