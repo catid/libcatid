@@ -111,21 +111,27 @@ namespace cat {
 		e = H(M || K)
 		s = k - b*e (mod q)
 
-	Signature: s2c s || e
+		This process is repeated until e and s are non-zero
 
-		256-bit security: s(32by) e(32by) = 64 bytes
-		384-bit security: s(48by) e(48by) = 96 bytes
-		512-bit security: s(64by) e(64by) = 128 bytes
+	Signature: s2c e || s
+
+		256-bit security: e(32by) s(32by) = 64 bytes
+		384-bit security: e(48by) s(48by) = 96 bytes
+		512-bit security: e(64by) s(64by) = 128 bytes
 
 	To verify a signature:
 
-		e' = H(M || s*G + e*B)
+		Check e, s are in the range [1,q-1]
+
+		K' = s*G + e*B
+		e' = H(M || K')
 
 		The signature is verified if e == e'
 
 	Notes:
 
-		K ?= s*G + e*B
+		K ?= K'
+		   = s*G + e*B
 		   = (k - b*e)*G + e*(b*G)
 		   = k*G - b*e*G + e*b*G
 		   = K

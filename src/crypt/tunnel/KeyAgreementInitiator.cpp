@@ -194,6 +194,14 @@ bool KeyAgreementInitiator::Verify(BigTwistedEdward *math, FortunaOutput *csprng
 	math->Load(signature, KeyBytes, e);
 	math->Load(signature + KeyBytes, KeyBytes, s);
 
+	// Check e, s are in the range [1,q-1]
+	if (math->IsZero(e) || math->IsZero(s) ||
+		!math->Less(e, math->GetCurveQ()) ||
+		!math->Less(s, math->GetCurveQ()))
+	{
+		return false;
+	}
+
 	// K' = s*G + e*B
 	math->PtSiMultiply(G_MultPrecomp, B_MultPrecomp, 8, s, 0, e, 0, Kp);
 	math->SaveAffineX(Kp, Kp);
