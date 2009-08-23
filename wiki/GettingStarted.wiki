@@ -30,6 +30,19 @@ To statically link with some part of LibCat:
 See "Build MSVC.txt" for more information.
 
 
-= GNU C++ Compiler =
+= Other Compilers (Eclipse, etc) =
+ * Download and install CMAKE version 2.6 or newer.
+ * Run CMAKE on the /build/ directory to create a makefile for the compiler of your choice.
+ * Run the makefile in your target compiler to create static libraries that your project can link to.
+ * If it doesn't compile please Email me (mrcatid@gmail.com) and I will fix it for you.
 
-*I am currently porting to this compiler.*
+
+= Linux =
+
+LibCat uses the 'vmstat -s' command to collect entropy for its random number generator.
+
+You can use CMAKE to generate a Makefile for your platform.  Simply invoke "cmake" from within the ./build directory.
+
+After building, the LibCat static libraries should be present in the ./lib/cat/ directory.
+
+You can now link to these static libraries in your own application.
