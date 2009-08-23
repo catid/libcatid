@@ -37,6 +37,10 @@ namespace cat {
 	Shape of curve: a' * x^2 + y^2 = 1 + d' * x^2 * y^2, a' = -1 (square in Fp)
 	d' (non square in Fp) -> order of curve = q * cofactor h, order of generator point = q
 	Curves satisfy MOV conditions and are not anomalous
+	Point operations performed with Extended Twisted Edwards group laws
+
+	H: Skein-Key, either 256-bit or 512-bit based on security level
+	MAC: Skein-MAC, keyed from output of H()
 
     Here the protocol initiator is the (c)lient, and the responder is the (s)erver:
 
@@ -47,7 +51,7 @@ namespace cat {
         512-bit security: B = 128 bytes for public key, b = 64 bytes for private key
 
         c: Client already knows the server's public key B before Key Agreement
-        c: ephemeral private key 1 < a < q, ephemeral public key A=a*G
+        c: ephemeral private key 1 < a < q, ephemeral public key A = a*G
 
     Initiator Challenge: c2s A
 
@@ -58,7 +62,7 @@ namespace cat {
         s: validate A, ignore invalid
 		Invalid A(x,y) would be the additive identity (0,1) or any point not on the curve
 
-        s: ephemeral private key 1 < y < q, ephemeral public key Y=y*G
+        s: ephemeral private key 1 < y < q, ephemeral public key Y = y*G
         s: T = (b + y) * h*A
         s: k = H(T,A,B,Y)
 
@@ -85,6 +89,46 @@ namespace cat {
         512-bit security: MAC(64by) = 64 bytes
 
         s: validate MAC, ignore invalid
+
+	Notes:
+
+			 T_Responder ?= T_Initiator
+		    (b + y) * h*A = a * (h*B + h*Y)
+		b*h*a*G + y*h*a*G = a*h*b*G + a*h*y*G
+*/
+
+
+/*
+	Schnorr signatures:
+
+	For signing, the signer reuses its Key Agreement key pair (b,B)
+
+	H: Skein-Key, either 256-bit or 512-bit based on security level
+
+	To sign a message M, signer computes:
+
+		ephemeral secret random 1 < k < q, ephemeral point K = k * G
+		e = H(M || K)
+		s = k - b*e (mod q)
+
+	Signature: s2c s || e
+
+		256-bit security: s(32by) e(32by) = 64 bytes
+		384-bit security: s(48by) e(48by) = 96 bytes
+		512-bit security: s(64by) e(64by) = 128 bytes
+
+	To verify a signature:
+
+		e' = H(M || s*G + e*B)
+
+		The signature is verified if e == e'
+
+	Notes:
+
+		K ?= s*G + e*B
+		   = (k - b*e)*G + e*(b*G)
+		   = k*G - b*e*G + e*b*G
+		   = K
 */
 
 
@@ -100,7 +144,7 @@ public:
 	static BigTwistedEdward *InstantiateMath(int bits);
 
 	// Math library register usage
-    static const int ECC_REG_OVERHEAD = 31;
+    static const int ECC_REG_OVERHEAD = 21;
 
     // c: field prime modulus p = 2^bits - C, p = 5 mod 8 s.t. a=-1 is a square in Fp
     // d: curve coefficient (yy-xx=1+Dxxyy), not a square in Fp

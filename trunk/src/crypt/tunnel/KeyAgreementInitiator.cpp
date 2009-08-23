@@ -47,6 +47,12 @@ void KeyAgreementInitiator::FreeMemory()
 	{
 		Aligned::Delete(G_MultPrecomp);
 		G_MultPrecomp = 0;
+ 	}
+
+	if (B_MultPrecomp)
+	{
+		Aligned::Delete(B_MultPrecomp);
+		B_MultPrecomp = 0;
 	}
 }
 
@@ -54,6 +60,7 @@ KeyAgreementInitiator::KeyAgreementInitiator()
 {
     B = 0;
     G_MultPrecomp = 0;
+    B_MultPrecomp = 0;
 }
 
 KeyAgreementInitiator::~KeyAgreementInitiator()
@@ -122,11 +129,11 @@ bool KeyAgreementInitiator::ProcessAnswer(BigTwistedEdward *math,
     Leg *T = math->Get(8);
     Leg *hY = math->Get(12);
 
-    // Unpack the responder's h*Y into registers
+    // Load the responder's affine point Y
     if (!math->LoadVerifyAffineXY(responder_answer, responder_answer + KeyBytes, Y))
         return false;
 
-	// Verify the point is not the additive identity (should never happen unless being attacked)
+	// Verify the point is not the additive identity (will never happen unless being attacked)
 	if (math->IsAffineIdentity(Y))
 		return false;
 
@@ -160,4 +167,45 @@ bool KeyAgreementInitiator::ProcessAnswer(BigTwistedEdward *math,
 
     // Validate the server proof of key
     return encryption->ValidateProof(responder_answer + KeyBytes*2, KeyBytes);
+}
+
+bool KeyAgreementInitiator::Verify(BigTwistedEdward *math, FortunaOutput *csprng,
+								   const u8 *message, int message_bytes,
+								   const u8 *signature, int signature_bytes)
+{
+    // Verify that inputs are of the correct length
+    if (signature_bytes != KeyBytes*2) return false;
+
+	if (!B_MultPrecomp)
+	{
+		math->PtUnpack(B);
+
+		// Precompute an 8-bit table for multiplication
+		B_MultPrecomp = math->PtMultiplyPrecompAlloc(B, 8);
+		if (!B_MultPrecomp) return false;
+	}
+
+    Leg *e = math->Get(0);
+    Leg *s = math->Get(1);
+    Leg *Kp = math->Get(2);
+    Leg *ep = math->Get(6);
+
+	// Load e, s from signature
+	math->Load(signature, KeyBytes, e);
+	math->Load(signature + KeyBytes, KeyBytes, s);
+
+	// K' = s*G + e*B
+	math->PtSiMultiply(G_MultPrecomp, B_MultPrecomp, 8, s, 0, e, 0, Kp);
+	math->SaveAffineX(Kp, Kp);
+
+	// e' = H(M || K')
+	Skein H;
+	if (!H.BeginKey(KeyBits)) return false;
+	H.Crunch(message, message_bytes);
+	H.Crunch(Kp, KeyBytes);
+	H.End();
+	H.Generate(ep, KeyBytes);
+
+	// Verify that e' == e
+	return SecureEqual(signature, ep, KeyBytes);
 }

@@ -74,8 +74,11 @@ public:
     CAT_INLINE int RegBytes() { return library_legs * sizeof(Leg); }
 
 public:
-    void Load(const void *in, int bytes, Leg *out);
+	// Save one single register to an endian-neutral byte array
     void Save(const Leg *in, void *out, int bytes);
+
+	// Load one single register from an endian-neutral byte array
+    void Load(const void *in, int bytes, Leg *out);
 
     bool LoadFromString(const char *in, int base, Leg *out);
 
@@ -123,6 +126,7 @@ public:
 
 public:
     // out[] gets the low part of the product, next reg gets high part
+	// note: in_a != out, in_b != out
     void Multiply(const Leg *in_a, const Leg *in_b, Leg *out); // out+1:out = a[] * b[]
     void Square(const Leg *in, Leg *out); // out+1:out = in[] * in[]
 

@@ -210,15 +210,15 @@ void BigTwistedEdward::PtSiMultiply(const Leg *precomp_p, const Leg *precomp_q, 
 		{
 			after1 = doubles_after_k;
 			after2 = doubles_after_l;
-			add1 = precomp_p;
-			add2 = precomp_q;
+			add1 = precomp_k;
+			add2 = precomp_l;
 		}
 		else
 		{
 			after1 = doubles_after_l;
 			after2 = doubles_after_k;
-			add1 = precomp_q;
-			add2 = precomp_p;
+			add1 = precomp_l;
+			add2 = precomp_k;
 		}
 
 		// Perform doubles before addition

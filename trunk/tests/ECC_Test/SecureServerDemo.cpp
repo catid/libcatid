@@ -24,7 +24,7 @@
 using namespace std;
 using namespace cat;
 
-void SecureServerDemo::OnHello(const Address &source, u8 *buffer)
+void SecureServerDemo::OnHello(BigTwistedEdward *math, FortunaOutput *csprng, const Address &source, u8 *buffer)
 {
     if (*(u32*)buffer != getLE(0xca7eed))
     {
@@ -36,6 +36,12 @@ void SecureServerDemo::OnHello(const Address &source, u8 *buffer)
 
     u8 response[CAT_S2C_COOKIE_BYTES];
     *(u32*)response = getLE(cookie_jar.Generate(source.ip, source.port));
+
+    double t1 = Clock::usec();
+	tun_server.Sign(math, csprng, response, 4, response + 4, CAT_DEMO_BYTES*2);
+    double t2 = Clock::usec();
+
+    cout << "Server: Signature generation time = " << (t2 - t1) << " usec" << endl;
 
     client_ref->OnPacket(my_addr, response, sizeof(response));
 }
@@ -174,7 +180,7 @@ void SecureServerDemo::OnPacket(const Address &source, u8 *buffer, int bytes)
     {
 		if (bytes == CAT_C2S_HELLO_BYTES)
         {
-            OnHello(source, buffer);
+            OnHello(tls_math, tls_csprng, source, buffer);
         }
         else if (bytes == CAT_C2S_CHALLENGE_BYTES + CAT_S2C_COOKIE_BYTES)
         {

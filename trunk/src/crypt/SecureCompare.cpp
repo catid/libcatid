@@ -21,8 +21,10 @@
 
 namespace cat {
 
-bool SecureEqual(const u8 *A, const u8 *B, int bytes)
+bool SecureEqual(const void *vA, const void *vB, int bytes)
 {
+	const u8 *A = (const u8*)vA;
+	const u8 *B = (const u8*)vB;
     u64 fail = 0;
 
     // Accumulate failures, 8 bytes at a time

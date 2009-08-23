@@ -28,7 +28,7 @@ namespace cat {
 
 
 // Binary comparison function that is resistant to side-channel attack
-bool SecureEqual(const u8 *A, const u8 *B, int bytes);
+bool SecureEqual(const void *A, const void *B, int bytes);
 
 
 } // namespace cat
