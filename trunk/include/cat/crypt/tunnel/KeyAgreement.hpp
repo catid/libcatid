@@ -61,10 +61,11 @@ namespace cat {
         512-bit security: A = 128 bytes
 
         s: validate A, ignore invalid
-		Invalid A(x,y) would be the additive identity (0,1) or any point not on the curve
+		Invalid A(x,y) would be the additive identity x=0 or any point not on the curve
 
         s: ephemeral private key 1 < y < q, ephemeral public key Y = y * G
-        s: T = (b + y) * h*A
+		s: d = H(A,B,Y)
+        s: T = (b + d*y) * h*A
         s: k = H(T,A,B,Y)
 
     Responder Answer: s2c Y || MAC(k) {"responder proof"}
@@ -74,9 +75,10 @@ namespace cat {
         512-bit security: Y(128by) MAC(64by) = 192 bytes
 
         c: validate Y, ignore invalid
-		Invalid Y(x,y) would be the additive identity (0,1) or any point not on the curve
+		Invalid Y(x,y) would be the additive identity x=0 or any point not on the curve
 
-        c: T = a * (h*B + h*Y)
+		c: d = H(A,B,Y)
+        c: T = a * (h*B + d*h*Y)
         c: k = H(T,A,B,Y)
 
         c: validate MAC, ignore invalid
