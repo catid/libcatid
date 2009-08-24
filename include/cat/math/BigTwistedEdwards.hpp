@@ -40,7 +40,7 @@
 
     -(X : Y : T : Z) = (-X : Y : -T : Z)
 
-    Additive Identity element: (0 : 1 : 0 : 1)
+    Additive Identity element: X = 0
 
     When Z = 1, a multiplication can be omitted
 
@@ -98,7 +98,7 @@ public:
 	// Set a point to the identity
 	void PtIdentity(Leg *inout);
 
-	// Check if the affine point (x,y) is the additive identity (0,1)
+	// Check if the affine point (x,y) is the additive identity x=0
 	bool IsAffineIdentity(const Leg *in);
 
 public:
