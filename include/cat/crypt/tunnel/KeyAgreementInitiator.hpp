@@ -53,7 +53,7 @@ public:
 
     bool ProcessAnswer(BigTwistedEdwards *math,
 					   const u8 *responder_answer, int answer_bytes,
-                       AuthenticatedEncryption *encryption);
+                       Skein *key_hash);
 
 public:
 	bool Verify(BigTwistedEdwards *math, FortunaOutput *csprng,

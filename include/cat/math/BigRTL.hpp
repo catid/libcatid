@@ -142,6 +142,10 @@ public:
     bool DivideProduct(const Leg *in_a, const Leg *in_b, Leg *out_q, Leg *out_r);
 
 public:
+	// r = a * b (mod m)
+	void MulMod(const Leg *in_a, const Leg *in_b, const Leg *in_m, Leg *r);
+
+public:
     void ModularInverse(const Leg *x, const Leg *modulus, Leg *inverse);
 
 public:

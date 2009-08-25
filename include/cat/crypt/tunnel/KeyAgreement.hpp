@@ -31,9 +31,10 @@ namespace cat {
 
 /*
 	Tunnel Key Agreement "Tabby" protocol:
-	An unauthenticated Diffie-Hellman key agreement protocol with perfect forward secrecy
+	An unauthenticated Diffie-Hellman key agreement protocol with forward secrecy
+	Immune to active attacks (man-in-the-middle) if server key is known ahead of time
 
-    Using Elliptic Curve Cryptography over finite field Fp, p = 2^bits - c, c small
+    Using Elliptic Curve Cryptography over finite field Fp, p = 2^n - c, c small
 	Shape of curve: a' * x^2 + y^2 = 1 + d' * x^2 * y^2, a' = -1 (square in Fp)
 	d' (non square in Fp) -> order of curve = q * cofactor h, order of generator point = q
 	Curves satisfy MOV conditions and are not anomalous
@@ -64,22 +65,30 @@ namespace cat {
 		Invalid A(x,y) would be the additive identity x=0 or any point not on the curve
 
         s: ephemeral private key 1 < y < q, ephemeral public key Y = y * G
-		s: d = H(A,B,Y)
-        s: T = (b + d*y) * h*A
-        s: k = H(T,A,B,Y)
+		Ephemeral key is re-used for several connections before being regenerated
 
-    Responder Answer: s2c Y || MAC(k) {"responder proof"}
+		s: hA = h * A
+		s: random n-bit number r
+		s: d = H(A,B,Y,r)
+		Repeat the previous two steps until d >= 1000
 
-        256-bit security: Y(64by)  MAC(32by) = 96 bytes
-        384-bit security: Y(96by)  MAC(48by) = 144 bytes
-        512-bit security: Y(128by) MAC(64by) = 192 bytes
+		s: e = b + d*y (mod q)
+        s: T = AffineX(e * hA)
+        s: k = H(d,T)
+
+    Responder Answer: s2c Y || r || MAC(k) {"responder proof"}
+
+        256-bit security: Y(64by)  r(32by) MAC(32by) = 128 bytes
+        384-bit security: Y(96by)  r(48by) MAC(48by) = 192 bytes
+        512-bit security: Y(128by) r(64by) MAC(64by) = 256 bytes
 
         c: validate Y, ignore invalid
 		Invalid Y(x,y) would be the additive identity x=0 or any point not on the curve
 
-		c: d = H(A,B,Y)
-        c: T = a * (h*B + d*h*Y)
-        c: k = H(T,A,B,Y)
+		c: hY = h * Y
+		c: d = H(A,B,Y,r)
+        c: T = AffineX(a * hB + d*a * hY)
+        c: k = H(d,T)
 
         c: validate MAC, ignore invalid
 
@@ -95,9 +104,14 @@ namespace cat {
 
 	Notes:
 
-			 T_Responder ?= T_Initiator
-		    (b + y) * h*A = a * (h*B + h*Y)
-		b*h*a*G + y*h*a*G = a*h*b*G + a*h*y*G
+		The strategy of this protocol is to perform two EC Diffie-Hellman exchanges,
+		one with the long-term server key and the second with an ephemeral key that
+		should be much harder to obtain by an attacker.  The resulting two shared
+		secret points are added together into one point that is used for the key.
+
+		It is perfectly acceptable to re-use an ephemeral key for several runs of
+		the protocol.  This means that most of the processing done by the server is
+		just one point multiplication.
 */
 
 

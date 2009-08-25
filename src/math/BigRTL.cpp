@@ -93,3 +93,4 @@ int BigRTL::LegsUsed(const Leg *in)
 #include "rtl/div/ModularInverse.cpp"
 #include "rtl/div/MultiplicativeInverse.cpp"
 #include "rtl/div/EatTrailingZeroes.cpp"
+#include "rtl/div/MulMod.cpp"
