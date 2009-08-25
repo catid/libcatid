@@ -28,7 +28,7 @@ Skein FortunaFactory::MasterSeed;
 
 //// FortunaOutput
 
-static u32 thread_id_generator = 0;
+static volatile u32 thread_id_generator = 0;
 
 FortunaOutput::FortunaOutput()
 {

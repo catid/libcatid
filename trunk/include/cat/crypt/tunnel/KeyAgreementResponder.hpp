@@ -32,6 +32,7 @@ class KeyAgreementResponder : public KeyAgreementCommon
 {
     Leg *b; // Responder's private key (kept secret)
     Leg *B; // Responder's public key (pre-shared with initiator)
+	Leg *B_neutral; // Endian-neutral B
     Leg *G_MultPrecomp; // 8-bit table for multiplication
 
     bool AllocateMemory();
@@ -48,8 +49,7 @@ public:
 public:
     bool ProcessChallenge(BigTwistedEdwards *math, FortunaOutput *csprng,
 						  const u8 *initiator_challenge, int challenge_bytes,
-                          u8 *responder_answer, int answer_bytes,
-                          AuthenticatedEncryption *encryption);
+                          u8 *responder_answer, int answer_bytes, Skein *key_hash);
 
 public:
     bool Sign(BigTwistedEdwards *math, FortunaOutput *csprng,

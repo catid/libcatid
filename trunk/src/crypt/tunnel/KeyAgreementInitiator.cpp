@@ -119,7 +119,7 @@ bool KeyAgreementInitiator::GenerateChallenge(BigTwistedEdwards *math, FortunaOu
 
 bool KeyAgreementInitiator::ProcessAnswer(BigTwistedEdwards *math,
 										  const u8 *responder_answer, int answer_bytes,
-                                          AuthenticatedEncryption *encryption)
+                                          Skein *key_hash)
 {
     // Verify that inputs are of the correct length
     if (answer_bytes != KeyBytes*3) return false;
@@ -141,6 +141,22 @@ bool KeyAgreementInitiator::ProcessAnswer(BigTwistedEdwards *math,
     math->PtDoubleZ1(Y, hY);
     math->PtEDouble(hY, hY);
 
+	// S = H(A,B,Y,r)
+	if (!key_hash->BeginKey(KeyBits))
+		return false;
+	key_hash->Crunch(initiator_challenge, KeyBytes*2); // A
+	key_hash->Crunch(B_neutral, KeyBytes*2); // B
+	key_hash->Crunch(responder_answer, KeyBytes*3); // Y,r
+	key_hash->End();
+	key_hash->Generate(S, KeyBytes);
+	math->Load(S, KeyBytes, S);
+
+	// Insure S >= 1000
+	if (math->LessX(S, 1000))
+		return false;
+
+	// T = AffineX(a * hB + S*a * hY)
+	// k = H(d,T)
     // S = a * (hB + hY)
     math->PtEAdd(hB, hY, T);
     math->PtMultiply(T, a, 0, S);

@@ -27,8 +27,9 @@ bool KeyAgreementResponder::AllocateMemory()
 {
     FreeMemory();
 
-    b = new (Aligned::ii) Leg[KeyLegs * 5];
+    b = new (Aligned::ii) Leg[KeyLegs * 7];
     B = b + KeyLegs;
+	B_neutral = B + KeyLegs*2;
 
     return !!b;
 }
@@ -89,13 +90,15 @@ bool KeyAgreementResponder::Initialize(BigTwistedEdwards *math,
         return false;
     math->PtUnpack(B);
 
+	// Store a copy of the endian-neutral version of B for later
+	memcpy(B_neutral, responder_public_key, KeyBytes*2);
+
     return true;
 }
 
 bool KeyAgreementResponder::ProcessChallenge(BigTwistedEdwards *math, FortunaOutput *csprng,
 											 const u8 *initiator_challenge, int challenge_bytes,
-                                             u8 *responder_answer, int answer_bytes,
-                                             AuthenticatedEncryption *encryption)
+                                             u8 *responder_answer, int answer_bytes, Skein *key_hash)
 {
     // Verify that inputs are of the correct length
 #if defined(DEBUG)
@@ -127,35 +130,42 @@ bool KeyAgreementResponder::ProcessChallenge(BigTwistedEdwards *math, FortunaOut
 
     // Y = y * G
     math->PtMultiply(G_MultPrecomp, 8, y, 0, Y);
-    math->PtNormalize(Y, Y);
+	math->SaveAffineXY(Y, responder_answer, responder_answer + KeyBytes);
 
-    // S = hA * (b + y)
-    u8 msb = math->Add(b, y, T);
-    math->PtMultiply(hA, T, msb, S);
+	do
+	{
+		// random n-bit number r
+		csprng->Generate(responder_answer + KeyBytes*2, KeyBytes);
 
-    // T = affine X coordinate in endian-neutral form
+		// S = H(A,B,Y,r)
+		if (!key_hash->BeginKey(KeyBits))
+			return false;
+		key_hash->Crunch(initiator_challenge, KeyBytes*2); // A
+		key_hash->Crunch(B_neutral, KeyBytes*2); // B
+		key_hash->Crunch(responder_answer, KeyBytes*3); // Y,r
+		key_hash->End();
+		key_hash->Generate(S, KeyBytes);
+		math->Load(S, KeyBytes, S);
+
+		// Repeat while S is small (rare)
+	} while (math->LessX(S, 1000));
+
+	// T = S*y + b (mod q)
+	math->MulMod(S, y, math->GetCurveQ(), T);
+	if (math->Add(b, T, T))
+		math->Subtract(T, math->GetCurveQ(), T);
+	while (!math->Less(T, math->GetCurveQ()))
+		math->Subtract(T, math->GetCurveQ(), T);
+
+	// T = AffineX(T * hA)
+	math->PtMultiply(hA, T, 0, S);
     math->SaveAffineX(S, T);
 
-#if defined(CAT_ENDIAN_LITTLE)
-
-    // k = H(T,A,B,Y)
-    encryption->SetKey(KeyBytes, T, A, B, Y, false);
-
-#else // !defined(CAT_ENDIAN_LITTLE)
-
-    u8 A_big[MAX_BYTES*2], B_big[MAX_BYTES*2], Y_big[MAX_BYTES*2];
-    math->SaveProjectiveXY(A, A_big, A_big + KeyBytes);
-    math->SaveProjectiveXY(B, B_big, B_big + KeyBytes);
-    math->SaveProjectiveXY(Y, Y_big, Y_big + KeyBytes);
-
-    // k = H(T,A,B,Y)
-    encryption->SetKey(KeyBytes, T, A_big, B_big, Y_big, false);
-
-#endif
-
-    // Write response
-    math->SaveAffineXY(Y, responder_answer, responder_answer + KeyBytes);
-    return encryption->GenerateProof(responder_answer + KeyBytes*2, KeyBytes);
+	// k = H(d,T)
+	if (!key_hash->BeginKDF())
+		return false;
+	key_hash->Crunch(T, KeyBytes);
+	key_hash->End();
 }
 
 bool KeyAgreementResponder::Sign(BigTwistedEdwards *math, FortunaOutput *csprng,
@@ -199,8 +209,7 @@ bool KeyAgreementResponder::Sign(BigTwistedEdwards *math, FortunaOutput *csprng,
 		} while (math->IsZero(e));
 
 		// s = b * e (mod q)
-		math->Multiply(b, e, be);
-		math->DivideProduct(be, math->GetCurveQ(), be, s);
+		math->MulMod(b, e, math->GetCurveQ(), s);
 
 		// s = -s (mod q)
 		if (!math->IsZero(s)) math->Subtract(math->GetCurveQ(), s, s);
