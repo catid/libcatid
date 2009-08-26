@@ -74,7 +74,7 @@ bool Atomic::CAS(volatile void *x, const void *expected_old_value, const void *n
     return 1 == _InterlockedCompareExchange128((__int64*)x, ((u64*)new_value)[1],
                                                ((u64*)new_value)[0], ComparandResult);
 
-#elif defined(CAT_ASM_ATT)
+#elif defined(CAT_ASM_ATT) && defined(CAT_ISA_X86)
 
 	u128 *target = (u128*)x;
 	u64 *replace = (u64*)new_value;
@@ -91,6 +91,10 @@ bool Atomic::CAS(volatile void *x, const void *expected_old_value, const void *n
 
     return retval;
 
+#else
+
+#error "Missing implementation for your architecture"
+
 #endif
 }
 
@@ -100,7 +104,7 @@ bool Atomic::CAS(volatile void *x, const void *expected_old_value, const void *n
 
 bool Atomic::CAS(volatile void *x, const void *expected_old_value, const void *new_value)
 {
-#if defined(CAT_ASM_INTEL)
+#if defined(CAT_ASM_INTEL) && defined(CAT_ISA_X86)
 
     CAT_ASM_BEGIN
 		push ebx
@@ -119,7 +123,7 @@ bool Atomic::CAS(volatile void *x, const void *expected_old_value, const void *n
         setz al
     CAT_ASM_END
 
-#elif defined(CAT_ASM_ATT)
+#elif defined(CAT_ASM_ATT) && defined(CAT_ISA_X86)
 
 	u64 *target = (u64*)x;
 	u32 *replace = (u32*)new_value;
@@ -136,6 +140,10 @@ bool Atomic::CAS(volatile void *x, const void *expected_old_value, const void *n
 
     return retval;
 
+#else
+
+#error "Missing implementation for your architecture"
+
 #endif
 }
 
@@ -151,7 +159,7 @@ u32 Atomic::Add(volatile u32 *x, s32 y)
 
     return _InterlockedAdd((volatile LONG*)x, y) - y;
 
-#elif defined(CAT_ASM_INTEL) && defined(CAT_WORD_32)
+#elif defined(CAT_ASM_INTEL) && defined(CAT_WORD_32) && defined(CAT_ISA_X86)
 
     CAT_ASM_BEGIN
         mov edx,x
@@ -159,7 +167,7 @@ u32 Atomic::Add(volatile u32 *x, s32 y)
         lock XADD [edx],eax
     CAT_ASM_END
 
-#elif defined(CAT_ASM_ATT)
+#elif defined(CAT_ASM_ATT) && defined(CAT_ISA_X86)
 
 	u32 retval;
 
@@ -171,6 +179,10 @@ u32 Atomic::Add(volatile u32 *x, s32 y)
     CAT_ASM_END
 
     return retval;
+
+#else
+
+#error "Missing implementation for your architecture"
 
 #endif
 }
@@ -184,7 +196,7 @@ u32 Atomic::Set(volatile u32 *x, u32 new_value)
 
     return _InterlockedExchange((volatile LONG*)x, new_value);
 
-#elif defined(CAT_ASM_INTEL) && defined(CAT_WORD_32)
+#elif defined(CAT_ASM_INTEL) && defined(CAT_WORD_32) && defined(CAT_ISA_X86)
 
     CAT_ASM_BEGIN
         mov edx,x
@@ -192,7 +204,7 @@ u32 Atomic::Set(volatile u32 *x, u32 new_value)
         lock XCHG [edx],eax
     CAT_ASM_END
 
-#elif defined(CAT_ASM_ATT)
+#elif defined(CAT_ASM_ATT) && defined(CAT_ISA_X86)
 
 	u32 retval;
 
@@ -204,6 +216,10 @@ u32 Atomic::Set(volatile u32 *x, u32 new_value)
     CAT_ASM_END
 
     return retval;
+
+#else
+
+#error "Missing implementation for your architecture"
 
 #endif
 }
@@ -217,7 +233,7 @@ bool Atomic::BTS(volatile u32 *x, int bit)
 
     return !!_interlockedbittestandset((volatile LONG*)x, bit);
 
-#elif defined(CAT_ASM_INTEL) && defined(CAT_WORD_32)
+#elif defined(CAT_ASM_INTEL) && defined(CAT_WORD_32) && defined(CAT_ISA_X86)
 
     CAT_ASM_BEGIN
         mov edx,x
@@ -227,7 +243,7 @@ bool Atomic::BTS(volatile u32 *x, int bit)
         setc al
     CAT_ASM_END
 
-#elif defined(CAT_ASM_ATT)
+#elif defined(CAT_ASM_ATT) && defined(CAT_ISA_X86)
 
 	bool retval;
 
@@ -241,6 +257,10 @@ bool Atomic::BTS(volatile u32 *x, int bit)
 
     return retval;
 
+#else
+
+#error "Missing implementation for your architecture"
+
 #endif
 }
 
@@ -253,7 +273,7 @@ bool Atomic::BTR(volatile u32 *x, int bit)
 
     return !!_interlockedbittestandreset((volatile LONG*)x, bit);
 
-#elif defined(CAT_ASM_INTEL) && defined(CAT_WORD_32)
+#elif defined(CAT_ASM_INTEL) && defined(CAT_WORD_32) && defined(CAT_ISA_X86)
 
     CAT_ASM_BEGIN
         mov edx,x
@@ -263,7 +283,7 @@ bool Atomic::BTR(volatile u32 *x, int bit)
         setc al
     CAT_ASM_END
 
-#elif defined(CAT_ASM_ATT)
+#elif defined(CAT_ASM_ATT) && defined(CAT_ISA_X86)
 
 	bool retval;
 
@@ -276,6 +296,10 @@ bool Atomic::BTR(volatile u32 *x, int bit)
     CAT_ASM_END
 
     return retval;
+
+#else
+
+#error "Missing implementation for your architecture"
 
 #endif
 }
