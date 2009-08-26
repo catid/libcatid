@@ -33,7 +33,7 @@ static volatile u32 thread_id_generator = 0;
 FortunaOutput::FortunaOutput()
 {
     // Generate a unique thread id for each fortuna object
-    thread_id = Atomic::Add(&thread_id_generator, 1);
+	thread_id = Atomic::Add(&thread_id_generator, 1);
 
     Reseed();
 }

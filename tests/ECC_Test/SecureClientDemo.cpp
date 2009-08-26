@@ -57,7 +57,10 @@ void SecureClientDemo::OnCookie(BigTwistedEdwards *math, FortunaOutput *csprng, 
 void SecureClientDemo::OnAnswer(BigTwistedEdwards *math, u8 *buffer)
 {
     double t1 = Clock::usec();
-    if (!tun_client.ProcessAnswer(math, buffer, CAT_S2C_ANSWER_BYTES, &auth_enc))
+	Skein key_hash;
+    if (!tun_client.ProcessAnswer(math, buffer, CAT_S2C_ANSWER_BYTES, &key_hash) ||
+		!tun_client.KeyEncryption(&key_hash, &auth_enc, "SecureDemoStream1") ||
+		!auth_enc.ValidateProof(buffer + CAT_DEMO_BYTES*3, CAT_DEMO_BYTES))
     {
         cout << "Client: Ignoring invalid answer from server" << endl;
         return;

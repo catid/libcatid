@@ -103,7 +103,7 @@ public:
     static u64 ReconstructIV(u64 last_accepted_iv, u32 new_iv_low_bits);
 
 protected:
-    void SetKey(int KeyBytes, const void *T, const void *A, const void *B, const void *Y, bool is_initiator);
+    bool SetKey(int KeyBytes, Skein *key, bool is_initiator, const char *key_name);
 
     bool IsValidIV(u64 iv);
     void AcceptIV(u64 iv);

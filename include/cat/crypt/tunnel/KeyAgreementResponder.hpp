@@ -34,7 +34,13 @@ class KeyAgreementResponder : public KeyAgreementCommon
     Leg *B; // Responder's public key (pre-shared with initiator)
 	Leg *B_neutral; // Endian-neutral B
     Leg *G_MultPrecomp; // 8-bit table for multiplication
+    Leg *y[2]; // Responder's ephemeral private key (kept secret)
+    Leg *Y_neutral[2]; // Responder's ephemeral public key (shared online with initiator)
 
+	volatile u32 ChallengeCount;
+	volatile u32 ActiveY;
+
+	void Rekey(BigTwistedEdwards *math, FortunaOutput *csprng);
     bool AllocateMemory();
     void FreeMemory();
 
@@ -42,7 +48,7 @@ public:
     KeyAgreementResponder();
     ~KeyAgreementResponder();
 
-    bool Initialize(BigTwistedEdwards *math,
+    bool Initialize(BigTwistedEdwards *math, FortunaOutput *csprng,
 					const u8 *responder_public_key, int public_bytes,
                     const u8 *responder_private_key, int private_bytes);
 
@@ -50,6 +56,11 @@ public:
     bool ProcessChallenge(BigTwistedEdwards *math, FortunaOutput *csprng,
 						  const u8 *initiator_challenge, int challenge_bytes,
                           u8 *responder_answer, int answer_bytes, Skein *key_hash);
+
+	inline bool KeyEncryption(Skein *key_hash, AuthenticatedEncryption *auth_enc, const char *key_name)
+	{
+		return auth_enc->SetKey(KeyBytes, key_hash, false, key_name);
+	}
 
 public:
     bool Sign(BigTwistedEdwards *math, FortunaOutput *csprng,

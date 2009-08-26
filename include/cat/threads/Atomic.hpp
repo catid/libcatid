@@ -142,6 +142,7 @@ bool Atomic::CAS(volatile void *x, const void *expected_old_value, const void *n
 
 #endif // defined(CAT_WORD_64)
 
+
 //// Add y to x, returning the previous state of x
 
 u32 Atomic::Add(volatile u32 *x, s32 y)
@@ -150,7 +151,7 @@ u32 Atomic::Add(volatile u32 *x, s32 y)
 
     return _InterlockedAdd((volatile LONG*)x, y) - y;
 
-#elif defined(CAT_ASM_INTEL)
+#elif defined(CAT_ASM_INTEL) && defined(CAT_WORD_32)
 
     CAT_ASM_BEGIN
         mov edx,x
@@ -183,7 +184,7 @@ u32 Atomic::Set(volatile u32 *x, u32 new_value)
 
     return _InterlockedExchange((volatile LONG*)x, new_value);
 
-#elif defined(CAT_ASM_INTEL)
+#elif defined(CAT_ASM_INTEL) && defined(CAT_WORD_32)
 
     CAT_ASM_BEGIN
         mov edx,x
@@ -216,7 +217,7 @@ bool Atomic::BTS(volatile u32 *x, int bit)
 
     return !!_interlockedbittestandset((volatile LONG*)x, bit);
 
-#elif defined(CAT_ASM_INTEL)
+#elif defined(CAT_ASM_INTEL) && defined(CAT_WORD_32)
 
     CAT_ASM_BEGIN
         mov edx,x
@@ -252,7 +253,7 @@ bool Atomic::BTR(volatile u32 *x, int bit)
 
     return !!_interlockedbittestandreset((volatile LONG*)x, bit);
 
-#elif defined(CAT_ASM_INTEL)
+#elif defined(CAT_ASM_INTEL) && defined(CAT_WORD_32)
 
     CAT_ASM_BEGIN
         mov edx,x

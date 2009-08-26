@@ -23,13 +23,11 @@ using namespace cat;
 
 // Allocate a precomputed table of odd multiples of input point
 // Free the table with Aligned::Delete()
-Leg *BigTwistedEdwards::PtMultiplyPrecompAlloc(const Leg *in, int w)
+Leg *BigTwistedEdwards::PtMultiplyPrecompAlloc(int w)
 {
     int points = 1 + (1 << (w - 1));
 
     Leg *out = new (Aligned::ii) Leg[points * POINT_STRIDE];
-
-    PtMultiplyPrecomp(in, w, out);
 
     return out;
 }

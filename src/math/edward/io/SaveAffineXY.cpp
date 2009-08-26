@@ -37,11 +37,12 @@ void BigTwistedEdwards::SaveAffineXY(const Leg *in, void *out_x, void *out_y)
         // B = A * in.X
         MrMultiply(in+XOFF, A, B);
         MrReduce(B);
-        Save(B, out_x, RegBytes());
 
         // C = A * in.Y
         MrMultiply(in+YOFF, A, C);
         MrReduce(C);
+
+		Save(B, out_x, RegBytes());
         Save(C, out_y, RegBytes());
     }
 }

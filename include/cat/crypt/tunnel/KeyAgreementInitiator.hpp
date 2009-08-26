@@ -34,8 +34,11 @@ class KeyAgreementInitiator : public KeyAgreementCommon
     Leg *a; // Initiator's private key (kept secret)
     Leg *A; // Initiator's public key (shared with responder in Challenge message)
     Leg *hB; // h*B
-    Leg *G_MultPrecomp; // 8-bit table for multiplication
-    Leg *B_MultPrecomp; // 8-bit table for multiplication
+    Leg *G_MultPrecomp; // Precomputed table for multiplication
+    Leg *B_MultPrecomp; // Precomputed table for multiplication
+    Leg *Y_MultPrecomp; // Precomputed table for multiplication
+	Leg *A_neutral; // Endian-neutral A
+	Leg *B_neutral; // Endian-neutral B
 
     bool AllocateMemory();
     void FreeMemory();
@@ -54,6 +57,11 @@ public:
     bool ProcessAnswer(BigTwistedEdwards *math,
 					   const u8 *responder_answer, int answer_bytes,
                        Skein *key_hash);
+
+	inline bool KeyEncryption(Skein *key_hash, AuthenticatedEncryption *auth_enc, const char *key_name)
+	{
+		return auth_enc->SetKey(KeyBytes, key_hash, true, key_name);
+	}
 
 public:
 	bool Verify(BigTwistedEdwards *math, FortunaOutput *csprng,
