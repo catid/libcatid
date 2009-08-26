@@ -26,10 +26,12 @@ bool KeyAgreementInitiator::AllocateMemory()
 {
     FreeMemory();
 
-    B = new (Aligned::ii) Leg[KeyLegs * 13];
+    B = new (Aligned::ii) Leg[KeyLegs * 17];
     a = B + KeyLegs*4;
     A = a + KeyLegs;
     hB = A + KeyLegs*4;
+	A_neutral = hB + KeyLegs*4;
+	B_neutral = A_neutral + KeyLegs*2;
 
     return !!B;
 }
@@ -54,6 +56,12 @@ void KeyAgreementInitiator::FreeMemory()
 		Aligned::Delete(B_MultPrecomp);
 		B_MultPrecomp = 0;
 	}
+
+	if (Y_MultPrecomp)
+	{
+		Aligned::Delete(Y_MultPrecomp);
+		Y_MultPrecomp = 0;
+	}
 }
 
 KeyAgreementInitiator::KeyAgreementInitiator()
@@ -61,6 +69,7 @@ KeyAgreementInitiator::KeyAgreementInitiator()
     B = 0;
     G_MultPrecomp = 0;
     B_MultPrecomp = 0;
+    Y_MultPrecomp = 0;
 }
 
 KeyAgreementInitiator::~KeyAgreementInitiator()
@@ -84,13 +93,22 @@ bool KeyAgreementInitiator::Initialize(BigTwistedEdwards *math, const u8 *respon
     // Verify that inputs are of the correct length
     if (public_bytes != KeyBytes*2) return false;
 
-	// Precompute an 8-bit table for multiplication
-	G_MultPrecomp = math->PtMultiplyPrecompAlloc(math->GetGenerator(), 8);
+	// Precompute a table for multiplication
+	G_MultPrecomp = math->PtMultiplyPrecompAlloc(6);
     if (!G_MultPrecomp) return false;
+    math->PtMultiplyPrecomp(math->GetGenerator(), 6, G_MultPrecomp);
 
-    // Unpack the responder's key pair and generator point
+    // Unpack the responder's public key
     if (!math->LoadVerifyAffineXY(responder_public_key, responder_public_key + KeyBytes, B))
         return false;
+
+	memcpy(B_neutral, responder_public_key, KeyBytes*2);
+
+	// Precompute a table for multiplication
+	B_MultPrecomp = math->PtMultiplyPrecompAlloc(6);
+	if (!B_MultPrecomp) return false;
+	math->PtUnpack(B);
+    math->PtMultiplyPrecomp(B, 6, B_MultPrecomp);
 
     // hB = h * B for small subgroup attack resistance
     math->PtDoubleZ1(B, hB);
@@ -109,10 +127,12 @@ bool KeyAgreementInitiator::GenerateChallenge(BigTwistedEdwards *math, FortunaOu
 	GenerateKey(math, csprng, a);
 
     // A = a * G
-    math->PtMultiply(G_MultPrecomp, 8, a, 0, A);
+    math->PtMultiply(G_MultPrecomp, 6, a, 0, A);
     math->PtNormalize(A, A);
 
     math->SaveAffineXY(A, initiator_challenge, initiator_challenge + KeyBytes);
+
+	memcpy(A_neutral, initiator_challenge, KeyBytes*2);
 
     return true;
 }
@@ -122,12 +142,13 @@ bool KeyAgreementInitiator::ProcessAnswer(BigTwistedEdwards *math,
                                           Skein *key_hash)
 {
     // Verify that inputs are of the correct length
-    if (answer_bytes != KeyBytes*3) return false;
+    if (answer_bytes < KeyBytes*3) return false;
 
     Leg *Y = math->Get(0);
     Leg *S = math->Get(4);
     Leg *T = math->Get(8);
     Leg *hY = math->Get(12);
+    Leg *ah = math->Get(16);
 
     // Load the responder's affine point Y
     if (!math->LoadVerifyAffineXY(responder_answer, responder_answer + KeyBytes, Y))
@@ -141,10 +162,17 @@ bool KeyAgreementInitiator::ProcessAnswer(BigTwistedEdwards *math,
     math->PtDoubleZ1(Y, hY);
     math->PtEDouble(hY, hY);
 
+	// Precompute a table for multiplication
+	if (!Y_MultPrecomp)
+	{
+		Y_MultPrecomp = math->PtMultiplyPrecompAlloc(6);
+		if (!Y_MultPrecomp) return false;
+	}
+
 	// S = H(A,B,Y,r)
 	if (!key_hash->BeginKey(KeyBits))
 		return false;
-	key_hash->Crunch(initiator_challenge, KeyBytes*2); // A
+	key_hash->Crunch(A_neutral, KeyBytes*2); // A
 	key_hash->Crunch(B_neutral, KeyBytes*2); // B
 	key_hash->Crunch(responder_answer, KeyBytes*3); // Y,r
 	key_hash->End();
@@ -155,34 +183,25 @@ bool KeyAgreementInitiator::ProcessAnswer(BigTwistedEdwards *math,
 	if (math->LessX(S, 1000))
 		return false;
 
-	// T = AffineX(a * hB + S*a * hY)
+	// ah = a*h
+	if (math->Double(a, ah))
+		math->Subtract(ah, math->GetCurveQ(), ah);
+	if (math->Double(ah, ah))
+		math->Subtract(ah, math->GetCurveQ(), ah);
+
+	// T = AffineX(ah * B + S*a * hY)
+	math->MulMod(S, a, math->GetCurveQ(), S);
+	math->PtMultiplyPrecomp(hY, 6, Y_MultPrecomp);
+	math->PtSiMultiply(B_MultPrecomp, Y_MultPrecomp, 6, ah, 0, S, 0, T);
+	math->SaveAffineX(T, T);
+
 	// k = H(d,T)
-    // S = a * (hB + hY)
-    math->PtEAdd(hB, hY, T);
-    math->PtMultiply(T, a, 0, S);
+	if (!key_hash->BeginKDF())
+		return false;
+	key_hash->Crunch(T, KeyBytes);
+	key_hash->End();
 
-    // T = affine X coordinate in endian-neutral form
-    math->SaveAffineX(S, T);
-
-#if defined(CAT_ENDIAN_LITTLE)
-
-    // k = H(T,A,B,Y)
-    encryption->SetKey(KeyBytes, T, A, B, Y, true);
-
-#else // !defined(CAT_ENDIAN_LITTLE)
-
-    u8 A_big[MAX_BYTES*2], B_big[MAX_BYTES*2], Y_big[MAX_BYTES*2];
-    math->SaveProjectiveXY(A, A_big, A_big + KeyBytes);
-    math->SaveProjectiveXY(B, B_big, B_big + KeyBytes);
-    math->SaveProjectiveXY(Y, Y_big, Y_big + KeyBytes);
-
-    // k = H(T,A,B,Y)
-    encryption->SetKey(KeyBytes, T, A_big, B_big, Y_big, true);
-
-#endif
-
-    // Validate the server proof of key
-    return encryption->ValidateProof(responder_answer + KeyBytes*2, KeyBytes);
+	return true;
 }
 
 bool KeyAgreementInitiator::Verify(BigTwistedEdwards *math, FortunaOutput *csprng,
@@ -191,15 +210,6 @@ bool KeyAgreementInitiator::Verify(BigTwistedEdwards *math, FortunaOutput *csprn
 {
     // Verify that inputs are of the correct length
     if (signature_bytes != KeyBytes*2) return false;
-
-	if (!B_MultPrecomp)
-	{
-		math->PtUnpack(B);
-
-		// Precompute an 8-bit table for multiplication
-		B_MultPrecomp = math->PtMultiplyPrecompAlloc(B, 8);
-		if (!B_MultPrecomp) return false;
-	}
 
     Leg *e = math->Get(0);
     Leg *s = math->Get(1);
@@ -223,7 +233,7 @@ bool KeyAgreementInitiator::Verify(BigTwistedEdwards *math, FortunaOutput *csprn
 	}
 
 	// K' = s*G + e*B
-	math->PtSiMultiply(G_MultPrecomp, B_MultPrecomp, 8, s, 0, e, 0, Kp);
+	math->PtSiMultiply(G_MultPrecomp, B_MultPrecomp, 6, s, 0, e, 0, Kp);
 	math->SaveAffineX(Kp, Kp);
 
 	// e' = H(M || K')

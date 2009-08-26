@@ -154,12 +154,12 @@ public:
     void PtDoubleZ1(const Leg *in, Leg *out); // -1M, cannot be followed by PtAdd
 
 public:
-    // Precompute odd multiples of input point
-    void PtMultiplyPrecomp(const Leg *in, int w, Leg *out);
-
-    // Allocate a precomputed table of odd multiples of input point
+    // Allocate a table for use with PtMultiplyPrecomp()
     // Free the table with Aligned::Delete()
-    Leg *PtMultiplyPrecompAlloc(const Leg *in, int w);
+    Leg *PtMultiplyPrecompAlloc(int w);
+
+    // Precompute odd multiples of input point
+    void PtMultiplyPrecomp(const Leg *in, int w, Leg *table);
 
 public:
     // Extended Twisted Edwards Scalar Multiplication k*p

@@ -64,12 +64,18 @@ void SecureServerDemo::OnChallenge(BigTwistedEdwards *math, FortunaOutput *csprn
     u8 answer[CAT_S2C_ANSWER_BYTES];
 
     double t1 = Clock::usec();
-    if (!tun_server.ProcessChallenge(math, csprng, buffer, CAT_C2S_CHALLENGE_BYTES, answer, CAT_S2C_ANSWER_BYTES, &client->auth_enc))
+
+	Skein key_hash;
+
+	if (!tun_server.ProcessChallenge(math, csprng, buffer, CAT_C2S_CHALLENGE_BYTES, answer, CAT_S2C_ANSWER_BYTES, &key_hash) ||
+		!tun_server.KeyEncryption(&key_hash, &client->auth_enc, "SecureDemoStream1") ||
+		!client->auth_enc.GenerateProof(answer + CAT_DEMO_BYTES*3, CAT_DEMO_BYTES))
     {
         cout << "Server: Ignoring invalid challenge message" << endl;
         delete client;
         return;
     }
+
     double t2 = Clock::usec();
 
     cout << "Server: Processing challenge took " << (t2 - t1) << " usec" << endl;
@@ -148,7 +154,7 @@ void SecureServerDemo::Reset(SecureClientDemo *cclient_ref, const u8 *server_pub
     my_addr = Address(0x11223344, 0x5566);
     cookie_jar.Initialize(tls_csprng);
 
-    if (!tun_server.Initialize(tls_math, server_public_key, CAT_DEMO_PUBLIC_KEY_BYTES, server_private_key, CAT_DEMO_PRIVATE_KEY_BYTES))
+    if (!tun_server.Initialize(tls_math, tls_csprng, server_public_key, CAT_DEMO_PUBLIC_KEY_BYTES, server_private_key, CAT_DEMO_PRIVATE_KEY_BYTES))
     {
         cout << "Server: Unable to initialize" << endl;
         return;

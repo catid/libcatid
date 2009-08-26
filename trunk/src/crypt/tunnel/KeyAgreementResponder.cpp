@@ -21,15 +21,21 @@
 #include <cat/crypt/tunnel/AuthenticatedEncryption.hpp>
 #include <cat/crypt/SecureCompare.hpp>
 #include <cat/port/AlignedAlloc.hpp>
+#include <cat/time/Clock.hpp>
+#include <cat/threads/Atomic.hpp>
 using namespace cat;
 
 bool KeyAgreementResponder::AllocateMemory()
 {
     FreeMemory();
 
-    b = new (Aligned::ii) Leg[KeyLegs * 7];
+    b = new (Aligned::ii) Leg[KeyLegs * 15];
     B = b + KeyLegs;
 	B_neutral = B + KeyLegs*2;
+	y[0] = B_neutral + KeyLegs*2;
+	y[1] = y[0] + KeyLegs;
+	Y_neutral[0] = y[1] + KeyLegs;
+	Y_neutral[1] = Y_neutral[0] + KeyLegs*4;
 
     return !!b;
 }
@@ -61,7 +67,27 @@ KeyAgreementResponder::~KeyAgreementResponder()
     FreeMemory();
 }
 
-bool KeyAgreementResponder::Initialize(BigTwistedEdwards *math,
+#include <iostream>
+using namespace std;
+
+void KeyAgreementResponder::Rekey(BigTwistedEdwards *math, FortunaOutput *csprng)
+{
+	u32 NextY = ActiveY ^ 1;
+
+	// y = ephemeral key
+	GenerateKey(math, csprng, y[NextY]);
+
+	// Y = y * G
+	Leg *Y = Y_neutral[NextY];
+	math->PtMultiply(G_MultPrecomp, 8, y[NextY], 0, Y);
+	math->SaveAffineXY(Y, Y, Y + KeyLegs);
+
+	ActiveY = NextY;
+
+	Atomic::Set(&ChallengeCount, 0);
+}
+
+bool KeyAgreementResponder::Initialize(BigTwistedEdwards *math, FortunaOutput *csprng,
 									   const u8 *responder_public_key, int public_bytes,
 									   const u8 *responder_private_key, int private_bytes)
 {
@@ -81,8 +107,9 @@ bool KeyAgreementResponder::Initialize(BigTwistedEdwards *math,
     if (public_bytes != KeyBytes*2) return false;
 
 	// Precompute an 8-bit table for multiplication
-	G_MultPrecomp = math->PtMultiplyPrecompAlloc(math->GetGenerator(), 8);
+	G_MultPrecomp = math->PtMultiplyPrecompAlloc(8);
     if (!G_MultPrecomp) return false;
+    math->PtMultiplyPrecomp(math->GetGenerator(), 8, G_MultPrecomp);
 
     // Unpack the responder's key pair and generator point
     math->Load(responder_private_key, KeyBytes, b);
@@ -92,6 +119,11 @@ bool KeyAgreementResponder::Initialize(BigTwistedEdwards *math,
 
 	// Store a copy of the endian-neutral version of B for later
 	memcpy(B_neutral, responder_public_key, KeyBytes*2);
+
+	// Initialize re-keying
+	ChallengeCount = 0;
+	ActiveY = 0;
+	Rekey(math, csprng);
 
     return true;
 }
@@ -107,11 +139,10 @@ bool KeyAgreementResponder::ProcessChallenge(BigTwistedEdwards *math, FortunaOut
 #endif
 
     Leg *A = math->Get(0);
-    Leg *y = math->Get(4);
-    Leg *Y = math->Get(5);
-    Leg *S = math->Get(9);
-    Leg *T = math->Get(13);
-    Leg *hA = math->Get(17);
+    Leg *Y = math->Get(4);
+    Leg *S = math->Get(8);
+    Leg *T = math->Get(12);
+    Leg *hA = math->Get(16);
 
     // Unpack the initiator's A into registers
     if (!math->LoadVerifyAffineXY(initiator_challenge, initiator_challenge + KeyBytes, A))
@@ -125,12 +156,13 @@ bool KeyAgreementResponder::ProcessChallenge(BigTwistedEdwards *math, FortunaOut
     math->PtDoubleZ1(A, hA);
     math->PtEDouble(hA, hA);
 
-    // y = ephemeral key
-	GenerateKey(math, csprng, y);
+	// Check if it is time to rekey
+	if (Atomic::Add(&ChallengeCount, 1) == 100)
+		Rekey(math, csprng);
 
-    // Y = y * G
-    math->PtMultiply(G_MultPrecomp, 8, y, 0, Y);
-	math->SaveAffineXY(Y, responder_answer, responder_answer + KeyBytes);
+	// Copy the current endian neutral Y to the responder answer
+	u32 ThisY = ActiveY;
+	memcpy(responder_answer, Y_neutral[ThisY], KeyBytes*2);
 
 	do
 	{
@@ -147,11 +179,11 @@ bool KeyAgreementResponder::ProcessChallenge(BigTwistedEdwards *math, FortunaOut
 		key_hash->Generate(S, KeyBytes);
 		math->Load(S, KeyBytes, S);
 
-		// Repeat while S is small (rare)
+		// Repeat while S is small
 	} while (math->LessX(S, 1000));
 
 	// T = S*y + b (mod q)
-	math->MulMod(S, y, math->GetCurveQ(), T);
+	math->MulMod(S, y[ThisY], math->GetCurveQ(), T);
 	if (math->Add(b, T, T))
 		math->Subtract(T, math->GetCurveQ(), T);
 	while (!math->Less(T, math->GetCurveQ()))
@@ -166,6 +198,8 @@ bool KeyAgreementResponder::ProcessChallenge(BigTwistedEdwards *math, FortunaOut
 		return false;
 	key_hash->Crunch(T, KeyBytes);
 	key_hash->End();
+
+	return true;
 }
 
 bool KeyAgreementResponder::Sign(BigTwistedEdwards *math, FortunaOutput *csprng,

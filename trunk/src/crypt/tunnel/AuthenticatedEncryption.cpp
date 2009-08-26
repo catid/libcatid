@@ -24,34 +24,32 @@
 using namespace cat;
 
 
-void AuthenticatedEncryption::SetKey(int KeyBytes, const void *T, const void *A, const void *B, const void *Y, bool is_initiator)
+bool AuthenticatedEncryption::SetKey(int KeyBytes, Skein *key, bool is_initiator, const char *key_name)
 {
     this->is_initiator = is_initiator;
 
-    key_hash.BeginKey(KeyBytes * 8);
-    key_hash.Crunch(T, KeyBytes);
-    key_hash.Crunch(A, KeyBytes*2);
-    key_hash.Crunch(B, KeyBytes*2);
-    key_hash.Crunch(Y, KeyBytes*2);
+	if (!key_hash.SetKey(key)) return false;
+	if (!key_hash.BeginKDF()) return false;
+	key_hash.CrunchString(key_name);
     key_hash.End();
 
     Skein kdf;
 
-    kdf.SetKey(&key_hash);
-    kdf.BeginKDF();
+    if (!kdf.SetKey(&key_hash)) return false;
+    if (!kdf.BeginKDF()) return false;
     kdf.CrunchString(is_initiator ? "upstream-MAC" : "downstream-MAC");
     kdf.End();
-    local_mac.SetKey(&kdf);
+    if (!local_mac.SetKey(&kdf)) return false;
 
-    kdf.SetKey(&key_hash);
-    kdf.BeginKDF();
+    if (!kdf.SetKey(&key_hash)) return false;
+    if (!kdf.BeginKDF()) return false;
     kdf.CrunchString(is_initiator ? "downstream-MAC" : "upstream-MAC");
     kdf.End();
-    remote_mac.SetKey(&kdf);
+    if (!remote_mac.SetKey(&kdf)) return false;
 
     u8 local_key[KeyAgreementCommon::MAX_BYTES];
-    kdf.SetKey(&key_hash);
-    kdf.BeginKDF();
+    if (!kdf.SetKey(&key_hash)) return false;
+    if (!kdf.BeginKDF()) return false;
     kdf.CrunchString(is_initiator ? "upstream-ENC" : "downstream-ENC");
     kdf.End();
     kdf.Generate(local_key, KeyBytes);
@@ -59,8 +57,8 @@ void AuthenticatedEncryption::SetKey(int KeyBytes, const void *T, const void *A,
     local_iv = 1;
 
     u8 remote_key[KeyAgreementCommon::MAX_BYTES];
-    kdf.SetKey(&key_hash);
-    kdf.BeginKDF();
+    if (!kdf.SetKey(&key_hash)) return false;
+    if (!kdf.BeginKDF()) return false;
     kdf.CrunchString(is_initiator ? "downstream-ENC" : "upstream-ENC");
     kdf.End();
     kdf.Generate(remote_key, KeyBytes);
@@ -68,6 +66,8 @@ void AuthenticatedEncryption::SetKey(int KeyBytes, const void *T, const void *A,
     remote_iv = 0;
 
     CAT_OBJCLR(iv_bitmap);
+
+	return true;
 }
 
 bool AuthenticatedEncryption::GenerateProof(u8 *local_proof, int proof_bytes)
