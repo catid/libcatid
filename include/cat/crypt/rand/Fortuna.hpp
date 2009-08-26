@@ -43,7 +43,7 @@
         + Mainly cycle counts and other timing information
 
     + Output Generator
-        + Implemented as a 256-bit Skein hash of some combination of the entropy pools
+        + Implemented as a 512-bit Skein hash of some combination of the entropy pools
             + The output is produced by the PRNG mode of Skein keyed by the pools
         + Hashing all of these pools together and keying the output is called "seeding"
         + Reseeded after sufficient entropy has been collected in pool 0
@@ -139,7 +139,7 @@ class FortunaFactory : public Singleton<FortunaFactory>
 
 protected:
     static const int ENTROPY_POOLS = 32; // Setting this higher would break something
-    static const int POOL_BITS = 256;    // Tuned for 256-bit hash
+    static const int POOL_BITS = 512;
     static const int POOL_BYTES = POOL_BITS / 8;
     static const int POOL_QWORDS = POOL_BYTES / sizeof(u64);
 
