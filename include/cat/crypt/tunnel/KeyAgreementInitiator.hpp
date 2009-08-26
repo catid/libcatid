@@ -63,6 +63,10 @@ public:
 		return auth_enc->SetKey(KeyBytes, key_hash, true, key_name);
 	}
 
+	// Erase the private key after handshake completes
+	// Also done as this object is destroyed
+	void SecureErasePrivateKey();
+
 public:
 	bool Verify(BigTwistedEdwards *math, FortunaOutput *csprng,
 				const u8 *message, int message_bytes,

@@ -45,6 +45,8 @@ void KeyAgreementResponder::FreeMemory()
     if (b)
     {
         memset(b, 0, KeyBytes);
+        memset(y[0], 0, KeyBytes);
+        memset(y[1], 0, KeyBytes);
         Aligned::Delete(b);
         b = 0;
     }
@@ -182,7 +184,7 @@ bool KeyAgreementResponder::ProcessChallenge(BigTwistedEdwards *math, FortunaOut
 
 	// T = S*y + b (mod q)
 	math->MulMod(S, y[ThisY], math->GetCurveQ(), T);
-	if (math->Add(b, T, T))
+	if (math->Add(T, b, T))
 		math->Subtract(T, math->GetCurveQ(), T);
 	while (!math->Less(T, math->GetCurveQ()))
 		math->Subtract(T, math->GetCurveQ(), T);
@@ -255,6 +257,9 @@ bool KeyAgreementResponder::Sign(BigTwistedEdwards *math, FortunaOutput *csprng,
 	} while (math->IsZero(s));
 
 	math->Save(s, signature + KeyBytes, KeyBytes);
+
+	// Erase the ephemeral secret from memory
+	math->CopyX(0, k);
 
 	return true;
 }

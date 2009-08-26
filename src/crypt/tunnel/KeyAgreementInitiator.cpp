@@ -77,6 +77,11 @@ KeyAgreementInitiator::~KeyAgreementInitiator()
     FreeMemory();
 }
 
+void KeyAgreementInitiator::SecureErasePrivateKey()
+{
+	if (B) memset(a, 0, KeyBytes);
+}
+
 bool KeyAgreementInitiator::Initialize(BigTwistedEdwards *math, const u8 *responder_public_key, int public_bytes)
 {
 	if (!math) return false;

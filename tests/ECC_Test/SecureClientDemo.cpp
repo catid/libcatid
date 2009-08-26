@@ -68,6 +68,8 @@ void SecureClientDemo::OnAnswer(BigTwistedEdwards *math, u8 *buffer)
     double t2 = Clock::usec();
     //cout << "Client: Processing answer time = " << (t2 - t1) << " usec" << endl;
 
+	tun_client.SecureErasePrivateKey();
+
     OnConnect();
 }
 
