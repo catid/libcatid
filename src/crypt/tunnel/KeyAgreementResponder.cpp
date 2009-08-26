@@ -67,11 +67,9 @@ KeyAgreementResponder::~KeyAgreementResponder()
     FreeMemory();
 }
 
-#include <iostream>
-using namespace std;
-
 void KeyAgreementResponder::Rekey(BigTwistedEdwards *math, FortunaOutput *csprng)
 {
+	// NOTE: This function is very fragile because it has to be thread-safe
 	u32 NextY = ActiveY ^ 1;
 
 	// y = ephemeral key
