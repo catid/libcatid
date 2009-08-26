@@ -28,6 +28,8 @@ using namespace cat;
 #include <fcntl.h>
 #include <unistd.h>
 
+#if !defined(CAT_NO_ENTROPY_THREAD)
+
 void FortunaFactory::EntropyCollectionThread()
 {
     // Assume ~16 bits of entropy per fast poll, so it takes 16 fast polls to get 256 bits of entropy
@@ -75,35 +77,39 @@ void *FortunaFactory::EntropyCollectionThreadWrapper(void *vfactory)
     return 0;
 }
 
+#endif // !defined(CAT_NO_ENTROPY_THREAD)
+
 
 bool FortunaFactory::InitializeEntropySources()
 {
-    urandom_fd = -1;
+    urandom_fd = open("/dev/urandom", O_RDONLY);
 
     // Fire poll for entropy all goes into pool 0
     PollInvariantSources(0);
     PollSlowEntropySources(0);
     PollFastEntropySources(0);
 
+#if !defined(CAT_NO_ENTROPY_THREAD)
     thread_running = true;
     if (pthread_create(&pthread_handle, 0, &FortunaFactory::EntropyCollectionThreadWrapper, (void*)this))
     {
         thread_running = false;
         return false;
     }
-
-    urandom_fd = open("/dev/urandom", O_RDONLY);
+#endif // !defined(CAT_NO_ENTROPY_THREAD)
 
     return true;
 }
 
 void FortunaFactory::ShutdownEntropySources()
 {
+#if !defined(CAT_NO_ENTROPY_THREAD)
     if (thread_running)
     {
         thread_running = false;
         pthread_join(pthread_handle, 0);
     }
+#endif
 
     if (urandom_fd >= 0)
         close(urandom_fd);

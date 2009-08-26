@@ -76,13 +76,16 @@
 #include <cat/Singleton.hpp>
 
 
+// Uncommenting CAT_NO_ENTROPY_THREAD will remove dependencies on pthreads and not
+// run a thread to collect more entropy.  This is recommended for low-power targets
+//#define CAT_NO_ENTROPY_THREAD
+
+
 #if defined(CAT_OS_WINDOWS)
 # include <windows.h>
 # include <wincrypt.h>
-
-#elif defined(CAT_OS_LINUX)
+#elif defined(CAT_OS_LINUX) && !defined(CAT_NO_ENTROPY_THREAD)
 # include <pthread.h>
-
 #endif
 
 
@@ -102,6 +105,7 @@ class FortunaFactory : public Singleton<FortunaFactory>
     friend class FortunaOutput;
 
 #if defined(CAT_OS_WINDOWS)
+
 	typedef LONG (WINAPI *PtNtQuerySystemInformation)(
 		int SystemInformationClass,
 		PVOID SystemInformation,
@@ -109,22 +113,29 @@ class FortunaFactory : public Singleton<FortunaFactory>
 		PULONG ReturnLength
 	);
 
+# if !defined(CAT_NO_ENTROPY_THREAD)
 	HANDLE EntropyThread, EntropySignal;
+    static unsigned int __stdcall EntropyCollectionThreadWrapper(void *factory);
+# endif
     HANDLE CurrentProcess;
     HMODULE NTDLL;
     PtNtQuerySystemInformation NtQuerySystemInformation;
     HCRYPTPROV hCryptProv;
-    static unsigned int __stdcall EntropyCollectionThreadWrapper(void *factory);
 
 #elif defined(CAT_OS_LINUX)
-    pthread_t pthread_handle;
+
+# if !defined(CAT_NO_ENTROPY_THREAD)
+	pthread_t pthread_handle;
     volatile bool thread_running;
-    int urandom_fd;
     static void *EntropyCollectionThreadWrapper(void *factory);
+# endif
+    int urandom_fd;
 
 #endif
 
+#if !defined(CAT_NO_ENTROPY_THREAD)
     void EntropyCollectionThread();
+#endif
 
 protected:
     static const int ENTROPY_POOLS = 32; // Setting this higher would break something

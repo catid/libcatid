@@ -41,6 +41,8 @@ using namespace cat;
 #pragma comment(lib, "iphlpapi")
 #pragma comment(lib, "advapi32")
 
+#if !defined(CAT_NO_ENTROPY_THREAD)
+
 void FortunaFactory::EntropyCollectionThread()
 {
     // Assume ~16 bits of entropy per fast poll, so it takes 16 fast polls to get 256 bits of entropy
@@ -88,11 +90,15 @@ unsigned int __stdcall FortunaFactory::EntropyCollectionThreadWrapper(void *vfac
     return 0;
 }
 
+#endif // !defined(CAT_NO_ENTROPY_THREAD)
+
 
 bool FortunaFactory::InitializeEntropySources()
 {
+#if !defined(CAT_NO_ENTROPY_THREAD)
     EntropySignal = 0;
     EntropyThread = 0;
+#endif
 	NtQuerySystemInformation = 0;
 	NTDLL = 0;
 
@@ -110,6 +116,7 @@ bool FortunaFactory::InitializeEntropySources()
     PollSlowEntropySources(0);
     PollFastEntropySources(0);
 
+#if !defined(CAT_NO_ENTROPY_THREAD)
     // Create an event to signal when the entropy collection thread should terminate
     EntropySignal = CreateEvent(0, FALSE, FALSE, 0);
     if (!EntropySignal) return false;
@@ -117,12 +124,14 @@ bool FortunaFactory::InitializeEntropySources()
     // Using _beginthreadex() and _endthreadex() since _endthread() calls CloseHandle()
     EntropyThread = (HANDLE)_beginthreadex(0, 0, EntropyCollectionThreadWrapper, this, 0, 0);
     if (!EntropyThread) return false;
+#endif
 
     return true;
 }
 
 void FortunaFactory::ShutdownEntropySources()
 {
+#if !defined(CAT_NO_ENTROPY_THREAD)
     if (EntropyThread && EntropySignal)
     {
         // Signal termination event and block waiting for thread to signal termination
@@ -132,6 +141,8 @@ void FortunaFactory::ShutdownEntropySources()
 
     if (EntropySignal) CloseHandle(EntropySignal);
     if (EntropyThread) CloseHandle(EntropyThread);
+#endif
+
     if (hCryptProv) CryptReleaseContext(hCryptProv, 0);
 	if (NTDLL) FreeLibrary(NTDLL);
 }
