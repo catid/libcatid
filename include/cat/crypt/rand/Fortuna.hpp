@@ -173,7 +173,7 @@ class FortunaOutput : public IRandom
 {
     friend class FortunaFactory;
 
-    static const int OUTPUT_CACHE_BYTES = FortunaFactory::POOL_BYTES * 4; // Arbitrary
+    static const int OUTPUT_CACHE_BYTES = FortunaFactory::POOL_BYTES * 8; // Arbitrary
 
     u32 thread_id, SeedRevision;
     Skein OutputHash;
