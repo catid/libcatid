@@ -278,6 +278,124 @@ int TestSquareRoot()
     return 0;
 }
 
+void CheckTatePairing()
+{
+	static const u32 BITS = 256;
+	static const u32 C = KeyAgreementCommon::EDWARD_C_256;
+	static const char *Q = "28948022309329048855892746252171976963461314589887294264891545010474297951221";
+
+	// Precomputed factors of Q-1
+	static const int FACTOR_COUNT = 7;
+	static const char *FACTORS[FACTOR_COUNT] = {
+		"2",
+		"2",
+		"5",
+		"383",
+		"547",
+		"7297916317756141998510491241679",
+		"946681572513972859833295814226169421059"
+	};
+/*
+	static const u32 BITS = 384;
+	static const u32 C = KeyAgreementCommon::EDWARD_C_384;
+	static const char *Q = "9850501549098619803069760025035903451269934817616361666989904550033111091443156013902778362733054842505505091826087";
+
+	// Precomputed factors of Q-1
+	static const int FACTOR_COUNT = 4;
+	static const char *FACTORS[FACTOR_COUNT] = {
+		"2",
+		"3",
+		"314917",
+		"5213279239237968418699615044088814646012512724313793617042958700246472928551097598151670843816547874786851293"
+	};
+*/
+/*
+	static const u32 BITS = 512;
+	static const u32 C = KeyAgreementCommon::EDWARD_C_512;
+	static const char *Q = "3351951982485649274893506249551461531869841455148098344430890360930441007518400663276759147760258803969928535656862608840637469081771824858089662568826887";
+
+	// Precomputed factors of Q-1
+	static const int FACTOR_COUNT = 6;
+	static const char *FACTORS[FACTOR_COUNT] = {
+		"2",
+		"3",
+		"19",
+		"41",
+		"947",
+		"757284558829257736385628342718523674263080957668745240229124867649623681006570455646201876104541740028513467897150293958182804849079028668802470737"
+	};
+*/
+	{
+		BigMontgomery mont(6+FACTOR_COUNT, BITS);
+		Leg *q = mont.Get(0);
+		Leg *p = mont.Get(1);
+		Leg *p_rns = mont.Get(2);
+		Leg *e = mont.Get(3);
+		Leg *r_rns = mont.Get(4);
+		Leg *r = mont.Get(5);
+		Leg *factors[7];
+
+		for (int ii = 0; ii < FACTOR_COUNT; ++ii)
+		{
+			factors[ii] = mont.Get(6+ii);
+		}
+
+		if (!mont.LoadFromString(Q, 10, q))
+		{
+			cout << "Failure to load q" << endl;
+			return;
+		}
+
+		for (int ii = 0; ii < FACTOR_COUNT; ++ii)
+		{
+			mont.LoadFromString(FACTORS[ii], 10, factors[ii]);
+		}
+
+		mont.SetModulus(q);
+
+		mont.CopyX(0, p);
+		mont.SubtractX(p, C);
+
+		mont.MonInput(p, p_rns);
+
+		for (u32 ii = 0; ii < (1 << FACTOR_COUNT); ++ii)
+		{
+			mont.CopyX(1, e);
+			for (u32 jj = 0; jj < FACTOR_COUNT; ++jj)
+			{
+				if (ii & (1 << jj))
+				{
+					mont.Copy(e, r);
+					mont.MultiplyLow(factors[jj], r, e);
+				}
+			}
+
+			mont.MonExpMod(p_rns, e, r_rns);
+
+			mont.MonOutput(r_rns, r);
+
+			if (mont.EqualX(r, 1))
+			{
+				cout << endl;
+
+				cout << "p ^ [(q-1)/(1";
+				for (u32 jj = 0; jj < FACTOR_COUNT; ++jj)
+				{
+					if (!(ii & (1 << jj)))
+					{
+						cout << "*" << FACTORS[jj];
+					}
+				}
+				cout << ")] = 1 (mod q)" << endl;
+			}
+			else
+			{
+				cout << ".";
+			}
+		}
+	}
+}
+
 int GenerateCurveParameterC()
 {
 	FortunaOutput *out = FortunaFactory::ref()->Create();
@@ -1170,7 +1288,8 @@ int main()
         return 1;
     }
 
-	//return GenerateCurveParameterC();
+	CheckTatePairing();
+	return GenerateCurveParameterC();
 	//GenerateWMOFTable();
     //return 0;
     //return TestDivide();
