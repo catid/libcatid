@@ -1289,7 +1289,7 @@ int main()
     }
 
 	CheckTatePairing();
-	return GenerateCurveParameterC();
+	//return GenerateCurveParameterC();
 	//GenerateWMOFTable();
     //return 0;
     //return TestDivide();
