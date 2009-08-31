@@ -45,7 +45,8 @@ target_link_libraries(libcatcrypt libcatcommon)
 add_library(libcatmath STATIC
 ${SRC}/math/BigRTL.cpp
 ${SRC}/math/BigPseudoMersenne.cpp
-${SRC}/math/BigTwistedEdward.cpp)
+${SRC}/math/BigTwistedEdwards.cpp
+${SRC}/math/BigMontgomery.cpp)
 
 target_link_libraries(libcatmath libcatcommon)
 
