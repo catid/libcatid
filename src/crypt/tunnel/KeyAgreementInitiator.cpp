@@ -107,6 +107,10 @@ bool KeyAgreementInitiator::Initialize(BigTwistedEdwards *math, const u8 *respon
     if (!math->LoadVerifyAffineXY(responder_public_key, responder_public_key + KeyBytes, B))
         return false;
 
+	// Verify public point is not identity element
+	if (math->IsAffineIdentity(B))
+		return false;
+
 	memcpy(B_neutral, responder_public_key, KeyBytes*2);
 
 	// Precompute a table for multiplication
