@@ -111,11 +111,15 @@ bool KeyAgreementResponder::Initialize(BigTwistedEdwards *math, FortunaOutput *c
     if (!G_MultPrecomp) return false;
     math->PtMultiplyPrecomp(math->GetGenerator(), 8, G_MultPrecomp);
 
-    // Unpack the responder's key pair and generator point
+    // Unpack the responder's public point
     math->Load(responder_private_key, KeyBytes, b);
     if (!math->LoadVerifyAffineXY(responder_public_key, responder_public_key+KeyBytes, B))
         return false;
     math->PtUnpack(B);
+
+	// Verify public point is not identity element
+	if (math->IsAffineIdentity(B))
+		return false;
 
 	// Store a copy of the endian-neutral version of B for later
 	memcpy(B_neutral, responder_public_key, KeyBytes*2);
