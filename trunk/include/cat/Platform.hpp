@@ -161,12 +161,21 @@ namespace cat {
 
 //// Operating System ////
 
-#if defined(__APPLE__) && defined(__MACH__)
+#if defined(__APPLE__) && defined(TARGET_OS_IPHONE)
+# define CAT_OS_IPHONE
+
+#elif defined(__APPLE__) && defined(__MACH__)
 # define CAT_OS_OSX
+
 #elif defined(__linux__)
 # define CAT_OS_LINUX
+
+#elif defined(_WIN32_WCE)
+# define CAT_OS_WINDOWS_CE
+
 #elif defined(_WIN32)
 # define CAT_OS_WINDOWS
+
 #else // Otherwise assume POSIX-compliance
 # define CAT_OS_POSIX
 #endif
@@ -294,7 +303,18 @@ enum QuadCoords
 
 //// Intrinsics ////
 
-#if defined(CAT_COMPILER_MSVC)
+#if defined(CAT_OS_WINDOWS_CE)
+
+#pragma intrinsic(_lrotl)
+#pragma intrinsic(_lrotr)
+
+#undef CAT_ROL32
+#undef CAT_ROR32
+
+#define CAT_ROL32(n, r) _lrotl(n, r)
+#define CAT_ROR32(n, r) _lrotr(n, r)
+
+#elif defined(CAT_COMPILER_MSVC)
 
 #pragma intrinsic(_rotl)
 #pragma intrinsic(_rotr)
