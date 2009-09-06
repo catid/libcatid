@@ -28,6 +28,10 @@ namespace cat {
 
 //// Compiler ////
 
+#ifdef __APPLE__
+# include "TargetConditionals.h" // iPhone target flags
+#endif
+
 #if defined(__INTEL_COMPILER) || defined(__ICL) || defined(__ICC) || defined(__ECC)
 # define CAT_COMPILER_ICC /* Intel C++ Compiler; compatible with MSVC and GCC */
 #endif
@@ -109,10 +113,15 @@ namespace cat {
 	defined(_M_MPPC) || defined(__POWERPC) || defined(powerpc) || defined(__ppc64__) || \
 	defined(_PS3) || defined(__PS3__) || defined(SN_TARGET_PS3)
 # define CAT_ISA_PPC
+
 #elif defined(__i386__) || defined(i386) || defined(intel) || defined(_M_IX86) || \
       defined(__ia64) || defined(__ia64__) || defined(__x86_64) || defined(_M_IA64) || \
 	  defined(_M_X64)
 # define CAT_ISA_X86
+
+#elif defined(TARGET_CPU_ARM)
+# define CAT_ISA_ARM
+
 #else
 # error "Add your architecture to the instruction set list"
 #endif
@@ -122,8 +131,11 @@ namespace cat {
 
 #if defined(CAT_ISA_PPC)
 # define CAT_ENDIAN_BIG
-#elif defined(CAT_ISA_X86)
+
+#elif defined(CAT_ISA_X86) || (defined(TARGET_OS_IPHONE) && defined(CAT_ISA_ARM))
+// ARM can be big or little endian based on target
 # define CAT_ENDIAN_LITTLE
+
 #else
 # error "Add your architecture to the endianness list"
 #endif
