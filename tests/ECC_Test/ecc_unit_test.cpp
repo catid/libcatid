@@ -1276,7 +1276,52 @@ void TestChaCha()
 
 
 
+BigTwistedEdwards *xt;
+Leg *ptt;
 
+Leg *rtt;
+
+Leg *gtt;
+
+Leg *utt;
+
+Leg *stt;
+
+
+
+void ECCSetup()
+{
+  FortunaOutput *output = FortunaFactory::ref()->Create();
+
+  xt = KeyAgreementCommon::InstantiateMath(256);
+  ptt = xt->Get(0);
+  rtt = xt->Get(4);
+  gtt = xt->Get(5);
+  utt = xt->Get(9);
+  stt = xt->Get(13);
+
+  xt->PtGenerate(output, gtt);
+  xt->SaveAffineXY(gtt, stt, stt + xt->Legs());
+
+  delete output;
+}
+
+
+
+void ECCSpeed()
+{
+  if (!xt->LoadVerifyAffineXY(stt, stt + xt->Legs(), utt) ||
+    xt->IsAffineIdentity(utt))
+  {
+    cout << "Error!" << endl;
+  }
+
+  xt->PtDoubleZ1(utt, utt);
+  xt->PtEDouble(utt, utt);
+
+  xt->PtMultiply(utt, xt->GetCurveQ(), 0, ptt);
+  xt->SaveAffineX(ptt, rtt);
+}
 
 
 
@@ -1287,6 +1332,12 @@ int main()
         cout << "FAILURE: Unable to initialize the Fortuna factory" << endl;
         return 1;
     }
+
+	ECCSetup();
+
+	cout << "EC-DH: " << Clock::MeasureClocks(1000, ECCSpeed) << " cycles" << endl;
+
+	//return 0;
 
 	CheckTatePairing();
 	//return GenerateCurveParameterC();
