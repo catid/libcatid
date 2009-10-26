@@ -45,6 +45,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Tunnel", "Tunnel\Tunnel.vcp
 		{30D7C283-4016-48E9-BF8D-017DA4A57E2F} = {30D7C283-4016-48E9-BF8D-017DA4A57E2F}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Graphics", "Graphics\Graphics.vcproj", "{D3D9205D-7C81-479D-977F-34D8DECF7395}"
+	ProjectSection(ProjectDependencies) = postProject
+		{E6E578BC-6936-451A-90F2-811C5EE5F82F} = {E6E578BC-6936-451A-90F2-811C5EE5F82F}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -116,6 +121,13 @@ Global
 		{16931DD6-245D-4DBF-AB0A-A49BEC946526}.Release|Win32.Build.0 = Release|Win32
 		{16931DD6-245D-4DBF-AB0A-A49BEC946526}.Release|x64.ActiveCfg = Release|x64
 		{16931DD6-245D-4DBF-AB0A-A49BEC946526}.Release|x64.Build.0 = Release|x64
+		{D3D9205D-7C81-479D-977F-34D8DECF7395}.Debug|Win32.ActiveCfg = Debug|Win32
+		{D3D9205D-7C81-479D-977F-34D8DECF7395}.Debug|Win32.Build.0 = Debug|Win32
+		{D3D9205D-7C81-479D-977F-34D8DECF7395}.Debug|x64.ActiveCfg = Debug|Win32
+		{D3D9205D-7C81-479D-977F-34D8DECF7395}.Release|Win32.ActiveCfg = Release|Win32
+		{D3D9205D-7C81-479D-977F-34D8DECF7395}.Release|Win32.Build.0 = Release|Win32
+		{D3D9205D-7C81-479D-977F-34D8DECF7395}.Release|x64.ActiveCfg = Release|x64
+		{D3D9205D-7C81-479D-977F-34D8DECF7395}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

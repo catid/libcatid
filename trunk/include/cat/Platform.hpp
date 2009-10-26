@@ -216,6 +216,9 @@ namespace cat {
 # error "Add your compiler's basic types"
 #endif
 
+typedef float f32;
+typedef double f64;
+
 union Float32 {
     float f;
     u32 i;

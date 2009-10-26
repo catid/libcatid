@@ -17,25 +17,5 @@
     License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-// Include all libcat Framework headers
-
-#include <cat/AllCommon.hpp>
-#include <cat/AllMath.hpp>
-#include <cat/AllCrypt.hpp>
-#include <cat/AllCodec.hpp>
-#include <cat/AllTunnel.hpp>
-#include <cat/AllGraphics.hpp>
-
-#include <cat/io/Logging.hpp>
-#include <cat/io/MMapFile.hpp>
-#include <cat/io/Settings.hpp>
-
-#include <cat/net/IOCPSockets.hpp>
-
-#include <cat/parse/BitStream.hpp>
-#include <cat/parse/BufferTok.hpp>
-#include <cat/parse/MessageRouter.hpp>
-
-#include <cat/threads/LocklessFIFO.hpp>
-#include <cat/threads/Mutex.hpp>
-#include <cat/threads/RegionAllocator.hpp>
+#include <cat/gfx/Matrix.hpp>
+using namespace cat;

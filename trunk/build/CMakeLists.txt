@@ -50,19 +50,23 @@ ${SRC}/math/BigMontgomery.cpp)
 
 target_link_libraries(libcatmath libcatcommon)
 
-# x64-bit assembly code
-if (WIN32)
-  set(big_x64_files ${LIB}/cat/big_x64.obj)
-else (WIN32)
-  set(big_x64_files ${LIB}/cat/big_x64.o)
-endif (WIN32)
+if (NOT (CMAKE_SIZEOF_VOID_P EQUAL 4))
 
-# wrap the pre-built code in a static link library
-add_library(big_x64_obj STATIC EXCLUDE_FROM_ALL ${big_x64_files})
-set_source_files_properties(${big_x64_files} PROPERTIES EXTERNAL_OBJECT true GENERATED true)
-set_target_properties(big_x64_obj PROPERTIES LINKER_LANGUAGE C ARCHIVE_OUTPUT_DIRECTORY ${LIB}/cat)
+    # x64-bit assembly code
+    if (WIN32)
+        set(big_x64_files ${LIB}/cat/big_x64.obj)
+    else (WIN32)
+        set(big_x64_files ${LIB}/cat/big_x64.o)
+    endif (WIN32)
 
-target_link_libraries(libcatmath big_x64_obj)
+    # wrap the pre-built code in a static link library
+    add_library(big_x64_obj STATIC EXCLUDE_FROM_ALL ${big_x64_files})
+    set_source_files_properties(${big_x64_files} PROPERTIES EXTERNAL_OBJECT true GENERATED true)
+    set_target_properties(big_x64_obj PROPERTIES LINKER_LANGUAGE C ARCHIVE_OUTPUT_DIRECTORY ${LIB}/cat)
+
+    target_link_libraries(libcatmath big_x64_obj)
+
+endif (NOT (CMAKE_SIZEOF_VOID_P EQUAL 4))
 
 # Tunnel
 add_library(libcattunnel STATIC
@@ -73,6 +77,13 @@ ${SRC}/crypt/tunnel/KeyAgreementResponder.cpp
 ${SRC}/crypt/tunnel/AuthenticatedEncryption.cpp)
 
 target_link_libraries(libcattunnel libcatcrypt libcatmath)
+
+# Graphics
+add_library(libcatgfx STATIC
+${SRC}/gfx/Vector.cpp
+${SRC}/gfx/Quaternion.cpp)
+
+target_link_libraries(libcatgfx)
 
 # OS-dependent linkage
 if (WIN32)
