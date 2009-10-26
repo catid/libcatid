@@ -17,25 +17,33 @@
     License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-// Include all libcat Framework headers
+#include <cat/gfx/Scalar.hpp>
+using namespace cat;
 
-#include <cat/AllCommon.hpp>
-#include <cat/AllMath.hpp>
-#include <cat/AllCrypt.hpp>
-#include <cat/AllCodec.hpp>
-#include <cat/AllTunnel.hpp>
-#include <cat/AllGraphics.hpp>
+#if defined(CAT_ISA_X86)
 
-#include <cat/io/Logging.hpp>
-#include <cat/io/MMapFile.hpp>
-#include <cat/io/Settings.hpp>
+/*
+	Fast inverse square root, improving on the accuracy of the
+	Quake III algorithm, with error in the range -0.00065 ... 0.00065
+	from http://pizer.wordpress.com/2008/10/12/fast-inverse-square-root/
+*/
+f32 InvSqrt(f32 x)
+{
+    f32 x1 = 0.714158168f * x;
 
-#include <cat/net/IOCPSockets.hpp>
+	// Generate a close approximation to the square root:
+	u32 i = 0x5F1F1412 - (*(u32*)&x >> 1);
+	f32 approx = *(f32*)&i;
 
-#include <cat/parse/BitStream.hpp>
-#include <cat/parse/BufferTok.hpp>
-#include <cat/parse/MessageRouter.hpp>
+	// One iteration of Newton's method converging towards the square root:
+	return approx * (1.69000231f - x1 * approx * approx);
+}
 
-#include <cat/threads/LocklessFIFO.hpp>
-#include <cat/threads/Mutex.hpp>
-#include <cat/threads/RegionAllocator.hpp>
+#else
+
+f32 InvSqrt(f32 x)
+{
+	return (f32)(1.0 / sqrt(x));
+}
+
+#endif
