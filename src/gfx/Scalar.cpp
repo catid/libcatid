@@ -24,12 +24,12 @@ using namespace cat;
 
 /*
 	Fast inverse square root, improving on the accuracy of the
-	Quake III algorithm, with error in the range -0.00065 ... 0.00065
+	Quake III algorithm, with error in the range -0.0006531 ... 0.0006531
 	from http://pizer.wordpress.com/2008/10/12/fast-inverse-square-root/
 */
 f32 InvSqrt(f32 x)
 {
-    f32 x1 = 0.714158168f * x;
+	f32 x1 = 0.714158168f * x;
 
 	// Generate a close approximation to the square root:
 	u32 i = 0x5F1F1412 - (*(u32*)&x >> 1);
