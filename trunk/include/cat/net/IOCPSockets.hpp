@@ -395,7 +395,7 @@ public:
     // For servers: Bind() with ignoreUnreachable = true ((default))
     // For clients: Bind() with ignoreUnreachable = false and call this
     //              after the first packet from the server is received.
-    void IgnoreUnreachable();
+    bool IgnoreUnreachable();
 
     void Close(); // Invalidates this object
     bool Bind(Port port = 0, bool ignoreUnreachable = true);

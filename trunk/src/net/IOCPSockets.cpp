@@ -1119,7 +1119,7 @@ void UDPEndpoint::Close()
     }
 }
 
-void UDPEndpoint::IgnoreUnreachable()
+bool UDPEndpoint::IgnoreUnreachable()
 {
     // FALSE = Disable behavior where, after receiving an ICMP Unreachable message,
     // WSARecvFrom() will fail.  Disables ICMP completely; normally this is good.
@@ -1127,12 +1127,19 @@ void UDPEndpoint::IgnoreUnreachable()
     // ICMP Port Unreachable or other failures until you get the first packet.
     // After that call IgnoreUnreachable() to avoid spoofed ICMP exploits.
 
-    if (endpointSocket != SOCKET_ERROR)
-    {
-        DWORD dwBytesReturned = 0;
-        BOOL bNewBehavior = FALSE;
-        WSAIoctl(endpointSocket, SIO_UDP_CONNRESET, &bNewBehavior, sizeof(bNewBehavior), 0, 0, &dwBytesReturned, 0, 0);
-    }
+	if (endpointSocket == SOCKET_ERROR)
+		return false;
+
+	DWORD dwBytesReturned = 0;
+    BOOL bNewBehavior = FALSE;
+    if (WSAIoctl(endpointSocket, SIO_UDP_CONNRESET, &bNewBehavior,
+				 sizeof(bNewBehavior), 0, 0, &dwBytesReturned, 0, 0) == SOCKET_ERROR)
+	{
+		WARN("UDPEndpoint") << "Unable to ignore ICMP Unreachable: " << SocketGetLastErrorString();
+		return false;
+	}
+
+	return true;
 }
 
 bool UDPEndpoint::Bind(Port port, bool ignoreUnreachable)
@@ -1155,12 +1162,10 @@ bool UDPEndpoint::Bind(Port port, bool ignoreUnreachable)
         return false;
     }
 
-    if (ignoreUnreachable)
-    {
-        DWORD dwBytesReturned = 0;
-        BOOL bNewBehavior = FALSE;
-        WSAIoctl(s, SIO_UDP_CONNRESET, &bNewBehavior, sizeof(bNewBehavior), 0, 0, &dwBytesReturned, 0, 0);
-    }
+    endpointSocket = s;
+
+	// Ignore ICMP Unreachable
+    if (ignoreUnreachable) IgnoreUnreachable();
 
     // Bind the socket to a given port
     sockaddr_in addr;
@@ -1172,10 +1177,9 @@ bool UDPEndpoint::Bind(Port port, bool ignoreUnreachable)
     {
         FATAL("UDPEndpoint") << "Unable to bind to port: " << SocketGetLastErrorString();
         closesocket(s);
+        endpointSocket = SOCKET_ERROR;
         return false;
     }
-
-    endpointSocket = s;
 
     // Prepare to receive completions in the worker threads
     if (!SocketManager::ref()->Associate(s, this) ||
