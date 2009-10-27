@@ -39,6 +39,25 @@ namespace cat {
 #define CAT_INV_PI_32 0.3183098862f
 
 
+// Angle conversion
+inline f64 Deg2Rad(f64 angle)
+{
+	return angle * CAT_TWO_PI_64 / 360.0;
+}
+inline f32 Deg2Rad(f32 angle)
+{
+	return angle * CAT_TWO_PI_32 / 360.0f;
+}
+inline f64 Rad2Deg(f64 angle)
+{
+	return angle * 360.0 / CAT_TWO_PI_64;
+}
+inline f32 Rad2Deg(f32 angle)
+{
+	return angle * 360.0f / CAT_TWO_PI_32;
+}
+
+
 // Generic clamp() function
 template<class Scalar>
 void Clamp(Scalar &x, Scalar low, Scalar high)

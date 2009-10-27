@@ -22,44 +22,13 @@
 
 #include <cat/gfx/Scalar.hpp>
 
-#define FOR_EACH_DIMENSION(index) for (int index = 0; index < DIM; ++index)
-
-#define DEFINE_CTORS(Vector, Scalar, DIM) \
-	/* Uninitialized vector is not cleared */ \
-	Vector() {} \
-\
-	/* Component-wise initializing constructors */ \
-	Vector(Scalar x, Scalar y) \
-	{ \
-		_elements[0] = x; \
-		_elements[1] = y; \
-	} \
-	Vector(Scalar x, Scalar y, Scalar z) \
-	{ \
-		_elements[0] = x; \
-		_elements[1] = y; \
-		_elements[2] = z; \
-	} \
-	Vector(Scalar x, Scalar y, Scalar z, Scalar w) \
-	{ \
-		_elements[0] = x; \
-		_elements[1] = y; \
-		_elements[2] = z; \
-		_elements[3] = w; \
-	} \
-\
-	/* Copy constructor */ \
-	Vector(const mytype &u) \
-	{ \
-		for (int ii = 0; ii < DIM; ++ii) \
-			_elements[ii] = u(ii); \
-	}
-
 namespace cat {
+
+#define FOR_EACH_DIMENSION(index) for (int index = 0; index < DIM; ++index)
 
 
 // Generic vector class for linear algebra
-template<int DIM, class Scalar> class Vector
+template<int DIM, typename Scalar, typename Double> class Vector
 {
 protected:
 	// Protected internal storage of vector components
@@ -67,21 +36,70 @@ protected:
 
 public:
 	// Short-hand for the current vector type
-	typedef Vector<DIM, Scalar> mytype;
+	typedef Vector<DIM, Scalar, Double> mytype;
 
-	DEFINE_CTORS(Vector, Scalar, DIM)
+	// Uninitialized vector is not cleared
+	Vector() {}
 
-	// Assignment operator
-	mytype &operator=(const mytype &u)
+	// Component-wise initializing constructors
+	Vector(Scalar x, Scalar y)
+	{
+		_elements[0] = x;
+		_elements[1] = y;
+	}
+	Vector(Scalar x, Scalar y, Scalar z)
+	{
+		_elements[0] = x;
+		_elements[1] = y;
+		_elements[2] = z;
+	}
+	Vector(Scalar x, Scalar y, Scalar z, Scalar w)
+	{
+		_elements[0] = x;
+		_elements[1] = y;
+		_elements[2] = z;
+		_elements[3] = w;
+	}
+
+	// Make the vector a copy of a given vector
+	mytype &copy(const mytype &u)
 	{
 		memcpy(_elements, u._elements, sizeof(_elements));
 	}
 
-	// Magnitude calculation
-	Scalar magnitude() const
+	// Copy constructor
+	Vector(const mytype &u)
 	{
-		Scalar element = _elements[0];
-		Scalar sum = element * element;
+		copy(u);
+	}
+
+	// Assignment operator
+	mytype &operator=(const mytype &u)
+	{
+		copy(u);
+
+		return *this;
+	}
+
+	// Magnitude calculation
+	Double magnitude() const
+	{
+		Double element, sum = 0;
+
+		FOR_EACH_DIMENSION(ii)
+		{
+			element = _elements[ii];
+			sum += element * element;
+		}
+
+		return static_cast<Double>( sqrt(sum) );
+	}
+
+	// Fast normalization for 32-bit floating point elements in-place
+	mytype &normalize_fast_f32()
+	{
+		f32 element = _elements[0];
+		f32 sum = element * element;
 
 		for (int ii = 1; ii < DIM; ++ii)
 		{
@@ -89,18 +107,24 @@ public:
 			sum += element * element;
 		}
 
-		return static_cast<Scalar>( sqrt(sum) );
+		// If sum is not close to 1, then perform normalization:
+		if (sum > 1.005f || sum < 0.995f)
+		{
+			f32 inv = InvSqrt(sum);
+
+			FOR_EACH_DIMENSION(ii) _elements[ii] *= inv;
+		}
+
+		return *this;
 	}
 
 	// Normalization in-place
 	mytype &normalize()
 	{
-		Scalar m = magnitude();
+		Double m = magnitude();
+		Double inv = static_cast<Double>( 1 ) / m;
 
-		FOR_EACH_DIMENSION(ii)
-		{
-			_elements[ii] = _elements[ii] / m;
-		}
+		FOR_EACH_DIMENSION(ii) _elements[ii] *= inv;
 
 		return *this;
 	}
@@ -115,10 +139,8 @@ public:
 	bool isZero()
 	{
 		FOR_EACH_DIMENSION(ii)
-		{
 			if (_elements[ii] != static_cast<Scalar>( 0 ))
 				return false;
-		}
 
 		return true;
 	}
@@ -238,7 +260,9 @@ public:
 	{
 		mytype x;
 
-		FOR_EACH_DIMENSION(ii) x._elements[ii] = _elements[ii] / u;
+		Double inv_u = static_cast<Double>( 1 ) / static_cast<Double>( u );
+
+		FOR_EACH_DIMENSION(ii) x._elements[ii] = _elements[ii] * inv_u;
 
 		return x;
 	}
@@ -246,7 +270,9 @@ public:
 	// Scalar division in-place
 	mytype &operator/=(Scalar u)
 	{
-		FOR_EACH_DIMENSION(ii) _elements[ii] /= u;
+		Double inv_u = static_cast<Double>( 1 ) / static_cast<Double>( u );
+
+		FOR_EACH_DIMENSION(ii) _elements[ii] *= inv_u;
 
 		return *this;
 	}
@@ -260,132 +286,62 @@ public:
 	}
 
 	// Dot product
-	Scalar dotProduct(const mytype &u) const
+	Double dotProduct(const mytype &u) const
 	{
-		Scalar sum = _elements[0] * u._elements[0];
+		Double sum = 0;
 
-		for (int ii = 1; ii < DIM; ++ii)
-		{
-			sum += _elements[ii] * u._elements[ii];
-		}
+		FOR_EACH_DIMENSION(ii)
+			sum += static_cast<Double>( _elements[ii] )
+				* static_cast<Double>( u._elements[ii] );
 
 		return sum;
 	}
-};
 
-
-// Specialized for 32-bit floating point elements
-template<int DIM>
-class Vectorf32 : public Vector<DIM, f32>
-{
 public:
-	DEFINE_CTORS(Vectorf32, f32, DIM)
-
-	// Magnitude calculation
-	f32 magnitude() const
-	{
-		f64 element = _elements[0];
-		f64 sum = element * element;
-
-		for (int ii = 1; ii < DIM; ++ii)
-		{
-			element = _elements[ii];
-			sum += element * element;
-		}
-
-		return static_cast<f32>( sqrt(sum) );
-	}
-
-	// Normalization in-place
-	mytype &normalize()
-	{
-		f32 element = _elements[0];
-		f32 sum = element * element;
-
-		for (int ii = 1; ii < DIM; ++ii)
-		{
-			element = _elements[ii];
-			sum += element * element;
-		}
-
-		// If sum is not close to 1.0,
-		if (sum > 1.005f || sum < 0.995f)
-		{
-			f32 inv_sqrt = InvSqrt(sum);
-
-			FOR_EACH_DIMENSION(ii)
-			{
-				_elements[ii] = inv_sqrt * _elements[ii];
-			}
-		}
-
-		return *this;
-	}
-
-	// Scalar division
-	mytype operator/(f32 u) const
-	{
-		mytype x;
-
-		f32 u_inv = 1.0f / u;
-
-		FOR_EACH_DIMENSION(ii) x._elements[ii] = u_inv * _elements[ii];
-
-		return x;
-	}
-
-	// Scalar division in-place
-	mytype &operator/=(f32 u)
-	{
-		f32 u_inv = 1.0f / u;
-
-		FOR_EACH_DIMENSION(ii) _elements[ii] *= u_inv;
-
-		return *this;
-	}
-};
-
-
-// Specialized for 2D vectors of 32-bit floating point elements
-class Vector2f32 : public Vectorf32<2>
-{
-public:
-	DEFINE_CTORS(Vector2f32, f32, 2)
+	// Only for 2-element vectors:
 
 	// Generate a 2D rotation vector in-place
-	void generateRotation(f32 angle);
+	void generateRotation2D(f32 angle)
+	{
+		x() = cos(angle);
+		y() = sin(angle);
+	}
 
 	// Add rotation vector in-place
-	mytype &addRotation(const mytype &r);
+	mytype &addRotation2D(const mytype &r)
+	{
+		Double ax = x(), ay = y();
+		Double rx = r.x(), ry = r.y();
+
+		x() = static_cast<Scalar>( ax*rx - ay*ry ); // cos(a+r) = cos(a)*cos(r) - sin(a)*sin(r)
+		y() = static_cast<Scalar>( ay*rx + ax*ry ); // sin(a+r) = sin(a)*cos(r) + cos(a)*sin(r)
+
+		return *this;
+	}
 
 	// Subtract rotation vector in-place
-	mytype &subtractRotation(const mytype &r);
+	mytype &subtractRotation2D(const mytype &r)
+	{
+		Double ax = x(), ay = y();
+		Double rx = r.x(), ry = r.y();
+
+		x() = static_cast<Scalar>( ax*rx + ay*ry ); // cos(a-r) = cos(a)*cos(r) + sin(a)*sin(r)
+		y() = static_cast<Scalar>( ay*rx - ax*ry ); // sin(a-r) = sin(a)*cos(r) - cos(a)*sin(r)
+
+		return *this;
+	}
 
 	// Cross product: Result is a scalar
-	f32 crossProduct(const mytype &u);
-};
+	f32 crossProduct2D(const mytype &u)
+	{
+		return x() * u.y() - y() * u.x();
+	}
 
-
-// Specialized for 3D vectors with 32-bit floating point elements
-class Vector3f32 : public Vectorf32<3>
-{
 public:
-	DEFINE_CTORS(Vector3f32, f32, 3)
+	// Only for 3-element vectors:
 
 	// Cross product: Result is a 3D vector
-	mytype crossProduct(const mytype &u);
-};
-
-
-// Specialized for 3D vectors with 32-bit floating point elements
-template<class Scalar>
-class Vector3 : public Vector<3, Scalar>
-{
-public:
-	DEFINE_CTORS(Vector3, Scalar, 3)
-
-	// Cross product: Result is a 3D vector
-	mytype crossProduct(const mytype &u)
+	mytype crossProduct3D(const mytype &u)
 	{
 		mytype result;
 
@@ -400,26 +356,25 @@ public:
 
 // Short-hand for common usages:
 
-typedef Vector<2, u32> Vector2u;
-typedef Vector3<u32>   Vector3u;
-typedef Vector<4, u32> Vector4u;
+typedef Vector<2, u32, u32> Vector2u;
+typedef Vector<3, u32, u32> Vector3u;
+typedef Vector<4, u32, u32> Vector4u;
 
-typedef Vector<2, s32> Vector2s;
-typedef Vector3<s32>   Vector3s;
-typedef Vector<4, s32> Vector4s;
+typedef Vector<2, s32, s32> Vector2s;
+typedef Vector<3, s32, s32> Vector3s;
+typedef Vector<4, s32, s32> Vector4s;
 
-typedef Vector2f32   Vector2f;
-typedef Vector3f32   Vector3f;
-typedef Vectorf32<4> Vector4f;
+typedef Vector<2, f32, f64> Vector2f;
+typedef Vector<3, f32, f64> Vector3f;
+typedef Vector<4, f32, f64> Vector4f;
 
-typedef Vector<2, f64> Vector2d;
-typedef Vector3<f64>   Vector3d;
-typedef Vector<4, f64> Vector4d;
+typedef Vector<2, f64, f64> Vector2d;
+typedef Vector<3, f64, f64> Vector3d;
+typedef Vector<4, f64, f64> Vector4d;
 
+
+#undef FOR_EACH_DIMENSION
 
 } // namespace cat
-
-#undef DEFINE_CTORS
-#undef FOR_EACH_DIMENSION
 
 #endif // CAT_VECTOR_HPP
