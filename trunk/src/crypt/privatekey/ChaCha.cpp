@@ -29,9 +29,10 @@ ChaCha::~ChaCha()
 
 static u32 InitialState[12] = {
     0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
-    // Took the rest of these from the SHA-256 SBOX constants
-    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,
-    0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967
+	// These are from BLAKE-32:
+	0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
+    // Took the rest of these from the SHA-256 SBOX constants:
+    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13
 };
 
 // Key up to 384 bits, must be a multiple of 32 bits
@@ -49,7 +50,7 @@ void ChaCha::Key(const void *key, int bytes)
         swapLE(state[ii]);
 }
 
-// 64-bit iv
+// 64-bit IV
 void ChaCha::Begin(u64 iv)
 {
     // Initialize block counter to zero

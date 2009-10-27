@@ -21,112 +21,17 @@
 using namespace cat;
 
 
-Quaternion::Quaternion()
-{
-}
-
-Quaternion::Quaternion(const Vector4f &u)
-	: Vector4f(u)
-{
-}
-
-Quaternion::Quaternion(const Quaternion &u)
-	: Vector4f(u)
-{
-}
-
-Quaternion::Quaternion(f32 x, f32 y, f32 z, f32 n)
-	: Vector4f(x, y, z, n)
-{
-}
-
-Quaternion::Quaternion(f32 xroll, f32 ypitch, f32 zyaw)
-{
-	f64 croll = cos(0.5f * xroll);
-	f64 cpitch = cos(0.5f * ypitch);
-	f64 cyaw = cos(0.5f * zyaw);
-	f64 sroll = sin(0.5f * xroll);
-	f64 spitch = sin(0.5f * ypitch);
-	f64 syaw = sin(0.5f * zyaw);
-
-	f64 cyawcpitch = cyaw * cpitch;
-	f64 syawspitch = syaw * spitch;
-	f64 cyawspitch = cyaw * spitch;
-	f64 syawcpitch = syaw * cpitch;
-
-	x() = (f32)(cyawcpitch * sroll - syawspitch * croll);
-	y() = (f32)(cyawspitch * croll + syawcpitch * sroll);
-	z() = (f32)(syawcpitch * croll - cyawspitch * sroll);
-	n() = (f32)(cyawcpitch * croll + syawspitch * sroll);
-}
-
-Quaternion Quaternion::operator~() const
-{
-	return Quaternion(-x(), -y(), -z(), n());
-}
-
-Quaternion cat::operator*(const Quaternion &u, const Quaternion &v)
-{
-	return Quaternion(u.n()*v.x() + u.x()*v.n() + u.y()*v.z() - u.z()*v.y(),
-                      u.n()*v.y() + u.y()*v.n() + u.z()*v.x() - u.x()*v.z(),
-                      u.n()*v.z() + u.z()*v.n() + u.x()*v.y() - u.y()*v.x(),
-                      u.n()*v.n() - u.x()*v.x() - u.y()*v.y() - u.z()*v.z());
-}
-Quaternion cat::operator*(const Quaternion &u, const Vector3f &v)
-{
-	return Quaternion(u.n()*v.x() + u.y()*v.z() - u.z()*v.y(),
-                      u.n()*v.y() + u.z()*v.x() - u.x()*v.z(),
-                      u.n()*v.z() + u.x()*v.y() - u.y()*v.x(),
-                      -u.x()*v.x() - u.y()*v.y() - u.z()*v.z());
-}
-Quaternion cat::operator*(const Vector3f &u, const Quaternion &v)
-{
-	return Quaternion(u.x()*v.n() + u.y()*v.z() - u.z()*v.y(),
-                      u.y()*v.n() + u.z()*v.x() - u.x()*v.z(),
-                      u.z()*v.n() + u.x()*v.y() - u.y()*v.x(),
-                      -u.x()*v.x() - u.y()*v.y() - u.z()*v.z());
-}
-
-Vector3f Quaternion::getVector()
-{
-	return Vector3f(x(), y(), z());
-}
-float Quaternion::getScalar()
-{
-	return n();
-}
-
-float Quaternion::getAngle()
-{
-	return 2.0f * (f32)acos(n());
-}
-
-Vector3f Quaternion::getAxis()
-{
-	return getVector().normalize();
-}
-
-Quaternion cat::rotateQuaternion(const Quaternion &q1, const Quaternion &q2)
-{
-	return q1 * q2 * ~q1;
-}
-
-Vector3f cat::rotateVector(const Quaternion &q, const Vector3f &v)
-{
-	return ( q * v * (~q) ).getVector();
-}
-
 Vector3f Quaternion::getEulerAngles()
 {
-	f64 q00 = n()*n();
+	f64 q00 = w()*w();
 	f64 q11 = x()*x();
 	f64 q22 = y()*y();
 	f64 q33 = z()*z();
 
 	f64 r11 = q00 + q11 - q22 - q33;
-	f64 r21 = 2.0f * (x()*y() + n()*z());
-	f64 r31 = 2.0f * (x()*z() - (f64)n()*y());
-	f64 r32 = 2.0f * (y()*z() + n()*x());
+	f64 r21 = 2.0f * (x()*y() + w()*z());
+	f64 r31 = 2.0f * (x()*z() - (f64)w()*y());
+	f64 r32 = 2.0f * (y()*z() + w()*x());
 	f64 r33 = q00 - q11 - q22 + q33;
 
 	f64 tmp = fabs(r31);
@@ -166,12 +71,4 @@ Quaternion cat::slerp(const Quaternion &q1, const Quaternion &q2, f32 t)
 
 		return q1 * cosf(theta) + q3 * sinf(theta);
 	}
-}
-
-Quaternion cat::nlerp(const Quaternion &q1, const Quaternion &q2, f32 t)
-{
-	// Linearly interpolate and normalize result
-	// This formula is a little more work than "q1 + (q2 - q1) * t"
-	// but less likely to lose precision when it matters
-	return (q1 * (1.0f - t) + q2 * t).normalize();
 }

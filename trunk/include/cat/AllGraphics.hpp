@@ -21,5 +21,7 @@
 
 #include <cat/AllCommon.hpp>
 
+#include <cat/gfx/Scalar.hpp>
 #include <cat/gfx/Vector.hpp>
+#include <cat/gfx/Matrix.hpp>
 #include <cat/gfx/Quaternion.hpp>
