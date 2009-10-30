@@ -217,7 +217,7 @@ public:
 		else
 		{
 			// Stay within the domain of acos()
-			Clamp(phi, -1.0f, 1.0f);
+			Clamp(phi, -1.0, 1.0);
 
 			// theta = angle between q1 and result
 			Double theta = static_cast<Double>( acos(phi) ) * t;
