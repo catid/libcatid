@@ -65,6 +65,8 @@ public:
 	mytype &copy(const mytype &u)
 	{
 		memcpy(_elements, u._elements, sizeof(_elements));
+
+        return *this;
 	}
 
 	// Copy constructor
@@ -76,9 +78,7 @@ public:
 	// Assignment operator
 	mytype &operator=(const mytype &u)
 	{
-		copy(u);
-
-		return *this;
+        return copy(u);
 	}
 
 	// Magnitude calculation

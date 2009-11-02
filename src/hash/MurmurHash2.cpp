@@ -217,14 +217,14 @@ void IncrementalMurmurHash64::Add(const void *data, int bytes)
 	if (_count)
 	{
 		// Accumulate new data into _tail (little-endian)
-		do _tail = (_tail >> 8) | (*key8++ << 56);
+		do _tail = (_tail >> 8) | ((u64)*key8++ << 56);
 		while (++_count < 8 && --bytes > 0);
 
 		// If a full word has been accumulated,
 		if (_count == 8)
 		{
 			// Mix it in
-			u32 k = _tail;
+			u64 k = _tail;
 			mmix(_hash, k);
 
 			// Reset accumulator state
@@ -253,7 +253,7 @@ void IncrementalMurmurHash64::Add(const void *data, int bytes)
 	_count = bytes;
 
 	// If any data is left over, accumulate it into _tail (little-endian)
-	while (bytes--) _tail = (_tail >> 8) | (*key8++ << 56);
+	while (bytes--) _tail = (_tail >> 8) | ((u64)*key8++ << 56);
 }
 
 u64 IncrementalMurmurHash64::End()

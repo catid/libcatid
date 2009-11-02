@@ -118,13 +118,15 @@ public:
 	// Conjugate
 	mytype operator~() const
 	{
-		return mytype(-_v.x(), -_v.y(), -_v.z(), _w);
+		return mytype(-_v(0), -_v(1), -_v(2), _v(3));
 	}
 
 	// Conjugate in-place
 	mytype &conjugate() const
 	{
-		_v.negate();
+		_v(0) = -_v(0);
+		_v(1) = -_v(1);
+		_v(2) = -_v(2);
 
 		return *this;
 	}
@@ -222,15 +224,15 @@ public:
 			// theta = angle between q1 and result
 			Double theta = static_cast<Double>( acos(phi) ) * t;
 
-			result = static<Scalar>( cos(theta) ) * q1._v
-				   + static<Scalar>( sin(theta) ) * (q2._v - q1._v * phi).normalize();
+            result = q1._v * static_cast<Scalar>( cos(theta) )
+                   + (q2._v - q1._v * phi).normalize() * static_cast<Scalar>( sin(theta) );
 		}
 	}
 
 	// Get angle of rotation
 	Scalar getAngle()
 	{
-		return static_cast<Scalar>( 2 ) * static_cast<Scalar>( acos(_w) );
+        return static_cast<Scalar>( 2 ) * static_cast<Scalar>( acos(_v(3)) );
 	}
 
 	// Get axis of rotation
