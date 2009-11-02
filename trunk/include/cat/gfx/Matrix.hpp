@@ -24,6 +24,9 @@
 
 namespace cat {
 
+#define FOR_EACH_ELEMENT(index) for (int index = 0; index < ELEMENTS; ++index)
+
+
 /*
 	4x4 matrix elements arranged column major (row, column):
 
@@ -44,23 +47,107 @@ namespace cat {
 template<int ROWS, int COLS, class Scalar> class Matrix
 {
 protected:
+	static const int ELEMENTS = ROWS * COLS;
 	Scalar _elements[ROWS * COLS];
 
 public:
-	typedef Matrix<ROWS, COLS, Scalar> this_type;
+	// Short-hand for the current matrix type
+	typedef Matrix<ROWS, COLS, Scalar> mytype;
 
-	Matrix();
+	// Default constructor does not initialize elements
+	Matrix()
+	{
+	}
 
-	this_type &operator+=(const this_type &u);
-	this_type &operator-=(const this_type &u);
-	this_type &operator*=(Scalar u);
-	this_type &operator/=(Scalar u);
+	// Copy constructor
+	Matrix(const mytype &u)
+	{
+		memcpy(_elements, u._elements, sizeof(_elements));
+	}
 
-	inline Scalar &operator()(int ii) { return _array[ii]; }
-	inline const Scalar &operator()(int ii) const { return _array[ii]; }
+	// Assignment operator
+	mytype &operator=(const mytype &u)
+	{
+		memcpy(_elements, u._elements, sizeof(_elements));
+	}
 
-	inline Scalar &operator()(int row, int col) { return _array[col * ROWS + row]; }
-	inline const Scalar &operator()(int row, int col) const { return _array[col * ROWS + row]; }
+	// Load zero matrix
+	void loadZero()
+	{
+		OBJCLR(_elements);
+	}
+
+	// Load identity matrix
+	void loadIdentity()
+	{
+		OBJCLR(_elements);
+
+		// Write a 1 along the diagonal
+		for (int ii = 0; ii < ROWS && ii < COLS; ++ii)
+		{
+			_elements[ii * ROWS + ii] = static_cast<Scalar>( 1 );
+		}
+	}
+
+	// Addition in-place
+	mytype &operator+=(const mytype &u)
+	{
+		FOR_EACH_ELEMENT(ii) _elements[ii] += u._elements[ii];
+	}
+
+	// Subtraction in-place
+	mytype &operator-=(const mytype &u)
+	{
+		FOR_EACH_ELEMENT(ii) _elements[ii] -= u._elements[ii];
+	}
+
+	// Multiplication by scalar in-place
+	mytype &operator*=(Scalar u)
+	{
+		FOR_EACH_ELEMENT(ii) _elements[ii] *= u;
+	}
+
+	// Division by scalar in-place
+	mytype &operator/=(Scalar u)
+	{
+		FOR_EACH_ELEMENT(ii) _elements[ii] /= u;
+	}
+
+	// Matrix multiplication
+	template<int OTHER_COLS>
+	Matrix<ROWS, OTHER_COLS, Scalar> operator*(const Matrix<COLS, OTHER_COLS, Scalar> &u)
+	{
+		Matrix<ROWS, OTHER_COLS, Scalar> result;
+
+		// For each row of the matrix product,
+		for (int r = 0; r < ROWS; ++r)
+		{
+			// For each column of the matrix product,
+			for (int c = 0; c < OTHER_COLS; ++c)
+			{
+				Scalar x = static_cast<Scalar>( 0 );
+
+				// For each row of the right operand (u),
+				for (int ii = 0; ii < COLS; ++ii)
+				{
+					// Accumulate sum of products
+					x += (*this)(r, ii) * u(ii, c);
+				}
+
+				// Write the sum
+				result(r, c) = x;
+			}
+		}
+
+		return result;
+	}
+
+	// Accessors
+    inline Scalar &operator()(int ii) { return _elements[ii]; }
+    inline const Scalar &operator()(int ii) const { return _elements[ii]; }
+
+    inline Scalar &operator()(int row, int col) { return _elements[col * ROWS + row]; }
+    inline const Scalar &operator()(int row, int col) const { return _elements[col * ROWS + row]; }
 };
 
 
@@ -78,6 +165,12 @@ typedef Matrix<2, 2, f32> Matrix2x2f;
 typedef Matrix<3, 3, f32> Matrix3x3f;
 typedef Matrix<4, 4, f32> Matrix4x4f;
 
+typedef Matrix<2, 2, f64> Matrix2x2d;
+typedef Matrix<3, 3, f64> Matrix3x3d;
+typedef Matrix<4, 4, f64> Matrix4x4d;
+
+
+#undef FOR_EACH_ELEMENT
 
 } // namespace cat
 
