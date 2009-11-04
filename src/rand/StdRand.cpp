@@ -36,6 +36,18 @@ u16 StandardRand::randu()
     return (u16)((seed >> 16) & 0x7fff);
 }
 
+// Fast [-1.f,1.f] generator from Inigo Quilez (2005)
+float StandardRand::sfrand()
+{
+	float r;
+
+	seed *= 16807;
+
+	*( (u32*)&r ) = ( (u32)seed >> 9 ) | 0x40000000;
+
+	return r - 3.f;
+}
+
 u32 cat::NLCRand32(int x, int y, u32 seed)
 {
     // Map 2D->1D
