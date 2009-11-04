@@ -39,8 +39,9 @@ public:
     inline void srand32(u32 ns) { seed = ns; } // 32-bit version
     inline void srand16(u16 ns) { seed = ns; } // 16-bit version (yup)
 
-    u16 rand();  // Linear Congruential Generator: X = X * M + A (mod N)
-    u16 randu(); // RANDU LCG: X = X * M (mod N)
+    u16 rand();		// Linear Congruential Generator: X = X * M + A (mod N)
+    u16 randu();	// RANDU LCG: X = X * M (mod N)
+	float sfrand();	// Fast [-1.f,1.f] generator from Inigo Quilez (2005)
 };
 
 
