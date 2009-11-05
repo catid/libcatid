@@ -149,7 +149,7 @@ public:
 		return mytype(x3, y3, z3, w3);
 	}
 
-	// Multiply by quaternion in-place
+	// Multiply by quaternion in-place: this = this * u
 	mytype &operator*=(const mytype &u)
 	{
 		// Cache each of the elements since each is used 4 times
@@ -157,6 +157,24 @@ public:
 		Double y1 = _v(1), y2 = u._v(1);
 		Double z1 = _v(2), z2 = u._v(2);
 		Double w1 = _v(3), w2 = u._v(3);
+
+		// Quaternion multiplication formula:
+		_v(0) = static_cast<Scalar>( w1*x2 + x1*w2 + y1*z2 - z1*y2 );
+		_v(1) = static_cast<Scalar>( w1*y2 - x1*z2 + y1*w2 + z1*x2 );
+		_v(2) = static_cast<Scalar>( w1*z2 + x1*y2 - y1*x2 + z1*w2 );
+		_v(3) = static_cast<Scalar>( w1*w2 - x1*x2 - y1*y2 - z1*z2 );
+
+		return *this;
+	}
+
+	// Multiply by quaternion in-place: this = u * this
+	mytype &postMultiply(const mytype &u)
+	{
+		// Cache each of the elements since each is used 4 times
+		Double x2 = _v(0), x1 = u._v(0);
+		Double y2 = _v(1), y1 = u._v(1);
+		Double z2 = _v(2), z1 = u._v(2);
+		Double w2 = _v(3), w1 = u._v(3);
 
 		// Quaternion multiplication formula:
 		_v(0) = static_cast<Scalar>( w1*x2 + x1*w2 + y1*z2 - z1*y2 );
@@ -242,7 +260,7 @@ public:
 	}
 
 	// Get matrix form of the rotation represented by this quaternion
-	void getMatrix(Matrix<4, 4, Scalar> &result)
+	void getMatrix4x4(Matrix<4, 4, Scalar> &result)
 	{
 		Double dx = _v(0);
 		Double dy = _v(1);

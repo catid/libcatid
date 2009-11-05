@@ -27,7 +27,7 @@ using namespace cat;
 	Quake III algorithm, with error in the range -0.0006531 ... 0.0006531
 	from http://pizer.wordpress.com/2008/10/12/fast-inverse-square-root/
 */
-f32 InvSqrt(f32 x)
+f32 cat::InvSqrt(f32 x)
 {
 	f32 x1 = 0.714158168f * x;
 
@@ -41,7 +41,7 @@ f32 InvSqrt(f32 x)
 
 #else
 
-f32 InvSqrt(f32 x)
+f32 cat::InvSqrt(f32 x)
 {
 	return (f32)(1.0 / sqrt(x));
 }
