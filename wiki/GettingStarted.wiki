@@ -36,6 +36,14 @@ See "Build MSVC.txt" for more information.
  * Run the makefile in your target compiler to create static libraries that your project can link to.
  * If it doesn't compile please Email me (mrcatid@gmail.com) and I will fix it for you.
 
+= QtCreator in particular =
+ * Download and install CMAKE version 2.6 or newer.
+ * You may need to specify the location of CMake before doing this, in the QtCreator options.
+ * Open the /build/CMakeLists.txt as a project file in QtCreator.
+ * During the import, it will prompt you for parameters to pass to CMake.  In Windows I have found it necessary sometimes to pass in this line:
+
+-D CMAKE_MAKE_PROGRAM="C:/Qt/2009.04/mingw/bin/mingw32-make.exe"
+
 
 = Linux =
 
