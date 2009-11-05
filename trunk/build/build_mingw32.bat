@@ -1,0 +1,1 @@
+@cmd /c C:\Qt\2009.04\mingw\bin\mingw32-make.exe
