@@ -81,6 +81,7 @@ target_link_libraries(libcattunnel libcatcrypt libcatmath)
 # Graphics
 add_library(libcatgfx STATIC
 ${SRC}/gfx/Vector.cpp
+${SRC}/gfx/Matrix.cpp
 ${SRC}/gfx/Quaternion.cpp)
 
 target_link_libraries(libcatgfx)
