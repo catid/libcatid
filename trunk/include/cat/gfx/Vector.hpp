@@ -260,7 +260,7 @@ public:
 	{
 		mytype x;
 
-		Double inv_u = static_cast<Double>( 1 ) / static_cast<Double>( u );
+		Scalar inv_u = static_cast<Scalar>( 1 ) / static_cast<Scalar>( u );
 
 		FOR_EACH_DIMENSION(ii) x._elements[ii] = _elements[ii] * inv_u;
 
@@ -270,7 +270,7 @@ public:
 	// Scalar division in-place
 	mytype &operator/=(Scalar u)
 	{
-		Double inv_u = static_cast<Double>( 1 ) / static_cast<Double>( u );
+		Scalar inv_u = static_cast<Scalar>( 1 ) / static_cast<Scalar>( u );
 
 		FOR_EACH_DIMENSION(ii) _elements[ii] *= inv_u;
 

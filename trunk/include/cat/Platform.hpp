@@ -278,6 +278,9 @@ enum QuadCoords
 #define CAT_LEAST_SIGNIFICANT_BIT(n) ( (n) & (u32)(-(s32)(n)) ) /* 0 -> 0 */
 #define CAT_IS_POWER_OF_2(n) ( n && !CAT_AT_LEAST_2_BITS(n) )
 
+// Safely take the average of two numbers without possibility of overflow
+#define CAT_SAFE_AVERAGE(A, B) (((A) & (B)) + (((A) ^ (B)) >> 1))
+
 // Bump 'n' to the next unit of 'width'
 // 0=CAT_CEIL_UNIT(0, 16), 1=CAT_CEIL_UNIT(1, 16), 1=CAT_CEIL_UNIT(16, 16), 2=CAT_CEIL_UNIT(17, 16)
 #define CAT_CEIL_UNIT(n, width) ( ( (n) + (width) - 1 ) / (width) )
