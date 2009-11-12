@@ -90,7 +90,7 @@ target_link_libraries(libcatgfx)
 # OS-dependent linkage
 if (WIN32)
   target_link_libraries (libcatcommon winmm.lib)
- target_link_libraries (libcatcrypt rpcrt4.lib iphlpapi.lib psapi.lib advapi32.lib)
+  target_link_libraries (libcatcrypt rpcrt4.lib iphlpapi.lib psapi.lib advapi32.lib)
 else (WIN32)
   target_link_libraries (libcatcrypt pthread)
 endif (WIN32)

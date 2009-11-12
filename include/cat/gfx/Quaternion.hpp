@@ -77,7 +77,7 @@ public:
 		return *this;
 	}
 
-	// Convery from Euler angle representation
+	// Convert from Euler angle representation
 	// Pre-condition: angles in radians (see Deg2Rad in Scalar.hpp)
 	void setFromEulerAngles(f32 xroll, f32 ypitch, f32 zyaw)
 	{
@@ -210,41 +210,70 @@ public:
 
 	// NLERP: Very fast, non-constant velocity and torque-minimal
 	// Precondition: q1, q2 are unit length
-	friend void nlerp(const mytype &q1, const mytype &q2, f32 t, mytype &result)
+	friend void nlerp(const mytype &q1, const mytype &q2, Scalar t, mytype &result)
 	{
 		// Linearly interpolate and normalize result
 		// This formula is a little more work than "q1 + (q2 - q1) * t"
 		// but less likely to lose precision when it matters
 
-		result = (q1._v * (1.0f - t) + q2._v * t).normalize();
+		// Cosine of phi, the angle between the two vectors
+		Double cos_phi = q1._v.dotProduct(q2._v);
+
+		// I have read this may try to rotate around the "long way" sometimes and to
+		// fix that we check if cos(phi) is negative and invert one of the inputs.
+		if (cos_phi < 0.0)
+		{
+			result._v = -q1._v;
+		}
+		else
+		{
+			result._v = q1._v;
+		}
+
+		// Simple linear interpolation
+		Scalar scale0 = static_cast<Scalar>(1) - t;
+		Scalar scale1 = t;
+
+		result._v *= scale0;
+		result._v += q2._v * scale1;
 	}
 
 	// SLERP: Slower, constant velocity and torque-minimal
 	// Precondition: q1, q2 are unit length
-	friend void slerp(const mytype &q1, const mytype &q2, f32 t, mytype &result)
+	friend void slerp(const mytype &q1, const mytype &q2, Scalar t, mytype &result)
 	{
-		// Cosine of angle between the two vectors
-		Double phi = q1._v.dotProduct(q2._v);
+		// Cosine of phi, the angle between the two vectors
+		Double cos_phi = q1._v.dotProduct(q2._v);
 
-		// TODO: I have read this may try to rotate around the "long way" sometimes
-		// and to fix that you would check if phi is negative and invert one of the inputs
-
-		if (phi > 0.9995)
+		// I have read this may try to rotate around the "long way" sometimes and to
+		// fix that we check if cos(phi) is negative and invert one of the inputs.
+		if (cos_phi < 0.0)
 		{
-			// If the inputs are close, fall back to nlerp()
-			nlerp(q1, q2, t, result);
+			cos_phi = -cos_phi;
+			result._v = -q1._v;
 		}
 		else
 		{
-			// Stay within the domain of acos()
-			Clamp(phi, -1.0, 1.0);
-
-			// theta = angle between q1 and result
-			Double theta = static_cast<Double>( acos(phi) ) * t;
-
-            result = q1._v * static_cast<Scalar>( cos(theta) )
-                   + (q2._v - q1._v * phi).normalize() * static_cast<Scalar>( sin(theta) );
+			result._v = q1._v;
 		}
+
+		// Default to simple linear interpolation
+		Scalar scale0 = static_cast<Scalar>(1) - t;
+		Scalar scale1 = t;
+
+		// If the distance is not small we need to do full slerp:
+		if (cos_phi < 0.9995)
+		{
+			// cos_phi is guaranteed to be within the domain of acos(), 0..1
+			Double phi = static_cast<Double>( acos(cos_phi) ) * t;
+			Double inv_sin_phi = static_cast<Double>(1) / sin(phi);
+
+			scale0 = static_cast<Scalar>( sin(scale0 * phi) * inv_sin_phi );
+			scale1 = static_cast<Scalar>( sin(scale1 * phi) * inv_sin_phi );
+		}
+
+		result._v *= scale0;
+		result._v += q2._v * scale1;
 	}
 
 	// Get angle of rotation
