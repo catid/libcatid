@@ -236,6 +236,7 @@ public:
 
 		result._v *= scale0;
 		result._v += q2._v * scale1;
+		result._v.normalize();
 	}
 
 	// SLERP: Slower, constant velocity and torque-minimal
@@ -265,7 +266,7 @@ public:
 		if (cos_phi < 0.9995)
 		{
 			// cos_phi is guaranteed to be within the domain of acos(), 0..1
-			Double phi = static_cast<Double>( acos(cos_phi) ) * t;
+			Double phi = static_cast<Double>( acos(cos_phi) );
 			Double inv_sin_phi = static_cast<Double>(1) / sin(phi);
 
 			scale0 = static_cast<Scalar>( sin(scale0 * phi) * inv_sin_phi );
@@ -274,6 +275,7 @@ public:
 
 		result._v *= scale0;
 		result._v += q2._v * scale1;
+		result._v.normalize();
 	}
 
 	// Get angle of rotation
