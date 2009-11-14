@@ -32,8 +32,8 @@ f32 cat::InvSqrt(f32 x)
 	f32 x1 = 0.714158168f * x;
 
 	// Generate a close approximation to the square root:
-	u32 i = 0x5F1F1412 - (*(u32*)&x >> 1);
-	f32 approx = *(f32*)&i;
+	u32 i = 0x5F1F1412 - (reinterpret_cast<u32&>(x) >> 1);
+	f32 approx = reinterpret_cast<f32&>(i);
 
 	// One iteration of Newton's method converging towards the square root:
 	return approx * (1.69000231f - x1 * approx * approx);
