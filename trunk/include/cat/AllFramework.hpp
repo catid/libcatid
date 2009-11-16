@@ -19,6 +19,9 @@
 
 // Include all libcat Framework headers
 
+#ifndef ALL_FRAMEWORK_HPP
+#define ALL_FRAMEWORK_HPP
+
 #include <cat/AllCommon.hpp>
 #include <cat/AllMath.hpp>
 #include <cat/AllCrypt.hpp>
@@ -29,13 +32,27 @@
 #include <cat/io/Logging.hpp>
 #include <cat/io/MMapFile.hpp>
 #include <cat/io/Settings.hpp>
+#include <cat/io/ThreadPoolFiles.hpp>
 
-#include <cat/net/IOCPSockets.hpp>
+#include <cat/net/ThreadPoolSockets.hpp>
 
 #include <cat/parse/BitStream.hpp>
 #include <cat/parse/BufferTok.hpp>
 #include <cat/parse/MessageRouter.hpp>
 
+#include <cat/threads/ThreadPool.hpp>
 #include <cat/threads/LocklessFIFO.hpp>
 #include <cat/threads/Mutex.hpp>
 #include <cat/threads/RegionAllocator.hpp>
+
+namespace cat {
+
+
+void InitializeFramework();
+
+void ShutdownFramework();
+
+
+} // namespace cat
+
+#endif // ALL_FRAMEWORK_HPP

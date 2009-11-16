@@ -291,6 +291,10 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
+				RelativePath="..\..\src\gfx\LoadPNG.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\src\gfx\Matrix.cpp"
 				>
 			</File>
@@ -319,6 +323,10 @@
 			<Filter
 				Name="gfx"
 				>
+				<File
+					RelativePath="..\..\include\cat\gfx\LoadPNG.hpp"
+					>
+				</File>
 				<File
 					RelativePath="..\..\include\cat\gfx\Matrix.hpp"
 					>

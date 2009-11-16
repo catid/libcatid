@@ -17,7 +17,8 @@
     License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <cat/net/IOCPSockets.hpp>
+#include <cat/net/ThreadPoolSockets.hpp>
+#include <cat/threads/ThreadPool.hpp>
 #include <cat/io/Logging.hpp>
 #include <cat/time/Clock.hpp>
 #include <cat/io/Settings.hpp>
@@ -29,7 +30,7 @@ using namespace cat;
 
 
 #if defined (CAT_COMPILER_MSVC)
-# pragma comment(lib, "ws2_32.lib")
+#pragma comment(lib, "ws2_32.lib")
 #endif
 
 
@@ -37,21 +38,10 @@ using namespace cat;
 // 2048-byte buffer in the region allocator.
 static const int RECV_DATA_SIZE = 2048 - sizeof(TypedOverlapped) - 8; // -8 for rebroadcast inflation
 
-static const int RECVFROM_DATA_SIZE = 2048 - sizeof(RecvFromOverlapped) - 1 - 8; // -1 for the data[1] array
+static const int RECVFROM_DATA_SIZE = 2048 - sizeof(RecvFromOverlapped) - 8;
 
 
-//// TypedOverlapped
-
-void TypedOverlapped::Set(int opcode)
-{
-    CAT_OBJCLR(ov);
-    this->opcode = opcode;
-}
-
-void TypedOverlapped::Reset()
-{
-    CAT_OBJCLR(ov);
-}
+//// Overlapped types
 
 void AcceptExOverlapped::Set(SOCKET s)
 {
@@ -151,32 +141,38 @@ namespace cat
 
     u8 *GetPostBuffer(u32 bytes)
     {
-        // Create a new DataOverlapped structure for sending
-        DataOverlapped *sendOv = (DataOverlapped *)RegionAllocator::ii->Acquire(sizeof(TypedOverlapped) + bytes);
-        if (!sendOv)
+        TypedOverlapped *sendOv = reinterpret_cast<TypedOverlapped*>(
+			RegionAllocator::ii->Acquire(sizeof(TypedOverlapped) + bytes) );
+
+		if (!sendOv)
         {
-            FATAL("IOCPSockets") << "Unable to allocate a send buffer: Out of memory.";
+            FATAL("IOCPSockets") << "Unable to allocate a send buffer: Out of memory";
             return 0;
         }
 
-        return sendOv->data;
+        return GetTrailingBytes(sendOv);
     }
 
     void *ResizePostBuffer(void *buffer, u32 newBytes)
     {
-        DataOverlapped *sendOv = (DataOverlapped *)RegionAllocator::ii->Resize((u8*)buffer - sizeof(TypedOverlapped), sizeof(TypedOverlapped) + newBytes);
+        TypedOverlapped *sendOv = reinterpret_cast<TypedOverlapped*>(
+			RegionAllocator::ii->Resize(
+				reinterpret_cast<u8*>(buffer) - sizeof(TypedOverlapped),
+				sizeof(TypedOverlapped) + newBytes) );
+
         if (!sendOv)
         {
-            FATAL("IOCPSockets") << "Unable to resize a send buffer: Out of memory.";
+            FATAL("IOCPSockets") << "Unable to resize a send buffer: Out of memory";
             return 0;
         }
 
-        return sendOv->data;
+        return GetTrailingBytes(sendOv);
     }
 
     void ReleasePostBuffer(void *buffer)
     {
-        RegionAllocator::ii->Release((u8*)buffer - sizeof(TypedOverlapped));
+        RegionAllocator::ii->Release(
+			reinterpret_cast<u8*>(buffer) - sizeof(TypedOverlapped));
     }
 }
 
@@ -187,7 +183,7 @@ SocketRefObject::SocketRefObject()
 {
     refCount = 1;
 
-    SocketManager::ref()->TrackSocket(this);
+    ThreadPool::ref()->TrackSocket(this);
 }
 
 void SocketRefObject::AddRef()
@@ -199,7 +195,7 @@ void SocketRefObject::ReleaseRef()
 {
     if (InterlockedDecrement(&refCount) == 0)
     {
-        SocketManager::ref()->UntrackSocket(this);
+        ThreadPool::ref()->UntrackSocket(this);
         delete this;
     }
 }
@@ -305,7 +301,7 @@ bool TCPServer::Bind(Port port)
 
     // Prepare to receive completions in the worker threads
     // Queue a bunch of AcceptEx() calls
-    if (!SocketManager::ref()->Associate(s, this) ||
+    if (!ThreadPool::ref()->Associate(s, this) ||
         !QueueAccepts())
     {
         Close();
@@ -365,7 +361,8 @@ bool TCPServer::QueueAcceptEx()
     }
 
     // Create a new AcceptExOverlapped structure
-    AcceptExOverlapped *overlapped = (AcceptExOverlapped *)RegionAllocator::ii->Acquire(sizeof(AcceptExOverlapped));
+    AcceptExOverlapped *overlapped = reinterpret_cast<AcceptExOverlapped*>(
+		RegionAllocator::ii->Acquire(sizeof(AcceptExOverlapped)) );
     if (!overlapped)
     {
         WARN("TCPServer") << "Unable to allocate AcceptEx overlapped structure: Out of memory.";
@@ -381,8 +378,8 @@ bool TCPServer::QueueAcceptEx()
 
     AddRef();
 
-    BOOL result = lpfnAcceptEx(listenSocket, s, &overlapped->addresses, 0, sizeof(sockaddr_in)+16,
-                                sizeof(sockaddr_in)+16, &received, &overlapped->ov);
+    BOOL result = lpfnAcceptEx(listenSocket, s, &overlapped->addresses, 0, sizeof(sockaddr_in) + 16,
+							   sizeof(sockaddr_in) + 16, &received, &overlapped->ov);
 
     // This overlapped operation will always complete unless
     // we get an error code other than ERROR_IO_PENDING.
@@ -410,7 +407,7 @@ bool TCPServer::QueueAccepts()
 
     if (!queued)
     {
-        FATAL("TCPServer") << "error to pre-accept any connections: Server cannot accept connections.";
+        FATAL("TCPServer") << "error to pre-accept any connections: Server cannot accept connections";
         return false;
     }
 
@@ -497,7 +494,8 @@ void TCPServerConnection::DisconnectClient()
 bool TCPServerConnection::PostToClient(void *buffer, u32 bytes)
 {
     // Recover the full overlapped structure from data pointer
-    DataOverlapped *sendOv = (DataOverlapped *)((u8*)buffer - sizeof(TypedOverlapped));
+    TypedOverlapped *sendOv = reinterpret_cast<TypedOverlapped*>(
+		reinterpret_cast<u8*>(buffer) - sizeof(TypedOverlapped) );
 
     sendOv->Set(OVOP_SERVER_SEND);
 
@@ -538,11 +536,12 @@ bool TCPServerConnection::AcceptConnection(SOCKET listenSocket, SOCKET acceptSoc
         return false;
     }
 
-    // Create a new DataOverlapped structure for receiving
-    recvOv = (DataOverlapped *)RegionAllocator::ii->Acquire(sizeof(TypedOverlapped) + RECV_DATA_SIZE);
+    // Create a new overlapped structure for receiving
+    recvOv = reinterpret_cast<TypedOverlapped*>(
+		RegionAllocator::ii->Acquire(sizeof(TypedOverlapped) + RECV_DATA_SIZE) );
     if (!recvOv)
     {
-        FATAL("TCPServerConnection") << "Unable to allocate a receive buffer: Out of memory.";
+        FATAL("TCPServerConnection") << "Unable to allocate a receive buffer: Out of memory";
         return false;
     }
     recvOv->Set(OVOP_SERVER_RECV);
@@ -550,7 +549,7 @@ bool TCPServerConnection::AcceptConnection(SOCKET listenSocket, SOCKET acceptSoc
     // Prepare to receive completions in the worker threads.
     // Do this first so that if the server will send data immediately it
     // won't block or leak memory or fail or whatever would happen.
-    if (!SocketManager::ref()->Associate(acceptSocket, this))
+    if (!ThreadPool::ref()->Associate(acceptSocket, this))
         return false;
 
     // Return true past this point so connection object will not be deleted
@@ -576,14 +575,14 @@ bool TCPServerConnection::QueueWSARecv()
         return false;
 
     WSABUF wsabuf;
-    wsabuf.buf = (char*)&recvOv->data[0];
+    wsabuf.buf = reinterpret_cast<CHAR*>( GetTrailingBytes(recvOv) );
     wsabuf.len = RECV_DATA_SIZE;
 
     AddRef();
 
     // Queue up a WSARecv()
     DWORD flags = 0, bytes;
-    int result = WSARecv(acceptSocket, &wsabuf, 1, &bytes, &flags, &recvOv->ov, 0); 
+	int result = WSARecv(acceptSocket, &wsabuf, 1, &bytes, &flags, &recvOv->ov, 0); 
 
     // This overlapped operation will always complete unless
     // we get an error code other than ERROR_IO_PENDING.
@@ -609,7 +608,7 @@ void TCPServerConnection::OnWSARecvComplete(int error, u32 bytes)
     }
 
     // When WSARecv completes with no data, it indicates a graceful disconnect.
-    if (!bytes || !OnReadFromClient(recvOv->data, bytes))
+    if (!bytes || !OnReadFromClient(GetTrailingBytes(recvOv), bytes))
         DisconnectClient();
     else
     {
@@ -623,13 +622,13 @@ void TCPServerConnection::OnWSARecvComplete(int error, u32 bytes)
 }
 
 
-bool TCPServerConnection::QueueWSASend(DataOverlapped *sendOv, u32 bytes)
+bool TCPServerConnection::QueueWSASend(TypedOverlapped *sendOv, u32 bytes)
 {
     if (disconnecting)
         return false;
 
     WSABUF wsabuf;
-    wsabuf.buf = (char*)&sendOv->data[0];
+    wsabuf.buf = reinterpret_cast<CHAR*>( GetTrailingBytes(sendOv) );
     wsabuf.len = bytes;
 
     AddRef();
@@ -667,11 +666,12 @@ void TCPServerConnection::OnWSASendComplete(int error, u32 bytes)
 
 bool TCPServerConnection::QueueDisconnectEx()
 {
-    // Create a new DataOverlapped structure for receiving
-    TypedOverlapped *overlapped = (TypedOverlapped *)RegionAllocator::ii->Acquire(sizeof(TypedOverlapped));
+    // Create a new overlapped structure for receiving
+    TypedOverlapped *overlapped = reinterpret_cast<TypedOverlapped*>(
+		RegionAllocator::ii->Acquire(sizeof(TypedOverlapped)) );
     if (!overlapped)
     {
-        FATAL("TCPServerConnection") << "Unable to allocate a DisconnectEx overlapped structure: Out of memory.";
+        FATAL("TCPServerConnection") << "Unable to allocate a DisconnectEx overlapped structure: Out of memory";
         return false;
     }
     overlapped->Set(OVOP_SERVER_CLOSE);
@@ -762,7 +762,7 @@ bool TCPClient::ConnectToServer(const sockaddr_in &remoteServerAddress)
 
     // Prepare to receive completions in the worker threads
     // Connect to server asynchronously
-    if (!SocketManager::ref()->Associate(s, this) ||
+    if (!ThreadPool::ref()->Associate(s, this) ||
         !QueueConnectEx(remoteServerAddress))
     {
         closesocket(s);
@@ -788,7 +788,8 @@ void TCPClient::DisconnectServer()
 bool TCPClient::PostToServer(void *buffer, u32 bytes)
 {
     // Recover the full overlapped structure from data pointer
-    DataOverlapped *sendOv = (DataOverlapped *)((u8*)buffer - sizeof(TypedOverlapped));
+    TypedOverlapped *sendOv = reinterpret_cast<TypedOverlapped*>(
+		reinterpret_cast<u8*>(buffer) - sizeof(TypedOverlapped) );
 
     sendOv->Set(OVOP_CLIENT_SEND);
 
@@ -816,11 +817,12 @@ bool TCPClient::QueueConnectEx(const sockaddr_in &remoteServerAddress)
         return false;
     }
 
-    // Create a new DataOverlapped structure for receiving
-    TypedOverlapped *overlapped = (TypedOverlapped *)RegionAllocator::ii->Acquire(sizeof(TypedOverlapped));
+    // Create a new overlapped structure for receiving
+    TypedOverlapped *overlapped = reinterpret_cast<TypedOverlapped*>(
+		RegionAllocator::ii->Acquire(sizeof(TypedOverlapped)) );
     if (!overlapped)
     {
-        FATAL("TCPClient") << "Unable to allocate a ConnectEx overlapped structure: Out of memory.";
+        FATAL("TCPClient") << "Unable to allocate a ConnectEx overlapped structure: Out of memory";
         return false;
     }
     overlapped->Set(OVOP_CONNECT_EX);
@@ -863,11 +865,12 @@ void TCPClient::OnConnectExComplete(int error)
         return;
     }
 
-    // Create a new DataOverlapped structure for receiving
-    recvOv = (DataOverlapped *)RegionAllocator::ii->Acquire(sizeof(TypedOverlapped) + RECV_DATA_SIZE);
+    // Create a new overlapped structure for receiving
+    recvOv = reinterpret_cast<TypedOverlapped*>(
+		RegionAllocator::ii->Acquire(sizeof(TypedOverlapped) + RECV_DATA_SIZE) );
     if (!recvOv)
     {
-        FATAL("TCPClient") << "Unable to allocate a receive buffer: Out of memory.";
+        FATAL("TCPClient") << "Unable to allocate a receive buffer: Out of memory";
         DisconnectServer();
         return;
     }
@@ -886,12 +889,12 @@ bool TCPClient::QueueWSARecv()
 {
     if (disconnecting)
     {
-        WARN("TCPClient") << "WSARecv ignored while disconnecting.";
+        WARN("TCPClient") << "WSARecv ignored while disconnecting";
         return false;
     }
 
     WSABUF wsabuf;
-    wsabuf.buf = (char*)&recvOv->data[0];
+    wsabuf.buf = reinterpret_cast<CHAR*>( GetTrailingBytes(recvOv) );
     wsabuf.len = RECV_DATA_SIZE;
 
     AddRef();
@@ -938,13 +941,13 @@ void TCPClient::OnWSARecvComplete(int error, u32 bytes)
 }
 
 
-bool TCPClient::QueueWSASend(DataOverlapped *sendOv, u32 bytes)
+bool TCPClient::QueueWSASend(TypedOverlapped *sendOv, u32 bytes)
 {
     if (disconnecting)
         return false;
 
     WSABUF wsabuf;
-    wsabuf.buf = (char*)&sendOv->data[0];
+    wsabuf.buf = reinterpret_cast<CHAR*>( GetTrailingBytes(sendOv) );
     wsabuf.len = bytes;
 
     AddRef();
@@ -994,11 +997,12 @@ bool TCPClient::QueueDisconnectEx()
         return false;
     }
 
-    // Create a new DataOverlapped structure for receiving
-    TypedOverlapped *overlapped = (TypedOverlapped *)RegionAllocator::ii->Acquire(sizeof(TypedOverlapped));
+    // Create a new overlapped structure for receiving
+    TypedOverlapped *overlapped = reinterpret_cast<TypedOverlapped*>(
+		RegionAllocator::ii->Acquire(sizeof(TypedOverlapped)) );
     if (!overlapped)
     {
-        FATAL("TCPClient") << "Unable to allocate a DisconnectEx overlapped structure: Out of memory.";
+        FATAL("TCPClient") << "Unable to allocate a DisconnectEx overlapped structure: Out of memory";
         return false;
     }
     overlapped->Set(OVOP_CLIENT_CLOSE);
@@ -1182,7 +1186,7 @@ bool UDPEndpoint::Bind(Port port, bool ignoreUnreachable)
     }
 
     // Prepare to receive completions in the worker threads
-    if (!SocketManager::ref()->Associate(s, this) ||
+    if (!ThreadPool::ref()->Associate(s, this) ||
         !QueueWSARecvFrom())
     {
         closesocket(s);
@@ -1224,7 +1228,8 @@ Port UDPEndpoint::GetPort()
 bool UDPEndpoint::Post(IP ip, Port port, void *buffer, u32 bytes)
 {
     // Recover the full overlapped structure from data pointer
-    DataOverlapped *sendOv = (DataOverlapped *)((u8*)buffer - sizeof(TypedOverlapped));
+    TypedOverlapped *sendOv = reinterpret_cast<TypedOverlapped*>(
+		reinterpret_cast<u8*>(buffer) - sizeof(TypedOverlapped) );
 
     sendOv->Set(OVOP_SENDTO);
 
@@ -1242,14 +1247,15 @@ bool UDPEndpoint::QueueWSARecvFrom(RecvFromOverlapped *recvOv)
     recvOv->Reset();
 
     WSABUF wsabuf;
-    wsabuf.buf = (char*)&recvOv->data[0];
+    wsabuf.buf = reinterpret_cast<CHAR*>( GetTrailingBytes(recvOv) );
     wsabuf.len = RECVFROM_DATA_SIZE;
 
     AddRef();
 
     // Queue up a WSARecvFrom()
     DWORD flags = 0, bytes;
-    int result = WSARecvFrom(endpointSocket, &wsabuf, 1, &bytes, &flags, (sockaddr*)&recvOv->addr, &recvOv->addrLen, &recvOv->ov, 0); 
+    int result = WSARecvFrom(endpointSocket, &wsabuf, 1, &bytes, &flags,
+							 reinterpret_cast<sockaddr*>(&recvOv->addr), &recvOv->addrLen, &recvOv->ov, 0); 
 
     // This overlapped operation will always complete unless
     // we get an error code other than ERROR_IO_PENDING.
@@ -1269,10 +1275,11 @@ bool UDPEndpoint::QueueWSARecvFrom()
         return false;
 
     // Create a new RecvFromOverlapped structure for receiving
-    RecvFromOverlapped *recvOv = (RecvFromOverlapped*)RegionAllocator::ii->Acquire(sizeof(RecvFromOverlapped) - 1 + RECVFROM_DATA_SIZE);
+    RecvFromOverlapped *recvOv = reinterpret_cast<RecvFromOverlapped*>(
+		RegionAllocator::ii->Acquire(sizeof(RecvFromOverlapped) + RECVFROM_DATA_SIZE) );
     if (!recvOv)
     {
-        FATAL("UDPEndpoint") << "Unable to allocate a receive buffer: Out of memory.";
+        FATAL("UDPEndpoint") << "Unable to allocate a receive buffer: Out of memory";
         return false;
     }
     recvOv->opcode = OVOP_RECVFROM;
@@ -1306,7 +1313,7 @@ void UDPEndpoint::OnWSARecvFromComplete(int error, RecvFromOverlapped *recvOv, u
     }
 }
 
-bool UDPEndpoint::QueueWSASendTo(IP ip, Port port, DataOverlapped *sendOv, u32 bytes)
+bool UDPEndpoint::QueueWSASendTo(IP ip, Port port, TypedOverlapped *sendOv, u32 bytes)
 {
     if (closing)
         return false;
@@ -1317,13 +1324,14 @@ bool UDPEndpoint::QueueWSASendTo(IP ip, Port port, DataOverlapped *sendOv, u32 b
     addr.sin_port = htons(port);
 
     WSABUF wsabuf;
-    wsabuf.buf = (char*)&sendOv->data[0];
+    wsabuf.buf = reinterpret_cast<CHAR*>( GetTrailingBytes(sendOv) );
     wsabuf.len = bytes;
 
     AddRef();
 
     // Fire off a WSASendTo() and forget about it
-    int result = WSASendTo(endpointSocket, &wsabuf, 1, 0, 0, (const sockaddr*)&addr, sizeof(addr), &sendOv->ov, 0);
+    int result = WSASendTo(endpointSocket, &wsabuf, 1, 0, 0,
+						   reinterpret_cast<const sockaddr*>(&addr), sizeof(addr), &sendOv->ov, 0);
 
     // This overlapped operation will always complete unless
     // we get an error code other than ERROR_IO_PENDING.
@@ -1350,278 +1358,4 @@ void UDPEndpoint::OnWSASendToComplete(int error, u32 bytes)
     }
 
     OnWrite(bytes);
-}
-
-
-//// Thread Pool
-
-SocketManager::SocketManager()
-{
-    port = 0;
-
-    socketRefHead = 0;
-}
-
-
-bool SocketManager::SpawnThread()
-{
-    HANDLE thread = (HANDLE)_beginthreadex(0, 0, CompletionThread, port, 0, 0);
-
-    if (thread == (HANDLE)-1)
-    {
-        FATAL("SocketManager") << "CreateThread() error: " << GetLastError();
-        return false;
-    }
-
-    threads.push_back(thread);
-    return true;
-}
-
-bool SocketManager::SpawnThreads()
-{
-    ULONG_PTR ulpProcessAffinityMask, ulpSystemAffinityMask;
-
-    GetProcessAffinityMask(GetCurrentProcess(), &ulpProcessAffinityMask, &ulpSystemAffinityMask);
-
-    while (ulpProcessAffinityMask)
-    {
-        if (ulpProcessAffinityMask & 1)
-        {
-            SpawnThread();
-            SpawnThread();
-        }
-
-        ulpProcessAffinityMask >>= 1;
-    }
-
-    if (threads.size() <= 0)
-    {
-        FATAL("SocketManager") << "error to spawn any threads.";
-        return false;
-    }
-
-    INFO("SocketManager") << "Spawned " << (u32)threads.size() << " worker threads";
-    return true;
-}
-
-bool SocketManager::Associate(SOCKET s, void *key)
-{
-    HANDLE result = CreateIoCompletionPort((HANDLE)s, port, (ULONG_PTR)key, 0);
-
-    if (!result)
-    {
-        FATAL("SocketManager") << "Unable to create completion port: " << SocketGetLastErrorString();
-        return false;
-    }
-
-    port = result;
-
-    if (threads.size() <= 0 && !SpawnThreads())
-    {
-        CloseHandle(port);
-        port = 0;
-        return false;
-    }
-
-    return true;
-}
-
-
-void SocketManager::TrackSocket(SocketRefObject *object)
-{
-    object->last = 0;
-
-    AutoMutex lock(socketLock);
-
-    // Add to the head of a doubly-linked list of tracked sockets,
-    // used for releasing sockets during termination.
-    object->next = socketRefHead;
-    if (socketRefHead) socketRefHead->last = object;
-    socketRefHead = object;
-}
-
-void SocketManager::UntrackSocket(SocketRefObject *object)
-{
-    AutoMutex lock(socketLock);
-
-    // Remove from the middle of a doubly-linked list of tracked sockets,
-    // used for releasing sockets during termination.
-    SocketRefObject *last = object->last, *next = object->next;
-    if (last) last->next = next;
-    else socketRefHead = next;
-    if (next) next->last = last;
-}
-
-void SocketManager::Startup()
-{
-    WSADATA wsaData;
-
-    // Request Winsock 2.2
-    if (NO_ERROR != WSAStartup(MAKEWORD(2,2), &wsaData))
-    {
-        FATAL("SocketManager") << "WSAStartup error: " << SocketGetLastErrorString();
-        return;
-    }
-}
-
-void SocketManager::Shutdown()
-{
-    INFO("SocketManager") << "Terminating the thread pool...";
-
-    u32 count = (u32)threads.size();
-
-    if (count)
-    {
-        INFO("SocketManager") << "Shutdown task (1/4): Stopping threads...";
-
-        if (port)
-        while (count--)
-        {
-            if (!PostQueuedCompletionStatus(port, 0, 0, 0))
-            {
-                FATAL("SocketManager") << "Post error: " << GetLastError();
-                return;
-            }
-        }
-
-        if (WAIT_FAILED == WaitForMultipleObjects((DWORD)threads.size(), &threads[0], TRUE, INFINITE))
-        {
-            FATAL("SocketManager") << "error waiting for thread termination: " << GetLastError();
-            return;
-        }
-
-        for_each(threads.begin(), threads.end(), CloseHandle);
-
-        threads.clear();
-    }
-
-    INFO("SocketManager") << "Shutdown task (2/4): Deleting managed sockets...";
-
-    SocketRefObject *kill, *object = socketRefHead;
-    while (object)
-    {
-        kill = object;
-        object = object->next;
-        delete kill;
-    }
-
-    INFO("SocketManager") << "Shutdown task (3/4): Closing IOCP port...";
-
-    if (port)
-    {
-        CloseHandle(port);
-        port = 0;
-    }
-
-    INFO("SocketManager") << "Shutdown task (4/4): WSACleanup()...";
-
-    WSACleanup();
-
-    INFO("SocketManager") << "...Termination complete.";
-
-    delete this;
-}
-
-
-unsigned int WINAPI SocketManager::CompletionThread(void *port)
-{
-    DWORD bytes;
-    void *key = 0;
-    TypedOverlapped *ov = 0;
-    int error;
-
-    for (;;)
-    {
-        if (GetQueuedCompletionStatus((HANDLE)port, &bytes, (PULONG_PTR)&key, (OVERLAPPED**)&ov, INFINITE))
-            error = 0;
-        else
-        {
-            error = WSAGetLastError();
-
-            switch (error)
-            {
-            case WSA_OPERATION_ABORTED:
-            case ERROR_CONNECTION_ABORTED:
-            case ERROR_NETNAME_DELETED:  // Operation on closed socket failed
-            case ERROR_MORE_DATA:        // UDP buffer not large enough for whole packet
-            case ERROR_PORT_UNREACHABLE: // Got an ICMP response back that the destination port is unreachable
-            case ERROR_SEM_TIMEOUT:      // Half-open TCP AcceptEx() has reset
-                // Operation failure codes (we don't differentiate between them)
-                break;
-
-            default:
-                // Report other errors this library hasn't been designed to handle yet
-                FATAL("WorkerThread") << SocketGetLastErrorString() << " (key=" << key << ", ov="
-                    << ov << ", opcode=" << (ov ? ov->opcode : -1) << ", bytes=" << bytes << ")";
-                break;
-            }
-        }
-
-        // Terminate thread when we receive a zeroed completion packet
-        if (!bytes && !key && !ov)
-            return 0;
-
-        switch (ov->opcode)
-        {
-        case OVOP_ACCEPT_EX:
-            ( (TCPServer*)key )->OnAcceptExComplete( error, (AcceptExOverlapped*)ov );
-            ( (TCPServer*)key )->ReleaseRef();
-            RegionAllocator::ii->Release(ov);
-            break;
-
-        case OVOP_SERVER_RECV:
-            ( (TCPServerConnection*)key )->OnWSARecvComplete( error, bytes );
-            ( (TCPServerConnection*)key )->ReleaseRef();
-            // TCPServer tracks the overlapped buffer lifetime
-            break;
-
-        case OVOP_SERVER_SEND:
-            ( (TCPServerConnection*)key )->OnWSASendComplete( error, bytes );
-            ( (TCPServerConnection*)key )->ReleaseRef();
-            RegionAllocator::ii->Release(ov);
-            break;
-
-        case OVOP_SERVER_CLOSE:
-            ( (TCPServerConnection*)key )->OnDisconnectExComplete( error );
-            ( (TCPServerConnection*)key )->ReleaseRef();
-            RegionAllocator::ii->Release(ov);
-            break;
-
-        case OVOP_CONNECT_EX:
-            ( (TCPClient*)key )->OnConnectExComplete( error );
-            ( (TCPClient*)key )->ReleaseRef();
-            RegionAllocator::ii->Release(ov);
-            break;
-
-        case OVOP_CLIENT_RECV:
-            ( (TCPClient*)key )->OnWSARecvComplete( error, bytes );
-            ( (TCPClient*)key )->ReleaseRef();
-            // TCPClient tracks the overlapped buffer lifetime
-            break;
-
-        case OVOP_CLIENT_SEND:
-            ( (TCPClient*)key )->OnWSASendComplete( error, bytes );
-            ( (TCPClient*)key )->ReleaseRef();
-            RegionAllocator::ii->Release(ov);
-            break;
-
-        case OVOP_CLIENT_CLOSE:
-            ( (TCPClient*)key )->OnDisconnectExComplete( error );
-            ( (TCPClient*)key )->ReleaseRef();
-            RegionAllocator::ii->Release(ov);
-            break;
-
-        case OVOP_RECVFROM:
-            ( (UDPEndpoint*)key )->OnWSARecvFromComplete( error, (RecvFromOverlapped*)ov, bytes );
-            ( (UDPEndpoint*)key )->ReleaseRef();
-            // UDPEndpoint tracks the overlapped buffer lifetime
-            break;
-
-        case OVOP_SENDTO:
-            ( (UDPEndpoint*)key )->OnWSASendToComplete( error, bytes );
-            ( (UDPEndpoint*)key )->ReleaseRef();
-            RegionAllocator::ii->Release(ov);
-            break;
-        }
-    }
 }

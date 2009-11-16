@@ -115,9 +115,9 @@ public:
     if (severity >= Logging::ii->log_threshold) Recorder(subsystem, severity)
 
 #define INANE(subsystem)    RECORD(subsystem, LVL_INANE)
-#define INFO(subsystem)        RECORD(subsystem, LVL_INFO)
-#define WARN(subsystem)        RECORD(subsystem, LVL_WARN)
-#define OOPS(subsystem)        RECORD(subsystem, LVL_OOPS)
+#define INFO(subsystem)     RECORD(subsystem, LVL_INFO)
+#define WARN(subsystem)     RECORD(subsystem, LVL_WARN)
+#define OOPS(subsystem)     RECORD(subsystem, LVL_OOPS)
 #define FATAL(subsystem)    RECORD(subsystem, LVL_FATAL)
 
 
@@ -159,9 +159,10 @@ public:
 
 // Because there is an IF statement in the macro, you cannot use the
 // braceless if-else construction:
-//  if (XYZ) ENFORCE(A == B) << "ERROR!"; else INFO("SS") << "OK!";       <-- bad
+//  if (XYZ) ENFORCE(A == B) << "ERROR"; else INFO("SS") << "OK";       <-- bad!
 // Instead use:
-//  if (XYZ) { ENFORCE(A == B) << "ERROR!"; } else INFO("SS") << "OK!";   <-- good
+//  if (XYZ) { ENFORCE(A == B) << "ERROR"; } else INFO("SS") << "OK";   <-- good!
+
 #define ENFORCE(exp) if ( (exp) == 0 ) Enforcer(ENFORCE_EXPRESSION_STRING(exp) ENFORCE_FILE_LINE_STRING "\n")
 #define EXCEPTION() Enforcer("Exception" ENFORCE_FILE_LINE_STRING "\n")
 
