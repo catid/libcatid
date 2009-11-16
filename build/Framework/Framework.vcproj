@@ -312,7 +312,7 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\src\net\IOCPSockets.cpp"
+				RelativePath="..\..\src\Framework.cpp"
 				>
 			</File>
 			<File
@@ -332,11 +332,27 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\src\io\PackageManager.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\src\threads\RegionAllocator.cpp"
 				>
 			</File>
 			<File
 				RelativePath="..\..\src\io\Settings.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\threads\ThreadPool.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\io\ThreadPoolFiles.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\net\ThreadPoolSockets.cpp"
 				>
 			</File>
 		</Filter>
@@ -361,7 +377,15 @@
 					>
 				</File>
 				<File
+					RelativePath="..\..\include\cat\io\PackageManager.hpp"
+					>
+				</File>
+				<File
 					RelativePath="..\..\include\cat\io\Settings.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\io\ThreadPoolFiles.hpp"
 					>
 				</File>
 			</Filter>
@@ -369,7 +393,7 @@
 				Name="net"
 				>
 				<File
-					RelativePath="..\..\include\cat\net\IOCPSockets.hpp"
+					RelativePath="..\..\include\cat\net\ThreadPoolSockets.hpp"
 					>
 				</File>
 			</Filter>
@@ -386,6 +410,10 @@
 				</File>
 				<File
 					RelativePath="..\..\include\cat\threads\RegionAllocator.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\threads\ThreadPool.hpp"
 					>
 				</File>
 			</Filter>

@@ -172,6 +172,7 @@ namespace cat {
 
 #elif defined(_WIN32_WCE)
 # define CAT_OS_WINDOWS_CE
+# define CAT_OS_WINDOWS
 
 #elif defined(_WIN32)
 # define CAT_OS_WINDOWS
@@ -260,6 +261,9 @@ enum QuadCoords
 // Stringize
 #define CAT_STRINGIZE(X) DO_CAT_STRINGIZE(X)
 #define DO_CAT_STRINGIZE(X) #X
+
+// Variable-length data trailing a struct
+template<typename T> u8 *GetTrailingBytes(T *t) { return reinterpret_cast<u8*>( t ) + sizeof(T); }
 
 
 //// Miscellaneous bitwise macros ////

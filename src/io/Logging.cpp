@@ -29,7 +29,23 @@ using namespace std;
 using namespace cat;
 
 
-//#define BREAK_ON_ERROR /* Generates breakpoint interrupt before throwing exceptions */
+#if defined(CAT_ISA_X86)
+
+#if defined(CAT_WORD_64) && defined(CAT_COMPILER_MSVC)
+# define CAT_ARTIFICIAL_BREAKPOINT { ::DebugBreak(); }
+#elif defined(CAT_ASM_INTEL)
+# define CAT_ARTIFICIAL_BREAKPOINT { CAT_ASM_BEGIN int 3 CAT_ASM_END }
+#elif defined(CAT_ASM_ATT)
+# define CAT_ARTIFICIAL_BREAKPOINT { CAT_ASM_BEGIN "int $3" CAT_ASM_END }
+#endif
+
+#elif defined(CAT_ISA_PPC)
+# error "FIXME: Need to figure out how to do this"
+#elif defined(CAT_ISA_ARM)
+# error "FIXME: Need to figure out how to do this"
+#else
+# error "FIXME: Need to figure out how to do this"
+#endif
 
 
 static const char *const EVENT_NAME[5] = { "Inane", "Info", "Warn", "Oops", "Fatal" };
@@ -84,7 +100,8 @@ static void OutputConsoleDebug(LogEvent *logEvent)
     region_ostringstream oss;
     oss << "[" << Clock::format("%b %d %H:%M") << "] <" << logEvent->subsystem << "> "
         << logEvent->msg.str().c_str() << endl;
-    cout << oss.str();
+
+	cout << oss.str();
     OutputDebugStringA(oss.str().c_str());
 }
 
@@ -173,7 +190,10 @@ Recorder::Recorder(const char *subsystem, EventSeverity severity)
     logEvent = new (RegionAllocator::ii) LogEvent(subsystem, severity);
 
     if (!logEvent)
-        throw std::runtime_error("Out of region memory while recording an event");
+	{
+		// Out of memory
+		CAT_ARTIFICIAL_BREAKPOINT;
+	}
 }
 
 Recorder::~Recorder()
@@ -191,13 +211,9 @@ Enforcer::Enforcer(const char *locus)
 
 Enforcer::~Enforcer()
 {
-#if defined(BREAK_ON_ERROR)
-# if defined(__GNUC__)
-    __asm__ ( "int $3" );
-# elif defined(_MSC_VER)
-    __asm int 3;
-# endif
-#endif
+    cerr << oss.str();
+    OutputDebugStringA(oss.str().c_str());
+	cerr.flush();
 
-    throw std::runtime_error(oss.str());
+	CAT_ARTIFICIAL_BREAKPOINT;
 }
