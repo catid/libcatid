@@ -19,6 +19,7 @@
 
 #include <cat/io/ThreadPoolFiles.hpp>
 #include <cat/port/AlignedAlloc.hpp>
+#include <cat/io/Logging.hpp>
 using namespace cat;
 
 AsyncReadFile::AsyncReadFile()
@@ -28,34 +29,51 @@ AsyncReadFile::AsyncReadFile()
 
 AsyncReadFile::~AsyncReadFile()
 {
+	if (_file) CloseHandle(_file);
 }
 
 bool AsyncReadFile::Open(const char *path)
 {
 	_file = CreateFile(path, GENERIC_READ, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY | FILE_FLAG_OVERLAPPED, 0);
 
-	if (!_file) return false;
+	if (!_file)
+	{
+		WARN("AsyncReadFile") << "CreateFile(" << path << ") error: " << GetLastError();
+		return false;
+	}
 
-	ThreadPool::Associate(_file, 0);
+    if (!ThreadPool::ref()->Associate(_file, 0))
+	{
+		WARN("AsyncReadFile") << "ThreadPool::Associate() failed";
+		CloseHandle(_file);
+		return false;
+	}
 
 	return true;
 }
 
 bool AsyncReadFile::Read(u32 offset, u32 bytes, ReadFileCallback callback)
 {
-	if (!_file) return false;
+	DEBUG_ENFORCE(_file != 0) << "Attempt to read from unopened file";
 
 	// Calculate the size of the memory region containing the overlapped structure, keys and buffer
 	u32 ovb = sizeof(ReadFileOverlapped) + bytes;
 
-	ReadFileOverlapped *ov = reinterpret_cast<ReadFileOverlapped *>( Aligned::Acquire(ovb) );
-	if (!ov) return false;
+	ReadFileOverlapped *readOv = reinterpret_cast<ReadFileOverlapped *>( Aligned::Acquire(ovb) );
+	ENFORCE(readOv != 0) << "Out of memory";
 
-	ov->Set(OVOP_READFILE_EX);
-	ov->_callback = callback;
+	readOv->Set(OVOP_READFILE_EX);
+	readOv->callback = callback;
+	readOv->ov.Offset = offset;
 
-	if (!ReadFileEx(_file, ov->_buffer, bytes, &ov->_ov, 0))
+	BOOL result = ReadFileEx(_file, GetTrailingBytes(readOv), bytes, &readOv->ov, 0);
+
+	if (!result && GetLastError() != ERROR_IO_PENDING)
+	{
+        WARN("AsyncReadFile") << "ReadFileEx error: " << GetLastError();
+		Aligned::Release(readOv);
 		return false;
+	}
 
 	return true;
 }

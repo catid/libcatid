@@ -29,13 +29,13 @@
 namespace cat {
 
 
-typedef void (*ReadFileCallback)(void *key, void *buffer, u32 bytes);
+typedef void (*ReadFileCallback)(void *buffer, u32 bytes);
 
 
 // ReadFile() OVERLAPPED structure
 struct ReadFileOverlapped : public TypedOverlapped
 {
-	ReadFileCallback _callback;
+	ReadFileCallback callback;
 };
 
 

@@ -24,7 +24,54 @@
 
 namespace cat {
 
+struct PackageAddress
+{
+	u32 offset, size;
 
+	CAT_INLINE PackageAddress(u32 noffset, u32 nsize) { offset = noffset; size = nsize; }
+};
+
+
+// Package resource identifier macro
+#define CAT_UNPACK(packagePath) "You need to run the preprocessor!"
+#define CAT_UNPACK(packagePath, offset, size) PackageAddress(offset, size)
+
+/*
+	All file resources are packed into one large file and each is
+	assigned a unique identifying number, starting from 0.
+
+	The client source code is preprocessed by a tool that replaces the
+	second argument to instances of the CAT_UNPACK() macro with the
+	correct ID number based on the string given as the first argument.
+
+	CAT_UNPACK("world1/lightmap3.png")
+	-> CAT_UNPACK("world1/lightmap3.png", 15241, 256)
+
+	At runtime the client application will not be aware of the string
+	name of a resource in the package, only where to go to get it.
+
+	Resources that are used together during tuning will have identifiers
+	that are close together so that disk seek time is minimized.
+*/
+
+
+/*
+	Package File Format:
+
+	<magic(8 bytes)>
+	<chunk array length(4 bytes)>
+	<chunk 0 file offset(4 bytes)>
+	<chunk 0 file size(4 bytes)>
+	"string name for chunk 0\0"
+	<chunk 1 file offset(4 bytes)>
+	<chunk 1 file size(4 bytes)>
+	"string name for chunk 1\0"
+	...
+	[data for chunk 0]
+	[data for chunk 1]
+	...
+	eof
+*/
 
 
 } // namespace cat

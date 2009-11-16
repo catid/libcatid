@@ -95,6 +95,16 @@ region_string HexDumpString(const void *vdata, u32 bytes)
     return oss.str();
 }
 
+void FatalStop(const char *message)
+{
+	cout << "Fatal Stop: " << message << endl;
+#if defined(CAT_OS_WINDOWS)
+	OutputDebugStringA(message);
+#endif
+
+	CAT_ARTIFICIAL_BREAKPOINT;
+}
+
 static void OutputConsoleDebug(LogEvent *logEvent)
 {
     region_ostringstream oss;
@@ -102,7 +112,9 @@ static void OutputConsoleDebug(LogEvent *logEvent)
         << logEvent->msg.str().c_str() << endl;
 
 	cout << oss.str();
+#if defined(CAT_OS_WINDOWS)
     OutputDebugStringA(oss.str().c_str());
+#endif
 }
 
 
@@ -142,7 +154,12 @@ __declspec(dllexport) void SetLogCallback(LogCallback cb)
     Logging::ref()->SetLogCallback(cb);
 }
 
-void Logging::Initialize()
+void Logging::Initialize(EventSeverity min_severity)
+{
+    log_threshold = min_severity;
+}
+
+void Logging::ReadSettings()
 {
     log_threshold = Settings::ii->getInt("Log.Threshold", LVL_INANE);
 }
@@ -189,11 +206,7 @@ Recorder::Recorder(const char *subsystem, EventSeverity severity)
 {
     logEvent = new (RegionAllocator::ii) LogEvent(subsystem, severity);
 
-    if (!logEvent)
-	{
-		// Out of memory
-		CAT_ARTIFICIAL_BREAKPOINT;
-	}
+    if (!logEvent) FatalStop("Out of memory in logging subsystem");
 }
 
 Recorder::~Recorder()

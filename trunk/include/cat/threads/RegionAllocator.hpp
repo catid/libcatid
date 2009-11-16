@@ -36,7 +36,6 @@ namespace cat {
 class RegionAllocator : public Singleton<RegionAllocator>
 {
     CAT_SINGLETON(RegionAllocator);
-    ~RegionAllocator();
 
 protected:
     struct RegionInfoHead

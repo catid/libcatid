@@ -301,7 +301,7 @@ bool TCPServer::Bind(Port port)
 
     // Prepare to receive completions in the worker threads
     // Queue a bunch of AcceptEx() calls
-    if (!ThreadPool::ref()->Associate(s, this) ||
+    if (!ThreadPool::ref()->Associate((HANDLE)s, this) ||
         !QueueAccepts())
     {
         Close();
@@ -549,7 +549,7 @@ bool TCPServerConnection::AcceptConnection(SOCKET listenSocket, SOCKET acceptSoc
     // Prepare to receive completions in the worker threads.
     // Do this first so that if the server will send data immediately it
     // won't block or leak memory or fail or whatever would happen.
-    if (!ThreadPool::ref()->Associate(acceptSocket, this))
+    if (!ThreadPool::ref()->Associate((HANDLE)acceptSocket, this))
         return false;
 
     // Return true past this point so connection object will not be deleted
@@ -762,7 +762,7 @@ bool TCPClient::ConnectToServer(const sockaddr_in &remoteServerAddress)
 
     // Prepare to receive completions in the worker threads
     // Connect to server asynchronously
-    if (!ThreadPool::ref()->Associate(s, this) ||
+    if (!ThreadPool::ref()->Associate((HANDLE)s, this) ||
         !QueueConnectEx(remoteServerAddress))
     {
         closesocket(s);
@@ -927,7 +927,7 @@ void TCPClient::OnWSARecvComplete(int error, u32 bytes)
     }
 
     // When WSARecv completes with no data, it indicates a graceful disconnect.
-    if (!bytes || !OnReadFromServer(recvOv->data, bytes))
+    if (!bytes || !OnReadFromServer(GetTrailingBytes(recvOv), bytes))
         DisconnectServer();
     else
     {
@@ -1186,7 +1186,7 @@ bool UDPEndpoint::Bind(Port port, bool ignoreUnreachable)
     }
 
     // Prepare to receive completions in the worker threads
-    if (!ThreadPool::ref()->Associate(s, this) ||
+    if (!ThreadPool::ref()->Associate((HANDLE)s, this) ||
         !QueueWSARecvFrom())
     {
         closesocket(s);
@@ -1293,7 +1293,7 @@ void UDPEndpoint::OnWSARecvFromComplete(int error, RecvFromOverlapped *recvOv, u
     {
     case 0:
     case ERROR_MORE_DATA: // Truncated packet
-        OnRead(recvOv->addr.sin_addr.S_un.S_addr, ntohs(recvOv->addr.sin_port), recvOv->data, bytes);
+        OnRead(recvOv->addr.sin_addr.S_un.S_addr, ntohs(recvOv->addr.sin_port), GetTrailingBytes(recvOv), bytes);
         break;
 
     case ERROR_NETWORK_UNREACHABLE:
