@@ -45,6 +45,8 @@ enum EventSeverity
 
 region_string HexDumpString(const void *vdata, u32 bytes);
 
+void FatalStop(const char *message);
+
 
 //// LogEvent
 
@@ -81,7 +83,8 @@ public:
     int log_threshold;
 
 public:
-    void Initialize();
+	void Initialize(EventSeverity min_severity);
+	void ReadSettings();
     void Shutdown();
 
     void SetLogCallback(LogCallback cb) { callback = cb; }
@@ -167,9 +170,9 @@ public:
 #define EXCEPTION() Enforcer("Exception" ENFORCE_FILE_LINE_STRING "\n")
 
 #if defined(CAT_DEBUG)
-# define TESTCASE(exp) ENFORCE(exp)
+# define DEBUG_ENFORCE(exp) ENFORCE(exp)
 #else
-# define TESTCASE(exp) if (0) ENFORCE(exp) /* hopefully will be optimized out of existence */
+# define DEBUG_ENFORCE(exp) if (0) ENFORCE(exp) /* hopefully will be optimized out of existence */
 #endif
 
 

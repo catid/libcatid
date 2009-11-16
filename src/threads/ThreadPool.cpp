@@ -18,6 +18,8 @@
 */
 
 #include <cat/threads/ThreadPool.hpp>
+#include <cat/io/ThreadPoolFiles.hpp>
+#include <cat/net/ThreadPoolSockets.hpp>
 #include <cat/io/Logging.hpp>
 #include <cat/time/Clock.hpp>
 #include <cat/io/Settings.hpp>
@@ -48,11 +50,18 @@ ThreadPool::ThreadPool()
 {
     _port = 0;
     _socketRefHead = 0;
+	_active_thread_count = 0;
 }
 
 bool ThreadPool::SpawnThread()
 {
-    HANDLE thread = (HANDLE)_beginthreadex(0, 0, CompletionThread, port, 0, 0);
+	if (_active_thread_count >= MAX_THREADS)
+	{
+        WARN("ThreadPool") << "MAX_THREADS too low!  Limited to only " << MAX_THREADS;
+		return false;
+	}
+
+    HANDLE thread = (HANDLE)_beginthreadex(0, 0, CompletionThread, _port, 0, 0);
 
     if (thread == (HANDLE)-1)
     {
@@ -60,7 +69,7 @@ bool ThreadPool::SpawnThread()
         return false;
     }
 
-    threads.push_back(thread);
+	_threads[_active_thread_count++] = thread;
     return true;
 }
 
@@ -68,6 +77,7 @@ bool ThreadPool::SpawnThreads()
 {
     ULONG_PTR ulpProcessAffinityMask, ulpSystemAffinityMask;
 
+	// Spawn two threads per processor
     GetProcessAffinityMask(GetCurrentProcess(), &ulpProcessAffinityMask, &ulpSystemAffinityMask);
 
     while (ulpProcessAffinityMask)
@@ -81,19 +91,19 @@ bool ThreadPool::SpawnThreads()
         ulpProcessAffinityMask >>= 1;
     }
 
-    if (threads.size() <= 0)
+    if (_active_thread_count <= 0)
     {
-        FATAL("ThreadPool") << "error to spawn any threads.";
+        FATAL("ThreadPool") << "Unable to spawn any threads";
         return false;
     }
 
-    INFO("ThreadPool") << "Spawned " << (u32)threads.size() << " worker threads";
+    INFO("ThreadPool") << "Spawned " << _active_thread_count << " worker threads";
     return true;
 }
 
-bool ThreadPool::Associate(SOCKET s, void *key)
+bool ThreadPool::Associate(HANDLE h, void *key)
 {
-    HANDLE result = CreateIoCompletionPort((HANDLE)s, port, (ULONG_PTR)key, 0);
+    HANDLE result = CreateIoCompletionPort(h, _port, (ULONG_PTR)key, 0);
 
     if (!result)
     {
@@ -101,12 +111,12 @@ bool ThreadPool::Associate(SOCKET s, void *key)
         return false;
     }
 
-    port = result;
+    _port = result;
 
-    if (threads.size() <= 0 && !SpawnThreads())
+    if (_active_thread_count <= 0 && !SpawnThreads())
     {
-        CloseHandle(port);
-        port = 0;
+        CloseHandle(_port);
+        _port = 0;
         return false;
     }
 
@@ -118,24 +128,24 @@ void ThreadPool::TrackSocket(SocketRefObject *object)
 {
     object->last = 0;
 
-    AutoMutex lock(socketLock);
+    AutoMutex lock(_socketLock);
 
     // Add to the head of a doubly-linked list of tracked sockets,
     // used for releasing sockets during termination.
-    object->next = socketRefHead;
-    if (socketRefHead) socketRefHead->last = object;
-    socketRefHead = object;
+    object->next = _socketRefHead;
+    if (_socketRefHead) _socketRefHead->last = object;
+    _socketRefHead = object;
 }
 
 void ThreadPool::UntrackSocket(SocketRefObject *object)
 {
-    AutoMutex lock(socketLock);
+    AutoMutex lock(_socketLock);
 
     // Remove from the middle of a doubly-linked list of tracked sockets,
     // used for releasing sockets during termination.
     SocketRefObject *last = object->last, *next = object->next;
     if (last) last->next = next;
-    else socketRefHead = next;
+    else _socketRefHead = next;
     if (next) next->last = last;
 }
 
@@ -155,36 +165,39 @@ void ThreadPool::Shutdown()
 {
     INFO("ThreadPool") << "Terminating the thread pool...";
 
-    u32 count = (u32)threads.size();
+    u32 count = _active_thread_count;
 
     if (count)
     {
         INFO("ThreadPool") << "Shutdown task (1/4): Stopping threads...";
 
-        if (port)
+        if (_port)
         while (count--)
         {
-            if (!PostQueuedCompletionStatus(port, 0, 0, 0))
+            if (!PostQueuedCompletionStatus(_port, 0, 0, 0))
             {
-                FATAL("ThreadPool") << "Post error: " << GetLastError();
+                FATAL("ThreadPool") << "Shutdown post error: " << GetLastError();
                 return;
             }
         }
 
-        if (WAIT_FAILED == WaitForMultipleObjects((DWORD)threads.size(), &threads[0], TRUE, INFINITE))
+        if (WAIT_FAILED == WaitForMultipleObjects(_active_thread_count, _threads, TRUE, INFINITE))
         {
             FATAL("ThreadPool") << "error waiting for thread termination: " << GetLastError();
             return;
         }
 
-        for_each(threads.begin(), threads.end(), CloseHandle);
+		for (int ii = 0; ii < _active_thread_count; ++ii)
+		{
+			CloseHandle(_threads[ii]);
+		}
 
-        threads.clear();
+		_active_thread_count = 0;
     }
 
     INFO("ThreadPool") << "Shutdown task (2/4): Deleting managed sockets...";
 
-    SocketRefObject *kill, *object = socketRefHead;
+    SocketRefObject *kill, *object = _socketRefHead;
     while (object)
     {
         kill = object;
@@ -194,10 +207,10 @@ void ThreadPool::Shutdown()
 
     INFO("ThreadPool") << "Shutdown task (3/4): Closing IOCP port...";
 
-    if (port)
+    if (_port)
     {
-        CloseHandle(port);
-        port = 0;
+        CloseHandle(_port);
+        _port = 0;
     }
 
     INFO("ThreadPool") << "Shutdown task (4/4): WSACleanup()...";
@@ -309,6 +322,13 @@ unsigned int WINAPI ThreadPool::CompletionThread(void *port)
             ( (UDPEndpoint*)key )->ReleaseRef();
             RegionAllocator::ii->Release(ov);
             break;
+
+		case OVOP_READFILE_EX:
+			{
+				ReadFileOverlapped *readOv = reinterpret_cast<ReadFileOverlapped*>( ov );
+				readOv->callback(GetTrailingBytes(readOv), bytes);
+			}
+			break;
         }
     }
 }

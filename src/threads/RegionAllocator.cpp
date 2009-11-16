@@ -91,11 +91,6 @@ RegionAllocator::RegionAllocator()
     //errors = 0;
 }
 
-RegionAllocator::~RegionAllocator()
-{
-    Shutdown();
-}
-
 void RegionAllocator::Shutdown()
 {
     if (regions[0])

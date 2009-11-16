@@ -30,9 +30,7 @@
 #ifndef THREAD_POOL_SOCKETS_HPP
 #define THREAD_POOL_SOCKETS_HPP
 
-#include <cat/Singleton.hpp>
-#include <cat/threads/Mutex.hpp>
-#include <vector>
+#include <cat/threads/ThreadPool.hpp>
 #include <string>
 
 #if defined(CAT_OS_WINDOWS)
@@ -131,6 +129,8 @@ struct RecvFromOverlapped : public TypedOverlapped
     class SocketRefObject
 
     Base class for any thread-safe reference-counted socket object
+
+	Designed this way so that all of these objects can be automatically deleted
 */
 class SocketRefObject
 {

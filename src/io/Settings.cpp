@@ -26,7 +26,7 @@ using namespace cat;
 using namespace std;
 
 
-//#define ONLY_WRITE_NONDEFAULT_KEYS
+#define ONLY_WRITE_NONDEFAULT_KEYS
 #define SETTINGS_VERBOSE /* dump extra settings information to the console for debugging */
 #define SETTINGS_FILE "settings.txt"
 #define OVERRIDE_SETTINGS_FILE "override.txt"

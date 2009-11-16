@@ -78,20 +78,24 @@ class ThreadPool : public Singleton<ThreadPool>
     friend class TCPServerConnection;
     friend class TCPClient;
     friend class UDPEndpoint;
+	friend class AsyncReadFile;
     static unsigned int WINAPI CompletionThread(void *port);
 
     CAT_SINGLETON(ThreadPool);
 
 protected:
     HANDLE _port;
-    std::vector<HANDLE> _threads;
+	static const int MAX_THREADS = 256;
+	HANDLE _threads[MAX_THREADS];
+	int _active_thread_count;
 
 protected:
-    // Track sockets for graceful termination
+    friend class SocketRefObject;
+
+	// Track sockets for graceful termination
     Mutex _socketLock;
     SocketRefObject *_socketRefHead;
 
-    friend class SocketRefObject;
     void TrackSocket(SocketRefObject *object);
     void UntrackSocket(SocketRefObject *object);
 

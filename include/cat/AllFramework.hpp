@@ -50,7 +50,7 @@ namespace cat {
 
 void InitializeFramework();
 
-void ShutdownFramework();
+void ShutdownFramework(bool WriteSettings = true);
 
 
 } // namespace cat

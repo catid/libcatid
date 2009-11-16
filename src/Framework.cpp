@@ -20,24 +20,38 @@
 #include <cat/AllFramework.hpp>
 using namespace cat;
 
-
+// Framework Initialize
 void InitializeFramework()
 {
-	Settings::ref();
-	RegionAllocator::ref();
+	// Initialize custom memory allocator subsystem
+	if (!RegionAllocator::ref()->Valid())
+	{
+		FatalStop("Custom memory allocator failed to initialize");
+	}
 
-	Logging::ref()->Initialize();
+	// Initialize logging subsystem with INANE reporting level
+	Logging::ref()->Initialize(LVL_INANE);
+
+	// Initialize disk settings subsystem
 	Settings::ref()->read();
 
-	SocketManager::ref()->Startup();
+	// Read logging subsystem settings
+	Logging::ref()->ReadSettings();
+
+	// Start the worker threads
+	ThreadPool::ref()->Startup();
 }
 
-
-void ShutdownFramework()
+// Framework Shutdown
+void ShutdownFramework(bool WriteSettings)
 {
-	SocketManager::ref()->Shutdown();
+	// Terminate worker threads
+	ThreadPool::ref()->Shutdown();
 
-	Settings::ref()->write();
+	// Write settings to disk if requested
+	if (WriteSettings)
+		Settings::ref()->write();
 
+	// Shut down logging thread
 	Logging::ref()->Shutdown();
 }
