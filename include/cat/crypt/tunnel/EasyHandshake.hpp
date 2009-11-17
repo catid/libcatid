@@ -22,6 +22,7 @@
 
 #include <cat/crypt/tunnel/KeyAgreementInitiator.hpp>
 #include <cat/crypt/tunnel/KeyAgreementResponder.hpp>
+#include <cat/crypt/cookie/CookieJar.hpp>
 
 namespace cat {
 
@@ -202,6 +203,9 @@ class ServerEasyHandshake : public EasyHandshake
 public:
 	ServerEasyHandshake();
 	~ServerEasyHandshake();
+
+	// Prepare a cookie jar for hungry consumers
+	void FillCookieJar(CookieJar *jar);
 
 	// Provide the public and private key for the server, previously generated offline
 	bool Initialize(const u8 *in_public_key /* EasyHandshake::PUBLIC_KEY_BYTES */,
