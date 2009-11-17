@@ -26,6 +26,7 @@ using namespace cat;
 
 bool AuthenticatedEncryption::SetKey(int KeyBytes, Skein *key, bool is_initiator, const char *key_name)
 {
+	this->accept_out_of_order = true;
     this->is_initiator = is_initiator;
 
 	if (!key_hash.SetKey(key)) return false;
@@ -111,6 +112,9 @@ bool AuthenticatedEncryption::IsValidIV(u64 iv)
     // If it is in the past,
     if (delta >= 0)
     {
+		// Check if we do not accept out of order messages
+		if (!accept_out_of_order) return false;
+
         // Check if we have kept a record for this IV
         if (delta >= BITMAP_BITS) return false;
 

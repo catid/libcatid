@@ -24,6 +24,7 @@
 
 namespace cat {
 
+
 struct PackageAddress
 {
 	u32 offset, size;
@@ -60,11 +61,14 @@ struct PackageAddress
 
 	<magic(8 bytes)>
 	<chunk array length(4 bytes)>
+	<chunk 0 name offset(4 bytes)>
 	<chunk 0 file offset(4 bytes)>
 	<chunk 0 file size(4 bytes)>
-	"string name for chunk 0\0"
+	<chunk 1 name offset(4 bytes)>
 	<chunk 1 file offset(4 bytes)>
 	<chunk 1 file size(4 bytes)>
+	...
+	"string name for chunk 0\0"
 	"string name for chunk 1\0"
 	...
 	[data for chunk 0]
