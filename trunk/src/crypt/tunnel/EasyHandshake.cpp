@@ -40,8 +40,11 @@ EasyHandshake::~EasyHandshake()
 	if (tls_csprng) delete tls_csprng;
 }
 
-bool EasyHandshake::GenerateServerKey(u8 *public_key, u8 *private_key)
+bool EasyHandshake::GenerateServerKey(void *out_public_key, void *out_private_key)
 {
+	u8 *public_key = reinterpret_cast<u8*>( out_public_key );
+	u8 *private_key = reinterpret_cast<u8*>( out_private_key );
+
 	KeyMaker bob;
 
 	// Generate a random key pair
@@ -66,16 +69,22 @@ void ServerEasyHandshake::FillCookieJar(CookieJar *jar)
 	jar->Initialize(tls_csprng);
 }
 
-bool ServerEasyHandshake::Initialize(const u8 *public_key, const u8 *private_key)
+bool ServerEasyHandshake::Initialize(const void *in_public_key, const void *in_private_key)
 {
+	const u8 *public_key = reinterpret_cast<const u8*>( in_public_key );
+	const u8 *private_key = reinterpret_cast<const u8*>( in_private_key );
+
 	// Initialize the tunnel server object using the provided key
     return tun_server.Initialize(tls_math, tls_csprng,
 								 public_key, PUBLIC_KEY_BYTES,
 								 private_key, PRIVATE_KEY_BYTES);
 }
 
-AuthenticatedEncryption *ServerEasyHandshake::ProcessChallenge(const u8 *challenge, u8 *answer)
+bool ServerEasyHandshake::ProcessChallenge(const void *in_challenge, void *out_answer, AuthenticatedEncryption *auth_enc)
 {
+	const u8 *challenge = reinterpret_cast<const u8*>( in_challenge );
+	u8 *answer = reinterpret_cast<u8*>( out_answer );
+
 	// Create a key hash object on the stack
 	Skein key_hash;
 
@@ -85,12 +94,8 @@ AuthenticatedEncryption *ServerEasyHandshake::ProcessChallenge(const u8 *challen
 									 challenge, CHALLENGE_BYTES,
 									 answer, ANSWER_BYTES, &key_hash))
 	{
-		return 0;
+		return false;
 	}
-
-	// Create an authenticated encryption object.  This could also be a member of the
-	// client context structure created for each connected client
-	AuthenticatedEncryption *auth_enc = new AuthenticatedEncryption;
 
 	// Normally you would have the ability to key several authenticated encryption
 	// objects from the same handshake, and give each one a different name.  For
@@ -99,21 +104,11 @@ AuthenticatedEncryption *ServerEasyHandshake::ProcessChallenge(const u8 *challen
 	// such as one handshake being used to key and encrypt a TCP stream and UDP
 	// packets, or multiple TCP streams keyed from the same handshake, etc
 	if (!tun_server.KeyEncryption(&key_hash, auth_enc, "EasyServerHandshake"))
-	{
-		delete auth_enc;
-		return 0;
-	}
+		return false;
 
 	// Generate a proof that is the last quarter of the answer to the challenge,
 	// which assures the client that the server is aware of the shared key
-	if (!auth_enc->GenerateProof(answer + ANSWER_BYTES - PROOF_BYTES, PROOF_BYTES))
-	{
-		delete auth_enc;
-		return 0;
-	}
-
-	// Return success indicated by a valid authenticated encryption object
-	return auth_enc;
+	return auth_enc->GenerateProof(answer + ANSWER_BYTES - PROOF_BYTES, PROOF_BYTES);
 }
 
 
@@ -127,33 +122,33 @@ ClientEasyHandshake::~ClientEasyHandshake()
 {
 }
 
-bool ClientEasyHandshake::Initialize(const u8 *public_key)
+bool ClientEasyHandshake::Initialize(const void *in_public_key)
 {
+	const u8 *public_key = reinterpret_cast<const u8*>( in_public_key );
+
 	// Initialize the tunnel client with the given public key
 	return tun_client.Initialize(tls_math, public_key, PUBLIC_KEY_BYTES);
 }
 
-bool ClientEasyHandshake::GenerateChallenge(u8 *challenge)
+bool ClientEasyHandshake::GenerateChallenge(void *out_challenge)
 {
+	u8 *challenge = reinterpret_cast<u8*>( out_challenge );
+
 	// Generate a challenge
     return tun_client.GenerateChallenge(tls_math, tls_csprng, challenge, CHALLENGE_BYTES);
 }
 
-AuthenticatedEncryption *ClientEasyHandshake::ProcessAnswer(const u8 *answer)
+bool ClientEasyHandshake::ProcessAnswer(const void *in_answer, AuthenticatedEncryption *auth_enc)
 {
+	const u8 *answer = reinterpret_cast<const u8*>( in_answer );
+
 	// Create a key hash object on the stack
 	Skein key_hash;
 
 	// Process and validate the server's answer to our challenge.
 	// This is an expensive operation
 	if (!tun_client.ProcessAnswer(tls_math, answer, ANSWER_BYTES, &key_hash))
-	{
-		return 0;
-	}
-
-	// Create an authenticated encryption object.  This could also be a member of the
-	// client context structure
-	AuthenticatedEncryption *auth_enc = new AuthenticatedEncryption;
+		return false;
 
 	// Normally you would have the ability to key several authenticated encryption
 	// objects from the same handshake, and give each one a different name.  For
@@ -162,22 +157,15 @@ AuthenticatedEncryption *ClientEasyHandshake::ProcessAnswer(const u8 *answer)
 	// such as one handshake being used to key and encrypt a TCP stream and UDP
 	// packets, or multiple TCP streams keyed from the same handshake, etc
 	if (!tun_client.KeyEncryption(&key_hash, auth_enc, "EasyClientHandshake"))
-	{
-		delete auth_enc;
-		return 0;
-	}
+		return false;
 
 	// Validate the proof of key from the server, which is the last quarter of the
 	// answer buffer
 	if (!auth_enc->ValidateProof(answer + ANSWER_BYTES - PROOF_BYTES, PROOF_BYTES))
-	{
-		delete auth_enc;
-		return 0;
-	}
+		return false;
 
 	// Erase the ephemeral private key we used for the handshake now that it is done
 	tun_client.SecureErasePrivateKey();
 
-	// Return success indicated by a valid authenticated encryption object
-	return auth_enc;
+	return true;
 }
