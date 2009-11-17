@@ -108,6 +108,9 @@ u32 CookieJar::Hash(const void *address_info, int bytes, u32 epoch)
     case 1: *y += info8[0]; break;
     }
 
+    x[6] += epoch;
+    x[10] += epoch;
+
     return Salsa6(x);
 }
 

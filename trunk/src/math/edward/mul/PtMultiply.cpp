@@ -63,7 +63,8 @@ void BigTwistedEdwards::PtMultiply(const Leg *in_precomp, int w, const Leg *in_k
     int doubles_before = 0, doubles_skip = 0;
 
 	// Extend input scalar by one bit so it will work for the sum of two scalars
-    if ((last_leg = msb_k))
+	last_leg = msb_k;
+    if (last_leg)
         PtCopy(in_precomp + POINT_STRIDE, out); // copy base point
     else
         PtCopy(in_precomp, out); // copy additive identity
@@ -146,12 +147,14 @@ void BigTwistedEdwards::PtSiMultiply(const Leg *precomp_p, const Leg *precomp_q,
     int doubles_before = 0, doubles_skip = 0;
 
 	// Extend input scalar by one bit so it will work for the sum of two scalars
-    if ((last_leg_k = msb_k))
+	last_leg_k = msb_k;
+    if (last_leg_k)
         PtCopy(precomp_p + POINT_STRIDE, out); // copy base point
     else
         PtCopy(precomp_p, out); // copy additive identity
 
-    if ((last_leg_l = msb_l))
+	last_leg_l = msb_l;
+    if (last_leg_l)
         PtAdd(out, precomp_q + POINT_STRIDE, out); // add base point
     else
         PtAdd(out, precomp_q, out); // add additive identity

@@ -33,7 +33,7 @@ template<int I, int J, int Count> CAT_INLINE void Comba2(const Leg *a, const Leg
 	Comba2(a, b, c0, c1, c2, CombaT<I-1>(), CombaT<J+1>(), CombaT<Count-1>());
 }
 
-template<int I, int J> CAT_INLINE void Comba2(const Leg *a, const Leg *b, Leg &c0, Leg &c1, Leg &c2, CombaT<I>, CombaT<J>, CombaT<-1>)
+template<int I, int J> CAT_INLINE void Comba2(const Leg * /*a*/, const Leg * /*b*/, Leg &/*c0*/, Leg &/*c1*/, Leg &/*c2*/, CombaT<I>, CombaT<J>, CombaT<-1>)
 {
 }
 
@@ -48,7 +48,7 @@ template<int L, int Count> CAT_INLINE void Comba3(const Leg *a, const Leg *b, Le
 	Comba3(a, b, out, c1, c2, c0, CombaT<L>(), CombaT<Count-1>());
 }
 
-template<int L> CAT_INLINE void Comba3(const Leg *a, const Leg *b, Leg *out, Leg &c0, Leg &c1, Leg &c2, CombaT<L>, CombaT<-1>)
+template<int L> CAT_INLINE void Comba3(const Leg * /*a*/, const Leg * /*b*/, Leg *out, Leg &c0, Leg &/*c1*/, Leg &/*c2*/, CombaT<L>, CombaT<-1>)
 {
 	out[2*L - 1] = c0;
 }

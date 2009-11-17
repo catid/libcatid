@@ -77,7 +77,6 @@ bool BigRTL::DivideProduct(const Leg *in_a, const Leg *in_b, Leg *out_q, Leg *ou
     if (!B_used) return false;
 
 	const Leg *in_a_hi = in_a + library_legs;
-	Leg *out_q_hi = out_q + library_legs;
 
     int A_used = LegsUsed(in_a_hi);
 	if (A_used) A_used += library_legs;
