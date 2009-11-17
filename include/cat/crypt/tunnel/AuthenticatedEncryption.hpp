@@ -69,6 +69,7 @@ class KeyAgreementResponder;
 class KeyAgreementInitiator;
 
 
+// This class is NOT THREAD-SAFE.
 class AuthenticatedEncryption
 {
     friend class KeyAgreementResponder;

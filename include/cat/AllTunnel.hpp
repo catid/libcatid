@@ -28,3 +28,5 @@
 #include <cat/crypt/tunnel/KeyAgreementResponder.hpp>
 
 #include <cat/crypt/tunnel/AuthenticatedEncryption.hpp>
+
+#include <cat/crypt/tunnel/EasyCheese.hpp>
