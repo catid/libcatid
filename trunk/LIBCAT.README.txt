@@ -29,6 +29,26 @@ Christopher A. Taylor
 =========================== What's New =================================
 ------------------------------------------------------------------------
 
+Latest revisions are available in the SVN log at libcatid.googlecode.com
+
+
+------------------------------------------------------------------------
+============================== TODO ====================================
+------------------------------------------------------------------------
+
+Tunnel:
+  Update the documentation
+    .docx and .pdfs with lots of pictures
+
+Portability:
+  Port the code to Mac
+  Integrate it into RakNet
+
+
+------------------------------------------------------------------------
+============================= History ==================================
+------------------------------------------------------------------------
+
 07/23/2009 - Added switches for demo of 384-bit and 512-bit security
              Fixed 384-bit version of BigRTL::Load and BigRTL::Store
              Implemented template metaprogramming Comba Multiply
@@ -41,25 +61,6 @@ Christopher A. Taylor
              Optimized 32-bit version; now twice as fast as before
 07/19/2009 - Pulled out all the old Tunnel code and rewrote it
 07/17/2009 - Added <cat/crypt/rand/Fortuna.hpp>
-
-
-------------------------------------------------------------------------
-============================== TODO ====================================
-------------------------------------------------------------------------
-
-Tunnel:
-  Update the documentation
-    .docx and .pdfs with lots of pictures
-
-Portability:
-  Port the code to GCC and Linux, CMAKE
-  Integrate it into RakNet
-
-
-------------------------------------------------------------------------
-============================= History ==================================
-------------------------------------------------------------------------
-
 07/15/2009 - Half way through writing Fortuna
              Slightly faster scalar point multiplication precomputation
              Worked on basic outline for new AKE protocol
