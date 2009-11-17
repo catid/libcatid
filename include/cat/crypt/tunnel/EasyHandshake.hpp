@@ -188,8 +188,8 @@ public:
 public:
 	// Generate a server (public, private) key pair
 	// Connecting clients will need to know the public key in order to connect
-	bool GenerateServerKey(u8 *out_public_key /* EasyHandshake::PUBLIC_KEY_BYTES */,
-						   u8 *out_private_key /* EasyHandshake::PRIVATE_KEY_BYTES */);
+	bool GenerateServerKey(void *out_public_key /* EasyHandshake::PUBLIC_KEY_BYTES */,
+						   void *out_private_key /* EasyHandshake::PRIVATE_KEY_BYTES */);
 };
 
 /*
@@ -208,13 +208,14 @@ public:
 	void FillCookieJar(CookieJar *jar);
 
 	// Provide the public and private key for the server, previously generated offline
-	bool Initialize(const u8 *in_public_key /* EasyHandshake::PUBLIC_KEY_BYTES */,
-					const u8 *in_private_key /* EasyHandshake::PRIVATE_KEY_BYTES */);
+	bool Initialize(const void *in_public_key /* EasyHandshake::PUBLIC_KEY_BYTES */,
+					const void *in_private_key /* EasyHandshake::PRIVATE_KEY_BYTES */);
 
 	// Process a client challenge and generate a server answer
 	// Returns an encryptor if a session has been formed, or 0 if the challenge was invalid
-	AuthenticatedEncryption *ProcessChallenge(const u8 *in_challenge /* EasyHandshake::CHALLENGE_BYTES */,
-											  u8 *out_answer /* EasyHandshake::ANSWER_BYTES */);
+	bool ProcessChallenge(const void *in_challenge /* EasyHandshake::CHALLENGE_BYTES */,
+						  void *out_answer /* EasyHandshake::ANSWER_BYTES */,
+						  AuthenticatedEncryption *auth_enc);
 };
 
 /*
@@ -230,14 +231,15 @@ public:
 	~ClientEasyHandshake();
 
 	// Provide the public key for the server, acquired through some secure means
-	bool Initialize(const u8 *in_public_key /* EasyHandshake::PUBLIC_KEY_BYTES */);
+	bool Initialize(const void *in_public_key /* EasyHandshake::PUBLIC_KEY_BYTES */);
 
 	// Generate a challenge for the server to answer
-	bool GenerateChallenge(u8 *out_challenge /* EasyHandshake::CHALLENGE_BYTES */);
+	bool GenerateChallenge(void *out_challenge /* EasyHandshake::CHALLENGE_BYTES */);
 
 	// Process a server answer to our challenge
 	// Returns an encryptor if a session has been formed, or 0 if the answer was invalid
-	AuthenticatedEncryption *ProcessAnswer(const u8 *in_answer /* EasyHandshake::ANSWER_BYTES */);
+	bool ProcessAnswer(const void *in_answer /* EasyHandshake::ANSWER_BYTES */,
+					   AuthenticatedEncryption *auth_enc);
 };
 
 
