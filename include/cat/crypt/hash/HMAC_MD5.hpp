@@ -58,7 +58,7 @@ protected:
     void HashComputation(const void *message, int blocks, u32 *NextState);
 
     // Unsupported modes
-    bool BeginKey(int bits) { return false; }
+    bool BeginKey(int /*bits*/) { return false; }
     bool BeginKDF() { return false; }
     bool BeginPRNG() { return false; }
 

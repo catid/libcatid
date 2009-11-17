@@ -68,7 +68,7 @@ public:
 	void SecureErasePrivateKey();
 
 public:
-	bool Verify(BigTwistedEdwards *math, FortunaOutput *csprng,
+	bool Verify(BigTwistedEdwards *math,
 				const u8 *message, int message_bytes,
 				const u8 *signature, int signature_bytes);
 };

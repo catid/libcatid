@@ -213,7 +213,7 @@ bool KeyAgreementInitiator::ProcessAnswer(BigTwistedEdwards *math,
 	return true;
 }
 
-bool KeyAgreementInitiator::Verify(BigTwistedEdwards *math, FortunaOutput *csprng,
+bool KeyAgreementInitiator::Verify(BigTwistedEdwards *math,
 								   const u8 *message, int message_bytes,
 								   const u8 *signature, int signature_bytes)
 {
