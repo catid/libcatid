@@ -212,7 +212,7 @@ public:
 					const void *in_private_key /* EasyHandshake::PRIVATE_KEY_BYTES */);
 
 	// Process a client challenge and generate a server answer
-	// Returns an encryptor if a session has been formed, or 0 if the challenge was invalid
+	// Returns false if challenge was invalid
 	bool ProcessChallenge(const void *in_challenge /* EasyHandshake::CHALLENGE_BYTES */,
 						  void *out_answer /* EasyHandshake::ANSWER_BYTES */,
 						  AuthenticatedEncryption *auth_enc);
@@ -237,7 +237,7 @@ public:
 	bool GenerateChallenge(void *out_challenge /* EasyHandshake::CHALLENGE_BYTES */);
 
 	// Process a server answer to our challenge
-	// Returns an encryptor if a session has been formed, or 0 if the answer was invalid
+	// Returns false if answer was invalid
 	bool ProcessAnswer(const void *in_answer /* EasyHandshake::ANSWER_BYTES */,
 					   AuthenticatedEncryption *auth_enc);
 };
