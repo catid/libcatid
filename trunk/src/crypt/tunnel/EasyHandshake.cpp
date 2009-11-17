@@ -61,6 +61,11 @@ ServerEasyHandshake::~ServerEasyHandshake()
 {
 }
 
+void ServerEasyHandshake::FillCookieJar(CookieJar *jar)
+{
+	jar->Initialize(tls_csprng);
+}
+
 bool ServerEasyHandshake::Initialize(const u8 *public_key, const u8 *private_key)
 {
 	// Initialize the tunnel server object using the provided key
