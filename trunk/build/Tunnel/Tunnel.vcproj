@@ -307,6 +307,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\src\crypt\tunnel\EasyHandshake.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\src\crypt\tunnel\KeyAgreement.cpp"
 				>
 			</File>
@@ -337,6 +341,10 @@
 				>
 				<File
 					RelativePath="..\..\include\cat\crypt\tunnel\AuthenticatedEncryption.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\crypt\tunnel\EasyHandshake.hpp"
 					>
 				</File>
 				<File
