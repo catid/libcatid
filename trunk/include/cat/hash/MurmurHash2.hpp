@@ -59,7 +59,7 @@ class IncrementalMurmurHash64
 	u32 _count;
 	u64 _hash, _tail, _size;
 
-    static const u64 M = 0xc6a4a7935bd1e995LL;
+    static const u64 M = 0xc6a4a7935bd1e995ULL;
     static const u64 R = 47;
 
 public:

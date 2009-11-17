@@ -65,7 +65,7 @@ u32 cat::MurmurHash32(const void *key, int bytes, u32 seed)
 
 u64 cat::MurmurHash64(const void *key, int bytes, u64 seed)
 {
-    const u64 M = 0xc6a4a7935bd1e995LL;
+    const u64 M = 0xc6a4a7935bd1e995ULL;
     const u64 R = 47;
 
     // Mix 8 bytes at a time into the hash
