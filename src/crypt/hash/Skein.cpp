@@ -43,25 +43,25 @@ void Skein::GenerateInitialState(int bits)
 
 // Cached copies of initial state for different bit lengths
 static const u64 State0_160[4] = {
-    0xa38a0d80a3687723LL, 0xb73cdb6a5963ffc9LL, 0x9633e8ea07a1b447LL, 0xca0ed09ec9529c22LL
+    0xa38a0d80a3687723ULL, 0xb73cdb6a5963ffc9ULL, 0x9633e8ea07a1b447ULL, 0xca0ed09ec9529c22ULL
 };
 
 static const u64 State0_224[4] = {
-    0xb80929699ae0f431LL, 0xd340dc14a06929dcLL, 0xae866594bde4dc5aLL, 0x339767c25a60ea1dLL
+    0xb80929699ae0f431ULL, 0xd340dc14a06929dcULL, 0xae866594bde4dc5aULL, 0x339767c25a60ea1dULL
 };
 
 static const u64 State0_256[4] = {
-    0x388512680e660046LL, 0x4b72d5dec5a8ff01LL, 0x281a9298ca5eb3a5LL, 0x54ca5249f46070c4LL
+    0x388512680e660046ULL, 0x4b72d5dec5a8ff01ULL, 0x281a9298ca5eb3a5ULL, 0x54ca5249f46070c4ULL
 };
 
 static const u64 State0_384[8] = {
-    0xe5bf4d02ba62494cLL, 0x7aa1eabcc3e6fc68LL, 0xbbe5fc26e1038c5aLL, 0x53c9903e8f88e9faLL,
-    0xf30d8dddfb940c83LL, 0x500fda3c4865abecLL, 0x2226c67f745bc5e7LL, 0x015da80077c639f7LL
+    0xe5bf4d02ba62494cULL, 0x7aa1eabcc3e6fc68ULL, 0xbbe5fc26e1038c5aULL, 0x53c9903e8f88e9faULL,
+    0xf30d8dddfb940c83ULL, 0x500fda3c4865abecULL, 0x2226c67f745bc5e7ULL, 0x015da80077c639f7ULL
 };
 
 static const u64 State0_512[8] = {
-    0xa8d47980544a6e32LL, 0x847511533e9b1a8aLL, 0x6faee870d8e81a00LL, 0x58b0d9d6cb557f92LL,
-    0x9bbc0051dac1d4e9LL, 0xb744e2b1d189e7caLL, 0x979350fa709c5ef3LL, 0x0350125a92067bcdLL
+    0xa8d47980544a6e32ULL, 0x847511533e9b1a8aULL, 0x6faee870d8e81a00ULL, 0x58b0d9d6cb557f92ULL,
+    0x9bbc0051dac1d4e9ULL, 0xb744e2b1d189e7caULL, 0x979350fa709c5ef3ULL, 0x0350125a92067bcdULL
 };
 
 bool Skein::BeginKey(int bits)

@@ -137,13 +137,10 @@ bool KeyAgreementResponder::ProcessChallenge(BigTwistedEdwards *math, FortunaOut
                                              u8 *responder_answer, int answer_bytes, Skein *key_hash)
 {
     // Verify that inputs are of the correct length
-#if defined(DEBUG)
     if (challenge_bytes != KeyBytes*2 || answer_bytes != KeyBytes*3)
         return false;
-#endif
 
     Leg *A = math->Get(0);
-    Leg *Y = math->Get(4);
     Leg *S = math->Get(8);
     Leg *T = math->Get(12);
     Leg *hA = math->Get(16);
@@ -217,7 +214,6 @@ bool KeyAgreementResponder::Sign(BigTwistedEdwards *math, FortunaOutput *csprng,
     Leg *K = math->Get(1);
     Leg *e = math->Get(5);
     Leg *s = math->Get(6);
-    Leg *be = math->Get(7);
 
     // k = ephemeral key
 	GenerateKey(math, csprng, k);

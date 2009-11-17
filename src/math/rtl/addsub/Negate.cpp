@@ -26,8 +26,12 @@ void BigRTL::Negate(const Leg *in, Leg *out)
 
     // Ripple the borrow in as far as needed
     for (ii = 0; ii < library_legs; ++ii)
-        if ((out[ii] = ~in[ii] + 1))
-            break;
+	{
+		Leg temp = ~in[ii] + 1;
+		out[ii] = temp;
+
+        if (temp) break;
+	}
 
     // Invert remaining bits
     for (; ii < library_legs; ++ii)
