@@ -86,23 +86,23 @@ namespace cat {
 	client --> server : CHALLENGE (64 random-looking bytes)
 
 		----------------------------------------------------------------
-		AuthenticatedEncryption *server_e;
+		AuthenticatedEncryption server_e;
 
 		u8 answer[EasyHandshake::ANSWER_BYTES];
 
-		server_e = server_handshake.ProcessChallenge(challenge, answer);
+		server_handshake.ProcessChallenge(challenge, answer, &server_e);
 		----------------------------------------------------------------
 
 	server --> client : ANSWER (128 random-looking bytes)
 
 		----------------------------------------------------------------
-		AuthenticatedEncryption *client_e;
+		AuthenticatedEncryption client_e;
 
-		client_e = client_handshake.ProcessAnswer(answer);
+		client_handshake.ProcessAnswer(answer, &client_e);
 
 		u8 proof[EasyHandshake::PROOF_BYTES];
 
-		client_e->GenerateProof(proof, EasyHandshake::PROOF_BYTES);
+		client_e.GenerateProof(proof, EasyHandshake::PROOF_BYTES);
 		----------------------------------------------------------------
 
 		Encryption example:
@@ -119,19 +119,19 @@ namespace cat {
 		};
 
 		// Note the second parameter is the number of plaintext bytes
-		client_e->Encrypt(message, PLAINTEXT_BYTES);
+		client_e.Encrypt(message, PLAINTEXT_BYTES);
 		----------------------------------------------------------------
 
 	client --> server : PROOF (32 random-looking bytes) + first encrypted packet can be appended here
 
 		----------------------------------------------------------------
-		server_e->ValidateProof(proof, EasyHandshake::PROOF_BYTES);
+		server_e.ValidateProof(proof, EasyHandshake::PROOF_BYTES);
 		----------------------------------------------------------------
 
 		Decryption example:
 		----------------------------------------------------------------
 		// Note the second parameter is the number of ciphertext bytes
-		server_e->Decrypt(message, CIPHERTEXT_BYTES);
+		server_e.Decrypt(message, CIPHERTEXT_BYTES);
 
 		const int RECOVERED_BYTES = 
 			CIPHERTEXT_BYTES - AuthenticatedEncryption::OVERHEAD_BYTES;
@@ -144,7 +144,7 @@ namespace cat {
 		Once the authenticated encryption objects are created, if the messages received are always
 		guaranteed to be in order, then the following flag can be set to make the object reject
 		packets received out of order, which would indicate tampering:
-			auth_enc->AllowOutOfOrder(false);
+			auth_enc.AllowOutOfOrder(false);
 		By default the messages are assumed to arrive in any order up to 1024 messages out of order.
 
 		The server similarly can encrypt messages the same way the client does in the examples.
