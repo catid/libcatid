@@ -400,9 +400,11 @@ int GenerateCurveParameterC()
 {
 	FortunaOutput *out = FortunaFactory::ref()->Create();
 
+	const int bits = 256;
+
 	for (int ii = 1; true; ii += 2)
 	{
-		BigMontgomery mont(16, 512);
+		BigMontgomery mont(16, bits);
 		Leg *x = mont.Get(1);
 		Leg *y = mont.Get(2);
 		Leg *z = mont.Get(3);
@@ -435,7 +437,7 @@ int GenerateCurveParameterC()
 		{
 			//cout << "Candidate value for c (with p = 3 mod 4): " << ii << endl;
 
-			BigPseudoMersenne mer(4, 512, ii);
+			BigPseudoMersenne mer(4, bits, ii);
 			Leg *a = mer.Get(0);
 			Leg *p = mer.Get(1);
 			mer.CopyX(0, a);
@@ -1332,6 +1334,8 @@ int main()
         cout << "FAILURE: Unable to initialize the Fortuna factory" << endl;
         return 1;
     }
+
+	GenerateCurveParameterC();
 
 	ECCSetup();
 

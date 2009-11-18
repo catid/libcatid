@@ -25,6 +25,7 @@ bool BigMontgomery::IsRabinMillerPrime(IRandom *prng, const Leg *n, int trials)
 	Leg *d = Get(mon_regs - 4);
 	Leg *a = Get(mon_regs - 5);
 	Leg *x = Get(mon_regs - 6);
+	Leg *n_1 = Get(mon_regs - 7);
 
 	// Returns false for n = 0 and n = 1
 	if (!GreaterX(n, 1))
@@ -33,9 +34,12 @@ bool BigMontgomery::IsRabinMillerPrime(IRandom *prng, const Leg *n, int trials)
 	// Use n as the modulus for Montgomery RNS
 	SetModulus(n);
 
-	// d = n-1
-	Copy(n, d);
-	SubtractX(d, 1);
+	// n_1 = n-1
+	Copy(n, n_1);
+	SubtractX(n_1, 1);
+
+	// d = n_1 = n-1
+	Copy(n_1, d);
 
 	// s = trailing zeroes eatten from d
 	int s = EatTrailingZeroes(d);
@@ -73,8 +77,7 @@ bool BigMontgomery::IsRabinMillerPrime(IRandom *prng, const Leg *n, int trials)
 			if (EqualX(x, 1)) return false;
 
 			// If x = n-1, it could still be prime
-			if (!AddX(x, 1) && Equal(x, n))
-				goto SKIP_TO_NEXT_TRIAL;
+			if (Equal(x, n_1)) goto SKIP_TO_NEXT_TRIAL;
 		}
 
 		// If we didn't find any x = n-1, it is composite

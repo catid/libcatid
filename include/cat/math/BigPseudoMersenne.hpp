@@ -37,7 +37,7 @@
 namespace cat {
 
 
-// Performs fast arithmetic modulo 2^bits-C, C = 1 (mod 4), C < 16384
+// Performs fast arithmetic modulo 2^bits-C, C = 1 (mod 4) or 3 (mod 8), C < 16384
 class BigPseudoMersenne : public BigRTL
 {
     static const int PM_OVERHEAD = 6; // overhead for MrSquareRoot()
