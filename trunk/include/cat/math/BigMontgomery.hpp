@@ -34,7 +34,7 @@ namespace cat {
 // Performs fast modular arithmetic in the Montgomery Residue Number System
 class BigMontgomery : public BigRTL
 {
-    static const int MON_OVERHEAD = 3 + 3;
+    static const int MON_OVERHEAD = 3 + 4;
     int mon_regs;
 
 protected:

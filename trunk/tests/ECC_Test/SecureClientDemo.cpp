@@ -27,7 +27,7 @@ void SecureClientDemo::OnCookie(BigTwistedEdwards *math, FortunaOutput *csprng, 
     //cout << "Client: Got cookie from the server" << endl;
 
     double t1 = Clock::usec();
-	if (!tun_client.Verify(math, csprng, buffer, 4, buffer + 4, CAT_DEMO_BYTES*2))
+	if (!tun_client.Verify(math, buffer, 4, buffer + 4, CAT_DEMO_BYTES*2))
 	{
         cout << "Client: Unable to verify signature" << endl;
         return;
