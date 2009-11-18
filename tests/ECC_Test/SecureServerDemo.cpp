@@ -114,7 +114,7 @@ void SecureServerDemo::OnSessionMessage(Connection *client, u8 *buffer, int byte
     double t1 = Clock::usec();
     client->auth_enc.Encrypt(response, bytes);
     double t2 = Clock::usec();
-    //cout << "Server: Encryption time = " << (t2 - t1) << " usec" << endl;
+    cout << "Server: Encryption time = " << (t2 - t1) << " usec" << endl;
 
     //cout << "Server: Sending pong message back to client" << endl;
 
@@ -178,7 +178,7 @@ void SecureServerDemo::OnPacket(const Address &source, u8 *buffer, int bytes)
             return;
         }
         double t2 = Clock::usec();
-        //cout << "Server: Decryption time = " << (t2 - t1) << " usec" << endl;
+        cout << "Server: Decryption time = " << (t2 - t1) << " usec" << endl;
 
         OnSessionMessage(client, buffer, bytes - AuthenticatedEncryption::OVERHEAD_BYTES);
     }
