@@ -57,6 +57,7 @@ namespace cat {
 # define CAT_INLINE __inline
 # define CAT_ASM_INTEL
 # define CAT_ASM_BEGIN _asm {
+# define CAT_ASM_EMIT __emit__
 # define CAT_ASM_END }
 # define CAT_TLS __declspec(thread)
 # define CAT_RESTRICT __restrict
@@ -92,6 +93,7 @@ namespace cat {
 # define CAT_INLINE __forceinline
 # define CAT_ASM_INTEL
 # define CAT_ASM_BEGIN __asm {
+# define CAT_ASM_EMIT _emit
 # define CAT_ASM_END }
 # define CAT_TLS __declspec( thread )
 # define CAT_RESTRICT __restrict
@@ -172,7 +174,6 @@ namespace cat {
 
 #elif defined(_WIN32_WCE)
 # define CAT_OS_WINDOWS_CE
-# define CAT_OS_WINDOWS
 
 #elif defined(_WIN32)
 # define CAT_OS_WINDOWS

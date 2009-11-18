@@ -186,27 +186,36 @@ u32 Clock::cycles()
 {
     u32 x[2];
 
-#if defined(CAT_COMPILER_BORLAND)
+#if defined(CAT_COMPILER_MSVC) && defined(CAT_WORD_64)
+	x[0] = (u32)__rdtsc();
 
-    _asm { push edx };
-    __emit__(0x0F, 0x31); /* RDTSC */
-    _asm { pop edx };
-    _asm { mov x[0], eax };
+#elif defined(CAT_ASM_INTEL) && defined(CAT_ISA_X86)
+	CAT_ASM_BEGIN
+		push edx
+		CAT_ASM_EMIT 0x0F
+		CAT_ASM_EMIT 0x31
+		pop edx
+		mov x[0], eax
+	CAT_ASM_END
 
-#elif defined(CAT_COMPILER_MSVC)
+#elif defined(CAT_ASM_ATT) && defined(CAT_ISA_X86)
+	CAT_ASM_BEGIN
+		"rdtsc" : "=a"(x[0]), "=d"(x[1])
+	CAT_ASM_END
 
-# if defined(CAT_WORD_64)
-    x[0] = (u32)__rdtsc();
-# else
-    _asm { push edx };
-    _asm { _emit 0fh }; _asm { _emit 031h };
-    _asm { pop edx };
-    _asm { mov x[0], eax };
-# endif
+#elif defined(CAT_ISA_PPC) && defined(CAT_ASM_ATT)
+	// Based on code from Kazutomo Yoshii ( http://www.mcs.anl.gov/~kazutomo/rdtsc.html )
+	u32 tmp;
 
-#elif defined(CAT_COMPILER_GCC)
-
-    asm volatile("rdtsc" : "=a"(x[0]), "=d"(x[1]));
+	CAT_ASM_BEGIN
+		"0:                  \n"
+		"\tmftbu   %0        \n"
+		"\tmftb    %1        \n"
+		"\tmftbu   %2        \n"
+		"\tcmpw    %2,%0     \n"
+		"\tbne     0b        \n"
+		: "=r"(x[1]),"=r"(x[0]),"=r"(tmp)
+	CAT_ASM_END
 
 #else
 

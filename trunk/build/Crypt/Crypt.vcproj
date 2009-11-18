@@ -312,11 +312,19 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\src\crypt\rand\EntropyGeneric.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\src\crypt\rand\EntropyLinux.cpp"
 				>
 			</File>
 			<File
 				RelativePath="..\..\src\crypt\rand\EntropyWindows.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\crypt\rand\EntropyWindowsCE.cpp"
 				>
 			</File>
 			<File
