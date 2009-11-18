@@ -905,6 +905,8 @@ void HandshakeTest()
     {
         // Offline:
 
+		double t0 = Clock::usec();
+
         u8 server_private_key[CAT_DEMO_PRIVATE_KEY_BYTES];
         u8 server_public_key[CAT_DEMO_PUBLIC_KEY_BYTES];
         KeyMaker bob_the_key_maker;
@@ -915,6 +917,10 @@ void HandshakeTest()
             cout << "FAILURE: Unable to generate key pair" << endl;
             return;
         }
+
+		double t1 = Clock::usec();
+
+		cout << "Key Pair Generation time = " << t1 - t0 << " usec" << endl;
 /*
 		cout << "Generator point = " << endl;
 		for (int ii = 0; ii < tls_math->Legs() * 2 * CAT_LEG_BITS/8; ++ii)
@@ -1335,7 +1341,7 @@ int main()
         return 1;
     }
 
-	GenerateCurveParameterC();
+	//GenerateCurveParameterC();
 
 	ECCSetup();
 

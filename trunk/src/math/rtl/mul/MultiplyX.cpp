@@ -29,7 +29,8 @@ Leg BigRTL::MultiplyX(int legs, const Leg *in_a, Leg in_b, Leg *output)
 {
     // ICC does a better job than my hand-written version by using SIMD instructions,
     // so I use its optimizer instead.
-#if !defined(CAT_COMPILER_ICC) && defined(CAT_ASM_INTEL)
+#if !defined(CAT_COMPILER_ICC) && defined(CAT_ASM_INTEL) && \
+	 defined(CAT_ISA_X86) && defined(CAT_WORD_32)
 
     CAT_ASM_BEGIN
         mov esi, [in_a]        ; esi = in_a

@@ -47,7 +47,7 @@ void SecureClientDemo::OnCookie(BigTwistedEdwards *math, FortunaOutput *csprng, 
     memcpy(challenge + CAT_C2S_CHALLENGE_BYTES, buffer, CAT_S2C_COOKIE_BYTES); // copy cookie
     t2 = Clock::usec();
 
-    //cout << "Client: Filling challenge message time = " << (t2 - t1) << " usec" << endl;
+    cout << "Client: Filling challenge message time = " << (t2 - t1) << " usec" << endl;
 
     //cout << "Client: Sending challenge to server" << endl;
 
@@ -66,7 +66,7 @@ void SecureClientDemo::OnAnswer(BigTwistedEdwards *math, u8 *buffer)
         return;
     }
     double t2 = Clock::usec();
-    //cout << "Client: Processing answer time = " << (t2 - t1) << " usec" << endl;
+    cout << "Client: Processing answer time = " << (t2 - t1) << " usec" << endl;
 
 	tun_client.SecureErasePrivateKey();
 
@@ -99,7 +99,7 @@ void SecureClientDemo::OnConnect()
 
     double t2 = Clock::usec();
 
-    //cout << "Client: Message 0 construction time = " << (t2 - t1) << " usec" << endl;
+    cout << "Client: Message 0 construction time = " << (t2 - t1) << " usec" << endl;
 
     server_ref->OnPacket(my_addr, buffer, sizeof(buffer));
 }
@@ -141,7 +141,7 @@ void SecureClientDemo::OnSessionMessage(u8 *buffer, int bytes)
 
     double t2 = Clock::usec();
 
-    //cout << "Client: Message " << id << " construction time = " << (t2 - t1) << " usec" << endl;
+    cout << "Client: Message " << id << " construction time = " << (t2 - t1) << " usec" << endl;
 
     server_ref->OnPacket(my_addr, response, sizeof(response));
 }
@@ -175,7 +175,7 @@ void SecureClientDemo::Reset(SecureServerDemo *cserver_ref, const u8 *server_pub
 
     double t2 = Clock::usec();
 
-    //cout << "Client: Initialization time = " << (t2 - t1) << " usec" << endl;
+    cout << "Client: Initialization time = " << (t2 - t1) << " usec" << endl;
 }
 
 void SecureClientDemo::SendHello()
@@ -205,7 +205,7 @@ void SecureClientDemo::OnPacket(const Address &source, u8 *buffer, int bytes)
         if (auth_enc.Decrypt(buffer, bytes))
         {
             double t2 = Clock::usec();
-            //cout << "Client: Decryption overhead time = " << (t2 - t1) << " usec" << endl;
+            cout << "Client: Decryption overhead time = " << (t2 - t1) << " usec" << endl;
             OnSessionMessage(buffer, bytes - AuthenticatedEncryption::OVERHEAD_BYTES);
         }
         else

@@ -137,7 +137,7 @@ bool KeyAgreementResponder::ProcessChallenge(BigTwistedEdwards *math, FortunaOut
                                              u8 *responder_answer, int answer_bytes, Skein *key_hash)
 {
     // Verify that inputs are of the correct length
-    if (challenge_bytes != KeyBytes*2 || answer_bytes != KeyBytes*3)
+    if (challenge_bytes != KeyBytes*2 || answer_bytes != KeyBytes*4)
         return false;
 
     Leg *A = math->Get(0);
