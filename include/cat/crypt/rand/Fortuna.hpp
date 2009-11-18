@@ -81,7 +81,7 @@
 //#define CAT_NO_ENTROPY_THREAD
 
 
-#if defined(CAT_OS_WINDOWS)
+#if defined(CAT_OS_WINDOWS) || defined(CAT_OS_WINDOWS_CE)
 # include <windows.h>
 # include <wincrypt.h>
 #elif defined(CAT_OS_LINUX) && !defined(CAT_NO_ENTROPY_THREAD)
@@ -121,6 +121,10 @@ class FortunaFactory : public Singleton<FortunaFactory>
     HMODULE NTDLL;
     PtNtQuerySystemInformation NtQuerySystemInformation;
     HCRYPTPROV hCryptProv;
+
+#elif defined(CAT_OS_WINDOWS_CE)
+
+	HCRYPTPROV hCryptProv;
 
 #elif defined(CAT_OS_LINUX)
 
