@@ -203,7 +203,7 @@ u32 Clock::cycles()
 		"rdtsc" : "=a"(x[0]), "=d"(x[1])
 	CAT_ASM_END
 
-#elif defined(CAT_ISA_PPC) && defined(CAT_ASM_ATT)
+#elif defined(CAT_ASM_ATT) && defined(CAT_ISA_PPC)
 	// Based on code from Kazutomo Yoshii ( http://www.mcs.anl.gov/~kazutomo/rdtsc.html )
 	u32 tmp;
 
