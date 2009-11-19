@@ -19,15 +19,17 @@
 
 // 07/11/09 I realized that I had not done this yet
 
-#ifndef SECURE_COMPARE_HPP
-#define SECURE_COMPARE_HPP
+#ifndef CAT_SECURE_COMPARE_HPP
+#define CAT_SECURE_COMPARE_HPP
 
 #include <cat/Platform.hpp>
 
 namespace cat {
 
 
-// Binary comparison function that is resistant to side-channel attack
+// Binary comparison function that is resistant to timing attack
+// Note that memcmp() and strcmp() are both vulnerable
+// Returns true if they are equal
 bool SecureEqual(const void *A, const void *B, int bytes);
 
 
