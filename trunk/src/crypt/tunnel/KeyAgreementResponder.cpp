@@ -91,7 +91,10 @@ bool KeyAgreementResponder::Initialize(BigTwistedEdwards *math, FortunaOutput *c
 									   const u8 *responder_public_key, int public_bytes,
 									   const u8 *responder_private_key, int private_bytes)
 {
-	if (!math) return false;
+#if defined(CAT_USER_ERROR_CHECKING)
+	if (!math || !csprng) return false;
+#endif
+
 	int bits = math->RegBytes() * 8;
 
     // Validate and accept number of bits
@@ -136,9 +139,11 @@ bool KeyAgreementResponder::ProcessChallenge(BigTwistedEdwards *math, FortunaOut
 											 const u8 *initiator_challenge, int challenge_bytes,
                                              u8 *responder_answer, int answer_bytes, Skein *key_hash)
 {
-    // Verify that inputs are of the correct length
-    if (challenge_bytes != KeyBytes*2 || answer_bytes != KeyBytes*4)
-        return false;
+#if defined(CAT_USER_ERROR_CHECKING)
+	// Verify that inputs are of the correct length
+	if (!math || !csprng || challenge_bytes != KeyBytes*2 || answer_bytes != KeyBytes*4)
+		return false;
+#endif
 
     Leg *A = math->Get(0);
     Leg *S = math->Get(8);
@@ -207,8 +212,10 @@ bool KeyAgreementResponder::Sign(BigTwistedEdwards *math, FortunaOutput *csprng,
 								 const u8 *message, int message_bytes,
 								 u8 *signature, int signature_bytes)
 {
-    // Verify that inputs are of the correct length
-    if (signature_bytes != KeyBytes*2) return false;
+#if defined(CAT_USER_ERROR_CHECKING)
+	// Verify that inputs are of the correct length
+	if (!math || !csprng || signature_bytes != KeyBytes*2) return false;
+#endif
 
     Leg *k = math->Get(0);
     Leg *K = math->Get(1);

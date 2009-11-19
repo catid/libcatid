@@ -84,7 +84,10 @@ void KeyAgreementInitiator::SecureErasePrivateKey()
 
 bool KeyAgreementInitiator::Initialize(BigTwistedEdwards *math, const u8 *responder_public_key, int public_bytes)
 {
+#if defined(CAT_USER_ERROR_CHECKING)
 	if (!math) return false;
+#endif
+
 	int bits = math->RegBytes() * 8;
 
     // Validate and accept number of bits
@@ -129,8 +132,10 @@ bool KeyAgreementInitiator::Initialize(BigTwistedEdwards *math, const u8 *respon
 bool KeyAgreementInitiator::GenerateChallenge(BigTwistedEdwards *math, FortunaOutput *csprng,
 											  u8 *initiator_challenge, int challenge_bytes)
 {
-    // Verify that inputs are of the correct length
-    if (challenge_bytes != KeyBytes*2) return false;
+#if defined(CAT_USER_ERROR_CHECKING)
+	// Verify that inputs are of the correct length
+	if (!math || !csprng || challenge_bytes != KeyBytes*2) return false;
+#endif
 
     // a = initiator private key
 	GenerateKey(math, csprng, a);
@@ -150,8 +155,10 @@ bool KeyAgreementInitiator::ProcessAnswer(BigTwistedEdwards *math,
 										  const u8 *responder_answer, int answer_bytes,
                                           Skein *key_hash)
 {
-    // Verify that inputs are of the correct length
-    if (answer_bytes < KeyBytes*3) return false;
+#if defined(CAT_USER_ERROR_CHECKING)
+	// Verify that inputs are of the correct length
+	if (!math || answer_bytes < KeyBytes*3) return false;
+#endif
 
     Leg *Y = math->Get(0);
     Leg *S = math->Get(4);
@@ -217,8 +224,10 @@ bool KeyAgreementInitiator::Verify(BigTwistedEdwards *math,
 								   const u8 *message, int message_bytes,
 								   const u8 *signature, int signature_bytes)
 {
-    // Verify that inputs are of the correct length
-    if (signature_bytes != KeyBytes*2) return false;
+#if defined(CAT_USER_ERROR_CHECKING)
+	// Verify that inputs are of the correct length
+	if (!math || signature_bytes != KeyBytes*2) return false;
+#endif
 
     Leg *e = math->Get(0);
     Leg *s = math->Get(1);
