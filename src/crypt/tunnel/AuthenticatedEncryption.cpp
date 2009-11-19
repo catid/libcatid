@@ -195,11 +195,13 @@ u64 AuthenticatedEncryption::ReconstructIV(u64 last_accepted_iv, u32 new_iv_low_
 }
 
 // Decrypt a packet from the remote host
-bool AuthenticatedEncryption::Decrypt(u8 *buffer, int buf_bytes)
+bool AuthenticatedEncryption::Decrypt(u8 *buffer, int &buf_bytes)
 {
     if (buf_bytes < OVERHEAD_BYTES) return false;
 
-    u8 *overhead = buffer + buf_bytes - OVERHEAD_BYTES;
+	int msg_bytes = buf_bytes - OVERHEAD_BYTES;
+
+    u8 *overhead = buffer + msg_bytes;
     // overhead: encrypted { ... MAC(8 bytes) } || truncated IV(3 bytes)
 
     // De-obfuscate the truncated IV
@@ -217,7 +219,7 @@ bool AuthenticatedEncryption::Decrypt(u8 *buffer, int buf_bytes)
     // Generate the expected MAC given the decrypted message and full IV
     remote_mac.BeginMAC();
     remote_mac.Crunch(&iv, sizeof(iv));
-    remote_mac.Crunch(buffer, buf_bytes - OVERHEAD_BYTES);
+    remote_mac.Crunch(buffer, msg_bytes);
     remote_mac.End();
 
     u8 expected[MAC_BYTES];
@@ -229,12 +231,17 @@ bool AuthenticatedEncryption::Decrypt(u8 *buffer, int buf_bytes)
 
     AcceptIV(iv);
 
+	// Return the number of message bytes in buf_bytes
+	buf_bytes = msg_bytes;
     return true;
 }
 
 // Encrypt a packet to send to the remote host
-void AuthenticatedEncryption::Encrypt(u8 *buffer, int msg_bytes)
+bool AuthenticatedEncryption::Encrypt(u8 *buffer, int buffer_bytes, int &msg_bytes)
 {
+	int out_bytes = msg_bytes + OVERHEAD_BYTES;
+	if (out_bytes > buffer_bytes) return false;
+
     u8 *overhead = buffer + msg_bytes;
 
     // Generate a MAC for the message and full IV
@@ -256,4 +263,8 @@ void AuthenticatedEncryption::Encrypt(u8 *buffer, int msg_bytes)
     overhead[MAC_BYTES+2] = (u8)(trunc_iv >> 16);
 
     ++local_iv;
+
+	// Return the number of ciphertext bytes in msg_bytes
+	msg_bytes = out_bytes;
+	return true;
 }

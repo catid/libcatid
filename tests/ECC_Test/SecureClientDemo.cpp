@@ -95,13 +95,14 @@ void SecureClientDemo::OnConnect()
     }
 
     // Encrypt it
-    auth_enc.Encrypt(buffer, 1500);
+	int bytes = 1500;
+    auth_enc.Encrypt(buffer, sizeof(buffer), bytes);
 
     double t2 = Clock::usec();
 
     cout << "Client: Message 0 construction time = " << (t2 - t1) << " usec" << endl;
 
-    server_ref->OnPacket(my_addr, buffer, sizeof(buffer));
+    server_ref->OnPacket(my_addr, buffer, bytes);
 }
 
 void SecureClientDemo::OnSessionMessage(u8 *buffer, int bytes)
@@ -137,13 +138,14 @@ void SecureClientDemo::OnSessionMessage(u8 *buffer, int bytes)
 
     *(u32*)&response[1] = id;
 
-    auth_enc.Encrypt(response, 1500);
+	int response_bytes = 1500;
+    auth_enc.Encrypt(response, sizeof(response), response_bytes);
 
     double t2 = Clock::usec();
 
     cout << "Client: Message " << id << " construction time = " << (t2 - t1) << " usec" << endl;
 
-    server_ref->OnPacket(my_addr, response, sizeof(response));
+    server_ref->OnPacket(my_addr, response, response_bytes);
 }
 
 static BigTwistedEdwards *tls_math = 0;
@@ -206,7 +208,7 @@ void SecureClientDemo::OnPacket(const Address &source, u8 *buffer, int bytes)
         {
             double t2 = Clock::usec();
             cout << "Client: Decryption overhead time = " << (t2 - t1) << " usec" << endl;
-            OnSessionMessage(buffer, bytes - AuthenticatedEncryption::OVERHEAD_BYTES);
+            OnSessionMessage(buffer, bytes);
         }
         else
         {
