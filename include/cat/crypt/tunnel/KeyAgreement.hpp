@@ -160,6 +160,10 @@ namespace cat {
 // because it randomizes the runtime and helps avoid timing attacks
 //#define CAT_DETERMINISTIC_KEY_GENERATION
 
+// If CAT_USER_ERROR_CHECKING is defined, the key agreement objects will
+// check to make sure that the input parameters are all the right length
+// and that the math and prng objects are not null
+#define CAT_USER_ERROR_CHECKING
 
 class KeyAgreementCommon
 {
