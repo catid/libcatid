@@ -77,13 +77,13 @@ void *Aligned::Acquire(int bytes)
     if (!buffer) return 0;
 
 #if defined(CAT_WORD_64)
-    u8 offset = CPU_CACHELINE_BYTES - ((u8)*(u64*)&buffer & (CPU_CACHELINE_BYTES-1));
+    u32 offset = CPU_CACHELINE_BYTES - ((u32)*(u64*)&buffer & (CPU_CACHELINE_BYTES-1));
 #else
-    u8 offset = CPU_CACHELINE_BYTES - ((u8)*(u32*)&buffer & (CPU_CACHELINE_BYTES-1));
+    u32 offset = CPU_CACHELINE_BYTES - (*(u32*)&buffer & (CPU_CACHELINE_BYTES-1));
 #endif
 
     buffer += offset;
-    buffer[-1] = (u8)offset;
+    buffer[-1] = static_cast<u8>( offset );
 
     return buffer;
 }
@@ -93,7 +93,7 @@ void Aligned::Release(void *ptr)
 {
     if (ptr)
     {
-        u8 *buffer = (u8 *)ptr;
+        u8 *buffer = reinterpret_cast<u8*>( ptr );
 
         buffer -= buffer[-1];
 

@@ -17,15 +17,15 @@
     License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <cat/threads/ThreadPool.hpp>
+#include <algorithm>
+#include <cat/io/Logging.hpp>
+#include <cat/io/Settings.hpp>
 #include <cat/io/ThreadPoolFiles.hpp>
 #include <cat/net/ThreadPoolSockets.hpp>
-#include <cat/io/Logging.hpp>
-#include <cat/time/Clock.hpp>
-#include <cat/io/Settings.hpp>
 #include <cat/threads/RegionAllocator.hpp>
+#include <cat/threads/ThreadPool.hpp>
+#include <cat/time/Clock.hpp>
 #include <process.h>
-#include <algorithm>
 using namespace std;
 using namespace cat;
 
