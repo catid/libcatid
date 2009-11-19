@@ -28,32 +28,21 @@ namespace cat {
 
 //// Compiler ////
 
+// Apple/iPhone compiler flags
 #ifdef __APPLE__
 # include "TargetConditionals.h" // iPhone target flags
 #endif
 
+// Intel C++ Compiler : Compatible with MSVC and GCC
 #if defined(__INTEL_COMPILER) || defined(__ICL) || defined(__ICC) || defined(__ECC)
-# define CAT_COMPILER_ICC /* Intel C++ Compiler; compatible with MSVC and GCC */
+# define CAT_COMPILER_ICC
 #endif
 
-#if defined(__GNUC__) || defined(__APPLE_CC__)
-# define CAT_COMPILER_GCC /* GNU C++ Compiler */
+// Borland C++ Compiler : "Compatible" with MSVC
+#if defined(__BORLANDC__)
+# define CAT_COMPILER_BORLAND
 
-# define CAT_PACKED __attribute__((packed)) __attribute__((aligned(4)));
-# define CAT_INLINE inline /* __inline__ __attribute__((always_inline)) */
-# define CAT_ASM_ATT
-# define CAT_ASM_BEGIN __asm__ __volatile__ (
-# define CAT_ASM_END );
-# define CAT_TLS __thread
-# define CAT_RESTRICT __restrict__
-
-#if !defined(NDEBUG)
-# define CAT_DEBUG
-#endif
-
-#elif defined(__BORLANDC__)
-# define CAT_COMPILER_BORLAND /* Borland C++ Compiler */
-
+# define CAT_PACKED
 # define CAT_INLINE __inline
 # define CAT_ASM_INTEL
 # define CAT_ASM_BEGIN _asm {
@@ -62,33 +51,60 @@ namespace cat {
 # define CAT_TLS __declspec(thread)
 # define CAT_RESTRICT __restrict
 
-#if !defined(NDEBUG)
-# define CAT_DEBUG
-#endif
+# if !defined(NDEBUG)
+#  define CAT_DEBUG
+# endif
 
+// Digital Mars C++ Compiler
 #elif defined(__DMC__)
 # define CAT_COMPILER_DMARS
 # define CAT_TLS __declspec(thread)
 # error "Fill in the holes"
 
-#elif defined(__MWERKS__)
-# define CAT_COMPILER_MWERKS
-# error "Fill in the holes"
-
+// SUN C++ Compiler
 #elif defined(__SUNPRO_CC)
 # define CAT_COMPILER_SUN
 # define CAT_TLS __thread
 # error "Fill in the holes"
 
+// Metrowerks C++ Compiler : "Compatible" with MSVC
+#elif defined(__MWERKS__)
+# define CAT_COMPILER_MWERKS
+
+# define CAT_PACKED
+# define CAT_INLINE inline
+# define CAT_ASM_INTEL
+# define CAT_ASM_BEGIN _asm {
+# define CAT_ASM_EMIT __emit__
+# define CAT_ASM_END }
+# define CAT_TLS __declspec(thread)
+# define CAT_RESTRICT __restrict
+
+# if !defined(NDEBUG)
+#  define CAT_DEBUG
+# endif
+
+// GNU C++ Compiler
+// SN Systems ProDG C++ Compiler : Compatible with GCC
+#elif defined(__GNUC__) || defined(__APPLE_CC__) || defined(__SNC__)
+# define CAT_COMPILER_GCC
+
+# define CAT_PACKED __attribute__((packed)) __attribute__((aligned(4)))
+# define CAT_INLINE inline /* __inline__ __attribute__((always_inline)) */
+# define CAT_ASM_ATT
+# define CAT_ASM_BEGIN __asm__ __volatile__ (
+# define CAT_ASM_END );
+# define CAT_TLS __thread
+# define CAT_RESTRICT __restrict__
+
+# if !defined(NDEBUG)
+#  define CAT_DEBUG
+# endif
+
+// Microsoft Visual Studio C++ Compiler
 #elif defined(_MSC_VER)
-# define CAT_COMPILER_MSVC /* Microsoft Visual Studio C++ Compiler */
+# define CAT_COMPILER_MSVC
 
-#else
-# error "Add your compiler to the list"
-#endif
-
-// Pull out MSVC case here since it applies to several compilers that are MSVC-compatible
-#if defined(CAT_COMPILER_MSVC)
 # define CAT_PACKED
 # define CAT_INLINE __forceinline
 # define CAT_ASM_INTEL
@@ -102,10 +118,14 @@ namespace cat {
 # if defined(_DEBUG)
 #  define CAT_DEBUG
 # endif
-                  }
+
+} // namespace cat
 # include <cstdlib> // Intrinsics
 # include <intrin.h> // Intrinsics
-    namespace cat {
+namespace cat {
+
+#else
+# error "Add your compiler to the list"
 #endif
 
 
@@ -187,6 +207,7 @@ namespace cat {
 
 #if defined(CAT_COMPILER_MSVC)
 
+	// MSVC does not ship with stdint.h (C99 standard...)
     typedef unsigned __int8  u8;
     typedef signed __int8    s8;
     typedef unsigned __int16 u16;
@@ -196,26 +217,30 @@ namespace cat {
     typedef unsigned __int64 u64;
     typedef signed __int64   s64;
 
-#elif defined(CAT_COMPILER_GCC)
-                  }
-# include <inttypes.h>
-    namespace cat {
+#else
 
-    typedef uint8_t   u8;
-    typedef int8_t    s8;
-    typedef uint16_t  u16;
-    typedef int16_t   s16;
-    typedef uint32_t  u32;
-    typedef int32_t   s32;
-    typedef uint64_t  u64;
-    typedef int64_t   s64;
-#if defined(CAT_WORD_64)
-    typedef __uint128_t u128;
-    typedef __int128_t  s128;
+} // namespace cat
+#include <cstdint>
+namespace cat {
+
+	// All other compilers use this
+	typedef std::uint8_t  u8;
+	typedef std::int8_t   s8;
+	typedef std::uint16_t u16;
+	typedef std::int16_t  s16;
+	typedef std::uint32_t u32;
+	typedef std::int32_t  s32;
+	typedef std::uint64_t u64;
+	typedef std::int64_t  s64;
+
 #endif
 
-#else
-# error "Add your compiler's basic types"
+#if defined(CAT_COMPILER_GCC) && defined(CAT_WORD_64)
+
+	// GCC also adds 128-bit types :D
+    typedef __uint128_t u128;
+    typedef __int128_t  s128;
+
 #endif
 
 typedef float f32;
