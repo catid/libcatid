@@ -123,11 +123,14 @@ public:
     // Overhead is OVERHEAD_BYTES bytes at the end of the packet
     // Returns false if the message is invalid.  Invalid messages should just be ignored as if they were never received
     // buf_bytes: Number of bytes in the buffer, including the overhead
-    bool Decrypt(u8 *buffer, int buf_bytes);
+	// If Decrypt() returns true, buf_bytes is set to the size of the decrypted message
+    bool Decrypt(u8 *buffer, int &buf_bytes);
 
     // Overhead is OVERHEAD_BYTES bytes at the end of the packet
+	// buffer_bytes: Number of bytes in the buffer; will return false if buffer size too small
     // msg_bytes: Number of bytes in the message, excluding the overhead
-    void Encrypt(u8 *buffer, int msg_bytes);
+	// If Encrypt() returns true, msg_bytes is set to the size of the encrypted message
+    bool Encrypt(u8 *buffer, int buffer_bytes, int &msg_bytes);
 };
 
 

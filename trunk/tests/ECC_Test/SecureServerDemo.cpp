@@ -112,13 +112,13 @@ void SecureServerDemo::OnSessionMessage(Connection *client, u8 *buffer, int byte
     }
 
     double t1 = Clock::usec();
-    client->auth_enc.Encrypt(response, bytes);
+    client->auth_enc.Encrypt(response, sizeof(response), bytes);
     double t2 = Clock::usec();
     cout << "Server: Encryption time = " << (t2 - t1) << " usec" << endl;
 
     //cout << "Server: Sending pong message back to client" << endl;
 
-    client_ref->OnPacket(my_addr, response, AuthenticatedEncryption::OVERHEAD_BYTES + bytes);
+    client_ref->OnPacket(my_addr, response, bytes);
 }
 
 SecureServerDemo::~SecureServerDemo()
@@ -180,7 +180,7 @@ void SecureServerDemo::OnPacket(const Address &source, u8 *buffer, int bytes)
         double t2 = Clock::usec();
         cout << "Server: Decryption time = " << (t2 - t1) << " usec" << endl;
 
-        OnSessionMessage(client, buffer, bytes - AuthenticatedEncryption::OVERHEAD_BYTES);
+        OnSessionMessage(client, buffer, bytes);
     }
     else
     {
