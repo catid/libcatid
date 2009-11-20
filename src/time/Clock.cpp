@@ -24,8 +24,15 @@
 # include <stdlib.h> // qsort
 #elif defined(CAT_OS_WINDOWS)
 # include <windows.h>
-# include <mmsystem.h>
-# pragma comment (lib, "winmm")
+# if defined(CAT_COMPILER_MSVC)
+#  pragma warning(push)
+#  pragma warning(disable: 4201)
+#  include <mmsystem.h>
+#  pragma warning(pop)
+#  pragma comment (lib, "winmm")
+# else
+#  include <mmsystem.h>
+# endif
 #endif
 
 #include <ctime>
@@ -264,7 +271,7 @@ u32 Clock::MeasureClocks(int iterations, void (*FunctionPtr)())
     Clock::SetHighPriority();
     Clock::sleep(200);
 
-    u32 dtMin = ~0;
+    u32 dtMin = ~(u32)0;
 
     for (int ii = 0; ii < 10; ++ii)
     {
@@ -281,6 +288,7 @@ u32 Clock::MeasureClocks(int iterations, void (*FunctionPtr)())
 
     u32 d0 = Clock::cycles();
     u32 d1 = Clock::cycles();
+	d1 ^= d0; // prevent compiler warning
 
     Clock::sleep(200);
 

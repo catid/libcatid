@@ -24,6 +24,16 @@ using namespace cat;
 
 //// EasyHandshake
 
+bool EasyHandshake::Initialize()
+{
+	return FortunaFactory::ref()->Initialize();
+}
+
+void EasyHandshake::Shutdown()
+{
+	FortunaFactory::ref()->Shutdown();
+}
+
 EasyHandshake::EasyHandshake()
 {
 	// We really only need one of these per thread

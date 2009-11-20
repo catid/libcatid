@@ -152,6 +152,9 @@ bool FortunaFactory::Reseed()
 // Start the entropy generator
 bool FortunaFactory::Initialize()
 {
+	if (_initialized)
+		return true;
+
     MasterSeedRevision = 0;
     reseed_counter = 0;
 
@@ -167,14 +170,21 @@ bool FortunaFactory::Initialize()
     if (!Reseed())
         return false;
 
+	_initialized = true;
+
     return true;
 }
 
 // Stop the entropy generator
 void FortunaFactory::Shutdown()
 {
-    // Block and wait for entropy collection thread to end
-    ShutdownEntropySources();
+	if (_initialized)
+	{
+		// Block and wait for entropy collection thread to end
+		ShutdownEntropySources();
+
+		_initialized = false;
+	}
 }
 
 // Create a new Fortuna object

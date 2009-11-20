@@ -100,6 +100,7 @@ class FortunaFactory : public Singleton<FortunaFactory>
 {
     CAT_SINGLETON(FortunaFactory)
     {
+		_initialized = false;
     }
 
     friend class FortunaOutput;
@@ -150,6 +151,7 @@ protected:
     static u32 MasterSeedRevision; // Should not roll over for 13 years if incremented once every RESEED_MIN_TIME
     static Skein MasterSeed;
 
+	bool _initialized;
     u32 reseed_counter;
     Skein Pool[ENTROPY_POOLS];
 

@@ -186,6 +186,10 @@ public:
 	~EasyHandshake();
 
 public:
+	static bool Initialize();
+	static void Shutdown();
+
+public:
 	// Generate a server (public, private) key pair
 	// Connecting clients will need to know the public key in order to connect
 	bool GenerateServerKey(void *out_public_key /* EasyHandshake::PUBLIC_KEY_BYTES */,
