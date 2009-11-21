@@ -113,7 +113,7 @@ bool ServerEasyHandshake::ProcessChallenge(const void *in_challenge, void *out_a
 	// handshake.  This would be useful for encrypting several different channels,
 	// such as one handshake being used to key and encrypt a TCP stream and UDP
 	// packets, or multiple TCP streams keyed from the same handshake, etc
-	if (!tun_server.KeyEncryption(&key_hash, auth_enc, "EasyServerHandshake"))
+	if (!tun_server.KeyEncryption(&key_hash, auth_enc, "EasyHandshake"))
 		return false;
 
 	// Generate a proof that is the last quarter of the answer to the challenge,
@@ -166,7 +166,7 @@ bool ClientEasyHandshake::ProcessAnswer(const void *in_answer, AuthenticatedEncr
 	// handshake.  This would be useful for encrypting several different channels,
 	// such as one handshake being used to key and encrypt a TCP stream and UDP
 	// packets, or multiple TCP streams keyed from the same handshake, etc
-	if (!tun_client.KeyEncryption(&key_hash, auth_enc, "EasyClientHandshake"))
+	if (!tun_client.KeyEncryption(&key_hash, auth_enc, "EasyHandshake"))
 		return false;
 
 	// Validate the proof of key from the server, which is the last quarter of the
