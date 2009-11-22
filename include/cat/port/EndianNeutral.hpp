@@ -82,7 +82,7 @@ namespace cat {
     CAT_INLINE u64 getLE(u64 n) { return CAT_BOSWAP64(n); }
     CAT_INLINE u16 getLE16(u16 n) { return CAT_BOSWAP16(n); }
     CAT_INLINE u32 getLE32(u32 n) { return CAT_BOSWAP32(n); }
-    CAT_INLINE u64 getLE32(u64 n) { return CAT_BOSWAP64(n); }
+    CAT_INLINE u64 getLE64(u64 n) { return CAT_BOSWAP64(n); }
     CAT_INLINE s16 swapLE(s16 &n) { return n = CAT_BOSWAP16((u16)n); }
     CAT_INLINE s32 swapLE(s32 &n) { return n = CAT_BOSWAP32((u32)n); }
     CAT_INLINE s64 swapLE(s64 &n) { return n = CAT_BOSWAP64((u64)n); }
