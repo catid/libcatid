@@ -26,9 +26,6 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#undef _WIN32_WINNT
-#define _WIN32_WINNT 0x0502 /* Windows XP SP2 or later */
-
 #include <cat/crypt/rand/Fortuna.hpp>
 using namespace cat;
 

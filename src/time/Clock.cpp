@@ -32,7 +32,7 @@
 # include <sys/time.h>
 # include <stdlib.h> // qsort
 #elif defined(CAT_OS_WINDOWS)
-# include <windows.h>
+# include <cat/port/WindowsInclude.hpp>
 # if defined(CAT_COMPILER_MSVC)
 #  pragma warning(push)
 #  pragma warning(disable: 4201) // Squelch annoying warning from MSVC2005 SDK

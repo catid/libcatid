@@ -33,7 +33,7 @@ using namespace cat;
 using namespace std;
 
 #if defined(CAT_OS_WINDOWS)
-# include <windows.h>
+# include <cat/port/WindowsInclude.hpp>
 # include <wincrypt.h>
 # if defined(CAT_COMPILER_MSVC)
 #  pragma comment(lib, "advapi32")
