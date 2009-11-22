@@ -88,7 +88,7 @@
 
 
 #if defined(CAT_OS_WINDOWS) || defined(CAT_OS_WINDOWS_CE)
-# include <windows.h>
+# include <cat/port/WindowsInclude.hpp>
 # include <wincrypt.h>
 #elif defined(CAT_OS_LINUX) && !defined(CAT_NO_ENTROPY_THREAD)
 # include <pthread.h>
