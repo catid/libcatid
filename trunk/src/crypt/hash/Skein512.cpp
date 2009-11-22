@@ -232,3 +232,6 @@ void Skein::HashComputation512(const void *_message, int blocks, u32 byte_count,
     // Update state
     memcpy(NextState, k, BYTES);
 }
+
+#undef THREEFISH
+#undef INJECTKEY
