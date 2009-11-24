@@ -38,6 +38,7 @@ static int CPU_CACHELINE_BYTES = 0;
 static int DetermineCacheLineBytes()
 {
 #if defined(CAT_ASM_INTEL) && defined(CAT_ISA_X86)
+
 	u32 cacheline = 0;
 	CAT_ASM_BEGIN
 		push ebx
@@ -53,7 +54,9 @@ done:	pop ebx
 	CAT_ASM_END
 
 	return (cacheline & 4095) + 1;
+
 #elif defined(CAT_ASM_ATT) && defined(CAT_ISA_X86)
+
 	u32 cacheline = 0;
 	CAT_ASM_BEGIN
 		"xorl %%ecx, %%ecx\n\t"
@@ -71,8 +74,11 @@ done:	pop ebx
 	CAT_ASM_END
 
 	return (cacheline & 4095) + 1;
+
 #else
+
 	return 64;
+
 #endif
 }
 

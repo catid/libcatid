@@ -73,7 +73,7 @@ namespace cat {
         return c.f;
     }
 
-#else
+#elif defined(CAT_ENDIAN_BIG)
 
 # define swapBE(n) NoChangeNeeded(n)
 # define getBE(n) NoChangeNeeded(n)
@@ -102,6 +102,80 @@ namespace cat {
         c.i = CAT_BOSWAP32(c.i);
         return c.f;
     }
+
+#elif defined(CAT_ENDIAN_UNKNOWN)
+
+	class RuntimeEndianDetector
+	{
+	public:
+		bool _big_endian, _little_endian;
+
+		RuntimeEndianDetector();
+	};
+
+	class Endianness
+	{
+	public:
+		static RuntimeEndianDetector detector;
+		static CAT_INLINE bool IsBigEndian() { return detector._big_endian; }
+		static CAT_INLINE bool IsLittleEndian() { return detector._little_endian; }
+	};
+
+	CAT_INLINE u16 swapBE(u16 &n) { return Endianness::IsBigEndian() ? n : n = CAT_BOSWAP16(n); }
+	CAT_INLINE u32 swapBE(u32 &n) { return Endianness::IsBigEndian() ? n : n = CAT_BOSWAP32(n); }
+	CAT_INLINE u64 swapBE(u64 &n) { return Endianness::IsBigEndian() ? n : n = CAT_BOSWAP64(n); }
+	CAT_INLINE u16 getBE(u16 n) { return Endianness::IsBigEndian() ? n : CAT_BOSWAP16(n); }
+	CAT_INLINE u32 getBE(u32 n) { return Endianness::IsBigEndian() ? n : CAT_BOSWAP32(n); }
+	CAT_INLINE u64 getBE(u64 n) { return Endianness::IsBigEndian() ? n : CAT_BOSWAP64(n); }
+	CAT_INLINE u16 getBE16(u16 n) { return Endianness::IsBigEndian() ? n : CAT_BOSWAP16(n); }
+	CAT_INLINE u32 getBE32(u32 n) { return Endianness::IsBigEndian() ? n : CAT_BOSWAP32(n); }
+	CAT_INLINE u64 getBE64(u64 n) { return Endianness::IsBigEndian() ? n : CAT_BOSWAP64(n); }
+	CAT_INLINE s16 swapBE(s16 &n) { return Endianness::IsBigEndian() ? n : n = CAT_BOSWAP16((u16)n); }
+	CAT_INLINE s32 swapBE(s32 &n) { return Endianness::IsBigEndian() ? n : n = CAT_BOSWAP32((u32)n); }
+	CAT_INLINE s64 swapBE(s64 &n) { return Endianness::IsBigEndian() ? n : n = CAT_BOSWAP64((u64)n); }
+	CAT_INLINE s16 getBE(s16 n) { return Endianness::IsBigEndian() ? n : CAT_BOSWAP16((u16)n); }
+	CAT_INLINE s32 getBE(s32 n) { return Endianness::IsBigEndian() ? n : CAT_BOSWAP32((u32)n); }
+	CAT_INLINE s64 getBE(s64 n) { return Endianness::IsBigEndian() ? n : CAT_BOSWAP64((u64)n); }
+
+	CAT_INLINE float getBE(float n)
+	{
+		if (Endianness::IsBigEndian())
+			return n;
+		else
+		{
+			Float32 c = n;
+			c.i = CAT_BOSWAP32(c.i);
+			return c.f;
+		}
+	}
+
+	CAT_INLINE u16 swapLE(u16 &n) { return Endianness::IsLittleEndian() ? n : n = CAT_BOSWAP16(n); }
+	CAT_INLINE u32 swapLE(u32 &n) { return Endianness::IsLittleEndian() ? n : n = CAT_BOSWAP32(n); }
+	CAT_INLINE u64 swapLE(u64 &n) { return Endianness::IsLittleEndian() ? n : n = CAT_BOSWAP64(n); }
+	CAT_INLINE u16 getLE(u16 n) { return Endianness::IsLittleEndian() ? n : CAT_BOSWAP16(n); }
+	CAT_INLINE u32 getLE(u32 n) { return Endianness::IsLittleEndian() ? n : CAT_BOSWAP32(n); }
+	CAT_INLINE u64 getLE(u64 n) { return Endianness::IsLittleEndian() ? n : CAT_BOSWAP64(n); }
+	CAT_INLINE u16 getLE16(u16 n) { return Endianness::IsLittleEndian() ? n : CAT_BOSWAP16(n); }
+	CAT_INLINE u32 getLE32(u32 n) { return Endianness::IsLittleEndian() ? n : CAT_BOSWAP32(n); }
+	CAT_INLINE u64 getLE64(u64 n) { return Endianness::IsLittleEndian() ? n : CAT_BOSWAP64(n); }
+	CAT_INLINE s16 swapLE(s16 &n) { return Endianness::IsLittleEndian() ? n : n = CAT_BOSWAP16((u16)n); }
+	CAT_INLINE s32 swapLE(s32 &n) { return Endianness::IsLittleEndian() ? n : n = CAT_BOSWAP32((u32)n); }
+	CAT_INLINE s64 swapLE(s64 &n) { return Endianness::IsLittleEndian() ? n : n = CAT_BOSWAP64((u64)n); }
+	CAT_INLINE s16 getLE(s16 n) { return Endianness::IsLittleEndian() ? n : CAT_BOSWAP16((u16)n); }
+	CAT_INLINE s32 getLE(s32 n) { return Endianness::IsLittleEndian() ? n : CAT_BOSWAP32((u32)n); }
+	CAT_INLINE s64 getLE(s64 n) { return Endianness::IsLittleEndian() ? n : CAT_BOSWAP64((u64)n); }
+
+	CAT_INLINE float getLE(float n)
+	{
+		if (Endianness::IsLittleEndian())
+			return n;
+		else
+		{
+			Float32 c = n;
+			c.i = CAT_BOSWAP32(c.i);
+			return c.f;
+		}
+	}
 
 #endif
 
