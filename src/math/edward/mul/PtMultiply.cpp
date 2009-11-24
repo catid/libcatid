@@ -108,7 +108,7 @@ void BigTwistedEdwards::PtMultiply(const Leg *in_precomp, int w, const Leg *in_k
         Leg z = (((bits ^ (0 - ((bits >> w) & 1))) & ((1 << w) - 1)) + 1) >> 1;
 
         // Extract the operation for this table entry
-        int neg_mask = (bits & ((Leg)1 << w)) >> 2;
+        Leg neg_mask = (bits & ((Leg)1 << w)) >> 2;
 		if (!z) neg_mask = 0; // "negative zero" -- occurs when bits are all ones
         const Leg *precomp = in_precomp + (MOF_LUT[z].add_index + neg_mask) * POINT_STRIDE;
         int doubles_after = MOF_LUT[z].doubles_after;
@@ -204,8 +204,8 @@ void BigTwistedEdwards::PtSiMultiply(const Leg *precomp_p, const Leg *precomp_q,
         Leg z_l = (((bits_l ^ (0 - ((bits_l >> w) & 1))) & ((1 << w) - 1)) + 1) >> 1;
 
         // Extract the operation for this table entry
-        int neg_mask_k = (bits_k & ((Leg)1 << w)) >> 2;
-        int neg_mask_l = (bits_l & ((Leg)1 << w)) >> 2;
+        Leg neg_mask_k = (bits_k & ((Leg)1 << w)) >> 2;
+        Leg neg_mask_l = (bits_l & ((Leg)1 << w)) >> 2;
 		if (!z_k) neg_mask_k = 0; // "negative zero" -- occurs when bits are all ones
 		if (!z_l) neg_mask_l = 0; // "negative zero" -- occurs when bits are all ones
         const Leg *precomp_k = precomp_p + (MOF_LUT[z_k].add_index + neg_mask_k) * POINT_STRIDE;
