@@ -32,7 +32,7 @@
 #include <cat/Platform.hpp>
 
 #if defined(CAT_OS_WINDOWS)
-# include <cat/port/WindowsInclude.hpp>
+# include <windows.h>
 #endif
 
 namespace cat {
@@ -41,25 +41,30 @@ namespace cat {
 namespace Atomic {
 
 
-// Compare-and-Swap (CAS)
+// Compare-and-Swap 2x word size (CAS2)
 // On 32-bit architectures, the arguments point to 64-bit values
 // On 64-bit architectures, the arguments point to 128-bit values
 // Returns true if the old value was equal to the expected value
-CAT_INLINE bool CAS(volatile void *x, const void *expected_old_value, const void *new_value);
+CAT_INLINE bool CAS2(volatile void *x, const void *expected_old_value, const void *new_value);
+// Will define CAT_NO_ATOMIC_CAS2 if the platform/compiler does not support atomic CAS2
 
 // Add y to x, returning the previous state of x
 CAT_INLINE u32 Add(volatile u32 *x, s32 y);
+// Will define CAT_NO_ATOMIC_ADD if the platform/compiler does not support atomic add
 
 // Set x to new value, returning the previous state of x
 CAT_INLINE u32 Set(volatile u32 *x, u32 new_value);
+// Will define CAT_NO_ATOMIC_SET if the platform/compiler does not support atomic set
 
 // Bit Test and Set (BTS)
 // Returns true if the bit was 1 and is still 1, otherwise false
 CAT_INLINE bool BTS(volatile u32 *x, int bit);
+// Will define CAT_NO_ATOMIC_BTS if the platform/compiler does not support atomic bts
 
 // Bit Test and Reset (BTR)
 // Returns true if the bit was 1 and is now 0, otherwise false
 CAT_INLINE bool BTR(volatile u32 *x, int bit);
+// Will define CAT_NO_ATOMIC_BTR if the platform/compiler does not support atomic btr
 
 
 } // namespace Atomic
@@ -70,9 +75,9 @@ CAT_INLINE bool BTR(volatile u32 *x, int bit);
 #if defined(CAT_WORD_64)
 
 
-bool Atomic::CAS(volatile void *x, const void *expected_old_value, const void *new_value)
+bool Atomic::CAS2(volatile void *x, const void *expected_old_value, const void *new_value)
 {
-#if defined(CAT_COMPILER_MSVC)
+#if defined(CAT_COMPILER_MSVC) && (_MSC_VER > 1400)
 
     __int64 ComparandResult[2] = { ((u64*)expected_old_value)[0],
                                    ((u64*)expected_old_value)[1] };
@@ -100,7 +105,13 @@ bool Atomic::CAS(volatile void *x, const void *expected_old_value, const void *n
 
 #else
 
-#error "Missing implementation for your architecture"
+#define CAT_NO_ATOMIC_CAS2 /* Platform/compiler does not support CAS2 */
+
+	(void) x; // avoid unused parameter warning
+	(void) expected_old_value;
+	(void) new_value;
+
+	return true;
 
 #endif
 }
@@ -109,7 +120,7 @@ bool Atomic::CAS(volatile void *x, const void *expected_old_value, const void *n
 #else // 32-bit version:
 
 
-bool Atomic::CAS(volatile void *x, const void *expected_old_value, const void *new_value)
+bool Atomic::CAS2(volatile void *x, const void *expected_old_value, const void *new_value)
 {
 #if defined(CAT_ASM_INTEL) && defined(CAT_ISA_X86)
 
@@ -149,7 +160,13 @@ bool Atomic::CAS(volatile void *x, const void *expected_old_value, const void *n
 
 #else
 
-#error "Missing implementation for your architecture"
+#define CAT_NO_ATOMIC_CAS2 /* Platform/compiler does not support atomic CAS2 */
+
+	(void) x; // avoid unused parameter warning
+	(void) expected_old_value;
+	(void) new_value;
+
+	return true;
 
 #endif
 }
@@ -189,7 +206,11 @@ u32 Atomic::Add(volatile u32 *x, s32 y)
 
 #else
 
-#error "Missing implementation for your architecture"
+#define CAT_NO_ATOMIC_ADD /* Platform/compiler does not support atomic add */
+
+	u32 old_x = *x;
+	*x = old_x + y;
+	return old_x;
 
 #endif
 }
@@ -201,7 +222,11 @@ u32 Atomic::Set(volatile u32 *x, u32 new_value)
 {
 #if defined(CAT_COMPILER_MSVC) && defined(CAT_WORD_64)
 
-    return _InterlockedExchange((volatile LONG*)x, new_value);
+#if (_MSC_VER <= 1400) // MSVC 2005
+	return _InterlockedExchange((long*)x, new_value);
+#else // MSVC 2008+
+	return _InterlockedExchange((volatile LONG*)x, new_value);
+#endif
 
 #elif defined(CAT_ASM_INTEL) && defined(CAT_WORD_32) && defined(CAT_ISA_X86)
 
@@ -226,7 +251,11 @@ u32 Atomic::Set(volatile u32 *x, u32 new_value)
 
 #else
 
-#error "Missing implementation for your architecture"
+#define CAT_NO_ATOMIC_SET /* Platform/compiler does not support atomic set */
+
+	u32 old_x = *x;
+	*x = new_value;
+	return old_x;
 
 #endif
 }
@@ -238,7 +267,11 @@ bool Atomic::BTS(volatile u32 *x, int bit)
 {
 #if defined(CAT_COMPILER_MSVC) && defined(CAT_WORD_64)
 
-    return !!_interlockedbittestandset((volatile LONG*)x, bit);
+#if (_MSC_VER <= 1400) // MSVC 2005
+	return !!_interlockedbittestandset((long*)x, bit);
+#else // MSVC 2008+
+	return !!_interlockedbittestandset((volatile LONG*)x, bit);
+#endif
 
 #elif defined(CAT_ASM_INTEL) && defined(CAT_WORD_32) && defined(CAT_ISA_X86)
 
@@ -266,7 +299,12 @@ bool Atomic::BTS(volatile u32 *x, int bit)
 
 #else
 
-#error "Missing implementation for your architecture"
+#define CAT_NO_ATOMIC_BTS /* Platform/compiler does not support atomic bts */
+
+	u32 old_x = *x;
+	u32 mask = 1 << bit;
+	*x = old_x | mask;
+	return (old_x & mask) ? true : false;
 
 #endif
 }
@@ -278,7 +316,11 @@ bool Atomic::BTR(volatile u32 *x, int bit)
 {
 #if defined(CAT_COMPILER_MSVC) && defined(CAT_WORD_64)
 
-    return !!_interlockedbittestandreset((volatile LONG*)x, bit);
+#if (_MSC_VER <= 1400) // MSVC 2005
+	return !!_interlockedbittestandreset((long*)x, bit);
+#else // MSVC 2008+
+	return !!_interlockedbittestandreset((volatile LONG*)x, bit);
+#endif
 
 #elif defined(CAT_ASM_INTEL) && defined(CAT_WORD_32) && defined(CAT_ISA_X86)
 
@@ -306,7 +348,12 @@ bool Atomic::BTR(volatile u32 *x, int bit)
 
 #else
 
-#error "Missing implementation for your architecture"
+#define CAT_NO_ATOMIC_BTR /* Platform/compiler does not support atomic btr */
+
+	u32 old_x = *x;
+	u32 mask = 1 << bit;
+	*x = old_x & ~mask;
+	return (old_x & mask) ? true : false;
 
 #endif
 }
