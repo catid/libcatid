@@ -67,43 +67,47 @@ Clock::~Clock()
 
 u32 Clock::sec()
 {
-#if defined(CAT_OS_LINUX)
+#if defined(CAT_OS_WINDOWS)
 
-    struct timeval cateq_v;
-    struct timezone cateq_z;
+    return GetTickCount() / 1000;
 
-    gettimeofday(&cateq_v, &cateq_z);
+#else
 
-    return static_cast<u32>(cateq_v.tv_sec);
+	struct timeval cateq_v;
+	struct timezone cateq_z;
 
-#elif defined(CAT_OS_WINDOWS)
+	gettimeofday(&cateq_v, &cateq_z);
 
-    return timeGetTime() / 1000;
+	return static_cast<u32>(cateq_v.tv_sec);
 
 #endif
 }
 
 u32 Clock::hsec()
 {
-#if defined(CAT_OS_LINUX)
+#if defined(CAT_OS_WINDOWS)
 
-    struct timeval cateq_v;
-    struct timezone cateq_z;
+	return GetTickCount() / 10;
 
-    gettimeofday(&cateq_v, &cateq_z);
+#else
 
-    return static_cast<u32>(100.0 * static_cast<double>(cateq_v.tv_sec) + static_cast<double>(cateq_v.tv_usec) / 10000.0);
+	struct timeval cateq_v;
+	struct timezone cateq_z;
 
-#elif defined(CAT_OS_WINDOWS)
+	gettimeofday(&cateq_v, &cateq_z);
 
-    return timeGetTime() / 10;
+	return static_cast<u32>(100.0 * static_cast<double>(cateq_v.tv_sec) + static_cast<double>(cateq_v.tv_usec) / 10000.0);
 
 #endif
 }
 
 u32 Clock::msec()
 {
-#if defined(CAT_OS_LINUX)
+#if defined(CAT_OS_WINDOWS)
+
+	return timeGetTime();
+
+#else
 
     struct timeval cateq_v;
     struct timezone cateq_z;
@@ -112,25 +116,12 @@ u32 Clock::msec()
 
     return static_cast<u32>(1000.0 * static_cast<double>(cateq_v.tv_sec) + static_cast<double>(cateq_v.tv_usec) / 1000.0);
 
-#elif defined(CAT_OS_WINDOWS)
-
-    return timeGetTime();
-
 #endif
 }
 
 double Clock::usec()
 {
-#if defined(CAT_OS_LINUX)
-
-    struct timeval cateq_v;
-    struct timezone cateq_z;
-
-    gettimeofday(&cateq_v, &cateq_z);
-
-    return 1000000.0 * static_cast<double>(cateq_v.tv_sec) + static_cast<double>(cateq_v.tv_usec);
-
-#elif defined(CAT_OS_WINDOWS)
+#if defined(CAT_OS_WINDOWS)
 
     /* In Windows, this value can leap forward randomly:
      * http://support.microsoft.com/default.aspx?scid=KB;EN-US;Q274323
@@ -146,20 +137,31 @@ double Clock::usec()
 
     return usec;
 
+#else
+
+    struct timeval cateq_v;
+    struct timezone cateq_z;
+
+    gettimeofday(&cateq_v, &cateq_z);
+
+    return 1000000.0 * static_cast<double>(cateq_v.tv_sec) + static_cast<double>(cateq_v.tv_usec);
+
 #endif
 }
 
 
 void Clock::sleep(u32 milliseconds)
 {
-#if defined(CAT_OS_LINUX)
-    struct timespec ts;
-    ts.tv_sec = milliseconds / 1000;
-    ts.tv_nsec = milliseconds * 1000000 - ts.tv_sec * 1000;
-    while (nanosleep(&ts, &ts) == -1);
+#if defined(CAT_OS_WINDOWS)
 
-#elif defined(CAT_OS_WINDOWS)
-    Sleep(milliseconds);
+	Sleep(milliseconds);
+
+#else
+
+	struct timespec ts;
+	ts.tv_sec = milliseconds / 1000;
+	ts.tv_nsec = milliseconds * 1000000 - ts.tv_sec * 1000;
+	while (nanosleep(&ts, &ts) == -1);
 
 #endif
 }
