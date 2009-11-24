@@ -298,6 +298,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\src\port\EndianNeutral.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\src\rand\MersenneTwister.cpp"
 				>
 			</File>

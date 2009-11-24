@@ -61,17 +61,34 @@ namespace cat {
 #  define CAT_DEBUG
 # endif
 
-// Digital Mars C++ Compiler
-#elif defined(__DMC__)
+// Digital Mars C++ Compiler (previously known at Symantec C++)
+#elif defined(__DMC__) || defined(__SC__)
 # define CAT_COMPILER_DMARS
+
+# define CAT_PACKED
+# define CAT_INLINE __inline
+# define CAT_ASM_INTEL
+# define CAT_ASM_BEGIN __asm {
+# define CAT_ASM_EMIT __emit__
+# define CAT_ASM_END }
 # define CAT_TLS __declspec(thread)
-# error "Fill in the holes"
+# define CAT_RESTRICT __restrict
 
 // SUN C++ Compiler
 #elif defined(__SUNPRO_CC)
 # define CAT_COMPILER_SUN
+
+# define CAT_PACKED _attribute_((packed))
+# define CAT_INLINE inline
+# define CAT_ASM_ATT
+# define CAT_ASM_BEGIN __asm__ __volatile__ (
+# define CAT_ASM_END );
 # define CAT_TLS __thread
-# error "Fill in the holes"
+# define CAT_RESTRICT __restrict__
+
+# if !defined(NDEBUG)
+#  define CAT_DEBUG
+# endif
 
 // Metrowerks C++ Compiler : "Compatible" with MSVC
 #elif defined(__MWERKS__)
@@ -131,7 +148,13 @@ namespace cat {
 namespace cat {
 
 #else
-# error "Add your compiler to the list"
+# define CAT_COMPILER_UNKNOWN
+
+# define CAT_PACKED /* no way to detect packing syntax */
+# define CAT_INLINE inline
+// No way to support inline assembly code here
+# define CAT_RESTRICT
+
 #endif
 
 
@@ -151,7 +174,7 @@ namespace cat {
 # define CAT_ISA_ARM
 
 #else
-# error "Add your architecture to the instruction set list"
+# define CAT_ISA_UNKNOWN
 #endif
 
 
@@ -160,12 +183,11 @@ namespace cat {
 #if defined(CAT_ISA_PPC)
 # define CAT_ENDIAN_BIG
 
-#elif defined(CAT_ISA_X86) || (defined(TARGET_OS_IPHONE) && defined(CAT_ISA_ARM))
-// ARM can be big or little endian based on target
+#elif defined(CAT_ISA_X86)
 # define CAT_ENDIAN_LITTLE
 
 #else
-# error "Add your architecture to the endianness list"
+# define CAT_ENDIAN_UNKNOWN /* Must be detected at runtime */
 #endif
 
 
@@ -204,8 +226,8 @@ namespace cat {
 #elif defined(_WIN32)
 # define CAT_OS_WINDOWS
 
-#else // Otherwise assume POSIX-compliance
-# define CAT_OS_POSIX
+#else
+# define CAT_OS_UNKNOWN
 #endif
 
 
@@ -259,19 +281,6 @@ union Float32 {
     Float32(float n) { f = n; }
     Float32(u32 n) { i = n; }
 };
-
-/*
-//// Coordinate system ////
-
-// Order of vertices in any quad
-enum QuadCoords
-{
-    QUAD_UL, // upper left  (0,0)
-    QUAD_LL, // lower left  (0,1)
-    QUAD_LR, // lower right (1,1)
-    QUAD_UR, // upper right (1,0)
-};
-*/
 
 
 //// String and buffer macros ////

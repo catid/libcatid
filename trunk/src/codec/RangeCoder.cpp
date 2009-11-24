@@ -562,7 +562,8 @@ RangeDecoder::RangeDecoder(const void *message, int bytes)
         code = 0;
         remaining = 0;
 
-        u8 *code8 = (u8*)&code;
+        u64 *code64 = (u64*)&code;
+
         switch (bytes)
         {
 #if defined(CAT_ENDIAN_LITTLE)
@@ -574,7 +575,7 @@ RangeDecoder::RangeDecoder(const void *message, int bytes)
         case 3: code8[5] = m8[2];
         case 2: code8[6] = m8[1];
         case 1: code8[7] = m8[0];
-#else
+#elif defined(CAT_ENDIAN_BIG)
         case 7: code8[6] = m8[6];
         case 6: code8[5] = m8[5];
         case 5: code8[4] = m8[4];
@@ -583,6 +584,8 @@ RangeDecoder::RangeDecoder(const void *message, int bytes)
         case 3: code8[2] = m8[2];
         case 2: code8[1] = m8[1];
         case 1: code8[0] = m8[0];
+#else
+#error "Fix this you lazy bastard"
 #endif
         }
     }
