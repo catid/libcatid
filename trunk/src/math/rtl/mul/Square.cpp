@@ -33,37 +33,9 @@ void BigRTL::Square(const Leg *input, Leg *output)
 {
     Leg *cross = Get(library_regs - 2);
 
-    // ICC does a better job than my hand-written version by using SIMD instructions,
-    // so I use its optimizer instead.
-#if !defined(CAT_COMPILER_ICC) && defined(CAT_ASM_INTEL) && defined(CAT_ARCH_32)
-
-    int legs = library_legs;
-
-    CAT_ASM_BEGIN
-        mov esi, [input]     ; esi = in
-        mov ecx, [output]    ; ecx = output
-        mov edi, [legs]      ; edi = leg count
-
-loop_head:
-        ; edx:eax = in[0] * in[0]
-        mov eax, [esi]
-        mul eax
-        mov [ecx], eax
-        mov [ecx+4], edx
-        lea ecx, [ecx + 8]
-        lea esi, [esi + 4]
-
-        sub edi, 1
-        ja loop_head
-    CAT_ASM_END
-
-#else
-
     // Calculate square products
     for (int ii = 0; ii < library_legs; ++ii)
         CAT_LEG_MUL(input[ii], input[ii], output[ii*2+1], output[ii*2]);
-
-#endif
 
     // Calculate cross products
     cross[library_legs] = MultiplyX(library_legs-1, input+1, input[0], cross+1);
