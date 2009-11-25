@@ -157,3 +157,5 @@ void ChaCha::Crypt(const void *in, void *out, int bytes)
         }
     }
 }
+
+#undef QUARTERROUND

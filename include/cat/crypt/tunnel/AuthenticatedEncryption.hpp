@@ -80,7 +80,7 @@ class AuthenticatedEncryption
     friend class KeyAgreementResponder;
     friend class KeyAgreementInitiator;
 
-    bool is_initiator, accept_out_of_order;
+    bool _is_initiator, _accept_out_of_order;
     Skein key_hash;
 
     HMAC_MD5 local_mac, remote_mac;
@@ -122,7 +122,7 @@ public:
     bool ValidateProof(const u8 *remote_proof, int proof_bytes);
 
 public:
-	void AllowOutOfOrder(bool allowed = true) { accept_out_of_order = allowed; }
+	void AllowOutOfOrder(bool allowed = true) { _accept_out_of_order = allowed; }
 
 public:
     // Overhead is OVERHEAD_BYTES bytes at the end of the packet

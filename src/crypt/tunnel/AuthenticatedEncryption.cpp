@@ -35,8 +35,8 @@ using namespace cat;
 
 bool AuthenticatedEncryption::SetKey(int KeyBytes, Skein *key, bool is_initiator, const char *key_name)
 {
-	this->accept_out_of_order = true;
-    this->is_initiator = is_initiator;
+	_accept_out_of_order = true;
+    _is_initiator = is_initiator;
 
 	if (!key_hash.SetKey(key)) return false;
 	if (!key_hash.BeginKDF()) return false;
@@ -85,7 +85,7 @@ bool AuthenticatedEncryption::GenerateProof(u8 *local_proof, int proof_bytes)
     Skein mac;
 
     if (!mac.SetKey(&key_hash) || !mac.BeginMAC()) return false;
-    mac.CrunchString(is_initiator ? "initiator proof" : "responder proof");
+    mac.CrunchString(_is_initiator ? "initiator proof" : "responder proof");
     mac.End();
 
     mac.Generate(local_proof, proof_bytes);
@@ -100,7 +100,7 @@ bool AuthenticatedEncryption::ValidateProof(const u8 *remote_proof, int proof_by
     Skein mac;
 
     if (!mac.SetKey(&key_hash) || !mac.BeginMAC()) return false;
-    mac.CrunchString(is_initiator ? "responder proof" : "initiator proof");
+    mac.CrunchString(_is_initiator ? "responder proof" : "initiator proof");
     mac.End();
 
     u8 expected[KeyAgreementCommon::MAX_BYTES];
@@ -122,7 +122,7 @@ bool AuthenticatedEncryption::IsValidIV(u64 iv)
     if (delta >= 0)
     {
 		// Check if we do not accept out of order messages
-		if (!accept_out_of_order) return false;
+		if (!_accept_out_of_order) return false;
 
         // Check if we have kept a record for this IV
         if (delta >= BITMAP_BITS) return false;
