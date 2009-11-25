@@ -26,7 +26,7 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/math/BigPseudoMersenne.hpp>
+#include <cat/math/Legs.hpp>
 using namespace cat;
 
 // Comba Multiplication in template meta-programming
