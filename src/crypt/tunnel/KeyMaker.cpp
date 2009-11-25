@@ -31,7 +31,10 @@ using namespace cat;
 
 bool KeyMaker::GenerateKeyPair(BigTwistedEdwards *math, FortunaOutput *csprng, u8 *public_key, int public_bytes, u8 *private_key, int private_bytes)
 {
-    if (!csprng || !math) return false;
+#if defined(CAT_USER_ERROR_CHECKING)
+	if (!math || !csprng) return false;
+#endif
+
 	int bits = math->RegBytes() * 8;
 
     // Validate and accept number of bits
