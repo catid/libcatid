@@ -15,6 +15,7 @@ set(LIBRARY_OUTPUT_PATH ${LIB}/cat)
 # Common
 add_library(libcatcommon STATIC
 ${SRC}/port/AlignedAlloc.cpp
+${SRC}/port/EndianNeutral.cpp
 ${SRC}/time/Clock.cpp
 ${SRC}/rand/MersenneTwister.cpp
 ${SRC}/rand/StdRand.cpp
@@ -32,6 +33,8 @@ ${SRC}/crypt/privatekey/ChaCha.cpp
 ${SRC}/crypt/cookie/CookieJar.cpp
 ${SRC}/crypt/rand/EntropyLinux.cpp
 ${SRC}/crypt/rand/EntropyWindows.cpp
+${SRC}/crypt/rand/EntropyWindowsCE.cpp
+${SRC}/crypt/rand/EntropyGeneric.cpp
 ${SRC}/crypt/rand/Fortuna.cpp
 ${SRC}/crypt/hash/HMAC_MD5.cpp
 ${SRC}/crypt/hash/Skein.cpp
@@ -74,6 +77,7 @@ ${SRC}/crypt/tunnel/KeyMaker.cpp
 ${SRC}/crypt/tunnel/KeyAgreement.cpp
 ${SRC}/crypt/tunnel/KeyAgreementInitiator.cpp
 ${SRC}/crypt/tunnel/KeyAgreementResponder.cpp
+${SRC}/crypt/tunnel/EasyHandshake.cpp
 ${SRC}/crypt/tunnel/AuthenticatedEncryption.cpp)
 
 target_link_libraries(libcattunnel libcatcrypt libcatmath)

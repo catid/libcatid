@@ -562,7 +562,7 @@ RangeDecoder::RangeDecoder(const void *message, int bytes)
         code = 0;
         remaining = 0;
 
-        u64 *code64 = (u64*)&code;
+        u8 *code8 = (u8*)&code;
 
         switch (bytes)
         {
