@@ -82,15 +82,6 @@ ${SRC}/crypt/tunnel/AuthenticatedEncryption.cpp)
 
 target_link_libraries(libcattunnel libcatcrypt libcatmath)
 
-# Graphics
-add_library(libcatgfx STATIC
-${SRC}/gfx/Scalar.cpp
-${SRC}/gfx/Vector.cpp
-${SRC}/gfx/Matrix.cpp
-${SRC}/gfx/Quaternion.cpp)
-
-target_link_libraries(libcatgfx)
-
 # OS-dependent linkage
 if (WIN32)
   target_link_libraries (libcatcommon winmm.lib)
