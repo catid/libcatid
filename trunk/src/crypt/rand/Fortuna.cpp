@@ -34,6 +34,12 @@ using namespace cat;
 u32 FortunaFactory::MasterSeedRevision = 0;
 Skein FortunaFactory::MasterSeed;
 
+#if defined(CAT_NO_ATOMIC_ADD)
+#include <pthread.h>
+static pthread_mutex_t m_thread_id_mutex;
+#endif // CAT_NO_ATOMIC_ADD
+
+
 
 //// FortunaOutput
 
@@ -41,8 +47,20 @@ static volatile u32 thread_id_generator = 0;
 
 FortunaOutput::FortunaOutput()
 {
-    // Generate a unique thread id for each fortuna object
+#if defined(CAT_NO_ATOMIC_ADD)
+
+	pthread_mutex_lock(&m_thread_id_mutex);
+
+	thread_id = thread_id_generator++;
+
+	pthread_mutex_unlock(&m_thread_id_mutex);
+
+#else // CAT_NO_ATOMIC_ADD
+
+	// Generate a unique thread id for each fortuna object
 	thread_id = Atomic::Add(&thread_id_generator, 1);
+
+#endif // CAT_NO_ATOMIC_ADD
 
     Reseed();
 }
@@ -164,6 +182,11 @@ bool FortunaFactory::Initialize()
 	if (_initialized)
 		return true;
 
+#if defined(CAT_NO_ATOMIC_ADD)
+	if (pthread_mutex_init(&m_thread_id_mutex, 0))
+		return false;
+#endif // CAT_NO_ATOMIC_ADD
+
     MasterSeedRevision = 0;
     reseed_counter = 0;
 
@@ -191,6 +214,10 @@ void FortunaFactory::Shutdown()
 	{
 		// Block and wait for entropy collection thread to end
 		ShutdownEntropySources();
+
+#if defined(CAT_NO_ATOMIC_ADD)
+		pthread_mutex_destroy(&m_thread_id_mutex);
+#endif // CAT_NO_ATOMIC_ADD
 
 		_initialized = false;
 	}
