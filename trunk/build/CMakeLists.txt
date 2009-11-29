@@ -53,7 +53,7 @@ ${SRC}/math/BigMontgomery.cpp)
 
 target_link_libraries(libcatmath libcatcommon)
 
-if (NOT (CMAKE_SIZEOF_VOID_P EQUAL 4))
+if (NOT CMAKE_SIZEOF_VOID_P EQUAL 4)
 
     # x64-bit assembly code
     if (WIN32)
@@ -69,7 +69,7 @@ if (NOT (CMAKE_SIZEOF_VOID_P EQUAL 4))
 
     target_link_libraries(libcatmath big_x64_obj)
 
-endif (NOT (CMAKE_SIZEOF_VOID_P EQUAL 4))
+endif (NOT CMAKE_SIZEOF_VOID_P EQUAL 4)
 
 # Tunnel
 add_library(libcattunnel STATIC
