@@ -31,6 +31,12 @@
 
 #include <cat/crypt/tunnel/KeyAgreement.hpp>
 #include <cat/crypt/tunnel/AuthenticatedEncryption.hpp>
+#include <cat/threads/Atomic.hpp>
+
+#if defined(CAT_NO_ATOMIC_ADD) || defined(CAT_NO_ATOMIC_SET)
+# include <pthread.h>
+# define CAT_NO_ATOMIC_RESPONDER
+#endif
 
 namespace cat {
 
@@ -43,6 +49,11 @@ class KeyAgreementResponder : public KeyAgreementCommon
     Leg *G_MultPrecomp; // 8-bit table for multiplication
     Leg *y[2]; // Responder's ephemeral private key (kept secret)
     Leg *Y_neutral[2]; // Responder's ephemeral public key (shared online with initiator)
+
+#if defined(CAT_NO_ATOMIC_RESPONDER)
+	bool m_mutex_created;
+	pthread_mutex_t m_thread_id_mutex;
+#endif // CAT_NO_ATOMIC_RESPONDER
 
 	volatile u32 ChallengeCount;
 	volatile u32 ActiveY;

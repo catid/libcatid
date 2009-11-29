@@ -31,7 +31,6 @@
 #include <cat/crypt/SecureCompare.hpp>
 #include <cat/port/AlignedAlloc.hpp>
 #include <cat/time/Clock.hpp>
-#include <cat/threads/Atomic.hpp>
 using namespace cat;
 
 bool KeyAgreementResponder::AllocateMemory()
@@ -71,11 +70,19 @@ KeyAgreementResponder::KeyAgreementResponder()
 {
     b = 0;
     G_MultPrecomp = 0;
+
+#if defined(CAT_NO_ATOMIC_RESPONDER)
+	m_mutex_created = false;
+#endif // CAT_NO_ATOMIC_RESPONDER
 }
 
 KeyAgreementResponder::~KeyAgreementResponder()
 {
-    FreeMemory();
+#if defined(CAT_NO_ATOMIC_RESPONDER)
+	if (m_mutex_created) pthread_mutex_destroy(&m_thread_id_mutex);
+#endif // CAT_NO_ATOMIC_RESPONDER
+
+	FreeMemory();
 }
 
 void KeyAgreementResponder::Rekey(BigTwistedEdwards *math, FortunaOutput *csprng)
@@ -93,7 +100,17 @@ void KeyAgreementResponder::Rekey(BigTwistedEdwards *math, FortunaOutput *csprng
 
 	ActiveY = NextY;
 
+#if defined(CAT_NO_ATOMIC_RESPONDER)
+
+	pthread_mutex_lock(&m_thread_id_mutex);
+	ChallengeCount = 0;
+	pthread_mutex_unlock(&m_thread_id_mutex);
+
+#else // CAT_NO_ATOMIC_RESPONDER
+
 	Atomic::Set(&ChallengeCount, 0);
+
+#endif // CAT_NO_ATOMIC_RESPONDER
 }
 
 bool KeyAgreementResponder::Initialize(BigTwistedEdwards *math, FortunaOutput *csprng,
@@ -103,6 +120,15 @@ bool KeyAgreementResponder::Initialize(BigTwistedEdwards *math, FortunaOutput *c
 #if defined(CAT_USER_ERROR_CHECKING)
 	if (!math || !csprng) return false;
 #endif
+
+#if defined(CAT_NO_ATOMIC_RESPONDER)
+	if (!m_mutex_created)
+	{
+		if (pthread_mutex_init(&m_thread_id_mutex, 0) != 0)
+			return false;
+		m_mutex_created = true;
+	}
+#endif // CAT_NO_ATOMIC_RESPONDER
 
 	int bits = math->RegBytes() * 8;
 
@@ -171,9 +197,26 @@ bool KeyAgreementResponder::ProcessChallenge(BigTwistedEdwards *math, FortunaOut
     math->PtDoubleZ1(A, hA);
     math->PtEDouble(hA, hA);
 
+#if defined(CAT_NO_ATOMIC_RESPONDER)
+
+	bool time_to_rekey = false;
+
+	pthread_mutex_lock(&m_thread_id_mutex);
+	// Check if it is time to rekey
+	if (ChallengeCount++ == 100)
+		time_to_rekey = true;
+	pthread_mutex_unlock(&m_thread_id_mutex);
+
+	if (time_to_rekey)
+		Rekey(math, csprng);
+
+#else // CAT_NO_ATOMIC_RESPONDER
+
 	// Check if it is time to rekey
 	if (Atomic::Add(&ChallengeCount, 1) == 100)
 		Rekey(math, csprng);
+
+#endif // CAT_NO_ATOMIC_RESPONDER
 
 	// Copy the current endian neutral Y to the responder answer
 	u32 ThisY = ActiveY;
