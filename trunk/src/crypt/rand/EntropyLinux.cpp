@@ -36,6 +36,7 @@ using namespace cat;
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <stdio.h>
 
 #if !defined(CAT_NO_ENTROPY_THREAD)
 
