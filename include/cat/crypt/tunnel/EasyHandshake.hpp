@@ -37,9 +37,9 @@ namespace cat {
 
 
 /*
-	The EasyHandshake classes implement a simplified version of the Tabby handshake protocol.
+	The EasyHandshake classes implement a simplified version of my Tunnel protocol.
 
-	It only works for single-threaded servers and only produces a single authenticated encryption
+	This only works for single-threaded servers and only produces a single authenticated encryption
 	object for each handshake.  Explanations on how to use the library with a multi-threaded
 	server, and how to use one handshake to secure several TCP streams, are documented in the
 	comments of these classes.
@@ -58,6 +58,19 @@ namespace cat {
 
 	server is offline:
 
+		During startup, both the client and server should initialize the library.
+		This is necessary also just for generating keys:
+		----------------------------------------------------------------
+		#include <cat/AllTunnel.hpp>
+		using namespace cat;
+
+		if (!EasyHandshake::Initialize())
+		{
+			printf("ERROR:Unable to initialize crypto subsystem\n");
+		}
+		----------------------------------------------------------------
+
+		Generate the server public and private key pairs:
 		----------------------------------------------------------------
 		u8 public_key[EasyHandshake::PUBLIC_KEY_BYTES];
 		u8 private_key[EasyHandshake::PRIVATE_KEY_BYTES];
@@ -119,16 +132,23 @@ namespace cat {
 		// Example message encryption of "Hello".  Note that encryption
 		// inflates the size of the message by OVERHEAD_BYTES.
 		const int PLAINTEXT_BYTES = 5;
-		const int CIPHERTEXT_BYTES =
+		const int BUFFER_BYTES = \
 			PLAINTEXT_BYTES + AuthenticatedEncryption::OVERHEAD_BYTES;
+		int msg_bytes = PLAINTEXT_BYTES;
 
 		// Note that it makes room for message inflation
-		u8 message[CIPHERTEXT_BYTES] = {
+		const u8 message[CIPHERTEXT_BYTES] = {
 			'H', 'e', 'l', 'l', 'o'
 		};
 
-		// Note the second parameter is the number of plaintext bytes
-		client_e.Encrypt(message, PLAINTEXT_BYTES);
+		// Note the second parameter is the size of the buffer, and
+		// the third parameter will be adjusted to the size of the
+		// encrypted message:
+
+		if (client_e.Encrypt(message, BUFFER_BYTES, msg_bytes))
+		{
+			// msg_bytes is now adjusted to be the size of the ciphertext
+		}
 		----------------------------------------------------------------
 
 	client --> server : PROOF (32 random-looking bytes) + first encrypted packet can be appended here
@@ -139,13 +159,18 @@ namespace cat {
 
 		Decryption example:
 		----------------------------------------------------------------
-		// Note the second parameter is the number of ciphertext bytes
-		server_e.Decrypt(message, CIPHERTEXT_BYTES);
+		int buf_bytes = msg_bytes;
 
-		const int RECOVERED_BYTES = 
-			CIPHERTEXT_BYTES - AuthenticatedEncryption::OVERHEAD_BYTES;
+		// The second parameter is the number of bytes in the encrypted message
+		if (server_e.Decrypt(message, buf_bytes))
+		{
+			// buf_bytes is now adjusted to be the size of the plaintext
+		}
+		----------------------------------------------------------------
 
-		// message is now decrypted and is RECOVERED_BYTES in length
+		During program termination, the client and server should clean up:
+		----------------------------------------------------------------
+		EasyHandshake::Shutdown();
 		----------------------------------------------------------------
 
 	NOTES:
