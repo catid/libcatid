@@ -226,6 +226,12 @@ namespace cat {
 #elif defined(_WIN32)
 # define CAT_OS_WINDOWS
 
+#elif defined(_XBOX) || defined(_X360)
+# define CAT_OS_XBOX
+
+#elif defined(_PS3) || defined(__PS3__) || defined(SN_TARGET_PS3)
+# define CAT_OS_PS3
+
 #else
 # define CAT_OS_UNKNOWN
 #endif
