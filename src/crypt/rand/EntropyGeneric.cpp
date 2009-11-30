@@ -29,13 +29,17 @@
 #include <cat/crypt/rand/Fortuna.hpp>
 using namespace cat;
 
+// Used for MacOSX, iPhone, PS3, XBox, and others (for now)
+// I want to have more of these operating systems defined
+
 #if !defined(CAT_OS_WINDOWS) && !defined(CAT_OS_LINUX) && !defined(CAT_OS_WINDOWS_CE)
 
 #if !defined(CAT_NO_ENTROPY_THREAD)
 
-void FortunaFactory::EntropyCollectionThread()
+bool FortunaFactory::ThreadFunction(void *)
 {
 	// Generic version does not spawn a thread
+	return true;
 }
 
 #endif // !defined(CAT_NO_ENTROPY_THREAD)
@@ -66,14 +70,14 @@ void FortunaFactory::PollInvariantSources(int pool_index)
     // Cycles at the start
     Sources.cycles_start = Clock::cycles();
 
-	int urandom_fd = open("/dev/urandom", O_RDONLY);
+	int random_fd = open("/dev/random", O_RDONLY);
 
-	// /dev/urandom large request
-	if (urandom_fd >= 0)
+	// /dev/random large request
+	if (random_fd >= 0)
 	{
-		read(urandom_fd, Sources.system_prng, sizeof(Sources.system_prng));
+		read(random_fd, Sources.system_prng, sizeof(Sources.system_prng));
 
-		close(urandom_fd);
+		close(random_fd);
 	}
 
     // Cycles at the end

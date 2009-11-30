@@ -84,9 +84,12 @@
 #include <cat/threads/LoopThread.hpp>
 
 
-// Uncommenting CAT_NO_ENTROPY_THREAD will remove dependencies on pthreads and not
+// Defining CAT_NO_ENTROPY_THREAD will remove dependencies on pthreads and not
 // run a thread to collect more entropy.  This is recommended for low-power targets
-//#define CAT_NO_ENTROPY_THREAD
+// and where pthreads is not available
+#if defined(CAT_OS_WINDOWS_CE)
+# define CAT_NO_ENTROPY_THREAD
+#endif
 
 
 #if defined(CAT_OS_WINDOWS) || defined(CAT_OS_WINDOWS_CE)
