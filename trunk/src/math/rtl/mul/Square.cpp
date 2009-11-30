@@ -30,102 +30,17 @@
 using namespace cat;
 
 /*
-	Comba 8x8 square:
+	I've been able to get about a 3% overall improvement by implementing a huge,
+	specialized Comba square function.  It's really not worth the complexity.
 
-	<--- most significant               least significant --->
-	                             a   b   c   d   e   f   g   h
-	X                            a   b   c   d   e   f   g   h
-	----------------------------------------------------------
-	+                          2ah 2bh 2ch 2dh 2eh 2fh 2gh  hh
-	                       2ag 2bg 2cg 2dg 2eg 2fg  gg
-	                   2af 2bf 2cf 2df 2ef  ff
-	               2ae 2be 2ce 2de  ee
-	           2ad 2bd 2cd  dd
-	       2ac 2bc  cc
-	   2ab  bb
-	aa
+	The main reason Comba fails to be effective for squaring is that there
+	is no good way to represent the opcodes required in C++.
+
+	Despite these limitations squaring remains faster than multiplying.
 */
-void CombaSquare8(const Leg *input, Leg *output)
-{
-	Leg C0, C1, C2;
-
-	C2 = 0;
-	CAT_LEG_MUL(input[0], input[0], C1, C0);
-	output[0] = C0;
-
-	CAT_LEG_COMBA_DBL2(input[0], input[1], C1, C2, C0);
-	output[1] = C1;
-
-	CAT_LEG_COMBA_DBL2(input[0], input[2], C2, C0, C1);
-	CAT_LEG_COMBA3(input[1], input[1], C2, C0, C1);
-	output[2] = C2;
-
-	CAT_LEG_COMBA_DBL2(input[0], input[3], C0, C1, C2);
-	CAT_LEG_COMBA_DBL3(input[1], input[2], C0, C1, C2);
-	output[3] = C0;
-
-	CAT_LEG_COMBA_DBL2(input[0], input[4], C1, C2, C0);
-	CAT_LEG_COMBA_DBL3(input[1], input[3], C1, C2, C0);
-	CAT_LEG_COMBA3(input[2], input[2], C1, C2, C0);
-	output[4] = C1;
-
-	CAT_LEG_COMBA_DBL2(input[0], input[5], C2, C0, C1);
-	CAT_LEG_COMBA_DBL3(input[1], input[4], C2, C0, C1);
-	CAT_LEG_COMBA_DBL3(input[2], input[3], C2, C0, C1);
-	output[5] = C2;
-
-	CAT_LEG_COMBA_DBL2(input[0], input[6], C0, C1, C2);
-	CAT_LEG_COMBA_DBL3(input[1], input[5], C0, C1, C2);
-	CAT_LEG_COMBA_DBL3(input[2], input[4], C0, C1, C2);
-	CAT_LEG_COMBA3(input[3], input[3], C0, C1, C2);
-	output[6] = C0;
-
-	CAT_LEG_COMBA_DBL2(input[0], input[7], C1, C2, C0);
-	CAT_LEG_COMBA_DBL3(input[1], input[6], C1, C2, C0);
-	CAT_LEG_COMBA_DBL3(input[2], input[5], C1, C2, C0);
-	CAT_LEG_COMBA_DBL3(input[3], input[4], C1, C2, C0);
-	output[7] = C1;
-
-	CAT_LEG_COMBA_DBL2(input[1], input[7], C2, C0, C1);
-	CAT_LEG_COMBA_DBL3(input[2], input[6], C2, C0, C1);
-	CAT_LEG_COMBA_DBL3(input[3], input[5], C2, C0, C1);
-	CAT_LEG_COMBA3(input[4], input[4], C2, C0, C1);
-	output[8] = C2;
-
-	CAT_LEG_COMBA_DBL2(input[2], input[7], C0, C1, C2);
-	CAT_LEG_COMBA_DBL3(input[3], input[6], C0, C1, C2);
-	CAT_LEG_COMBA_DBL3(input[4], input[5], C0, C1, C2);
-	output[9] = C0;
-
-	CAT_LEG_COMBA_DBL2(input[3], input[7], C1, C2, C0);
-	CAT_LEG_COMBA_DBL3(input[4], input[6], C1, C2, C0);
-	CAT_LEG_COMBA3(input[5], input[5], C1, C2, C0);
-	output[10] = C1;
-
-	CAT_LEG_COMBA_DBL2(input[4], input[7], C2, C0, C1);
-	CAT_LEG_COMBA_DBL3(input[5], input[6], C2, C0, C1);
-	output[11] = C2;
-
-	CAT_LEG_COMBA_DBL2(input[5], input[7], C0, C1, C2);
-	CAT_LEG_COMBA3(input[6], input[6], C0, C1, C2);
-	output[12] = C0;
-
-	CAT_LEG_COMBA_DBL2(input[6], input[7], C1, C2, C0);
-	output[13] = C1;
-
-	CAT_LEG_COMBA3(input[7], input[7], C2, C0, C1);
-	output[14] = C2;
-	output[15] = C0;
-}
 
 void BigRTL::Square(const Leg *input, Leg *output)
 {
-	if (library_legs == 8)
-	{
-		CombaSquare8(input, output);
-		return;
-	}
-
     Leg *cross = Get(library_regs - 2);
 
     // Calculate square products

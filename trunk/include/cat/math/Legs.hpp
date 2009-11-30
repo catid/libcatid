@@ -123,28 +123,6 @@ const Leg CAT_LEG_MSB = (Leg)1 << (CAT_LEG_BITS - 1);
     C2 += ((C1 += _p_hi) < _p_hi);           \
 }
 
-// p(C2:C1:C0) = 2 * A * B + (C1:C0)
-#define CAT_LEG_COMBA_DBL2(A, B, C0, C1, C2)    \
-{                                               \
-	u64 _p_hi, _p_lo, _p_temp;					\
-	_p_lo = _umul128(A, B, &_p_hi);				\
-	_p_temp = _p_hi + ((C0 += _p_lo) < _p_lo);	\
-	C2 = ((C1 += _p_temp) < _p_temp);			\
-	_p_temp = _p_hi + ((C0 += _p_lo) < _p_lo);	\
-	C2 += ((C1 += _p_temp) < _p_temp);			\
-}
-
-// p(C2:C1:C0) = 2 * A * B + (C2:C1:C0)
-#define CAT_LEG_COMBA_DBL3(A, B, C0, C1, C2)    \
-{                                               \
-	u64 _p_hi, _p_lo, _p_temp;					\
-	_p_lo = _umul128(A, B, &_p_hi);				\
-	_p_temp = _p_hi + ((C0 += _p_lo) < _p_lo);	\
-	C2 += ((C1 += _p_temp) < _p_temp);			\
-	_p_temp = _p_hi + ((C0 += _p_lo) < _p_lo);	\
-	C2 += ((C1 += _p_temp) < _p_temp);			\
-}
-
 
 #else // has LegPair
 
@@ -195,38 +173,6 @@ const Leg CAT_LEG_MSB = (Leg)1 << (CAT_LEG_BITS - 1);
 	_cp = (_cp >> CAT_LEG_BITS) + (C1);         \
 	(C1) = (Leg)_cp;                            \
 	(C2) += (Leg)(_cp >> CAT_LEG_BITS);         \
-}
-
-// p(C2:C1:C0) = 2 * A * B + (C1:C0)
-#define CAT_LEG_COMBA_DBL2(A, B, C0, C1, C2)    \
-{                                               \
-	LegPair _pd = CAT_LEG_PAIRMUL(A, B);		\
-	LegPair _cp = _pd + (C0);					\
-	(C0) = (Leg)_cp;							\
-	_cp = (_cp >> CAT_LEG_BITS) + (C1);			\
-	(C1) = (Leg)_cp;							\
-	(C2) = (Leg)(_cp >> CAT_LEG_BITS);			\
-	_cp = _pd + (C0);							\
-	(C0) = (Leg)_cp;							\
-	_cp = (_cp >> CAT_LEG_BITS) + (C1);			\
-	(C1) = (Leg)_cp;							\
-	(C2) += (Leg)(_cp >> CAT_LEG_BITS);			\
-}
-
-// p(C2:C1:C0) = 2 * A * B + (C2:C1:C0)
-#define CAT_LEG_COMBA_DBL3(A, B, C0, C1, C2)    \
-{                                               \
-	LegPair _pd = CAT_LEG_PAIRMUL(A, B);		\
-	LegPair _cp = _pd + (C0);					\
-	(C0) = (Leg)_cp;							\
-	_cp = (_cp >> CAT_LEG_BITS) + (C1);			\
-	(C1) = (Leg)_cp;							\
-	(C2) += (Leg)(_cp >> CAT_LEG_BITS);			\
-	_cp = _pd + (C0);							\
-	(C0) = (Leg)_cp;							\
-	_cp = (_cp >> CAT_LEG_BITS) + (C1);			\
-	(C1) = (Leg)_cp;							\
-	(C2) += (Leg)(_cp >> CAT_LEG_BITS);			\
 }
 
 // Q(hi:lo) = A(hi:lo) / B
