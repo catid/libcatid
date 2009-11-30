@@ -135,12 +135,12 @@ template<class T> class Queue;
     };
 
 
-//// Compare-and-Swap (CAS) atomic operation
+//// Compare-and-Swap x2 (CAS2) atomic operation
 
     template<class T>
-    inline bool CAS(Ptr<T> &destination, const Ptr<T> &expected, const Ptr<T> &replacement)
+    inline bool CAS2(Ptr<T> &destination, const Ptr<T> &expected, const Ptr<T> &replacement)
     {
-        return Atomic::CAS(&destination, &expected, &replacement);
+        return Atomic::CAS2(&destination, &expected, &replacement);
     }
 
 
