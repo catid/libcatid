@@ -39,7 +39,7 @@ using namespace cat;
 
 #if !defined(CAT_NO_ENTROPY_THREAD)
 
-void FortunaFactory::EntropyCollectionThread()
+bool FortunaFactory::ThreadFunction()
 {
     // Assume ~16 bits of entropy per fast poll, so it takes 16 fast polls to get 256 bits of entropy
     // This means there will be 4 slow polls in pool 0 for each reseed, which is 256 bits from /dev/urandom
@@ -52,10 +52,8 @@ void FortunaFactory::EntropyCollectionThread()
     int fast_pool = 0, slow_pool = 0, pool0_entropy = 0;
 
     // Loop while the flag is set
-    while (thread_running)
+    while (WaitForQuitSignal(COLLECTION_PERIOD))
     {
-        Clock::sleep(COLLECTION_PERIOD);
-
         // Poll fast entropy sources once every COLLECTION_PERIOD
         PollFastEntropySources(fast_pool);
 
@@ -75,15 +73,8 @@ void FortunaFactory::EntropyCollectionThread()
         slow_pool = (slow_pool + 1) % 32;
         fast_pool = (fast_pool + 1) % 32;
     }
-}
 
-void *FortunaFactory::EntropyCollectionThreadWrapper(void *vfactory)
-{
-    FortunaFactory *factory = (FortunaFactory *)vfactory;
-
-    factory->EntropyCollectionThread();
-
-    return 0;
+	return true;
 }
 
 #endif // !defined(CAT_NO_ENTROPY_THREAD)
@@ -98,26 +89,17 @@ bool FortunaFactory::InitializeEntropySources()
     PollSlowEntropySources(0);
     PollFastEntropySources(0);
 
-#if !defined(CAT_NO_ENTROPY_THREAD)
-    thread_running = true;
-    if (pthread_create(&pthread_handle, 0, &FortunaFactory::EntropyCollectionThreadWrapper, (void*)this))
-    {
-        thread_running = false;
-        return false;
-    }
-#endif // !defined(CAT_NO_ENTROPY_THREAD)
-
-    return true;
+#if defined(CAT_NO_ENTROPY_THREAD)
+	return true;
+#else
+	return StartThread();
+#endif
 }
 
 void FortunaFactory::ShutdownEntropySources()
 {
 #if !defined(CAT_NO_ENTROPY_THREAD)
-    if (thread_running)
-    {
-        thread_running = false;
-        pthread_join(pthread_handle, 0);
-    }
+	StopThread();
 #endif
 
     if (urandom_fd >= 0)
@@ -252,4 +234,4 @@ void FortunaFactory::PollFastEntropySources(int pool_index)
     pool.Crunch(&Sources, sizeof(Sources));
 }
 
-#endif
+#endif // CAT_OS_LINUX

@@ -34,7 +34,7 @@
 #include <cat/threads/Atomic.hpp>
 
 #if defined(CAT_NO_ATOMIC_ADD) || defined(CAT_NO_ATOMIC_SET)
-# include <pthread.h>
+# include <cat/threads/Mutex.hpp>
 # define CAT_NO_ATOMIC_RESPONDER
 #endif
 
@@ -51,8 +51,7 @@ class KeyAgreementResponder : public KeyAgreementCommon
     Leg *Y_neutral[2]; // Responder's ephemeral public key (shared online with initiator)
 
 #if defined(CAT_NO_ATOMIC_RESPONDER)
-	bool m_mutex_created;
-	pthread_mutex_t m_thread_id_mutex;
+	Mutex m_thread_id_mutex;
 #endif // CAT_NO_ATOMIC_RESPONDER
 
 	volatile u32 ChallengeCount;

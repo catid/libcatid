@@ -50,7 +50,7 @@ using namespace cat;
 
 #if !defined(CAT_NO_ENTROPY_THREAD)
 
-void FortunaFactory::EntropyCollectionThread()
+bool FortunaFactory::ThreadFunction(void *)
 {
     // Assume ~16 bits of entropy per fast poll, so it takes 16 fast polls to get 256 bits of entropy
     // This means there will be 4 slow polls in pool 0 for each reseed, which is 256 bits from CryptoAPI
@@ -62,8 +62,8 @@ void FortunaFactory::EntropyCollectionThread()
 
     int fast_pool = 0, slow_pool = 0, pool0_entropy = 0;
 
-    // Loop while the wait is timing out; will break on error or signalled termination
-    while (WaitForSingleObject(EntropySignal, COLLECTION_PERIOD) == WAIT_TIMEOUT)
+    // Loop while the wait is timing out; will break on error or signaled termination
+    while (WaitForQuitSignal(COLLECTION_PERIOD))
     {
         // Poll fast entropy sources once every COLLECTION_PERIOD
         PollFastEntropySources(fast_pool);
@@ -84,17 +84,8 @@ void FortunaFactory::EntropyCollectionThread()
         slow_pool = (slow_pool + 1) % 32;
         fast_pool = (fast_pool + 1) % 32;
     }
-}
 
-unsigned int __stdcall FortunaFactory::EntropyCollectionThreadWrapper(void *vfactory)
-{
-    FortunaFactory *factory = (FortunaFactory *)vfactory;
-
-    factory->EntropyCollectionThread();
-
-    // Using _beginthreadex() and _endthreadex() since _endthread() calls CloseHandle()
-    _endthreadex(0);
-    return 0;
+	return true;
 }
 
 #endif // !defined(CAT_NO_ENTROPY_THREAD)
@@ -102,10 +93,6 @@ unsigned int __stdcall FortunaFactory::EntropyCollectionThreadWrapper(void *vfac
 
 bool FortunaFactory::InitializeEntropySources()
 {
-#if !defined(CAT_NO_ENTROPY_THREAD)
-    EntropySignal = 0;
-    EntropyThread = 0;
-#endif
 	NtQuerySystemInformation = 0;
 	NTDLL = 0;
 
@@ -123,31 +110,17 @@ bool FortunaFactory::InitializeEntropySources()
     PollSlowEntropySources(0);
     PollFastEntropySources(0);
 
-#if !defined(CAT_NO_ENTROPY_THREAD)
-    // Create an event to signal when the entropy collection thread should terminate
-    EntropySignal = CreateEvent(0, FALSE, FALSE, 0);
-    if (!EntropySignal) return false;
-
-    // Using _beginthreadex() and _endthreadex() since _endthread() calls CloseHandle()
-    EntropyThread = (HANDLE)_beginthreadex(0, 0, EntropyCollectionThreadWrapper, this, 0, 0);
-    if (!EntropyThread) return false;
+#if defined(CAT_NO_ENTROPY_THREAD)
+	return true;
+#else
+	return StartThread();
 #endif
-
-    return true;
 }
 
 void FortunaFactory::ShutdownEntropySources()
 {
 #if !defined(CAT_NO_ENTROPY_THREAD)
-    if (EntropyThread && EntropySignal)
-    {
-        // Signal termination event and block waiting for thread to signal termination
-        SetEvent(EntropySignal);
-        WaitForSingleObject(EntropyThread, INFINITE);
-    }
-
-    if (EntropySignal) CloseHandle(EntropySignal);
-    if (EntropyThread) CloseHandle(EntropyThread);
+    StopThread();
 #endif
 
     if (hCryptProv) CryptReleaseContext(hCryptProv, 0);
@@ -325,4 +298,4 @@ void FortunaFactory::PollFastEntropySources(int pool_index)
     pool.Crunch(&Sources, sizeof(Sources));
 }
 
-#endif
+#endif // CAT_OS_WINDOWS

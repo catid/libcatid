@@ -34,22 +34,71 @@ using namespace cat;
 
 Mutex::Mutex()
 {
-    InitializeCriticalSection(&cs);
+#if defined(CAT_MUTEX_WINDOWS)
+
+	InitializeCriticalSection(&cs);
+
+#elif defined(CAT_MUTEX_POSIX)
+
+	init_failure = pthread_mutex_init(&mx, 0);
+
+#endif
 }
 
 Mutex::~Mutex()
 {
-    DeleteCriticalSection(&cs);
+#if defined(CAT_MUTEX_WINDOWS)
+
+	DeleteCriticalSection(&cs);
+
+#elif defined(CAT_MUTEX_POSIX)
+
+	if (!init_failure) pthread_mutex_destroy(&mx);
+
+#endif
 }
 
-void Mutex::Enter()
+bool Mutex::Valid()
 {
-    EnterCriticalSection(&cs);
+#if defined(CAT_MUTEX_WINDOWS)
+
+	return true; // No failure state for critical sections
+
+#elif defined(CAT_MUTEX_POSIX)
+
+	return init_failure == 0;
+
+#endif
 }
 
-void Mutex::Leave()
+bool Mutex::Enter()
 {
-    LeaveCriticalSection(&cs);
+#if defined(CAT_MUTEX_WINDOWS)
+
+	EnterCriticalSection(&cs);
+	return true;
+
+#elif defined(CAT_MUTEX_POSIX)
+
+	if (init_failure) return false;
+	return pthread_mutex_lock(&mx) == 0;
+
+#endif
+}
+
+bool Mutex::Leave()
+{
+#if defined(CAT_MUTEX_WINDOWS)
+
+	LeaveCriticalSection(&cs);
+	return true;
+
+#elif defined(CAT_MUTEX_POSIX)
+
+	if (init_failure) return false;
+	return pthread_mutex_unlock(&mx) == 0;
+
+#endif
 }
 
 
@@ -57,7 +106,7 @@ void Mutex::Leave()
 
 AutoMutex::AutoMutex(Mutex &mutex)
 {
-    this->mutex = &mutex;
+    _mutex = &mutex;
     mutex.Enter();
 }
 
@@ -66,11 +115,15 @@ AutoMutex::~AutoMutex()
     Release();
 }
 
-void AutoMutex::Release()
+bool AutoMutex::Release()
 {
-    if (mutex)
+	bool success = false;
+
+    if (_mutex)
     {
-        mutex->Leave();
-        mutex = 0;
+        success = _mutex->Leave();
+        _mutex = 0;
     }
+
+	return success;
 }
