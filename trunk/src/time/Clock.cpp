@@ -29,7 +29,9 @@
 #include <cat/time/Clock.hpp>
 
 #if defined(CAT_OS_WINDOWS)
+
 # include <cat/port/WindowsInclude.hpp>
+
 # if defined(CAT_COMPILER_MSVC)
 #  pragma warning(push)
 #  pragma warning(disable: 4201) // Squelch annoying warning from MSVC2005 SDK
@@ -39,8 +41,11 @@
 # else
 #  include <mmsystem.h>
 # endif
+
 #else // Linux/other version
+
 # include <sys/time.h>
+
 #endif
 
 #include <stdlib.h> // qsort
@@ -237,7 +242,16 @@ u32 Clock::cycles()
 
 #else
 
-# error "Please add your compiler here"
+# if defined(CAT_OS_WINDOWS)
+	LARGE_INTEGER tim;
+	QueryPerformanceCounter(&tim);
+	x[0] = tim.LowPart;
+# else
+	struct timeval cateq_v;
+	struct timezone cateq_z;
+	gettimeofday(&cateq_v, &cateq_z);
+	x[0] = (u32)cateq_v.tv_usec;
+# endif
 
 #endif
 
