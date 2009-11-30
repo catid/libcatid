@@ -16,6 +16,8 @@ set(LIBRARY_OUTPUT_PATH ${LIB}/cat)
 add_library(libcatcommon STATIC
 ${SRC}/port/AlignedAlloc.cpp
 ${SRC}/port/EndianNeutral.cpp
+${SRC}/threads/LoopThread.cpp
+${SRC}/threads/Mutex.cpp
 ${SRC}/time/Clock.cpp
 ${SRC}/rand/MersenneTwister.cpp
 ${SRC}/rand/StdRand.cpp
