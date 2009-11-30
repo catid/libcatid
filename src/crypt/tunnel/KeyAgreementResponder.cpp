@@ -70,18 +70,10 @@ KeyAgreementResponder::KeyAgreementResponder()
 {
     b = 0;
     G_MultPrecomp = 0;
-
-#if defined(CAT_NO_ATOMIC_RESPONDER)
-	m_mutex_created = false;
-#endif // CAT_NO_ATOMIC_RESPONDER
 }
 
 KeyAgreementResponder::~KeyAgreementResponder()
 {
-#if defined(CAT_NO_ATOMIC_RESPONDER)
-	if (m_mutex_created) pthread_mutex_destroy(&m_thread_id_mutex);
-#endif // CAT_NO_ATOMIC_RESPONDER
-
 	FreeMemory();
 }
 
@@ -102,9 +94,9 @@ void KeyAgreementResponder::Rekey(BigTwistedEdwards *math, FortunaOutput *csprng
 
 #if defined(CAT_NO_ATOMIC_RESPONDER)
 
-	pthread_mutex_lock(&m_thread_id_mutex);
+	m_thread_id_mutex.Enter();
 	ChallengeCount = 0;
-	pthread_mutex_unlock(&m_thread_id_mutex);
+	m_thread_id_mutex.Leave();
 
 #else // CAT_NO_ATOMIC_RESPONDER
 
@@ -122,12 +114,7 @@ bool KeyAgreementResponder::Initialize(BigTwistedEdwards *math, FortunaOutput *c
 #endif
 
 #if defined(CAT_NO_ATOMIC_RESPONDER)
-	if (!m_mutex_created)
-	{
-		if (pthread_mutex_init(&m_thread_id_mutex, 0) != 0)
-			return false;
-		m_mutex_created = true;
-	}
+	if (!m_thread_id_mutex.Valid()) return false;
 #endif // CAT_NO_ATOMIC_RESPONDER
 
 	int bits = math->RegBytes() * 8;
@@ -201,11 +188,13 @@ bool KeyAgreementResponder::ProcessChallenge(BigTwistedEdwards *math, FortunaOut
 
 	bool time_to_rekey = false;
 
-	pthread_mutex_lock(&m_thread_id_mutex);
+	m_thread_id_mutex.Enter();
+
 	// Check if it is time to rekey
 	if (ChallengeCount++ == 100)
 		time_to_rekey = true;
-	pthread_mutex_unlock(&m_thread_id_mutex);
+
+	m_thread_id_mutex.Leave();
 
 	if (time_to_rekey)
 		Rekey(math, csprng);

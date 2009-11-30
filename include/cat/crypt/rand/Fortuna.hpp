@@ -80,6 +80,8 @@
 #include <cat/rand/IRandom.hpp>
 #include <cat/crypt/hash/Skein.hpp>
 #include <cat/Singleton.hpp>
+#include <cat/threads/Mutex.hpp>
+#include <cat/threads/LoopThread.hpp>
 
 
 // Uncommenting CAT_NO_ENTROPY_THREAD will remove dependencies on pthreads and not
@@ -90,8 +92,6 @@
 #if defined(CAT_OS_WINDOWS) || defined(CAT_OS_WINDOWS_CE)
 # include <cat/port/WindowsInclude.hpp>
 # include <wincrypt.h>
-#elif defined(CAT_OS_LINUX) && !defined(CAT_NO_ENTROPY_THREAD)
-# include <pthread.h>
 #endif
 
 
@@ -103,11 +103,16 @@ class FortunaFactory;
 
 // Factory for constructing FortunaOutput objects
 class FortunaFactory : public Singleton<FortunaFactory>
+#if !defined(CAT_NO_ENTROPY_THREAD)
+	, public LoopThread
+#endif
 {
     CAT_SINGLETON(FortunaFactory)
     {
 		_initialized = false;
     }
+
+	Mutex _thread_id_mx;
 
     friend class FortunaOutput;
 
@@ -120,10 +125,6 @@ class FortunaFactory : public Singleton<FortunaFactory>
 		PULONG ReturnLength
 	);
 
-# if !defined(CAT_NO_ENTROPY_THREAD)
-	HANDLE EntropyThread, EntropySignal;
-    static unsigned int __stdcall EntropyCollectionThreadWrapper(void *factory);
-# endif
     HANDLE CurrentProcess;
     HMODULE NTDLL;
     PtNtQuerySystemInformation NtQuerySystemInformation;
@@ -135,17 +136,12 @@ class FortunaFactory : public Singleton<FortunaFactory>
 
 #elif defined(CAT_OS_LINUX)
 
-# if !defined(CAT_NO_ENTROPY_THREAD)
-	pthread_t pthread_handle;
-    volatile bool thread_running;
-    static void *EntropyCollectionThreadWrapper(void *factory);
-# endif
     int urandom_fd;
 
 #endif
 
 #if !defined(CAT_NO_ENTROPY_THREAD)
-    void EntropyCollectionThread();
+    bool ThreadFunction(void *param);
 #endif
 
 protected:
@@ -180,7 +176,7 @@ public:
 };
 
 
-// Thread-safe output object for Fortuna
+// LoopThread-safe output object for Fortuna
 class FortunaOutput : public IRandom
 {
     friend class FortunaFactory;

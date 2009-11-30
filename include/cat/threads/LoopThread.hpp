@@ -26,55 +26,62 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef MUTEX_HPP
-#define MUTEX_HPP
+#ifndef LOOP_THREAD_HPP
+#define LOOP_THREAD_HPP
 
 #include <cat/Platform.hpp>
 
 #if defined(CAT_OS_WINDOWS) || defined(CAT_OS_WINDOWS_CE)
-# define CAT_MUTEX_WINDOWS
+# define CAT_THREAD_WINDOWS
 # include <cat/port/WindowsInclude.hpp>
-#else // use POSIX mutex library otherwise
-# define CAT_MUTEX_POSIX
+#else // use POSIX thread library otherwise
+# define CAT_THREAD_POSIX
 # include <pthread.h>
 #endif
 
 namespace cat {
 
 
-// Implements a mutex that is NOT reentrant (for speed)
-class Mutex
+/*
+	A thread that spins in a loop, waiting for a signal to exit.
+
+	Derive from this class and implement ThreadFunction().
+
+	ThreadFunction() should call WaitForQuitSignal() in the loop.
+*/
+class LoopThread
 {
-#if defined(CAT_MUTEX_WINDOWS)
-    CRITICAL_SECTION cs;
-#elif defined(CAT_MUTEX_POSIX)
-	int init_failure;
-	pthread_mutex_t mx;
+	void *caller_param;
+
+#if defined(CAT_THREAD_WINDOWS)
+
+	HANDLE _thread, _quit_signal;
+	static unsigned int __stdcall ThreadWrapper(void *this_object);
+
+#elif defined(CAT_THREAD_POSIX)
+
+	pthread_t _thread;
+	bool _thread_started;
+	volatile bool _quit_signal;
+	static void *ThreadWrapper(void *this_object);
+
 #endif
 
-public:
-    Mutex();
-    ~Mutex();
+protected:
+	bool StartThread(void *param = 0);
+	bool StopThread();
 
-	bool Valid();
+	// Returns false if it is time to quit
+	bool WaitForQuitSignal(int msec);
 
-    bool Enter();
-    bool Leave();
-};
-
-
-class AutoMutex
-{
-    Mutex *_mutex;
+	virtual bool ThreadFunction(void *this_object) = 0;
 
 public:
-    AutoMutex(Mutex &mutex);
-    ~AutoMutex();
-
-    bool Release();
+    LoopThread();
+    ~LoopThread();
 };
 
 
 } // namespace cat
 
-#endif // MUTEX_HPP
+#endif // LOOP_THREAD_HPP

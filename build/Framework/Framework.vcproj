@@ -328,10 +328,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\src\threads\Mutex.cpp"
-				>
-			</File>
-			<File
 				RelativePath="..\..\src\io\PackageManager.cpp"
 				>
 			</File>
@@ -402,10 +398,6 @@
 				>
 				<File
 					RelativePath="..\..\include\cat\threads\LocklessFIFO.hpp"
-					>
-				</File>
-				<File
-					RelativePath="..\..\include\cat\threads\Mutex.hpp"
 					>
 				</File>
 				<File

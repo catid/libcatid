@@ -147,6 +147,78 @@
 			/>
 		</Configuration>
 		<Configuration
+			Name="Debug|Pocket PC 2003 (ARMV4)"
+			OutputDirectory="$(SolutionDir)Pocket PC 2003 (ARMV4)\$(ConfigurationName)"
+			IntermediateDirectory="Pocket PC 2003 (ARMV4)\$(ConfigurationName)"
+			ConfigurationType="4"
+			CharacterSet="2"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+				TargetEnvironment="1"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				ExecutionBucket="7"
+				Optimization="0"
+				AdditionalIncludeDirectories="../../include/"
+				MinimalRebuild="true"
+				RuntimeLibrary="3"
+				WarningLevel="3"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(SolutionDir)\..\lib\cat\libcatcommon-d32-1.0.lib"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCCodeSignTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+			/>
+			<DeploymentTool
+				ForceDirty="-1"
+				RemoteDirectory=""
+				RegisterOutput="0"
+				AdditionalFiles=""
+			/>
+			<DebuggerTool
+			/>
+		</Configuration>
+		<Configuration
 			Name="Release|Win32"
 			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
 			IntermediateDirectory="$(ConfigurationName)"
@@ -284,79 +356,6 @@
 			/>
 		</Configuration>
 		<Configuration
-			Name="Debug|Pocket PC 2003 (ARMV4)"
-			OutputDirectory="$(SolutionDir)Pocket PC 2003 (ARMV4)\$(ConfigurationName)"
-			IntermediateDirectory="Pocket PC 2003 (ARMV4)\$(ConfigurationName)"
-			ConfigurationType="4"
-			CharacterSet="2"
-			>
-			<Tool
-				Name="VCPreBuildEventTool"
-			/>
-			<Tool
-				Name="VCCustomBuildTool"
-			/>
-			<Tool
-				Name="VCXMLDataGeneratorTool"
-			/>
-			<Tool
-				Name="VCWebServiceProxyGeneratorTool"
-			/>
-			<Tool
-				Name="VCMIDLTool"
-				TargetEnvironment="1"
-			/>
-			<Tool
-				Name="VCCLCompilerTool"
-				ExecutionBucket="7"
-				Optimization="0"
-				AdditionalIncludeDirectories="../../include/"
-				MinimalRebuild="true"
-				RuntimeLibrary="3"
-				WarningLevel="3"
-				DebugInformationFormat="4"
-			/>
-			<Tool
-				Name="VCManagedResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCPreLinkEventTool"
-			/>
-			<Tool
-				Name="VCLibrarianTool"
-				OutputFile="$(SolutionDir)\..\lib\cat\libcatcommon-d32-1.0.lib"
-			/>
-			<Tool
-				Name="VCALinkTool"
-			/>
-			<Tool
-				Name="VCXDCMakeTool"
-			/>
-			<Tool
-				Name="VCBscMakeTool"
-			/>
-			<Tool
-				Name="VCFxCopTool"
-			/>
-			<Tool
-				Name="VCCodeSignTool"
-			/>
-			<Tool
-				Name="VCPostBuildEventTool"
-			/>
-			<DeploymentTool
-				ForceDirty="-1"
-				RemoteDirectory=""
-				RegisterOutput="0"
-				AdditionalFiles=""
-			/>
-			<DebuggerTool
-			/>
-		</Configuration>
-		<Configuration
 			Name="Release|Pocket PC 2003 (ARMV4)"
 			OutputDirectory="$(SolutionDir)Pocket PC 2003 (ARMV4)\$(ConfigurationName)"
 			IntermediateDirectory="Pocket PC 2003 (ARMV4)\$(ConfigurationName)"
@@ -455,11 +454,19 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\src\threads\LoopThread.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\src\rand\MersenneTwister.cpp"
 				>
 			</File>
 			<File
 				RelativePath="..\..\src\hash\MurmurHash2.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\threads\Mutex.cpp"
 				>
 			</File>
 			<File
@@ -521,6 +528,14 @@
 				>
 				<File
 					RelativePath="..\..\include\cat\threads\Atomic.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\threads\LoopThread.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\threads\Mutex.hpp"
 					>
 				</File>
 			</Filter>
