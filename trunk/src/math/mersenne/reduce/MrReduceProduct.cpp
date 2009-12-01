@@ -48,10 +48,11 @@ void BigPseudoMersenne::MrReduceProductX(Leg overflow, Leg *inout)
     }
 }
 
-void BigPseudoMersenne::MrReduceProduct(const Leg *in_hi, const Leg *in_lo, Leg *out)
-{
-    // Pseudo-Mersenne reduction
-    Leg overflow = MultiplyXAdd(in_hi, modulus_c, in_lo, out);
 
-    MrReduceProductX(overflow, out);
+void BigPseudoMersenne::MrReduceProduct(const Leg *in_hi, const Leg *in_lo, Leg *output)
+{
+	// Pseudo-Mersenne reduction
+	Leg overflow = MultiplyXAdd(in_hi, modulus_c, in_lo, output);
+
+	MrReduceProductX(overflow, output);
 }

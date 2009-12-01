@@ -39,26 +39,42 @@ using namespace cat;
 # define PT_FN PtAdd /* Version that does not produce the T coord */
 #endif
 
+/*
+	The group laws used for point addition/doubling are the best in the
+	literature at this time, requiring no branches just a straight shot
+	through field operations.
+
+	I have tweaked the order of operations to improve cache locality.
+
+	On 32-bit platforms CPU time is broken down as:
+	[PtAdd] time spent in misc operations: 1882
+	[PtAdd] time spent in multiplies: 6240
+*/
+
+#include <cat/time/Clock.hpp>
+#include <iostream>
+using namespace std;
+
 // Extended Twisted Edwards Unified Addition Formula (works when both inputs are the same) in 8M 1D 9a
 void BigTwistedEdwards::PT_FN(const Leg *in_a, const Leg *in_b, Leg *out)
 {
     // A = (Y1 - X1) * (Y2 - X2)
     MrSubtract(in_a+YOFF, in_a+XOFF, C);
     MrSubtract(in_b+YOFF, in_b+XOFF, D);
-    MrMultiply(C, D, A);
+	MrMultiply(C, D, A);
 
     // B = (Y1 + X1) * (Y2 + X2)
     MrAdd(in_a+YOFF, in_a+XOFF, G);
     MrAdd(in_b+YOFF, in_b+XOFF, H);
-    MrMultiply(G, H, B);
+	MrMultiply(G, H, B);
 
     // C = 2 * d * T1 * T2 (can remove multiplication by d if inputs are known to be different)
     MrMultiply(in_a+TOFF, in_b+TOFF, C);
-    MrMultiplyX(C, curve_d * 2, C);
+	MrMultiplyX(C, curve_d * 2, C);
 
     // D = 2 * Z1 * Z2
     MrMultiply(in_a+ZOFF, in_b+ZOFF, D);
-    MrDouble(D, D);
+	MrDouble(D, D);
 
     // E = B - A, F = D - C, G = D + C, H = B + A
     MrSubtract(B, A, E);

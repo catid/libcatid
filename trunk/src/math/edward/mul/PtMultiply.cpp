@@ -62,6 +62,20 @@ struct {
 	{61,0},{31,1},{62,0},{16,2},{63,0},{32,1},{64,0},{1,7}
 };
 
+/*
+	The overhead of w-MOF is about 0.002% of the total point multiply,
+	so optimizing this function further would be a waste of time.
+
+	It is also constant in runtime, so the side-channel attack resistance
+	of the function is already pretty good.
+
+	To make point multiplies faster, speed up PtDouble and PtAdd.
+
+	PtAdd takes up just 17% of the runtime, and it is based on a lot of the
+	same operations as PtDouble, so PtDouble is more important to optimize.
+	The largest difference is that PtAdd doesn't use MrSquare.
+*/
+
 // Extended Twisted Edwards Scalar Multiplication k*p
 // CAN *NOT* BE followed by a Pt[E]Add()
 void BigTwistedEdwards::PtMultiply(const Leg *in_precomp, int w, const Leg *in_k, u8 msb_k, Leg *out)

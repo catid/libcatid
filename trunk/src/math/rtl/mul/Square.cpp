@@ -29,19 +29,110 @@
 #include <cat/math/BigRTL.hpp>
 using namespace cat;
 
+#if !defined(CAT_NO_LEGPAIR)
+
 /*
-	I've been able to get about a 3% overall improvement by implementing a huge,
-	specialized Comba square function.  It's really not worth the complexity.
+	For MSVC, I've been able to get about a 3% overall improvement by
+	implementing a huge, specialized Comba square function.
+	It's really not worth the complexity.
 
-	The main reason Comba fails to be effective for squaring is that there
-	is no good way to represent the opcodes required in C++.
+	Instead I have implemented a Karatsuba squaring algorithm specialized
+	for 256-bit inputs on a 32-bit processor without using the Comba method.
 
-	Despite these limitations squaring remains faster than multiplying.
+	8x8 Karatsuba squaring takes 67% of the time of an 8x8 Comba multiply.
 */
+
+// This is (slightly) faster than normal 4x4 multiplication
+CAT_INLINE void Square4(const Leg * CAT_RESTRICT input, Leg * CAT_RESTRICT output)
+{
+	Leg a = input[3], b = input[2], c = input[1], d = input[0];
+
+	// Calculate square products
+	CAT_LEG_MUL(d, d, output[1], output[0]);
+	CAT_LEG_MUL(c, c, output[3], output[2]);
+	CAT_LEG_MUL(b, b, output[5], output[4]);
+	CAT_LEG_MUL(a, a, output[7], output[6]);
+
+	Leg cross1, cross2, cross3, cross4, cross4a, cross5, cross6;
+
+	// Calculate cross products
+	CAT_LEG_MUL(c, d, cross2, cross1);
+	CAT_LEG_MULADD(b, d, cross2, cross3, cross2);
+	CAT_LEG_MULADD(a, d, cross3, cross4, cross3);
+	CAT_LEG_MULADD(b, c, cross3, cross4a, cross3);
+	CAT_LEG_MULADD2(a, c, cross4, cross4a, cross5, cross4);
+	CAT_LEG_MULADD(a, b, cross5, cross6, cross5);
+
+	// Multiply the cross product by 2 and add it to the square products
+	LegPair x = ((LegPair)cross1 << 1) + output[1];
+	output[1] = (Leg)x;
+	x = (x >> CAT_LEG_BITS) + ((LegPair)cross2 << 1) + output[2];
+	output[2] = (Leg)x;
+	x = (x >> CAT_LEG_BITS) + ((LegPair)cross3 << 1) + output[3];
+	output[3] = (Leg)x;
+	x = (x >> CAT_LEG_BITS) + ((LegPair)cross4 << 1) + output[4];
+	output[4] = (Leg)x;
+	x = (x >> CAT_LEG_BITS) + ((LegPair)cross5 << 1) + output[5];
+	output[5] = (Leg)x;
+	x = (x >> CAT_LEG_BITS) + ((LegPair)cross6 << 1) + output[6];
+	output[6] = (Leg)x;
+	output[7] += (Leg)(x >> CAT_LEG_BITS);
+}
+
+// This is significantly faster than normal 8x8 multiplication
+CAT_INLINE void Square8(const Leg * CAT_RESTRICT input, Leg * CAT_RESTRICT output)
+{
+	// Calculate square products
+	Square4(input, output);
+	Square4(input + 4, output + 8);
+
+	// Calculate cross products
+	// Depends on BigRTL.cpp including Multiply.cpp before Square.cpp
+	Leg cross[8];
+	SchoolbookMultiply4(input, input + 4, cross);
+
+	// Multiply the cross product by 2 and add it to the square products
+	LegPair x = ((LegPair)cross[0] << 1) + output[4];
+	output[4] = (Leg)x;
+	x = (x >> CAT_LEG_BITS) + ((LegPair)cross[1] << 1) + output[5];
+	output[5] = (Leg)x;
+	x = (x >> CAT_LEG_BITS) + ((LegPair)cross[2] << 1) + output[6];
+	output[6] = (Leg)x;
+	x = (x >> CAT_LEG_BITS) + ((LegPair)cross[3] << 1) + output[7];
+	output[7] = (Leg)x;
+	x = (x >> CAT_LEG_BITS) + ((LegPair)cross[4] << 1) + output[8];
+	output[8] = (Leg)x;
+	x = (x >> CAT_LEG_BITS) + ((LegPair)cross[5] << 1) + output[9];
+	output[9] = (Leg)x;
+	x = (x >> CAT_LEG_BITS) + ((LegPair)cross[6] << 1) + output[10];
+	output[10] = (Leg)x;
+	x = (x >> CAT_LEG_BITS) + ((LegPair)cross[7] << 1) + output[11];
+	output[11] = (Leg)x;
+	x = (x >> CAT_LEG_BITS) + output[12];
+	output[12] = (Leg)x;
+	x = (x >> CAT_LEG_BITS) + output[13];
+	output[13] = (Leg)x;
+	x = (x >> CAT_LEG_BITS) + output[14];
+	output[14] = (Leg)x;
+	x = (x >> CAT_LEG_BITS) + output[15];
+	output[15] = (Leg)x;
+}
+
+#endif // CAT_NO_LEGPAIR
+
 
 void BigRTL::Square(const Leg *input, Leg *output)
 {
-    Leg *cross = Get(library_regs - 2);
+#if !defined(CAT_NO_LEGPAIR)
+	if (library_legs == 8)
+	{
+		// Speeds up a 256-bit PtMultiply() by 8%
+		Square8(input, output);
+		return;
+	}
+#endif // CAT_NO_LEGPAIR
+
+	Leg *cross = Get(library_regs - 2);
 
     // Calculate square products
     for (int ii = 0; ii < library_legs; ++ii)
