@@ -79,7 +79,7 @@ CAT_INLINE void Square4(const Leg * CAT_RESTRICT input, Leg * CAT_RESTRICT outpu
 	output[7] += (Leg)(x >> CAT_LEG_BITS);
 }
 
-// This is significantly faster than normal 8x8 multiplication
+// This is significantly faster than normal 8x8 Comba multiplication (67% runtime)
 CAT_INLINE void Square8(const Leg * CAT_RESTRICT input, Leg * CAT_RESTRICT output)
 {
 	// Calculate square products
