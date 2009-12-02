@@ -228,7 +228,7 @@ template<class T> class Queue;
             new_tail.ptr = nd;
             new_tail.tag = tail.tag + 1;
 
-            if (CAS(Tail, tail, new_tail))
+            if (CAS2(Tail, tail, new_tail))
             {
                 tail.ptr->prev.ptr = nd;
                 tail.ptr->prev.tag = tail.tag;
@@ -296,7 +296,7 @@ template<class T> class Queue;
                         new_tail.ptr = nd_dummy;
                         new_tail.tag = tail.tag + 1;
 
-                        if (CAS(Tail, tail, new_tail))
+                        if (CAS2(Tail, tail, new_tail))
                         {
                             head.ptr->prev.ptr = nd_dummy;
                             head.ptr->prev.tag = tail.tag;
@@ -313,7 +313,7 @@ template<class T> class Queue;
                     new_head.ptr = firstNodePrev.ptr;
                     new_head.tag = head.tag + 1;
 
-                    if (CAS(Head, head, new_head))
+                    if (CAS2(Head, head, new_head))
                     {
                         RegionAllocator::ii->Delete(head.ptr);
                         return val;
@@ -335,7 +335,7 @@ template<class T> class Queue;
                     new_head.ptr = firstNodePrev.ptr;
                     new_head.tag = head.tag + 1;
 
-                    CAS(Head, head, new_head);
+                    CAS2(Head, head, new_head);
                 }
             }
         }

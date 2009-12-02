@@ -48,6 +48,7 @@ namespace cat {
 #if defined(__BORLANDC__)
 # define CAT_COMPILER_BORLAND
 
+# define CAT_ALIGNED(n) __declspec(align(n))
 # define CAT_PACKED
 # define CAT_INLINE __inline
 # define CAT_ASM_INTEL
@@ -65,6 +66,7 @@ namespace cat {
 #elif defined(__DMC__) || defined(__SC__)
 # define CAT_COMPILER_DMARS
 
+# define CAT_ALIGNED(n) __declspec(align(n))
 # define CAT_PACKED
 # define CAT_INLINE __inline
 # define CAT_ASM_INTEL
@@ -78,7 +80,8 @@ namespace cat {
 #elif defined(__SUNPRO_CC)
 # define CAT_COMPILER_SUN
 
-# define CAT_PACKED _attribute_((packed))
+# define CAT_ALIGNED(n) __attribute__ ((aligned (n)))
+# define CAT_PACKED __attribute__ ((packed))
 # define CAT_INLINE inline
 # define CAT_ASM_ATT
 # define CAT_ASM_BEGIN __asm__ __volatile__ (
@@ -94,6 +97,7 @@ namespace cat {
 #elif defined(__MWERKS__)
 # define CAT_COMPILER_MWERKS
 
+# define CAT_ALIGNED(n) __declspec(align(n))
 # define CAT_PACKED
 # define CAT_INLINE inline
 # define CAT_ASM_INTEL
@@ -112,7 +116,8 @@ namespace cat {
 #elif defined(__GNUC__) || defined(__APPLE_CC__) || defined(__SNC__)
 # define CAT_COMPILER_GCC
 
-# define CAT_PACKED __attribute__((packed)) __attribute__((aligned(4)))
+# define CAT_ALIGNED(n) __attribute__ ((aligned (n)))
+# define CAT_PACKED __attribute__ ((packed))
 # define CAT_INLINE inline /* __inline__ __attribute__((always_inline)) */
 # define CAT_ASM_ATT
 # define CAT_ASM_BEGIN __asm__ __volatile__ (
@@ -128,6 +133,7 @@ namespace cat {
 #elif defined(_MSC_VER)
 # define CAT_COMPILER_MSVC
 
+# define CAT_ALIGNED(n) __declspec(align(n))
 # define CAT_PACKED
 # define CAT_INLINE __forceinline
 # define CAT_ASM_INTEL
@@ -150,6 +156,7 @@ namespace cat {
 #else
 # define CAT_COMPILER_UNKNOWN
 
+# define CAT_ALIGNED(n) /* no way to detect alignment syntax */
 # define CAT_PACKED /* no way to detect packing syntax */
 # define CAT_INLINE inline
 // No way to support inline assembly code here
@@ -193,7 +200,9 @@ namespace cat {
 
 //// Word Size ////
 
-#if defined(_LP64) || defined(__LP64__) || defined(__arch64__) || defined(_WIN64)
+#if defined(_LP64) || defined(__LP64__) || defined(__arch64__) || \
+	defined(_WIN64) || defined(_M_X64) || defined(__ia64) || \
+	defined(__ia64__) || defined(__x86_64) || defined(_M_IA64)
 
 # define CAT_WORD_64
 
@@ -217,7 +226,7 @@ namespace cat {
 #elif defined(__APPLE__) && defined(__MACH__)
 # define CAT_OS_OSX
 
-#elif defined(__linux__)
+#elif defined(__linux__) || defined(__unix__)
 # define CAT_OS_LINUX
 
 #elif defined(_WIN32_WCE)
