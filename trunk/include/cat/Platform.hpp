@@ -39,123 +39,83 @@ namespace cat {
 # include "TargetConditionals.h" // iPhone target flags
 #endif
 
-// Intel C++ Compiler : Compatible with MSVC and GCC
+//-----------------------------------------------------------------------------
+// Intel C++ Compiler : Interoperates with MSVC and GCC
 #if defined(__INTEL_COMPILER) || defined(__ICL) || defined(__ICC) || defined(__ECC)
 # define CAT_COMPILER_ICC
 #endif
 
-// Borland C++ Compiler : "Compatible" with MSVC
+//-----------------------------------------------------------------------------
+// Borland C++ Compiler : Compatible with MSVC syntax
 #if defined(__BORLANDC__)
 # define CAT_COMPILER_BORLAND
-
-# define CAT_ALIGNED(n) __declspec(align(n))
-# define CAT_PACKED
+# define CAT_COMPILER_COMPAT_MSVC
 # define CAT_INLINE __inline
-# define CAT_ASM_INTEL
-# define CAT_ASM_BEGIN _asm {
 # define CAT_ASM_EMIT __emit__
-# define CAT_ASM_END }
-# define CAT_TLS __declspec(thread)
-# define CAT_RESTRICT __restrict
 
-# if !defined(NDEBUG)
-#  define CAT_DEBUG
-# endif
-
-// Digital Mars C++ Compiler (previously known at Symantec C++)
-#elif defined(__DMC__) || defined(__SC__)
+//-----------------------------------------------------------------------------
+// Digital Mars C++ Compiler (previously known as Symantec C++)
+#elif defined(__DMC__) || defined(__SC__) || defined(__SYMANTECC__)
 # define CAT_COMPILER_DMARS
-
-# define CAT_ALIGNED(n) __declspec(align(n))
-# define CAT_PACKED
+# define CAT_COMPILER_COMPAT_MSVC
 # define CAT_INLINE __inline
-# define CAT_ASM_INTEL
-# define CAT_ASM_BEGIN __asm {
 # define CAT_ASM_EMIT __emit__
-# define CAT_ASM_END }
-# define CAT_TLS __declspec(thread)
-# define CAT_RESTRICT __restrict
 
-// SUN C++ Compiler
+//-----------------------------------------------------------------------------
+// Codeplay VectorC C++ Compiler : Compatible with GCC and MSVC syntax, prefer GCC
+#elif defined(__VECTORC__)
+# define CAT_COMPILER_VECTORC
+# define CAT_COMPILER_COMPAT_GCC
+
+//-----------------------------------------------------------------------------
+// Pathscale C++ Compiler : Compatible with GCC syntax
+#elif defined(__PATHSCALE__)
+# define CAT_COMPILER_PATHSCALE
+# define CAT_COMPILER_COMPAT_GCC
+
+//-----------------------------------------------------------------------------
+// Watcom C++ Compiler : Compatible with GCC and MSVC syntax, prefer GCC
+#elif defined(__WATCOMC__)
+# define CAT_COMPILER_PATHSCALE
+# define CAT_COMPILER_COMPAT_GCC
+
+//-----------------------------------------------------------------------------
+// SUN C++ Compiler : Compatible with GCC syntax
 #elif defined(__SUNPRO_CC)
 # define CAT_COMPILER_SUN
+# define CAT_COMPILER_COMPAT_GCC
 
-# define CAT_ALIGNED(n) __attribute__ ((aligned (n)))
-# define CAT_PACKED __attribute__ ((packed))
-# define CAT_INLINE inline
-# define CAT_ASM_ATT
-# define CAT_ASM_BEGIN __asm__ __volatile__ (
-# define CAT_ASM_END );
-# define CAT_TLS __thread
-# define CAT_RESTRICT __restrict__
-
-# if !defined(NDEBUG)
-#  define CAT_DEBUG
-# endif
-
-// Metrowerks C++ Compiler : "Compatible" with MSVC
+//-----------------------------------------------------------------------------
+// Metrowerks C++ Compiler : Compatible with MSVC syntax
 #elif defined(__MWERKS__)
 # define CAT_COMPILER_MWERKS
-
-# define CAT_ALIGNED(n) __declspec(align(n))
-# define CAT_PACKED
+# define CAT_COMPILER_COMPAT_MSVC
 # define CAT_INLINE inline
-# define CAT_ASM_INTEL
 # define CAT_ASM_BEGIN _asm {
 # define CAT_ASM_EMIT __emit__
-# define CAT_ASM_END }
-# define CAT_TLS __declspec(thread)
-# define CAT_RESTRICT __restrict
 
-# if !defined(NDEBUG)
-#  define CAT_DEBUG
-# endif
-
+//-----------------------------------------------------------------------------
 // GNU C++ Compiler
 // SN Systems ProDG C++ Compiler : Compatible with GCC
 #elif defined(__GNUC__) || defined(__APPLE_CC__) || defined(__SNC__)
 # define CAT_COMPILER_GCC
+# define CAT_COMPILER_COMPAT_GCC
 
-# define CAT_ALIGNED(n) __attribute__ ((aligned (n)))
-# define CAT_PACKED __attribute__ ((packed))
-# define CAT_INLINE inline /* __inline__ __attribute__((always_inline)) */
-# define CAT_ASM_ATT
-# define CAT_ASM_BEGIN __asm__ __volatile__ (
-# define CAT_ASM_END );
-# define CAT_TLS __thread
-# define CAT_RESTRICT __restrict__
-
-# if !defined(NDEBUG)
-#  define CAT_DEBUG
-# endif
-
+//-----------------------------------------------------------------------------
 // Microsoft Visual Studio C++ Compiler
 #elif defined(_MSC_VER)
 # define CAT_COMPILER_MSVC
-
-# define CAT_ALIGNED(n) __declspec(align(n))
-# define CAT_PACKED
-# define CAT_INLINE __forceinline
-# define CAT_ASM_INTEL
-# define CAT_ASM_BEGIN __asm {
-# define CAT_ASM_EMIT _emit
-# define CAT_ASM_END }
-# define CAT_TLS __declspec( thread )
-# define CAT_RESTRICT __restrict
-
-# define WIN32_LEAN_AND_MEAN
-# if defined(_DEBUG)
-#  define CAT_DEBUG
-# endif
+# define CAT_COMPILER_COMPAT_MSVC
 
 } // namespace cat
 # include <cstdlib> // Intrinsics
 # include <intrin.h> // Intrinsics
 namespace cat {
 
+//-----------------------------------------------------------------------------
+// Otherwise unknown compiler
 #else
 # define CAT_COMPILER_UNKNOWN
-
 # define CAT_ALIGNED(n) /* no way to detect alignment syntax */
 # define CAT_PACKED /* no way to detect packing syntax */
 # define CAT_INLINE inline
@@ -164,12 +124,99 @@ namespace cat {
 
 #endif
 
+/*
+	A lot of compilers have similar syntax to MSVC or GCC,
+	so for simplicity I have those two defined below, and
+	any deviations are implemented with overrides above.
+*/
+
+// MSVC-compatible compilers
+#if defined(CAT_COMPILER_COMPAT_MSVC)
+
+#if !defined(CAT_ALIGNED)
+# define CAT_ALIGNED(n) __declspec(align(n))
+#endif
+#if !defined(CAT_PACKED)
+# define CAT_PACKED
+#endif
+#if !defined(CAT_INLINE)
+# define CAT_INLINE __forceinline
+#endif
+#if !defined(CAT_ASM_INTEL)
+# define CAT_ASM_INTEL
+#endif
+#if !defined(CAT_ASM_BEGIN)
+# define CAT_ASM_BEGIN __asm {
+#endif
+#if !defined(CAT_ASM_EMIT)
+# define CAT_ASM_EMIT _emit
+#endif
+#if !defined(CAT_ASM_END)
+# define CAT_ASM_END }
+#endif
+#if !defined(CAT_TLS)
+# define CAT_TLS __declspec( thread )
+#endif
+#if !defined(CAT_RESTRICT)
+# define CAT_RESTRICT __restrict
+#endif
+
+// GCC-compatible compilers
+#elif defined(CAT_COMPILER_COMPAT_GCC)
+
+#if !defined(CAT_ALIGNED)
+# define CAT_ALIGNED(n) __attribute__ ((aligned (n)))
+#endif
+#if !defined(CAT_PACKED)
+# define CAT_PACKED __attribute__ ((packed))
+#endif
+#if !defined(CAT_INLINE)
+# define CAT_INLINE inline /* __inline__ __attribute__((always_inline)) */
+#endif
+#if !defined(CAT_ASM_INTEL)
+# define CAT_ASM_INTEL
+#endif
+#if !defined(CAT_ASM_BEGIN)
+# define CAT_ASM_BEGIN __asm__ __volatile__ (
+#endif
+#if !defined(CAT_ASM_EMIT)
+# define CAT_ASM_EMIT .byte
+#endif
+#if !defined(CAT_ASM_END)
+# define CAT_ASM_END );
+#endif
+#if !defined(CAT_TLS)
+# define CAT_TLS __thread
+#endif
+#if !defined(CAT_RESTRICT)
+# define CAT_RESTRICT __restrict__
+#endif
+
+#endif // CAT_COMPILER_COMPAT_*
+
+
+//// Debug Flag ////
+
+#if defined(CAT_COMPILER_MSVC)
+
+# if defined(_DEBUG)
+#  define CAT_DEBUG
+# endif
+
+#else
+
+# if !defined(NDEBUG)
+#  define CAT_DEBUG
+# endif
+
+#endif
+
 
 //// Instruction Set Architecture ////
 
 #if defined(__powerpc__) || defined(__ppc__) || defined(_POWER) || defined(_M_PPC) || \
 	defined(_M_MPPC) || defined(__POWERPC) || defined(powerpc) || defined(__ppc64__) || \
-	defined(_PS3) || defined(__PS3__) || defined(SN_TARGET_PS3)
+	defined(_PS3) || defined(__PS3__) || defined(SN_TARGET_PS3) || defined(__POWERPC__)
 # define CAT_ISA_PPC
 
 #elif defined(__i386__) || defined(i386) || defined(intel) || defined(_M_IX86) || \
@@ -180,6 +227,12 @@ namespace cat {
 #elif defined(TARGET_CPU_ARM)
 # define CAT_ISA_ARM
 
+#elif defined(__mips__)
+# define CAT_ISA_MIPS
+
+#elif defined(__ALPHA__)
+# define CAT_ISA_ALPHA
+
 #else
 # define CAT_ISA_UNKNOWN
 #endif
@@ -187,12 +240,17 @@ namespace cat {
 
 //// Endianness ////
 
-#if defined(CAT_ISA_PPC)
+// Okay -- Technically IA64 and PPC can switch endianness with an MSR bit
+// flip, but come on no one does that!  ...Right?
+// If it's not right, make sure that one of the first two flags are defined.
+#if defined(__LITTLE_ENDIAN__)
+# define CAT_ENDIAN_LITTLE
+#elif defined(__BIG_ENDIAN__)
 # define CAT_ENDIAN_BIG
-
 #elif defined(CAT_ISA_X86)
 # define CAT_ENDIAN_LITTLE
-
+#elif defined(CAT_ISA_PPC)
+# define CAT_ENDIAN_BIG
 #else
 # define CAT_ENDIAN_UNKNOWN /* Must be detected at runtime */
 #endif
@@ -202,7 +260,8 @@ namespace cat {
 
 #if defined(_LP64) || defined(__LP64__) || defined(__arch64__) || \
 	defined(_WIN64) || defined(_M_X64) || defined(__ia64) || \
-	defined(__ia64__) || defined(__x86_64) || defined(_M_IA64)
+	defined(__ia64__) || defined(__x86_64) || defined(_M_IA64) || \
+	defined(__mips64)
 
 # define CAT_WORD_64
 
@@ -223,7 +282,7 @@ namespace cat {
 #if defined(__APPLE__) && defined(TARGET_OS_IPHONE)
 # define CAT_OS_IPHONE
 
-#elif defined(__APPLE__) && defined(__MACH__)
+#elif defined(__APPLE__) && (defined(__MACH__) || defined(__DARWIN__))
 # define CAT_OS_OSX
 
 #elif defined(__linux__) || defined(__unix__)
@@ -240,6 +299,9 @@ namespace cat {
 
 #elif defined(_PS3) || defined(__PS3__) || defined(SN_TARGET_PS3)
 # define CAT_OS_PS3
+
+#elif defined(__OS2__)
+# define CAT_OS_OS2
 
 #else
 # define CAT_OS_UNKNOWN
