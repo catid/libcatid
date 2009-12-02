@@ -64,7 +64,7 @@ namespace cat {
 //-----------------------------------------------------------------------------
 // Codeplay VectorC C++ Compiler : Compatible with GCC and MSVC syntax, prefer GCC
 #elif defined(__VECTORC__)
-# define CAT_COMPILER_VECTORC
+# define CAT_COMPILER_CODEPLAY
 # define CAT_COMPILER_COMPAT_GCC
 
 //-----------------------------------------------------------------------------
@@ -76,7 +76,7 @@ namespace cat {
 //-----------------------------------------------------------------------------
 // Watcom C++ Compiler : Compatible with GCC and MSVC syntax, prefer GCC
 #elif defined(__WATCOMC__)
-# define CAT_COMPILER_PATHSCALE
+# define CAT_COMPILER_WATCOM
 # define CAT_COMPILER_COMPAT_GCC
 
 //-----------------------------------------------------------------------------
