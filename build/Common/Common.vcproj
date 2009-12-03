@@ -406,6 +406,10 @@
 					RelativePath="..\..\include\cat\port\EndianNeutral.hpp"
 					>
 				</File>
+				<File
+					RelativePath="..\..\include\cat\parse\FastDelegate.h"
+					>
+				</File>
 			</Filter>
 		</Filter>
 		<Filter

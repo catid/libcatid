@@ -74,6 +74,30 @@ struct TypedOverlapped
 
 
 /*
+    class ThreadRefObject
+
+    Base class for any thread-safe reference-counted thread pool object
+
+	Designed this way so that all of these objects can be automatically deleted
+*/
+class ThreadRefObject
+{
+    friend class ThreadPool;
+    ThreadRefObject *last, *next;
+
+    volatile u32 refCount;
+
+public:
+    ThreadRefObject();
+    virtual ~ThreadRefObject() {}
+
+public:
+    void AddRef();
+    void ReleaseRef();
+};
+
+
+/*
     class ThreadPool
 
     Startup()  : Call to start up the thread pool
@@ -99,14 +123,14 @@ protected:
 	int _active_thread_count;
 
 protected:
-    friend class SocketRefObject;
+    friend class ThreadRefObject;
 
 	// Track sockets for graceful termination
-    Mutex _socketLock;
-    SocketRefObject *_socketRefHead;
+    Mutex _objectRefLock;
+    ThreadRefObject *_objectRefHead;
 
-    void TrackSocket(SocketRefObject *object);
-    void UntrackSocket(SocketRefObject *object);
+    void TrackObject(ThreadRefObject *object);
+    void UntrackObject(ThreadRefObject *object);
 
 protected:
     bool SpawnThread();
@@ -114,7 +138,7 @@ protected:
     bool Associate(HANDLE h, void *key);
 
 public:
-    void Startup();
+    bool Startup();
     void Shutdown();
 };
 

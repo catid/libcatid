@@ -57,7 +57,7 @@
 namespace cat {
 
 
-void InitializeFramework();
+bool InitializeFramework();
 
 void ShutdownFramework(bool WriteSettings = true);
 

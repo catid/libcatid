@@ -57,7 +57,7 @@ void TypedOverlapped::Reset()
 ThreadPool::ThreadPool()
 {
     _port = 0;
-    _socketRefHead = 0;
+    _objectRefHead = 0;
 	_active_thread_count = 0;
 }
 
@@ -111,15 +111,19 @@ bool ThreadPool::SpawnThreads()
 
 bool ThreadPool::Associate(HANDLE h, void *key)
 {
+	if (!_port)
+	{
+		FATAL("ThreadPool") << "Unable to associate handle since completion port was never created";
+		return false;
+	}
+
     HANDLE result = CreateIoCompletionPort(h, _port, (ULONG_PTR)key, 0);
 
-    if (!result)
+    if (result != _port)
     {
         FATAL("ThreadPool") << "Unable to create completion port: " << SocketGetLastErrorString();
         return false;
     }
-
-    _port = result;
 
     if (_active_thread_count <= 0 && !SpawnThreads())
     {
@@ -132,32 +136,58 @@ bool ThreadPool::Associate(HANDLE h, void *key)
 }
 
 
-void ThreadPool::TrackSocket(SocketRefObject *object)
+//// ThreadRefObject
+
+ThreadRefObject::ThreadRefObject()
+{
+	refCount = 1;
+
+	ThreadPool::ref()->TrackObject(this);
+}
+
+void ThreadRefObject::AddRef()
+{
+	Atomic::Add(&refCount, 1);
+}
+
+void ThreadRefObject::ReleaseRef()
+{
+	if (Atomic::Add(&refCount, -1) == 1)
+	{
+		ThreadPool::ref()->UntrackObject(this);
+		delete this;
+	}
+}
+
+void ThreadPool::TrackObject(ThreadRefObject *object)
 {
     object->last = 0;
 
-    AutoMutex lock(_socketLock);
+    AutoMutex lock(_objectRefLock);
 
     // Add to the head of a doubly-linked list of tracked sockets,
     // used for releasing sockets during termination.
-    object->next = _socketRefHead;
-    if (_socketRefHead) _socketRefHead->last = object;
-    _socketRefHead = object;
+    object->next = _objectRefHead;
+    if (_objectRefHead) _objectRefHead->last = object;
+    _objectRefHead = object;
 }
 
-void ThreadPool::UntrackSocket(SocketRefObject *object)
+void ThreadPool::UntrackObject(ThreadRefObject *object)
 {
-    AutoMutex lock(_socketLock);
+    AutoMutex lock(_objectRefLock);
 
     // Remove from the middle of a doubly-linked list of tracked sockets,
     // used for releasing sockets during termination.
-    SocketRefObject *last = object->last, *next = object->next;
+    ThreadRefObject *last = object->last, *next = object->next;
     if (last) last->next = next;
-    else _socketRefHead = next;
+    else _objectRefHead = next;
     if (next) next->last = last;
 }
 
-void ThreadPool::Startup()
+
+//// ThreadPool
+
+bool ThreadPool::Startup()
 {
 	INANE("ThreadPool") << "Initializing the thread pool...";
 
@@ -167,10 +197,22 @@ void ThreadPool::Startup()
     if (NO_ERROR != WSAStartup(MAKEWORD(2,2), &wsaData))
     {
         FATAL("ThreadPool") << "WSAStartup error: " << SocketGetLastErrorString();
-        return;
+        return false;
     }
 
+	HANDLE result = CreateIoCompletionPort(INVALID_HANDLE_VALUE, 0, 0, 0);
+
+	if (!result)
+	{
+		FATAL("ThreadPool") << "Unable to create initial completion port: " << SocketGetLastErrorString();
+		return false;
+	}
+
+	_port = result;
+
 	INANE("ThreadPool") << "...Initialization complete.";
+
+	return true;
 }
 
 void ThreadPool::Shutdown()
@@ -211,9 +253,9 @@ void ThreadPool::Shutdown()
 		_active_thread_count = 0;
     }
 
-    INANE("ThreadPool") << "Shutdown task (2/4): Deleting remaining open sockets...";
+    INANE("ThreadPool") << "Shutdown task (2/4): Deleting remaining reference-counted objects...";
 
-    SocketRefObject *kill, *object = _socketRefHead;
+    ThreadRefObject *kill, *object = _objectRefHead;
     while (object)
     {
         kill = object;
