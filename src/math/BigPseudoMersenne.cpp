@@ -41,7 +41,7 @@ BigPseudoMersenne::BigPseudoMersenne(int regs, int bits, int C)
     CopyModulus(CachedModulus);
 }
 
-void BigPseudoMersenne::CopyModulus(Leg *out)
+void CAT_FASTCALL BigPseudoMersenne::CopyModulus(Leg *out)
 {
     // Set low leg to -C, set all bits on the rest
     out[0] = 0 - modulus_c;

@@ -40,6 +40,7 @@ static int DetermineCacheLineBytes()
 #if defined(CAT_ASM_INTEL) && defined(CAT_ISA_X86)
 
 	u32 cacheline = 0;
+
 	CAT_ASM_BEGIN
 		push ebx
 		xor ecx, ecx

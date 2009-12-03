@@ -34,7 +34,7 @@ using namespace cat;
 // Unrolled schoolbook method with special attention to carries
 // This 4x4 multiply is (slightly) faster than using Comba method
 // An 8x8 Comba multiply is significantly faster than this method
-CAT_INLINE void SchoolbookMultiply4(const Leg *a, const Leg *b, Leg *output)
+CAT_INLINE void CAT_FASTCALL SchoolbookMultiply4(const Leg *a, const Leg *b, Leg *output)
 {
 	Leg p0, p1, p2, p3, p4;
 
@@ -69,7 +69,7 @@ CAT_INLINE void SchoolbookMultiply4(const Leg *a, const Leg *b, Leg *output)
 	output[7] = p1;
 }
 
-void BigRTL::Multiply(const Leg *in_a, const Leg *in_b, Leg *out)
+void CAT_FASTCALL BigRTL::Multiply(const Leg *in_a, const Leg *in_b, Leg *out)
 {
 	// ICC improves performance of multiplication by about 15% over MSVC, and it compiles the template metaprogramming very fast
 	switch (library_legs)
@@ -92,7 +92,7 @@ void BigRTL::Multiply(const Leg *in_a, const Leg *in_b, Leg *out)
         out[library_legs + ii] = MultiplyXAdd(in_a, in_b[ii], out + ii, out + ii);
 }
 
-void BigRTL::MultiplyLow(const Leg *in_a, const Leg *in_b, Leg *out)
+void CAT_FASTCALL BigRTL::MultiplyLow(const Leg *in_a, const Leg *in_b, Leg *out)
 {
     MultiplyX(in_a, in_b[0], out);
 

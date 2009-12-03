@@ -29,7 +29,7 @@
 #include <cat/math/BigPseudoMersenne.hpp>
 using namespace cat;
 
-void BigPseudoMersenne::MrReduce(Leg *inout)
+void CAT_FASTCALL BigPseudoMersenne::MrReduce(Leg *inout)
 {
     // Subtract the modulus once if the input is greater or equal to it
     for (int ii = 1; ii < library_legs; ++ii)

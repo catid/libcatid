@@ -32,7 +32,7 @@ using namespace cat;
 
 #if !defined(CAT_NO_LEGPAIR)
 
-Leg BigRTL::DivideX(const Leg *in_a, Leg in_b, Leg *out)
+Leg CAT_FASTCALL BigRTL::DivideX(const Leg *in_a, Leg in_b, Leg *out)
 {
     Leg R = 0;
 
@@ -46,7 +46,7 @@ Leg BigRTL::DivideX(const Leg *in_a, Leg in_b, Leg *out)
     return R;
 }
 
-Leg BigRTL::ModulusX(const Leg *in_a, Leg in_b)
+Leg CAT_FASTCALL BigRTL::ModulusX(const Leg *in_a, Leg in_b)
 {
     Leg R = in_a[library_legs-1];
     Leg leg = library_legs;
@@ -60,7 +60,7 @@ Leg BigRTL::ModulusX(const Leg *in_a, Leg in_b)
     return R;
 }
 
-void BigRTL::DivideCore(int A_used, Leg A_overflow, Leg *A, int B_used, Leg *B, Leg *Q)
+void CAT_FASTCALL BigRTL::DivideCore(int A_used, Leg A_overflow, Leg *A, int B_used, Leg *B, Leg *Q)
 {
     int offset = A_used - B_used;
     Leg B_high = B[B_used-1];

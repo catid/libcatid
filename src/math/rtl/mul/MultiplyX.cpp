@@ -29,12 +29,12 @@
 #include <cat/math/BigRTL.hpp>
 using namespace cat;
 
-Leg BigRTL::MultiplyX(const Leg *in_a, Leg in_b, Leg *out)
+Leg CAT_FASTCALL BigRTL::MultiplyX(const Leg *in_a, Leg in_b, Leg *out)
 {
     return MultiplyX(library_legs, in_a, in_b, out);
 }
 
-Leg BigRTL::MultiplyX(int legs, const Leg *in_a, Leg in_b, Leg *output)
+Leg CAT_FASTCALL BigRTL::MultiplyX(int legs, const Leg *in_a, Leg in_b, Leg *output)
 {
     Leg p_hi;
 

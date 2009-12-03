@@ -29,7 +29,7 @@
 #include <cat/math/BigRTL.hpp>
 using namespace cat;
 
-bool BigRTL::LoadFromString(const char *in, int base, Leg *out)
+bool CAT_FASTCALL BigRTL::LoadFromString(const char *in, int base, Leg *out)
 {
     char ch;
     CopyX(0, out);

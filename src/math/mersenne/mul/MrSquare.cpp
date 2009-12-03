@@ -30,7 +30,7 @@
 #include <cat/asm/big_x64_asm.hpp>
 using namespace cat;
 
-void BigPseudoMersenne::MrSquare(const Leg *in, Leg *out)
+void CAT_FASTCALL BigPseudoMersenne::MrSquare(const Leg *in, Leg *out)
 {
 #if defined(CAT_USE_LEGS_ASM64)
     if (library_legs == 4)

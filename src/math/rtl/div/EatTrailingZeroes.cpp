@@ -29,7 +29,7 @@
 #include <cat/math/BigRTL.hpp>
 using namespace cat;
 
-int BigRTL::EatTrailingZeroes(Leg *inout)
+int CAT_FASTCALL BigRTL::EatTrailingZeroes(Leg *inout)
 {
 	// Count number of trailing zero legs
 	int trailing_zero_legs = 0;

@@ -100,12 +100,14 @@ namespace cat {
 #elif defined(__GNUC__) || defined(__APPLE_CC__) || defined(__SNC__)
 # define CAT_COMPILER_GCC
 # define CAT_COMPILER_COMPAT_GCC
+# define CAT_FASTCALL __attribute__ ((fastcall))
 
 //-----------------------------------------------------------------------------
 // Microsoft Visual Studio C++ Compiler
 #elif defined(_MSC_VER)
 # define CAT_COMPILER_MSVC
 # define CAT_COMPILER_COMPAT_MSVC
+# define CAT_FASTCALL __fastcall
 
 } // namespace cat
 # include <cstdlib> // Intrinsics
@@ -194,6 +196,11 @@ namespace cat {
 #endif
 
 #endif // CAT_COMPILER_COMPAT_*
+
+// __fastcall calling convention is rarely supported
+#if !defined(CAT_FASTCALL)
+# define CAT_FASTCALL
+#endif
 
 
 //// Debug Flag ////

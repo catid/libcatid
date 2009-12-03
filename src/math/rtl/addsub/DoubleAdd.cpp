@@ -29,13 +29,13 @@
 #include <cat/math/BigRTL.hpp>
 using namespace cat;
 
-Leg BigRTL::DoubleAdd(const Leg *in_a, const Leg *in_b, Leg *out)
+Leg CAT_FASTCALL BigRTL::DoubleAdd(const Leg *in_a, const Leg *in_b, Leg *out)
 {
     return DoubleAdd(library_legs, in_a, in_b, out);
 }
 
 // out = in_a[] * 2 + in_b[]
-Leg BigRTL::DoubleAdd(int legs, const Leg *in_a, const Leg *in_b, Leg *out)
+Leg CAT_FASTCALL BigRTL::DoubleAdd(int legs, const Leg *in_a, const Leg *in_b, Leg *out)
 {
 #if !defined(CAT_NO_LEGPAIR)
 

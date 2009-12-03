@@ -108,7 +108,7 @@ bool Skein::BeginKey(int bits)
 
 bool Skein::SetKey(ICryptHash *key_hash)
 {
-    const Skein *parent = dynamic_cast<const Skein *>(key_hash);
+    const Skein *parent = static_cast<const Skein *>(key_hash);
     if (!parent) return false;
 
     memcpy(State, parent->State, sizeof(State));

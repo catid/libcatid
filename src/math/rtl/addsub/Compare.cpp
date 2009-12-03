@@ -29,7 +29,7 @@
 #include <cat/math/BigRTL.hpp>
 using namespace cat;
 
-bool BigRTL::Greater(const Leg *in_a, const Leg *in_b)
+bool CAT_FASTCALL BigRTL::Greater(const Leg *in_a, const Leg *in_b)
 {
     int legs = library_legs;
 
@@ -44,7 +44,7 @@ bool BigRTL::Greater(const Leg *in_a, const Leg *in_b)
     return false;
 }
 
-bool BigRTL::GreaterX(const Leg *in, Leg x)
+bool CAT_FASTCALL BigRTL::GreaterX(const Leg *in, Leg x)
 {
     for (int ii = library_legs - 1; ii > 0; --ii)
         if (in[ii]) return true;
@@ -52,7 +52,7 @@ bool BigRTL::GreaterX(const Leg *in, Leg x)
     return in[0] > x;
 }
 
-bool BigRTL::Less(const Leg *in_a, const Leg *in_b)
+bool CAT_FASTCALL BigRTL::Less(const Leg *in_a, const Leg *in_b)
 {
     int legs = library_legs;
 
@@ -67,7 +67,7 @@ bool BigRTL::Less(const Leg *in_a, const Leg *in_b)
     return false;
 }
 
-bool BigRTL::LessX(const Leg *in, Leg x)
+bool CAT_FASTCALL BigRTL::LessX(const Leg *in, Leg x)
 {
     for (int ii = library_legs - 1; ii > 0; --ii)
         if (in[ii]) return false;
@@ -75,12 +75,12 @@ bool BigRTL::LessX(const Leg *in, Leg x)
     return in[0] < x;
 }
 
-bool BigRTL::Equal(const Leg *in_a, const Leg *in_b)
+bool CAT_FASTCALL BigRTL::Equal(const Leg *in_a, const Leg *in_b)
 {
     return 0 == memcmp(in_a, in_b, library_legs * sizeof(Leg));
 }
 
-bool BigRTL::EqualX(const Leg *in, Leg x)
+bool CAT_FASTCALL BigRTL::EqualX(const Leg *in, Leg x)
 {
     if (in[0] != x) return false;
 
@@ -90,7 +90,7 @@ bool BigRTL::EqualX(const Leg *in, Leg x)
     return true;
 }
 
-bool BigRTL::IsZero(const Leg *in)
+bool CAT_FASTCALL BigRTL::IsZero(const Leg *in)
 {
     for (int ii = 0; ii < library_legs; ++ii)
         if (in[ii]) return false;

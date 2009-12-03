@@ -29,7 +29,7 @@
 #include <cat/math/BigRTL.hpp>
 using namespace cat;
 
-void BigRTL::ModularInverse(const Leg *x, const Leg *modulus, Leg *inverse)
+void CAT_FASTCALL BigRTL::ModularInverse(const Leg *x, const Leg *modulus, Leg *inverse)
 {
     if (EqualX(x, 1))
     {

@@ -29,7 +29,7 @@
 #include <cat/math/BigRTL.hpp>
 using namespace cat;
 
-u8 BigRTL::AddX(Leg *inout, Leg x)
+u8 CAT_FASTCALL BigRTL::AddX(Leg *inout, Leg x)
 {
     // If the initial sum did not carry out, return 0
     if ((inout[0] += x) >= x)

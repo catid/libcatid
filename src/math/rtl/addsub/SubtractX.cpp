@@ -29,7 +29,7 @@
 #include <cat/math/BigRTL.hpp>
 using namespace cat;
 
-u8 BigRTL::SubtractX(Leg *inout, Leg x)
+u8 CAT_FASTCALL BigRTL::SubtractX(Leg *inout, Leg x)
 {
     Leg t = inout[0];
     inout[0] = t - x;

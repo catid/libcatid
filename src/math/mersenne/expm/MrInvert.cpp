@@ -29,7 +29,7 @@
 #include <cat/math/BigPseudoMersenne.hpp>
 using namespace cat;
 
-void BigPseudoMersenne::MrInvert(const Leg *in, Leg *out)
+void CAT_FASTCALL BigPseudoMersenne::MrInvert(const Leg *in, Leg *out)
 {
     // Modular inverse with prime modulus:
     // out = in^-1 = in ^ (m - 2) [using Euler's totient function]

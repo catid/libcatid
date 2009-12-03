@@ -29,7 +29,7 @@
 #include <cat/math/BigPseudoMersenne.hpp>
 using namespace cat;
 
-void BigPseudoMersenne::MrSquareRoot(const Leg *in, Leg *out)
+void CAT_FASTCALL BigPseudoMersenne::MrSquareRoot(const Leg *in, Leg *out)
 {
 	// Uses the left-to-right square and multiply exponentiation algorithm,
 	// which is sped up a bit by recognizing that the exponent is all one bits
