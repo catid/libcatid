@@ -199,11 +199,6 @@ namespace cat {
 
 #endif // CAT_COMPILER_COMPAT_*
 
-// __fastcall calling convention is rarely supported
-#if !defined(CAT_FASTCALL)
-# define CAT_FASTCALL
-#endif
-
 
 //// Debug Flag ////
 
@@ -284,6 +279,14 @@ namespace cat {
 
 # define CAT_WORD_32
 
+#endif
+
+// __fastcall calling convention is rarely supported, and doesn't make sense for 64-bit targets
+#if !defined(CAT_FASTCALL)
+# define CAT_FASTCALL
+#elif defined(CAT_WORD_64)
+# undef CAT_FASTCALL
+# define CAT_FASTCALL
 #endif
 
 
