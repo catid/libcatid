@@ -30,7 +30,7 @@
 #define MESSAGE_ROUTER_HPP
 
 #include <cat/parse/BitStream.hpp>
-#include "FastDelegate.h"
+#include <cat/port/FastDelegate.h>
 
 namespace cat {
 

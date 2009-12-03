@@ -186,30 +186,6 @@ namespace cat
 }
 
 
-//// SocketRefObject
-
-SocketRefObject::SocketRefObject()
-{
-    refCount = 1;
-
-    ThreadPool::ref()->TrackSocket(this);
-}
-
-void SocketRefObject::AddRef()
-{
-    InterlockedIncrement(&refCount);
-}
-
-void SocketRefObject::ReleaseRef()
-{
-    if (InterlockedDecrement(&refCount) == 0)
-    {
-        ThreadPool::ref()->UntrackSocket(this);
-        delete this;
-    }
-}
-
-
 //// TCPServer
 
 TCPServer::TCPServer()
@@ -487,7 +463,7 @@ bool TCPServerConnection::ValidServerConnection()
 void TCPServerConnection::DisconnectClient()
 {
     // Only allow disconnect to run once
-    if (InterlockedIncrement(&disconnecting) == 1)
+    if (Atomic::Add(&disconnecting, 1) == 0)
     {
         OnDisconnectFromClient();
 
@@ -785,7 +761,7 @@ bool TCPClient::ConnectToServer(const sockaddr_in &remoteServerAddress)
 void TCPClient::DisconnectServer()
 {
     // Only allow disconnect to run once
-    if (InterlockedIncrement(&disconnecting) == 1)
+    if (Atomic::Add(&disconnecting, 1) == 0)
     {
         OnDisconnectFromServer();
 
@@ -1118,7 +1094,7 @@ UDPEndpoint::~UDPEndpoint()
 void UDPEndpoint::Close()
 {
     // Only allow close to run once
-    if (InterlockedIncrement(&closing) == 1)
+    if (Atomic::Add(&closing, 1) == 0)
     {
         if (endpointSocket != SOCKET_ERROR)
         {

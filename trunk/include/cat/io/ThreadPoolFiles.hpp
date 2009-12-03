@@ -30,6 +30,7 @@
 #define THREAD_POOL_FILES_HPP
 
 #include <cat/threads/ThreadPool.hpp>
+#include <cat/port/FastDelegate.h>
 
 #if defined(CAT_OS_WINDOWS)
 # include <cat/port/WindowsInclude.hpp>
@@ -38,7 +39,7 @@
 namespace cat {
 
 
-typedef void (*ReadFileCallback)(void *buffer, u32 bytes);
+typedef fastdelegate::FastDelegate<void (void *buffer, u32 bytes)> ReadFileCallback;
 
 
 // ReadFile() OVERLAPPED structure

@@ -131,37 +131,13 @@ struct RecvFromOverlapped : public TypedOverlapped
 
 
 /*
-    class SocketRefObject
-
-    Base class for any thread-safe reference-counted socket object
-
-	Designed this way so that all of these objects can be automatically deleted
-*/
-class SocketRefObject
-{
-    friend class ThreadPool;
-    SocketRefObject *last, *next;
-
-    volatile long refCount;
-
-public:
-    SocketRefObject();
-    virtual ~SocketRefObject() {}
-
-public:
-    void AddRef();
-    void ReleaseRef();
-};
-
-
-/*
     class TCPServer
 
     Object that represents a TCP server bound to a single port
 
     Overload InstantiateServerConnection() to subclass connections with the server
 */
-class TCPServer : public SocketRefObject
+class TCPServer : public ThreadRefObject
 {
     friend class TCPServerConnection;
     friend class ThreadPool;
@@ -210,7 +186,7 @@ private:
     OnWriteToClient()       : Informs the derived class that data has been sent
     OnDisconectFromClient() : Informs the derived class that the client has disconnected
 */
-class TCPServerConnection : public SocketRefObject
+class TCPServerConnection : public ThreadRefObject
 {
     friend class TCPServer;
     friend class ThreadPool;
@@ -234,7 +210,7 @@ private:
     SOCKET acceptSocket;
     LPFN_DISCONNECTEX lpfnDisconnectEx;
     TypedOverlapped *recvOv;
-    volatile long disconnecting;
+    volatile u32 disconnecting;
 
 private:
     bool AcceptConnection(SOCKET listenSocket, SOCKET acceptSocket,
@@ -268,7 +244,7 @@ private:
     OnWriteToServer()        : Informs the derived class that data has been sent
     OnDisconnectFromServer() : Informs the derived class that the server has disconnected
 */
-class TCPClient : public SocketRefObject
+class TCPClient : public ThreadRefObject
 {
     friend class ThreadPool;
 
@@ -291,7 +267,7 @@ protected:
 private:
     SOCKET connectSocket;
     TypedOverlapped *recvOv;
-    volatile long disconnecting;
+    volatile u32 disconnecting;
 
 private:
     bool QueueConnectEx(const sockaddr_in &remoteServerAddress);
@@ -341,7 +317,7 @@ public:
 
     Object that represents a UDP endpoint bound to a single port
 */
-class UDPEndpoint : public SocketRefObject
+class UDPEndpoint : public ThreadRefObject
 {
     friend class ThreadPool;
 
@@ -371,7 +347,7 @@ protected:
 private:
     SOCKET endpointSocket;
     Port port;
-    volatile long closing;
+    volatile u32 closing;
 
 private:
     bool QueueWSARecvFrom(RecvFromOverlapped *recvOv);

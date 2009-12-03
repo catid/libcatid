@@ -33,7 +33,10 @@ using namespace cat;
 
 int main(int argc, const char **argv)
 {
-    InitializeFramework();
+    if (!InitializeFramework())
+	{
+		FatalStop("Unable to initialize framework!");
+	}
 
 #ifndef GENERATING_TABLE
     if (!TextStatsCollector::VerifyTableIntegrity(ChatText))
