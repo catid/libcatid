@@ -30,7 +30,6 @@
 #include <cat/time/Clock.hpp>
 using namespace cat;
 
-
 #if defined(CAT_THREAD_WINDOWS)
 
 #include <process.h>
