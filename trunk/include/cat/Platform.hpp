@@ -173,8 +173,8 @@ namespace cat {
 #if !defined(CAT_INLINE)
 # define CAT_INLINE inline /* __inline__ __attribute__((always_inline)) */
 #endif
-#if !defined(CAT_ASM_INTEL)
-# define CAT_ASM_INTEL
+#if !defined(CAT_ASM_ATT)
+# define CAT_ASM_ATT
 #endif
 #if !defined(CAT_ASM_BEGIN)
 # define CAT_ASM_BEGIN __asm__ __volatile__ (
