@@ -68,6 +68,11 @@ public:
     // 0 = end of line, so next character counts towards initial character frequency
     void Tally(u8 x);
 
+#if defined(CAT_PRAGMA_PACK)
+#pragma pack(push)
+#pragma pack(1)
+#endif
+
     struct TableFormat
     {
         // MurmurHash2 of remainder, with seed = 0
@@ -105,6 +110,10 @@ public:
         */
         u16 frequencies[1];
     } CAT_PACKED;
+
+#if defined(CAT_PRAGMA_PACK)
+#pragma pack(pop)
+#endif
 
     // Returns code that creates a table in the above format
     bool GenerateMinimalStaticTable(const char *TableName, std::ostream &osout);
@@ -187,7 +196,7 @@ class RangeDecoder
     CAT_INLINE u8 GetTableSymbol(const TextStatsCollector::TableFormat *stats, u32 &last, u16 freq, u16 &symbol_low, u16 &symbol_range);
 
 public:
-    // Intializing constructor
+    // Initializing constructor
     RangeDecoder(const void *message, int bytes);
 
     int Remaining() { return remaining; }

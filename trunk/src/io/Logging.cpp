@@ -104,7 +104,7 @@ region_string HexDumpString(const void *vdata, u32 bytes)
     return oss.str();
 }
 
-void FatalStop(const char *message)
+void cat::FatalStop(const char *message)
 {
 	cout << "Fatal Stop: " << message << endl;
 #if defined(CAT_OS_WINDOWS)

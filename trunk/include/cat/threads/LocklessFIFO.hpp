@@ -38,7 +38,7 @@
 #include <cat/threads/Atomic.hpp>
 
 #if defined(CAT_OS_WINDOWS)
-# include <windows.h>
+# include <cat/port/WindowsInclude.hpp>
 #else
 # error "Not portable to your OS!"
 #endif
@@ -55,11 +55,6 @@ template<class T> class Queue;
 
 //// Ptr
 
-#if defined(CAT_COMPILER_MSVC)
-# pragma pack(push)
-# pragma pack(1)
-#endif
-
     // Union for an ABA-proof pointer
     template<class T>
     class Ptr
@@ -75,7 +70,7 @@ template<class T> class Queue;
 #else
                 u32 tag;
 #endif
-            } CAT_PACKED;
+            };
 #if defined(CAT_WORD_64)
             volatile u64 N[2];
 #else
@@ -88,10 +83,6 @@ template<class T> class Queue;
         bool operator==(const Ptr<T> &rhs);
         bool operator!=(const Ptr<T> &rhs);
     };
-
-#if defined(CAT_COMPILER_MSVC)
-# pragma pack(pop)
-#endif
 
 
 //// Derive from Data<T> for data passed through the queue

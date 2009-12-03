@@ -33,7 +33,7 @@
 #include <cat/threads/Mutex.hpp>
 
 #if defined(CAT_OS_WINDOWS)
-#include <windows.h>
+# include <cat/port/WindowsInclude.hpp>
 #endif
 
 namespace cat {

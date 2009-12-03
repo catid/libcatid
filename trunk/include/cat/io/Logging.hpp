@@ -90,7 +90,7 @@ public:
     int log_threshold;
 
 public:
-	void Initialize(EventSeverity min_severity);
+	void Initialize(EventSeverity min_severity = LVL_INANE);
 	void ReadSettings();
     void Shutdown();
 

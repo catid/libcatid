@@ -34,7 +34,7 @@
 using namespace cat;
 
 #if defined(CAT_OS_WINDOWS)
-# include <windows.h>
+# include <cat/port/WindowsInclude.hpp>
 #endif
 
 

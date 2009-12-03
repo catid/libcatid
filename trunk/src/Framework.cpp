@@ -30,7 +30,7 @@
 using namespace cat;
 
 // Framework Initialize
-void InitializeFramework()
+void cat::InitializeFramework()
 {
 	// Initialize custom memory allocator subsystem
 	if (!RegionAllocator::ref()->Valid())
@@ -52,7 +52,7 @@ void InitializeFramework()
 }
 
 // Framework Shutdown
-void ShutdownFramework(bool WriteSettings)
+void cat::ShutdownFramework(bool WriteSettings)
 {
 	// Terminate worker threads
 	ThreadPool::ref()->Shutdown();

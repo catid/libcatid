@@ -26,7 +26,6 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <algorithm>
 #include <cat/io/Logging.hpp>
 #include <cat/io/Settings.hpp>
 #include <cat/io/ThreadPoolFiles.hpp>
@@ -160,7 +159,9 @@ void ThreadPool::UntrackSocket(SocketRefObject *object)
 
 void ThreadPool::Startup()
 {
-    WSADATA wsaData;
+	INANE("ThreadPool") << "Initializing the thread pool...";
+
+	WSADATA wsaData;
 
     // Request Winsock 2.2
     if (NO_ERROR != WSAStartup(MAKEWORD(2,2), &wsaData))
@@ -168,17 +169,23 @@ void ThreadPool::Startup()
         FATAL("ThreadPool") << "WSAStartup error: " << SocketGetLastErrorString();
         return;
     }
+
+	INANE("ThreadPool") << "...Initialization complete.";
 }
 
 void ThreadPool::Shutdown()
 {
-    INFO("ThreadPool") << "Terminating the thread pool...";
+    INANE("ThreadPool") << "Terminating the thread pool...";
 
     u32 count = _active_thread_count;
 
-    if (count)
+    if (!count)
+	{
+		WARN("ThreadPool") << "Shutdown task (1/4): No threads are active";
+	}
+	else
     {
-        INFO("ThreadPool") << "Shutdown task (1/4): Stopping threads...";
+        INANE("ThreadPool") << "Shutdown task (1/4): Stopping threads...";
 
         if (_port)
         while (count--)
@@ -204,7 +211,7 @@ void ThreadPool::Shutdown()
 		_active_thread_count = 0;
     }
 
-    INFO("ThreadPool") << "Shutdown task (2/4): Deleting managed sockets...";
+    INANE("ThreadPool") << "Shutdown task (2/4): Deleting remaining open sockets...";
 
     SocketRefObject *kill, *object = _socketRefHead;
     while (object)
@@ -214,19 +221,23 @@ void ThreadPool::Shutdown()
         delete kill;
     }
 
-    INFO("ThreadPool") << "Shutdown task (3/4): Closing IOCP port...";
-
-    if (_port)
+    if (!_port)
+	{
+		WARN("ThreadPool") << "Shutdown task (3/4): IOCP port not created";
+	}
+	else
     {
-        CloseHandle(_port);
+		INANE("ThreadPool") << "Shutdown task (3/4): Closing IOCP port...";
+
+		CloseHandle(_port);
         _port = 0;
     }
 
-    INFO("ThreadPool") << "Shutdown task (4/4): WSACleanup()...";
+    INANE("ThreadPool") << "Shutdown task (4/4): WSACleanup()...";
 
     WSACleanup();
 
-    INFO("ThreadPool") << "...Termination complete.";
+    INANE("ThreadPool") << "...Termination complete.";
 
     delete this;
 }

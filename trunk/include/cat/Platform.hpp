@@ -138,6 +138,7 @@ namespace cat {
 #endif
 #if !defined(CAT_PACKED)
 # define CAT_PACKED
+# define CAT_PRAGMA_PACK
 #endif
 #if !defined(CAT_INLINE)
 # define CAT_INLINE __forceinline
