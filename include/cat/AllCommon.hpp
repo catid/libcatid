@@ -30,13 +30,18 @@
 
 #include <cat/time/Clock.hpp>
 
+#include <cat/rand/IRandom.hpp>
 #include <cat/rand/MersenneTwister.hpp>
 #include <cat/rand/StdRand.hpp>
 
 #include <cat/hash/MurmurHash2.hpp>
 
 #include <cat/threads/Atomic.hpp>
+#include <cat/threads/Mutex.hpp>
+#include <cat/threads/LoopThread.hpp>
 
 #include <cat/math/BitMath.hpp>
 
+#include <cat/port/AlignedAlloc.hpp>
 #include <cat/port/EndianNeutral.hpp>
+#include <cat/port/FastDelegate.h>
