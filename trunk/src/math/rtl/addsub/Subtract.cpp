@@ -29,12 +29,12 @@
 #include <cat/math/BigRTL.hpp>
 using namespace cat;
 
-u8 BigRTL::Subtract(const Leg *in_a, const Leg *in_b, Leg *out)
+u8 CAT_FASTCALL BigRTL::Subtract(const Leg *in_a, const Leg *in_b, Leg *out)
 {
     return Subtract(library_legs, in_a, in_b, out);
 }
 
-u8 BigRTL::Subtract(int legs, const Leg *in_a, const Leg *in_b, Leg *out)
+u8 CAT_FASTCALL BigRTL::Subtract(int legs, const Leg *in_a, const Leg *in_b, Leg *out)
 {
 #if !defined(CAT_NO_LEGPAIR)
 

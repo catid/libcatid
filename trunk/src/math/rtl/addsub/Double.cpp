@@ -29,7 +29,7 @@
 #include <cat/math/BigRTL.hpp>
 using namespace cat;
 
-u8 BigRTL::Double(const Leg *in, Leg *out)
+u8 CAT_FASTCALL BigRTL::Double(const Leg *in, Leg *out)
 {
     // Double low leg first
     Leg last = in[0];

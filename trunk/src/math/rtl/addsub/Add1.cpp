@@ -29,7 +29,7 @@
 #include <cat/math/BigRTL.hpp>
 using namespace cat;
 
-u8 BigRTL::Add(int legs_a, const Leg *in_a, int legs_b, const Leg *in_b, Leg *out)
+u8 CAT_FASTCALL BigRTL::Add(int legs_a, const Leg *in_a, int legs_b, const Leg *in_b, Leg *out)
 {
 #if !defined(CAT_NO_LEGPAIR)
 

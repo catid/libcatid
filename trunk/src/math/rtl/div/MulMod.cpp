@@ -30,7 +30,7 @@
 using namespace cat;
 
 // r = a * b (mod m)
-void BigRTL::MulMod(const Leg *in_a, const Leg *in_b, const Leg *in_m, Leg *r)
+void CAT_FASTCALL BigRTL::MulMod(const Leg *in_a, const Leg *in_b, const Leg *in_m, Leg *r)
 {
     Leg *p = Get(library_regs - 5);
 

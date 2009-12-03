@@ -29,7 +29,7 @@
 #include <cat/math/BigRTL.hpp>
 using namespace cat;
 
-void BigRTL::Negate(const Leg *in, Leg *out)
+void CAT_FASTCALL BigRTL::Negate(const Leg *in, Leg *out)
 {
     int ii;
 

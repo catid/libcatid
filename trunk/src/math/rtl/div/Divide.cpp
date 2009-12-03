@@ -30,7 +30,7 @@
 #include <cat/math/BitMath.hpp>
 using namespace cat;
 
-bool BigRTL::Divide(const Leg *in_a, const Leg *in_b, Leg *out_q, Leg *out_r)
+bool CAT_FASTCALL BigRTL::Divide(const Leg *in_a, const Leg *in_b, Leg *out_q, Leg *out_r)
 {
     // If a < b, avoid division
     if (Less(in_a, in_b))
@@ -80,7 +80,7 @@ bool BigRTL::Divide(const Leg *in_a, const Leg *in_b, Leg *out_q, Leg *out_r)
 
 // Divide the product of two registers (a+1:a) by single register (b)
 // Resulting quotient is two registers (q+1:q) and remainder is one register (r)
-bool BigRTL::DivideProduct(const Leg *in_a, const Leg *in_b, Leg *out_q, Leg *out_r)
+bool CAT_FASTCALL BigRTL::DivideProduct(const Leg *in_a, const Leg *in_b, Leg *out_q, Leg *out_r)
 {
 	int B_used = LegsUsed(in_b);
     if (!B_used) return false;

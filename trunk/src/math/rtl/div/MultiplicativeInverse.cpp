@@ -29,7 +29,7 @@
 #include <cat/math/BigRTL.hpp>
 using namespace cat;
 
-Leg BigRTL::MultiplicativeInverseX(Leg n)
+Leg CAT_FASTCALL BigRTL::MultiplicativeInverseX(Leg n)
 {
 	// {u1, g1} = 2^bits / n
 	Leg hb = (~(n - 1) >> (CAT_LEG_BITS-1));

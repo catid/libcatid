@@ -29,7 +29,7 @@
 #include <cat/math/BigPseudoMersenne.hpp>
 using namespace cat;
 
-void BigPseudoMersenne::MrNegate(const Leg *in, Leg *out)
+void CAT_FASTCALL BigPseudoMersenne::MrNegate(const Leg *in, Leg *out)
 {
     // It's like SubtractX: out = m - in = ~in-c+1 = ~in - (c-1)
     Leg t = ~in[0];

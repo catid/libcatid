@@ -30,7 +30,7 @@
 #include <cat/port/EndianNeutral.hpp>
 using namespace cat;
 
-void BigRTL::Save(const Leg *in_leg, void *out, int bytes)
+void CAT_FASTCALL BigRTL::Save(const Leg *in_leg, void *out, int bytes)
 {
     // Prepare to copy
     Leg *out_leg = (Leg*)out;

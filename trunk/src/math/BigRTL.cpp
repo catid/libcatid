@@ -50,24 +50,24 @@ BigRTL::~BigRTL()
     }
 }
 
-Leg *BigRTL::Get(int reg_index)
+Leg * CAT_FASTCALL BigRTL::Get(int reg_index)
 {
     return &library_memory[library_legs * reg_index];
 }
 
-void BigRTL::Copy(const Leg *in, Leg *out)
+void CAT_FASTCALL BigRTL::Copy(const Leg *in, Leg *out)
 {
     memcpy(out, in, library_legs * sizeof(Leg));
 }
 
-void BigRTL::CopyX(Leg in, Leg *out)
+void CAT_FASTCALL BigRTL::CopyX(Leg in, Leg *out)
 {
     // Set low leg to input, zero the rest
     out[0] = in;
     memset(&out[1], 0, (library_legs-1) * sizeof(Leg));
 }
 
-int BigRTL::LegsUsed(const Leg *in)
+int CAT_FASTCALL BigRTL::LegsUsed(const Leg *in)
 {
     for (int legs = library_legs - 1; legs >= 0; --legs)
         if (in[legs]) return legs + 1;

@@ -29,13 +29,13 @@
 #include <cat/math/BigRTL.hpp>
 using namespace cat;
 
-Leg BigRTL::MultiplyXAdd(const Leg *in_a, Leg in_b, const Leg *in_c, Leg *out)
+Leg CAT_FASTCALL BigRTL::MultiplyXAdd(const Leg *in_a, Leg in_b, const Leg *in_c, Leg *out)
 {
     return MultiplyXAdd(library_legs, in_a, in_b, in_c, out);
 }
 
 // out = A * B + C
-Leg BigRTL::MultiplyXAdd(int legs, const Leg *in_a, Leg in_b, const Leg *in_c, Leg *output)
+Leg CAT_FASTCALL BigRTL::MultiplyXAdd(int legs, const Leg *in_a, Leg in_b, const Leg *in_c, Leg *output)
 {
     // ICC does a better job than my hand-written version by using SIMD instructions,
     // so I use its optimizer instead.

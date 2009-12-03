@@ -43,7 +43,7 @@ using namespace cat;
 */
 
 // This is (slightly) faster than normal 4x4 multiplication
-CAT_INLINE void Square4(const Leg * CAT_RESTRICT input, Leg * CAT_RESTRICT output)
+CAT_INLINE void CAT_FASTCALL Square4(const Leg * CAT_RESTRICT input, Leg * CAT_RESTRICT output)
 {
 	Leg a = input[3], b = input[2], c = input[1], d = input[0];
 
@@ -80,7 +80,7 @@ CAT_INLINE void Square4(const Leg * CAT_RESTRICT input, Leg * CAT_RESTRICT outpu
 }
 
 // This is significantly faster than normal 8x8 Comba multiplication (67% runtime)
-CAT_INLINE void Square8(const Leg * CAT_RESTRICT input, Leg * CAT_RESTRICT output)
+CAT_INLINE void CAT_FASTCALL Square8(const Leg * CAT_RESTRICT input, Leg * CAT_RESTRICT output)
 {
 	// Calculate square products
 	Square4(input, output);
@@ -121,7 +121,7 @@ CAT_INLINE void Square8(const Leg * CAT_RESTRICT input, Leg * CAT_RESTRICT outpu
 #endif // CAT_NO_LEGPAIR
 
 
-void BigRTL::Square(const Leg *input, Leg *output)
+void CAT_FASTCALL BigRTL::Square(const Leg *input, Leg *output)
 {
 #if !defined(CAT_NO_LEGPAIR)
 	if (library_legs == 8)

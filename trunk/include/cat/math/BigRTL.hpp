@@ -54,108 +54,108 @@ protected:
     Leg *library_memory;
 
 protected:
-    static Leg ShiftRight(int legs, const Leg *in, int shift, Leg *out);
-    static Leg ShiftLeft(int legs, const Leg *in, int shift, Leg *out);
+    static Leg CAT_FASTCALL ShiftRight(int legs, const Leg *in, int shift, Leg *out);
+    static Leg CAT_FASTCALL ShiftLeft(int legs, const Leg *in, int shift, Leg *out);
 
 protected:
-    static u8 Add(int legs, const Leg *in_a, const Leg *in_b, Leg *out);
-    static u8 Add(int legs_a, const Leg *in_a, int legs_b, const Leg *in_b, Leg *out); // legs_b <= legs_a
-    static u8 Subtract(int legs, const Leg *in_a, const Leg *in_b, Leg *out);
+    static u8 CAT_FASTCALL Add(int legs, const Leg *in_a, const Leg *in_b, Leg *out);
+    static u8 CAT_FASTCALL Add(int legs_a, const Leg *in_a, int legs_b, const Leg *in_b, Leg *out); // legs_b <= legs_a
+    static u8 CAT_FASTCALL Subtract(int legs, const Leg *in_a, const Leg *in_b, Leg *out);
 
 protected:
-    static Leg MultiplyX(int legs, const Leg *in_a, Leg in_b, Leg *out);
-    static Leg MultiplyXAdd(int legs, const Leg *in_a, Leg in_b, const Leg *in_c, Leg *out);
-    static Leg DoubleAdd(int legs, const Leg *in_a, const Leg *in_b, Leg *out);
+    static Leg CAT_FASTCALL MultiplyX(int legs, const Leg *in_a, Leg in_b, Leg *out);
+    static Leg CAT_FASTCALL MultiplyXAdd(int legs, const Leg *in_a, Leg in_b, const Leg *in_c, Leg *out);
+    static Leg CAT_FASTCALL DoubleAdd(int legs, const Leg *in_a, const Leg *in_b, Leg *out);
 
 protected:
-	static void DivideCore(int A_used, Leg A_overflow, Leg *A, int B_used, Leg *B, Leg *Q); // A = remainder
+	static void CAT_FASTCALL DivideCore(int A_used, Leg A_overflow, Leg *A, int B_used, Leg *B, Leg *Q); // A = remainder
 
 public:
     BigRTL(int regs, int bits);
     ~BigRTL();
 
 public:
-    Leg *Get(int reg_index);
+    Leg * CAT_FASTCALL Get(int reg_index);
     CAT_INLINE int Legs() { return library_legs; }
     CAT_INLINE int RegBytes() { return library_legs * sizeof(Leg); }
 
 public:
 	// Save one single register to an endian-neutral byte array
-    void Save(const Leg *in, void *out, int bytes);
+    void CAT_FASTCALL Save(const Leg *in, void *out, int bytes);
 
 	// Load one single register from an endian-neutral byte array
-    void Load(const void *in, int bytes, Leg *out);
+    void CAT_FASTCALL Load(const void *in, int bytes, Leg *out);
 
-    bool LoadFromString(const char *in, int base, Leg *out);
-
-public:
-    void Copy(const Leg *in, Leg *out);
-    void CopyX(Leg in, Leg *out);
+    bool CAT_FASTCALL LoadFromString(const char *in, int base, Leg *out);
 
 public:
-    int LegsUsed(const Leg *in);
+    void CAT_FASTCALL Copy(const Leg *in, Leg *out);
+    void CAT_FASTCALL CopyX(Leg in, Leg *out);
 
 public:
-    bool Greater(const Leg *in_a, const Leg *in_b);
-    bool GreaterX(const Leg *in, Leg x);
-    bool Less(const Leg *in_a, const Leg *in_b);
-    bool LessX(const Leg *in, Leg x);
-    bool Equal(const Leg *in_a, const Leg *in_b);
-    bool EqualX(const Leg *in, Leg x);
-    bool IsZero(const Leg *in);
+    int CAT_FASTCALL LegsUsed(const Leg *in);
 
 public:
-    Leg ShiftLeft(const Leg *in, int shift, Leg *out);
-	void MoveLegsRight(const Leg *in, int legs, Leg *out);
+    bool CAT_FASTCALL Greater(const Leg *in_a, const Leg *in_b);
+    bool CAT_FASTCALL GreaterX(const Leg *in, Leg x);
+    bool CAT_FASTCALL Less(const Leg *in_a, const Leg *in_b);
+    bool CAT_FASTCALL LessX(const Leg *in, Leg x);
+    bool CAT_FASTCALL Equal(const Leg *in_a, const Leg *in_b);
+    bool CAT_FASTCALL EqualX(const Leg *in, Leg x);
+    bool CAT_FASTCALL IsZero(const Leg *in);
 
 public:
-    u8 Add(const Leg *in_a, const Leg *in_b, Leg *out);
-    u8 AddX(Leg *inout, Leg x);
-    u8 Subtract(const Leg *in_a, const Leg *in_b, Leg *out);
-    u8 SubtractX(Leg *inout, Leg x);
-    void Negate(const Leg *in, Leg *out);
+    Leg CAT_FASTCALL ShiftLeft(const Leg *in, int shift, Leg *out);
+	void CAT_FASTCALL MoveLegsRight(const Leg *in, int legs, Leg *out);
 
 public:
-    u8 Double(const Leg *in, Leg *out);
+    u8 CAT_FASTCALL Add(const Leg *in_a, const Leg *in_b, Leg *out);
+    u8 CAT_FASTCALL AddX(Leg *inout, Leg x);
+    u8 CAT_FASTCALL Subtract(const Leg *in_a, const Leg *in_b, Leg *out);
+    u8 CAT_FASTCALL SubtractX(Leg *inout, Leg x);
+    void CAT_FASTCALL Negate(const Leg *in, Leg *out);
+
+public:
+    u8 CAT_FASTCALL Double(const Leg *in, Leg *out);
 
 public:
 	// Eat all trailing least significant zeroes from the argument and return the number eatten
-	int EatTrailingZeroes(Leg *inout);
+	int CAT_FASTCALL EatTrailingZeroes(Leg *inout);
 
 public:
-    Leg MultiplyX(const Leg *in_a, Leg in_b, Leg *out); // out = a[] * b
-    Leg MultiplyXAdd(const Leg *in_a, Leg in_b, const Leg *in_c, Leg *out); // out = a[] * b + c[]
-    Leg DoubleAdd(const Leg *in_a, const Leg *in_b, Leg *out); // out = a[] * 2 + b[]
+    Leg CAT_FASTCALL MultiplyX(const Leg *in_a, Leg in_b, Leg *out); // out = a[] * b
+    Leg CAT_FASTCALL MultiplyXAdd(const Leg *in_a, Leg in_b, const Leg *in_c, Leg *out); // out = a[] * b + c[]
+    Leg CAT_FASTCALL DoubleAdd(const Leg *in_a, const Leg *in_b, Leg *out); // out = a[] * 2 + b[]
 
 public:
-    void MultiplyLow(const Leg *in_a, const Leg *in_b, Leg *out); // out = a[] * b[], low half
+    void CAT_FASTCALL MultiplyLow(const Leg *in_a, const Leg *in_b, Leg *out); // out = a[] * b[], low half
 
 public:
     // out[] gets the low part of the product, next reg gets high part
 	// note: in_a != out, in_b != out
-    void Multiply(const Leg *in_a, const Leg *in_b, Leg *out); // out+1:out = a[] * b[]
-    void Square(const Leg *in, Leg *out); // out+1:out = in[] * in[]
+    void CAT_FASTCALL Multiply(const Leg *in_a, const Leg *in_b, Leg *out); // out+1:out = a[] * b[]
+    void CAT_FASTCALL Square(const Leg *in, Leg *out); // out+1:out = in[] * in[]
 
 public:
-    Leg DivideX(const Leg *in_a, Leg in_b, Leg *out); // out = a[] / b, returns modulus
-    Leg ModulusX(const Leg *in_a, Leg in_b); // returns a[] % b
+    Leg CAT_FASTCALL DivideX(const Leg *in_a, Leg in_b, Leg *out); // out = a[] / b, returns modulus
+    Leg CAT_FASTCALL ModulusX(const Leg *in_a, Leg in_b); // returns a[] % b
 
 public:
-    bool Divide(const Leg *in_a, const Leg *in_b, Leg *out_q, Leg *out_r);
+    bool CAT_FASTCALL Divide(const Leg *in_a, const Leg *in_b, Leg *out_q, Leg *out_r);
 
 	// Divide the product of two registers (a+1:a) by single register (b)
 	// Resulting quotient is two registers (q+1:q) and remainder is one register (r)
-    bool DivideProduct(const Leg *in_a, const Leg *in_b, Leg *out_q, Leg *out_r);
+    bool CAT_FASTCALL DivideProduct(const Leg *in_a, const Leg *in_b, Leg *out_q, Leg *out_r);
 
 public:
 	// r = a * b (mod m)
-	void MulMod(const Leg *in_a, const Leg *in_b, const Leg *in_m, Leg *r);
+	void CAT_FASTCALL MulMod(const Leg *in_a, const Leg *in_b, const Leg *in_m, Leg *r);
 
 public:
-    void ModularInverse(const Leg *x, const Leg *modulus, Leg *inverse);
+    void CAT_FASTCALL ModularInverse(const Leg *x, const Leg *modulus, Leg *inverse);
 
 public:
-	Leg MultiplicativeInverseX(Leg x);
+	Leg CAT_FASTCALL MultiplicativeInverseX(Leg x);
 };
 
 

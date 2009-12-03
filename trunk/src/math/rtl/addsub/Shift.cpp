@@ -29,12 +29,12 @@
 #include <cat/math/BigRTL.hpp>
 using namespace cat;
 
-Leg BigRTL::ShiftLeft(const Leg *in, int shift, Leg *out)
+Leg CAT_FASTCALL BigRTL::ShiftLeft(const Leg *in, int shift, Leg *out)
 {
     return ShiftLeft(library_legs, in, shift, out);
 }
 
-Leg BigRTL::ShiftLeft(int legs, const Leg *in, int shift, Leg *out)
+Leg CAT_FASTCALL BigRTL::ShiftLeft(int legs, const Leg *in, int shift, Leg *out)
 {
     if (!shift)
     {
@@ -56,7 +56,7 @@ Leg BigRTL::ShiftLeft(int legs, const Leg *in, int shift, Leg *out)
     return carry >> (CAT_LEG_BITS - shift);
 }
 
-Leg BigRTL::ShiftRight(int legs, const Leg *in, int shift, Leg *out)
+Leg CAT_FASTCALL BigRTL::ShiftRight(int legs, const Leg *in, int shift, Leg *out)
 {
     if (!shift)
     {
@@ -78,7 +78,7 @@ Leg BigRTL::ShiftRight(int legs, const Leg *in, int shift, Leg *out)
     return carry << (CAT_LEG_BITS - shift);
 }
 
-void BigRTL::MoveLegsRight(const Leg *in, int legs, Leg *out)
+void CAT_FASTCALL BigRTL::MoveLegsRight(const Leg *in, int legs, Leg *out)
 {
 	memmove(out, in + legs, (library_legs - legs) * sizeof(Leg));
 	memset(out + library_legs - legs, 0, legs * sizeof(Leg));

@@ -175,9 +175,12 @@
 				OmitFramePointers="true"
 				EnableFiberSafeOptimizations="true"
 				AdditionalIncludeDirectories="../../include/"
+				StringPooling="true"
+				SmallerTypeCheck="false"
 				RuntimeLibrary="2"
 				BufferSecurityCheck="false"
 				EnableEnhancedInstructionSet="2"
+				RuntimeTypeInfo="false"
 				WarningLevel="3"
 				Detect64BitPortabilityProblems="true"
 				DebugInformationFormat="3"
@@ -407,7 +410,7 @@
 					>
 				</File>
 				<File
-					RelativePath="..\..\include\cat\parse\FastDelegate.h"
+					RelativePath="..\..\include\cat\port\FastDelegate.h"
 					>
 				</File>
 			</Filter>

@@ -30,14 +30,14 @@
 #include <cat/asm/big_x64_asm.hpp>
 using namespace cat;
 
-void BigPseudoMersenne::MrSubtractX(Leg *inout, Leg x)
+void CAT_FASTCALL BigPseudoMersenne::MrSubtractX(Leg *inout, Leg x)
 {
     // If the addition overflowed, add C
     if (SubtractX(inout, x))
         while (SubtractX(inout, modulus_c));
 }
 
-void BigPseudoMersenne::MrSubtract(const Leg *in_a, const Leg *in_b, Leg *out)
+void CAT_FASTCALL BigPseudoMersenne::MrSubtract(const Leg *in_a, const Leg *in_b, Leg *out)
 {
 #if defined(CAT_USE_LEGS_ASM64)
     if (library_legs == 4)
