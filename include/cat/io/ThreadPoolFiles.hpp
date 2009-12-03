@@ -32,7 +32,7 @@
 #include <cat/threads/ThreadPool.hpp>
 
 #if defined(CAT_OS_WINDOWS)
-#include <windows.h>
+# include <cat/port/WindowsInclude.hpp>
 #endif
 
 namespace cat {

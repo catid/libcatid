@@ -208,8 +208,6 @@ void Settings::read()
         setInt("override.unlink", 0);
     }
 
-    Logging::ref()->Initialize();
-    
     readSettings = true;
 }
 

@@ -39,9 +39,9 @@
 #include <string>
 
 #if defined(CAT_OS_WINDOWS)
-# include <windows.h>
 # include <winsock2.h>
 # include <mswsock.h>
+# include <cat/port/WindowsInclude.hpp>
 #endif
 
 namespace cat {

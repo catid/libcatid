@@ -33,17 +33,12 @@ using namespace cat;
 
 int main(int argc, const char **argv)
 {
-    RegionAllocator::ref();
-    Settings::ref();
-    RegionAllocator::ref()->Valid();
-    Logging::ref()->Initialize();
-    RegionAllocator::ref()->Valid();
-    Settings::ref()->read();
+    InitializeFramework();
 
 #ifndef GENERATING_TABLE
     if (!TextStatsCollector::VerifyTableIntegrity(ChatText))
     {
-        WARN("blah") << "Table integrity check failed";
+        WARN("Text Compression Test") << "Table integrity check failed";
     }
 /*    else if (argc <= 1)
     {
@@ -98,7 +93,7 @@ int main(int argc, const char **argv)
             std::ifstream file(fname);
             if (!file)
             {
-                WARN("blah") << "File error";
+                WARN("Text Compression Test") << "File error";
             }
             else
             {
@@ -108,13 +103,13 @@ int main(int argc, const char **argv)
                     if (file.eof()) break;
                     ++linect;
 
-                    //WARN("blah") << "line: " << line;
+                    //WARN("Text Compression Test") << "line: " << line;
 
                     int chars = 0;
                     char *x = line;
                     do
                     {
-                        //WARN("blah") << "char: " << (int)*x;
+                        //WARN("Text Compression Test") << "char: " << (int)*x;
 #ifdef GENERATING_TABLE
                         collector->Tally(*x);
 #endif
@@ -131,8 +126,8 @@ int main(int argc, const char **argv)
                     ctime += Clock::usec() - start;
                     if (re.Fail())
                     {
-                        WARN("blah") << "Compression failure!";
-                        WARN("blah") << "txt: " << chars;
+                        WARN("Text Compression Test") << "Compression failure!";
+                        WARN("Text Compression Test") << "txt: " << chars;
                     }
                     else
                     {
@@ -146,7 +141,7 @@ int main(int argc, const char **argv)
 
                         if (rd.Remaining() > 0)
                         {
-                            WARN("blah") << "ERROR: Unread bytes remaining";
+                            WARN("Text Compression Test") << "ERROR: Unread bytes remaining";
                         }
 
                         float ratio = used / (float)count;
@@ -174,17 +169,17 @@ int main(int argc, const char **argv)
 
                         if (used > count + 1)
                         {
-                            WARN("blah") << "ERROR: More than one extra byte emitted";
+                            WARN("Text Compression Test") << "ERROR: More than one extra byte emitted";
                         }
 
                         if (count != chars || memcmp(decomp, line, chars))
                         {
-                            WARN("blah") << "Decompression failure!";
-                            WARN("blah") << "txt.size : " << chars;
-                            WARN("blah") << "comp.size: " << used;
-                            WARN("blah") << "origin   : " << line;
-                            WARN("blah") << "decomp   : " << decomp;
-                            WARN("blah") << "out.size : " << count;
+                            WARN("Text Compression Test") << "Decompression failure!";
+                            WARN("Text Compression Test") << "txt.size : " << chars;
+                            WARN("Text Compression Test") << "comp.size: " << used;
+                            WARN("Text Compression Test") << "origin   : " << line;
+                            WARN("Text Compression Test") << "decomp   : " << decomp;
+                            WARN("Text Compression Test") << "out.size : " << count;
                         }
                     }
 #endif
@@ -233,23 +228,23 @@ int main(int argc, const char **argv)
         delete []comp;
         delete []decomp;
 
-        WARN("blah") << "Worst message compression ratio: " << worst;
-        WARN("blah") << "uncompressed = " << uncompressed;
-        WARN("blah") << "compressed   = " << compressed;
-        WARN("blah") << "Compression rate = " << uncompressed / ctime << " MB/s";
-        WARN("blah") << "Decompression rate = " << uncompressed / dtime << " MB/s";
-        WARN("blah") << "Average input length = " << uncompressed / linect;
-        WARN("blah") << "Compression ratio = " << compressed * 100.0f / uncompressed;
-        WARN("blah") << "Table bytes = " << sizeof(_ChatText);
+        WARN("Text Compression Test") << "Worst message compression ratio: " << worst;
+        WARN("Text Compression Test") << "uncompressed = " << uncompressed;
+        WARN("Text Compression Test") << "compressed   = " << compressed;
+        WARN("Text Compression Test") << "Compression rate = " << uncompressed / ctime << " MB/s";
+        WARN("Text Compression Test") << "Decompression rate = " << uncompressed / dtime << " MB/s";
+        WARN("Text Compression Test") << "Average input length = " << uncompressed / linect;
+        WARN("Text Compression Test") << "Compression ratio = " << compressed * 100.0f / uncompressed;
+        WARN("Text Compression Test") << "Table bytes = " << sizeof(_ChatText);
 #else
         ofstream ofile("ChatText.stats");
         if (!ofile)
         {
-            WARN("blah") << "Unable to open file";
+            WARN("Text Compression Test") << "Unable to open file";
         }
         else
         {
-            WARN("blah") << collector->GenerateMinimalStaticTable("ChatText", ofile);
+            WARN("Text Compression Test") << collector->GenerateMinimalStaticTable("ChatText", ofile);
         }
         delete collector;
 #endif
@@ -262,9 +257,7 @@ int main(int argc, const char **argv)
     while (!getch())
         Sleep(100);
 
-    Settings::ref()->write();
-
-    Logging::ref()->Shutdown();
+	ShutdownFramework(true);
 
     return 0;
 }
