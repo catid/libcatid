@@ -38,12 +38,14 @@ unsigned int __stdcall LoopThread::ThreadWrapper(void *this_object)
 {
 	LoopThread *thread_object = static_cast<LoopThread*>( this_object );
 
-	bool error = thread_object->ThreadFunction(thread_object->caller_param);
+	bool success = thread_object->ThreadFunction(thread_object->caller_param);
+
+	unsigned int exitCode = success ? 0 : 1;
 
 	// Using _beginthreadex() and _endthreadex() since _endthread() calls CloseHandle()
-	_endthreadex(0);
+	_endthreadex(exitCode);
 
-	return error ? 1 : 0;
+	return exitCode;
 }
 
 #elif defined(CAT_THREAD_POSIX)
@@ -52,9 +54,9 @@ void *LoopThread::ThreadWrapper(void *this_object)
 {
 	LoopThread *thread_object = static_cast<LoopThread*>( this_object );
 
-	bool error = thread_object->ThreadFunction(thread_object->caller_param);
+	bool success = thread_object->ThreadFunction(thread_object->caller_param);
 
-	return (void*)(error ? 1 : 0);
+	return (void*)(success ? 0 : 1);
 }
 
 #endif

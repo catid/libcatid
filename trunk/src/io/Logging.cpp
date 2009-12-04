@@ -202,6 +202,8 @@ bool Logging::ThreadFunction(void *)
 			callback(EVENT_NAME[logEvent->_severity], logEvent->_subsystem, logEvent->_msg.str().c_str());
 		else
 			OutputConsoleDebug(logEvent);
+
+		RegionAllocator::ii->Delete(logEvent);
 	}
 
 	return true;
