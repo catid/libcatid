@@ -62,6 +62,12 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SecureChatServer", "..\test
 		{E6E578BC-6936-451A-90F2-811C5EE5F82F} = {E6E578BC-6936-451A-90F2-811C5EE5F82F}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TEST LocklessFIFO", "..\tests\LocklessFIFO Stress\LocklessFIFOStress.vcproj", "{5AD7F0EC-EFC0-4744-AAC2-DCA49437F0C5}"
+	ProjectSection(ProjectDependencies) = postProject
+		{0C763797-B0EE-4AD5-AD7A-4544FC16B7A7} = {0C763797-B0EE-4AD5-AD7A-4544FC16B7A7}
+		{E6E578BC-6936-451A-90F2-811C5EE5F82F} = {E6E578BC-6936-451A-90F2-811C5EE5F82F}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -153,6 +159,14 @@ Global
 		{FD873D03-6F95-40EE-81E4-208FA260C688}.Release|Win32.ActiveCfg = Release|Win32
 		{FD873D03-6F95-40EE-81E4-208FA260C688}.Release|Win32.Build.0 = Release|Win32
 		{FD873D03-6F95-40EE-81E4-208FA260C688}.Release|x64.ActiveCfg = Release|Win32
+		{5AD7F0EC-EFC0-4744-AAC2-DCA49437F0C5}.Debug|Win32.ActiveCfg = Debug|Win32
+		{5AD7F0EC-EFC0-4744-AAC2-DCA49437F0C5}.Debug|Win32.Build.0 = Debug|Win32
+		{5AD7F0EC-EFC0-4744-AAC2-DCA49437F0C5}.Debug|x64.ActiveCfg = Debug|x64
+		{5AD7F0EC-EFC0-4744-AAC2-DCA49437F0C5}.Debug|x64.Build.0 = Debug|x64
+		{5AD7F0EC-EFC0-4744-AAC2-DCA49437F0C5}.Release|Win32.ActiveCfg = Release|Win32
+		{5AD7F0EC-EFC0-4744-AAC2-DCA49437F0C5}.Release|Win32.Build.0 = Release|Win32
+		{5AD7F0EC-EFC0-4744-AAC2-DCA49437F0C5}.Release|x64.ActiveCfg = Release|x64
+		{5AD7F0EC-EFC0-4744-AAC2-DCA49437F0C5}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
