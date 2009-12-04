@@ -29,8 +29,6 @@
 #ifndef CAT_CONFIG_HPP
 #define CAT_CONFIG_HPP
 
-#include <cat/Config.hpp>
-
 namespace cat {
 
 
