@@ -20,6 +20,11 @@ public:
 		}
 	}
 
+	~ChatClient()
+	{
+		return;
+	}
+
 protected:
     virtual void OnRead(IP srcIP, Port srcPort, u8 *data, u32 bytes)
 	{
@@ -72,8 +77,6 @@ int main()
 
 		Clock::sleep(100);
 	}
-
-	client->ReleaseRef();
 
 	ShutdownFramework(true);
 

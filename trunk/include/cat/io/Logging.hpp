@@ -26,11 +26,10 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef LOGGING_HPP
-#define LOGGING_HPP
+#ifndef CAT_LOGGING_HPP
+#define CAT_LOGGING_HPP
 
-#include <cat/threads/LocklessFIFO.hpp>
-#include <cat/threads/LoopThread.hpp>
+#include <cat/threads/RegionAllocator.hpp>
 
 namespace cat {
 
@@ -55,37 +54,21 @@ region_string HexDumpString(const void *vdata, u32 bytes);
 
 void FatalStop(const char *message);
 
-
-//// LogEvent
-
-struct LogEvent
-{
-    LogEvent();
-    LogEvent(const char *subsystem, EventSeverity severity);
-
-public:
-    EventSeverity _severity;
-    const char *_subsystem;
-    region_ostringstream _msg;
-};
+void DefaultLogCallback(const char *severity, const char *source, region_ostringstream &msg);
 
 
 //// Logging
 
-typedef void (*LogCallback)(const char *severity, const char *source, const char *msg);
+typedef void (*LogCallback)(const char *severity, const char *source, region_ostringstream &msg);
 
-class Logging : public Singleton<Logging>, protected LoopThread
+class Logging : public Singleton<Logging>
 {
     CAT_SINGLETON(Logging);
 
-    FIFO::Queue<LogEvent> queue;
     LogCallback callback;
 
-	bool ThreadFunction(void *param);
-
     friend class Recorder;
-    void QueueEvent(LogEvent *logEvent);
-    void EventDequeueProcessor();
+	void LogEvent(Recorder *recorder);
 
 public:
     int log_threshold;
@@ -95,6 +78,7 @@ public:
 	void ReadSettings();
     void Shutdown();
 
+	// Not thread-safe
     void SetLogCallback(LogCallback cb) { callback = cb; }
 };
 
@@ -103,7 +87,10 @@ public:
 
 class Recorder
 {
-    LogEvent *_logEvent;
+	friend class Logging;
+	EventSeverity _severity;
+	const char *_subsystem;
+	region_ostringstream _msg;
 
 public:
     Recorder(const char *subsystem, EventSeverity severity);
@@ -112,7 +99,7 @@ public:
 public:
     template<class T> inline Recorder &operator<<(const T &t)
     {
-        _logEvent->_msg << t;
+        _msg << t;
         return *this;
     }
 };
@@ -186,4 +173,4 @@ public:
 
 } // namespace cat
 
-#endif // LOGGING_HPP
+#endif // CAT_LOGGING_HPP

@@ -67,7 +67,7 @@ public:
 	}
 };
 
-void handle_job_message(const char *severity, const char *source, const char *msg)
+void handle_job_message(const char *severity, const char *source, region_ostringstream &msg)
 {
 }
 

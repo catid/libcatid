@@ -32,6 +32,7 @@
 #include <cat/time/Clock.hpp>
 #include <cat/io/Settings.hpp>
 #include <cat/threads/RegionAllocator.hpp>
+#include <cat/threads/Atomic.hpp>
 #include <process.h>
 #include <algorithm>
 using namespace std;
@@ -1107,8 +1108,11 @@ void UDPEndpoint::Close()
             _socket = SOCKET_ERROR;
         }
 
+		// Allow the library user to react to closure sooner than the destructor.
         OnClose();
 
+		// Starts with reference count equal 1; so this puts the object in a state
+		// where as soon as all of the references are extinguished it is deleted.
         ReleaseRef();
     }
 }
@@ -1217,6 +1221,9 @@ Port UDPEndpoint::GetPort()
 
 bool UDPEndpoint::Post(IP ip, Port port, void *buffer, u32 bytes)
 {
+	if (_closing)
+		return false;
+
     // Recover the full overlapped structure from data pointer
     TypedOverlapped *sendOv = reinterpret_cast<TypedOverlapped*>(
 		reinterpret_cast<u8*>(buffer) - sizeof(TypedOverlapped) );
@@ -1234,6 +1241,9 @@ bool UDPEndpoint::Post(IP ip, Port port, void *buffer, u32 bytes)
 
 bool UDPEndpoint::QueueWSARecvFrom(RecvFromOverlapped *recvOv)
 {
+	if (_closing)
+		return false;
+
 	AddRef();
 
     recvOv->Reset();
@@ -1304,13 +1314,7 @@ void UDPEndpoint::OnWSARecvFromComplete(int error, RecvFromOverlapped *recvOv, u
         OnUnreachable(recvOv->addr.sin_addr.S_un.S_addr);
     }
 
-	// If OnRead() or OnUnreachable() or another thread just closed this endpoint,
-	if (_closing)
-	{
-		RegionAllocator::ii->Release(recvOv);
-	}
-	// Otherwise if we are unable to queue,
-	else if (!QueueWSARecvFrom(recvOv))
+	if (!QueueWSARecvFrom(recvOv))
     {
         RegionAllocator::ii->Release(recvOv);
         Close();
