@@ -66,7 +66,4 @@ void cat::ShutdownFramework(bool WriteSettings)
 	// Write settings to disk if requested
 	if (WriteSettings)
 		Settings::ref()->write();
-
-	// Shut down logging thread
-	Logging::ref()->Shutdown();
 }

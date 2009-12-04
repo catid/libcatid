@@ -38,6 +38,7 @@ using namespace std;
 using namespace cat;
 
 #if defined(CAT_OS_WINDOWS) || defined(CAT_OS_WINDOWS_CE)
+# include <cat/port/WindowsInclude.hpp>
 # include <process.h>
 #endif
 
@@ -51,12 +52,8 @@ using namespace cat;
 # define CAT_ARTIFICIAL_BREAKPOINT { CAT_ASM_BEGIN "int $3" CAT_ASM_END }
 #endif
 
-#elif defined(CAT_ISA_PPC)
-# error "FIXME: Need to figure out how to do this"
-#elif defined(CAT_ISA_ARM)
-# error "FIXME: Need to figure out how to do this"
 #else
-# error "FIXME: Need to figure out how to do this"
+# define CAT_ARTIFICIAL_BREAKPOINT
 #endif
 
 
@@ -66,7 +63,7 @@ static const char *const EVENT_NAME[5] = { "Inane", "Info", "Warn", "Oops", "Fat
 
 //// Free functions
 
-region_string HexDumpString(const void *vdata, u32 bytes)
+region_string cat::HexDumpString(const void *vdata, u32 bytes)
 {
     /* xxxx  xx xx xx xx xx xx xx xx  xx xx xx xx xx xx xx xx   aaaaaaaaaaaaaaaa*/
 
@@ -109,7 +106,7 @@ region_string HexDumpString(const void *vdata, u32 bytes)
 
 void cat::FatalStop(const char *message)
 {
-	cout << "Fatal Stop: " << message << endl;
+	cerr << "Fatal Stop: " << message << endl;
 #if defined(CAT_OS_WINDOWS)
 	OutputDebugStringA(message);
 #endif
@@ -119,31 +116,18 @@ void cat::FatalStop(const char *message)
 	std::exit(EXIT_FAILURE);
 }
 
-static void OutputConsoleDebug(LogEvent *logEvent)
+void cat::DefaultLogCallback(const char *severity, const char *source, region_ostringstream &msg)
 {
-    region_ostringstream oss;
-    oss << "[" << Clock::format("%b %d %H:%M") << "] <" << logEvent->_subsystem << "> "
-        << logEvent->_msg.str() << endl;
+	region_ostringstream oss;
+	oss << "[" << Clock::format("%b %d %H:%M") << "] <" << source << "> " << msg.str() << endl;
 
-	cout << oss.str();
+	region_string result = oss.str();
+
+	cout << result.c_str();
+
 #if defined(CAT_OS_WINDOWS)
-    OutputDebugStringA(oss.str().c_str());
+	OutputDebugStringA(result.c_str());
 #endif
-}
-
-
-//// LogEvent
-
-LogEvent::LogEvent()
-{
-    _subsystem = 0;
-    _severity = LVL_FATAL;
-}
-
-LogEvent::LogEvent(const char *subsystem, EventSeverity severity)
-{
-    _subsystem = subsystem;
-    _severity = severity;
 }
 
 
@@ -151,20 +135,13 @@ LogEvent::LogEvent(const char *subsystem, EventSeverity severity)
 
 Logging::Logging()
 {
-    callback = 0;
+    callback = &DefaultLogCallback;
     log_threshold = LVL_INANE;
-}
-
-__declspec(dllexport) void SetLogCallback(LogCallback cb)
-{
-    Logging::ref()->SetLogCallback(cb);
 }
 
 void Logging::Initialize(EventSeverity min_severity)
 {
     log_threshold = min_severity;
-
-	StartThread();
 }
 
 void Logging::ReadSettings()
@@ -172,41 +149,9 @@ void Logging::ReadSettings()
     log_threshold = Settings::ii->getInt("Log.Threshold", LVL_INANE);
 }
 
-void Logging::Shutdown()
+void Logging::LogEvent(Recorder *recorder)
 {
-	if (ThreadRunning())
-    {
-        queue.Enqueue(new (RegionAllocator::ii) LogEvent);
-
-		StopThread();
-
-        // Dequeue and process late messages
-        LogEvent *logEvent;
-        while ((logEvent = queue.Dequeue()) && logEvent->_subsystem)
-            OutputConsoleDebug(logEvent);
-    }
-}
-
-void Logging::QueueEvent(LogEvent *logEvent)
-{
-    queue.Enqueue(logEvent);
-}
-
-bool Logging::ThreadFunction(void *)
-{
-	LogEvent *logEvent;
-
-	while ((logEvent = queue.DequeueWait()) && logEvent->_subsystem)
-	{
-		if (callback)
-			callback(EVENT_NAME[logEvent->_severity], logEvent->_subsystem, logEvent->_msg.str().c_str());
-		else
-			OutputConsoleDebug(logEvent);
-
-		RegionAllocator::ii->Delete(logEvent);
-	}
-
-	return true;
+	callback(EVENT_NAME[recorder->_severity], recorder->_subsystem, recorder->_msg);
 }
 
 
@@ -214,14 +159,13 @@ bool Logging::ThreadFunction(void *)
 
 Recorder::Recorder(const char *subsystem, EventSeverity severity)
 {
-    _logEvent = new (RegionAllocator::ii) LogEvent(subsystem, severity);
-
-    if (!_logEvent) FatalStop("Out of memory in logging subsystem");
+	_subsystem = subsystem;
+	_severity = severity;
 }
 
 Recorder::~Recorder()
 {
-    Logging::ii->QueueEvent(_logEvent);
+	Logging::ii->LogEvent(this);
 }
 
 
@@ -234,11 +178,7 @@ Enforcer::Enforcer(const char *locus)
 
 Enforcer::~Enforcer()
 {
-    cerr << oss.str();
-    OutputDebugStringA(oss.str().c_str());
-	cerr.flush();
+	std::string result = oss.str();
 
-	CAT_ARTIFICIAL_BREAKPOINT;
-
-	std::exit(EXIT_FAILURE);
+	FatalStop(result.c_str());
 }
