@@ -156,11 +156,11 @@ protected:
     virtual TCPServerConnection *InstantiateServerConnection() = 0;
 
 private:
-    SOCKET listenSocket;
-    LPFN_ACCEPTEX lpfnAcceptEx;
-    LPFN_GETACCEPTEXSOCKADDRS lpfnGetAcceptExSockAddrs;
-    LPFN_DISCONNECTEX lpfnDisconnectEx;
-    Port port;
+    SOCKET _socket;
+    LPFN_ACCEPTEX _lpfnAcceptEx;
+    LPFN_GETACCEPTEXSOCKADDRS _lpfnGetAcceptExSockAddrs;
+    LPFN_DISCONNECTEX _lpfnDisconnectEx;
+    Port _port;
 
 private:
     bool QueueAcceptEx();
@@ -207,10 +207,10 @@ protected:
     virtual void OnDisconnectFromClient() = 0;
 
 private:
-    SOCKET acceptSocket;
-    LPFN_DISCONNECTEX lpfnDisconnectEx;
-    TypedOverlapped *recvOv;
-    volatile u32 disconnecting;
+    SOCKET _socket;
+    LPFN_DISCONNECTEX _lpfnDisconnectEx;
+    TypedOverlapped *_recvOv;
+    volatile u32 _disconnecting;
 
 private:
     bool AcceptConnection(SOCKET listenSocket, SOCKET acceptSocket,
@@ -265,9 +265,9 @@ protected:
     virtual void OnDisconnectFromServer() = 0;
 
 private:
-    SOCKET connectSocket;
-    TypedOverlapped *recvOv;
-    volatile u32 disconnecting;
+    SOCKET _socket;
+    TypedOverlapped *_recvOv;
+    volatile u32 _disconnecting;
 
 private:
     bool QueueConnectEx(const sockaddr_in &remoteServerAddress);
@@ -295,11 +295,11 @@ private:
 class TCPClientQueued : public TCPClient
 {
 private:
-    volatile bool queuing;
+    volatile bool _queuing;
 
-    Mutex queueLock;
-    void *queueBuffer;
-    u32 queueBytes;
+    Mutex _queueLock;
+    void *_queueBuffer;
+    u32 _queueBytes;
 
 protected:
     void PostQueuedToServer();
@@ -345,9 +345,9 @@ protected:
     virtual void OnUnreachable(IP srcIP) {}
 
 private:
-    SOCKET endpointSocket;
-    Port port;
-    volatile u32 closing;
+    SOCKET _socket;
+    Port _port;
+    volatile u32 _closing;
 
 private:
     bool QueueWSARecvFrom(RecvFromOverlapped *recvOv);

@@ -71,10 +71,19 @@ protected:
 	bool StartThread(void *param = 0);
 	bool StopThread();
 
+	CAT_INLINE bool ThreadRunning()
+	{
+#if defined(CAT_THREAD_WINDOWS)
+		return _thread != 0;
+#elif defined(CAT_THREAD_POSIX)
+		return _thread_started;
+#endif
+	}
+
 	// Returns false if it is time to quit
 	bool WaitForQuitSignal(int msec);
 
-	virtual bool ThreadFunction(void *this_object) = 0;
+	virtual bool ThreadFunction(void *param) = 0;
 
 public:
     LoopThread();

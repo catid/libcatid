@@ -29,14 +29,17 @@
 #include <cat/io/Logging.hpp>
 #include <cat/io/Settings.hpp>
 #include <cat/time/Clock.hpp>
+#include <cstdlib>
 #include <ctime>
 #include <iostream>
 #include <iomanip>
 #include <stdexcept>
-#include <process.h>
 using namespace std;
 using namespace cat;
 
+#if defined(CAT_OS_WINDOWS) || defined(CAT_OS_WINDOWS_CE)
+# include <process.h>
+#endif
 
 #if defined(CAT_ISA_X86)
 
@@ -112,13 +115,15 @@ void cat::FatalStop(const char *message)
 #endif
 
 	CAT_ARTIFICIAL_BREAKPOINT;
+
+	std::exit(EXIT_FAILURE);
 }
 
 static void OutputConsoleDebug(LogEvent *logEvent)
 {
     region_ostringstream oss;
-    oss << "[" << Clock::format("%b %d %H:%M") << "] <" << logEvent->subsystem << "> "
-        << logEvent->msg.str().c_str() << endl;
+    oss << "[" << Clock::format("%b %d %H:%M") << "] <" << logEvent->_subsystem << "> "
+        << logEvent->_msg.str() << endl;
 
 	cout << oss.str();
 #if defined(CAT_OS_WINDOWS)
@@ -131,31 +136,23 @@ static void OutputConsoleDebug(LogEvent *logEvent)
 
 LogEvent::LogEvent()
 {
-    subsystem = 0;
-    severity = LVL_FATAL;
+    _subsystem = 0;
+    _severity = LVL_FATAL;
 }
 
 LogEvent::LogEvent(const char *subsystem, EventSeverity severity)
 {
-    this->subsystem = subsystem;
-    this->severity = severity;
+    _subsystem = subsystem;
+    _severity = severity;
 }
 
 
 //// Logging
 
-unsigned int WINAPI Logging::EventProcessorThread(void *param)
-{
-    ( (Logging*)param )->EventDequeueProcessor();
-    return 0;
-}
-
 Logging::Logging()
 {
     callback = 0;
     log_threshold = LVL_INANE;
-
-    hThread = (HANDLE)_beginthreadex(0, 0, EventProcessorThread, this, 0, 0);
 }
 
 __declspec(dllexport) void SetLogCallback(LogCallback cb)
@@ -166,6 +163,8 @@ __declspec(dllexport) void SetLogCallback(LogCallback cb)
 void Logging::Initialize(EventSeverity min_severity)
 {
     log_threshold = min_severity;
+
+	StartThread();
 }
 
 void Logging::ReadSettings()
@@ -175,17 +174,15 @@ void Logging::ReadSettings()
 
 void Logging::Shutdown()
 {
-    if (hThread != (HANDLE)-1)
+	if (ThreadRunning())
     {
         queue.Enqueue(new (RegionAllocator::ii) LogEvent);
 
-        WaitForSingleObject(hThread, INFINITE);
-
-        CloseHandle(hThread);
+		StopThread();
 
         // Dequeue and process late messages
         LogEvent *logEvent;
-        while ((logEvent = queue.Dequeue()) && logEvent->subsystem)
+        while ((logEvent = queue.Dequeue()) && logEvent->_subsystem)
             OutputConsoleDebug(logEvent);
     }
 }
@@ -195,17 +192,19 @@ void Logging::QueueEvent(LogEvent *logEvent)
     queue.Enqueue(logEvent);
 }
 
-void Logging::EventDequeueProcessor()
+bool Logging::ThreadFunction(void *)
 {
-    LogEvent *logEvent;
+	LogEvent *logEvent;
 
-    while ((logEvent = queue.DequeueWait()) && logEvent->subsystem)
-    {
-        if (callback)
-            callback(EVENT_NAME[logEvent->severity], logEvent->subsystem, logEvent->msg.str().c_str());
-        else
-            OutputConsoleDebug(logEvent);
-    }
+	while ((logEvent = queue.DequeueWait()) && logEvent->_subsystem)
+	{
+		if (callback)
+			callback(EVENT_NAME[logEvent->_severity], logEvent->_subsystem, logEvent->_msg.str().c_str());
+		else
+			OutputConsoleDebug(logEvent);
+	}
+
+	return true;
 }
 
 
@@ -213,14 +212,14 @@ void Logging::EventDequeueProcessor()
 
 Recorder::Recorder(const char *subsystem, EventSeverity severity)
 {
-    logEvent = new (RegionAllocator::ii) LogEvent(subsystem, severity);
+    _logEvent = new (RegionAllocator::ii) LogEvent(subsystem, severity);
 
-    if (!logEvent) FatalStop("Out of memory in logging subsystem");
+    if (!_logEvent) FatalStop("Out of memory in logging subsystem");
 }
 
 Recorder::~Recorder()
 {
-    Logging::ii->QueueEvent(logEvent);
+    Logging::ii->QueueEvent(_logEvent);
 }
 
 
@@ -238,4 +237,6 @@ Enforcer::~Enforcer()
 	cerr.flush();
 
 	CAT_ARTIFICIAL_BREAKPOINT;
+
+	std::exit(EXIT_FAILURE);
 }
