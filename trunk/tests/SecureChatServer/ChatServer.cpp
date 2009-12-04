@@ -3,108 +3,97 @@
 using namespace cat;
 
 
-template<class T> class IPMap
-{
-public:
-	IPMap()
-	{
-	}
-
-	~IPMap()
-	{
-	}
-};
-
-
-class ChatSheep
-{
-	ChatServer *_server;
-	IP _ip;
-	Port _port;
-
-public:
-	ChatSheep(ChatServer *server, IP ip, Port port)
-	{
-		_server = server;
-		_ip = ip;
-		_port = port;
-	}
-
-	void Post(u8 *data, u32 bytes)
-	{
-		u8 *buffer = GetPostBuffer(bytes);
-
-		if (buffer)
-		{
-			memcpy(buffer, data, bytes);
-
-			_server->Post(_ip, _port, buffer, bytes);
-		}
-	}
-};
-
-
 class ChatServer : public UDPEndpoint
 {
+	bool seen_first;
+	u32 in_bytes;
+	u32 milliseconds;
+
 public:
 	ChatServer()
 	{
-	    if (!Bind(80))
-		{
-			FATAL("Server") << "Unable to bind to port";
+		in_bytes = 0;
+		seen_first = false;
+		milliseconds = Clock::msec();
 
+		if (!Bind(80))
+		{
+			WARN("Server") << "Unable to bind to port 80";
 			return;
 		}
 	}
 
-protected:
-    virtual void OnRead(IP srcIP, Port srcPort, u8 *data, u32 bytes)
+	~ChatServer()
 	{
-		INANE("Server") << "read " << bytes;
+		return;
+	}
+
+protected:
+	virtual void OnRead(IP srcIP, Port srcPort, u8 *data, u32 bytes)
+	{
+		if (!seen_first)
+		{
+			seen_first = true;
+			IgnoreUnreachable();
+		}
 
 		u8 *response = GetPostBuffer(bytes);
+		if (response)
+		{
+			memcpy(response, data, bytes);
 
-		memcpy(response, data, bytes);
+			Post(srcIP, srcPort, response, bytes);
+		}
 
-		Post(srcIP, srcPort, response, bytes);
+		//INANE("Server") << "read " << bytes << " and " << (int)data << " from " << GetCurrentThreadId();
+
+		if ((Atomic::Add(&in_bytes, bytes) % (1600 * 10000)) == 0)
+		{
+			u32 now = Clock::msec();
+
+			INANE("Server") << "Read rate = " << in_bytes / (double)(now - milliseconds) / 1000.0 << " MB/s";
+
+			milliseconds = now;
+			Atomic::Set(&in_bytes, 1600);
+		}
 	}
 
-    virtual void OnWrite(u32 bytes)
+	virtual void OnWrite(u32 bytes)
 	{
-		INANE("Server") << "wrote " << bytes;
+		//INANE("Server") << "wrote " << bytes;
 	}
 
-    virtual void OnClose()
+	virtual void OnClose()
 	{
 		INFO("Server") << "CONNECTION TERMINATED";
 	}
 
-    virtual void OnUnreachable(IP srcIP)
+	virtual void OnUnreachable(IP srcIP)
 	{
-		WARN("Server") << "DETINATION UNREACHABLE";
+		INFO("Server") << "DESTINATION UNREACHABLE";
+
+		Close();
 	}
 };
 
+
 int main()
 {
-	RegionAllocator::ref();
-	Logging::ref();
-	SocketManager::ref();
+	if (!InitializeFramework())
+	{
+		FatalStop("Unable to initialize framework!");
+	}
 
-	INFO("Client") << "Secure Chat Server 1.0";
+	INFO("Server") << "Secure Chat Server 1.0";
 
-	SocketManager::ref()->Startup();
-
-	ChatServer *server = new ChatServer;
+	ChatServer *client = new ChatServer;
 
 	while (!kbhit())
 	{
 		Clock::sleep(100);
 	}
 
-	server->ReleaseRef();
-
-	SocketManager::ref()->Shutdown();
+	ShutdownFramework(true);
 
 	return 0;
 }

@@ -55,13 +55,13 @@ static const int RECVFROM_DATA_SIZE = 2048 - sizeof(RecvFromOverlapped) - 8;
 
 void AcceptExOverlapped::Set(SOCKET s)
 {
-    TypedOverlapped::Set(OVOP_ACCEPT_EX);
+    tov.Set(OVOP_ACCEPT_EX);
     acceptSocket = s;
 }
 
 void RecvFromOverlapped::Reset()
 {
-    CAT_OBJCLR(ov);
+    CAT_OBJCLR(tov.ov);
     addrLen = sizeof(addr);
 }
 
@@ -368,7 +368,7 @@ bool TCPServer::QueueAcceptEx()
 
     BOOL result = _lpfnAcceptEx(_socket, s, &overlapped->addresses, 0,
 							   sizeof(sockaddr_in) + 16, sizeof(sockaddr_in) + 16,
-							   &received, &overlapped->ov);
+							   &received, &overlapped->tov.ov);
 
     // This overlapped operation will always complete unless
     // we get an error code other than ERROR_IO_PENDING.
@@ -1256,7 +1256,7 @@ bool UDPEndpoint::QueueWSARecvFrom(RecvFromOverlapped *recvOv)
     DWORD flags = 0, bytes;
     int result = WSARecvFrom(_socket, &wsabuf, 1, &bytes, &flags,
 							 reinterpret_cast<sockaddr*>( &recvOv->addr ),
-							 &recvOv->addrLen, &recvOv->ov, 0); 
+							 &recvOv->addrLen, &recvOv->tov.ov, 0); 
 
     // This overlapped operation will always complete unless
     // we get an error code other than ERROR_IO_PENDING.
@@ -1283,7 +1283,7 @@ bool UDPEndpoint::QueueWSARecvFrom()
         FATAL("UDPEndpoint") << "Unable to allocate a receive buffer: Out of memory";
         return false;
     }
-    recvOv->opcode = OVOP_RECVFROM;
+    recvOv->tov.opcode = OVOP_RECVFROM;
 
     if (!QueueWSARecvFrom(recvOv))
 	{

@@ -8,6 +8,9 @@ class ChatClient : public UDPEndpoint
 	bool seen_first;
 
 public:
+	IP serverIP;
+	Port serverPort;
+
 	ChatClient()
 	{
 		seen_first = false;
@@ -34,12 +37,15 @@ protected:
 			IgnoreUnreachable();
 		}
 
-		INANE("Client") << "read " << bytes;
+		//INANE("Client") << "read " << bytes;
 	}
 
     virtual void OnWrite(u32 bytes)
 	{
-		INANE("Client") << "wrote " << bytes;
+		//INANE("Client") << "wrote " << bytes;
+		u8 *data = GetPostBuffer(1600);
+		//memset(data, 1, 1600);
+		Post(serverIP, serverPort, data, 1600);
 	}
 
     virtual void OnClose()
@@ -67,14 +73,35 @@ int main()
 
 	ChatClient *client = new ChatClient;
 
+	client->serverIP = ResolveHostname("127.0.0.1");
+	client->serverPort = 80;
+
+	{
+		u8 *data = GetPostBuffer(1600);
+		//memset(data, 1, 1600);
+		client->Post(client->serverIP, client->serverPort, data, 1600);
+	}
+
+	{
+		u8 *data = GetPostBuffer(1600);
+		//memset(data, 1, 1600);
+		client->Post(client->serverIP, client->serverPort, data, 1600);
+	}
+
+	{
+		u8 *data = GetPostBuffer(1600);
+		//memset(data, 1, 1600);
+		client->Post(client->serverIP, client->serverPort, data, 1600);
+	}
+
+	{
+		u8 *data = GetPostBuffer(1600);
+		//memset(data, 1, 1600);
+		client->Post(client->serverIP, client->serverPort, data, 1600);
+	}
+
 	while (!kbhit())
 	{
-		u8 *data = GetPostBuffer(64);
-
-		memset(data, 1, 64);
-
-		client->Post(ResolveHostname("127.0.0.1"), 80, data, 64);
-
 		Clock::sleep(100);
 	}
 

@@ -104,8 +104,9 @@ void ReleasePostBuffer(void *buffer);
 //// Overlapped Sockets
 
 // AcceptEx() OVERLAPPED structure
-struct AcceptExOverlapped : public TypedOverlapped
+struct AcceptExOverlapped
 {
+	TypedOverlapped tov;
     SOCKET acceptSocket;
 
     // Space pre-allocated to receive addresses
@@ -119,8 +120,9 @@ struct AcceptExOverlapped : public TypedOverlapped
 };
 
 // WSARecvFrom() OVERLAPPED structure
-struct RecvFromOverlapped : public TypedOverlapped
+struct RecvFromOverlapped
 {
+	TypedOverlapped tov;
     int addrLen;
     sockaddr_in addr;
 
