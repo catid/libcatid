@@ -125,13 +125,6 @@ bool ThreadPool::Associate(HANDLE h, void *key)
         return false;
     }
 
-    if (_active_thread_count <= 0 && !SpawnThreads())
-    {
-        CloseHandle(_port);
-        _port = 0;
-        return false;
-    }
-
     return true;
 }
 
@@ -209,6 +202,14 @@ bool ThreadPool::Startup()
 	}
 
 	_port = result;
+
+	if (_active_thread_count <= 0 && !SpawnThreads())
+	{
+		CloseHandle(_port);
+		_port = 0;
+		FATAL("ThreadPool") << "Unable to spawn threads";
+		return false;
+	}
 
 	INANE("ThreadPool") << "...Initialization complete.";
 

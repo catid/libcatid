@@ -38,21 +38,21 @@
 #include <cat/AllTunnel.hpp>
 #include <cat/AllGraphics.hpp>
 
+#include <cat/threads/ThreadPool.hpp>
+#include <cat/threads/LocklessFIFO.hpp>
+#include <cat/threads/Mutex.hpp>
+#include <cat/threads/RegionAllocator.hpp>
+
 #include <cat/io/Logging.hpp>
 #include <cat/io/MMapFile.hpp>
 #include <cat/io/Settings.hpp>
-#include <cat/io/ThreadPoolFiles.hpp>
-
-#include <cat/net/ThreadPoolSockets.hpp>
 
 #include <cat/parse/BitStream.hpp>
 #include <cat/parse/BufferTok.hpp>
 #include <cat/parse/MessageRouter.hpp>
 
-#include <cat/threads/ThreadPool.hpp>
-#include <cat/threads/LocklessFIFO.hpp>
-#include <cat/threads/Mutex.hpp>
-#include <cat/threads/RegionAllocator.hpp>
+#include <cat/io/ThreadPoolFiles.hpp>
+#include <cat/net/ThreadPoolSockets.hpp>
 
 namespace cat {
 

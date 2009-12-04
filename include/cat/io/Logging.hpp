@@ -30,6 +30,7 @@
 #define LOGGING_HPP
 
 #include <cat/threads/LocklessFIFO.hpp>
+#include <cat/threads/LoopThread.hpp>
 
 namespace cat {
 
@@ -63,9 +64,9 @@ struct LogEvent
     LogEvent(const char *subsystem, EventSeverity severity);
 
 public:
-    EventSeverity severity;
-    const char *subsystem;
-    region_ostringstream msg;
+    EventSeverity _severity;
+    const char *_subsystem;
+    region_ostringstream _msg;
 };
 
 
@@ -73,14 +74,14 @@ public:
 
 typedef void (*LogCallback)(const char *severity, const char *source, const char *msg);
 
-class Logging : public Singleton<Logging>
+class Logging : public Singleton<Logging>, protected LoopThread
 {
     CAT_SINGLETON(Logging);
 
-    static unsigned int WINAPI EventProcessorThread(void *param);
     FIFO::Queue<LogEvent> queue;
-    HANDLE hThread;
     LogCallback callback;
+
+	bool ThreadFunction(void *param);
 
     friend class Recorder;
     void QueueEvent(LogEvent *logEvent);
@@ -102,7 +103,7 @@ public:
 
 class Recorder
 {
-    LogEvent *logEvent;
+    LogEvent *_logEvent;
 
 public:
     Recorder(const char *subsystem, EventSeverity severity);
@@ -111,7 +112,7 @@ public:
 public:
     template<class T> inline Recorder &operator<<(const T &t)
     {
-        logEvent->msg << t;
+        _logEvent->_msg << t;
         return *this;
     }
 };

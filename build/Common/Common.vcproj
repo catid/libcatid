@@ -337,6 +337,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\include\cat\Config.hpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\include\cat\Platform.hpp"
 				>
 			</File>

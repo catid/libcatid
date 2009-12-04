@@ -190,7 +190,7 @@ namespace cat
 
 TCPServer::TCPServer()
 {
-    listenSocket = SOCKET_ERROR;
+    _socket = SOCKET_ERROR;
 }
 
 TCPServer::~TCPServer()
@@ -232,7 +232,7 @@ bool TCPServer::Bind(Port port)
     DWORD copied;
 
     if (WSAIoctl(s, SIO_GET_EXTENSION_FUNCTION_POINTER, &GuidAcceptEx, sizeof(GuidAcceptEx),
-                    &lpfnAcceptEx, sizeof(lpfnAcceptEx), &copied, 0, 0))
+                 &_lpfnAcceptEx, sizeof(_lpfnAcceptEx), &copied, 0, 0))
     {
         FATAL("TCPServer") << "Unable to get AcceptEx interface: " << SocketGetLastErrorString();
         closesocket(s);
@@ -242,8 +242,9 @@ bool TCPServer::Bind(Port port)
     // Get GetAcceptExSockaddrs() interface
     GUID GuidGetAcceptExSockAddrs = WSAID_GETACCEPTEXSOCKADDRS;
 
-    if (WSAIoctl(s, SIO_GET_EXTENSION_FUNCTION_POINTER, &GuidGetAcceptExSockAddrs, sizeof(GuidGetAcceptExSockAddrs),
-                    &lpfnGetAcceptExSockAddrs, sizeof(lpfnGetAcceptExSockAddrs), &copied, 0, 0))
+    if (WSAIoctl(s, SIO_GET_EXTENSION_FUNCTION_POINTER, &GuidGetAcceptExSockAddrs,
+				 sizeof(GuidGetAcceptExSockAddrs), &_lpfnGetAcceptExSockAddrs,
+				 sizeof(_lpfnGetAcceptExSockAddrs), &copied, 0, 0))
     {
         FATAL("TCPServer") << "Unable to get GetAcceptExSockAddrs interface: " << SocketGetLastErrorString();
         closesocket(s);
@@ -253,8 +254,9 @@ bool TCPServer::Bind(Port port)
     // Get DisconnectEx() interface
     GUID GuidDisconnectEx = WSAID_DISCONNECTEX;
 
-    if (WSAIoctl(s, SIO_GET_EXTENSION_FUNCTION_POINTER, &GuidDisconnectEx, sizeof(GuidDisconnectEx),
-                    &lpfnDisconnectEx, sizeof(lpfnDisconnectEx), &copied, 0, 0))
+    if (WSAIoctl(s, SIO_GET_EXTENSION_FUNCTION_POINTER, &GuidDisconnectEx,
+				 sizeof(GuidDisconnectEx), &_lpfnDisconnectEx, sizeof(_lpfnDisconnectEx),
+				 &copied, 0, 0))
     {
         FATAL("TCPServer") << "Unable to get DisconnectEx interface: " << SocketGetLastErrorString();
         closesocket(s);
@@ -282,7 +284,7 @@ bool TCPServer::Bind(Port port)
         return false;
     }
 
-    listenSocket = s;
+    _socket = s;
 
     // Prepare to receive completions in the worker threads
     // Queue a bunch of AcceptEx() calls
@@ -293,7 +295,7 @@ bool TCPServer::Bind(Port port)
         return false;
     }
 
-    this->port = port;
+    _port = port;
 
     INFO("TCPServer") << "Listening on port " << GetPort();
 
@@ -302,34 +304,34 @@ bool TCPServer::Bind(Port port)
 
 bool TCPServer::ValidServer()
 {
-    return listenSocket != SOCKET_ERROR;
+    return _socket != SOCKET_ERROR;
 }
 
 Port TCPServer::GetPort()
 {
     // Get bound port if it was random
-    if (port == 0)
+    if (_port == 0)
     {
         sockaddr_in addr;
         int namelen = sizeof(addr);
-        if (getsockname(listenSocket, (sockaddr*)&addr, &namelen))
+        if (getsockname(_socket, (sockaddr*)&addr, &namelen))
         {
             FATAL("TCPServer") << "Unable to get own address: " << SocketGetLastErrorString();
             return 0;
         }
 
-        port = ntohs(addr.sin_port);
+        _port = ntohs(addr.sin_port);
     }
 
-    return port;
+    return _port;
 }
 
 void TCPServer::Close()
 {
-    if (listenSocket != SOCKET_ERROR)
+    if (_socket != SOCKET_ERROR)
     {
-        closesocket(listenSocket);
-        listenSocket = SOCKET_ERROR;
+        closesocket(_socket);
+        _socket = SOCKET_ERROR;
     }
 }
 
@@ -363,8 +365,9 @@ bool TCPServer::QueueAcceptEx()
 
     AddRef();
 
-    BOOL result = lpfnAcceptEx(listenSocket, s, &overlapped->addresses, 0, sizeof(sockaddr_in) + 16,
-							   sizeof(sockaddr_in) + 16, &received, &overlapped->ov);
+    BOOL result = _lpfnAcceptEx(_socket, s, &overlapped->addresses, 0,
+							   sizeof(sockaddr_in) + 16, sizeof(sockaddr_in) + 16,
+							   &received, &overlapped->ov);
 
     // This overlapped operation will always complete unless
     // we get an error code other than ERROR_IO_PENDING.
@@ -418,15 +421,16 @@ void TCPServer::OnAcceptExComplete(int error, AcceptExOverlapped *overlapped)
     // Get local and remote socket addresses
     int localLen = 0, remoteLen = 0;
     sockaddr_in *local, *remote;
-    lpfnGetAcceptExSockAddrs(&overlapped->addresses, 0, sizeof(sockaddr_in)+16, sizeof(sockaddr_in)+16,
-                                (sockaddr**)&local, &localLen, (sockaddr**)&remote, &remoteLen);
+    _lpfnGetAcceptExSockAddrs(&overlapped->addresses, 0, sizeof(sockaddr_in)+16,
+							 sizeof(sockaddr_in)+16, (sockaddr**)&local, &localLen,
+							 (sockaddr**)&remote, &remoteLen);
 
     // Instantiate a server connection
     TCPServerConnection *conn = InstantiateServerConnection();
     if (!conn) return;
 
     // Pass the connection parameters to the connection instance for acceptance
-    if (!conn->AcceptConnection(listenSocket, overlapped->acceptSocket, lpfnDisconnectEx, local, remote))
+    if (!conn->AcceptConnection(_socket, overlapped->acceptSocket, _lpfnDisconnectEx, local, remote))
         conn->ReleaseRef();
 
     // Queue up another AcceptEx to fill in for this one
@@ -440,30 +444,30 @@ TCPServerConnection::TCPServerConnection()
 {
     // Initialize to an invalid state.
     // Connection is invalid until AcceptConnection() runs successfully.
-    acceptSocket = SOCKET_ERROR;
-    recvOv = 0;
-    disconnecting = 0;
+    _socket = SOCKET_ERROR;
+    _recvOv = 0;
+    _disconnecting = 0;
 }
 
 TCPServerConnection::~TCPServerConnection()
 {
-    if (acceptSocket != SOCKET_ERROR)
-        closesocket(acceptSocket);
+    if (_socket != SOCKET_ERROR)
+        closesocket(_socket);
 
     // Release memory for the overlapped structure
-    if (recvOv)
-        RegionAllocator::ii->Release(recvOv);
+    if (_recvOv)
+        RegionAllocator::ii->Release(_recvOv);
 }
 
 bool TCPServerConnection::ValidServerConnection()
 {
-    return acceptSocket != SOCKET_ERROR;
+    return _socket != SOCKET_ERROR;
 }
 
 void TCPServerConnection::DisconnectClient()
 {
     // Only allow disconnect to run once
-    if (Atomic::Add(&disconnecting, 1) == 0)
+    if (Atomic::Add(&_disconnecting, 1) == 0)
     {
         OnDisconnectFromClient();
 
@@ -501,8 +505,8 @@ bool TCPServerConnection::AcceptConnection(SOCKET listenSocket, SOCKET acceptSoc
     // If we return false here this object will be deleted.
 
     // Store parameters
-    this->acceptSocket = acceptSocket;
-    this->lpfnDisconnectEx = lpfnDisconnectEx;
+    _socket = acceptSocket;
+    _lpfnDisconnectEx = lpfnDisconnectEx;
 
     // Finalize the accept socket context
     if (setsockopt(acceptSocket, SOL_SOCKET, SO_UPDATE_ACCEPT_CONTEXT,
@@ -522,14 +526,14 @@ bool TCPServerConnection::AcceptConnection(SOCKET listenSocket, SOCKET acceptSoc
     }
 
     // Create a new overlapped structure for receiving
-    recvOv = reinterpret_cast<TypedOverlapped*>(
+    _recvOv = reinterpret_cast<TypedOverlapped*>(
 		RegionAllocator::ii->Acquire(sizeof(TypedOverlapped) + RECV_DATA_SIZE) );
-    if (!recvOv)
+    if (!_recvOv)
     {
         FATAL("TCPServerConnection") << "Unable to allocate a receive buffer: Out of memory";
         return false;
     }
-    recvOv->Set(OVOP_SERVER_RECV);
+    _recvOv->Set(OVOP_SERVER_RECV);
 
     // Prepare to receive completions in the worker threads.
     // Do this first so that if the server will send data immediately it
@@ -556,18 +560,18 @@ bool TCPServerConnection::AcceptConnection(SOCKET listenSocket, SOCKET acceptSoc
 
 bool TCPServerConnection::QueueWSARecv()
 {
-    if (disconnecting)
+    if (_disconnecting)
         return false;
 
     WSABUF wsabuf;
-    wsabuf.buf = reinterpret_cast<CHAR*>( GetTrailingBytes(recvOv) );
+    wsabuf.buf = reinterpret_cast<CHAR*>( GetTrailingBytes(_recvOv) );
     wsabuf.len = RECV_DATA_SIZE;
 
     AddRef();
 
     // Queue up a WSARecv()
     DWORD flags = 0, bytes;
-	int result = WSARecv(acceptSocket, &wsabuf, 1, &bytes, &flags, &recvOv->ov, 0); 
+	int result = WSARecv(_socket, &wsabuf, 1, &bytes, &flags, &_recvOv->ov, 0); 
 
     // This overlapped operation will always complete unless
     // we get an error code other than ERROR_IO_PENDING.
@@ -583,7 +587,7 @@ bool TCPServerConnection::QueueWSARecv()
 
 void TCPServerConnection::OnWSARecvComplete(int error, u32 bytes)
 {
-    if (disconnecting)
+    if (_disconnecting)
         return;
 
     if (error)
@@ -593,12 +597,12 @@ void TCPServerConnection::OnWSARecvComplete(int error, u32 bytes)
     }
 
     // When WSARecv completes with no data, it indicates a graceful disconnect.
-    if (!bytes || !OnReadFromClient(GetTrailingBytes(recvOv), bytes))
+    if (!bytes || !OnReadFromClient(GetTrailingBytes(_recvOv), bytes))
         DisconnectClient();
     else
     {
         // Reset the overlapped structure so it can be re-used
-        recvOv->Reset();
+        _recvOv->Reset();
 
         // Queue up the next receive
         if (!QueueWSARecv())
@@ -609,7 +613,7 @@ void TCPServerConnection::OnWSARecvComplete(int error, u32 bytes)
 
 bool TCPServerConnection::QueueWSASend(TypedOverlapped *sendOv, u32 bytes)
 {
-    if (disconnecting)
+    if (_disconnecting)
         return false;
 
     WSABUF wsabuf;
@@ -619,7 +623,7 @@ bool TCPServerConnection::QueueWSASend(TypedOverlapped *sendOv, u32 bytes)
     AddRef();
 
     // Fire off a WSASend() and forget about it
-    int result = WSASend(acceptSocket, &wsabuf, 1, 0, 0, &sendOv->ov, 0);
+    int result = WSASend(_socket, &wsabuf, 1, 0, 0, &sendOv->ov, 0);
 
     // This overlapped operation will always complete unless
     // we get an error code other than ERROR_IO_PENDING.
@@ -636,7 +640,7 @@ bool TCPServerConnection::QueueWSASend(TypedOverlapped *sendOv, u32 bytes)
 
 void TCPServerConnection::OnWSASendComplete(int error, u32 bytes)
 {
-    if (disconnecting)
+    if (_disconnecting)
         return;
 
     if (error)
@@ -664,7 +668,7 @@ bool TCPServerConnection::QueueDisconnectEx()
     AddRef();
 
     // Queue up a DisconnectEx()
-    BOOL result = lpfnDisconnectEx(acceptSocket, &overlapped->ov, 0, 0); 
+    BOOL result = _lpfnDisconnectEx(_socket, &overlapped->ov, 0, 0); 
 
     // This overlapped operation will always complete unless
     // we get an error code other than ERROR_IO_PENDING.
@@ -690,24 +694,24 @@ void TCPServerConnection::OnDisconnectExComplete(int error)
 TCPClient::TCPClient()
 {
     // Initialize to invalid socket
-    recvOv = 0;
-    connectSocket = SOCKET_ERROR;
-    disconnecting = 0;
+    _recvOv = 0;
+    _socket = SOCKET_ERROR;
+    _disconnecting = 0;
 }
 
 TCPClient::~TCPClient()
 {
-    if (connectSocket != SOCKET_ERROR)
-        closesocket(connectSocket);
+    if (_socket != SOCKET_ERROR)
+        closesocket(_socket);
 
     // Release memory for the overlapped structure
-    if (recvOv)
-        RegionAllocator::ii->Release(recvOv);
+    if (_recvOv)
+        RegionAllocator::ii->Release(_recvOv);
 }
 
 bool TCPClient::ValidClient()
 {
-    return connectSocket != SOCKET_ERROR;
+    return _socket != SOCKET_ERROR;
 }
 
 bool TCPClient::ConnectToServer(const sockaddr_in &remoteServerAddress)
@@ -743,7 +747,7 @@ bool TCPClient::ConnectToServer(const sockaddr_in &remoteServerAddress)
         return false;
     }
 
-    connectSocket = s;
+    _socket = s;
 
     // Prepare to receive completions in the worker threads
     // Connect to server asynchronously
@@ -751,7 +755,7 @@ bool TCPClient::ConnectToServer(const sockaddr_in &remoteServerAddress)
         !QueueConnectEx(remoteServerAddress))
     {
         closesocket(s);
-        connectSocket = SOCKET_ERROR;
+        _socket = SOCKET_ERROR;
         return false;
     }
 
@@ -761,7 +765,7 @@ bool TCPClient::ConnectToServer(const sockaddr_in &remoteServerAddress)
 void TCPClient::DisconnectServer()
 {
     // Only allow disconnect to run once
-    if (Atomic::Add(&disconnecting, 1) == 0)
+    if (Atomic::Add(&_disconnecting, 1) == 0)
     {
         OnDisconnectFromServer();
 
@@ -795,7 +799,7 @@ bool TCPClient::QueueConnectEx(const sockaddr_in &remoteServerAddress)
     LPFN_CONNECTEX lpfnConnectEx;
     DWORD copied;
 
-    if (WSAIoctl(connectSocket, SIO_GET_EXTENSION_FUNCTION_POINTER, &GuidConnectEx,
+    if (WSAIoctl(_socket, SIO_GET_EXTENSION_FUNCTION_POINTER, &GuidConnectEx,
                  sizeof(GuidConnectEx), &lpfnConnectEx, sizeof(lpfnConnectEx), &copied, 0, 0))
     {
         FATAL("TCPClient") << "Unable to get ConnectEx interface: " << SocketGetLastErrorString();
@@ -815,7 +819,7 @@ bool TCPClient::QueueConnectEx(const sockaddr_in &remoteServerAddress)
     AddRef();
 
     // Queue up a ConnectEx()
-    BOOL result = lpfnConnectEx(connectSocket, (sockaddr*)&remoteServerAddress,
+    BOOL result = lpfnConnectEx(_socket, (sockaddr*)&remoteServerAddress,
                                 sizeof(remoteServerAddress), 0, 0, 0, &overlapped->ov); 
 
     // This overlapped operation will always complete unless
@@ -833,7 +837,7 @@ bool TCPClient::QueueConnectEx(const sockaddr_in &remoteServerAddress)
 
 void TCPClient::OnConnectExComplete(int error)
 {
-    if (disconnecting)
+    if (_disconnecting)
         return;
 
     if (error)
@@ -843,7 +847,7 @@ void TCPClient::OnConnectExComplete(int error)
     }
 
     // Finish socket creation by updating the connection context
-    if (setsockopt(connectSocket, SOL_SOCKET, SO_UPDATE_CONNECT_CONTEXT, 0, 0))
+    if (setsockopt(_socket, SOL_SOCKET, SO_UPDATE_CONNECT_CONTEXT, 0, 0))
     {
         WARN("TCPClient") << "Unable to update connect socket context: " << SocketGetLastErrorString();
         DisconnectServer();
@@ -851,15 +855,15 @@ void TCPClient::OnConnectExComplete(int error)
     }
 
     // Create a new overlapped structure for receiving
-    recvOv = reinterpret_cast<TypedOverlapped*>(
+    _recvOv = reinterpret_cast<TypedOverlapped*>(
 		RegionAllocator::ii->Acquire(sizeof(TypedOverlapped) + RECV_DATA_SIZE) );
-    if (!recvOv)
+    if (!_recvOv)
     {
         FATAL("TCPClient") << "Unable to allocate a receive buffer: Out of memory";
         DisconnectServer();
         return;
     }
-    recvOv->Set(OVOP_CLIENT_RECV);
+    _recvOv->Set(OVOP_CLIENT_RECV);
 
     // Notify the derived class that we connected
     OnConnectToServer();
@@ -872,21 +876,21 @@ void TCPClient::OnConnectExComplete(int error)
 
 bool TCPClient::QueueWSARecv()
 {
-    if (disconnecting)
+    if (_disconnecting)
     {
-        WARN("TCPClient") << "WSARecv ignored while disconnecting";
+        WARN("TCPClient") << "WSARecv ignored while _disconnecting";
         return false;
     }
 
     WSABUF wsabuf;
-    wsabuf.buf = reinterpret_cast<CHAR*>( GetTrailingBytes(recvOv) );
+    wsabuf.buf = reinterpret_cast<CHAR*>( GetTrailingBytes(_recvOv) );
     wsabuf.len = RECV_DATA_SIZE;
 
     AddRef();
 
     // Queue up a WSARecv()
     DWORD flags = 0, bytes;
-    int result = WSARecv(connectSocket, &wsabuf, 1, &bytes, &flags, &recvOv->ov, 0); 
+    int result = WSARecv(_socket, &wsabuf, 1, &bytes, &flags, &_recvOv->ov, 0); 
 
     // This overlapped operation will always complete unless
     // we get an error code other than ERROR_IO_PENDING.
@@ -902,7 +906,7 @@ bool TCPClient::QueueWSARecv()
 
 void TCPClient::OnWSARecvComplete(int error, u32 bytes)
 {
-    if (disconnecting)
+    if (_disconnecting)
         return;
 
     if (error)
@@ -912,12 +916,12 @@ void TCPClient::OnWSARecvComplete(int error, u32 bytes)
     }
 
     // When WSARecv completes with no data, it indicates a graceful disconnect.
-    if (!bytes || !OnReadFromServer(GetTrailingBytes(recvOv), bytes))
+    if (!bytes || !OnReadFromServer(GetTrailingBytes(_recvOv), bytes))
         DisconnectServer();
     else
     {
         // Reset the overlapped structure so it can be re-used
-        recvOv->Reset();
+        _recvOv->Reset();
 
         // Queue up the next receive
         if (!QueueWSARecv())
@@ -928,7 +932,7 @@ void TCPClient::OnWSARecvComplete(int error, u32 bytes)
 
 bool TCPClient::QueueWSASend(TypedOverlapped *sendOv, u32 bytes)
 {
-    if (disconnecting)
+    if (_disconnecting)
         return false;
 
     WSABUF wsabuf;
@@ -938,7 +942,7 @@ bool TCPClient::QueueWSASend(TypedOverlapped *sendOv, u32 bytes)
     AddRef();
 
     // Fire off a WSASend() and forget about it
-    int result = WSASend(connectSocket, &wsabuf, 1, 0, 0, &sendOv->ov, 0);
+    int result = WSASend(_socket, &wsabuf, 1, 0, 0, &sendOv->ov, 0);
 
     // This overlapped operation will always complete unless
     // we get an error code other than ERROR_IO_PENDING.
@@ -955,7 +959,7 @@ bool TCPClient::QueueWSASend(TypedOverlapped *sendOv, u32 bytes)
 
 void TCPClient::OnWSASendComplete(int error, u32 bytes)
 {
-    if (disconnecting)
+    if (_disconnecting)
         return;
 
     if (error)
@@ -975,8 +979,9 @@ bool TCPClient::QueueDisconnectEx()
     LPFN_DISCONNECTEX lpfnDisconnectEx;
     DWORD copied;
 
-    if (WSAIoctl(connectSocket, SIO_GET_EXTENSION_FUNCTION_POINTER, &GuidDisconnectEx,
-                 sizeof(GuidDisconnectEx), &lpfnDisconnectEx, sizeof(lpfnDisconnectEx), &copied, 0, 0))
+    if (WSAIoctl(_socket, SIO_GET_EXTENSION_FUNCTION_POINTER, &GuidDisconnectEx,
+                 sizeof(GuidDisconnectEx), &lpfnDisconnectEx, sizeof(lpfnDisconnectEx),
+				 &copied, 0, 0))
     {
         FATAL("TCPClient") << "Unable to get DisconnectEx interface: " << SocketGetLastErrorString();
         return false;
@@ -995,7 +1000,7 @@ bool TCPClient::QueueDisconnectEx()
     AddRef();
 
     // Queue up a DisconnectEx()
-    BOOL result = lpfnDisconnectEx(connectSocket, &overlapped->ov, 0, 0); 
+    BOOL result = lpfnDisconnectEx(_socket, &overlapped->ov, 0, 0); 
 
     // This overlapped operation will always complete unless
     // we get an error code other than ERROR_IO_PENDING.
@@ -1020,43 +1025,43 @@ void TCPClient::OnDisconnectExComplete(int error)
 
 TCPClientQueued::TCPClientQueued()
 {
-    queueBuffer = 0;
-    //queueBytes = 0;
-    queuing = true;
+    _queueBuffer = 0;
+    //_queueBytes = 0;
+    _queuing = true;
 }
 
 TCPClientQueued::~TCPClientQueued()
 {
-    if (queueBuffer)
-        ReleasePostBuffer(queueBuffer);
+    if (_queueBuffer)
+        ReleasePostBuffer(_queueBuffer);
 }
 
 bool TCPClientQueued::PostToServer(void *buffer, u32 bytes)
 {
     // Try not to hold a lock if we can help it
-    if (!queuing)
+    if (!_queuing)
         return TCPClient::PostToServer(buffer, bytes);
 
-    AutoMutex lock(queueLock);
+    AutoMutex lock(_queueLock);
 
-    // Check to make sure we're still queuing
-    if (!queuing)
+    // Check to make sure we're still _queuing
+    if (!_queuing)
     {
         lock.Release();
         return TCPClient::PostToServer(buffer, bytes);
     }
 
-    if (queueBuffer)
+    if (_queueBuffer)
     {
-        queueBuffer = ResizePostBuffer(queueBuffer, queueBytes + bytes);
-        memcpy((u8*)queueBuffer + queueBytes, buffer, bytes);
-        queueBytes += bytes;
+        _queueBuffer = ResizePostBuffer(_queueBuffer, _queueBytes + bytes);
+        memcpy((u8*)_queueBuffer + _queueBytes, buffer, bytes);
+        _queueBytes += bytes;
         ReleasePostBuffer(buffer);
     }
     else
     {
-        queueBuffer = buffer;
-        queueBytes = bytes;
+        _queueBuffer = buffer;
+        _queueBytes = bytes;
     }
 
     return true;
@@ -1064,15 +1069,15 @@ bool TCPClientQueued::PostToServer(void *buffer, u32 bytes)
 
 void TCPClientQueued::PostQueuedToServer()
 {
-    AutoMutex lock(queueLock);
+    AutoMutex lock(_queueLock);
 
-    if (queueBuffer)
+    if (_queueBuffer)
     {
-        TCPClient::PostToServer(queueBuffer, queueBytes);
-        queueBuffer = 0;
+        TCPClient::PostToServer(_queueBuffer, _queueBytes);
+        _queueBuffer = 0;
     }
 
-    queuing = false;
+    _queuing = false;
 }
 
 
@@ -1080,26 +1085,26 @@ void TCPClientQueued::PostQueuedToServer()
 
 UDPEndpoint::UDPEndpoint()
 {
-    port = 0;
-    closing = 0;
-    endpointSocket = SOCKET_ERROR;
+    _port = 0;
+    _closing = 0;
+    _socket = SOCKET_ERROR;
 }
 
 UDPEndpoint::~UDPEndpoint()
 {
-    if (endpointSocket != SOCKET_ERROR)
-        closesocket(endpointSocket);
+    if (_socket != SOCKET_ERROR)
+        closesocket(_socket);
 }
 
 void UDPEndpoint::Close()
 {
     // Only allow close to run once
-    if (Atomic::Add(&closing, 1) == 0)
+    if (Atomic::Add(&_closing, 1) == 0)
     {
-        if (endpointSocket != SOCKET_ERROR)
+        if (_socket != SOCKET_ERROR)
         {
-            closesocket(endpointSocket);
-            endpointSocket = SOCKET_ERROR;
+            closesocket(_socket);
+            _socket = SOCKET_ERROR;
         }
 
         OnClose();
@@ -1116,12 +1121,12 @@ bool UDPEndpoint::IgnoreUnreachable()
     // ICMP Port Unreachable or other failures until you get the first packet.
     // After that call IgnoreUnreachable() to avoid spoofed ICMP exploits.
 
-	if (endpointSocket == SOCKET_ERROR)
+	if (_socket == SOCKET_ERROR)
 		return false;
 
 	DWORD dwBytesReturned = 0;
     BOOL bNewBehavior = FALSE;
-    if (WSAIoctl(endpointSocket, SIO_UDP_CONNRESET, &bNewBehavior,
+    if (WSAIoctl(_socket, SIO_UDP_CONNRESET, &bNewBehavior,
 				 sizeof(bNewBehavior), 0, 0, &dwBytesReturned, 0, 0) == SOCKET_ERROR)
 	{
 		WARN("UDPEndpoint") << "Unable to ignore ICMP Unreachable: " << SocketGetLastErrorString();
@@ -1151,7 +1156,7 @@ bool UDPEndpoint::Bind(Port port, bool ignoreUnreachable)
         return false;
     }
 
-    endpointSocket = s;
+    _socket = s;
 
 	// Ignore ICMP Unreachable
     if (ignoreUnreachable) IgnoreUnreachable();
@@ -1166,7 +1171,7 @@ bool UDPEndpoint::Bind(Port port, bool ignoreUnreachable)
     {
         FATAL("UDPEndpoint") << "Unable to bind to port: " << SocketGetLastErrorString();
         closesocket(s);
-        endpointSocket = SOCKET_ERROR;
+        _socket = SOCKET_ERROR;
         return false;
     }
 
@@ -1175,11 +1180,11 @@ bool UDPEndpoint::Bind(Port port, bool ignoreUnreachable)
         !QueueWSARecvFrom())
     {
         closesocket(s);
-        endpointSocket = SOCKET_ERROR;
+        _socket = SOCKET_ERROR;
         return false;
     }
 
-    this->port = port;
+    _port = port;
 
     INFO("UDPEndpoint") << "Open on port " << GetPort();
 
@@ -1188,26 +1193,26 @@ bool UDPEndpoint::Bind(Port port, bool ignoreUnreachable)
 
 bool UDPEndpoint::Valid()
 {
-    return endpointSocket != SOCKET_ERROR;
+    return _socket != SOCKET_ERROR;
 }
 
 Port UDPEndpoint::GetPort()
 {
     // Get bound port if it was random
-    if (port == 0)
+    if (_port == 0)
     {
         sockaddr_in addr;
         int namelen = sizeof(addr);
-        if (getsockname(endpointSocket, (sockaddr*)&addr, &namelen))
+        if (getsockname(_socket, (sockaddr*)&addr, &namelen))
         {
             FATAL("UDPEndpoint") << "Unable to get own address: " << SocketGetLastErrorString();
             return 0;
         }
 
-        port = ntohs(addr.sin_port);
+        _port = ntohs(addr.sin_port);
     }
 
-    return port;
+    return _port;
 }
 
 bool UDPEndpoint::Post(IP ip, Port port, void *buffer, u32 bytes)
@@ -1229,25 +1234,26 @@ bool UDPEndpoint::Post(IP ip, Port port, void *buffer, u32 bytes)
 
 bool UDPEndpoint::QueueWSARecvFrom(RecvFromOverlapped *recvOv)
 {
+	AddRef();
+
     recvOv->Reset();
 
     WSABUF wsabuf;
     wsabuf.buf = reinterpret_cast<CHAR*>( GetTrailingBytes(recvOv) );
     wsabuf.len = RECVFROM_DATA_SIZE;
 
-    AddRef();
-
     // Queue up a WSARecvFrom()
     DWORD flags = 0, bytes;
-    int result = WSARecvFrom(endpointSocket, &wsabuf, 1, &bytes, &flags,
-							 reinterpret_cast<sockaddr*>(&recvOv->addr), &recvOv->addrLen, &recvOv->ov, 0); 
+    int result = WSARecvFrom(_socket, &wsabuf, 1, &bytes, &flags,
+							 reinterpret_cast<sockaddr*>( &recvOv->addr ),
+							 &recvOv->addrLen, &recvOv->ov, 0); 
 
     // This overlapped operation will always complete unless
     // we get an error code other than ERROR_IO_PENDING.
     if (result && WSAGetLastError() != ERROR_IO_PENDING)
     {
         FATAL("UDPEndpoint") << "WSARecvFrom error: " << SocketGetLastErrorString();
-        ReleaseRef();
+		ReleaseRef();
         return false;
     }
 
@@ -1256,7 +1262,7 @@ bool UDPEndpoint::QueueWSARecvFrom(RecvFromOverlapped *recvOv)
 
 bool UDPEndpoint::QueueWSARecvFrom()
 {
-    if (closing)
+    if (_closing)
         return false;
 
     // Create a new RecvFromOverlapped structure for receiving
@@ -1269,7 +1275,13 @@ bool UDPEndpoint::QueueWSARecvFrom()
     }
     recvOv->opcode = OVOP_RECVFROM;
 
-    return QueueWSARecvFrom(recvOv);
+    if (!QueueWSARecvFrom(recvOv))
+	{
+		RegionAllocator::ii->Release(recvOv);
+		return false;
+	}
+
+	return true;
 }
 
 void UDPEndpoint::OnWSARecvFromComplete(int error, RecvFromOverlapped *recvOv, u32 bytes)
@@ -1278,7 +1290,8 @@ void UDPEndpoint::OnWSARecvFromComplete(int error, RecvFromOverlapped *recvOv, u
     {
     case 0:
     case ERROR_MORE_DATA: // Truncated packet
-        OnRead(recvOv->addr.sin_addr.S_un.S_addr, ntohs(recvOv->addr.sin_port), GetTrailingBytes(recvOv), bytes);
+        OnRead(recvOv->addr.sin_addr.S_un.S_addr, ntohs(recvOv->addr.sin_port),
+			   GetTrailingBytes(recvOv), bytes);
         break;
 
     case ERROR_NETWORK_UNREACHABLE:
@@ -1291,7 +1304,13 @@ void UDPEndpoint::OnWSARecvFromComplete(int error, RecvFromOverlapped *recvOv, u
         OnUnreachable(recvOv->addr.sin_addr.S_un.S_addr);
     }
 
-    if (!QueueWSARecvFrom(recvOv))
+	// If OnRead() or OnUnreachable() or another thread just closed this endpoint,
+	if (_closing)
+	{
+		RegionAllocator::ii->Release(recvOv);
+	}
+	// Otherwise if we are unable to queue,
+	else if (!QueueWSARecvFrom(recvOv))
     {
         RegionAllocator::ii->Release(recvOv);
         Close();
@@ -1300,7 +1319,7 @@ void UDPEndpoint::OnWSARecvFromComplete(int error, RecvFromOverlapped *recvOv, u
 
 bool UDPEndpoint::QueueWSASendTo(IP ip, Port port, TypedOverlapped *sendOv, u32 bytes)
 {
-    if (closing)
+    if (_closing)
         return false;
 
     sockaddr_in addr;
@@ -1315,8 +1334,9 @@ bool UDPEndpoint::QueueWSASendTo(IP ip, Port port, TypedOverlapped *sendOv, u32 
     AddRef();
 
     // Fire off a WSASendTo() and forget about it
-    int result = WSASendTo(endpointSocket, &wsabuf, 1, 0, 0,
-						   reinterpret_cast<const sockaddr*>(&addr), sizeof(addr), &sendOv->ov, 0);
+    int result = WSASendTo(_socket, &wsabuf, 1, 0, 0,
+						   reinterpret_cast<const sockaddr*>( &addr ),
+						   sizeof(addr), &sendOv->ov, 0);
 
     // This overlapped operation will always complete unless
     // we get an error code other than ERROR_IO_PENDING.
@@ -1333,7 +1353,7 @@ bool UDPEndpoint::QueueWSASendTo(IP ip, Port port, TypedOverlapped *sendOv, u32 
 
 void UDPEndpoint::OnWSASendToComplete(int error, u32 bytes)
 {
-    if (closing)
+    if (_closing)
         return;
 
     if (error)
