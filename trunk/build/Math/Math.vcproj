@@ -14,9 +14,6 @@
 		<Platform
 			Name="x64"
 		/>
-		<Platform
-			Name="Pocket PC 2003 (ARMV4)"
-		/>
 	</Platforms>
 	<ToolFiles>
 	</ToolFiles>
