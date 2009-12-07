@@ -99,6 +99,7 @@ void ConnectionMap::Remove(IP ip, Port port)
 
 SessionEndpoint::SessionEndpoint(ConnectionMap *conn_map)
 {
+	_conn_map = conn_map;
 	_session_count = 0;
 }
 
@@ -109,7 +110,23 @@ SessionEndpoint::~SessionEndpoint()
 
 void SessionEndpoint::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort, u8 *data, u32 bytes)
 {
+	// Look up an existing connection for this source address
+	Connection::HashKey *key = _conn_map->Get(srcIP, srcPort);
 
+	// TODO: Thread-safety
+
+	// If no existing connection exists, ignore this packet
+	if (key && key->conn)
+	{
+		int msg_bytes = bytes;
+
+		// Decrypt the packet. If the packet is invalid, ignore it
+		if (key->conn->_auth_enc.Decrypt(data, msg_bytes))
+		{
+			// Handle the decrypted data
+			HandleIncomingData(key->conn, data, msg_bytes);
+		}
+	}
 }
 
 void SessionEndpoint::OnWrite(u32 bytes)
@@ -121,6 +138,72 @@ void SessionEndpoint::OnClose()
 {
 
 }
+
+void SessionEndpoint::HandleTransportLayer(Connection *conn, u8 *data, int bytes)
+{
+	// See Transport Layer note in header.
+
+	while (bytes >= 1)
+	{
+		u8 d0 = data[0];
+
+		// reliable or unreliable?
+		if (d0 & 1)
+		{
+			// Reliable:
+
+			// TODO
+		}
+		else if (bytes >= 2)
+		{
+			// Unreliable:
+
+			int stream = (d0 >> 1) & 15;
+
+			int len = ((u32)data[1] << 3) | (d0 >> 5);
+
+			// ordered or unordered?
+			if (stream == 0)
+			{
+				// Unordered:
+
+				int chunk_len = 2 + len;
+
+				if (chunk_len <= bytes)
+				{
+					HandleMessageLayer(conn, data + 2, len);
+
+					// Continue processing remaining chunks in packet
+					data += chunk_len;
+					bytes -= chunk_len;
+					continue;
+				}
+			}
+			else
+			{
+				// Ordered:
+
+				if (5 + len <= bytes)
+				{
+					u32 id = ((u32)data[2] << 16) | ((u32)data[3] << 8) | data[4];
+
+					// TODO
+				}
+			}
+		}
+
+		// If execution reaches the end of this loop for any
+		// reason, stop processing and return.
+		return;
+	}
+}
+
+void SessionEndpoint::HandleMessageLayer(Connection *conn, u8 *msg, int bytes)
+{
+
+}
+
+
 
 
 //// Handshake Endpoint
