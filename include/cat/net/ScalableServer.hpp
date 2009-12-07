@@ -103,6 +103,10 @@ struct Connection
 	u8 _challenge[64];
 	u8 _answer[128];
 	bool _seen_first_encrypted_packet;
+	u32 _recv_unreliable_id[16];
+	u32 _recv_reliable_id[8];
+	u32 _send_unreliable_id[16];
+	u32 _send_reliable_id[8];
 };
 
 
