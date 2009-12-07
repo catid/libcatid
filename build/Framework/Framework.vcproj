@@ -48,7 +48,6 @@
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
 				WarningLevel="3"
-				Detect64BitPortabilityProblems="true"
 				DebugInformationFormat="4"
 			/>
 			<Tool
@@ -115,7 +114,6 @@
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
 				WarningLevel="3"
-				Detect64BitPortabilityProblems="true"
 				DebugInformationFormat="3"
 			/>
 			<Tool
@@ -186,7 +184,6 @@
 				RuntimeLibrary="2"
 				BufferSecurityCheck="false"
 				WarningLevel="3"
-				Detect64BitPortabilityProblems="true"
 				DebugInformationFormat="3"
 			/>
 			<Tool
@@ -258,7 +255,6 @@
 				RuntimeLibrary="2"
 				BufferSecurityCheck="false"
 				WarningLevel="3"
-				Detect64BitPortabilityProblems="true"
 				DebugInformationFormat="3"
 			/>
 			<Tool
@@ -336,6 +332,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\src\net\ScalableServer.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\src\io\Settings.cpp"
 				>
 			</File>
@@ -388,6 +388,10 @@
 			<Filter
 				Name="net"
 				>
+				<File
+					RelativePath="..\..\include\cat\net\ScalableServer.hpp"
+					>
+				</File>
 				<File
 					RelativePath="..\..\include\cat\net\ThreadPoolSockets.hpp"
 					>

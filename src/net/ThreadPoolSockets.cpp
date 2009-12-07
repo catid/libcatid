@@ -1294,13 +1294,13 @@ bool UDPEndpoint::QueueWSARecvFrom()
 	return true;
 }
 
-void UDPEndpoint::OnWSARecvFromComplete(int error, RecvFromOverlapped *recvOv, u32 bytes)
+void UDPEndpoint::OnWSARecvFromComplete(ThreadPoolLocalStorage *tls, int error, RecvFromOverlapped *recvOv, u32 bytes)
 {
     switch (error)
     {
     case 0:
     case ERROR_MORE_DATA: // Truncated packet
-        OnRead(recvOv->addr.sin_addr.S_un.S_addr, ntohs(recvOv->addr.sin_port),
+        OnRead(tls, recvOv->addr.sin_addr.S_un.S_addr, ntohs(recvOv->addr.sin_port),
 			   GetTrailingBytes(recvOv), bytes);
         break;
 

@@ -94,7 +94,6 @@ bool ThreadPool::SpawnThreads()
         if (ulpProcessAffinityMask & 1)
         {
             SpawnThread();
-            SpawnThread();
         }
 
         ulpProcessAffinityMask >>= 1;
@@ -287,6 +286,27 @@ void ThreadPool::Shutdown()
 }
 
 
+ThreadPoolLocalStorage::ThreadPoolLocalStorage()
+{
+	// Create 256-bit math library instance
+	math = KeyAgreementCommon::InstantiateMath(256);
+
+	// Create CSPRNG instance
+	csprng = FortunaFactory::ref()->Create();
+}
+
+ThreadPoolLocalStorage::~ThreadPoolLocalStorage()
+{
+	if (math) delete math;
+	if (csprng) delete csprng;
+}
+
+bool ThreadPoolLocalStorage::Valid()
+{
+	return math && csprng;
+}
+
+
 unsigned int WINAPI ThreadPool::CompletionThread(void *port)
 {
     DWORD bytes;
@@ -294,7 +314,15 @@ unsigned int WINAPI ThreadPool::CompletionThread(void *port)
     TypedOverlapped *ov = 0;
     int error;
 
-    for (;;)
+	ThreadPoolLocalStorage tls;
+
+	if (!tls.Valid())
+	{
+		FATAL("ThreadPool") << "Unable to initialize thread local storage objects";
+		return 1;
+	}
+
+	for (;;)
     {
         if (GetQueuedCompletionStatus((HANDLE)port, &bytes, (PULONG_PTR)&key, (OVERLAPPED**)&ov, INFINITE))
             error = 0;
@@ -376,7 +404,7 @@ unsigned int WINAPI ThreadPool::CompletionThread(void *port)
             break;
 
         case OVOP_RECVFROM:
-            ( (UDPEndpoint*)key )->OnWSARecvFromComplete( error, (RecvFromOverlapped*)ov, bytes );
+            ( (UDPEndpoint*)key )->OnWSARecvFromComplete( &tls, error, (RecvFromOverlapped*)ov, bytes );
             ( (UDPEndpoint*)key )->ReleaseRef();
             // UDPEndpoint tracks the overlapped buffer lifetime
             break;
@@ -395,4 +423,6 @@ unsigned int WINAPI ThreadPool::CompletionThread(void *port)
 			break;
         }
     }
+
+	return 0;
 }

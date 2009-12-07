@@ -26,8 +26,8 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef SETTINGS_HPP
-#define SETTINGS_HPP
+#ifndef CAT_SETTINGS_HPP
+#define CAT_SETTINGS_HPP
 
 #include <cat/Singleton.hpp>
 #include <fstream>
@@ -37,8 +37,8 @@ namespace cat {
 
 enum SettingsValueFlags
 {
-    SETTINGS_FILLED = 1, // s[] array has been set
-    SETTINGS_INT = 2,    // value has been promoted to int 'i'
+    CAT_SETTINGS_FILLED = 1, // s[] array has been set
+    CAT_SETTINGS_INT = 2,    // value has been promoted to int 'i'
 };
 
 struct SettingsValue
@@ -108,4 +108,4 @@ public:
 
 } // namespace cat
 
-#endif // SETTINGS_HPP
+#endif // CAT_SETTINGS_HPP

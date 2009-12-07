@@ -28,8 +28,8 @@
 
 // Include all libcat Framework headers
 
-#ifndef ALL_FRAMEWORK_HPP
-#define ALL_FRAMEWORK_HPP
+#ifndef CAT_ALL_FRAMEWORK_HPP
+#define CAT_ALL_FRAMEWORK_HPP
 
 #include <cat/AllCommon.hpp>
 #include <cat/AllMath.hpp>
@@ -64,4 +64,4 @@ void ShutdownFramework(bool WriteSettings = true);
 
 } // namespace cat
 
-#endif // ALL_FRAMEWORK_HPP
+#endif // CAT_ALL_FRAMEWORK_HPP

@@ -29,18 +29,12 @@
 // FIXME: Big-endian code is untested
 // FIXME: Not suitable for storing large buffers > 500 MB in size
 
-#ifndef BIT_STREAM_HPP
-#define BIT_STREAM_HPP
+#ifndef CAT_BIT_STREAM_HPP
+#define CAT_BIT_STREAM_HPP
 
 #include <cat/Platform.hpp>
 
 namespace cat {
-
-
-// Define how to swap bytes for integer data
-// swapLE = store/read data in Little-Endian
-// swapBE = store/read data in Big-Endian
-#define SWAP_BS(n) swapLE(n)
 
 
 //// BitStream manipulators ////
@@ -214,5 +208,5 @@ public:
 
 } // namespace cat
 
-#endif // BIT_STREAM_HPP
+#endif // CAT_BIT_STREAM_HPP
 

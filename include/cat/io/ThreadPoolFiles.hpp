@@ -26,8 +26,8 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef THREAD_POOL_FILES_HPP
-#define THREAD_POOL_FILES_HPP
+#ifndef CAT_THREAD_POOL_FILES_HPP
+#define CAT_THREAD_POOL_FILES_HPP
 
 #include <cat/threads/ThreadPool.hpp>
 #include <cat/port/FastDelegate.h>
@@ -68,4 +68,4 @@ public:
 
 } // namespace cat
 
-#endif // THREAD_POOL_FILES_HPP
+#endif // CAT_THREAD_POOL_FILES_HPP

@@ -230,7 +230,7 @@ bool KeyAgreementResponder::ProcessChallenge(BigTwistedEdwards *math, FortunaOut
 	} while (math->LessX(S, 1000));
 
 	// T = S*y + b (mod q)
-	math->MulMod(S, y[ThisY], math->GetCurveQ(), T);
+	math->MulMod(S, y[ThisY], math->GetCurveQ(), T); // Should use Barrett reduction here
 	if (math->Add(T, b, T))
 		math->Subtract(T, math->GetCurveQ(), T);
 	while (!math->Less(T, math->GetCurveQ()))

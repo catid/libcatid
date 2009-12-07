@@ -32,8 +32,8 @@
 // we could rewrite this library for several different APIs and just include
 // the best one for the target.
 
-#ifndef THREAD_POOL_SOCKETS_HPP
-#define THREAD_POOL_SOCKETS_HPP
+#ifndef CAT_THREAD_POOL_SOCKETS_HPP
+#define CAT_THREAD_POOL_SOCKETS_HPP
 
 #include <cat/threads/ThreadPool.hpp>
 #include <string>
@@ -341,7 +341,7 @@ public:
     bool QueueWSARecvFrom();
 
 protected:
-    virtual void OnRead(IP srcIP, Port srcPort, u8 *data, u32 bytes) = 0; // false = close
+    virtual void OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort, u8 *data, u32 bytes) = 0; // false = close
     virtual void OnWrite(u32 bytes) = 0;
     virtual void OnClose() = 0;
     virtual void OnUnreachable(IP srcIP) {}
@@ -353,7 +353,7 @@ private:
 
 private:
     bool QueueWSARecvFrom(RecvFromOverlapped *recvOv);
-    void OnWSARecvFromComplete(int error, RecvFromOverlapped *recvOv, u32 bytes);
+    void OnWSARecvFromComplete(ThreadPoolLocalStorage *tls, int error, RecvFromOverlapped *recvOv, u32 bytes);
 
     bool QueueWSASendTo(IP ip, Port port, TypedOverlapped *sendOv, u32 bytes);
     void OnWSASendToComplete(int error, u32 bytes);
@@ -362,4 +362,4 @@ private:
 
 } // namespace cat
 
-#endif // THREAD_POOL_SOCKETS_HPP
+#endif // CAT_THREAD_POOL_SOCKETS_HPP

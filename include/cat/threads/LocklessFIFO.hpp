@@ -31,8 +31,8 @@
         Edya Ladan-Mozes and Nir Shavit (2004)
 */
 
-#ifndef LOCKLESS_FIFO_HPP
-#define LOCKLESS_FIFO_HPP
+#ifndef CAT_LOCKLESS_FIFO_HPP
+#define CAT_LOCKLESS_FIFO_HPP
 
 #include <cat/threads/RegionAllocator.hpp>
 #include <cat/threads/Atomic.hpp>
@@ -365,4 +365,4 @@ template<class T> class Queue;
 
 } // namespace cat
 
-#endif // LOCKLESS_FIFO_HPP
+#endif // CAT_LOCKLESS_FIFO_HPP
