@@ -26,8 +26,8 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef BUFFER_TOK_HPP
-#define BUFFER_TOK_HPP
+#ifndef CAT_BUFFER_TOK_HPP
+#define CAT_BUFFER_TOK_HPP
 
 #include <cat/Platform.hpp>
 
@@ -102,4 +102,4 @@ public:
 
 } // namespace cat
 
-#endif // BUFFER_TOK_HPP
+#endif // CAT_BUFFER_TOK_HPP

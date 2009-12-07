@@ -73,7 +73,7 @@ int main()
 
 	ChatClient *client = new ChatClient;
 
-	client->serverIP = ResolveHostname("127.0.0.1");
+	client->serverIP = ResolveHostname("192.168.1.142");
 	client->serverPort = 80;
 
 	{

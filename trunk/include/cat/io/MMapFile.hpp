@@ -26,8 +26,8 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef MMAPFILE_HPP
-#define MMAPFILE_HPP
+#ifndef CAT_MMAPFILE_HPP
+#define CAT_MMAPFILE_HPP
 
 #include <cat/Platform.hpp>
 
@@ -72,4 +72,4 @@ public:
 
 } // namespace cat
 
-#endif // MMAPFILE_HPP
+#endif // CAT_MMAPFILE_HPP

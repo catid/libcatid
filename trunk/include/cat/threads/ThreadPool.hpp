@@ -26,11 +26,12 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef THREAD_POOL_HPP
-#define THREAD_POOL_HPP
+#ifndef CAT_THREAD_POOL_HPP
+#define CAT_THREAD_POOL_HPP
 
 #include <cat/Singleton.hpp>
 #include <cat/threads/Mutex.hpp>
+#include <cat/crypt/tunnel/KeyAgreement.hpp>
 
 #if defined(CAT_OS_WINDOWS)
 # include <cat/port/WindowsInclude.hpp>
@@ -97,6 +98,20 @@ public:
 };
 
 
+// TLS
+class ThreadPoolLocalStorage
+{
+public:
+	BigTwistedEdwards *math;
+	FortunaOutput *csprng;
+
+	ThreadPoolLocalStorage();
+	~ThreadPoolLocalStorage();
+
+	bool Valid();
+};
+
+
 /*
     class ThreadPool
 
@@ -140,9 +155,11 @@ protected:
 public:
     bool Startup();
     void Shutdown();
+
+	int GetThreadCount() { return _active_thread_count; }
 };
 
 
 } // namespace cat
 
-#endif // THREAD_POOL_HPP
+#endif // CAT_THREAD_POOL_HPP

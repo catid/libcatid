@@ -63,9 +63,9 @@ void SettingsKey::write(std::ofstream &file)
 
     // Only write keys that had a default value and
     // have been changed from the default value.
-    if (value.flags & def.flags & SETTINGS_FILLED)
+    if (value.flags & def.flags & CAT_SETTINGS_FILLED)
     {
-        if (value.flags & SETTINGS_INT)
+        if (value.flags & CAT_SETTINGS_INT)
         {
 #ifdef ONLY_WRITE_NONDEFAULT_KEYS
             if (def.i != value.i)
@@ -167,7 +167,7 @@ void Settings::read(const char *data, int len)
             SettingsKey *key = addKey(keyName);
             if (!key) continue;
 
-            key->value.flags |= SETTINGS_FILLED;
+            key->value.flags |= CAT_SETTINGS_FILLED;
             bt() >> key->value.s;
 #ifdef SETTINGS_VERBOSE
             INANE("Settings") << "Read: (" << key->name << ") = (" << key->value.s << ")";
@@ -290,14 +290,14 @@ SettingsKey *Settings::initInt(const char *name, int n)
 {
     SettingsKey *key = addKey(name);
 
-    if (!(key->value.flags & SETTINGS_FILLED))
+    if (!(key->value.flags & CAT_SETTINGS_FILLED))
         key->value.i = n;
-    else if (!(key->value.flags & SETTINGS_INT))
+    else if (!(key->value.flags & CAT_SETTINGS_INT))
         key->value.i = atoi(key->value.s);
-    key->value.flags = SETTINGS_FILLED|SETTINGS_INT;
+    key->value.flags = CAT_SETTINGS_FILLED|CAT_SETTINGS_INT;
 
     key->def.i = n;
-    key->def.flags = SETTINGS_FILLED|SETTINGS_INT;
+    key->def.flags = CAT_SETTINGS_FILLED|CAT_SETTINGS_INT;
 
     return key;
 }
@@ -306,12 +306,12 @@ SettingsKey *Settings::initStr(const char *name, const char *value)
 {
     SettingsKey *key = addKey(name);
 
-    if (!(key->value.flags & SETTINGS_FILLED))
+    if (!(key->value.flags & CAT_SETTINGS_FILLED))
         CAT_STRNCPY(key->value.s, value, sizeof(key->value.s));
-    key->value.flags = SETTINGS_FILLED;
+    key->value.flags = CAT_SETTINGS_FILLED;
 
     CAT_STRNCPY(key->def.s, value, sizeof(key->def.s));
-    key->def.flags = SETTINGS_FILLED;
+    key->def.flags = CAT_SETTINGS_FILLED;
 
     return key;
 }

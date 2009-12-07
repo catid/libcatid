@@ -26,8 +26,8 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef REGION_ALLOCATOR_HPP
-#define REGION_ALLOCATOR_HPP
+#ifndef CAT_REGION_ALLOCATOR_HPP
+#define CAT_REGION_ALLOCATOR_HPP
 
 #include <cat/Singleton.hpp>
 #include <memory>
@@ -185,4 +185,4 @@ inline void operator delete(void *ptr, cat::RegionAllocator *allocator)
     allocator->Release(ptr);
 }
 
-#endif // REGION_ALLOCATOR_HPP
+#endif // CAT_REGION_ALLOCATOR_HPP

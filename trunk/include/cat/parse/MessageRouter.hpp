@@ -26,8 +26,8 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef MESSAGE_ROUTER_HPP
-#define MESSAGE_ROUTER_HPP
+#ifndef CAT_MESSAGE_ROUTER_HPP
+#define CAT_MESSAGE_ROUTER_HPP
 
 #include <cat/parse/BitStream.hpp>
 #include <cat/port/FastDelegate.h>
@@ -51,4 +51,4 @@ public:
 
 } // namespace cat
 
-#endif // MESSAGE_ROUTER_HPP
+#endif // CAT_MESSAGE_ROUTER_HPP
