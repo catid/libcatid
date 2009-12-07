@@ -31,6 +31,30 @@
 using namespace cat;
 
 
+CAT_INLINE u32 ReconstructUnreliableOrderedID(u32 last_accepted_iv, u32 partial)
+{
+	static const u32 IV_MSB = (1 << 24);
+	static const u32 IV_MASK = (IV_MSB - 1);
+
+	s32 diff = partial - (u32)(last_accepted_iv & IV_MASK);
+
+	return ((last_accepted_iv & ~(u32)IV_MASK) | partial)
+		- (((IV_MSB >> 1) - (diff & IV_MASK)) & IV_MSB)
+		+ (diff & IV_MSB);
+}
+
+CAT_INLINE u32 ReconstructReliableID(u32 last_accepted_iv, u32 partial)
+{
+	static const u32 IV_MSB = (1 << 15);
+	static const u32 IV_MASK = (IV_MSB - 1);
+
+	s32 diff = partial - (u32)(last_accepted_iv & IV_MASK);
+
+	return ((last_accepted_iv & ~(u32)IV_MASK) | partial)
+		- (((IV_MSB >> 1) - (diff & IV_MASK)) & IV_MSB)
+		+ (diff & IV_MSB);
+}
+
 CAT_INLINE u32 hash_addr(IP ip, Port port)
 {
 	u32 hash = ip;
@@ -118,13 +142,22 @@ void SessionEndpoint::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort
 	// If no existing connection exists, ignore this packet
 	if (key && key->conn)
 	{
-		int msg_bytes = bytes;
+		Connection *conn = key->conn;
 
-		// Decrypt the packet. If the packet is invalid, ignore it
-		if (key->conn->_auth_enc.Decrypt(data, msg_bytes))
+		// If the connection is on a different port, ignore this packet
+		if (conn->_server_port == GetPort())
 		{
-			// Handle the decrypted data
-			HandleIncomingData(key->conn, data, msg_bytes);
+			int msg_bytes = bytes;
+
+			// If the data could not be decrypted, ignore this packet
+			if (conn->_auth_enc.Decrypt(data, msg_bytes))
+			{
+				// Flag having seen an encrypted packet
+				conn->_seen_first_encrypted_packet = true;
+
+				// Handle the decrypted data
+				HandleTransportLayer(conn, data, msg_bytes);
+			}
 		}
 	}
 }
@@ -143,7 +176,7 @@ void SessionEndpoint::HandleTransportLayer(Connection *conn, u8 *data, int bytes
 {
 	// See Transport Layer note in header.
 
-	while (bytes >= 1)
+	while (bytes >= 2)
 	{
 		u8 d0 = data[0];
 
@@ -152,9 +185,98 @@ void SessionEndpoint::HandleTransportLayer(Connection *conn, u8 *data, int bytes
 		{
 			// Reliable:
 
-			// TODO
+			int stream = (d0 >> 2) & 7;
+
+			// data or acknowledgment?
+			if (d0 & 2)
+			{
+				// Acknowledgment:
+
+				int count = (d0 >> 5) + 1;
+
+				int chunk_len = 1 + (count << 1);
+
+				if (chunk_len <= bytes)
+				{
+					u16 *ids = reinterpret_cast<u16*>( data + 1 );
+
+					for (int ii = 0; ii < count; ++ii)
+					{
+						u32 id = getLE(ids[ii]);
+
+						u32 &next_id = conn->_send_reliable_id[stream];
+
+						u32 nack = id & 1;
+
+						id = ReconstructReliableID(next_id, id >> 1);
+
+						// nack or ack?
+						if (nack)
+						{
+							// Negative acknowledgment:
+
+							// TODO
+						}
+						else
+						{
+							// Acknowledgment:
+
+							// TODO
+						}
+					}
+				}
+			}
+			else
+			{
+				// Data:
+
+				int len = ((u32)data[1] << 3) | (d0 >> 5);
+
+				int chunk_len = 4 + len;
+
+				if (chunk_len <= bytes)
+				{
+					u16 *ids = reinterpret_cast<u16*>( data + 1 );
+
+					u32 id = getLE(*ids);
+
+					u32 nack = id & 1;
+
+					u32 &next_id = conn->_recv_reliable_id[stream];
+
+					id = ReconstructReliableID(next_id, id >> 1);
+
+					// ordered or unordered?
+					if (stream == 0)
+					{
+						// Unordered:
+
+						// TODO: Check if we've seen it already
+
+						HandleMessageLayer(conn, data + 4, len);
+
+						// TODO: Send ack and nacks
+					}
+					else
+					{
+						// Ordered:
+
+						// TODO: Check if we've seen it already
+						// TODO: Check if it is time to process it yet
+
+						HandleMessageLayer(conn, data + 4, len);
+
+						// TODO: Send ack and nacks
+					}
+
+					// Continue processing remaining chunks in packet
+					data += chunk_len;
+					bytes -= chunk_len;
+					continue;
+				}
+			}
 		}
-		else if (bytes >= 2)
+		else
 		{
 			// Unreliable:
 
@@ -183,11 +305,28 @@ void SessionEndpoint::HandleTransportLayer(Connection *conn, u8 *data, int bytes
 			{
 				// Ordered:
 
-				if (5 + len <= bytes)
+				int chunk_len = 5 + len;
+
+				if (chunk_len <= bytes)
 				{
 					u32 id = ((u32)data[2] << 16) | ((u32)data[3] << 8) | data[4];
 
-					// TODO
+					u32 &next_id = conn->_recv_unreliable_id[stream];
+
+					// Reconstruct the message id
+					id = ReconstructUnreliableOrderedID(next_id, id);
+
+					if (id >= next_id)
+					{
+						next_id = id + 1;
+
+						HandleMessageLayer(conn, data + 5, len);
+					}
+
+					// Continue processing remaining chunks in packet
+					data += chunk_len;
+					bytes -= chunk_len;
+					continue;
 				}
 			}
 		}
@@ -200,7 +339,7 @@ void SessionEndpoint::HandleTransportLayer(Connection *conn, u8 *data, int bytes
 
 void SessionEndpoint::HandleMessageLayer(Connection *conn, u8 *msg, int bytes)
 {
-
+	INFO("SessionEndpoint") << "Got message with " << bytes << " bytes from " << IPToString(conn->_remote_ip) << ":" << conn->_remote_port;
 }
 
 
@@ -456,6 +595,10 @@ void HandshakeEndpoint::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPo
 								conn->_remote_port = srcPort;
 								conn->_server_port = server_port;
 								conn->_seen_first_encrypted_packet = false;
+								CAT_OBJCLR(conn->_recv_unreliable_id);
+								CAT_OBJCLR(conn->_recv_reliable_id);
+								CAT_OBJCLR(conn->_send_unreliable_id);
+								CAT_OBJCLR(conn->_send_reliable_id);
 
 								// Link connection to hash table
 								// TODO: Thread safety
