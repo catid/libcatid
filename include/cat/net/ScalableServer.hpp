@@ -58,6 +58,14 @@ namespace cat {
 
 	c2s E{ 00 (proof[32]) (server ip[4]) (server port[2]) (ban data) }
 	s2c E{ ... }
+*/
+
+/*
+	Transport layer:
+
+	Supports message clustering, several streams for
+	four types of transport: {unreliable/reliable}, {ordered/unordered}
+	and fragmentation for reliable, ordered messages.
 
 	Unreliable
 	0 stream(4) len(11) msg(x)
@@ -68,14 +76,21 @@ namespace cat {
 	stream = 1-15
 
 	Reliable, unordered
-	1 0 stream(3) len(11) id(24) msg(x)
-	1 1 stream(3) count-1(3) id(24) id(24) id(24)
+	1 0 stream(3) len(11) id(15) unused(1) msg(x)
+	1 1 stream(3) count-1(3) id(15) nack(1) id(15) nack(1) id(15) nack(1)
 	stream = 0
 
 	Reliable, ordered
-	1 0 stream(3) len(11) id(24) msg(x)
-	1 1 stream(3) count-1(3) id(24) id(24) id(24)
+	1 0 stream(3) len(11) id(15) frag(1) msg(x)
+	1 1 stream(3) count-1(3) id(15) nack(1) id(15) nack(1) id(15) nack(1)
 	stream = 1-7
+
+	To transmit a large buffer over several packets, it must be reassembled in order.
+	If any parts are lost, then the whole buffer is lost.
+	Therefore only reliable, ordered streams make sense.
+	This is implemented with the frag(ment) bit:
+		frag = 1 : Fragment in a larger message
+		frag = 0 : Final fragment or a whole message
 */
 
 
@@ -130,6 +145,10 @@ protected:
 	void OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort, u8 *data, u32 bytes);
 	void OnWrite(u32 bytes);
 	void OnClose();
+
+	void HandleTransportLayer(Connection *conn, u8 *data, int bytes);
+
+	void HandleMessageLayer(Connection *conn, u8 *msg, int bytes);
 };
 
 
