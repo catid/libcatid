@@ -114,6 +114,7 @@ class ConnectionMap
 {
 	static const int HASH_TABLE_SIZE = 10000;
 
+public:
 	struct HashKey
 	{
 		volatile u32 references;
@@ -121,6 +122,7 @@ class ConnectionMap
 		HashKey *next;
 	};
 
+protected:
 	HashKey *_table;
 
 public:
@@ -163,14 +165,13 @@ class HandshakeEndpoint : public UDPEndpoint
 	KeyAgreementResponder _key_agreement_responder;
 	u8 _public_key[64];
 	int _session_port_count;
-	SessionEndpoint *_sessions[];
+	SessionEndpoint **_sessions;
 
 public:
 	HandshakeEndpoint();
 	~HandshakeEndpoint();
 
 	static const u32 PROTOCOL_MAGIC = 0xC47D0001;
-	static const char *SERVER_KEY_FILE = "serverkey.bin";
 	static const int PUBLIC_KEY_BYTES = 64;
 	static const int PRIVATE_KEY_BYTES = 32;
 	static const int CHALLENGE_BYTES = PUBLIC_KEY_BYTES;

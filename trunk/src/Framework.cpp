@@ -47,9 +47,17 @@ bool cat::InitializeFramework()
 	// Read logging subsystem settings
 	Logging::ref()->ReadSettings();
 
+	if (!FortunaFactory::ref()->Initialize())
+	{
+		FATAL("Framework") << "Unable to initialize the CSPRNG";
+		ShutdownFramework(false);
+		return false;
+	}
+
 	// Start the worker threads
 	if (!ThreadPool::ref()->Startup())
 	{
+		FATAL("Framework") << "Unable to initialize the ThreadPool";
 		ShutdownFramework(false);
 		return false;
 	}
@@ -62,6 +70,9 @@ void cat::ShutdownFramework(bool WriteSettings)
 {
 	// Terminate worker threads
 	ThreadPool::ref()->Shutdown();
+
+	// Terminate the entropy collection thread in the CSPRNG
+	FortunaFactory::ref()->Shutdown();
 
 	// Write settings to disk if requested
 	if (WriteSettings)

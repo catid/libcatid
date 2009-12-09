@@ -28,10 +28,15 @@
 
 #include <cat/net/ScalableServer.hpp>
 #include <cat/port/AlignedAlloc.hpp>
+#include <cat/io/Logging.hpp>
+#include <cat/io/MMapFile.hpp>
+#include <fstream>
+using namespace std;
 using namespace cat;
 
+static const char *SERVER_KEY_FILE = "serverkey.bin";
 
-CAT_INLINE u32 ReconstructUnreliableOrderedID(u32 last_accepted_iv, u32 partial)
+static CAT_INLINE u32 ReconstructUnreliableOrderedID(u32 last_accepted_iv, u32 partial)
 {
 	static const u32 IV_MSB = (1 << 24);
 	static const u32 IV_MASK = (IV_MSB - 1);
@@ -43,7 +48,7 @@ CAT_INLINE u32 ReconstructUnreliableOrderedID(u32 last_accepted_iv, u32 partial)
 		+ (diff & IV_MSB);
 }
 
-CAT_INLINE u32 ReconstructReliableID(u32 last_accepted_iv, u32 partial)
+static CAT_INLINE u32 ReconstructReliableID(u32 last_accepted_iv, u32 partial)
 {
 	static const u32 IV_MSB = (1 << 15);
 	static const u32 IV_MASK = (IV_MSB - 1);
@@ -55,7 +60,7 @@ CAT_INLINE u32 ReconstructReliableID(u32 last_accepted_iv, u32 partial)
 		+ (diff & IV_MSB);
 }
 
-CAT_INLINE u32 hash_addr(IP ip, Port port)
+static CAT_INLINE u32 hash_addr(IP ip, Port port)
 {
 	u32 hash = ip;
 
@@ -106,11 +111,15 @@ bool ConnectionMap::Initialize()
 ConnectionMap::HashKey *ConnectionMap::Get(IP ip, Port port)
 {
 	u32 hash = hash_addr(ip, port) % HASH_TABLE_SIZE;
+
+	return 0;
 }
 
 ConnectionMap::HashKey *ConnectionMap::Insert(IP ip, Port port)
 {
 	u32 hash = hash_addr(ip, port) % HASH_TABLE_SIZE;
+
+	return 0;
 }
 
 void ConnectionMap::Remove(IP ip, Port port)
@@ -135,7 +144,7 @@ SessionEndpoint::~SessionEndpoint()
 void SessionEndpoint::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort, u8 *data, u32 bytes)
 {
 	// Look up an existing connection for this source address
-	Connection::HashKey *key = _conn_map->Get(srcIP, srcPort);
+	ConnectionMap::HashKey *key = _conn_map->Get(srcIP, srcPort);
 
 	// TODO: Thread-safety
 
@@ -384,10 +393,10 @@ bool HandshakeEndpoint::Initialize()
 		MMapFile mmf(SERVER_KEY_FILE);
 
 		// If the file was found and of the right size,
-		if (mmf.good() && mmf.len == PUBLIC_KEY_BYTES + PRIVATE_KEY_BYTES)
+		if (mmf.good() && mmf.remaining() == PUBLIC_KEY_BYTES + PRIVATE_KEY_BYTES)
 		{
-			char *public_key = mmf.read(PUBLIC_KEY_BYTES);
-			char *private_key = mmf.read(PRIVATE_KEY_BYTES);
+			u8 *public_key = reinterpret_cast<u8*>( mmf.read(PUBLIC_KEY_BYTES) );
+			u8 *private_key = reinterpret_cast<u8*>( mmf.read(PRIVATE_KEY_BYTES) );
 
 			// Remember the public key so we can report it to connecting users
 			memcpy(_public_key, public_key, PUBLIC_KEY_BYTES);
@@ -399,8 +408,8 @@ bool HandshakeEndpoint::Initialize()
 		}
 		else
 		{
-			char public_key[PUBLIC_KEY_BYTES];
-			char private_key[PRIVATE_KEY_BYTES];
+			u8 public_key[PUBLIC_KEY_BYTES];
+			u8 private_key[PRIVATE_KEY_BYTES];
 
 			// Say hello to my little friend
 			KeyMaker Bob;
@@ -408,7 +417,7 @@ bool HandshakeEndpoint::Initialize()
 			// Ask Bob to generate a key pair for the server
 			if (Bob.GenerateKeyPair(math, csprng,
 									public_key, PUBLIC_KEY_BYTES,
-									private_key, PRIVATE_KEY_BYTES)
+									private_key, PRIVATE_KEY_BYTES))
 			{
 				// Write the key file
 				ofstream keyfile(SERVER_KEY_FILE, ios_base::out | ios_base::binary);
@@ -417,8 +426,8 @@ bool HandshakeEndpoint::Initialize()
 				if (!keyfile.fail())
 				{
 					// Write the key file contents
-					keyfile.write(public_key, PUBLIC_KEY_BYTES);
-					keyfile.write(private_key, PRIVATE_KEY_BYTES);
+					keyfile.write((char*)public_key, PUBLIC_KEY_BYTES);
+					keyfile.write((char*)private_key, PRIVATE_KEY_BYTES);
 					keyfile.flush();
 
 					// If the key file was successfully written,
@@ -518,7 +527,7 @@ void HandshakeEndpoint::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPo
 			if (pkt3)
 			{
 				// They took the time to get the cookie right, might as well check if we know them
-				HashKey *hash_key = _conn_map.Get(srcIP, srcPort);
+				ConnectionMap::HashKey *hash_key = _conn_map.Get(srcIP, srcPort);
 
 				// If connection already exists,
 				if (hash_key)
@@ -554,7 +563,7 @@ void HandshakeEndpoint::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPo
 																  pkt3_answer, ANSWER_BYTES, &key_hash))
 					{
 						// Insert a hash key for this entry
-						HashKey *hash_key = _conn_map.Insert(srcIP, srcPort);
+						ConnectionMap::HashKey *hash_key = _conn_map.Insert(srcIP, srcPort);
 
 						// Allocate a new connection
 						Connection *conn = new (RegionAllocator::ii) Connection;
