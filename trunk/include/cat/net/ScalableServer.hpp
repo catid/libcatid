@@ -112,9 +112,11 @@ struct Connection
 
 class ConnectionMap
 {
+public:
 	static const int HASH_TABLE_SIZE = 10000;
 
-public:
+	CAT_INLINE u32 hash_addr(IP ip, Port port, u32 salt);
+
 	struct HashKey
 	{
 		volatile u32 references;
@@ -123,6 +125,7 @@ public:
 	};
 
 protected:
+	u32 _hash_salt;
 	HashKey *_table;
 
 public:
@@ -178,9 +181,9 @@ public:
 	static const int ANSWER_BYTES = PUBLIC_KEY_BYTES*2;
 	static const int SERVER_PORT = 22000;
 
-protected:
 	bool Initialize();
 
+protected:
 	void OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort, u8 *data, u32 bytes);
 	void OnWrite(u32 bytes);
 	void OnClose();
