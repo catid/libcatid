@@ -60,7 +60,7 @@ static CAT_INLINE u32 ReconstructReliableID(u32 last_accepted_iv, u32 partial)
 		+ (diff & IV_MSB);
 }
 
-static CAT_INLINE u32 hash_addr(IP ip, Port port)
+u32 ConnectionMap::hash_addr(IP ip, Port port, u32 salt)
 {
 	u32 hash = ip;
 
@@ -68,6 +68,9 @@ static CAT_INLINE u32 hash_addr(IP ip, Port port)
 	hash ^= hash << 13;
 	hash ^= hash >> 17;
 	hash ^= hash << 5;
+
+	// Add the salt into the hash
+	hash ^= salt;
 
 	// Add the port into the hash
 	hash += port;
@@ -77,7 +80,7 @@ static CAT_INLINE u32 hash_addr(IP ip, Port port)
 	hash ^= hash >> 13;
 	hash ^= hash << 7;
 
-	return hash;
+	return hash % ConnectionMap::HASH_TABLE_SIZE;
 }
 
 
@@ -105,26 +108,28 @@ bool ConnectionMap::Initialize()
 
 	memset(_table, 0, TABLE_BYTES);
 
+	_hash_salt = (u32)s32(Clock::usec() * 1000.0);
+
 	return true;
 }
 
 ConnectionMap::HashKey *ConnectionMap::Get(IP ip, Port port)
 {
-	u32 hash = hash_addr(ip, port) % HASH_TABLE_SIZE;
+	u32 hash = hash_addr(ip, port, _hash_salt);
 
 	return 0;
 }
 
 ConnectionMap::HashKey *ConnectionMap::Insert(IP ip, Port port)
 {
-	u32 hash = hash_addr(ip, port) % HASH_TABLE_SIZE;
+	u32 hash = hash_addr(ip, port, _hash_salt);
 
 	return 0;
 }
 
 void ConnectionMap::Remove(IP ip, Port port)
 {
-	u32 hash = hash_addr(ip, port) % HASH_TABLE_SIZE;
+	u32 hash = hash_addr(ip, port, _hash_salt);
 }
 
 
@@ -348,7 +353,8 @@ void SessionEndpoint::HandleTransportLayer(Connection *conn, u8 *data, int bytes
 
 void SessionEndpoint::HandleMessageLayer(Connection *conn, u8 *msg, int bytes)
 {
-	INFO("SessionEndpoint") << "Got message with " << bytes << " bytes from " << IPToString(conn->_remote_ip) << ":" << conn->_remote_port;
+	INFO("SessionEndpoint") << "Got message with " << bytes << " bytes from "
+		<< IPToString(conn->_remote_ip) << ":" << conn->_remote_port;
 }
 
 
@@ -370,10 +376,20 @@ bool HandshakeEndpoint::Initialize()
 {
 	// Use the number of threads in the pool for the number of ports
 	_session_port_count = ThreadPool::ref()->GetThreadCount();
-	if (_session_port_count < 1) return false;
+	if (_session_port_count < 1)
+	{
+		WARN("HandshakeEndpoint") << "Failed to initialize: Thread pool does not have at least 1 thread running";
+		return false;
+	}
+
 	if (_sessions) delete[] _sessions;
+
 	_sessions = new SessionEndpoint*[_session_port_count];
-	if (!_sessions) return false;
+	if (!_sessions)
+	{
+		WARN("HandshakeEndpoint") << "Failed to initialize: Unable to allocate " << _session_port_count << " session endpoint objects";
+		return false;
+	}
 
 	// Create 256-bit math library instance
 	BigTwistedEdwards *math = KeyAgreementCommon::InstantiateMath(256);
@@ -384,7 +400,11 @@ bool HandshakeEndpoint::Initialize()
 	bool success = false;
 
 	// If objects were created,
-	if (math && csprng)
+	if (!math || !csprng)
+	{
+		WARN("HandshakeEndpoint") << "Failed to initialize: Unable to create Math/CSPRNG object";
+	}
+	else
 	{
 		// Initialize cookie jar
 		_cookie_jar.Initialize(csprng);
@@ -405,9 +425,16 @@ bool HandshakeEndpoint::Initialize()
 			success = _key_agreement_responder.Initialize(math, csprng,
 														  public_key, PUBLIC_KEY_BYTES,
 														  private_key, PRIVATE_KEY_BYTES);
+
+			if (!success)
+			{
+				WARN("HandshakeEndpoint") << "Failed to initialize: Key from key file is invalid";
+			}
 		}
 		else
 		{
+			INFO("HandshakeEndpoint") << "Key file not present.  Creating a new key pair...";
+
 			u8 public_key[PUBLIC_KEY_BYTES];
 			u8 private_key[PRIVATE_KEY_BYTES];
 
@@ -415,15 +442,23 @@ bool HandshakeEndpoint::Initialize()
 			KeyMaker Bob;
 
 			// Ask Bob to generate a key pair for the server
-			if (Bob.GenerateKeyPair(math, csprng,
-									public_key, PUBLIC_KEY_BYTES,
-									private_key, PRIVATE_KEY_BYTES))
+			if (!Bob.GenerateKeyPair(math, csprng,
+									 public_key, PUBLIC_KEY_BYTES,
+									 private_key, PRIVATE_KEY_BYTES))
 			{
-				// Write the key file
+				WARN("HandshakeEndpoint") << "Failed to initialize: Unable to generate key pair";
+			}
+			else
+			{
+				// Thanks Bob!  Now, write the key file
 				ofstream keyfile(SERVER_KEY_FILE, ios_base::out | ios_base::binary);
 
 				// If the key file was successfully opened in output mode,
-				if (!keyfile.fail())
+				if (keyfile.fail())
+				{
+					WARN("HandshakeEndpoint") << "Failed to initialize: Unable to open key file for writing";
+				}
+				else
 				{
 					// Write the key file contents
 					keyfile.write((char*)public_key, PUBLIC_KEY_BYTES);
@@ -431,7 +466,11 @@ bool HandshakeEndpoint::Initialize()
 					keyfile.flush();
 
 					// If the key file was successfully written,
-					if (!keyfile.fail())
+					if (keyfile.fail())
+					{
+						WARN("HandshakeEndpoint") << "Failed to initialize: Unable to write key file";
+					}
+					else
 					{
 						// Remember the public key so we can report it to connecting users
 						memcpy(_public_key, public_key, PUBLIC_KEY_BYTES);
@@ -440,6 +479,11 @@ bool HandshakeEndpoint::Initialize()
 						success = _key_agreement_responder.Initialize(math, csprng,
 																	  public_key, PUBLIC_KEY_BYTES,
 																	  private_key, PRIVATE_KEY_BYTES);
+
+						if (!success)
+						{
+							WARN("HandshakeEndpoint") << "Failed to initialize: Key we just generated is invalid";
+						}
 					}
 				}
 			}
@@ -456,7 +500,12 @@ bool HandshakeEndpoint::Initialize()
 		// Attempt to bind to the server port
 		success = Bind(SERVER_PORT);
 
-		if (success)
+		if (!success)
+		{
+			WARN("HandshakeEndpoint") << "Failed to initialize: Unable to bind handshake port "
+				<< SERVER_PORT << ". " << SocketGetLastErrorString();
+		}
+		else
 		{
 			// For each session port count,
 			for (int ii = 0; ii < _session_port_count; ++ii)
@@ -467,9 +516,13 @@ bool HandshakeEndpoint::Initialize()
 				// Store it whether it is null or not
 				_sessions[ii] = endpoint;
 
+				Port port = SERVER_PORT + ii + 1;
+
 				// If allocation or bind failed, report failure after done
-				if (!endpoint || endpoint->Bind(SERVER_PORT + ii + 1))
+				if (!endpoint || endpoint->Bind(port))
 				{
+					WARN("HandshakeEndpoint") << "Failed to initialize: Unable to bind session port "
+						<< port << ". " << SocketGetLastErrorString();
 					success = false;
 				}
 			}

@@ -54,6 +54,8 @@
 #include <cat/io/ThreadPoolFiles.hpp>
 #include <cat/net/ThreadPoolSockets.hpp>
 
+#include <cat/net/ScalableServer.hpp>
+
 namespace cat {
 
 
