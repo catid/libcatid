@@ -29,7 +29,7 @@ public:
 	}
 
 protected:
-    virtual void OnRead(IP srcIP, Port srcPort, u8 *data, u32 bytes)
+    virtual void OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort, u8 *data, u32 bytes)
 	{
 		if (!seen_first)
 		{
