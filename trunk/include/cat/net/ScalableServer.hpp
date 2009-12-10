@@ -31,7 +31,6 @@
 
 #include <cat/net/ThreadPoolSockets.hpp>
 #include <cat/AllTunnel.hpp>
-#include <cat/parse/MessageRouter.hpp>
 #include <cat/port/FastDelegate.h>
 
 namespace cat {
@@ -59,6 +58,14 @@ namespace cat {
 	c2s E{ 00 (proof[32]) (server ip[4]) (server port[2]) (ban data) }
 	s2c E{ ... }
 */
+
+enum HandshakeTypes
+{
+	C2S_HELLO,
+	S2C_COOKIE,
+	C2S_CHALLENGE,
+	S2C_ANSWER
+};
 
 /*
 	Transport layer:
@@ -93,20 +100,41 @@ namespace cat {
 		frag = 0 : Final fragment or a whole message
 */
 
+struct Connection;
 
-struct Connection
+typedef fastdelegate::FastDelegate3<Connection*, u8*, int, void> MessageLayerHandler;
+
+class TransportLayer
 {
-	IP _remote_ip;
-	Port _remote_port;
-	Port _server_port;
-	AuthenticatedEncryption _auth_enc;
-	u8 _challenge[64];
-	u8 _answer[128];
-	bool _seen_first_encrypted_packet;
+protected:
 	u32 _recv_unreliable_id[16];
 	u32 _recv_reliable_id[8];
 	u32 _send_unreliable_id[16];
 	u32 _send_reliable_id[8];
+
+public:
+	TransportLayer();
+	~TransportLayer();
+
+	void OnPacket(UDPEndpoint *endpoint, u8 *data, int bytes, Connection *conn, MessageLayerHandler handler);
+};
+
+
+struct Connection
+{
+	Connection();
+
+	IP _remote_ip;
+	Port _remote_port;
+	Port _server_port;
+
+	u8 _challenge[64];
+	u8 _answer[128];
+
+	bool _seen_first_encrypted_packet;
+	AuthenticatedEncryption _auth_enc;
+
+	TransportLayer _transport;
 };
 
 
@@ -126,13 +154,11 @@ public:
 
 protected:
 	u32 _hash_salt;
-	HashKey *_table;
+	HashKey _table[HASH_TABLE_SIZE];
 
 public:
 	ConnectionMap();
 	~ConnectionMap();
-
-	bool Initialize();
 
 	HashKey *Get(IP ip, Port port);
 	HashKey *Insert(IP ip, Port port);
@@ -142,7 +168,7 @@ public:
 
 class SessionEndpoint : public UDPEndpoint
 {
-	friend class HandshakeEndpoint;
+	friend class ScalableServer;
 	volatile u32 _session_count;
 	ConnectionMap *_conn_map;
 
@@ -155,13 +181,11 @@ protected:
 	void OnWrite(u32 bytes);
 	void OnClose();
 
-	void HandleTransportLayer(Connection *conn, u8 *data, int bytes);
-
 	void HandleMessageLayer(Connection *conn, u8 *msg, int bytes);
 };
 
 
-class HandshakeEndpoint : public UDPEndpoint
+class ScalableServer : public UDPEndpoint
 {
 	ConnectionMap _conn_map;
 	CookieJar _cookie_jar;
@@ -171,8 +195,8 @@ class HandshakeEndpoint : public UDPEndpoint
 	SessionEndpoint **_sessions;
 
 public:
-	HandshakeEndpoint();
-	~HandshakeEndpoint();
+	ScalableServer();
+	~ScalableServer();
 
 	static const u32 PROTOCOL_MAGIC = 0xC47D0001;
 	static const int PUBLIC_KEY_BYTES = 64;
@@ -181,12 +205,52 @@ public:
 	static const int ANSWER_BYTES = PUBLIC_KEY_BYTES*2;
 	static const int SERVER_PORT = 22000;
 
-	bool Initialize();
+	bool Initialize(ThreadPoolLocalStorage *tls);
 
 protected:
 	void OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort, u8 *data, u32 bytes);
 	void OnWrite(u32 bytes);
 	void OnClose();
+};
+
+
+class ScalableClient : public UDPEndpoint
+{
+	KeyAgreementInitiator _key_agreement_initiator;
+	AuthenticatedEncryption _auth_enc;
+	TransportLayer _transport;
+	IP _server_ip;
+	Port _server_session_port;
+	bool _connected;
+	u8 _server_public_key[64];
+
+public:
+	ScalableClient();
+	~ScalableClient();
+
+	static const u32 PROTOCOL_MAGIC = ScalableServer::PROTOCOL_MAGIC;
+	static const int PUBLIC_KEY_BYTES = ScalableServer::PUBLIC_KEY_BYTES;
+	static const int PRIVATE_KEY_BYTES = ScalableServer::PRIVATE_KEY_BYTES;
+	static const int CHALLENGE_BYTES = ScalableServer::CHALLENGE_BYTES;
+	static const int ANSWER_BYTES = ScalableServer::ANSWER_BYTES;
+	static const int SERVER_PORT = ScalableServer::SERVER_PORT;
+
+	bool Connect(ThreadPoolLocalStorage *tls, IP server_ip, const void *server_key, int key_bytes);
+
+protected:
+	void OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort, u8 *data, u32 bytes);
+	void OnWrite(u32 bytes);
+	void OnClose();
+	void OnUnreachable(IP srcIP);
+
+protected:
+	bool PostHello();
+
+protected:
+	virtual void OnConnectFail();
+	virtual void OnConnect();
+	virtual void HandleMessageLayer(Connection *key, u8 *msg, int bytes);
+	virtual void OnDisconnect(bool timeout);
 };
 
 
