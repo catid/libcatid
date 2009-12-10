@@ -248,7 +248,10 @@ void TransportLayer::OnPacket(UDPEndpoint *endpoint, u8 *data, int bytes, Connec
 
 Connection::Connection()
 {
-	_seen_first_encrypted_packet = false;
+	used = 0;
+	references = 0;
+
+	in_session = false;
 }
 
 
@@ -256,13 +259,11 @@ Connection::Connection()
 
 ConnectionMap::ConnectionMap()
 {
-	CAT_OBJCLR(_table);
-
+	// Initialize the hash salt to something that will
+	// discourage hash-based DoS attacks against servers
+	// running the protocol.
+	// TODO: Determine if this needs stronger protection
 	_hash_salt = (u32)s32(Clock::usec() * 1000.0);
-}
-
-ConnectionMap::~ConnectionMap()
-{
 }
 
 u32 ConnectionMap::hash_addr(IP ip, Port port, u32 salt)
@@ -288,23 +289,34 @@ u32 ConnectionMap::hash_addr(IP ip, Port port, u32 salt)
 	return hash % ConnectionMap::HASH_TABLE_SIZE;
 }
 
-ConnectionMap::HashKey *ConnectionMap::Get(IP ip, Port port)
+Connection *ConnectionMap::Get(IP ip, Port port)
 {
 	u32 hash = hash_addr(ip, port, _hash_salt);
 
-	return &_table[hash];
+	Connection *conn = &_table[hash];
+
+	if (!conn->used)
+	{
+		return 0;
+	}
+
+	return conn;
 }
 
-ConnectionMap::HashKey *ConnectionMap::Insert(IP ip, Port port)
+Connection *ConnectionMap::Insert(IP ip, Port port)
 {
 	u32 hash = hash_addr(ip, port, _hash_salt);
 
-	return &_table[hash];
+	Connection *conn = &_table[hash];
+
+	conn->used = 1;
+
+	return conn;
 }
 
-void ConnectionMap::Remove(IP ip, Port port)
+void ConnectionMap::Remove(Connection *conn)
 {
-	u32 hash = hash_addr(ip, port, _hash_salt);
+	conn->used = 0;
 }
 
 
@@ -324,28 +336,26 @@ SessionEndpoint::~SessionEndpoint()
 void SessionEndpoint::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort, u8 *data, u32 bytes)
 {
 	// Look up an existing connection for this source address
-	ConnectionMap::HashKey *key = _conn_map->Get(srcIP, srcPort);
+	Connection *conn = _conn_map->Get(srcIP, srcPort);
 
 	// TODO: Thread-safety
 
 	// If no existing connection exists, ignore this packet
-	if (key && key->conn)
+	if (conn)
 	{
-		Connection *conn = key->conn;
-
 		// If the connection is on a different port, ignore this packet
-		if (conn->_server_port == GetPort())
+		if (conn->server_port == GetPort())
 		{
 			int buf_bytes = bytes;
 
 			// If the data could not be decrypted, ignore this packet
-			if (conn->_auth_enc.Decrypt(data, buf_bytes))
+			if (conn->auth_enc.Decrypt(data, buf_bytes))
 			{
 				// Flag having seen an encrypted packet
-				conn->_seen_first_encrypted_packet = true;
+				conn->in_session = true;
 
 				// Handle the decrypted data
-				conn->_transport.OnPacket(this, data, buf_bytes, conn,
+				conn->transport.OnPacket(this, data, buf_bytes, conn,
 					fastdelegate::MakeDelegate(this, &SessionEndpoint::HandleMessageLayer));
 			}
 		}
@@ -365,7 +375,7 @@ void SessionEndpoint::OnClose()
 void SessionEndpoint::HandleMessageLayer(Connection *conn, u8 *msg, int bytes)
 {
 	INFO("SessionEndpoint") << "Got message with " << bytes << " bytes from "
-		<< IPToString(conn->_remote_ip) << ":" << conn->_remote_port;
+		<< IPToString(conn->remote_ip) << ":" << conn->remote_port;
 }
 
 
@@ -599,16 +609,14 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 		u8 *pkt3_answer = pkt3 + 1+2;
 
 		// They took the time to get the cookie right, might as well check if we know them
-		ConnectionMap::HashKey *hash_key = _conn_map.Get(srcIP, srcPort);
+		Connection *conn = _conn_map.Get(srcIP, srcPort);
 
 		// If connection already exists,
-		if (hash_key && hash_key->conn)
+		if (conn)
 		{
-			Connection *conn = hash_key->conn;
-
 			// If we haven't seen the first encrypted packet,
-			if (conn->_seen_first_encrypted_packet ||
-				!SecureEqual(conn->_challenge, challenge, CHALLENGE_BYTES))
+			if (conn->in_session ||
+				!SecureEqual(conn->first_challenge, challenge, CHALLENGE_BYTES))
 			{
 				WARN("ScalableServer") << "Ignoring challenge: Already in session or challenge not replayed";
 				ReleasePostBuffer(pkt3);
@@ -617,11 +625,13 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 
 			// Construct packet 3
 			pkt3[0] = S2C_ANSWER;
-			*pkt3_port = getLE(conn->_server_port);
-			memcpy(pkt3_answer, conn->_answer, ANSWER_BYTES);
+			*pkt3_port = getLE(conn->server_port);
+			memcpy(pkt3_answer, conn->cached_answer, ANSWER_BYTES);
 
 			// Post packet without checking for errors
 			Post(srcIP, srcPort, pkt3, PKT3_LEN);
+
+			INFO("ScalableServer") << "Replayed lost answer to client challenge";
 
 			// TODO: Release hash_key here
 		}
@@ -639,39 +649,23 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 				return;
 			}
 
-			// If hash key isn't already created,
-			if (!hash_key)
-			{
-				// Insert a hash key for this entry
-				hash_key = _conn_map.Insert(srcIP, srcPort);
+			// Insert a hash key for this entry
+			conn = _conn_map.Insert(srcIP, srcPort);
 
-				// If unable to insert a hash key,
-				if (!hash_key)
-				{
-					WARN("ScalableServer") << "Ignoring challenge: Unable to insert into hash table";
-					ReleasePostBuffer(pkt3);
-					return;
-				}
-			}
-
-			// Allocate a new connection
-			Connection *conn = new (RegionAllocator::ii) Connection;
-
-			// If unable to allocate a connection,
+			// If unable to insert a hash key,
 			if (!conn)
 			{
-				WARN("ScalableServer") << "Ignoring challenge: Unable to allocate connection";
+				WARN("ScalableServer") << "Ignoring challenge: Unable to insert into hash table";
 				ReleasePostBuffer(pkt3);
 				return;
 			}
 
 			// If unable to key encryption from session key,
-			if (!_key_agreement_responder.KeyEncryption(&key_hash, &conn->_auth_enc, SESSION_KEY_NAME))
+			if (!_key_agreement_responder.KeyEncryption(&key_hash, &conn->auth_enc, SESSION_KEY_NAME))
 			{
 				WARN("ScalableServer") << "Ignoring challenge: Unable to key encryption";
 				ReleasePostBuffer(pkt3);
-				RegionAllocator::ii->Delete(conn);
-				// TODO: hash key
+				_conn_map.Remove(conn);
 				return;
 			}
 
@@ -700,23 +694,19 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 			*pkt3_port = getLE(server_port);
 
 			// Remember challenge and answer so they can be re-used if this response gets lost
-			memcpy(conn->_challenge, challenge, CHALLENGE_BYTES);
-			memcpy(conn->_answer, pkt3_answer, ANSWER_BYTES);
+			memcpy(conn->first_challenge, challenge, CHALLENGE_BYTES);
+			memcpy(conn->cached_answer, pkt3_answer, ANSWER_BYTES);
 
 			// Initialize connection
-			conn->_remote_ip = srcIP;
-			conn->_remote_port = srcPort;
-			conn->_server_port = server_port;
-
-			// Link connection to hash table
-			hash_key->conn = conn;
+			conn->remote_ip = srcIP;
+			conn->remote_port = srcPort;
+			conn->server_port = server_port;
 
 			// If packet 3 post fails,
 			if (!Post(srcIP, srcPort, pkt3, PKT3_LEN))
 			{
 				WARN("ScalableServer") << "Ignoring challenge: Unable to post packet";
-				hash_key->conn = 0;
-				RegionAllocator::ii->Delete(conn);
+				_conn_map.Remove(conn);
 			}
 			else
 			{
@@ -808,6 +798,8 @@ void ScalableClient::OnUnreachable(IP srcIP)
 	// If IP matches the server and we're not connected yet,
 	if (srcIP == _server_ip && !_connected)
 	{
+		WARN("ScalableClient") << "Failed to connect: ICMP error received from server address";
+
 		// ICMP error from server means it is down
 		OnConnectFail();
 
