@@ -120,49 +120,50 @@ public:
 };
 
 
-struct Connection
+class Connection
 {
+public:
 	Connection();
 
-	IP _remote_ip;
-	Port _remote_port;
-	Port _server_port;
+public:
+	volatile u32 used;
+	volatile u32 references;
 
-	u8 _challenge[64];
-	u8 _answer[128];
+public:
+	IP remote_ip;
+	Port remote_port;
+	Port server_port;
 
-	bool _seen_first_encrypted_packet;
-	AuthenticatedEncryption _auth_enc;
+public:
+	u8 first_challenge[64];
+	u8 cached_answer[128];
 
-	TransportLayer _transport;
+public:
+	bool in_session;
+	AuthenticatedEncryption auth_enc;
+
+public:
+	TransportLayer transport;
 };
 
 
 class ConnectionMap
 {
 public:
-	static const int HASH_TABLE_SIZE = 10000;
+	static const int HASH_TABLE_SIZE = 40000;
 
 	CAT_INLINE u32 hash_addr(IP ip, Port port, u32 salt);
 
-	struct HashKey
-	{
-		volatile u32 references;
-		Connection *conn;
-		HashKey *next;
-	};
-
 protected:
 	u32 _hash_salt;
-	HashKey _table[HASH_TABLE_SIZE];
+	Connection _table[HASH_TABLE_SIZE];
 
 public:
 	ConnectionMap();
-	~ConnectionMap();
 
-	HashKey *Get(IP ip, Port port);
-	HashKey *Insert(IP ip, Port port);
-	void Remove(IP ip, Port port);
+	Connection *Get(IP ip, Port port);
+	Connection *Insert(IP ip, Port port);
+	void Remove(Connection *conn);
 };
 
 
