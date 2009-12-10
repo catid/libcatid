@@ -251,7 +251,7 @@ Connection::Connection()
 	used = 0;
 	references = 0;
 
-	in_session = false;
+	seen_encrypted = false;
 }
 
 
@@ -352,7 +352,7 @@ void SessionEndpoint::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort
 			if (conn->auth_enc.Decrypt(data, buf_bytes))
 			{
 				// Flag having seen an encrypted packet
-				conn->in_session = true;
+				conn->seen_encrypted = true;
 
 				// Handle the decrypted data
 				conn->transport.OnPacket(this, data, buf_bytes, conn,
@@ -550,6 +550,28 @@ bool ScalableServer::Initialize(ThreadPoolLocalStorage *tls)
 	return success;
 }
 
+Port ScalableServer::FindLeastPopulatedPort()
+{
+	// Search through the list of session ports and find the lowest session count
+	u32 best_count = (u32)~0;
+	int best_port = 0;
+
+	for (int ii = 0; ii < _session_port_count; ++ii)
+	{
+		u32 count = _sessions[ii]->_session_count;
+
+		// If we found a lower session count,
+		if (count < best_count)
+		{
+			// Use this one instead
+			best_count = count;
+			best_port = ii;
+		}
+	}
+
+	return SERVER_PORT + best_port + 1;
+}
+
 void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort, u8 *data, u32 bytes)
 {
 	// c2s 00 (protocol magic[4])
@@ -615,7 +637,7 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 		if (conn)
 		{
 			// If we haven't seen the first encrypted packet,
-			if (conn->in_session ||
+			if (conn->seen_encrypted ||
 				!SecureEqual(conn->first_challenge, challenge, CHALLENGE_BYTES))
 			{
 				WARN("ScalableServer") << "Ignoring challenge: Already in session or challenge not replayed";
@@ -669,35 +691,16 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 				return;
 			}
 
-			// Search through the list of session ports and find the lowest session count
-			u32 best_count = (u32)~0;
-			int best_port = 0;
-
-			for (int ii = 0; ii < _session_port_count; ++ii)
-			{
-				u32 count = _sessions[ii]->_session_count;
-
-				// If we found a lower session count,
-				if (count < best_count)
-				{
-					// Use this one instead
-					best_count = count;
-					best_port = ii;
-				}
-			}
-
-			// Write the found port
-			Port server_port = SERVER_PORT + best_port + 1;
+			// Find the least populated port
+			Port server_port = FindLeastPopulatedPort();
 
 			// Construct packet 3
 			pkt3[0] = S2C_ANSWER;
 			*pkt3_port = getLE(server_port);
 
-			// Remember challenge and answer so they can be re-used if this response gets lost
+			// Initialize Connection object
 			memcpy(conn->first_challenge, challenge, CHALLENGE_BYTES);
 			memcpy(conn->cached_answer, pkt3_answer, ANSWER_BYTES);
-
-			// Initialize connection
 			conn->remote_ip = srcIP;
 			conn->remote_port = srcPort;
 			conn->server_port = server_port;

@@ -139,7 +139,7 @@ public:
 	u8 cached_answer[128];
 
 public:
-	bool in_session;
+	bool seen_encrypted;
 	AuthenticatedEncryption auth_enc;
 
 public:
@@ -194,6 +194,8 @@ class ScalableServer : public UDPEndpoint
 	u8 _public_key[64];
 	int _session_port_count;
 	SessionEndpoint **_sessions;
+
+	Port FindLeastPopulatedPort();
 
 public:
 	ScalableServer();
