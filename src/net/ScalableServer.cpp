@@ -370,28 +370,52 @@ Connection *ConnectionMap::Get(IP ip, Port port)
 */
 Connection *ConnectionMap::Insert(IP ip, Port port)
 {
+	if (!_add_delete_mutex.Valid())
+	{
+		return 0;
+	}
+
 	Connection *conn;
 
 	u32 key = hash_addr(ip, port, _hash_salt);
 
-	conn = &_table[key];
+	_add_delete_mutex.Enter();
 
 	for (;;)
 	{
+		conn = &_table[key];
+
+		if (conn->IsFlagSet(Connection::FLAG_COLLISION))
+		{
+			key = next_collision_key(key);
+
+			continue;
+		}
+
 		if (conn->IsFlagSet(Connection::FLAG_USED))
 		{
 			conn->SetFlag(Connection::FLAG_COLLISION);
-		}
-		else
-		{
-			return conn;
+
+			key = next_collision_key(key);
+
+			continue;
 		}
 	}
+
+	conn->SetFlag(Connection::FLAG_USED);
+
+	_add_delete_mutex.Leave();
+
+	return conn;
 }
 
 void ConnectionMap::Remove(Connection *conn)
 {
+	_add_delete_mutex.Enter();
+
 	conn->flags &= ~Connection::FLAG_USED;
+
+	_add_delete_mutex.Leave();
 }
 
 
