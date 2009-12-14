@@ -219,15 +219,19 @@ void TransportLayer::OnPacket(UDPEndpoint *endpoint, u8 *data, int bytes, Connec
 	}
 }
 
+void TransportLayer::Tick(UDPEndpoint *endpoint)
+{
+}
+
 
 //// Connection
 
 Connection::Connection()
 {
 	flags = 0;
-	references = 0;
+	//references = 0;
 }
-
+/*
 // Returns true iff this is the first reference lock
 bool Connection::AddRef()
 {
@@ -249,7 +253,7 @@ Connection::Ref::~Ref()
 {
 	if (_conn) _conn->ReleaseRef();
 }
-
+*/
 void Connection::ClearFlags()
 {
 	flags = 0;
@@ -267,13 +271,13 @@ bool Connection::IsFlagUnset(int bit)
 
 bool Connection::SetFlag(int bit)
 {
-	if (IsFlagSet()) return false;
+	if (IsFlagSet(bit)) return false;
 	return !Atomic::BTS(&flags, bit);
 }
 
 bool Connection::UnsetFlag(int bit)
 {
-	if (IsFlagUnset()) return false;
+	if (IsFlagUnset(bit)) return false;
 	return !Atomic::BTR(&flags, bit);
 }
 
@@ -331,9 +335,6 @@ Connection *ConnectionMap::Get(IP ip, Port port)
 		// Grab the slot
 		conn = &_table[key];
 
-		// Hold a reference on the slot while in use
-		conn->AddRef();
-
 		// If the slot is used and the user address matches,
 		if (conn->IsFlagSet(Connection::FLAG_USED) &&
 			conn->remote_ip == ip &&
@@ -344,9 +345,6 @@ Connection *ConnectionMap::Get(IP ip, Port port)
 		}
 		else
 		{
-			// Otherwise we don't want this slot so release the reference
-			conn->ReleaseRef();
-
 			// If the slot indicates a collision,
 			if (conn->IsFlagSet(Connection::FLAG_COLLISION))
 			{
@@ -358,10 +356,12 @@ Connection *ConnectionMap::Get(IP ip, Port port)
 			else
 			{
 				// Reached end of collision list, so the address was not found in the table
-				return 0;
+				break;
 			}
 		}
 	}
+
+	return 0;
 }
 
 /*
@@ -370,52 +370,80 @@ Connection *ConnectionMap::Get(IP ip, Port port)
 */
 Connection *ConnectionMap::Insert(IP ip, Port port)
 {
-	if (!_add_delete_mutex.Valid())
-	{
-		return 0;
-	}
-
-	Connection *conn;
-
+	// Hash IP:port:salt to get the hash table key
 	u32 key = hash_addr(ip, port, _hash_salt);
 
-	_add_delete_mutex.Enter();
+	// Grab the slot
+	Connection *conn = &_table[key];
 
-	for (;;)
+	// While collision keys are marked used,
+	while (conn->IsFlagSet(Connection::FLAG_USED))
 	{
+		// Set flag for collision
+		conn->SetFlag(Connection::FLAG_COLLISION);
+
+		// Iterate to next collision key
+		key = next_collision_key(key);
 		conn = &_table[key];
 
-		if (conn->IsFlagSet(Connection::FLAG_COLLISION))
+		// NOTE: This will loop forever if every table key is marked used
+	}
+
+	Connection *chosen_slot = conn;
+	Connection *end_of_list = conn;
+
+	// Set used flag for chosen slot
+	chosen_slot->SetFlag(Connection::FLAG_USED);
+
+	// If collision list continues after this slot,
+	if (conn->IsFlagSet(Connection::FLAG_COLLISION))
+	{
+		// While collision list continues,
+		do
 		{
+			// Iterate to next collision key
 			key = next_collision_key(key);
+			conn = &_table[key];
 
-			continue;
-		}
+			// If this key is also used,
+			if (conn->IsFlagSet(Connection::FLAG_USED))
+			{
+				// Remember it as the end of the collision list
+				end_of_list = conn;
+			}
+		} while (conn->IsFlagSet(Connection::FLAG_COLLISION));
 
-		if (conn->IsFlagSet(Connection::FLAG_USED))
+		// Truncate collision list at the detected end of the list
+		conn = end_of_list;
+		while (conn->UnsetFlag(Connection::FLAG_COLLISION))
 		{
-			conn->SetFlag(Connection::FLAG_COLLISION);
-
+			// Iterate to next collision key
 			key = next_collision_key(key);
-
-			continue;
+			conn = &_table[key];
 		}
 	}
 
-	conn->SetFlag(Connection::FLAG_USED);
-
-	_add_delete_mutex.Leave();
-
-	return conn;
+	return chosen_slot;
 }
 
 void ConnectionMap::Remove(Connection *conn)
 {
-	_add_delete_mutex.Enter();
+	conn->UnsetFlag(Connection::FLAG_USED);
+}
 
-	conn->flags &= ~Connection::FLAG_USED;
+Connection *ConnectionMap::Begin()
+{
+	return 0;
+}
 
-	_add_delete_mutex.Leave();
+Connection *ConnectionMap::End()
+{
+	return 0;
+}
+
+Connection *ConnectionMap::IterateNext(Connection *conn)
+{
+	return 0;
 }
 
 
@@ -435,14 +463,13 @@ SessionEndpoint::~SessionEndpoint()
 void SessionEndpoint::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort, u8 *data, u32 bytes)
 {
 	// Look up an existing connection for this source address
-	Connection::Ref conn = _conn_map->Get(srcIP, srcPort);
+	Connection *conn = _conn_map->Get(srcIP, srcPort);
 
 	// If no connection exists, ignore this packet
 	if (conn)
 	{
 		// If the connection is on a different port, ignore this packet
-		if (conn->IsFlagUnset(Connection::FLAG_DELETED)) &&
-			conn->server_port == GetPort())
+		if (conn->server_port == GetPort())
 		{
 			int buf_bytes = bytes;
 
@@ -451,6 +478,7 @@ void SessionEndpoint::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort
 			{
 				// Flag having seen an encrypted packet
 				conn->SetFlag(Connection::FLAG_C2S_ENC);
+				conn->last_recv_tsc = Clock::msec();
 
 				// Handle the decrypted data
 				conn->transport.OnPacket(this, data, buf_bytes, conn,
@@ -637,13 +665,11 @@ bool ScalableServer::Initialize(ThreadPoolLocalStorage *tls)
 		// Store it whether it is null or not
 		_sessions[ii] = endpoint;
 
-		Port port = SERVER_PORT + ii + 1;
-
 		// If allocation or bind failed, report failure after done
-		if (!endpoint || !endpoint->Bind(port))
+		if (!endpoint || !endpoint->Bind())
 		{
-			WARN("ScalableServer") << "Failed to initialize: Unable to bind session port "
-				<< port << ". " << SocketGetLastErrorString();
+			WARN("ScalableServer") << "Failed to initialize: Unable to bind session port. "
+				<< SocketGetLastErrorString();
 
 			// Note failure
 			success = false;
@@ -662,26 +688,27 @@ bool ScalableServer::Initialize(ThreadPoolLocalStorage *tls)
 	return success;
 }
 
-Port ScalableServer::FindLeastPopulatedPort()
+SessionEndpoint *ScalableServer::FindLeastPopulatedPort()
 {
 	// Search through the list of session ports and find the lowest session count
 	u32 best_count = (u32)~0;
-	int best_port = 0;
+	SessionEndpoint *best_port = 0;
 
 	for (int ii = 0; ii < _session_port_count; ++ii)
 	{
-		u32 count = _sessions[ii]->_session_count;
+		SessionEndpoint *port = _sessions[ii];
+		u32 count = port->_session_count;
 
 		// If we found a lower session count,
 		if (count < best_count)
 		{
 			// Use this one instead
 			best_count = count;
-			best_port = ii;
+			best_port = port;
 		}
 	}
 
-	return SERVER_PORT + best_port + 1;
+	return best_port;
 }
 
 void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort, u8 *data, u32 bytes)
@@ -743,19 +770,11 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 		u8 *pkt3_answer = pkt3 + 1+2;
 
 		// They took the time to get the cookie right, might as well check if we know them
-		Connection::Ref conn = _conn_map.Get(srcIP, srcPort);
+		Connection *conn = _conn_map.Get(srcIP, srcPort);
 
 		// If connection already exists,
 		if (conn)
 		{
-			// If the connection was recently deleted,
-			if (conn->IsFlagSet(Connection::FLAG_DELETED))
-			{
-				WARN("ScalableServer") << "Ignoring challenge: Session in limbo";
-				ReleasePostBuffer(pkt3);
-				return;
-			}
-
 			// If we have seen the first encrypted packet already,
 			if (conn->IsFlagSet(Connection::FLAG_C2S_ENC))
 			{
@@ -817,7 +836,8 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 			}
 
 			// Find the least populated port
-			Port server_port = FindLeastPopulatedPort();
+			SessionEndpoint *server_endpoint = FindLeastPopulatedPort();
+			Port server_port = server_endpoint->GetPort();
 
 			// Construct packet 3
 			pkt3[0] = S2C_ANSWER;
@@ -829,6 +849,8 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 			conn->remote_ip = srcIP;
 			conn->remote_port = srcPort;
 			conn->server_port = server_port;
+			conn->server_endpoint = server_endpoint;
+			conn->last_recv_tsc = Clock::msec();
 
 			// If packet 3 post fails,
 			if (!Post(srcIP, srcPort, pkt3, PKT3_LEN))
@@ -859,7 +881,25 @@ bool ScalableServer::ThreadFunction(void *)
 	// Process timers every 20 milliseconds
 	while (WaitForQuitSignal(20))
 	{
-		// TODO: timeouts here
+		const int DISCONNECT_TIMEOUT = 15000;
+		u32 now = Clock::msec();
+
+		// For each active connection,
+		for (Connection *conn = _conn_map.Begin(); conn != _conn_map.End(); conn = _conn_map.IterateNext(conn))
+		{
+			if (now - conn->last_recv_tsc >= DISCONNECT_TIMEOUT)
+			{
+				_conn_map.Remove(conn);
+				continue;
+			}
+
+			// If not waiting for the first encrypted packet,
+			if (conn->IsFlagSet(Connection::FLAG_C2S_ENC))
+			{
+				// Otherwise tick the transport layer for this connection
+				conn->transport.Tick(conn->server_endpoint);
+			}
+		}
 	}
 
 	return true;
@@ -911,6 +951,13 @@ bool ScalableClient::Connect(ThreadPoolLocalStorage *tls, IP server_ip, const vo
 		return false;
 	}
 
+	// Generate a challenge for the server
+	if (!_key_agreement_initiator.GenerateChallenge(tls->math, tls->csprng, _cached_challenge, CHALLENGE_BYTES))
+	{
+		WARN("ScalableClient") << "Failed to connect: Cannot generate challenge message";
+		return false;
+	}
+
 	// Cache public key and IP
 	memcpy(_server_public_key, server_key, sizeof(_server_public_key));
 	_server_ip = server_ip;
@@ -922,10 +969,18 @@ bool ScalableClient::Connect(ThreadPoolLocalStorage *tls, IP server_ip, const vo
 		return false;
 	}
 
-	// Attempt to post a hello packet
+	// Attempt to post hello message
 	if (!PostHello())
 	{
-		WARN("ScalableClient") << "Failed to connect: Unable to post hello";
+		WARN("ScalableClient") << "Failed to connect: Post failure";
+		Close();
+		return false;
+	}
+
+	// Attempt to start the timer thread
+	if (!StartThread())
+	{
+		WARN("ScalableClient") << "Failed to connect: Unable to start timer thread";
 		Close();
 		return false;
 	}
@@ -992,23 +1047,13 @@ void ScalableClient::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 				return;
 			}
 
-			u8 *challenge = response + 1+4;
+			// Construct challenge packet
 			u32 *out_cookie = reinterpret_cast<u32*>( response + 1 );
+			u8 *out_challenge = response + 1+4;
 
-			if (!_key_agreement_initiator.GenerateChallenge(tls->math, tls->csprng, challenge, CHALLENGE_BYTES))
-			{
-				WARN("ScalableClient") << "Unable to connect: Cannot generate challenge message";
-				ReleasePostBuffer(response);
-				OnConnectFail();
-				Close();
-				return;
-			}
-
-			// Set packet type
 			response[0] = C2S_CHALLENGE;
-
-			// Copy cookie, preserving endianness
 			*out_cookie = *in_cookie;
+			memcpy(out_challenge, _cached_challenge, CHALLENGE_BYTES);
 
 			// Start ignoring ICMP unreachable messages now that we've seen a response from the server
 			if (!IgnoreUnreachable())
@@ -1120,10 +1165,31 @@ void ScalableClient::OnDisconnect(bool timeout)
 
 bool ScalableClient::ThreadFunction(void *)
 {
+	u32 last_hello_post = Clock::msec();
+	const int HELLO_POST_INTERVAL = 200; // milliseconds
+
 	// Process timers every 20 milliseconds
 	while (WaitForQuitSignal(20))
 	{
-		// TODO: timeouts here
+		if (!_connected)
+		{
+			u32 now = Clock::msec();
+
+			if (now - last_hello_post >= HELLO_POST_INTERVAL)
+			{
+				if (!PostHello())
+				{
+					WARN("ScalableClient") << "Unable to connect: Post failure";
+					return false;
+				}
+
+				last_hello_post = now;
+			}
+		}
+		else
+		{
+			_transport.Tick(this);
+		}
 	}
 
 	return true;
