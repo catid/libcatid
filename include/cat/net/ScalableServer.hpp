@@ -100,7 +100,13 @@ enum HandshakeTypes
 		frag = 0 : Final fragment or a whole message
 */
 
-struct Connection;
+class Connection;
+class ConnectionMap;
+class TransportLayer;
+class SessionEndpoint;
+class ScalableServer;
+class ScalableClient;
+
 
 typedef fastdelegate::FastDelegate3<Connection*, u8*, int, void> MessageLayerHandler;
 
@@ -117,6 +123,8 @@ public:
 	~TransportLayer();
 
 	void OnPacket(UDPEndpoint *endpoint, u8 *data, int bytes, Connection *conn, MessageLayerHandler handler);
+
+	void Tick(UDPEndpoint *endpoint);
 };
 
 
@@ -124,7 +132,7 @@ class Connection
 {
 public:
 	Connection();
-
+/*
 public:
 	volatile u32 references;
 
@@ -144,16 +152,17 @@ public:
 		CAT_INLINE Connection *operator->() { return _conn; }
 		CAT_INLINE Connection *operator Connection *() { return _conn; }
 	};
-
+*/
 private:
 	volatile u32 flags;
+	volatile u32 next_last_used;
 
 public:
 	enum
 	{
 		FLAG_USED,		// Slot is used
 		FLAG_COLLISION,	// Collision occurred in this slot
-		FLAG_DELETED,	// Slot is marked for deletion
+		FLAG_DELETE,	// Slot is scheduled to be deleted
 		FLAG_C2S_ENC,	// Has seen first encrypted packet
 	};
 
@@ -167,10 +176,12 @@ public:
 	IP remote_ip;
 	Port remote_port;
 	Port server_port;
+	SessionEndpoint *server_endpoint;
+	u32 last_recv_tsc; // Last time a packet was received from this user -- for disconnect timeouts
 
 public:
-	u8 first_challenge[64];
-	u8 cached_answer[128];
+	u8 first_challenge[64]; // First challenge seen from this client address
+	u8 cached_answer[128]; // Cached answer to this first challenge, to avoid eating server CPU time
 
 public:
 	AuthenticatedEncryption auth_enc;
@@ -190,14 +201,14 @@ public:
 	static const int COLLISION_MULTIPLIER = 20+1;
 	static const int COLLISION_INCREMENTER = 1013904223;
 
+protected:
 	CAT_INLINE u32 hash_addr(IP ip, Port port, u32 salt);
 	CAT_INLINE u32 next_collision_key(u32 key);
 
-protected:
 	u32 _hash_salt;
 	CAT_ALIGNED(16) Connection _table[HASH_TABLE_SIZE];
 
-	Mutex _add_delete_mutex;
+	u32 _head_used;
 
 public:
 	ConnectionMap();
@@ -205,6 +216,11 @@ public:
 	Connection *Get(IP ip, Port port);
 	Connection *Insert(IP ip, Port port);
 	void Remove(Connection *conn);
+
+public:
+	Connection *Begin();
+	Connection *IterateNext(Connection *conn);
+	Connection *End();
 };
 
 
@@ -229,27 +245,29 @@ protected:
 
 class ScalableServer : LoopThread, public UDPEndpoint
 {
-	ConnectionMap _conn_map;
-	CookieJar _cookie_jar;
-	KeyAgreementResponder _key_agreement_responder;
-	u8 _public_key[64];
-	int _session_port_count;
-	SessionEndpoint **_sessions;
-
-	Port FindLeastPopulatedPort();
-
-	bool ThreadFunction(void *param);
-
 public:
-	ScalableServer();
-	~ScalableServer();
-
 	static const u32 PROTOCOL_MAGIC = 0xC47D0001;
 	static const int PUBLIC_KEY_BYTES = 64;
 	static const int PRIVATE_KEY_BYTES = 32;
 	static const int CHALLENGE_BYTES = PUBLIC_KEY_BYTES;
 	static const int ANSWER_BYTES = PUBLIC_KEY_BYTES*2;
 	static const int SERVER_PORT = 22000;
+
+private:
+	ConnectionMap _conn_map;
+	CookieJar _cookie_jar;
+	KeyAgreementResponder _key_agreement_responder;
+	u8 _public_key[PUBLIC_KEY_BYTES];
+	int _session_port_count;
+	SessionEndpoint **_sessions;
+
+	SessionEndpoint *FindLeastPopulatedPort();
+
+	bool ThreadFunction(void *param);
+
+public:
+	ScalableServer();
+	~ScalableServer();
 
 	bool Initialize(ThreadPoolLocalStorage *tls);
 
@@ -262,26 +280,29 @@ protected:
 
 class ScalableClient : LoopThread, public UDPEndpoint
 {
-	KeyAgreementInitiator _key_agreement_initiator;
-	AuthenticatedEncryption _auth_enc;
-	TransportLayer _transport;
-	IP _server_ip;
-	Port _server_session_port;
-	bool _connected;
-	u8 _server_public_key[64];
-
-	bool ThreadFunction(void *param);
-
 public:
-	ScalableClient();
-	~ScalableClient();
-
 	static const u32 PROTOCOL_MAGIC = ScalableServer::PROTOCOL_MAGIC;
 	static const int PUBLIC_KEY_BYTES = ScalableServer::PUBLIC_KEY_BYTES;
 	static const int PRIVATE_KEY_BYTES = ScalableServer::PRIVATE_KEY_BYTES;
 	static const int CHALLENGE_BYTES = ScalableServer::CHALLENGE_BYTES;
 	static const int ANSWER_BYTES = ScalableServer::ANSWER_BYTES;
 	static const int SERVER_PORT = ScalableServer::SERVER_PORT;
+
+private:
+	KeyAgreementInitiator _key_agreement_initiator;
+	AuthenticatedEncryption _auth_enc;
+	TransportLayer _transport;
+	IP _server_ip;
+	Port _server_session_port;
+	bool _connected;
+	u8 _server_public_key[PUBLIC_KEY_BYTES];
+	u8 _cached_challenge[CHALLENGE_BYTES];
+
+	bool ThreadFunction(void *param);
+
+public:
+	ScalableClient();
+	~ScalableClient();
 
 	bool Connect(ThreadPoolLocalStorage *tls, IP server_ip, const void *server_key, int key_bytes);
 
