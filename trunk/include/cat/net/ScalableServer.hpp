@@ -197,6 +197,8 @@ protected:
 	u32 _hash_salt;
 	CAT_ALIGNED(16) Connection _table[HASH_TABLE_SIZE];
 
+	Mutex _add_delete_mutex;
+
 public:
 	ConnectionMap();
 
