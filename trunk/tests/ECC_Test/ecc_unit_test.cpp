@@ -972,7 +972,7 @@ bool got_iv(u64 correct)
 
     static u64 last_iv = 0;
 
-    u64 recon = AuthenticatedEncryption::ReconstructIV(last_iv, new_iv_low);
+	u64 recon = ReconstructCounter<AuthenticatedEncryption::IV_BITS>(last_iv, new_iv_low);
     last_iv = recon;
     return recon == correct;
 }

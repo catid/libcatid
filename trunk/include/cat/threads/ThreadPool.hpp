@@ -135,6 +135,7 @@ protected:
     HANDLE _port;
 	static const int MAX_THREADS = 256;
 	HANDLE _threads[MAX_THREADS];
+	int _processor_count;
 	int _active_thread_count;
 
 protected:
@@ -156,6 +157,7 @@ public:
     bool Startup();
     void Shutdown();
 
+	int GetProcessorCount() { return _processor_count; }
 	int GetThreadCount() { return _active_thread_count; }
 };
 

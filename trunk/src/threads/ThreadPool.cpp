@@ -34,6 +34,7 @@
 #include <cat/threads/ThreadPool.hpp>
 #include <cat/time/Clock.hpp>
 #include <cat/threads/Atomic.hpp>
+#include <cat/math/BitMath.hpp>
 #include <process.h>
 using namespace std;
 using namespace cat;
@@ -84,26 +85,29 @@ bool ThreadPool::SpawnThread()
 
 bool ThreadPool::SpawnThreads()
 {
+	// Get the number of processors we have been given access to
     ULONG_PTR ulpProcessAffinityMask, ulpSystemAffinityMask;
-
-	// Spawn two threads per processor
     GetProcessAffinityMask(GetCurrentProcess(), &ulpProcessAffinityMask, &ulpSystemAffinityMask);
+	int processor_count = (int)BitCount(ulpProcessAffinityMask);
+	if (processor_count <= 0) processor_count = 1;
+	_processor_count = processor_count;
 
-    while (ulpProcessAffinityMask)
-    {
-        if (ulpProcessAffinityMask & 1)
-        {
-            SpawnThread();
-        }
+	// Spawn two threads for each processor
+	int threads_to_spawn = processor_count * 2;
+	int ctr = threads_to_spawn;
+	while (ctr--) SpawnThread();
 
-        ulpProcessAffinityMask >>= 1;
-    }
+	if (_active_thread_count <= 0)
+	{
+		FATAL("ThreadPool") << "Unable to spawn any threads";
+		return false;
+	}
 
-    if (_active_thread_count <= 0)
-    {
-        FATAL("ThreadPool") << "Unable to spawn any threads";
-        return false;
-    }
+	if (_active_thread_count < threads_to_spawn)
+	{
+		FATAL("ThreadPool") << "Thread creation failed.  Only spawned " << _active_thread_count << "/" << threads_to_spawn;
+		return false;
+	}
 
     INFO("ThreadPool") << "Spawned " << _active_thread_count << " worker threads";
     return true;

@@ -30,6 +30,7 @@
 #include <cat/port/EndianNeutral.hpp>
 #include <cat/crypt/SecureCompare.hpp>
 #include <cat/crypt/tunnel/KeyAgreement.hpp>
+#include <cat/math/BitMath.hpp>
 using namespace cat;
 
 
@@ -190,19 +191,6 @@ void AuthenticatedEncryption::AcceptIV(u64 iv)
 
 
 
-
-
-// Reconstruct a whole IV given the last accepted IV
-// Assumes the IV increments by 1 each time
-u64 AuthenticatedEncryption::ReconstructIV(u64 last_accepted_iv, u32 new_iv_low_bits)
-{
-    s32 diff = new_iv_low_bits - (u32)(last_accepted_iv & IV_MASK);
-
-    return ((last_accepted_iv & ~(u64)IV_MASK) | new_iv_low_bits)
-         - (((IV_MSB >> 1) - (diff & IV_MASK)) & IV_MSB)
-         + (diff & IV_MSB);
-}
-
 // Decrypt a packet from the remote host
 bool AuthenticatedEncryption::Decrypt(u8 *buffer, int &buf_bytes)
 {
@@ -217,7 +205,7 @@ bool AuthenticatedEncryption::Decrypt(u8 *buffer, int &buf_bytes)
     u32 trunc_iv = IV_MASK & (getLE(*(u32*)(overhead + MAC_BYTES) ^ *(u32*)overhead) ^ IV_FUZZ);
 
     // Reconstruct the original, full IV
-    u64 iv = ReconstructIV(remote_iv, trunc_iv);
+    u64 iv = ReconstructCounter<IV_BITS>(remote_iv, trunc_iv);
 
     if (!IsValidIV(iv)) return false;
 
