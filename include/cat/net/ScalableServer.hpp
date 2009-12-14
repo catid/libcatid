@@ -126,8 +126,42 @@ public:
 	Connection();
 
 public:
-	volatile u32 used;
 	volatile u32 references;
+
+	bool AddRef(); // Returns true iff this is the first reference lock
+	bool ReleaseRef(); // Returns true iff this is the last reference unlock
+
+	class Ref
+	{
+		Connection *_conn;
+
+	public:
+		Ref(Connection *conn);
+		~Ref();
+
+		CAT_INLINE Ref &operator=(Connection *conn) { _conn = conn; return *this; }
+		CAT_INLINE Connection *Get() { return _conn; }
+		CAT_INLINE Connection *operator->() { return _conn; }
+		CAT_INLINE Connection *operator Connection *() { return _conn; }
+	};
+
+private:
+	volatile u32 flags;
+
+public:
+	enum
+	{
+		FLAG_USED,		// Slot is used
+		FLAG_COLLISION,	// Collision occurred in this slot
+		FLAG_DELETED,	// Slot is marked for deletion
+		FLAG_C2S_ENC,	// Has seen first encrypted packet
+	};
+
+	CAT_INLINE void ClearFlags();
+	CAT_INLINE bool IsFlagSet(int flag);
+	CAT_INLINE bool IsFlagUnset(int flag);
+	CAT_INLINE bool SetFlag(int flag); // Returns false iff flag was already set
+	CAT_INLINE bool UnsetFlag(int flag); // Returns false iff flag was already unset
 
 public:
 	IP remote_ip;
@@ -139,7 +173,6 @@ public:
 	u8 cached_answer[128];
 
 public:
-	bool seen_encrypted;
 	AuthenticatedEncryption auth_enc;
 
 public:
@@ -152,11 +185,17 @@ class ConnectionMap
 public:
 	static const int HASH_TABLE_SIZE = 40000;
 
+	// (multiplier-1) divisible by all prime factors of table size
+	// (multiplier-1) is a multiple of 4 if table size is a multiple of 4
+	static const int COLLISION_MULTIPLIER = 20+1;
+	static const int COLLISION_INCREMENTER = 1013904223;
+
 	CAT_INLINE u32 hash_addr(IP ip, Port port, u32 salt);
+	CAT_INLINE u32 next_collision_key(u32 key);
 
 protected:
 	u32 _hash_salt;
-	Connection _table[HASH_TABLE_SIZE];
+	CAT_ALIGNED(16) Connection _table[HASH_TABLE_SIZE];
 
 public:
 	ConnectionMap();
@@ -186,7 +225,7 @@ protected:
 };
 
 
-class ScalableServer : public UDPEndpoint
+class ScalableServer : LoopThread, public UDPEndpoint
 {
 	ConnectionMap _conn_map;
 	CookieJar _cookie_jar;
@@ -196,6 +235,8 @@ class ScalableServer : public UDPEndpoint
 	SessionEndpoint **_sessions;
 
 	Port FindLeastPopulatedPort();
+
+	bool ThreadFunction(void *param);
 
 public:
 	ScalableServer();
@@ -217,7 +258,7 @@ protected:
 };
 
 
-class ScalableClient : public UDPEndpoint
+class ScalableClient : LoopThread, public UDPEndpoint
 {
 	KeyAgreementInitiator _key_agreement_initiator;
 	AuthenticatedEncryption _auth_enc;
@@ -226,6 +267,8 @@ class ScalableClient : public UDPEndpoint
 	Port _server_session_port;
 	bool _connected;
 	u8 _server_public_key[64];
+
+	bool ThreadFunction(void *param);
 
 public:
 	ScalableClient();

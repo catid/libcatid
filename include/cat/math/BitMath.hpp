@@ -38,9 +38,6 @@
 namespace cat {
 
 
-namespace BitMath {
-
-
 // Bit Scan Forward (BSF)
 // Scans from bit 0 to MSB
 // Undefined when input is zero
@@ -53,11 +50,32 @@ CAT_INLINE u32 BSF64(u64 x);
 CAT_INLINE u32 BSR32(u32 x);
 CAT_INLINE u32 BSR64(u64 x);
 
+// Returns the count of bits set in the input for types up to 128 bits
+template<typename T> CAT_INLINE T BitCount(T v)
+{
+	// From Stanford Bit Twiddling Hacks collection
+	// http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel
+	v = v - ((v >> 1) & (T)~(T)0/3);
+	v = (v & (T)~(T)0/15*3) + ((v >> 2) & (T)~(T)0/15*3);
+	v = (v + (v >> 4)) & (T)~(T)0/255*15;
+	return (T)(v * ((T)~(T)0/255)) >> ((sizeof(v) - 1) * 8);
+}
 
-} // namespace BitMath
+// Reconstruct a 32-bit or 64-bit counter that increments by one each time,
+// given a truncated sample of its low bits, and the last accepted value of the counter.
+template<int BITS, typename T> CAT_INLINE T ReconstructCounter(T last_accepted_count, u32 partial_low_bits)
+{
+	const u32 IV_MSB = (1 << BITS); // BITS < 32
+	const u32 IV_MASK = (IV_MSB - 1);
+
+	s32 diff = partial_low_bits - (u32)(last_accepted_count & IV_MASK);
+	return ((last_accepted_count & ~(T)IV_MASK) | partial_low_bits)
+		- (((IV_MSB >> 1) - (diff & IV_MASK)) & IV_MSB)
+		+ (diff & IV_MSB);
+}
 
 
-u32 BitMath::BSF32(u32 x)
+u32 BSF32(u32 x)
 {
 #if defined(CAT_COMPILER_MSVC) && defined(CAT_WORD_64) && !defined(CAT_DEBUG)
 
@@ -92,7 +110,7 @@ u32 BitMath::BSF32(u32 x)
 }
 
 
-u32 BitMath::BSR32(u32 x)
+u32 BSR32(u32 x)
 {
 #if defined(CAT_COMPILER_MSVC) && defined(CAT_WORD_64) && !defined(CAT_DEBUG)
 
@@ -135,7 +153,7 @@ u32 BitMath::BSR32(u32 x)
 }
 
 
-u32 BitMath::BSF64(u64 x)
+u32 BSF64(u64 x)
 {
 #if defined(CAT_COMPILER_MSVC) && !defined(CAT_DEBUG) && defined(CAT_WORD_64)
 
@@ -164,7 +182,7 @@ u32 BitMath::BSF64(u64 x)
 }
 
 
-u32 BitMath::BSR64(u64 x)
+u32 BSR64(u64 x)
 {
 #if defined(CAT_COMPILER_MSVC) && !defined(CAT_DEBUG) && defined(CAT_WORD_64)
 

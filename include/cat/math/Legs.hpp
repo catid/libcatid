@@ -38,8 +38,8 @@ namespace cat {
 
 #define CAT_LEG_BITS 64
 #define CAT_USE_LEGS_ASM64 /* use 64-bit assembly code inner loops */
-#define CAT_USED_BITS(x) BitMath::BSR64(x) /* does not work if x = 0 */
-#define CAT_TRAILING_ZEROES(x) BitMath::BSF64(x) /* does not work if x = 0 */
+#define CAT_USED_BITS(x) BSR64(x) /* does not work if x = 0 */
+#define CAT_TRAILING_ZEROES(x) BSF64(x) /* does not work if x = 0 */
     typedef u64 Leg;
     typedef s64 LegSigned;
 #if !defined(CAT_COMPILER_MSVC)
@@ -53,8 +53,8 @@ namespace cat {
 #elif defined(CAT_WORD_32)
 
 #define CAT_LEG_BITS 32
-#define CAT_USED_BITS(x) BitMath::BSR32(x) /* does not work if x = 0 */
-#define CAT_TRAILING_ZEROES(x) BitMath::BSF32(x) /* does not work if x = 0 */
+#define CAT_USED_BITS(x) BSR32(x) /* does not work if x = 0 */
+#define CAT_TRAILING_ZEROES(x) BSF32(x) /* does not work if x = 0 */
     typedef u32 Leg;
     typedef s32 LegSigned;
     typedef u64 LegPair;

@@ -104,10 +104,6 @@ public:
     static const u32 IV_MASK = (IV_MSB - 1);
     static const u32 IV_FUZZ = 0xCA7DCA7D;
 
-    // Reconstruct a whole IV given the last accepted IV
-    // Assumes the IV increments by 1 each time
-    static u64 ReconstructIV(u64 last_accepted_iv, u32 new_iv_low_bits);
-
 protected:
     bool SetKey(int KeyBytes, Skein *key, bool is_initiator, const char *key_name);
 

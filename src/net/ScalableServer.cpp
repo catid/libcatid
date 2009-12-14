@@ -38,30 +38,6 @@ static const char *SERVER_PRIVATE_KEY_FILE = "s_server_private_key.bin";
 static const char *SERVER_PUBLIC_KEY_FILE = "u_server_public_key.c";
 static const char *SESSION_KEY_NAME = "SessionKey";
 
-static CAT_INLINE u32 ReconstructUnreliableOrderedID(u32 last_accepted_iv, u32 partial)
-{
-	static const u32 IV_MSB = (1 << 24);
-	static const u32 IV_MASK = (IV_MSB - 1);
-
-	s32 diff = partial - (u32)(last_accepted_iv & IV_MASK);
-
-	return ((last_accepted_iv & ~(u32)IV_MASK) | partial)
-		- (((IV_MSB >> 1) - (diff & IV_MASK)) & IV_MSB)
-		+ (diff & IV_MSB);
-}
-
-static CAT_INLINE u32 ReconstructReliableID(u32 last_accepted_iv, u32 partial)
-{
-	static const u32 IV_MSB = (1 << 15);
-	static const u32 IV_MASK = (IV_MSB - 1);
-
-	s32 diff = partial - (u32)(last_accepted_iv & IV_MASK);
-
-	return ((last_accepted_iv & ~(u32)IV_MASK) | partial)
-		- (((IV_MSB >> 1) - (diff & IV_MASK)) & IV_MSB)
-		+ (diff & IV_MSB);
-}
-
 
 //// Transport Layer
 
@@ -113,7 +89,7 @@ void TransportLayer::OnPacket(UDPEndpoint *endpoint, u8 *data, int bytes, Connec
 
 						u32 nack = id & 1;
 
-						id = ReconstructReliableID(next_id, id >> 1);
+						id = ReconstructCounter<16>(next_id, id >> 1);
 
 						// nack or ack?
 						if (nack)
@@ -149,7 +125,7 @@ void TransportLayer::OnPacket(UDPEndpoint *endpoint, u8 *data, int bytes, Connec
 
 					u32 &next_id = _recv_reliable_id[stream];
 
-					id = ReconstructReliableID(next_id, id >> 1);
+					id = ReconstructCounter<16>(next_id, id >> 1);
 
 					// ordered or unordered?
 					if (stream == 0)
@@ -219,7 +195,7 @@ void TransportLayer::OnPacket(UDPEndpoint *endpoint, u8 *data, int bytes, Connec
 					u32 &next_id = _recv_unreliable_id[stream];
 
 					// Reconstruct the message id
-					id = ReconstructUnreliableOrderedID(next_id, id);
+					id = ReconstructCounter<24>(next_id, id);
 
 					// If the ID is in the future,
 					if ((s32)(id - next_id) >= 0)
@@ -248,10 +224,57 @@ void TransportLayer::OnPacket(UDPEndpoint *endpoint, u8 *data, int bytes, Connec
 
 Connection::Connection()
 {
-	used = 0;
+	flags = 0;
 	references = 0;
+}
 
-	seen_encrypted = false;
+// Returns true iff this is the first reference lock
+bool Connection::AddRef()
+{
+	return Atomic::Add(&references, 1) == 0;
+}
+
+// Returns true iff this is the last reference unlock
+bool Connection::ReleaseRef()
+{
+	return Atomic::Add(&references, -1) == 1;
+}
+
+Connection::Ref::Ref(Connection *conn)
+{
+	_conn = conn;
+}
+
+Connection::Ref::~Ref()
+{
+	if (_conn) _conn->ReleaseRef();
+}
+
+void Connection::ClearFlags()
+{
+	flags = 0;
+}
+
+bool Connection::IsFlagSet(int bit)
+{
+	return (flags & (1 << bit)) != 0;
+}
+
+bool Connection::IsFlagUnset(int bit)
+{
+	return (flags & (1 << bit)) == 0;
+}
+
+bool Connection::SetFlag(int bit)
+{
+	if (IsFlagSet()) return false;
+	return !Atomic::BTS(&flags, bit);
+}
+
+bool Connection::UnsetFlag(int bit)
+{
+	if (IsFlagUnset()) return false;
+	return !Atomic::BTR(&flags, bit);
 }
 
 
@@ -289,34 +312,86 @@ u32 ConnectionMap::hash_addr(IP ip, Port port, u32 salt)
 	return hash % ConnectionMap::HASH_TABLE_SIZE;
 }
 
-Connection *ConnectionMap::Get(IP ip, Port port)
+u32 ConnectionMap::next_collision_key(u32 key)
 {
-	u32 hash = hash_addr(ip, port, _hash_salt);
-
-	Connection *conn = &_table[hash];
-
-	if (!conn->used)
-	{
-		return 0;
-	}
-
-	return conn;
+	// LCG with period equal to the table size
+	return (key * COLLISION_MULTIPLIER + COLLISION_INCREMENTER) % HASH_TABLE_SIZE;
 }
 
+Connection *ConnectionMap::Get(IP ip, Port port)
+{
+	Connection *conn;
+
+	// Hash IP:port:salt to get the hash table key
+	u32 key = hash_addr(ip, port, _hash_salt);
+
+	// Forever,
+	for (;;)
+	{
+		// Grab the slot
+		conn = &_table[key];
+
+		// Hold a reference on the slot while in use
+		conn->AddRef();
+
+		// If the slot is used and the user address matches,
+		if (conn->IsFlagSet(Connection::FLAG_USED) &&
+			conn->remote_ip == ip &&
+			conn->remote_port == port)
+		{
+			// Return this slot with reference still held
+			return conn;
+		}
+		else
+		{
+			// Otherwise we don't want this slot so release the reference
+			conn->ReleaseRef();
+
+			// If the slot indicates a collision,
+			if (conn->IsFlagSet(Connection::FLAG_COLLISION))
+			{
+				// Calculate next collision key
+				key = next_collision_key(key);
+
+				// Loop around and process the next slot in the collision list
+			}
+			else
+			{
+				// Reached end of collision list, so the address was not found in the table
+				return 0;
+			}
+		}
+	}
+}
+
+/*
+	Insertion is only done from a single thread, so it is guaranteed
+	that the address does not already exist in the hash table.
+*/
 Connection *ConnectionMap::Insert(IP ip, Port port)
 {
-	u32 hash = hash_addr(ip, port, _hash_salt);
+	Connection *conn;
 
-	Connection *conn = &_table[hash];
+	u32 key = hash_addr(ip, port, _hash_salt);
 
-	conn->used = 1;
+	conn = &_table[key];
 
-	return conn;
+	for (;;)
+	{
+		if (conn->IsFlagSet(Connection::FLAG_USED))
+		{
+			conn->SetFlag(Connection::FLAG_COLLISION);
+		}
+		else
+		{
+			return conn;
+		}
+	}
 }
 
 void ConnectionMap::Remove(Connection *conn)
 {
-	conn->used = 0;
+	conn->flags &= ~Connection::FLAG_USED;
 }
 
 
@@ -336,15 +411,14 @@ SessionEndpoint::~SessionEndpoint()
 void SessionEndpoint::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort, u8 *data, u32 bytes)
 {
 	// Look up an existing connection for this source address
-	Connection *conn = _conn_map->Get(srcIP, srcPort);
+	Connection::Ref conn = _conn_map->Get(srcIP, srcPort);
 
-	// TODO: Thread-safety
-
-	// If no existing connection exists, ignore this packet
+	// If no connection exists, ignore this packet
 	if (conn)
 	{
 		// If the connection is on a different port, ignore this packet
-		if (conn->server_port == GetPort())
+		if (conn->IsFlagUnset(Connection::FLAG_DELETED)) &&
+			conn->server_port == GetPort())
 		{
 			int buf_bytes = bytes;
 
@@ -352,7 +426,7 @@ void SessionEndpoint::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort
 			if (conn->auth_enc.Decrypt(data, buf_bytes))
 			{
 				// Flag having seen an encrypted packet
-				conn->seen_encrypted = true;
+				conn->SetFlag(Connection::FLAG_C2S_ENC);
 
 				// Handle the decrypted data
 				conn->transport.OnPacket(this, data, buf_bytes, conn,
@@ -391,6 +465,11 @@ ScalableServer::ScalableServer()
 ScalableServer::~ScalableServer()
 {
 	if (_sessions) delete[] _sessions;
+
+	if (!StopThread())
+	{
+		WARN("ScalableServer") << "Unable to stop timer thread.  Was it started?";
+	}
 }
 
 bool ScalableServer::Initialize(ThreadPoolLocalStorage *tls)
@@ -402,8 +481,8 @@ bool ScalableServer::Initialize(ThreadPoolLocalStorage *tls)
 		return false;
 	}
 
-	// Use the number of threads in the pool for the number of ports
-	_session_port_count = ThreadPool::ref()->GetThreadCount();
+	// Use the number of processors we have access to as the number of ports
+	_session_port_count = ThreadPool::ref()->GetProcessorCount();
 	if (_session_port_count < 1)
 	{
 		WARN("ScalableServer") << "Failed to initialize: Thread pool does not have at least 1 thread running";
@@ -547,6 +626,15 @@ bool ScalableServer::Initialize(ThreadPoolLocalStorage *tls)
 		}
 	}
 
+	// If unable to start the timer thread,
+	if (success && !StartThread())
+	{
+		WARN("ScalableServer") << "Failed to initialize: Unable to start timer thread";
+
+		// Note failure
+		success = false;
+	}
+
 	return success;
 }
 
@@ -631,16 +719,31 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 		u8 *pkt3_answer = pkt3 + 1+2;
 
 		// They took the time to get the cookie right, might as well check if we know them
-		Connection *conn = _conn_map.Get(srcIP, srcPort);
+		Connection::Ref conn = _conn_map.Get(srcIP, srcPort);
 
 		// If connection already exists,
 		if (conn)
 		{
-			// If we haven't seen the first encrypted packet,
-			if (conn->seen_encrypted ||
-				!SecureEqual(conn->first_challenge, challenge, CHALLENGE_BYTES))
+			// If the connection was recently deleted,
+			if (conn->IsFlagSet(Connection::FLAG_DELETED))
 			{
-				WARN("ScalableServer") << "Ignoring challenge: Already in session or challenge not replayed";
+				WARN("ScalableServer") << "Ignoring challenge: Session in limbo";
+				ReleasePostBuffer(pkt3);
+				return;
+			}
+
+			// If we have seen the first encrypted packet already,
+			if (conn->IsFlagSet(Connection::FLAG_C2S_ENC))
+			{
+				WARN("ScalableServer") << "Ignoring challenge: Already in session";
+				ReleasePostBuffer(pkt3);
+				return;
+			}
+
+			// If we the challenge does not match the previous one,
+			if (!SecureEqual(conn->first_challenge, challenge, CHALLENGE_BYTES))
+			{
+				WARN("ScalableServer") << "Ignoring challenge: Challenge not replayed";
 				ReleasePostBuffer(pkt3);
 				return;
 			}
@@ -654,8 +757,6 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 			Post(srcIP, srcPort, pkt3, PKT3_LEN);
 
 			INFO("ScalableServer") << "Replayed lost answer to client challenge";
-
-			// TODO: Release hash_key here
 		}
 		else
 		{
@@ -671,7 +772,7 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 				return;
 			}
 
-			// Insert a hash key for this entry
+			// Insert a hash key
 			conn = _conn_map.Insert(srcIP, srcPort);
 
 			// If unable to insert a hash key,
@@ -715,8 +816,6 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 			{
 				INFO("ScalableServer") << "Accepted challenge and posted answer";
 			}
-
-			// TODO: hash key
 		}
 	}
 }
@@ -731,6 +830,17 @@ void ScalableServer::OnClose()
 
 }
 
+bool ScalableServer::ThreadFunction(void *)
+{
+	// Process timers every 20 milliseconds
+	while (WaitForQuitSignal(20))
+	{
+		// TODO: timeouts here
+	}
+
+	return true;
+}
+
 
 //// Scalable Client
 
@@ -741,7 +851,10 @@ ScalableClient::ScalableClient()
 
 ScalableClient::~ScalableClient()
 {
-
+	if (!StopThread())
+	{
+		WARN("ScalableServer") << "Unable to stop timer thread.  Was it started?";
+	}
 }
 
 bool ScalableClient::Connect(ThreadPoolLocalStorage *tls, IP server_ip, const void *server_key, int key_bytes)
@@ -979,4 +1092,15 @@ void ScalableClient::HandleMessageLayer(Connection *key, u8 *msg, int bytes)
 void ScalableClient::OnDisconnect(bool timeout)
 {
 	WARN("ScalableClient") << "Disconnected. Timeout=" << timeout;
+}
+
+bool ScalableClient::ThreadFunction(void *)
+{
+	// Process timers every 20 milliseconds
+	while (WaitForQuitSignal(20))
+	{
+		// TODO: timeouts here
+	}
+
+	return true;
 }

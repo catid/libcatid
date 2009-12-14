@@ -121,7 +121,7 @@ void *RegionAllocator::Acquire(u32 bytes)
 {
     // Determine smallest region from byte count
     u32 region = (bytes - 1) >> 5;
-    if (region) region = BitMath::BSR32(region);
+    if (region) region = BSR32(region);
 
     // Scan for a region that might be free
     for (; region < REGION_COUNT; ++region)
@@ -141,7 +141,7 @@ void *RegionAllocator::Acquire(u32 bytes)
 
             while (bitmask != 0xffffffff)
             {
-                u32 freebit = BitMath::BSF32(~bitmask);
+                u32 freebit = BSF32(~bitmask);
 
                 if (!Atomic::BTS(bmptr, freebit))
                 {

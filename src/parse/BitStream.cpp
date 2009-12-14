@@ -101,7 +101,7 @@ void BitStream::grow(u32 bits)
     if (write_offset + bits <= buffer_bytes * 8)
         return;
 
-    u32 new_buffer_bytes = 1 << (BitMath::BSR32(buffer_bytes + CAT_CEIL_UNIT(bits, 8)) + 1);
+    u32 new_buffer_bytes = 1 << (BSR32(buffer_bytes + CAT_CEIL_UNIT(bits, 8)) + 1);
 
     u8 *new_buffer = new u8[new_buffer_bytes];
     if (!new_buffer) return;
@@ -140,7 +140,7 @@ void BitStream::shrink()
         return;
     }
 
-    u32 new_buffer_bytes = 1 << (BitMath::BSR32((write_offset - read_offset + (read_offset % 8) + 7) / 8) + 1);
+    u32 new_buffer_bytes = 1 << (BSR32((write_offset - read_offset + (read_offset % 8) + 7) / 8) + 1);
 
     u8 *new_buffer = new u8[new_buffer_bytes];
     if (!new_buffer) return;
