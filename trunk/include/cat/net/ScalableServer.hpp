@@ -166,8 +166,9 @@ public:
 	{
 		FLAG_USED,		// Slot is used
 		FLAG_COLLISION,	// Collision occurred in this slot
-		FLAG_C2S_ENC,	// Has seen first encrypted packet
 		FLAG_TIMED,		// Has been recognized by the timer thread
+		FLAG_DELETE,	// Will be deleted next time the timer thread runs
+		FLAG_C2S_ENC,	// Has seen first encrypted packet
 	};
 
 	CAT_INLINE void ClearFlags();
@@ -205,7 +206,7 @@ public:
 	// (multiplier-1) is a multiple of 4 if table size is a multiple of 4
 	// These constants are from Press, Teukolsky, Vetterling and Flannery's
 	// "Numerical Recipes in FORTRAN: The Art of Scientific Computing"
-	static const int COLLISION_MULTIPLIER = 1664525;
+	static const int COLLISION_MULTIPLIER = 71*5861 * 4 + 1;
 	static const int COLLISION_INCREMENTER = 1013904223;
 
 protected:
@@ -220,11 +221,14 @@ public:
 
 	Connection *Get(IP ip, Port port);
 	Connection *Insert(IP ip, Port port);
-	void Remove(Connection *conn);
+	bool Remove(Connection *conn); // Return false iff connection was already removed
 
 protected:
 	// Actually key+1, so 0 can be used to indicate an empty list
 	volatile u32 _insert_head_key1;
+
+public:
+	void CompleteInsertion(Connection *conn);
 
 public:
 	Connection *GetFirstInserted();
