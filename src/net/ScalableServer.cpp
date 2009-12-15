@@ -262,12 +262,16 @@ void Connection::ClearFlags()
 
 bool Connection::IsFlagSet(int bit)
 {
-	return (flags & (1 << bit)) != 0;
+	bool is_set = (flags & (1 << bit)) != 0;
+	CAT_FENCE_COMPILER
+	return is_set;
 }
 
 bool Connection::IsFlagUnset(int bit)
 {
-	return (flags & (1 << bit)) == 0;
+	bool is_unset = (flags & (1 << bit)) == 0;
+	CAT_FENCE_COMPILER
+	return is_unset;
 }
 
 bool Connection::SetFlag(int bit)
