@@ -758,6 +758,20 @@ SessionEndpoint *ScalableServer::FindLeastPopulatedPort()
 	return best_port;
 }
 
+u32 ScalableServer::GetTotalPopulation()
+{
+	u32 population = 0;
+
+	// For each port,
+	for (int ii = 0; ii < _session_port_count; ++ii)
+	{
+		// Accumulate population
+		population += _sessions[ii]->_session_count;
+	}
+
+	return population;
+}
+
 void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort, u8 *data, u32 bytes)
 {
 	// c2s 00 (protocol magic[4])
@@ -859,6 +873,14 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 		else
 		{
 			Skein key_hash;
+
+			if (GetTotalPopulation() >= MAX_POPULATION)
+			{
+				WARN("ScalableServer") << "Ignoring challenge: Server is full";
+				ReleasePostBuffer(pkt3);
+				// TODO: Should send a packet back to explain problem
+				return;
+			}
 
 			// If challenge is invalid,
 			if (!_key_agreement_responder.ProcessChallenge(tls->math, tls->csprng,

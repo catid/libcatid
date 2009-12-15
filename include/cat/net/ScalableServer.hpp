@@ -265,6 +265,7 @@ public:
 	static const int CHALLENGE_BYTES = PUBLIC_KEY_BYTES;
 	static const int ANSWER_BYTES = PUBLIC_KEY_BYTES*2;
 	static const int SERVER_PORT = 22000;
+	static const int MAX_POPULATION = ConnectionMap::HASH_TABLE_SIZE / 2;
 
 private:
 	ConnectionMap _conn_map;
@@ -275,6 +276,7 @@ private:
 	SessionEndpoint **_sessions;
 
 	SessionEndpoint *FindLeastPopulatedPort();
+	u32 GetTotalPopulation();
 
 	bool ThreadFunction(void *param);
 
