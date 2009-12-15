@@ -155,15 +155,19 @@ public:
 */
 private:
 	volatile u32 flags;
-	volatile u32 next_last_used;
+
+public:
+	// To give the timer thread a quick way to enumerate all connections
+	Connection *next_timed;
+	Connection *last_timed;
 
 public:
 	enum
 	{
 		FLAG_USED,		// Slot is used
 		FLAG_COLLISION,	// Collision occurred in this slot
-		FLAG_DELETE,	// Slot is scheduled to be deleted
 		FLAG_C2S_ENC,	// Has seen first encrypted packet
+		FLAG_TIMED,		// Has been recognized by the timer thread
 	};
 
 	CAT_INLINE void ClearFlags();
@@ -177,6 +181,7 @@ public:
 	Port remote_port;
 	Port server_port;
 	SessionEndpoint *server_endpoint;
+	volatile u32 next_inserted;
 	u32 last_recv_tsc; // Last time a packet was received from this user -- for disconnect timeouts
 
 public:
@@ -194,11 +199,13 @@ public:
 class ConnectionMap
 {
 public:
-	static const int HASH_TABLE_SIZE = 40000;
+	static const int HASH_TABLE_SIZE = 32768;
 
 	// (multiplier-1) divisible by all prime factors of table size
 	// (multiplier-1) is a multiple of 4 if table size is a multiple of 4
-	static const int COLLISION_MULTIPLIER = 20+1;
+	// These constants are from Press, Teukolsky, Vetterling and Flannery's
+	// "Numerical Recipes in FORTRAN: The Art of Scientific Computing"
+	static const int COLLISION_MULTIPLIER = 1664525;
 	static const int COLLISION_INCREMENTER = 1013904223;
 
 protected:
@@ -208,8 +215,6 @@ protected:
 	u32 _hash_salt;
 	CAT_ALIGNED(16) Connection _table[HASH_TABLE_SIZE];
 
-	u32 _head_used;
-
 public:
 	ConnectionMap();
 
@@ -217,10 +222,14 @@ public:
 	Connection *Insert(IP ip, Port port);
 	void Remove(Connection *conn);
 
+protected:
+	// Actually key+1, so 0 can be used to indicate an empty list
+	volatile u32 _insert_head_key1;
+
 public:
-	Connection *Begin();
-	Connection *IterateNext(Connection *conn);
-	Connection *End();
+	Connection *GetFirstInserted();
+	// Get next recently-inserted slot and unlink it
+	Connection *GetNextInserted(Connection *conn);
 };
 
 

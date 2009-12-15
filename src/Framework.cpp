@@ -38,8 +38,8 @@ bool cat::InitializeFramework()
 		FatalStop("Custom memory allocator failed to initialize");
 	}
 
-	// Initialize logging subsystem with INANE reporting level
-	Logging::ref()->Initialize(LVL_INANE);
+	// Initialize logging subsystem with INFO reporting level
+	Logging::ref()->Initialize(LVL_INFO);
 
 	// Initialize disk settings subsystem
 	Settings::ref()->read();

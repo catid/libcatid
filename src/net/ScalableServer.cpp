@@ -229,6 +229,7 @@ void TransportLayer::Tick(UDPEndpoint *endpoint)
 Connection::Connection()
 {
 	flags = 0;
+	next_inserted = 0;
 	//references = 0;
 }
 /*
@@ -291,29 +292,31 @@ ConnectionMap::ConnectionMap()
 	// running the protocol.
 	// TODO: Determine if this needs stronger protection
 	_hash_salt = (u32)s32(Clock::usec() * 1000.0);
+
+	_insert_head_key1 = 0;
 }
 
 u32 ConnectionMap::hash_addr(IP ip, Port port, u32 salt)
 {
-	u32 hash = ip;
+	u32 a = salt ^ ip;
 
-	// xorshift(a=5,b=17,c=13) with period 2^32-1:
-	hash ^= hash << 13;
-	hash ^= hash >> 17;
-	hash ^= hash << 5;
+	// Thomas Wang's integer hash function
+	// http://www.cris.com/~Ttwang/tech/inthash.htm
+	a = (a ^ 61) ^ (a >> 16);
+	a = a + (a << 3);
+	a = a ^ (a >> 4);
+	a = a * 0x27d4eb2d;
+	a = a ^ (a >> 15);
 
-	// Add the salt into the hash
-	hash ^= salt;
+	// Hide this from the client-side to prevent users from generating
+	// hash table collisions by changing their port number.
+	const int SECRET_CONSTANT = 2501; // > 0
 
-	// Add the port into the hash
-	hash += port;
+	// Map 16-bit port 1:1 to a random-looking number
+	a += ((u32)port * (SECRET_CONSTANT*4 + 1)) & 0xffff;
 
-	// xorshift(a=3,b=13,c=7) with period 2^32-1:
-	hash ^= hash << 3;
-	hash ^= hash >> 13;
-	hash ^= hash << 7;
-
-	return hash % ConnectionMap::HASH_TABLE_SIZE;
+	// Seems to work well in practice, for power-of-two table sizes only
+	return a % ConnectionMap::HASH_TABLE_SIZE;
 }
 
 u32 ConnectionMap::next_collision_key(u32 key)
@@ -379,6 +382,7 @@ Connection *ConnectionMap::Insert(IP ip, Port port)
 	// While collision keys are marked used,
 	while (conn->IsFlagSet(Connection::FLAG_USED))
 	{
+		WARN("ConnectionMap") << "COLLISION! " << key;
 		// Set flag for collision
 		conn->SetFlag(Connection::FLAG_COLLISION);
 
@@ -389,8 +393,11 @@ Connection *ConnectionMap::Insert(IP ip, Port port)
 		// NOTE: This will loop forever if every table key is marked used
 	}
 
+	// Add to head of recently-inserted list
+	conn->next_inserted = (_insert_head_key1 != key + 1) ? _insert_head_key1 : 0;
+	_insert_head_key1 = key + 1;
+
 	Connection *chosen_slot = conn;
-	Connection *end_of_list = conn;
 
 	// Set used flag for chosen slot
 	chosen_slot->SetFlag(Connection::FLAG_USED);
@@ -398,6 +405,8 @@ Connection *ConnectionMap::Insert(IP ip, Port port)
 	// If collision list continues after this slot,
 	if (conn->IsFlagSet(Connection::FLAG_COLLISION))
 	{
+		Connection *end_of_list = conn;
+
 		// While collision list continues,
 		do
 		{
@@ -428,22 +437,37 @@ Connection *ConnectionMap::Insert(IP ip, Port port)
 
 void ConnectionMap::Remove(Connection *conn)
 {
+	// Unset used flag
 	conn->UnsetFlag(Connection::FLAG_USED);
+
+	// NOTE: Collision lists are truncated lazily on insertion
 }
 
-Connection *ConnectionMap::Begin()
+Connection *ConnectionMap::GetFirstInserted()
 {
-	return 0;
+	// Cache recently-inserted head
+	u32 key = _insert_head_key1;
+
+	// If there are no recently-inserted slots, return 0
+	if (!key) return 0;
+
+	// Return pointer to head recently-inserted slot
+	return &_table[key - 1];
 }
 
-Connection *ConnectionMap::End()
+Connection *ConnectionMap::GetNextInserted(Connection *conn)
 {
-	return 0;
-}
+	// Cache next recently-inserted slot
+	u32 next = conn->next_inserted;
 
-Connection *ConnectionMap::IterateNext(Connection *conn)
-{
-	return 0;
+	// If there are no more, return 0
+	if (!next) return 0;
+
+	// Unlink slot
+	conn->next_inserted = 0;
+
+	// Return pointer to next recently-inserted slot
+	return &_table[next - 1];
 }
 
 
@@ -464,27 +488,19 @@ void SessionEndpoint::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort
 {
 	// Look up an existing connection for this source address
 	Connection *conn = _conn_map->Get(srcIP, srcPort);
+	int buf_bytes = bytes;
 
-	// If no connection exists, ignore this packet
-	if (conn)
+	// If the packet is not full of fail,
+	if (conn && conn->server_port == GetPort() &&
+		conn->auth_enc.Decrypt(data, buf_bytes))
 	{
-		// If the connection is on a different port, ignore this packet
-		if (conn->server_port == GetPort())
-		{
-			int buf_bytes = bytes;
+		// Flag having seen an encrypted packet
+		conn->SetFlag(Connection::FLAG_C2S_ENC);
+		conn->last_recv_tsc = Clock::msec();
 
-			// If the data could not be decrypted, ignore this packet
-			if (conn->auth_enc.Decrypt(data, buf_bytes))
-			{
-				// Flag having seen an encrypted packet
-				conn->SetFlag(Connection::FLAG_C2S_ENC);
-				conn->last_recv_tsc = Clock::msec();
-
-				// Handle the decrypted data
-				conn->transport.OnPacket(this, data, buf_bytes, conn,
-					fastdelegate::MakeDelegate(this, &SessionEndpoint::HandleMessageLayer));
-			}
-		}
+		// Handle the decrypted data
+		conn->transport.OnPacket(this, data, buf_bytes, conn,
+			fastdelegate::MakeDelegate(this, &SessionEndpoint::HandleMessageLayer));
 	}
 }
 
@@ -738,7 +754,7 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 				// Attempt to post the packet, ignoring failures
 				Post(srcIP, srcPort, pkt1, 1+4+PUBLIC_KEY_BYTES);
 
-				INFO("ScalableServer") << "Accepted hello and posted cookie";
+				INANE("ScalableServer") << "Accepted hello and posted cookie";
 			}
 		}
 	}
@@ -799,7 +815,7 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 			// Post packet without checking for errors
 			Post(srcIP, srcPort, pkt3, PKT3_LEN);
 
-			INFO("ScalableServer") << "Replayed lost answer to client challenge";
+			INANE("ScalableServer") << "Replayed lost answer to client challenge";
 		}
 		else
 		{
@@ -860,7 +876,7 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 			}
 			else
 			{
-				INFO("ScalableServer") << "Accepted challenge and posted answer";
+				INANE("ScalableServer") << "Accepted challenge and posted answer.  Client connected";
 			}
 		}
 	}
@@ -878,25 +894,74 @@ void ScalableServer::OnClose()
 
 bool ScalableServer::ThreadFunction(void *)
 {
-	// Process timers every 20 milliseconds
-	while (WaitForQuitSignal(20))
-	{
-		const int DISCONNECT_TIMEOUT = 15000;
-		u32 now = Clock::msec();
+	const int TICK_RATE = 20; // milliseconds
+	Connection *timed_head = 0;
 
-		// For each active connection,
-		for (Connection *conn = _conn_map.Begin(); conn != _conn_map.End(); conn = _conn_map.IterateNext(conn))
+	// While quit signal is not flagged,
+	while (WaitForQuitSignal(TICK_RATE))
+	{
+		const int DISCONNECT_TIMEOUT = 15000; // milliseconds
+		u32 now = Clock::msec();
+		Connection *conn;
+		Connection *next_timed;
+
+		// For each recently inserted slot,
+		for (conn = _conn_map.GetFirstInserted(); conn; conn = _conn_map.GetNextInserted(conn))
 		{
-			if (now - conn->last_recv_tsc >= DISCONNECT_TIMEOUT)
+			// Ignore unused slots
+			if (conn->IsFlagUnset(Connection::FLAG_USED))
+				continue;
+
+			// Ignore slots already in the timed list
+			if (!conn->SetFlag(Connection::FLAG_TIMED))
+				continue;
+
+			WARN("ScalableServer") << "Added " << conn << " to timed list";
+
+			// Insert into linked list
+			conn->next_timed = timed_head;
+			conn->last_timed = 0;
+			timed_head = conn;
+		}
+
+		// For each timed slot,
+		for (conn = timed_head; conn; conn = next_timed)
+		{
+			// Cache next timed slot because this one may be removed
+			next_timed = conn->next_timed;
+
+			// If slot is now unused,
+			if (conn->IsFlagUnset(Connection::FLAG_USED))
 			{
-				_conn_map.Remove(conn);
+				WARN("ScalableServer") << "Removing unused slot " << conn << " from timed list";
+
+				// Remove from the timed list
+				conn->UnsetFlag(Connection::FLAG_TIMED);
+
+				// Linked list remove
+				Connection *next = conn->next_timed;
+				Connection *last = conn->last_timed;
+				if (next) next->last_timed = last;
+				if (last) last->next_timed = next;
+				else timed_head = next;
+
 				continue;
 			}
 
-			// If not waiting for the first encrypted packet,
+			// If we haven't received any data from the user,
+			if (now - conn->last_recv_tsc >= DISCONNECT_TIMEOUT)
+			{
+				WARN("ScalableServer") << "Removing timeout slot " << conn;
+
+				_conn_map.Remove(conn);
+
+				continue;
+			}
+
+			// If seen first encrypted packet already,
 			if (conn->IsFlagSet(Connection::FLAG_C2S_ENC))
 			{
-				// Otherwise tick the transport layer for this connection
+				// Tick the transport layer for this connection
 				conn->transport.Tick(conn->server_endpoint);
 			}
 		}
@@ -1070,7 +1135,7 @@ void ScalableClient::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 			}
 			else
 			{
-				INFO("ScalableClient") << "Accepted cookie and posted challenge";
+				INANE("ScalableClient") << "Accepted cookie and posted challenge";
 			}
 		}
 		// s2c 03 (server session port[2]) (answer[128])
@@ -1143,7 +1208,7 @@ bool ScalableClient::PostHello()
 		return false;
 	}
 
-	INFO("ScalableClient") << "Posted hello packet";
+	INANE("ScalableClient") << "Posted hello packet";
 
 	return true;
 }
