@@ -356,7 +356,7 @@ bool Atomic::BTR(volatile u32 *x, int bit)
 #if (_MSC_VER <= 1400) // MSVC 2005
 	bool success = !!_interlockedbittestandreset((long*)x, bit);
 #else // MSVC 2008+
-	bool success = return !!_interlockedbittestandreset((volatile LONG*)x, bit);
+	bool success = !!_interlockedbittestandreset((volatile LONG*)x, bit);
 #endif
 
 	CAT_FENCE_COMPILER
