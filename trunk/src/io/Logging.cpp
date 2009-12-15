@@ -146,7 +146,7 @@ void Logging::Initialize(EventSeverity min_severity)
 
 void Logging::ReadSettings()
 {
-    log_threshold = Settings::ii->getInt("Log.Threshold", LVL_INANE);
+    log_threshold = Settings::ii->getInt("Log.Threshold", log_threshold);
 }
 
 void Logging::LogEvent(Recorder *recorder)

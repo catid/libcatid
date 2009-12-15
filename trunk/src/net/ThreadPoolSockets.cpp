@@ -1190,7 +1190,7 @@ bool UDPEndpoint::Bind(Port port, bool ignoreUnreachable)
 
     _port = port;
 
-    INFO("UDPEndpoint") << "Open on port " << GetPort();
+    INANE("UDPEndpoint") << "Open on port " << GetPort();
 
     return true;
 }

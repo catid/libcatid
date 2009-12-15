@@ -24,7 +24,7 @@ int main()
 	{
 		ThreadPoolLocalStorage tls;
 
-		for (int ii = 0; ii < 1000; ++ii)
+		for (int ii = 0; ii < 10000; ++ii)
 		{
 			ScalableClient *client = new ScalableClient;
 
