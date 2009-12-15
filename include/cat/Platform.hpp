@@ -45,6 +45,7 @@ namespace cat {
 // Intel C++ Compiler : Interoperates with MSVC and GCC
 #if defined(__INTEL_COMPILER) || defined(__ICL) || defined(__ICC) || defined(__ECC)
 # define CAT_COMPILER_ICC
+# define CAT_FENCE_COMPILER __memory_barrier();
 #endif
 
 //-----------------------------------------------------------------------------
@@ -165,6 +166,9 @@ namespace cat {
 #if !defined(CAT_RESTRICT)
 # define CAT_RESTRICT __restrict
 #endif
+#if !defined(CAT_FENCE_COMPILER)
+# define CAT_FENCE_COMPILER _ReadWriteBarrier();
+#endif
 
 // GCC-compatible compilers
 #elif defined(CAT_COMPILER_COMPAT_GCC)
@@ -195,6 +199,9 @@ namespace cat {
 #endif
 #if !defined(CAT_RESTRICT)
 # define CAT_RESTRICT __restrict__
+#endif
+#if !defined(CAT_FENCE_COMPILER)
+# define CAT_FENCE_COMPILER CAT_ASM_BEGIN "" ::: "memory" CAT_ASM_END
 #endif
 
 #endif // CAT_COMPILER_COMPAT_*

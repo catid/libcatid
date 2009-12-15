@@ -273,13 +273,15 @@ bool Connection::IsFlagUnset(int bit)
 bool Connection::SetFlag(int bit)
 {
 	if (IsFlagSet(bit)) return false;
-	return !Atomic::BTS(&flags, bit);
+	bool first = !Atomic::BTS(&flags, bit);
+	return first;
 }
 
 bool Connection::UnsetFlag(int bit)
 {
 	if (IsFlagUnset(bit)) return false;
-	return !Atomic::BTR(&flags, bit);
+	bool first = Atomic::BTR(&flags, bit);
+	return first;
 }
 
 
@@ -310,7 +312,7 @@ u32 ConnectionMap::hash_addr(IP ip, Port port, u32 salt)
 
 	// Hide this from the client-side to prevent users from generating
 	// hash table collisions by changing their port number.
-	const int SECRET_CONSTANT = 2501; // > 0
+	const int SECRET_CONSTANT = 104729; // 1,000th prime number
 
 	// Map 16-bit port 1:1 to a random-looking number
 	a += ((u32)port * (SECRET_CONSTANT*4 + 1)) & 0xffff;
@@ -382,7 +384,6 @@ Connection *ConnectionMap::Insert(IP ip, Port port)
 	// While collision keys are marked used,
 	while (conn->IsFlagSet(Connection::FLAG_USED))
 	{
-		WARN("ConnectionMap") << "COLLISION! " << key;
 		// Set flag for collision
 		conn->SetFlag(Connection::FLAG_COLLISION);
 
@@ -393,14 +394,12 @@ Connection *ConnectionMap::Insert(IP ip, Port port)
 		// NOTE: This will loop forever if every table key is marked used
 	}
 
-	// Add to head of recently-inserted list
-	conn->next_inserted = (_insert_head_key1 != key + 1) ? _insert_head_key1 : 0;
-	_insert_head_key1 = key + 1;
-
 	Connection *chosen_slot = conn;
 
-	// Set used flag for chosen slot
-	chosen_slot->SetFlag(Connection::FLAG_USED);
+	// Unset delete flag before setting used flag (only place this is done)
+	chosen_slot->UnsetFlag(Connection::FLAG_DELETE);
+
+	// NOTE: Used flag for this connection is set after initializing the connection object
 
 	// If collision list continues after this slot,
 	if (conn->IsFlagSet(Connection::FLAG_COLLISION))
@@ -435,18 +434,39 @@ Connection *ConnectionMap::Insert(IP ip, Port port)
 	return chosen_slot;
 }
 
-void ConnectionMap::Remove(Connection *conn)
+bool ConnectionMap::Remove(Connection *conn)
 {
-	// Unset used flag
-	conn->UnsetFlag(Connection::FLAG_USED);
+	// Set delete flag
+	return conn->SetFlag(Connection::FLAG_DELETE);
 
 	// NOTE: Collision lists are truncated lazily on insertion
 }
 
+void ConnectionMap::CompleteInsertion(Connection *conn)
+{
+	// Set the used flag, indicating it is ready to be used
+	conn->SetFlag(Connection::FLAG_USED);
+
+	CAT_FENCE_COMPILER
+
+	// Recover key from slot pointer
+	u32 key = (int)(conn - _table);
+
+	// Add to head of recently-inserted list
+	conn->next_inserted = (_insert_head_key1 != key + 1) ? _insert_head_key1 : 0;
+	_insert_head_key1 = key + 1;
+
+	CAT_FENCE_COMPILER
+}
+
 Connection *ConnectionMap::GetFirstInserted()
 {
+	CAT_FENCE_COMPILER
+
 	// Cache recently-inserted head
 	u32 key = _insert_head_key1;
+
+	CAT_FENCE_COMPILER
 
 	// If there are no recently-inserted slots, return 0
 	if (!key) return 0;
@@ -457,6 +477,8 @@ Connection *ConnectionMap::GetFirstInserted()
 
 Connection *ConnectionMap::GetNextInserted(Connection *conn)
 {
+	CAT_FENCE_COMPILER
+
 	// Cache next recently-inserted slot
 	u32 next = conn->next_inserted;
 
@@ -465,6 +487,8 @@ Connection *ConnectionMap::GetNextInserted(Connection *conn)
 
 	// Unlink slot
 	conn->next_inserted = 0;
+
+	CAT_FENCE_COMPILER
 
 	// Return pointer to next recently-inserted slot
 	return &_table[next - 1];
@@ -492,6 +516,7 @@ void SessionEndpoint::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort
 
 	// If the packet is not full of fail,
 	if (conn && conn->server_port == GetPort() &&
+		conn->IsFlagUnset(Connection::FLAG_DELETE) &&
 		conn->auth_enc.Decrypt(data, buf_bytes))
 	{
 		// Flag having seen an encrypted packet
@@ -710,8 +735,10 @@ SessionEndpoint *ScalableServer::FindLeastPopulatedPort()
 	u32 best_count = (u32)~0;
 	SessionEndpoint *best_port = 0;
 
+	// For each port,
 	for (int ii = 0; ii < _session_port_count; ++ii)
 	{
+		// Grab the session count for this port
 		SessionEndpoint *port = _sessions[ii];
 		u32 count = port->_session_count;
 
@@ -791,6 +818,14 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 		// If connection already exists,
 		if (conn)
 		{
+			// If the connection exists but has recently been deleted,
+			if (conn->IsFlagSet(Connection::FLAG_DELETE))
+			{
+				INANE("ScalableServer") << "Ignoring challenge: Connection recently deleted";
+				ReleasePostBuffer(pkt3);
+				return;
+			}
+
 			// If we have seen the first encrypted packet already,
 			if (conn->IsFlagSet(Connection::FLAG_C2S_ENC))
 			{
@@ -802,7 +837,7 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 			// If we the challenge does not match the previous one,
 			if (!SecureEqual(conn->first_challenge, challenge, CHALLENGE_BYTES))
 			{
-				WARN("ScalableServer") << "Ignoring challenge: Challenge not replayed";
+				INANE("ScalableServer") << "Ignoring challenge: Challenge not replayed";
 				ReleasePostBuffer(pkt3);
 				return;
 			}
@@ -847,7 +882,6 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 			{
 				WARN("ScalableServer") << "Ignoring challenge: Unable to key encryption";
 				ReleasePostBuffer(pkt3);
-				_conn_map.Remove(conn);
 				return;
 			}
 
@@ -867,6 +901,17 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 			conn->server_port = server_port;
 			conn->server_endpoint = server_endpoint;
 			conn->last_recv_tsc = Clock::msec();
+
+			// Increment session count for this endpoint (only done here)
+			Atomic::Add(&server_endpoint->_session_count, 1);
+/*
+			WARN("Add") << _sessions[0]->_session_count << ","
+				<< _sessions[1]->_session_count << ","
+				<< _sessions[2]->_session_count << ","
+				<< _sessions[3]->_session_count;
+*/
+			// Finalize insertion into table
+			_conn_map.CompleteInsertion(conn);
 
 			// If packet 3 post fails,
 			if (!Post(srcIP, srcPort, pkt3, PKT3_LEN))
@@ -916,9 +961,10 @@ bool ScalableServer::ThreadFunction(void *)
 			if (!conn->SetFlag(Connection::FLAG_TIMED))
 				continue;
 
-			WARN("ScalableServer") << "Added " << conn << " to timed list";
+			INANE("ScalableServer") << "Added " << conn << " to timed list";
 
 			// Insert into linked list
+			if (timed_head) timed_head->last_timed = conn;
 			conn->next_timed = timed_head;
 			conn->last_timed = 0;
 			timed_head = conn;
@@ -930,10 +976,31 @@ bool ScalableServer::ThreadFunction(void *)
 			// Cache next timed slot because this one may be removed
 			next_timed = conn->next_timed;
 
+			// If slot is marked for deletion,
+			if (conn->IsFlagSet(Connection::FLAG_DELETE))
+			{
+				// Unset used flag (only place this is done)
+				if (conn->UnsetFlag(Connection::FLAG_USED))
+				{
+					// If endpoint pointer is non-zero,
+					SessionEndpoint *endpoint = conn->server_endpoint;
+					if (endpoint)
+					{
+						// Decrement the number of sessions active on this endpoint (only done here)
+						Atomic::Add(&endpoint->_session_count, -1);
+					}
+/*
+					WARN("Sub") << _sessions[0]->_session_count << ","
+						<< _sessions[1]->_session_count << ","
+						<< _sessions[2]->_session_count << ","
+						<< _sessions[3]->_session_count;*/
+				}
+			}
+
 			// If slot is now unused,
 			if (conn->IsFlagUnset(Connection::FLAG_USED))
 			{
-				WARN("ScalableServer") << "Removing unused slot " << conn << " from timed list";
+				INANE("ScalableServer") << "Removing unused slot " << conn << " from timed list";
 
 				// Remove from the timed list
 				conn->UnsetFlag(Connection::FLAG_TIMED);
@@ -951,7 +1018,7 @@ bool ScalableServer::ThreadFunction(void *)
 			// If we haven't received any data from the user,
 			if (now - conn->last_recv_tsc >= DISCONNECT_TIMEOUT)
 			{
-				WARN("ScalableServer") << "Removing timeout slot " << conn;
+				INANE("ScalableServer") << "Removing timeout slot " << conn;
 
 				_conn_map.Remove(conn);
 

@@ -77,14 +77,19 @@ CAT_INLINE bool BTR(volatile u32 *x, int bit);
 
 bool Atomic::CAS2(volatile void *x, const void *expected_old_value, const void *new_value)
 {
+	CAT_FENCE_COMPILER
+
 #if defined(CAT_COMPILER_MSVC) && (_MSC_VER > 1400)
 
     __int64 ComparandResult[2] = { ((u64*)expected_old_value)[0],
                                    ((u64*)expected_old_value)[1] };
 
     // Requires MSVC 2008 or newer
-    return 1 == _InterlockedCompareExchange128((__int64*)x, ((u64*)new_value)[1],
-                                               ((u64*)new_value)[0], ComparandResult);
+    bool success = 1 == _InterlockedCompareExchange128((s64*)x, ((u64*)new_value)[1],
+													   ((u64*)new_value)[0], ComparandResult);
+
+	CAT_FENCE_COMPILER
+	return success;
 
 #elif defined(CAT_ASM_ATT) && defined(CAT_ISA_X86)
 
@@ -101,6 +106,7 @@ bool Atomic::CAS2(volatile void *x, const void *expected_old_value, const void *
 		: "memory", "cc"
     CAT_ASM_END
 
+	CAT_FENCE_COMPILER
     return retval;
 
 #else
@@ -122,6 +128,8 @@ bool Atomic::CAS2(volatile void *x, const void *expected_old_value, const void *
 
 bool Atomic::CAS2(volatile void *x, const void *expected_old_value, const void *new_value)
 {
+	CAT_FENCE_COMPILER
+
 #if defined(CAT_ASM_INTEL) && defined(CAT_ISA_X86)
 
     CAT_ASM_BEGIN
@@ -141,6 +149,8 @@ bool Atomic::CAS2(volatile void *x, const void *expected_old_value, const void *
         setz al
     CAT_ASM_END
 
+	CAT_FENCE_COMPILER
+
 #elif defined(CAT_ASM_ATT) && defined(CAT_ISA_X86)
 
 	u64 *target = (u64*)x;
@@ -156,6 +166,7 @@ bool Atomic::CAS2(volatile void *x, const void *expected_old_value, const void *
 		: "memory", "cc"
     CAT_ASM_END
 
+	CAT_FENCE_COMPILER
     return retval;
 
 #else
@@ -179,9 +190,14 @@ bool Atomic::CAS2(volatile void *x, const void *expected_old_value, const void *
 
 u32 Atomic::Add(volatile u32 *x, s32 y)
 {
+	CAT_FENCE_COMPILER
+
 #if defined(CAT_COMPILER_MSVC) && defined(CAT_WORD_64)
 
-    return _InterlockedAdd((volatile LONG*)x, y) - y;
+    u32 result = _InterlockedAdd((volatile LONG*)x, y) - y;
+
+	CAT_FENCE_COMPILER
+	return result;
 
 #elif defined(CAT_ASM_INTEL) && defined(CAT_WORD_32) && defined(CAT_ISA_X86)
 
@@ -190,6 +206,8 @@ u32 Atomic::Add(volatile u32 *x, s32 y)
         mov eax,y
         lock XADD [edx],eax
     CAT_ASM_END
+
+	CAT_FENCE_COMPILER
 
 #elif defined(CAT_ASM_ATT) && defined(CAT_ISA_X86)
 
@@ -202,6 +220,7 @@ u32 Atomic::Add(volatile u32 *x, s32 y)
 		: "memory", "cc"
     CAT_ASM_END
 
+	CAT_FENCE_COMPILER
     return retval;
 
 #else
@@ -220,13 +239,18 @@ u32 Atomic::Add(volatile u32 *x, s32 y)
 
 u32 Atomic::Set(volatile u32 *x, u32 new_value)
 {
+	CAT_FENCE_COMPILER
+
 #if defined(CAT_COMPILER_MSVC) && defined(CAT_WORD_64)
 
 #if (_MSC_VER <= 1400) // MSVC 2005
-	return _InterlockedExchange((long*)x, new_value);
+	u32 result = _InterlockedExchange((long*)x, new_value);
 #else // MSVC 2008+
-	return _InterlockedExchange((volatile LONG*)x, new_value);
+	u32 result = _InterlockedExchange((volatile LONG*)x, new_value);
 #endif
+
+	CAT_FENCE_COMPILER
+	return result;
 
 #elif defined(CAT_ASM_INTEL) && defined(CAT_WORD_32) && defined(CAT_ISA_X86)
 
@@ -235,6 +259,8 @@ u32 Atomic::Set(volatile u32 *x, u32 new_value)
         mov eax,new_value
         lock XCHG [edx],eax
     CAT_ASM_END
+
+	CAT_FENCE_COMPILER
 
 #elif defined(CAT_ASM_ATT) && defined(CAT_ISA_X86)
 
@@ -247,6 +273,7 @@ u32 Atomic::Set(volatile u32 *x, u32 new_value)
 		: "memory", "cc"
     CAT_ASM_END
 
+	CAT_FENCE_COMPILER
     return retval;
 
 #else
@@ -265,13 +292,18 @@ u32 Atomic::Set(volatile u32 *x, u32 new_value)
 
 bool Atomic::BTS(volatile u32 *x, int bit)
 {
+	CAT_FENCE_COMPILER
+
 #if defined(CAT_COMPILER_MSVC) && defined(CAT_WORD_64)
 
 #if (_MSC_VER <= 1400) // MSVC 2005
-	return !!_interlockedbittestandset((long*)x, bit);
+	bool success = !!_interlockedbittestandset((long*)x, bit);
 #else // MSVC 2008+
-	return !!_interlockedbittestandset((volatile LONG*)x, bit);
+	bool success = !!_interlockedbittestandset((volatile LONG*)x, bit);
 #endif
+
+	CAT_FENCE_COMPILER
+	return success;
 
 #elif defined(CAT_ASM_INTEL) && defined(CAT_WORD_32) && defined(CAT_ISA_X86)
 
@@ -282,6 +314,8 @@ bool Atomic::BTS(volatile u32 *x, int bit)
         mov eax,0
         setc al
     CAT_ASM_END
+
+	CAT_FENCE_COMPILER
 
 #elif defined(CAT_ASM_ATT) && defined(CAT_ISA_X86)
 
@@ -295,6 +329,7 @@ bool Atomic::BTS(volatile u32 *x, int bit)
 		: "memory", "cc"
     CAT_ASM_END
 
+	CAT_FENCE_COMPILER
     return retval;
 
 #else
@@ -314,13 +349,18 @@ bool Atomic::BTS(volatile u32 *x, int bit)
 
 bool Atomic::BTR(volatile u32 *x, int bit)
 {
+	CAT_FENCE_COMPILER
+
 #if defined(CAT_COMPILER_MSVC) && defined(CAT_WORD_64)
 
 #if (_MSC_VER <= 1400) // MSVC 2005
-	return !!_interlockedbittestandreset((long*)x, bit);
+	bool success = !!_interlockedbittestandreset((long*)x, bit);
 #else // MSVC 2008+
-	return !!_interlockedbittestandreset((volatile LONG*)x, bit);
+	bool success = return !!_interlockedbittestandreset((volatile LONG*)x, bit);
 #endif
+
+	CAT_FENCE_COMPILER
+	return success;
 
 #elif defined(CAT_ASM_INTEL) && defined(CAT_WORD_32) && defined(CAT_ISA_X86)
 
@@ -331,6 +371,8 @@ bool Atomic::BTR(volatile u32 *x, int bit)
         mov eax,0
         setc al
     CAT_ASM_END
+
+	CAT_FENCE_COMPILER
 
 #elif defined(CAT_ASM_ATT) && defined(CAT_ISA_X86)
 
@@ -344,6 +386,7 @@ bool Atomic::BTR(volatile u32 *x, int bit)
 		: "memory", "cc"
     CAT_ASM_END
 
+	CAT_FENCE_COMPILER
     return retval;
 
 #else
