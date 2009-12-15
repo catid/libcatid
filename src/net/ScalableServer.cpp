@@ -912,8 +912,12 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 			WARN("Add") << _sessions[0]->_session_count << ","
 				<< _sessions[1]->_session_count << ","
 				<< _sessions[2]->_session_count << ","
-				<< _sessions[3]->_session_count;
-*/
+				<< _sessions[3]->_session_count << ","
+				<< _sessions[4]->_session_count << ","
+				<< _sessions[5]->_session_count << ","
+				<< _sessions[6]->_session_count << ","
+				<< _sessions[7]->_session_count;*/
+
 			// Finalize insertion into table
 			_conn_map.CompleteInsertion(conn);
 
@@ -997,7 +1001,11 @@ bool ScalableServer::ThreadFunction(void *)
 					WARN("Sub") << _sessions[0]->_session_count << ","
 						<< _sessions[1]->_session_count << ","
 						<< _sessions[2]->_session_count << ","
-						<< _sessions[3]->_session_count;*/
+						<< _sessions[3]->_session_count << ","
+						<< _sessions[4]->_session_count << ","
+						<< _sessions[5]->_session_count << ","
+						<< _sessions[6]->_session_count << ","
+						<< _sessions[7]->_session_count;*/
 				}
 			}
 
