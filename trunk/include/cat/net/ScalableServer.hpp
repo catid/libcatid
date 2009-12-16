@@ -132,27 +132,7 @@ class Connection
 {
 public:
 	Connection();
-/*
-public:
-	volatile u32 references;
 
-	bool AddRef(); // Returns true iff this is the first reference lock
-	bool ReleaseRef(); // Returns true iff this is the last reference unlock
-
-	class Ref
-	{
-		Connection *_conn;
-
-	public:
-		Ref(Connection *conn);
-		~Ref();
-
-		CAT_INLINE Ref &operator=(Connection *conn) { _conn = conn; return *this; }
-		CAT_INLINE Connection *Get() { return _conn; }
-		CAT_INLINE Connection *operator->() { return _conn; }
-		CAT_INLINE Connection *operator Connection *() { return _conn; }
-	};
-*/
 private:
 	volatile u32 flags;
 
