@@ -230,31 +230,8 @@ Connection::Connection()
 {
 	flags = 0;
 	next_inserted = 0;
-	//references = 0;
-}
-/*
-// Returns true iff this is the first reference lock
-bool Connection::AddRef()
-{
-	return Atomic::Add(&references, 1) == 0;
 }
 
-// Returns true iff this is the last reference unlock
-bool Connection::ReleaseRef()
-{
-	return Atomic::Add(&references, -1) == 1;
-}
-
-Connection::Ref::Ref(Connection *conn)
-{
-	_conn = conn;
-}
-
-Connection::Ref::~Ref()
-{
-	if (_conn) _conn->ReleaseRef();
-}
-*/
 void Connection::ClearFlags()
 {
 	flags = 0;
@@ -321,7 +298,6 @@ u32 ConnectionMap::hash_addr(IP ip, Port port, u32 salt)
 	// Map 16-bit port 1:1 to a random-looking number
 	a += ((u32)port * (SECRET_CONSTANT*4 + 1)) & 0xffff;
 
-	// Seems to work well in practice, for power-of-two table sizes only
 	return a % ConnectionMap::HASH_TABLE_SIZE;
 }
 
@@ -458,6 +434,9 @@ void ConnectionMap::CompleteInsertion(Connection *conn)
 
 	// Add to head of recently-inserted list
 	conn->next_inserted = (_insert_head_key1 != key + 1) ? _insert_head_key1 : 0;
+
+	CAT_FENCE_COMPILER
+
 	_insert_head_key1 = key + 1;
 
 	CAT_FENCE_COMPILER
@@ -874,6 +853,7 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 		{
 			Skein key_hash;
 
+			// If server is overpopulated,
 			if (GetTotalPopulation() >= MAX_POPULATION)
 			{
 				WARN("ScalableServer") << "Ignoring challenge: Server is full";
@@ -970,12 +950,13 @@ void ScalableServer::OnClose()
 bool ScalableServer::ThreadFunction(void *)
 {
 	const int TICK_RATE = 20; // milliseconds
+	const int DISCONNECT_TIMEOUT = 15000; // milliseconds
+
 	Connection *timed_head = 0;
 
 	// While quit signal is not flagged,
 	while (WaitForQuitSignal(TICK_RATE))
 	{
-		const int DISCONNECT_TIMEOUT = 15000; // milliseconds
 		u32 now = Clock::msec();
 		Connection *conn;
 		Connection *next_timed;
@@ -1275,7 +1256,7 @@ void ScalableClient::OnWrite(u32 bytes)
 
 void ScalableClient::OnClose()
 {
-
+	WARN("ScalableClient") << "CLOSED";
 }
 
 void ScalableClient::OnConnectFail()
@@ -1331,31 +1312,54 @@ void ScalableClient::OnDisconnect(bool timeout)
 
 bool ScalableClient::ThreadFunction(void *)
 {
-	u32 last_hello_post = Clock::msec();
+	const int TICK_RATE = 20; // milliseconds
 	const int HELLO_POST_INTERVAL = 200; // milliseconds
+	const int CONNECT_TIMEOUT = 3000; // milliseconds
 
-	// Process timers every 20 milliseconds
-	while (WaitForQuitSignal(20))
+	u32 now = Clock::msec();
+
+	u32 first_hello_post = now;
+	u32 last_hello_post = now;
+
+	// While still not connected,
+	while (!_connected)
 	{
-		if (!_connected)
-		{
-			u32 now = Clock::msec();
+		// Wait for quit signal
+		if (!WaitForQuitSignal(TICK_RATE))
+			return false;
 
-			if (now - last_hello_post >= HELLO_POST_INTERVAL)
+		// If now connected, break out
+		if (_connected)
+			break;
+
+		u32 now = Clock::msec();
+
+		// If connection timed out,
+		if (now - first_hello_post >= CONNECT_TIMEOUT)
+		{
+			// NOTE: Connection can complete before or after OnConnectFail()
+			OnConnectFail();
+			Close();
+			return false;
+		}
+
+		// If time to repost hello packet,
+		if (now - last_hello_post >= HELLO_POST_INTERVAL)
+		{
+			if (!PostHello())
 			{
-				if (!PostHello())
-				{
-					WARN("ScalableClient") << "Unable to connect: Post failure";
-					return false;
-				}
-
-				last_hello_post = now;
+				WARN("ScalableClient") << "Unable to connect: Post failure";
+				return false;
 			}
+
+			last_hello_post = now;
 		}
-		else
-		{
-			_transport.Tick(this);
-		}
+	}
+
+	// While waiting for quit signal,
+	while (WaitForQuitSignal(TICK_RATE))
+	{
+		_transport.Tick(this);
 	}
 
 	return true;
