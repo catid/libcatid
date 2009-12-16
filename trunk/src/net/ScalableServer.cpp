@@ -558,7 +558,7 @@ bool ScalableServer::Initialize(ThreadPoolLocalStorage *tls)
 	}
 
 	// Use the number of processors we have access to as the number of ports
-	_session_port_count = ThreadPool::ref()->GetProcessorCount();
+	_session_port_count = ThreadPool::ref()->GetProcessorCount() * 4;
 	if (_session_port_count < 1)
 	{
 		WARN("ScalableServer") << "Failed to initialize: Thread pool does not have at least 1 thread running";
@@ -690,7 +690,7 @@ bool ScalableServer::Initialize(ThreadPoolLocalStorage *tls)
 		_sessions[ii] = endpoint;
 
 		// If allocation or bind failed, report failure after done
-		if (!endpoint || !endpoint->Bind())
+		if (!endpoint || !endpoint->Bind(SERVER_PORT + ii + 1))
 		{
 			WARN("ScalableServer") << "Failed to initialize: Unable to bind session port. "
 				<< SocketGetLastErrorString();
@@ -910,15 +910,6 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 
 			// Increment session count for this endpoint (only done here)
 			Atomic::Add(&server_endpoint->_session_count, 1);
-/*
-			WARN("Add") << _sessions[0]->_session_count << ","
-				<< _sessions[1]->_session_count << ","
-				<< _sessions[2]->_session_count << ","
-				<< _sessions[3]->_session_count << ","
-				<< _sessions[4]->_session_count << ","
-				<< _sessions[5]->_session_count << ","
-				<< _sessions[6]->_session_count << ","
-				<< _sessions[7]->_session_count;*/
 
 			// Finalize insertion into table
 			_conn_map.CompleteInsertion(conn);
@@ -949,7 +940,7 @@ void ScalableServer::OnClose()
 
 bool ScalableServer::ThreadFunction(void *)
 {
-	const int TICK_RATE = 20; // milliseconds
+	const int TICK_RATE = 10; // milliseconds
 	const int DISCONNECT_TIMEOUT = 15000; // milliseconds
 
 	Connection *timed_head = 0;
@@ -1000,15 +991,6 @@ bool ScalableServer::ThreadFunction(void *)
 						// Decrement the number of sessions active on this endpoint (only done here)
 						Atomic::Add(&endpoint->_session_count, -1);
 					}
-/*
-					WARN("Sub") << _sessions[0]->_session_count << ","
-						<< _sessions[1]->_session_count << ","
-						<< _sessions[2]->_session_count << ","
-						<< _sessions[3]->_session_count << ","
-						<< _sessions[4]->_session_count << ","
-						<< _sessions[5]->_session_count << ","
-						<< _sessions[6]->_session_count << ","
-						<< _sessions[7]->_session_count;*/
 				}
 			}
 
@@ -1312,9 +1294,9 @@ void ScalableClient::OnDisconnect(bool timeout)
 
 bool ScalableClient::ThreadFunction(void *)
 {
-	const int TICK_RATE = 20; // milliseconds
+	const int TICK_RATE = 10; // milliseconds
 	const int HELLO_POST_INTERVAL = 200; // milliseconds
-	const int CONNECT_TIMEOUT = 3000; // milliseconds
+	const int CONNECT_TIMEOUT = 6000; // milliseconds
 
 	u32 now = Clock::msec();
 
@@ -1338,6 +1320,7 @@ bool ScalableClient::ThreadFunction(void *)
 		if (now - first_hello_post >= CONNECT_TIMEOUT)
 		{
 			// NOTE: Connection can complete before or after OnConnectFail()
+			WARN("ScalableClient") << "Unable to connect: Timeout";
 			OnConnectFail();
 			Close();
 			return false;
