@@ -209,16 +209,18 @@ u32 Clock::cycles()
 {
     u32 x[2];
 
-#if defined(CAT_COMPILER_MSVC) && defined(CAT_WORD_64)
+#if defined(CAT_COMPILER_MSVC)
 	x[0] = (u32)__rdtsc();
 
 #elif defined(CAT_ASM_INTEL) && defined(CAT_ISA_X86)
 	CAT_ASM_BEGIN
+		push eax
 		push edx
 		CAT_ASM_EMIT 0x0F
 		CAT_ASM_EMIT 0x31
-		pop edx
 		mov x[0], eax
+		pop edx
+		pop eax
 	CAT_ASM_END
 
 #elif defined(CAT_ASM_ATT) && defined(CAT_ISA_X86)
