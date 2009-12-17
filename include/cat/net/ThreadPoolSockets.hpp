@@ -26,11 +26,8 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-// FIXME: Half-open connections can easily DoS the TCP server right now.
-
-// FIXME: The class public interfaces actually don't mention IOCP at all, so
-// we could rewrite this library for several different APIs and just include
-// the best one for the target.
+// TODO: Half-open connections can easily DoS the TCP server right now.
+// TODO: Port to Linux(eventfd) and BSD/MacOSX(kevent)
 
 #ifndef CAT_THREAD_POOL_SOCKETS_HPP
 #define CAT_THREAD_POOL_SOCKETS_HPP
@@ -39,8 +36,8 @@
 #include <string>
 
 #if defined(CAT_OS_WINDOWS)
-# include <winsock2.h>
-# include <mswsock.h>
+# include <WS2tcpip.h>
+# include <MSWSock.h>
 # include <cat/port/WindowsInclude.hpp>
 #endif
 
@@ -48,22 +45,13 @@ namespace cat {
 
 
 /*
-    IOCPSockets library
+    Thread Pool Sockets library
 
-    Provides a framework for rapidly developing TCP server and client objects
-    that make use of the high performance IO Completion Ports API for Windows.
-
-    All operations are performed asynchronously except ResolveHostname().
+    Provides a framework for rapidly developing TCP/UDP server and client objects
+    that make use of high performance APIs under various server and desktop
+	operating systems.
 
     All network events are processed by a thread pool managed by ThreadPool.
-
-    Example library usage:
-
-        ThreadPool::ref()->Startup();
-
-        Create and use TCPServer and TCPClient objects here
-
-        ThreadPool::ref()->Shutdown();
 */
 
 class TCPServer;
@@ -72,24 +60,52 @@ class TCPClient;
 class UDPEndpoint;
 
 
-//// Sockets
+//// Network Address
 
-typedef u32 IP;
+#define CAT_IP6_LOOPBACK "::1"
+
 typedef u16 Port;
+
+struct IP6
+{
+	u64 qwords[2];
+};
+
+CAT_INLINE const IP6 *GetIP6(const sockaddr_in6 &addr)
+{
+	return reinterpret_cast<const IP6*>( &addr.sin6_addr );
+}
+CAT_INLINE const Port GetPort6(const sockaddr_in6 &addr)
+{
+	return ntohs(addr.sin6_port);
+}
+CAT_INLINE void SetPort6(sockaddr_in6 &addr, Port port)
+{
+	addr.sin6_port = htons(port);
+}
+CAT_INLINE bool IP6Equal(const IP6 *A, const IP6 *B)
+{
+	return ((A->qwords[0] ^ B->qwords[0]) |
+			(A->qwords[1] ^ B->qwords[1])) == 0;
+}
+CAT_INLINE bool AddressEqual(const sockaddr_in6 &A, const sockaddr_in6 &B)
+{
+	return A.sin6_port == B.sin6_port && IP6Equal(GetIP6(A), GetIP6(B));
+}
+
+
+//// Sockets
 
 // Returns a string describing the last error from Winsock2 API
 std::string SocketGetLastErrorString();
 std::string SocketGetErrorString(int code);
 
-// Convert from sockaddr_in to a string containing the IP/port
-std::string IPToString(const sockaddr_in &addr);
-std::string PortToString(const sockaddr_in &addr);
+// Convert from network address to a string
+std::string AddressToString(const sockaddr_in6 &addr);
+std::string IP6ToString(const IP6 *ip);
 
-// Convert an IP address to a string
-std::string IPToString(IP ip);
-
-// Resolve host name to an IP address (blocking)
-IP ResolveHostname(const char *hostname);
+// Convert from string to network address (does not do DNS resolution)
+bool StringToAddress6(const char *in_str, sockaddr_in6 &out_addr);
 
 // Generate a buffer to pass to Post()
 u8 *GetPostBuffer(u32 bytes);
@@ -112,7 +128,7 @@ struct AcceptExOverlapped
     // Space pre-allocated to receive addresses
     struct
     {
-        sockaddr_in address[2];
+		sockaddr_in6 addr[2];
         u8 padding[2*16];
     } addresses;
 
@@ -124,7 +140,7 @@ struct RecvFromOverlapped
 {
 	TypedOverlapped tov;
     int addrLen;
-    sockaddr_in addr;
+    sockaddr_in6 addr;
 
 	// data follows...
 
@@ -151,7 +167,7 @@ public:
     bool ValidServer();
     Port GetPort();
 
-    bool Bind(Port port = 0);
+	bool Bind(Port port = 0);
     void Close();
 
 protected:
@@ -203,7 +219,7 @@ public:
     bool PostToClient(void *buffer, u32 bytes);
 
 protected:
-    virtual bool OnConnectFromClient(const sockaddr_in &remoteClientAddress) = 0; // false = disconnect
+    virtual bool OnConnectFromClient(const sockaddr_in6 &remoteClientAddress) = 0; // false = disconnect
     virtual bool OnReadFromClient(u8 *data, u32 bytes) = 0; // false = disconnect
     virtual void OnWriteToClient(u32 bytes) = 0;
     virtual void OnDisconnectFromClient() = 0;
@@ -216,8 +232,8 @@ private:
 
 private:
     bool AcceptConnection(SOCKET listenSocket, SOCKET acceptSocket,
-                LPFN_DISCONNECTEX lpfnDisconnectEx, sockaddr_in *acceptAddress,
-                sockaddr_in *remoteClientAddress);
+                LPFN_DISCONNECTEX lpfnDisconnectEx, sockaddr_in6 *acceptAddress,
+                sockaddr_in6 *remoteClientAddress);
 
     bool QueueWSARecv();
     void OnWSARecvComplete(int error, u32 bytes);
@@ -237,7 +253,7 @@ private:
 
     ValidClient()      : Returns true iff the client socket is valid
 
-    ConnectToServer()  : Connects to the given address
+    Connect()          : Connects to the given address
     DisconnectServer() : Disconnects from the server
     PostToServer()     : Send a message to the server (will fail if not connected)
 
@@ -256,7 +272,7 @@ public:
 
     bool ValidClient();
 
-    bool ConnectToServer(const sockaddr_in &remoteServerAddress);
+    bool Connect(const sockaddr_in6 &remoteServerAddress);
     void DisconnectServer();
     bool PostToServer(void *buffer, u32 bytes);
 
@@ -272,7 +288,7 @@ private:
     volatile u32 _disconnecting;
 
 private:
-    bool QueueConnectEx(const sockaddr_in &remoteServerAddress);
+    bool QueueConnectEx(const sockaddr_in6 &remoteServerAddress);
     void OnConnectExComplete(int error);
 
     bool QueueWSARecv();
@@ -337,14 +353,14 @@ public:
 
     void Close(); // Invalidates this object
     bool Bind(Port port = 0, bool ignoreUnreachable = true);
-    bool Post(IP ip, Port port, void *data, u32 bytes);
+    bool Post(const sockaddr_in6 &addr, void *data, u32 bytes);
     bool QueueWSARecvFrom();
 
 protected:
-    virtual void OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort, u8 *data, u32 bytes) = 0; // false = close
+    virtual void OnRead(ThreadPoolLocalStorage *tls, const sockaddr_in6 &addr, u8 *data, u32 bytes) = 0; // false = close
     virtual void OnWrite(u32 bytes) = 0;
     virtual void OnClose() = 0;
-    virtual void OnUnreachable(IP srcIP) {}
+    virtual void OnUnreachable(const sockaddr_in6 &addr) {} // Only IP is valid
 
 private:
     SOCKET _socket;
@@ -355,7 +371,7 @@ private:
     bool QueueWSARecvFrom(RecvFromOverlapped *recvOv);
     void OnWSARecvFromComplete(ThreadPoolLocalStorage *tls, int error, RecvFromOverlapped *recvOv, u32 bytes);
 
-    bool QueueWSASendTo(IP ip, Port port, TypedOverlapped *sendOv, u32 bytes);
+    bool QueueWSASendTo(const sockaddr_in6 &addr, TypedOverlapped *sendOv, u32 bytes);
     void OnWSASendToComplete(int error, u32 bytes);
 };
 
