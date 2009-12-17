@@ -28,6 +28,7 @@
 
 #include <cat/crypt/tunnel/EasyHandshake.hpp>
 #include <cat/crypt/tunnel/KeyMaker.hpp>
+#include <cat/time/Clock.hpp>
 using namespace cat;
 
 
@@ -35,12 +36,13 @@ using namespace cat;
 
 bool EasyHandshake::Initialize()
 {
-	return FortunaFactory::ref()->Initialize();
+	return Clock::Initialize() && FortunaFactory::ref()->Initialize();
 }
 
 void EasyHandshake::Shutdown()
 {
 	FortunaFactory::ref()->Shutdown();
+	Clock::Shutdown();
 }
 
 EasyHandshake::EasyHandshake()

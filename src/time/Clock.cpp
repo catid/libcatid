@@ -27,6 +27,7 @@
 */
 
 #include <cat/time/Clock.hpp>
+using namespace cat;
 
 #if defined(CAT_OS_WINDOWS)
 
@@ -42,6 +43,14 @@
 #  include <mmsystem.h>
 # endif
 
+// Windows version requires some initialization
+static const int LOWEST_ACCEPTABLE_PERIOD = 10;
+
+Mutex Clock::init_lock;
+u32 Clock::initialized = 0;
+u32 Clock::period = LOWEST_ACCEPTABLE_PERIOD+1;
+double Clock::inv_freq = 1;
+
 #else // Linux/other version
 
 # include <sys/time.h>
@@ -51,22 +60,50 @@
 #include <stdlib.h> // qsort
 #include <ctime>
 using namespace std;
-using namespace cat;
 
 
-Clock::Clock()
+bool Clock::Initialize()
 {
 #if defined(CAT_OS_WINDOWS)
-    // Set minimum timer resolution as low as possible
-    for (period = 1; period < 20 && (timeBeginPeriod(period) != TIMERR_NOERROR); ++period);
+	// Protect with a mutex
+	AutoMutex lock(init_lock);
+
+	// If this is the first initialize,
+	if (!initialized)
+	{
+		// Set minimum timer resolution as low as possible
+		for (period = 1; period <= LOWEST_ACCEPTABLE_PERIOD && (timeBeginPeriod(period) != TIMERR_NOERROR); ++period);
+
+		// Cache the inverse of the performance counter frequency
+		LARGE_INTEGER freq;
+		QueryPerformanceFrequency(&freq);
+		inv_freq = 1.0 / static_cast<double>(freq.QuadPart);
+	}
+
+	// Increment initialized counter
+	++initialized;
 #endif
+
+	return true;
 }
 
-Clock::~Clock()
+bool Clock::Shutdown()
 {
 #if defined(CAT_OS_WINDOWS)
-    if (period < 20) timeEndPeriod(period);
+	// Protect with a mutex
+	AutoMutex lock(init_lock);
+
+	// If this is the last shutdown,
+	if (initialized == 1)
+	{
+		if (period <= LOWEST_ACCEPTABLE_PERIOD) timeEndPeriod(period);
+	}
+ 
+	// Decrement initialized counter
+	--initialized;
 #endif
+
+	return true;
 }
 
 
@@ -131,16 +168,16 @@ double Clock::usec()
     /* In Windows, this value can leap forward randomly:
      * http://support.microsoft.com/default.aspx?scid=KB;EN-US;Q274323
      * So it may be best to do most of the timing in milliseconds.
+	 *
+	 * Another article from MS recommends that all calls to QPC() be
+	 * done in a single CPU-affinity-locked thread.
      */
 
-    LARGE_INTEGER tim, freq; // 64-bit! ieee
-    double usec;
+    LARGE_INTEGER tim; // 64-bit! ieee
 
     QueryPerformanceCounter(&tim);
-    QueryPerformanceFrequency(&freq);
-    usec = (static_cast<double>(tim.QuadPart) * 1000000.0) / static_cast<double>(freq.QuadPart);
 
-    return usec;
+    return (static_cast<double>(tim.QuadPart) * 1000000.0) * inv_freq;
 
 #else
 
