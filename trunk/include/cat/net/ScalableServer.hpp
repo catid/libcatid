@@ -158,7 +158,7 @@ public:
 	CAT_INLINE bool UnsetFlag(int flag); // Returns false iff flag was already unset
 
 public:
-	IP remote_ip;
+	IP6 remote_ip;
 	Port remote_port;
 	Port server_port;
 	SessionEndpoint *server_endpoint;
@@ -190,7 +190,7 @@ public:
 	static const int COLLISION_INCREMENTER = 1013904223;
 
 protected:
-	CAT_INLINE u32 hash_addr(IP ip, Port port, u32 salt);
+	CAT_INLINE u32 hash_addr(const sockaddr_in6 &addr, u32 salt);
 	CAT_INLINE u32 next_collision_key(u32 key);
 
 	u32 _hash_salt;
@@ -199,8 +199,8 @@ protected:
 public:
 	ConnectionMap();
 
-	Connection *Get(IP ip, Port port);
-	Connection *Insert(IP ip, Port port);
+	Connection *Get(const sockaddr_in6 &addr);
+	Connection *Insert(const sockaddr_in6 &addr);
 	bool Remove(Connection *conn); // Return false iff connection was already removed
 
 protected:
@@ -228,7 +228,7 @@ public:
 	~SessionEndpoint();
 
 protected:
-	void OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort, u8 *data, u32 bytes);
+	void OnRead(ThreadPoolLocalStorage *tls, const sockaddr_in6 &src, u8 *data, u32 bytes);
 	void OnWrite(u32 bytes);
 	void OnClose();
 
@@ -244,10 +244,10 @@ public:
 	static const int PRIVATE_KEY_BYTES = 32;
 	static const int CHALLENGE_BYTES = PUBLIC_KEY_BYTES;
 	static const int ANSWER_BYTES = PUBLIC_KEY_BYTES*2;
-	static const int SERVER_PORT = 22000;
 	static const int MAX_POPULATION = ConnectionMap::HASH_TABLE_SIZE / 2;
 
 private:
+	Port _server_port;
 	ConnectionMap _conn_map;
 	CookieJar _cookie_jar;
 	KeyAgreementResponder _key_agreement_responder;
@@ -264,10 +264,10 @@ public:
 	ScalableServer();
 	~ScalableServer();
 
-	bool Initialize(ThreadPoolLocalStorage *tls);
+	bool Initialize(ThreadPoolLocalStorage *tls, Port port);
 
 protected:
-	void OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort, u8 *data, u32 bytes);
+	void OnRead(ThreadPoolLocalStorage *tls, const sockaddr_in6 &src, u8 *data, u32 bytes);
 	void OnWrite(u32 bytes);
 	void OnClose();
 };
@@ -281,14 +281,12 @@ public:
 	static const int PRIVATE_KEY_BYTES = ScalableServer::PRIVATE_KEY_BYTES;
 	static const int CHALLENGE_BYTES = ScalableServer::CHALLENGE_BYTES;
 	static const int ANSWER_BYTES = ScalableServer::ANSWER_BYTES;
-	static const int SERVER_PORT = ScalableServer::SERVER_PORT;
 
 private:
 	KeyAgreementInitiator _key_agreement_initiator;
 	AuthenticatedEncryption _auth_enc;
 	TransportLayer _transport;
-	IP _server_ip;
-	Port _server_session_port;
+	sockaddr_in6 _server_addr;
 	bool _connected;
 	u8 _server_public_key[PUBLIC_KEY_BYTES];
 	u8 _cached_challenge[CHALLENGE_BYTES];
@@ -299,13 +297,13 @@ public:
 	ScalableClient();
 	~ScalableClient();
 
-	bool Connect(ThreadPoolLocalStorage *tls, IP server_ip, const void *server_key, int key_bytes);
+	bool Connect(ThreadPoolLocalStorage *tls, const sockaddr_in6 &addr, const void *server_key, int key_bytes);
 
 protected:
-	void OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort, u8 *data, u32 bytes);
+	void OnRead(ThreadPoolLocalStorage *tls, const sockaddr_in6 &src, u8 *data, u32 bytes);
 	void OnWrite(u32 bytes);
 	void OnClose();
-	void OnUnreachable(IP srcIP);
+	void OnUnreachable(const sockaddr_in6 &src);
 
 protected:
 	bool PostHello();

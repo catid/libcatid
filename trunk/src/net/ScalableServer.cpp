@@ -279,26 +279,18 @@ ConnectionMap::ConnectionMap()
 	_insert_head_key1 = 0;
 }
 
-u32 ConnectionMap::hash_addr(IP ip, Port port, u32 salt)
+u32 ConnectionMap::hash_addr(const sockaddr_in6 &addr, u32 salt)
 {
-	u32 a = salt ^ ip;
-
-	// Thomas Wang's integer hash function
-	// http://www.cris.com/~Ttwang/tech/inthash.htm
-	a = (a ^ 61) ^ (a >> 16);
-	a = a + (a << 3);
-	a = a ^ (a >> 4);
-	a = a * 0x27d4eb2d;
-	a = a ^ (a >> 15);
+	u32 key = MurmurHash32(GetIP6(addr), sizeof(IP6), salt);
 
 	// Hide this from the client-side to prevent users from generating
 	// hash table collisions by changing their port number.
 	const int SECRET_CONSTANT = 104729; // 1,000th prime number
 
 	// Map 16-bit port 1:1 to a random-looking number
-	a += ((u32)port * (SECRET_CONSTANT*4 + 1)) & 0xffff;
+	key += ((u32)addr.sin6_port * (SECRET_CONSTANT*4 + 1)) & 0xffff;
 
-	return a % ConnectionMap::HASH_TABLE_SIZE;
+	return key % ConnectionMap::HASH_TABLE_SIZE;
 }
 
 u32 ConnectionMap::next_collision_key(u32 key)
@@ -307,12 +299,12 @@ u32 ConnectionMap::next_collision_key(u32 key)
 	return (key * COLLISION_MULTIPLIER + COLLISION_INCREMENTER) % HASH_TABLE_SIZE;
 }
 
-Connection *ConnectionMap::Get(IP ip, Port port)
+Connection *ConnectionMap::Get(const sockaddr_in6 &addr)
 {
 	Connection *conn;
 
 	// Hash IP:port:salt to get the hash table key
-	u32 key = hash_addr(ip, port, _hash_salt);
+	u32 key = hash_addr(addr, _hash_salt);
 
 	// Forever,
 	for (;;)
@@ -322,8 +314,8 @@ Connection *ConnectionMap::Get(IP ip, Port port)
 
 		// If the slot is used and the user address matches,
 		if (conn->IsFlagSet(Connection::FLAG_USED) &&
-			conn->remote_ip == ip &&
-			conn->remote_port == port)
+			conn->remote_port == GetPort6(addr) &&
+			IP6Equal(GetIP6(addr), &conn->remote_ip))
 		{
 			// Return this slot with reference still held
 			return conn;
@@ -353,10 +345,10 @@ Connection *ConnectionMap::Get(IP ip, Port port)
 	Insertion is only done from a single thread, so it is guaranteed
 	that the address does not already exist in the hash table.
 */
-Connection *ConnectionMap::Insert(IP ip, Port port)
+Connection *ConnectionMap::Insert(const sockaddr_in6 &addr)
 {
 	// Hash IP:port:salt to get the hash table key
-	u32 key = hash_addr(ip, port, _hash_salt);
+	u32 key = hash_addr(addr, _hash_salt);
 
 	// Grab the slot
 	Connection *conn = &_table[key];
@@ -491,10 +483,10 @@ SessionEndpoint::~SessionEndpoint()
 
 }
 
-void SessionEndpoint::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort, u8 *data, u32 bytes)
+void SessionEndpoint::OnRead(ThreadPoolLocalStorage *tls, const sockaddr_in6 &src, u8 *data, u32 bytes)
 {
 	// Look up an existing connection for this source address
-	Connection *conn = _conn_map->Get(srcIP, srcPort);
+	Connection *conn = _conn_map->Get(src);
 	int buf_bytes = bytes;
 
 	// If the packet is not full of fail,
@@ -525,7 +517,7 @@ void SessionEndpoint::OnClose()
 void SessionEndpoint::HandleMessageLayer(Connection *conn, u8 *msg, int bytes)
 {
 	INFO("SessionEndpoint") << "Got message with " << bytes << " bytes from "
-		<< IPToString(conn->remote_ip) << ":" << conn->remote_port;
+		<< IP6ToString(&conn->remote_ip) << ":" << conn->remote_port;
 }
 
 
@@ -548,7 +540,7 @@ ScalableServer::~ScalableServer()
 	}
 }
 
-bool ScalableServer::Initialize(ThreadPoolLocalStorage *tls)
+bool ScalableServer::Initialize(ThreadPoolLocalStorage *tls, Port port)
 {
 	// If objects were not created,
 	if (!tls->Valid())
@@ -671,10 +663,11 @@ bool ScalableServer::Initialize(ThreadPoolLocalStorage *tls)
 	}
 
 	// Attempt to bind to the server port
-	if (!Bind(SERVER_PORT))
+	_server_port = port;
+	if (!Bind(port))
 	{
 		WARN("ScalableServer") << "Failed to initialize: Unable to bind handshake port "
-			<< SERVER_PORT << ". " << SocketGetLastErrorString();
+			<< port << ". " << SocketGetLastErrorString();
 		return false;
 	}
 
@@ -690,7 +683,7 @@ bool ScalableServer::Initialize(ThreadPoolLocalStorage *tls)
 		_sessions[ii] = endpoint;
 
 		// If allocation or bind failed, report failure after done
-		if (!endpoint || !endpoint->Bind(SERVER_PORT + ii + 1))
+		if (!endpoint || !endpoint->Bind(port + ii + 1))
 		{
 			WARN("ScalableServer") << "Failed to initialize: Unable to bind session port. "
 				<< SocketGetLastErrorString();
@@ -751,7 +744,7 @@ u32 ScalableServer::GetTotalPopulation()
 	return population;
 }
 
-void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort, u8 *data, u32 bytes)
+void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, const sockaddr_in6 &src, u8 *data, u32 bytes)
 {
 	// c2s 00 (protocol magic[4])
 	if (bytes == 1+4 && data[0] == C2S_HELLO)
@@ -772,11 +765,11 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 
 				// Construct packet 1
 				pkt1[0] = S2C_COOKIE;
-				*pkt1_cookie = _cookie_jar.Generate(srcIP, srcPort);
+				*pkt1_cookie = _cookie_jar.Generate(&src, sizeof(src));
 				memcpy(pkt1_public_key, _public_key, PUBLIC_KEY_BYTES);
 
 				// Attempt to post the packet, ignoring failures
-				Post(srcIP, srcPort, pkt1, 1+4+PUBLIC_KEY_BYTES);
+				Post(src, pkt1, 1+4+PUBLIC_KEY_BYTES);
 
 				INANE("ScalableServer") << "Accepted hello and posted cookie";
 			}
@@ -789,7 +782,7 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 		u8 *challenge = data + 1+4;
 
 		// If cookie is invalid, ignore packet
-		if (!_cookie_jar.Verify(srcIP, srcPort, *cookie))
+		if (!_cookie_jar.Verify(&src, sizeof(src), *cookie))
 		{
 			WARN("ScalableServer") << "Ignoring challenge: Stale cookie";
 			return;
@@ -810,7 +803,7 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 		u8 *pkt3_answer = pkt3 + 1+2;
 
 		// They took the time to get the cookie right, might as well check if we know them
-		Connection *conn = _conn_map.Get(srcIP, srcPort);
+		Connection *conn = _conn_map.Get(src);
 
 		// If connection already exists,
 		if (conn)
@@ -845,7 +838,7 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 			memcpy(pkt3_answer, conn->cached_answer, ANSWER_BYTES);
 
 			// Post packet without checking for errors
-			Post(srcIP, srcPort, pkt3, PKT3_LEN);
+			Post(src, pkt3, PKT3_LEN);
 
 			INANE("ScalableServer") << "Replayed lost answer to client challenge";
 		}
@@ -873,7 +866,7 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 			}
 
 			// Insert a hash key
-			conn = _conn_map.Insert(srcIP, srcPort);
+			conn = _conn_map.Insert(src);
 
 			// If unable to insert a hash key,
 			if (!conn)
@@ -902,8 +895,8 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 			// Initialize Connection object
 			memcpy(conn->first_challenge, challenge, CHALLENGE_BYTES);
 			memcpy(conn->cached_answer, pkt3_answer, ANSWER_BYTES);
-			conn->remote_ip = srcIP;
-			conn->remote_port = srcPort;
+			memcpy(&conn->remote_ip, GetIP6(src), sizeof(IP6));
+			conn->remote_port = GetPort6(src);
 			conn->server_port = server_port;
 			conn->server_endpoint = server_endpoint;
 			conn->last_recv_tsc = Clock::msec();
@@ -915,7 +908,7 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort,
 			_conn_map.CompleteInsertion(conn);
 
 			// If packet 3 post fails,
-			if (!Post(srcIP, srcPort, pkt3, PKT3_LEN))
+			if (!Post(src, pkt3, PKT3_LEN))
 			{
 				WARN("ScalableServer") << "Ignoring challenge: Unable to post packet";
 				_conn_map.Remove(conn);
@@ -1050,7 +1043,7 @@ ScalableClient::~ScalableClient()
 	}
 }
 
-bool ScalableClient::Connect(ThreadPoolLocalStorage *tls, IP server_ip, const void *server_key, int key_bytes)
+bool ScalableClient::Connect(ThreadPoolLocalStorage *tls, const sockaddr_in6 &addr, const void *server_key, int key_bytes)
 {
 	// Verify that we are not already connected
 	if (_connected)
@@ -1087,9 +1080,9 @@ bool ScalableClient::Connect(ThreadPoolLocalStorage *tls, IP server_ip, const vo
 		return false;
 	}
 
-	// Cache public key and IP
+	// Cache public key and server address
 	memcpy(_server_public_key, server_key, sizeof(_server_public_key));
-	_server_ip = server_ip;
+	memcpy(&_server_addr, &addr, sizeof(addr));
 
 	// Attempt to bind to any port and accept ICMP errors initially
 	if (!Bind(0, false))
@@ -1117,10 +1110,10 @@ bool ScalableClient::Connect(ThreadPoolLocalStorage *tls, IP server_ip, const vo
 	return true;
 }
 
-void ScalableClient::OnUnreachable(IP srcIP)
+void ScalableClient::OnUnreachable(const sockaddr_in6 &src)
 {
 	// If IP matches the server and we're not connected yet,
-	if (srcIP == _server_ip && !_connected)
+	if (!_connected && IP6Equal(GetIP6(src), GetIP6(_server_addr)))
 	{
 		WARN("ScalableClient") << "Failed to connect: ICMP error received from server address";
 
@@ -1131,101 +1124,101 @@ void ScalableClient::OnUnreachable(IP srcIP)
 	}
 }
 
-void ScalableClient::OnRead(ThreadPoolLocalStorage *tls, IP srcIP, Port srcPort, u8 *data, u32 bytes)
+void ScalableClient::OnRead(ThreadPoolLocalStorage *tls, const sockaddr_in6 &src, u8 *data, u32 bytes)
 {
 	// If packet source is not the server, ignore this packet
-	if (srcIP == _server_ip && srcPort == SERVER_PORT)
+	if (!AddressEqual(src, _server_addr))
+		return;
+
+	// If connection has completed
+	if (_connected)
 	{
-		// If connection has completed
-		if (_connected)
-		{
-			int buf_bytes = bytes;
+		int buf_bytes = bytes;
 
-			// If the data could not be decrypted, ignore this packet
-			if (_auth_enc.Decrypt(data, buf_bytes))
-			{
-				// Pass the packet to the transport layer
-				_transport.OnPacket(this, data, buf_bytes, 0,
-					fastdelegate::MakeDelegate(this, &ScalableClient::HandleMessageLayer));
-			}
+		// If the data could not be decrypted, ignore this packet
+		if (_auth_enc.Decrypt(data, buf_bytes))
+		{
+			// Pass the packet to the transport layer
+			_transport.OnPacket(this, data, buf_bytes, 0,
+				fastdelegate::MakeDelegate(this, &ScalableClient::HandleMessageLayer));
 		}
-		// s2c 01 (cookie[4]) (public key[64])
-		else if (bytes == 1+4+PUBLIC_KEY_BYTES && data[0] == S2C_COOKIE)
+	}
+	// s2c 01 (cookie[4]) (public key[64])
+	else if (bytes == 1+4+PUBLIC_KEY_BYTES && data[0] == S2C_COOKIE)
+	{
+		u32 *in_cookie = reinterpret_cast<u32*>( data + 1 );
+		u8 *in_public_key = data + 1+4;
+
+		// Verify public key
+		if (!SecureEqual(in_public_key, _server_public_key, PUBLIC_KEY_BYTES))
 		{
-			u32 *in_cookie = reinterpret_cast<u32*>( data + 1 );
-			u8 *in_public_key = data + 1+4;
-
-			// Verify public key
-			if (!SecureEqual(in_public_key, _server_public_key, PUBLIC_KEY_BYTES))
-			{
-				WARN("ScalableClient") << "Unable to connect: Server public key does not match expected key";
-				OnConnectFail();
-				Close();
-				return;
-			}
-
-			// Allocate a post buffer
-			static const int response_len = 1+4+CHALLENGE_BYTES;
-			u8 *response = GetPostBuffer(response_len);
-
-			if (!response)
-			{
-				WARN("ScalableClient") << "Unable to connect: Cannot allocate buffer for challenge message";
-				OnConnectFail();
-				Close();
-				return;
-			}
-
-			// Construct challenge packet
-			u32 *out_cookie = reinterpret_cast<u32*>( response + 1 );
-			u8 *out_challenge = response + 1+4;
-
-			response[0] = C2S_CHALLENGE;
-			*out_cookie = *in_cookie;
-			memcpy(out_challenge, _cached_challenge, CHALLENGE_BYTES);
-
-			// Start ignoring ICMP unreachable messages now that we've seen a response from the server
-			if (!IgnoreUnreachable())
-			{
-				WARN("ScalableClient") << "ICMP ignore unreachable failed";
-			}
-
-			// Attempt to post a response
-			if (!Post(_server_ip, SERVER_PORT, response, response_len))
-			{
-				WARN("ScalableClient") << "Unable to connect: Cannot post response to cookie";
-				OnConnectFail();
-				Close();
-			}
-			else
-			{
-				INANE("ScalableClient") << "Accepted cookie and posted challenge";
-			}
+			WARN("ScalableClient") << "Unable to connect: Server public key does not match expected key";
+			OnConnectFail();
+			Close();
+			return;
 		}
-		// s2c 03 (server session port[2]) (answer[128])
-		else if (bytes == 1+2+ANSWER_BYTES && data[0] == S2C_ANSWER)
+
+		// Allocate a post buffer
+		static const int response_len = 1+4+CHALLENGE_BYTES;
+		u8 *response = GetPostBuffer(response_len);
+
+		if (!response)
 		{
-			Port *port = reinterpret_cast<Port*>( data + 1 );
-			u8 *answer = data + 3;
+			WARN("ScalableClient") << "Unable to connect: Cannot allocate buffer for challenge message";
+			OnConnectFail();
+			Close();
+			return;
+		}
 
-			Port server_session_port = getLE(*port);
+		// Construct challenge packet
+		u32 *out_cookie = reinterpret_cast<u32*>( response + 1 );
+		u8 *out_challenge = response + 1+4;
 
-			// Ignore packet if the port doesn't make sense
-			if (server_session_port > SERVER_PORT)
+		response[0] = C2S_CHALLENGE;
+		*out_cookie = *in_cookie;
+		memcpy(out_challenge, _cached_challenge, CHALLENGE_BYTES);
+
+		// Start ignoring ICMP unreachable messages now that we've seen a response from the server
+		if (!IgnoreUnreachable())
+		{
+			WARN("ScalableClient") << "ICMP ignore unreachable failed";
+		}
+
+		// Attempt to post a response
+		if (!Post(_server_addr, response, response_len))
+		{
+			WARN("ScalableClient") << "Unable to connect: Cannot post response to cookie";
+			OnConnectFail();
+			Close();
+		}
+		else
+		{
+			INANE("ScalableClient") << "Accepted cookie and posted challenge";
+		}
+	}
+	// s2c 03 (server session port[2]) (answer[128])
+	else if (bytes == 1+2+ANSWER_BYTES && data[0] == S2C_ANSWER)
+	{
+		Port *port = reinterpret_cast<Port*>( data + 1 );
+		u8 *answer = data + 3;
+
+		Port server_session_port = getLE(*port);
+
+		// Ignore packet if the port doesn't make sense
+		if (server_session_port > GetPort6(_server_addr))
+		{
+			Skein key_hash;
+
+			// Process answer from server, ignore invalid
+			if (_key_agreement_initiator.ProcessAnswer(tls->math, answer, ANSWER_BYTES, &key_hash) &&
+				_key_agreement_initiator.KeyEncryption(&key_hash, &_auth_enc, SESSION_KEY_NAME))
 			{
-				Skein key_hash;
+				_connected = true;
 
-				// Process answer from server, ignore invalid
-				if (_key_agreement_initiator.ProcessAnswer(tls->math, answer, ANSWER_BYTES, &key_hash))
-				{
-					if (_key_agreement_initiator.KeyEncryption(&key_hash, &_auth_enc, SESSION_KEY_NAME))
-					{
-						_connected = true;
-						_server_session_port = server_session_port;
+				// Note: Will now only listen to packets from the session port
+				SetPort6(_server_addr, server_session_port);
 
-						OnConnect();
-					}
-				}
+				OnConnect();
 			}
 		}
 	}
@@ -1248,6 +1241,12 @@ void ScalableClient::OnConnectFail()
 
 bool ScalableClient::PostHello()
 {
+	if (_connected)
+	{
+		WARN("ScalableClient") << "Refusing to post hello after connected";
+		return false;
+	}
+
 	// Allocate space for a post buffer
 	static const int hello_len = 1+4;
 	u8 *hello = GetPostBuffer(hello_len);
@@ -1266,7 +1265,7 @@ bool ScalableClient::PostHello()
 	*magic = getLE(PROTOCOL_MAGIC);
 
 	// Attempt to post packet
-	if (!Post(_server_ip, SERVER_PORT, hello, hello_len))
+	if (!Post(_server_addr, hello, hello_len))
 	{
 		WARN("ScalableClient") << "Unable to post hello packet";
 		return false;

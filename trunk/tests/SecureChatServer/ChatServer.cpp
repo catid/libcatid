@@ -12,11 +12,12 @@ int main()
 	INFO("Server") << "Secure Chat Server 1.0";
 
 	ScalableServer *endpoint = new ScalableServer();
+	const Port SERVER_PORT = 22000;
 
 	{
 		ThreadPoolLocalStorage tls;
 
-		if (!endpoint->Initialize(&tls))
+		if (!endpoint->Initialize(&tls, SERVER_PORT))
 		{
 			FATAL("Server") << "Unable to initialize";
 		}

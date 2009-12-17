@@ -12,7 +12,12 @@ int main()
 
 	INFO("Client") << "Secure Chat Client 1.0";
 
-	IP ip = ResolveHostname("localhost");
+	sockaddr_in6 server_addr;
+
+	if (!StringToAddress6(CAT_IP6_LOOPBACK, server_addr))
+	{
+		FatalStop("Invalid address specified for server");
+	}
 
 	unsigned char SERVER_PUBLIC_KEY[64] = {
 		8,167,253,18,142,178,65,205,211,188,73,161,54,141,129,237,
@@ -28,7 +33,7 @@ int main()
 		{
 			ScalableClient *client = new ScalableClient;
 
-			if (!client->Connect(&tls, ip, SERVER_PUBLIC_KEY, sizeof(SERVER_PUBLIC_KEY)))
+			if (!client->Connect(&tls, server_addr, SERVER_PUBLIC_KEY, sizeof(SERVER_PUBLIC_KEY)))
 			{
 				FATAL("Client") << "Unable to connect to server";
 			}
