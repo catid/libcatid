@@ -31,6 +31,7 @@
 
 #include <cat/Platform.hpp>
 #include <string>
+#include <cat/threads/Mutex.hpp>
 
 namespace cat {
 
@@ -38,17 +39,20 @@ namespace cat {
 class Clock
 {
 #ifdef CAT_OS_WINDOWS
-    u32 period;
+	static Mutex init_lock;
+	static u32 initialized; // Number of times initialized
+    static u32 period; // timegettime() and Windows scheduler period
+	static double inv_freq; // Performance counter frequency (does not change, so cache it)
 #endif
 
 public:
-    Clock();
-    ~Clock();
+	static bool Initialize();
+	static bool Shutdown();
 
     static u32 sec();     // timestamp in seconds
     static u32 hsec();    // timestamp in hundredths of a second
-    static u32 msec();    // timestamp in milliseconds
-	static double usec(); // timestamp in microseconds
+    static u32 msec();    // timestamp in milliseconds, must call Initialize() first
+	static double usec(); // timestamp in microseconds, must call Initialize() first
 	static u32 cycles();  // timestamp in cycles
 
     static std::string format(const char *format_string);

@@ -32,6 +32,12 @@ using namespace cat;
 // Framework Initialize
 bool cat::InitializeFramework()
 {
+	// Initialize clock subsystem
+	if (!Clock::Initialize())
+	{
+		FatalStop("Clock subsystem failed to initialize");
+	}
+
 	// Initialize custom memory allocator subsystem
 	if (!RegionAllocator::ref()->Valid())
 	{
@@ -77,4 +83,6 @@ void cat::ShutdownFramework(bool WriteSettings)
 	// Write settings to disk if requested
 	if (WriteSettings)
 		Settings::ref()->write();
+
+	Clock::Shutdown();
 }
