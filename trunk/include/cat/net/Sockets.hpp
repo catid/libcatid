@@ -51,8 +51,12 @@ namespace cat {
 
 #if defined(CAT_MS_SOCKET_API)
 typedef SOCKET Socket;
+#define CAT_SOCKET_INVALID INVALID_SOCKET
+#define CAT_SOCKET_ERROR SOCKET_ERROR
 #else
 typedef int Socket;
+#define CAT_SOCKET_INVALID -1
+#define CAT_SOCKET_ERROR -1
 #endif
 
 typedef u16 Port;
