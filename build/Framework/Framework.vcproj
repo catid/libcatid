@@ -408,19 +408,19 @@
 					Name="win"
 					>
 					<File
-						RelativePath="..\..\include\cat\net\win\ThreadPoolTCPClient.hpp"
+						RelativePath="..\..\include\cat\net\win\TCPClient.hpp"
 						>
 					</File>
 					<File
-						RelativePath="..\..\include\cat\net\win\ThreadPoolTCPConnection.hpp"
+						RelativePath="..\..\include\cat\net\win\TCPConnection.hpp"
 						>
 					</File>
 					<File
-						RelativePath="..\..\include\cat\net\win\ThreadPoolTCPServer.hpp"
+						RelativePath="..\..\include\cat\net\win\TCPServer.hpp"
 						>
 					</File>
 					<File
-						RelativePath="..\..\include\cat\net\win\ThreadPoolUDPEndpoint.hpp"
+						RelativePath="..\..\include\cat\net\win\UDPEndpoint.hpp"
 						>
 					</File>
 				</Filter>
