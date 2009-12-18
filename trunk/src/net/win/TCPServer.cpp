@@ -31,8 +31,6 @@
 #include <cat/io/Settings.hpp>
 #include <cat/threads/RegionAllocator.hpp>
 #include <cat/threads/Atomic.hpp>
-#include <process.h>
-#include <algorithm>
 using namespace std;
 using namespace cat;
 
