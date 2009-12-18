@@ -131,6 +131,10 @@ public:
 
 //// Helper Functions
 
+// Run startup and cleanup functions needed under some OS
+bool StartupSockets(); // returns false on error
+void CleanupSockets();
+
 // Sets OnlyIPv4 if IPv6 will be unsupported
 // Returns true on success
 bool CreateSocket(int type, int protocol, bool SupportIPv4, Socket &out_s, bool &out_OnlyIPv4);

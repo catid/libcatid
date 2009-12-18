@@ -87,7 +87,7 @@ namespace cat
         return oss.str();
     }
 
-	static bool IsWindows2003OrEarlier()
+	static bool IsWindowsVistaOrNewer()
 	{
 		DWORD dwVersion = 0; 
 		DWORD dwMajorVersion = 0;
@@ -97,7 +97,7 @@ namespace cat
 
 		// 5: 2000(.0), XP(.1), 2003(.2)
 		// 6: Vista(.0), 7(.1)
-		return (dwMajorVersion <= 5);
+		return (dwMajorVersion >= 6);
 	}
 
 	bool CreateSocket(int type, int protocol, bool SupportIPv4, Socket &out_s, bool &out_OnlyIPv4)
@@ -105,7 +105,7 @@ namespace cat
 		// Under Windows 2003 or earlier, when a server binds to an IPv6 address it
 		// cannot be contacted by IPv4 clients, which is currently a very bad thing,
 		// so just do IPv4 under Windows 2003 or earlier.
-		if (!IsWindows2003OrEarlier())
+		if (IsWindowsVistaOrNewer())
 		{
 			// Attempt to create an IPv6 socket
 			Socket s = WSASocket(AF_INET6, type, protocol, 0, 0, WSA_FLAG_OVERLAPPED);
@@ -180,6 +180,26 @@ namespace cat
 
 		// Attempt to bind
 		return 0 == bind(s, reinterpret_cast<sockaddr*>( &addr ), sizeof(addr));
+	}
+
+	// Run startup and cleanup functions needed under some OS
+	bool StartupSockets()
+	{
+#if defined(CAT_MS_SOCKET_API)
+		WSADATA wsaData;
+
+		// Request Winsock 2.2
+		return NO_ERROR == WSAStartup(MAKEWORD(2,2), &wsaData);
+#else
+		return true;
+#endif
+	}
+
+	void CleanupSockets()
+	{
+#if defined(CAT_MS_SOCKET_API)
+		WSACleanup();
+#endif
 	}
 }
 

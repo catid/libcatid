@@ -188,15 +188,6 @@ bool ThreadPool::Startup()
 {
 	INANE("ThreadPool") << "Initializing the thread pool...";
 
-	WSADATA wsaData;
-
-    // Request Winsock 2.2
-    if (NO_ERROR != WSAStartup(MAKEWORD(2,2), &wsaData))
-    {
-        FATAL("ThreadPool") << "WSAStartup error: " << SocketGetLastErrorString();
-        return false;
-    }
-
 	HANDLE result = CreateIoCompletionPort(INVALID_HANDLE_VALUE, 0, 0, 0);
 
 	if (!result)
@@ -228,11 +219,11 @@ void ThreadPool::Shutdown()
 
     if (!count)
 	{
-		WARN("ThreadPool") << "Shutdown task (1/4): No threads are active";
+		WARN("ThreadPool") << "Shutdown task (1/3): No threads are active";
 	}
 	else
     {
-        INANE("ThreadPool") << "Shutdown task (1/4): Stopping threads...";
+        INANE("ThreadPool") << "Shutdown task (1/3): Stopping threads...";
 
         if (_port)
         while (count--)
@@ -258,7 +249,7 @@ void ThreadPool::Shutdown()
 		_active_thread_count = 0;
     }
 
-    INANE("ThreadPool") << "Shutdown task (2/4): Deleting remaining reference-counted objects...";
+    INANE("ThreadPool") << "Shutdown task (2/3): Deleting remaining reference-counted objects...";
 
     ThreadRefObject *kill, *object = _objectRefHead;
     while (object)
@@ -270,19 +261,15 @@ void ThreadPool::Shutdown()
 
     if (!_port)
 	{
-		WARN("ThreadPool") << "Shutdown task (3/4): IOCP port not created";
+		WARN("ThreadPool") << "Shutdown task (3/3): IOCP port not created";
 	}
 	else
     {
-		INANE("ThreadPool") << "Shutdown task (3/4): Closing IOCP port...";
+		INANE("ThreadPool") << "Shutdown task (3/3): Closing IOCP port...";
 
 		CloseHandle(_port);
         _port = 0;
     }
-
-    INANE("ThreadPool") << "Shutdown task (4/4): WSACleanup()...";
-
-    WSACleanup();
 
     INANE("ThreadPool") << "...Termination complete.";
 
