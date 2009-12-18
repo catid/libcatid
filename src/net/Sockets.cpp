@@ -507,11 +507,7 @@ void NetAddr::PromoteTo6()
 		// If loopback,
 		if ((ipv4 & 0xFFFFFF00) == 0x7f000000)
 		{
-			_ip.v6_words[4] = 0;
-			_ip.v6_words[5] = 0;
-			_ip.v6_bytes[12] = 0;
-			_ip.v6_bytes[13] = 0;
-			_ip.v6_bytes[14] = 0;
+			_ip.v6[1] = 0;
 			_ip.v6_bytes[15] = 1;
 		}
 		else
