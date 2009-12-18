@@ -419,10 +419,10 @@ bool NetAddr::Unwrap(SockAddr &addr, int &addr_len, bool PromoteToIP6) const
 			else
 			{
 				addr6->sin6_addr.u.Word[5] = 0xFFFF;
-				addr6->sin6_addr.u.Byte[12] = (u8)(ipv4 >> 24);
-				addr6->sin6_addr.u.Byte[13] = (u8)(ipv4 >> 16);
-				addr6->sin6_addr.u.Byte[14] = (u8)(ipv4 >> 8);
-				addr6->sin6_addr.u.Byte[15] = (u8)(ipv4);
+				addr6->sin6_addr.u.Byte[12] = (u8)(ipv4);
+				addr6->sin6_addr.u.Byte[13] = (u8)(ipv4 >> 8);
+				addr6->sin6_addr.u.Byte[14] = (u8)(ipv4 >> 16);
+				addr6->sin6_addr.u.Byte[15] = (u8)(ipv4 >> 24);
 			}
 
 			addr_len = sizeof(sockaddr_in6);
@@ -485,10 +485,10 @@ void NetAddr::PromoteTo6()
 		{
 			_ip.v6_words[4] = 0;
 			_ip.v6_words[5] = 0xFFFF;
-			_ip.v6_bytes[12] = (u8)(ipv4 >> 24);
-			_ip.v6_bytes[13] = (u8)(ipv4 >> 16);
-			_ip.v6_bytes[14] = (u8)(ipv4 >> 8);
-			_ip.v6_bytes[15] = (u8)(ipv4);
+			_ip.v6_bytes[12] = (u8)(ipv4);
+			_ip.v6_bytes[13] = (u8)(ipv4 >> 8);
+			_ip.v6_bytes[14] = (u8)(ipv4 >> 16);
+			_ip.v6_bytes[15] = (u8)(ipv4 >> 24);
 		}
 	}
 }
