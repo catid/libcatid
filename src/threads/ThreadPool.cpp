@@ -26,16 +26,13 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/io/Logging.hpp>
-#include <cat/io/Settings.hpp>
-#include <cat/io/ThreadPoolFiles.hpp>
-#include <cat/net/ThreadPoolSockets.hpp>
-#include <cat/threads/RegionAllocator.hpp>
 #include <cat/threads/ThreadPool.hpp>
-#include <cat/time/Clock.hpp>
-#include <cat/threads/Atomic.hpp>
+#include <cat/io/Logging.hpp>
 #include <cat/math/BitMath.hpp>
 #include <process.h>
+#include <cat/threads/Atomic.hpp>
+#include <cat/net/ThreadPoolSockets.hpp>
+#include <cat/io/ThreadPoolFiles.hpp>
 using namespace std;
 using namespace cat;
 
