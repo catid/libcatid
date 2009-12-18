@@ -783,7 +783,10 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 
 
 				// Construct packet 1
 				pkt1[0] = S2C_COOKIE;
-				*pkt1_cookie = _cookie_jar.Generate(&src, sizeof(src));
+				if (src.Is6())
+					*pkt1_cookie = _cookie_jar.Generate(&src, sizeof(src));
+				else
+					*pkt1_cookie = _cookie_jar.Generate(src.GetIP4(), src.GetPort());
 				memcpy(pkt1_public_key, _public_key, PUBLIC_KEY_BYTES);
 
 				// Attempt to post the packet, ignoring failures
@@ -800,7 +803,11 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 
 		u8 *challenge = data + 1+4;
 
 		// If cookie is invalid, ignore packet
-		if (!_cookie_jar.Verify(&src, sizeof(src), *cookie))
+		bool good_cookie = src.Is6() ?
+			_cookie_jar.Verify(&src, sizeof(src), *cookie) :
+			_cookie_jar.Verify(src.GetIP4(), src.GetPort(), *cookie);
+
+		if (!good_cookie)
 		{
 			WARN("ScalableServer") << "Ignoring challenge: Stale cookie";
 			return;
