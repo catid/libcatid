@@ -31,7 +31,7 @@ int main()
 
 		for (int ii = 0; ii < 1500; ++ii)
 		{
-			ScalableClient *client = new ScalableClient;
+			sphynx::Client *client = new sphynx::Client;
 
 			if (!client->Connect(&tls, server_addr, SERVER_PUBLIC_KEY, sizeof(SERVER_PUBLIC_KEY)))
 			{

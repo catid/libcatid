@@ -26,48 +26,59 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-// Include all libcat Framework headers
-
-#ifndef CAT_ALL_FRAMEWORK_HPP
-#define CAT_ALL_FRAMEWORK_HPP
-
-#include <cat/AllCommon.hpp>
-#include <cat/AllMath.hpp>
-#include <cat/AllCrypt.hpp>
-#include <cat/AllCodec.hpp>
-#include <cat/AllTunnel.hpp>
-#include <cat/AllGraphics.hpp>
-
-#include <cat/threads/ThreadPool.hpp>
-#include <cat/threads/LocklessFIFO.hpp>
-#include <cat/threads/Mutex.hpp>
-#include <cat/threads/RegionAllocator.hpp>
-
-#include <cat/io/Logging.hpp>
-#include <cat/io/MMapFile.hpp>
-#include <cat/io/Settings.hpp>
-
-#include <cat/parse/BitStream.hpp>
-#include <cat/parse/BufferTok.hpp>
-#include <cat/parse/MessageRouter.hpp>
-
-#include <cat/net/Sockets.hpp>
-
-#include <cat/io/ThreadPoolFiles.hpp>
-#include <cat/net/ThreadPoolSockets.hpp>
+#ifndef CAT_SPHYNX_CLIENT_HPP
+#define CAT_SPHYNX_CLIENT_HPP
 
 #include <cat/net/SphynxTransport.hpp>
-#include <cat/net/SphynxServer.hpp>
-#include <cat/net/SphynxClient.hpp>
+#include <cat/AllTunnel.hpp>
 
 namespace cat {
 
 
-bool InitializeFramework();
+namespace sphynx {
 
-void ShutdownFramework(bool WriteSettings = true);
+
+//// sphynx::Client
+
+class Client : LoopThread, public UDPEndpoint
+{
+private:
+	KeyAgreementInitiator _key_agreement_initiator;
+	AuthenticatedEncryption _auth_enc;
+	Transport _transport;
+	NetAddr _server_addr;
+	bool _connected;
+	u8 _server_public_key[PUBLIC_KEY_BYTES];
+	u8 _cached_challenge[CHALLENGE_BYTES];
+
+	bool ThreadFunction(void *param);
+
+public:
+	Client();
+	~Client();
+
+	bool Connect(ThreadPoolLocalStorage *tls, const NetAddr &addr, const void *server_key, int key_bytes);
+
+protected:
+	void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes);
+	void OnWrite(u32 bytes);
+	void OnClose();
+	void OnUnreachable(const NetAddr &src);
+
+protected:
+	bool PostHello();
+
+protected:
+	virtual void OnConnectFail();
+	virtual void OnConnect();
+	virtual void HandleMessageLayer(Connection *key, u8 *msg, int bytes);
+	virtual void OnDisconnect(bool timeout);
+};
+
+
+} // namespace sphynx
 
 
 } // namespace cat
 
-#endif // CAT_ALL_FRAMEWORK_HPP
+#endif // CAT_SPHYNX_CLIENT_HPP

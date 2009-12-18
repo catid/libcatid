@@ -11,7 +11,7 @@ int main()
 
 	INFO("Server") << "Secure Chat Server 1.0";
 
-	ScalableServer *endpoint = new ScalableServer();
+	sphynx::Server *endpoint = new sphynx::Server();
 	const Port SERVER_PORT = 22000;
 
 	{
