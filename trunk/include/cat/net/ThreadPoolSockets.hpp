@@ -72,7 +72,7 @@ void ReleasePostBuffer(void *buffer);
 struct AcceptExOverlapped
 {
 	TypedOverlapped tov;
-    SOCKET acceptSocket;
+    Socket acceptSocket;
 
     // Space pre-allocated to receive addresses
 	// NOTE: This is not necessarily how the addresses are organized in memory
@@ -83,7 +83,7 @@ struct AcceptExOverlapped
         u8 padding[2*16];
     } addresses;
 
-    void Set(SOCKET s);
+    void Set(Socket s);
 };
 
 // WSARecvFrom() OVERLAPPED structure
@@ -128,7 +128,7 @@ protected:
     virtual TCPServerConnection *InstantiateServerConnection() = 0;
 
 private:
-    SOCKET _socket;
+    Socket _socket;
     LPFN_ACCEPTEX _lpfnAcceptEx;
     LPFN_GETACCEPTEXSOCKADDRS _lpfnGetAcceptExSockAddrs;
     LPFN_DISCONNECTEX _lpfnDisconnectEx;
@@ -179,13 +179,13 @@ protected:
     virtual void OnDisconnectFromClient() = 0;
 
 private:
-    SOCKET _socket;
+    Socket _socket;
     LPFN_DISCONNECTEX _lpfnDisconnectEx;
     TypedOverlapped *_recvOv;
     volatile u32 _disconnecting;
 
 private:
-    bool AcceptConnection(SOCKET listenSocket, SOCKET acceptSocket,
+    bool AcceptConnection(Socket listenSocket, Socket acceptSocket,
                 LPFN_DISCONNECTEX lpfnDisconnectEx, const NetAddr &acceptAddress,
                 const NetAddr &remoteClientAddress);
 
@@ -237,7 +237,7 @@ protected:
     virtual void OnDisconnectFromServer() = 0;
 
 private:
-    SOCKET _socket;
+    Socket _socket;
     TypedOverlapped *_recvOv;
     volatile u32 _disconnecting;
 
@@ -317,7 +317,7 @@ protected:
     virtual void OnUnreachable(const NetAddr &addr) {} // Only IP is valid
 
 private:
-    SOCKET _socket;
+    Socket _socket;
     Port _port;
     volatile u32 _closing;
 

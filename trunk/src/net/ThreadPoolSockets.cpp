@@ -46,7 +46,7 @@ static const int RECVFROM_DATA_SIZE = 2048 - sizeof(RecvFromOverlapped) - 8;
 
 //// Overlapped types
 
-void AcceptExOverlapped::Set(SOCKET s)
+void AcceptExOverlapped::Set(Socket s)
 {
     tov.Set(OVOP_ACCEPT_EX);
     acceptSocket = s;
@@ -116,20 +116,11 @@ TCPServer::~TCPServer()
 bool TCPServer::Bind(Port port)
 {
     // Create an unbound, overlapped TCP socket for the listen port
-    SOCKET s = WSASocket(AF_INET6, SOCK_STREAM, IPPROTO_TCP, 0, 0, WSA_FLAG_OVERLAPPED);
-
-    if (s == INVALID_SOCKET)
-    {
-        FATAL("TCPServer") << "Unable to create a TCP socket: " << SocketGetLastErrorString();
-        return false;
-    }
-
-	// Turn off IPV6_V6ONLY so that IPv4 is able to communicate with the socket also
-	int on = 0;
-	if (setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&on, sizeof(on)))
+	bool ipv4;
+	Socket s;
+	if (!CreateSocket(SOCK_STREAM, IPPROTO_TCP, true, s, ipv4))
 	{
-		FATAL("TCPServer") << "Unable to allow IPv4: " << SocketGetLastErrorString();
-		closesocket(s);
+		FATAL("TCPServer") << "Unable to create a TCP socket: " << SocketGetLastErrorString();
 		return false;
 	}
 
@@ -138,7 +129,7 @@ bool TCPServer::Bind(Port port)
     if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, (char*)&buffsize, sizeof(buffsize)))
     {
         FATAL("TCPServer") << "Unable to zero the send buffer: " << SocketGetLastErrorString();
-        closesocket(s);
+        CloseSocket(s);
         return false;
     }
 
@@ -147,7 +138,7 @@ bool TCPServer::Bind(Port port)
     if (setsockopt(s, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, (char*)&exclusive, sizeof(exclusive)))
     {
         FATAL("TCPServer") << "Unable to get exclusive port: " << SocketGetLastErrorString();
-        closesocket(s);
+        CloseSocket(s);
         return false;
     }
 
@@ -159,7 +150,7 @@ bool TCPServer::Bind(Port port)
                  &_lpfnAcceptEx, sizeof(_lpfnAcceptEx), &copied, 0, 0))
     {
         FATAL("TCPServer") << "Unable to get AcceptEx interface: " << SocketGetLastErrorString();
-        closesocket(s);
+        CloseSocket(s);
         return false;
     }
 
@@ -171,7 +162,7 @@ bool TCPServer::Bind(Port port)
 				 sizeof(_lpfnGetAcceptExSockAddrs), &copied, 0, 0))
     {
         FATAL("TCPServer") << "Unable to get GetAcceptExSockAddrs interface: " << SocketGetLastErrorString();
-        closesocket(s);
+        CloseSocket(s);
         return false;
     }
 
@@ -183,21 +174,15 @@ bool TCPServer::Bind(Port port)
 				 &copied, 0, 0))
     {
         FATAL("TCPServer") << "Unable to get DisconnectEx interface: " << SocketGetLastErrorString();
-        closesocket(s);
+        CloseSocket(s);
         return false;
     }
 
     // Bind socket to port
-    sockaddr_in6 addr;
-	CAT_OBJCLR(addr);
-    addr.sin6_family = AF_INET6; // Binds to both IPv4 and IPv6 interfaces
-    addr.sin6_addr = in6addr_any;
-    addr.sin6_port = htons(port);
-
-    if (bind(s, (sockaddr*)&addr, sizeof(addr)))
+    if (!NetBind(s, port, ipv4))
     {
         FATAL("TCPServer") << "Unable to bind to port " << port << ": " << SocketGetLastErrorString();
-        closesocket(s);
+        CloseSocket(s);
         return false;
     }
 
@@ -205,7 +190,7 @@ bool TCPServer::Bind(Port port)
     if (listen(s, SOMAXCONN))
     {
         FATAL("TCPServer") << "Unable to listen on socket: " << SocketGetLastErrorString();
-        closesocket(s);
+        CloseSocket(s);
         return false;
     }
 
@@ -255,7 +240,7 @@ void TCPServer::Close()
 {
     if (_socket != SOCKET_ERROR)
     {
-        closesocket(_socket);
+        CloseSocket(_socket);
         _socket = SOCKET_ERROR;
     }
 }
@@ -264,13 +249,13 @@ void TCPServer::Close()
 bool TCPServer::QueueAcceptEx()
 {
     // Create an unbound overlapped TCP socket for AcceptEx()
-    SOCKET s = WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, 0, 0, WSA_FLAG_OVERLAPPED);
-
-    if (s == INVALID_SOCKET)
-    {
-        WARN("TCPServer") << "Unable to create an accept socket: " << SocketGetLastErrorString();
-        return false;
-    }
+	bool ipv4;
+	Socket s;
+	if (!CreateSocket(SOCK_STREAM, IPPROTO_TCP, false, s, ipv4))
+	{
+		WARN("TCPServer") << "Unable to create an accept socket: " << SocketGetLastErrorString();
+		return false;
+	}
 
     // Create a new AcceptExOverlapped structure
     AcceptExOverlapped *overlapped = reinterpret_cast<AcceptExOverlapped*>(
@@ -278,7 +263,7 @@ bool TCPServer::QueueAcceptEx()
     if (!overlapped)
     {
         WARN("TCPServer") << "Unable to allocate AcceptEx overlapped structure: Out of memory.";
-        closesocket(s);
+        CloseSocket(s);
         return false;
     }
     overlapped->Set(s);
@@ -301,7 +286,7 @@ bool TCPServer::QueueAcceptEx()
     if (!result && WSAGetLastError() != ERROR_IO_PENDING)
     {
         WARN("TCPServer") << "AcceptEx error: " << SocketGetLastErrorString();
-        closesocket(s);
+        CloseSocket(s);
         RegionAllocator::ii->Release(overlapped);
         ReleaseRef();
         return false;
@@ -382,7 +367,7 @@ TCPServerConnection::TCPServerConnection()
 TCPServerConnection::~TCPServerConnection()
 {
     if (_socket != SOCKET_ERROR)
-        closesocket(_socket);
+        CloseSocket(_socket);
 
     // Release memory for the overlapped structure
     if (_recvOv)
@@ -428,7 +413,7 @@ bool TCPServerConnection::PostToClient(void *buffer, u32 bytes)
 }
 
 
-bool TCPServerConnection::AcceptConnection(SOCKET listenSocket, SOCKET acceptSocket,
+bool TCPServerConnection::AcceptConnection(Socket listenSocket, Socket acceptSocket,
                                 LPFN_DISCONNECTEX lpfnDisconnectEx,
                                 const NetAddr &acceptAddress, const NetAddr &remoteClientAddress)
 {
@@ -632,7 +617,7 @@ TCPClient::TCPClient()
 TCPClient::~TCPClient()
 {
     if (_socket != SOCKET_ERROR)
-        closesocket(_socket);
+        CloseSocket(_socket);
 
     // Release memory for the overlapped structure
     if (_recvOv)
@@ -647,43 +632,28 @@ bool TCPClient::ValidClient()
 bool TCPClient::Connect(const NetAddr &remoteServerAddress)
 {
     // Create an unbound, overlapped TCP socket for the listen port
-    SOCKET s = WSASocket(AF_INET6, SOCK_STREAM, IPPROTO_TCP, 0, 0, WSA_FLAG_OVERLAPPED);
-
-    if (s == INVALID_SOCKET)
-    {
-        FATAL("TCPClient") << "Unable to create a TCP socket: " << SocketGetLastErrorString();
-        return false;
-    }
-
-	// Turn off IPV6_V6ONLY so that IPv4 is able to communicate with the socket also
-	int on = 0;
-	if (setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&on, sizeof(on)))
+	Socket s;
+	bool ipv4;
+	if (!CreateSocket(SOCK_STREAM, IPPROTO_TCP, true, s, ipv4))
 	{
-		FATAL("TCPClient") << "Unable to allow IPv4: " << SocketGetLastErrorString();
-		closesocket(s);
+		FATAL("TCPClient") << "Unable to create a TCP socket: " << SocketGetLastErrorString();
 		return false;
-	}
+    }
 
     // Set SO_SNDBUF to zero for a zero-copy network stack (we maintain the buffers)
     int buffsize = 0;
     if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, (char*)&buffsize, sizeof(buffsize)))
     {
         FATAL("TCPClient") << "Unable to zero the send buffer: " << SocketGetLastErrorString();
-        closesocket(s);
+        CloseSocket(s);
         return false;
     }
 
     // Bind the socket to a random port as required by ConnectEx()
-	sockaddr_in6 connectAddress;
-	CAT_OBJCLR(connectAddress);
-	connectAddress.sin6_family = AF_INET6; // Binds to both IPv4 and IPv6 interfaces
-	connectAddress.sin6_addr = in6addr_any;
-	connectAddress.sin6_port = 0;
-
-    if (bind(s, (sockaddr*)&connectAddress, sizeof(connectAddress)))
+    if (!NetBind(s, 0, ipv4))
     {
         FATAL("TCPClient") << "Unable to bind to port: " << SocketGetLastErrorString();
-        closesocket(s);
+        CloseSocket(s);
         return false;
     }
 
@@ -694,7 +664,7 @@ bool TCPClient::Connect(const NetAddr &remoteServerAddress)
     if (!ThreadPool::ref()->Associate((HANDLE)s, this) ||
         !QueueConnectEx(remoteServerAddress))
     {
-        closesocket(s);
+        CloseSocket(s);
         _socket = SOCKET_ERROR;
         return false;
     }
@@ -1042,7 +1012,7 @@ UDPEndpoint::UDPEndpoint()
 UDPEndpoint::~UDPEndpoint()
 {
     if (_socket != SOCKET_ERROR)
-        closesocket(_socket);
+        CloseSocket(_socket);
 }
 
 void UDPEndpoint::Close()
@@ -1052,7 +1022,7 @@ void UDPEndpoint::Close()
     {
         if (_socket != SOCKET_ERROR)
         {
-            closesocket(_socket);
+            CloseSocket(_socket);
             _socket = SOCKET_ERROR;
         }
 
@@ -1091,29 +1061,20 @@ bool UDPEndpoint::IgnoreUnreachable()
 bool UDPEndpoint::Bind(Port port, bool ignoreUnreachable)
 {
     // Create an unbound, overlapped UDP socket for the endpoint
-    SOCKET s = WSASocket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP, 0, 0, WSA_FLAG_OVERLAPPED);
-
-    if (s == INVALID_SOCKET)
-    {
-        FATAL("UDPEndpoint") << "Unable to create a UDP socket: " << SocketGetLastErrorString();
-        return false;
-    }
-
-	// Turn off IPV6_V6ONLY so that IPv4 is able to communicate with the socket also
-	int on = 0;
-	if (setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&on, sizeof(on)))
+    Socket s;
+	bool ipv4;
+	if (!CreateSocket(SOCK_DGRAM, IPPROTO_UDP, true, s, ipv4))
 	{
-		FATAL("UDPEndpoint") << "Unable to allow IPv4: " << SocketGetLastErrorString();
-		closesocket(s);
+		FATAL("UDPEndpoint") << "Unable to create a UDP socket: " << SocketGetLastErrorString();
 		return false;
-	}
+    }
 
     // Set SO_SNDBUF to zero for a zero-copy network stack (we maintain the buffers)
     int buffsize = 0;
     if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, (char*)&buffsize, sizeof(buffsize)))
     {
 		FATAL("UDPEndpoint") << "Unable to zero the send buffer: " << SocketGetLastErrorString();
-		closesocket(s);
+		CloseSocket(s);
 		return false;
     }
 
@@ -1123,16 +1084,10 @@ bool UDPEndpoint::Bind(Port port, bool ignoreUnreachable)
     if (ignoreUnreachable) IgnoreUnreachable();
 
     // Bind the socket to a given port
-    sockaddr_in6 addr;
-	CAT_OBJCLR(addr);
-	addr.sin6_family = AF_INET6;
-	addr.sin6_addr = in6addr_any;
-    addr.sin6_port = htons(port);
-
-    if (bind(s, (sockaddr*)&addr, sizeof(addr)))
+    if (!NetBind(s, port, ipv4))
     {
         FATAL("UDPEndpoint") << "Unable to bind to port: " << SocketGetLastErrorString();
-        closesocket(s);
+        CloseSocket(s);
         _socket = SOCKET_ERROR;
         return false;
     }
@@ -1141,7 +1096,7 @@ bool UDPEndpoint::Bind(Port port, bool ignoreUnreachable)
     if (!ThreadPool::ref()->Associate((HANDLE)s, this) ||
         !QueueWSARecvFrom())
     {
-        closesocket(s);
+        CloseSocket(s);
         _socket = SOCKET_ERROR;
         return false;
     }
@@ -1171,6 +1126,7 @@ Port UDPEndpoint::GetPort()
             return 0;
         }
 
+		// Same placement for IPv4 and IPv6
         _port = ntohs(addr.sin6_port);
     }
 
