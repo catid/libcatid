@@ -332,15 +332,23 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\src\net\ScalableServer.cpp"
-				>
-			</File>
-			<File
 				RelativePath="..\..\src\io\Settings.cpp"
 				>
 			</File>
 			<File
 				RelativePath="..\..\src\net\Sockets.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\net\SphynxClient.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\net\SphynxServer.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\net\SphynxTransport.cpp"
 				>
 			</File>
 			<File
@@ -393,11 +401,19 @@
 				Name="net"
 				>
 				<File
-					RelativePath="..\..\include\cat\net\ScalableServer.hpp"
+					RelativePath="..\..\include\cat\net\Sockets.hpp"
 					>
 				</File>
 				<File
-					RelativePath="..\..\include\cat\net\Sockets.hpp"
+					RelativePath="..\..\include\cat\net\SphynxClient.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\net\SphynxServer.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\net\SphynxTransport.hpp"
 					>
 				</File>
 				<File

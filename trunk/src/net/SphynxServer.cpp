@@ -26,202 +26,21 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/net/ScalableServer.hpp>
+#include <cat/net/SphynxServer.hpp>
 #include <cat/port/AlignedAlloc.hpp>
 #include <cat/io/Logging.hpp>
 #include <cat/io/MMapFile.hpp>
 #include <fstream>
 using namespace std;
 using namespace cat;
+using namespace sphynx;
+
+
+//// Encryption Key Constants
 
 static const char *SERVER_PRIVATE_KEY_FILE = "s_server_private_key.bin";
 static const char *SERVER_PUBLIC_KEY_FILE = "u_server_public_key.c";
 static const char *SESSION_KEY_NAME = "SessionKey";
-
-
-//// Transport Layer
-
-TransportLayer::TransportLayer()
-{
-	CAT_OBJCLR(_recv_reliable_id);
-	CAT_OBJCLR(_recv_unreliable_id);
-	CAT_OBJCLR(_send_reliable_id);
-	CAT_OBJCLR(_send_unreliable_id);
-}
-
-TransportLayer::~TransportLayer()
-{
-}
-
-void TransportLayer::OnPacket(UDPEndpoint *endpoint, u8 *data, int bytes, Connection *conn, MessageLayerHandler msg_handler)
-{
-	// See Transport Layer note in header.
-
-	while (bytes >= 2)
-	{
-		u8 d0 = data[0];
-
-		// reliable or unreliable?
-		if (d0 & 1)
-		{
-			// Reliable:
-
-			int stream = (d0 >> 2) & 7;
-
-			// data or acknowledgment?
-			if (d0 & 2)
-			{
-				// Acknowledgment:
-
-				int count = (d0 >> 5) + 1;
-
-				int chunk_len = 1 + (count << 1);
-
-				if (chunk_len <= bytes)
-				{
-					u16 *ids = reinterpret_cast<u16*>( data + 1 );
-
-					for (int ii = 0; ii < count; ++ii)
-					{
-						u32 id = getLE(ids[ii]);
-
-						u32 &next_id = _send_reliable_id[stream];
-
-						u32 nack = id & 1;
-
-						id = ReconstructCounter<16>(next_id, id >> 1);
-
-						// nack or ack?
-						if (nack)
-						{
-							// Negative acknowledgment:
-
-							// TODO
-						}
-						else
-						{
-							// Acknowledgment:
-
-							// TODO
-						}
-					}
-				}
-			}
-			else
-			{
-				// Data:
-
-				int len = ((u32)data[1] << 3) | (d0 >> 5);
-
-				int chunk_len = 4 + len;
-
-				if (chunk_len <= bytes)
-				{
-					u16 *ids = reinterpret_cast<u16*>( data + 1 );
-
-					u32 id = getLE(*ids);
-
-					u32 nack = id & 1;
-
-					u32 &next_id = _recv_reliable_id[stream];
-
-					id = ReconstructCounter<16>(next_id, id >> 1);
-
-					// ordered or unordered?
-					if (stream == 0)
-					{
-						// Unordered:
-
-						// TODO: Check if we've seen it already
-
-						msg_handler(conn, data + 4, len);
-
-						// TODO: Send ack and nacks
-					}
-					else
-					{
-						// Ordered:
-
-						// TODO: Check if we've seen it already
-						// TODO: Check if it is time to process it yet
-
-						msg_handler(conn, data + 4, len);
-
-						// TODO: Send ack and nacks
-					}
-
-					// Continue processing remaining chunks in packet
-					data += chunk_len;
-					bytes -= chunk_len;
-					continue;
-				}
-			}
-		}
-		else
-		{
-			// Unreliable:
-
-			int stream = (d0 >> 1) & 15;
-
-			int len = ((u32)data[1] << 3) | (d0 >> 5);
-
-			// ordered or unordered?
-			if (stream == 0)
-			{
-				// Unordered:
-
-				int chunk_len = 2 + len;
-
-				if (chunk_len <= bytes)
-				{
-					msg_handler(conn, data + 2, len);
-
-					// Continue processing remaining chunks in packet
-					data += chunk_len;
-					bytes -= chunk_len;
-					continue;
-				}
-			}
-			else
-			{
-				// Ordered:
-
-				int chunk_len = 5 + len;
-
-				if (chunk_len <= bytes)
-				{
-					u32 id = ((u32)data[2] << 16) | ((u32)data[3] << 8) | data[4];
-
-					u32 &next_id = _recv_unreliable_id[stream];
-
-					// Reconstruct the message id
-					id = ReconstructCounter<24>(next_id, id);
-
-					// If the ID is in the future,
-					if ((s32)(id - next_id) >= 0)
-					{
-						next_id = id + 1;
-
-						msg_handler(conn, data + 5, len);
-					}
-
-					// Continue processing remaining chunks in packet
-					data += chunk_len;
-					bytes -= chunk_len;
-					continue;
-				}
-			}
-		}
-
-		// If execution reaches the end of this loop for any
-		// reason, stop processing and return.
-		return;
-	}
-}
-
-void TransportLayer::Tick(UDPEndpoint *endpoint)
-{
-}
 
 
 //// Connection
@@ -266,9 +85,9 @@ bool Connection::UnsetFlag(int bit)
 }
 
 
-//// Connection Map
+//// Map
 
-ConnectionMap::ConnectionMap()
+Map::Map()
 {
 	// Initialize the hash salt to something that will
 	// discourage hash-based DoS attacks against servers
@@ -279,7 +98,7 @@ ConnectionMap::ConnectionMap()
 	_insert_head_key1 = 0;
 }
 
-u32 ConnectionMap::hash_addr(const NetAddr &addr, u32 salt)
+u32 Map::hash_addr(const NetAddr &addr, u32 salt)
 {
 	u32 key;
 
@@ -309,16 +128,16 @@ u32 ConnectionMap::hash_addr(const NetAddr &addr, u32 salt)
 	// Map 16-bit port 1:1 to a random-looking number
 	key += ((u32)addr.GetPort() * (SECRET_CONSTANT*4 + 1)) & 0xffff;
 
-	return key % ConnectionMap::HASH_TABLE_SIZE;
+	return key % HASH_TABLE_SIZE;
 }
 
-u32 ConnectionMap::next_collision_key(u32 key)
+u32 Map::next_collision_key(u32 key)
 {
 	// LCG with period equal to the table size
 	return (key * COLLISION_MULTIPLIER + COLLISION_INCREMENTER) % HASH_TABLE_SIZE;
 }
 
-Connection *ConnectionMap::Get(const NetAddr &addr)
+Connection *Map::Get(const NetAddr &addr)
 {
 	Connection *conn;
 
@@ -363,7 +182,7 @@ Connection *ConnectionMap::Get(const NetAddr &addr)
 	Insertion is only done from a single thread, so it is guaranteed
 	that the address does not already exist in the hash table.
 */
-Connection *ConnectionMap::Insert(const NetAddr &addr)
+Connection *Map::Insert(const NetAddr &addr)
 {
 	// Hash IP:port:salt to get the hash table key
 	u32 key = hash_addr(addr, _hash_salt);
@@ -424,7 +243,7 @@ Connection *ConnectionMap::Insert(const NetAddr &addr)
 	return chosen_slot;
 }
 
-bool ConnectionMap::Remove(Connection *conn)
+bool Map::Remove(Connection *conn)
 {
 	// Set delete flag
 	return conn->SetFlag(Connection::FLAG_DELETE);
@@ -432,7 +251,7 @@ bool ConnectionMap::Remove(Connection *conn)
 	// NOTE: Collision lists are truncated lazily on insertion
 }
 
-void ConnectionMap::CompleteInsertion(Connection *conn)
+void Map::CompleteInsertion(Connection *conn)
 {
 	// Set the used flag, indicating it is ready to be used
 	conn->SetFlag(Connection::FLAG_USED);
@@ -452,7 +271,7 @@ void ConnectionMap::CompleteInsertion(Connection *conn)
 	CAT_FENCE_COMPILER
 }
 
-Connection *ConnectionMap::GetFirstInserted()
+Connection *Map::GetFirstInserted()
 {
 	CAT_FENCE_COMPILER
 
@@ -468,7 +287,7 @@ Connection *ConnectionMap::GetFirstInserted()
 	return &_table[key - 1];
 }
 
-Connection *ConnectionMap::GetNextInserted(Connection *conn)
+Connection *Map::GetNextInserted(Connection *conn)
 {
 	CAT_FENCE_COMPILER
 
@@ -488,20 +307,20 @@ Connection *ConnectionMap::GetNextInserted(Connection *conn)
 }
 
 
-//// Session Endpoint
+//// ServerWorker
 
-SessionEndpoint::SessionEndpoint(ConnectionMap *conn_map)
+ServerWorker::ServerWorker(Map *conn_map)
 {
 	_conn_map = conn_map;
 	_session_count = 0;
 }
 
-SessionEndpoint::~SessionEndpoint()
+ServerWorker::~ServerWorker()
 {
 
 }
 
-void SessionEndpoint::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes)
+void ServerWorker::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes)
 {
 	// Look up an existing connection for this source address
 	Connection *conn = _conn_map->Get(src);
@@ -518,52 +337,52 @@ void SessionEndpoint::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8
 
 		// Handle the decrypted data
 		conn->transport.OnPacket(this, data, buf_bytes, conn,
-			fastdelegate::MakeDelegate(this, &SessionEndpoint::HandleMessageLayer));
+			fastdelegate::MakeDelegate(this, &ServerWorker::HandleMessageLayer));
 	}
 }
 
-void SessionEndpoint::OnWrite(u32 bytes)
+void ServerWorker::OnWrite(u32 bytes)
 {
 
 }
 
-void SessionEndpoint::OnClose()
+void ServerWorker::OnClose()
 {
 
 }
 
-void SessionEndpoint::HandleMessageLayer(Connection *conn, u8 *msg, int bytes)
+void ServerWorker::HandleMessageLayer(Connection *conn, u8 *msg, int bytes)
 {
-	INFO("SessionEndpoint") << "Got message with " << bytes << " bytes from "
+	INFO("ServerWorker") << "Got message with " << bytes << " bytes from "
 		<< conn->client_addr.IPToString() << ":" << conn->client_addr.GetPort();
 }
 
 
 
 
-//// Handshake Endpoint
+//// Server
 
-ScalableServer::ScalableServer()
+Server::Server()
 {
 	_sessions = 0;
 }
 
-ScalableServer::~ScalableServer()
+Server::~Server()
 {
 	if (_sessions) delete[] _sessions;
 
 	if (!StopThread())
 	{
-		WARN("ScalableServer") << "Unable to stop timer thread.  Was it started?";
+		WARN("Server") << "Unable to stop timer thread.  Was it started?";
 	}
 }
 
-bool ScalableServer::Initialize(ThreadPoolLocalStorage *tls, Port port)
+bool Server::Initialize(ThreadPoolLocalStorage *tls, Port port)
 {
 	// If objects were not created,
 	if (!tls->Valid())
 	{
-		WARN("ScalableServer") << "Failed to initialize: Unable to create thread local storage";
+		WARN("Server") << "Failed to initialize: Unable to create thread local storage";
 		return false;
 	}
 
@@ -571,16 +390,16 @@ bool ScalableServer::Initialize(ThreadPoolLocalStorage *tls, Port port)
 	_session_port_count = ThreadPool::ref()->GetProcessorCount() * 4;
 	if (_session_port_count < 1)
 	{
-		WARN("ScalableServer") << "Failed to initialize: Thread pool does not have at least 1 thread running";
+		WARN("Server") << "Failed to initialize: Thread pool does not have at least 1 thread running";
 		return false;
 	}
 
 	if (_sessions) delete[] _sessions;
 
-	_sessions = new SessionEndpoint*[_session_port_count];
+	_sessions = new ServerWorker*[_session_port_count];
 	if (!_sessions)
 	{
-		WARN("ScalableServer") << "Failed to initialize: Unable to allocate " << _session_port_count << " session endpoint objects";
+		WARN("Server") << "Failed to initialize: Unable to allocate " << _session_port_count << " session endpoint objects";
 		return false;
 	}
 
@@ -604,13 +423,13 @@ bool ScalableServer::Initialize(ThreadPoolLocalStorage *tls, Port port)
 												 public_key, PUBLIC_KEY_BYTES,
 												 private_key, PRIVATE_KEY_BYTES))
 		{
-			WARN("ScalableServer") << "Failed to initialize: Key from key file is invalid";
+			WARN("Server") << "Failed to initialize: Key from key file is invalid";
 			return false;
 		}
 	}
 	else
 	{
-		INFO("ScalableServer") << "Key file not present.  Creating a new key pair...";
+		INFO("Server") << "Key file not present.  Creating a new key pair...";
 
 		u8 public_key[PUBLIC_KEY_BYTES];
 		u8 private_key[PRIVATE_KEY_BYTES];
@@ -623,7 +442,7 @@ bool ScalableServer::Initialize(ThreadPoolLocalStorage *tls, Port port)
 								 public_key, PUBLIC_KEY_BYTES,
 								 private_key, PRIVATE_KEY_BYTES))
 		{
-			WARN("ScalableServer") << "Failed to initialize: Unable to generate key pair";
+			WARN("Server") << "Failed to initialize: Unable to generate key pair";
 			return false;
 		}
 		else
@@ -635,7 +454,7 @@ bool ScalableServer::Initialize(ThreadPoolLocalStorage *tls, Port port)
 			// If the key file was successfully opened in output mode,
 			if (public_keyfile.fail() || private_keyfile.fail())
 			{
-				WARN("ScalableServer") << "Failed to initialize: Unable to open key file(s) for writing";
+				WARN("Server") << "Failed to initialize: Unable to open key file(s) for writing";
 				return false;
 			}
 
@@ -662,7 +481,7 @@ bool ScalableServer::Initialize(ThreadPoolLocalStorage *tls, Port port)
 			// If the key file was successfully written,
 			if (public_keyfile.fail() || private_keyfile.fail())
 			{
-				WARN("ScalableServer") << "Failed to initialize: Unable to write key file";
+				WARN("Server") << "Failed to initialize: Unable to write key file";
 				return false;
 			}
 
@@ -674,7 +493,7 @@ bool ScalableServer::Initialize(ThreadPoolLocalStorage *tls, Port port)
 													 public_key, PUBLIC_KEY_BYTES,
 													 private_key, PRIVATE_KEY_BYTES))
 			{
-				WARN("ScalableServer") << "Failed to initialize: Key we just generated is invalid";
+				WARN("Server") << "Failed to initialize: Key we just generated is invalid";
 				return false;
 			}
 		}
@@ -684,7 +503,7 @@ bool ScalableServer::Initialize(ThreadPoolLocalStorage *tls, Port port)
 	_server_port = port;
 	if (!Bind(port))
 	{
-		WARN("ScalableServer") << "Failed to initialize: Unable to bind handshake port "
+		WARN("Server") << "Failed to initialize: Unable to bind handshake port "
 			<< port << ". " << SocketGetLastErrorString();
 		return false;
 	}
@@ -695,7 +514,7 @@ bool ScalableServer::Initialize(ThreadPoolLocalStorage *tls, Port port)
 	for (int ii = 0; ii < _session_port_count; ++ii)
 	{
 		// Create a new session endpoint
-		SessionEndpoint *endpoint = new SessionEndpoint(&_conn_map);
+		ServerWorker *endpoint = new ServerWorker(&_conn_map);
 
 		// Store it whether it is null or not
 		_sessions[ii] = endpoint;
@@ -703,7 +522,7 @@ bool ScalableServer::Initialize(ThreadPoolLocalStorage *tls, Port port)
 		// If allocation or bind failed, report failure after done
 		if (!endpoint || !endpoint->Bind(port + ii + 1))
 		{
-			WARN("ScalableServer") << "Failed to initialize: Unable to bind session port. "
+			WARN("Server") << "Failed to initialize: Unable to bind session port. "
 				<< SocketGetLastErrorString();
 
 			// Note failure
@@ -714,7 +533,7 @@ bool ScalableServer::Initialize(ThreadPoolLocalStorage *tls, Port port)
 	// If unable to start the timer thread,
 	if (success && !StartThread())
 	{
-		WARN("ScalableServer") << "Failed to initialize: Unable to start timer thread";
+		WARN("Server") << "Failed to initialize: Unable to start timer thread";
 
 		// Note failure
 		success = false;
@@ -723,17 +542,17 @@ bool ScalableServer::Initialize(ThreadPoolLocalStorage *tls, Port port)
 	return success;
 }
 
-SessionEndpoint *ScalableServer::FindLeastPopulatedPort()
+ServerWorker *Server::FindLeastPopulatedPort()
 {
 	// Search through the list of session ports and find the lowest session count
 	u32 best_count = (u32)~0;
-	SessionEndpoint *best_port = 0;
+	ServerWorker *best_port = 0;
 
 	// For each port,
 	for (int ii = 0; ii < _session_port_count; ++ii)
 	{
 		// Grab the session count for this port
-		SessionEndpoint *port = _sessions[ii];
+		ServerWorker *port = _sessions[ii];
 		u32 count = port->_session_count;
 
 		// If we found a lower session count,
@@ -748,7 +567,7 @@ SessionEndpoint *ScalableServer::FindLeastPopulatedPort()
 	return best_port;
 }
 
-u32 ScalableServer::GetTotalPopulation()
+u32 Server::GetTotalPopulation()
 {
 	u32 population = 0;
 
@@ -762,7 +581,7 @@ u32 ScalableServer::GetTotalPopulation()
 	return population;
 }
 
-void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes)
+void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes)
 {
 	// c2s 00 (protocol magic[4])
 	if (bytes == 1+4 && data[0] == C2S_HELLO)
@@ -792,7 +611,7 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 
 				// Attempt to post the packet, ignoring failures
 				Post(src, pkt1, 1+4+PUBLIC_KEY_BYTES);
 
-				INANE("ScalableServer") << "Accepted hello and posted cookie";
+				INANE("Server") << "Accepted hello and posted cookie";
 			}
 		}
 	}
@@ -809,7 +628,7 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 
 
 		if (!good_cookie)
 		{
-			WARN("ScalableServer") << "Ignoring challenge: Stale cookie";
+			WARN("Server") << "Ignoring challenge: Stale cookie";
 			return;
 		}
 
@@ -820,7 +639,7 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 
 		// Verify that post buffer could be allocated
 		if (!pkt3)
 		{
-			WARN("ScalableServer") << "Ignoring challenge: Unable to allocate post buffer";
+			WARN("Server") << "Ignoring challenge: Unable to allocate post buffer";
 			return;
 		}
 
@@ -836,7 +655,7 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 
 			// If the connection exists but has recently been deleted,
 			if (conn->IsFlagSet(Connection::FLAG_DELETE))
 			{
-				INANE("ScalableServer") << "Ignoring challenge: Connection recently deleted";
+				INANE("Server") << "Ignoring challenge: Connection recently deleted";
 				ReleasePostBuffer(pkt3);
 				return;
 			}
@@ -844,7 +663,7 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 
 			// If we have seen the first encrypted packet already,
 			if (conn->IsFlagSet(Connection::FLAG_C2S_ENC))
 			{
-				WARN("ScalableServer") << "Ignoring challenge: Already in session";
+				WARN("Server") << "Ignoring challenge: Already in session";
 				ReleasePostBuffer(pkt3);
 				return;
 			}
@@ -852,7 +671,7 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 
 			// If we the challenge does not match the previous one,
 			if (!SecureEqual(conn->first_challenge, challenge, CHALLENGE_BYTES))
 			{
-				INANE("ScalableServer") << "Ignoring challenge: Challenge not replayed";
+				INANE("Server") << "Ignoring challenge: Challenge not replayed";
 				ReleasePostBuffer(pkt3);
 				return;
 			}
@@ -865,7 +684,7 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 
 			// Post packet without checking for errors
 			Post(src, pkt3, PKT3_LEN);
 
-			INANE("ScalableServer") << "Replayed lost answer to client challenge";
+			INANE("Server") << "Replayed lost answer to client challenge";
 		}
 		else
 		{
@@ -874,7 +693,7 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 
 			// If server is overpopulated,
 			if (GetTotalPopulation() >= MAX_POPULATION)
 			{
-				WARN("ScalableServer") << "Ignoring challenge: Server is full";
+				WARN("Server") << "Ignoring challenge: Server is full";
 				ReleasePostBuffer(pkt3);
 				// TODO: Should send a packet back to explain problem
 				return;
@@ -885,7 +704,7 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 
 														   challenge, CHALLENGE_BYTES,
 														   pkt3_answer, ANSWER_BYTES, &key_hash))
 			{
-				WARN("ScalableServer") << "Ignoring challenge: Invalid";
+				WARN("Server") << "Ignoring challenge: Invalid";
 				ReleasePostBuffer(pkt3);
 				return;
 			}
@@ -896,7 +715,7 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 
 			// If unable to insert a hash key,
 			if (!conn)
 			{
-				WARN("ScalableServer") << "Ignoring challenge: Unable to insert into hash table";
+				WARN("Server") << "Ignoring challenge: Unable to insert into hash table";
 				ReleasePostBuffer(pkt3);
 				return;
 			}
@@ -904,13 +723,13 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 
 			// If unable to key encryption from session key,
 			if (!_key_agreement_responder.KeyEncryption(&key_hash, &conn->auth_enc, SESSION_KEY_NAME))
 			{
-				WARN("ScalableServer") << "Ignoring challenge: Unable to key encryption";
+				WARN("Server") << "Ignoring challenge: Unable to key encryption";
 				ReleasePostBuffer(pkt3);
 				return;
 			}
 
 			// Find the least populated port
-			SessionEndpoint *server_endpoint = FindLeastPopulatedPort();
+			ServerWorker *server_endpoint = FindLeastPopulatedPort();
 			Port server_port = server_endpoint->GetPort();
 
 			// Construct packet 3
@@ -934,28 +753,28 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 
 			// If packet 3 post fails,
 			if (!Post(src, pkt3, PKT3_LEN))
 			{
-				WARN("ScalableServer") << "Ignoring challenge: Unable to post packet";
+				WARN("Server") << "Ignoring challenge: Unable to post packet";
 				_conn_map.Remove(conn);
 			}
 			else
 			{
-				INANE("ScalableServer") << "Accepted challenge and posted answer.  Client connected";
+				INANE("Server") << "Accepted challenge and posted answer.  Client connected";
 			}
 		}
 	}
 }
 
-void ScalableServer::OnWrite(u32 bytes)
+void Server::OnWrite(u32 bytes)
 {
 
 }
 
-void ScalableServer::OnClose()
+void Server::OnClose()
 {
 
 }
 
-bool ScalableServer::ThreadFunction(void *)
+bool Server::ThreadFunction(void *)
 {
 	const int TICK_RATE = 10; // milliseconds
 	const int DISCONNECT_TIMEOUT = 15000; // milliseconds
@@ -980,7 +799,7 @@ bool ScalableServer::ThreadFunction(void *)
 			if (!conn->SetFlag(Connection::FLAG_TIMED))
 				continue;
 
-			INANE("ScalableServer") << "Added " << conn << " to timed list";
+			INANE("Server") << "Added " << conn << " to timed list";
 
 			// Insert into linked list
 			if (timed_head) timed_head->last_timed = conn;
@@ -1002,7 +821,7 @@ bool ScalableServer::ThreadFunction(void *)
 				if (conn->UnsetFlag(Connection::FLAG_USED))
 				{
 					// If endpoint pointer is non-zero,
-					SessionEndpoint *endpoint = conn->server_endpoint;
+					ServerWorker *endpoint = conn->server_endpoint;
 					if (endpoint)
 					{
 						// Decrement the number of sessions active on this endpoint (only done here)
@@ -1014,7 +833,7 @@ bool ScalableServer::ThreadFunction(void *)
 			// If slot is now unused,
 			if (conn->IsFlagUnset(Connection::FLAG_USED))
 			{
-				INANE("ScalableServer") << "Removing unused slot " << conn << " from timed list";
+				INANE("Server") << "Removing unused slot " << conn << " from timed list";
 
 				// Remove from the timed list
 				conn->UnsetFlag(Connection::FLAG_TIMED);
@@ -1032,7 +851,7 @@ bool ScalableServer::ThreadFunction(void *)
 			// If we haven't received any data from the user,
 			if (now - conn->last_recv_tsc >= DISCONNECT_TIMEOUT)
 			{
-				INANE("ScalableServer") << "Removing timeout slot " << conn;
+				INANE("Server") << "Removing timeout slot " << conn;
 
 				_conn_map.Remove(conn);
 
@@ -1046,327 +865,6 @@ bool ScalableServer::ThreadFunction(void *)
 				conn->transport.Tick(conn->server_endpoint);
 			}
 		}
-	}
-
-	return true;
-}
-
-
-//// Scalable Client
-
-ScalableClient::ScalableClient()
-{
-	_connected = false;
-}
-
-ScalableClient::~ScalableClient()
-{
-	if (!StopThread())
-	{
-		WARN("ScalableServer") << "Unable to stop timer thread.  Was it started?";
-	}
-}
-
-bool ScalableClient::Connect(ThreadPoolLocalStorage *tls, const NetAddr &addr, const void *server_key, int key_bytes)
-{
-	// Verify that we are not already connected
-	if (_connected)
-	{
-		WARN("ScalableClient") << "Failed to connect: Already connected";
-		return false;
-	}
-
-	// Verify the key bytes are correct
-	if (key_bytes != sizeof(_server_public_key))
-	{
-		WARN("ScalableClient") << "Failed to connect: Invalid server public key length provided";
-		return false;
-	}
-
-	// Verify TLS is valid
-	if (!tls->Valid())
-	{
-		WARN("ScalableClient") << "Failed to connect: Unable to create thread local storage";
-		return false;
-	}
-
-	// Verify public key and initialize crypto library with it
-	if (!_key_agreement_initiator.Initialize(tls->math, reinterpret_cast<const u8*>( server_key ), key_bytes))
-	{
-		WARN("ScalableClient") << "Failed to connect: Invalid server public key provided";
-		return false;
-	}
-
-	// Generate a challenge for the server
-	if (!_key_agreement_initiator.GenerateChallenge(tls->math, tls->csprng, _cached_challenge, CHALLENGE_BYTES))
-	{
-		WARN("ScalableClient") << "Failed to connect: Cannot generate challenge message";
-		return false;
-	}
-
-	// Attempt to bind to any port and accept ICMP errors initially
-	if (!Bind(0, false))
-	{
-		WARN("ScalableClient") << "Failed to connect: Unable to bind to any port";
-		return false;
-	}
-
-	// Cache public key and server address
-	memcpy(_server_public_key, server_key, sizeof(_server_public_key));
-	_server_addr = addr;
-	if (Is6()) _server_addr.PromoteTo6();
-
-	// Attempt to post hello message
-	if (!PostHello())
-	{
-		WARN("ScalableClient") << "Failed to connect: Post failure";
-		Close();
-		return false;
-	}
-
-	// Attempt to start the timer thread
-	if (!StartThread())
-	{
-		WARN("ScalableClient") << "Failed to connect: Unable to start timer thread";
-		Close();
-		return false;
-	}
-
-	return true;
-}
-
-void ScalableClient::OnUnreachable(const NetAddr &src)
-{
-	// If IP matches the server and we're not connected yet,
-	if (!_connected && _server_addr.EqualsIPOnly(src))
-	{
-		WARN("ScalableClient") << "Failed to connect: ICMP error received from server address";
-
-		// ICMP error from server means it is down
-		OnConnectFail();
-
-		Close();
-	}
-}
-
-void ScalableClient::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes)
-{
-	// If packet source is not the server, ignore this packet
-	if (_server_addr != src)
-		return;
-
-	// If connection has completed
-	if (_connected)
-	{
-		int buf_bytes = bytes;
-
-		// If the data could not be decrypted, ignore this packet
-		if (_auth_enc.Decrypt(data, buf_bytes))
-		{
-			// Pass the packet to the transport layer
-			_transport.OnPacket(this, data, buf_bytes, 0,
-				fastdelegate::MakeDelegate(this, &ScalableClient::HandleMessageLayer));
-		}
-	}
-	// s2c 01 (cookie[4]) (public key[64])
-	else if (bytes == 1+4+PUBLIC_KEY_BYTES && data[0] == S2C_COOKIE)
-	{
-		u32 *in_cookie = reinterpret_cast<u32*>( data + 1 );
-		u8 *in_public_key = data + 1+4;
-
-		// Verify public key
-		if (!SecureEqual(in_public_key, _server_public_key, PUBLIC_KEY_BYTES))
-		{
-			WARN("ScalableClient") << "Unable to connect: Server public key does not match expected key";
-			OnConnectFail();
-			Close();
-			return;
-		}
-
-		// Allocate a post buffer
-		static const int response_len = 1+4+CHALLENGE_BYTES;
-		u8 *response = GetPostBuffer(response_len);
-
-		if (!response)
-		{
-			WARN("ScalableClient") << "Unable to connect: Cannot allocate buffer for challenge message";
-			OnConnectFail();
-			Close();
-			return;
-		}
-
-		// Construct challenge packet
-		u32 *out_cookie = reinterpret_cast<u32*>( response + 1 );
-		u8 *out_challenge = response + 1+4;
-
-		response[0] = C2S_CHALLENGE;
-		*out_cookie = *in_cookie;
-		memcpy(out_challenge, _cached_challenge, CHALLENGE_BYTES);
-
-		// Start ignoring ICMP unreachable messages now that we've seen a response from the server
-		if (!IgnoreUnreachable())
-		{
-			WARN("ScalableClient") << "ICMP ignore unreachable failed";
-		}
-
-		// Attempt to post a response
-		if (!Post(_server_addr, response, response_len))
-		{
-			WARN("ScalableClient") << "Unable to connect: Cannot post response to cookie";
-			OnConnectFail();
-			Close();
-		}
-		else
-		{
-			INANE("ScalableClient") << "Accepted cookie and posted challenge";
-		}
-	}
-	// s2c 03 (server session port[2]) (answer[128])
-	else if (bytes == 1+2+ANSWER_BYTES && data[0] == S2C_ANSWER)
-	{
-		Port *port = reinterpret_cast<Port*>( data + 1 );
-		u8 *answer = data + 3;
-
-		Port server_session_port = getLE(*port);
-
-		// Ignore packet if the port doesn't make sense
-		if (server_session_port > _server_addr.GetPort())
-		{
-			Skein key_hash;
-
-			// Process answer from server, ignore invalid
-			if (_key_agreement_initiator.ProcessAnswer(tls->math, answer, ANSWER_BYTES, &key_hash) &&
-				_key_agreement_initiator.KeyEncryption(&key_hash, &_auth_enc, SESSION_KEY_NAME))
-			{
-				_connected = true;
-
-				// Note: Will now only listen to packets from the session port
-				_server_addr.SetPort(server_session_port);
-
-				OnConnect();
-			}
-		}
-	}
-}
-
-void ScalableClient::OnWrite(u32 bytes)
-{
-
-}
-
-void ScalableClient::OnClose()
-{
-	WARN("ScalableClient") << "CLOSED";
-}
-
-void ScalableClient::OnConnectFail()
-{
-	WARN("ScalableClient") << "Connection failed.";
-}
-
-bool ScalableClient::PostHello()
-{
-	if (_connected)
-	{
-		WARN("ScalableClient") << "Refusing to post hello after connected";
-		return false;
-	}
-
-	// Allocate space for a post buffer
-	static const int hello_len = 1+4;
-	u8 *hello = GetPostBuffer(hello_len);
-
-	// If unable to allocate,
-	if (!hello)
-	{
-		WARN("ScalableClient") << "Cannot allocate a post buffer for hello packet";
-		return false;
-	}
-
-	u32 *magic = reinterpret_cast<u32*>( hello + 1 );
-
-	// Construct packet
-	hello[0] = C2S_HELLO;
-	*magic = getLE(PROTOCOL_MAGIC);
-
-	// Attempt to post packet
-	if (!Post(_server_addr, hello, hello_len))
-	{
-		WARN("ScalableClient") << "Unable to post hello packet";
-		return false;
-	}
-
-	INANE("ScalableClient") << "Posted hello packet";
-
-	return true;
-}
-
-void ScalableClient::OnConnect()
-{
-	INFO("ScalableClient") << "Connected";
-}
-
-void ScalableClient::HandleMessageLayer(Connection *key, u8 *msg, int bytes)
-{
-	INFO("ScalableClient") << "Got message with " << bytes << " bytes";
-}
-
-void ScalableClient::OnDisconnect(bool timeout)
-{
-	WARN("ScalableClient") << "Disconnected. Timeout=" << timeout;
-}
-
-bool ScalableClient::ThreadFunction(void *)
-{
-	const int TICK_RATE = 10; // milliseconds
-	const int HELLO_POST_INTERVAL = 200; // milliseconds
-	const int CONNECT_TIMEOUT = 6000; // milliseconds
-
-	u32 now = Clock::msec();
-
-	u32 first_hello_post = now;
-	u32 last_hello_post = now;
-
-	// While still not connected,
-	while (!_connected)
-	{
-		// Wait for quit signal
-		if (!WaitForQuitSignal(TICK_RATE))
-			return false;
-
-		// If now connected, break out
-		if (_connected)
-			break;
-
-		u32 now = Clock::msec();
-
-		// If connection timed out,
-		if (now - first_hello_post >= CONNECT_TIMEOUT)
-		{
-			// NOTE: Connection can complete before or after OnConnectFail()
-			WARN("ScalableClient") << "Unable to connect: Timeout";
-			OnConnectFail();
-			Close();
-			return false;
-		}
-
-		// If time to repost hello packet,
-		if (now - last_hello_post >= HELLO_POST_INTERVAL)
-		{
-			if (!PostHello())
-			{
-				WARN("ScalableClient") << "Unable to connect: Post failure";
-				return false;
-			}
-
-			last_hello_post = now;
-		}
-	}
-
-	// While waiting for quit signal,
-	while (WaitForQuitSignal(TICK_RATE))
-	{
-		_transport.Tick(this);
 	}
 
 	return true;
