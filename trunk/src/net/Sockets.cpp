@@ -164,7 +164,7 @@ bool NetAddr::Wrap(const sockaddr *addr)
 bool NetAddr::EqualsIPOnly(const NetAddr &addr) const
 {
 	// If either address is invalid,
-	if (!Valid() || addr.Valid())
+	if (!Valid() || !addr.Valid())
 		return false; // "not equal"
 
 	// If one is IPv4 and the other is IPv6,
