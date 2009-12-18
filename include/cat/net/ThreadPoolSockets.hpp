@@ -300,7 +300,9 @@ public:
 
     bool Valid();
     Port GetPort();
-	CAT_INLINE bool Is6() { return _ipv6; } // Returns true if socket is IPv6
+
+	// Is6() result is only valid AFTER Bind()
+	CAT_INLINE bool Is6() { return _ipv6; }
 
     // For servers: Bind() with ignoreUnreachable = true ((default))
     // For clients: Bind() with ignoreUnreachable = false and call this
