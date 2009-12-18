@@ -105,7 +105,7 @@ namespace cat
 
 TCPServer::TCPServer()
 {
-    _socket = SOCKET_ERROR;
+    _socket = CAT_SOCKET_ERROR;
 }
 
 TCPServer::~TCPServer()
@@ -214,7 +214,7 @@ bool TCPServer::Bind(Port port)
 
 bool TCPServer::ValidServer()
 {
-    return _socket != SOCKET_ERROR;
+    return _socket != CAT_SOCKET_ERROR;
 }
 
 Port TCPServer::GetPort()
@@ -238,10 +238,10 @@ Port TCPServer::GetPort()
 
 void TCPServer::Close()
 {
-    if (_socket != SOCKET_ERROR)
+    if (_socket != CAT_SOCKET_ERROR)
     {
         CloseSocket(_socket);
-        _socket = SOCKET_ERROR;
+        _socket = CAT_SOCKET_ERROR;
     }
 }
 
@@ -359,14 +359,14 @@ TCPServerConnection::TCPServerConnection()
 {
     // Initialize to an invalid state.
     // Connection is invalid until AcceptConnection() runs successfully.
-    _socket = SOCKET_ERROR;
+    _socket = CAT_SOCKET_ERROR;
     _recvOv = 0;
     _disconnecting = 0;
 }
 
 TCPServerConnection::~TCPServerConnection()
 {
-    if (_socket != SOCKET_ERROR)
+    if (_socket != CAT_SOCKET_ERROR)
         CloseSocket(_socket);
 
     // Release memory for the overlapped structure
@@ -376,7 +376,7 @@ TCPServerConnection::~TCPServerConnection()
 
 bool TCPServerConnection::ValidServerConnection()
 {
-    return _socket != SOCKET_ERROR;
+    return _socket != CAT_SOCKET_ERROR;
 }
 
 void TCPServerConnection::DisconnectClient()
@@ -610,13 +610,13 @@ TCPClient::TCPClient()
 {
     // Initialize to invalid socket
     _recvOv = 0;
-    _socket = SOCKET_ERROR;
+    _socket = CAT_SOCKET_ERROR;
     _disconnecting = 0;
 }
 
 TCPClient::~TCPClient()
 {
-    if (_socket != SOCKET_ERROR)
+    if (_socket != CAT_SOCKET_ERROR)
         CloseSocket(_socket);
 
     // Release memory for the overlapped structure
@@ -626,7 +626,7 @@ TCPClient::~TCPClient()
 
 bool TCPClient::ValidClient()
 {
-    return _socket != SOCKET_ERROR;
+    return _socket != CAT_SOCKET_ERROR;
 }
 
 bool TCPClient::Connect(const NetAddr &remoteServerAddress)
@@ -666,7 +666,7 @@ bool TCPClient::Connect(const NetAddr &remoteServerAddress)
         !QueueConnectEx(remoteServerAddress))
     {
         CloseSocket(s);
-        _socket = SOCKET_ERROR;
+        _socket = CAT_SOCKET_ERROR;
         return false;
     }
 
@@ -1007,12 +1007,12 @@ UDPEndpoint::UDPEndpoint()
 {
     _port = 0;
     _closing = 0;
-    _socket = SOCKET_ERROR;
+    _socket = CAT_SOCKET_ERROR;
 }
 
 UDPEndpoint::~UDPEndpoint()
 {
-    if (_socket != SOCKET_ERROR)
+    if (_socket != CAT_SOCKET_ERROR)
         CloseSocket(_socket);
 }
 
@@ -1021,10 +1021,10 @@ void UDPEndpoint::Close()
     // Only allow close to run once
     if (Atomic::Add(&_closing, 1) == 0)
     {
-        if (_socket != SOCKET_ERROR)
+        if (_socket != CAT_SOCKET_ERROR)
         {
             CloseSocket(_socket);
-            _socket = SOCKET_ERROR;
+            _socket = CAT_SOCKET_ERROR;
         }
 
 		// Allow the library user to react to closure sooner than the destructor.
@@ -1044,13 +1044,13 @@ bool UDPEndpoint::IgnoreUnreachable()
     // ICMP Port Unreachable or other failures until you get the first packet.
     // After that call IgnoreUnreachable() to avoid spoofed ICMP exploits.
 
-	if (_socket == SOCKET_ERROR)
+	if (_socket == CAT_SOCKET_ERROR)
 		return false;
 
 	DWORD dwBytesReturned = 0;
     BOOL bNewBehavior = FALSE;
     if (WSAIoctl(_socket, SIO_UDP_CONNRESET, &bNewBehavior,
-				 sizeof(bNewBehavior), 0, 0, &dwBytesReturned, 0, 0) == SOCKET_ERROR)
+				 sizeof(bNewBehavior), 0, 0, &dwBytesReturned, 0, 0) == CAT_SOCKET_ERROR)
 	{
 		WARN("UDPEndpoint") << "Unable to ignore ICMP Unreachable: " << SocketGetLastErrorString();
 		return false;
@@ -1090,7 +1090,7 @@ bool UDPEndpoint::Bind(Port port, bool ignoreUnreachable)
     {
         FATAL("UDPEndpoint") << "Unable to bind to port: " << SocketGetLastErrorString();
         CloseSocket(s);
-        _socket = SOCKET_ERROR;
+        _socket = CAT_SOCKET_ERROR;
         return false;
     }
 
@@ -1099,7 +1099,7 @@ bool UDPEndpoint::Bind(Port port, bool ignoreUnreachable)
         !QueueWSARecvFrom())
     {
         CloseSocket(s);
-        _socket = SOCKET_ERROR;
+        _socket = CAT_SOCKET_ERROR;
         return false;
     }
 
@@ -1112,7 +1112,7 @@ bool UDPEndpoint::Bind(Port port, bool ignoreUnreachable)
 
 bool UDPEndpoint::Valid()
 {
-    return _socket != SOCKET_ERROR;
+    return _socket != CAT_SOCKET_ERROR;
 }
 
 Port UDPEndpoint::GetPort()
