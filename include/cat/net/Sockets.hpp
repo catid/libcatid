@@ -1,0 +1,126 @@
+/*
+	Copyright (c) 2009 Christopher A. Taylor.  All rights reserved.
+
+	Redistribution and use in source and binary forms, with or without
+	modification, are permitted provided that the following conditions are met:
+
+	* Redistributions of source code must retain the above copyright notice,
+	  this list of conditions and the following disclaimer.
+	* Redistributions in binary form must reproduce the above copyright notice,
+	  this list of conditions and the following disclaimer in the documentation
+	  and/or other materials provided with the distribution.
+	* Neither the name of LibCat nor the names of its contributors may be used
+	  to endorse or promote products derived from this software without
+	  specific prior written permission.
+
+	THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+	AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+	IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+	ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+	LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+	CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+	SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+	INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+	CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+	ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+	POSSIBILITY OF SUCH DAMAGE.
+*/
+
+#ifndef CAT_SOCKETS_HPP
+#define CAT_SOCKETS_HPP
+
+#include <cat/Platform.hpp>
+#include <string>
+
+#if defined(CAT_OS_WINDOWS)
+# include <WS2tcpip.h>
+# include <MSWSock.h>
+# include <cat/port/WindowsInclude.hpp>
+#endif
+
+#define CAT_IP6_LOOPBACK "::1"
+#define CAT_IP4_LOOPBACK "127.0.0.1"
+
+namespace cat {
+
+
+//// Network Addresses
+
+typedef u16 Port;
+
+// Wrapper for IPv4 and IPv6 addresses
+class NetAddr
+{
+	union
+	{
+		u64 v6[2];
+		struct {
+			u32 v4;
+			u32 v4_padding[3];
+		};
+	} _ip; // Network order
+
+	union
+	{
+		u32 _valid;
+		struct {
+			Port _port; // Host order
+			ADDRESS_FAMILY _family; // Host order
+		};
+	};
+
+public:
+	static const int IP6_BYTES = 16;
+
+	typedef sockaddr_in6 SockAddr;
+
+public:
+	CAT_INLINE NetAddr() {}
+	NetAddr(const char *ip_str, Port port);
+	NetAddr(const sockaddr_in6 &addr);
+	NetAddr(const sockaddr_in &addr);
+	NetAddr(const sockaddr *addr);
+
+public:
+	NetAddr(const NetAddr &addr);
+	NetAddr &operator=(const NetAddr &addr);
+
+public:
+	bool Wrap(const sockaddr_in6 &addr);
+	bool Wrap(const sockaddr_in &addr);
+	bool Wrap(const sockaddr *addr);
+
+public:
+	CAT_INLINE bool Valid() const { return _valid != 0; }
+	CAT_INLINE bool Is6() const { return _family == AF_INET6; }
+
+	CAT_INLINE const u32 GetIP4() const { return _ip.v4; }
+	CAT_INLINE const u64 *GetIP6() const { return _ip.v6; }
+
+	CAT_INLINE Port GetPort() const { return _port; }
+	CAT_INLINE void SetPort(Port port) { _port = port; }
+
+public:
+	bool EqualsIPOnly(const NetAddr &addr) const;
+	bool operator==(const NetAddr &addr) const;
+	bool operator!=(const NetAddr &addr) const;
+
+public:
+	bool SetFromString(const char *ip_str, Port port = 0);
+	std::string IPToString() const;
+
+public:
+	bool Unwrap(SockAddr &addr, int &addr_len) const;
+};
+
+
+//// Error Codes
+
+// Returns a string describing the last error from Winsock2 API
+std::string SocketGetLastErrorString();
+std::string SocketGetErrorString(int code);
+
+
+} // namespace cat
+
+#endif // CAT_SOCKETS_HPP

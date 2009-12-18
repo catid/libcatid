@@ -158,8 +158,7 @@ public:
 	CAT_INLINE bool UnsetFlag(int flag); // Returns false iff flag was already unset
 
 public:
-	IP6 remote_ip;
-	Port remote_port;
+	NetAddr client_addr;
 	Port server_port;
 	SessionEndpoint *server_endpoint;
 	volatile u32 next_inserted;
@@ -190,7 +189,7 @@ public:
 	static const int COLLISION_INCREMENTER = 1013904223;
 
 protected:
-	CAT_INLINE u32 hash_addr(const sockaddr_in6 &addr, u32 salt);
+	CAT_INLINE u32 hash_addr(const NetAddr &addr, u32 salt);
 	CAT_INLINE u32 next_collision_key(u32 key);
 
 	u32 _hash_salt;
@@ -199,8 +198,8 @@ protected:
 public:
 	ConnectionMap();
 
-	Connection *Get(const sockaddr_in6 &addr);
-	Connection *Insert(const sockaddr_in6 &addr);
+	Connection *Get(const NetAddr &addr);
+	Connection *Insert(const NetAddr &addr);
 	bool Remove(Connection *conn); // Return false iff connection was already removed
 
 protected:
@@ -228,7 +227,7 @@ public:
 	~SessionEndpoint();
 
 protected:
-	void OnRead(ThreadPoolLocalStorage *tls, const sockaddr_in6 &src, u8 *data, u32 bytes);
+	void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes);
 	void OnWrite(u32 bytes);
 	void OnClose();
 
@@ -267,7 +266,7 @@ public:
 	bool Initialize(ThreadPoolLocalStorage *tls, Port port);
 
 protected:
-	void OnRead(ThreadPoolLocalStorage *tls, const sockaddr_in6 &src, u8 *data, u32 bytes);
+	void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes);
 	void OnWrite(u32 bytes);
 	void OnClose();
 };
@@ -286,7 +285,7 @@ private:
 	KeyAgreementInitiator _key_agreement_initiator;
 	AuthenticatedEncryption _auth_enc;
 	TransportLayer _transport;
-	sockaddr_in6 _server_addr;
+	NetAddr _server_addr;
 	bool _connected;
 	u8 _server_public_key[PUBLIC_KEY_BYTES];
 	u8 _cached_challenge[CHALLENGE_BYTES];
@@ -297,13 +296,13 @@ public:
 	ScalableClient();
 	~ScalableClient();
 
-	bool Connect(ThreadPoolLocalStorage *tls, const sockaddr_in6 &addr, const void *server_key, int key_bytes);
+	bool Connect(ThreadPoolLocalStorage *tls, const NetAddr &addr, const void *server_key, int key_bytes);
 
 protected:
-	void OnRead(ThreadPoolLocalStorage *tls, const sockaddr_in6 &src, u8 *data, u32 bytes);
+	void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes);
 	void OnWrite(u32 bytes);
 	void OnClose();
-	void OnUnreachable(const sockaddr_in6 &src);
+	void OnUnreachable(const NetAddr &src);
 
 protected:
 	bool PostHello();
