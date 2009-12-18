@@ -222,15 +222,13 @@ Port TCPServer::GetPort()
     // Get bound port if it was random
     if (_port == 0)
     {
-        sockaddr_in6 addr;
-        int namelen = sizeof(addr);
-        if (getsockname(_socket, (sockaddr*)&addr, &namelen))
+		_port = GetBoundPort(_socket);
+
+        if (!_port)
         {
             FATAL("TCPServer") << "Unable to get own address: " << SocketGetLastErrorString();
             return 0;
         }
-
-        _port = ntohs(addr.sin6_port);
     }
 
     return _port;
@@ -1120,16 +1118,13 @@ Port UDPEndpoint::GetPort()
     // Get bound port if it was random
     if (_port == 0)
     {
-        sockaddr_in6 addr;
-        int namelen = sizeof(addr);
-        if (getsockname(_socket, (sockaddr*)&addr, &namelen))
+		_port = GetBoundPort(_socket);
+
+		if (!_port)
         {
             FATAL("UDPEndpoint") << "Unable to get own address: " << SocketGetLastErrorString();
             return 0;
         }
-
-		// Same placement for IPv4 and IPv6
-        _port = ntohs(addr.sin6_port);
     }
 
     return _port;

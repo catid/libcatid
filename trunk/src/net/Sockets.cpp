@@ -182,6 +182,19 @@ namespace cat
 		return 0 == bind(s, reinterpret_cast<sockaddr*>( &addr ), sizeof(addr));
 	}
 
+	Port GetBoundPort(Socket s)
+	{
+        sockaddr_in6 addr;
+        int namelen = sizeof(addr);
+
+		// If socket name cannot be determined,
+        if (getsockname(s, reinterpret_cast<sockaddr*>( &addr ), &namelen))
+            return 0;
+
+		// Port is placed in the same location for IPv4 and IPv6
+        return ntohs(addr.sin6_port);
+	}
+
 	// Run startup and cleanup functions needed under some OS
 	bool StartupSockets()
 	{

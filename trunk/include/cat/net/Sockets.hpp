@@ -50,13 +50,15 @@ namespace cat {
 //// Data Types
 
 #if defined(CAT_MS_SOCKET_API)
-typedef SOCKET Socket;
-#define CAT_SOCKET_INVALID INVALID_SOCKET
-#define CAT_SOCKET_ERROR SOCKET_ERROR
+	typedef SOCKET Socket;
+# define CAT_SOCKET_INVALID INVALID_SOCKET
+# define CAT_SOCKET_ERROR SOCKET_ERROR
+# define CloseSocket(s) (0 == closesocket(s))
 #else
-typedef int Socket;
-#define CAT_SOCKET_INVALID -1
-#define CAT_SOCKET_ERROR -1
+	typedef int Socket;
+# define CAT_SOCKET_INVALID -1
+# define CAT_SOCKET_ERROR -1
+# define CloseSocket(s) (0 == close(s))
 #endif
 
 typedef u16 Port;
@@ -80,7 +82,7 @@ class NetAddr
 		u32 _valid;
 		struct {
 			Port _port; // Host order
-			ADDRESS_FAMILY _family; // Host order
+			u16 _family; // Host order
 		};
 	};
 
@@ -144,14 +146,10 @@ void CleanupSockets();
 bool CreateSocket(int type, int protocol, bool SupportIPv4, Socket &out_s, bool &out_OnlyIPv4);
 
 // Returns true on success
-#if defined(CAT_MS_SOCKET_API)
-CAT_INLINE bool CloseSocket(Socket s) { return 0 == closesocket(s); }
-#else
-CAT_INLINE bool CloseSocket(Socket s) { return 0 == close(s); }
-#endif
-
-// Returns true on success
 bool NetBind(Socket s, Port port, bool OnlyIPv4);
+
+// Returns 0 on failure
+Port GetBoundPort(Socket s);
 
 
 //// Error Codes
