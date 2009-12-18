@@ -35,8 +35,6 @@
 #if defined(CAT_OS_WINDOWS) || defined(CAT_OS_WINDOWS_CE)
 # define CAT_MS_SOCKET_API
 # include <WS2tcpip.h>
-# include <MSWSock.h>
-# include <cat/port/WindowsInclude.hpp>
 #else
 # define CAT_UNIX_SOCKET_API
 #endif
