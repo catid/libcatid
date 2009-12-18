@@ -179,7 +179,7 @@ namespace cat
 		}
 
 		// Attempt to bind
-		return 0 == bind(s, (sockaddr*)&addr, sizeof(addr));
+		return 0 == bind(s, reinterpret_cast<sockaddr*>( &addr ), sizeof(addr));
 	}
 }
 
