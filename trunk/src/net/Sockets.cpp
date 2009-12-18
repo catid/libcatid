@@ -442,20 +442,20 @@ bool NetAddr::Unwrap(SockAddr &addr, int &addr_len, bool PromoteToIP6) const
 			addr6->sin6_family = AF_INET6;
 			addr6->sin6_port = htons(_port);
 
-			u32 ipv4 = _ip.v4;
+			u32 ipv4 = ntohs(_ip.v4);
 
 			// If loopback,
-			if ((ipv4 & 0x00FFFFFF) == 0x0000007f)
+			if ((ipv4 & 0xFFFFFF00) == 0x7f000000)
 			{
 				addr6->sin6_addr.u.Byte[15] = 1;
 			}
 			else
 			{
 				addr6->sin6_addr.u.Word[5] = 0xFFFF;
-				addr6->sin6_addr.u.Byte[12] = (u8)(ipv4);
-				addr6->sin6_addr.u.Byte[13] = (u8)(ipv4 >> 8);
-				addr6->sin6_addr.u.Byte[14] = (u8)(ipv4 >> 16);
-				addr6->sin6_addr.u.Byte[15] = (u8)(ipv4 >> 24);
+				addr6->sin6_addr.u.Byte[12] = (u8)(ipv4 >> 24);
+				addr6->sin6_addr.u.Byte[13] = (u8)(ipv4 >> 16);
+				addr6->sin6_addr.u.Byte[14] = (u8)(ipv4 >> 8);
+				addr6->sin6_addr.u.Byte[15] = (u8)(ipv4);
 			}
 
 			addr_len = sizeof(sockaddr_in6);
@@ -500,12 +500,12 @@ void NetAddr::PromoteTo6()
 	{
 		_family = AF_INET6;
 
-		u32 ipv4 = _ip.v4;
+		u32 ipv4 = ntohs(_ip.v4);
 
 		_ip.v6[0] = 0;
 
 		// If loopback,
-		if ((ipv4 & 0x00FFFFFF) == 0x0000007f)
+		if ((ipv4 & 0xFFFFFF00) == 0x7f000000)
 		{
 			_ip.v6_words[4] = 0;
 			_ip.v6_words[5] = 0;
@@ -518,10 +518,10 @@ void NetAddr::PromoteTo6()
 		{
 			_ip.v6_words[4] = 0;
 			_ip.v6_words[5] = 0xFFFF;
-			_ip.v6_bytes[12] = (u8)(ipv4);
-			_ip.v6_bytes[13] = (u8)(ipv4 >> 8);
-			_ip.v6_bytes[14] = (u8)(ipv4 >> 16);
-			_ip.v6_bytes[15] = (u8)(ipv4 >> 24);
+			_ip.v6_bytes[12] = (u8)(ipv4 >> 24);
+			_ip.v6_bytes[13] = (u8)(ipv4 >> 16);
+			_ip.v6_bytes[14] = (u8)(ipv4 >> 8);
+			_ip.v6_bytes[15] = (u8)(ipv4);
 		}
 	}
 }

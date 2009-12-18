@@ -40,8 +40,8 @@
 #include <unistd.h>
 #endif
 
-#define CAT_IP6_LOOPBACK "::1"
 #define CAT_IP4_LOOPBACK "127.0.0.1"
+#define CAT_IP6_LOOPBACK "::1"
 
 namespace cat {
 
