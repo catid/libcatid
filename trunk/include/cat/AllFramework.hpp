@@ -51,6 +51,8 @@
 #include <cat/parse/BufferTok.hpp>
 #include <cat/parse/MessageRouter.hpp>
 
+#include <cat/net/Sockets.hpp>
+
 #include <cat/io/ThreadPoolFiles.hpp>
 #include <cat/net/ThreadPoolSockets.hpp>
 
