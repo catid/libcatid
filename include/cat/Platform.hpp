@@ -305,6 +305,9 @@ namespace cat {
 #elif defined(__APPLE__) && (defined(__MACH__) || defined(__DARWIN__))
 # define CAT_OS_OSX
 
+#elif defined(__OpenBSD__) || defined(__NetBSD__) || defined(__FreeBSD__)
+# define CAT_OS_BSD
+
 #elif defined(__linux__) || defined(__unix__)
 # define CAT_OS_LINUX
 
