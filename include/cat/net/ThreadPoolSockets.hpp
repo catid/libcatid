@@ -35,6 +35,11 @@
 #include <cat/threads/ThreadPool.hpp>
 #include <cat/net/Sockets.hpp>
 
+#if defined(CAT_MS_SOCKET_API)
+# include <MSWSock.h>
+# include <cat/port/WindowsInclude.hpp>
+#endif
+
 namespace cat {
 
 
