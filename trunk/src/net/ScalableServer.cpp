@@ -279,16 +279,35 @@ ConnectionMap::ConnectionMap()
 	_insert_head_key1 = 0;
 }
 
-u32 ConnectionMap::hash_addr(const sockaddr_in6 &addr, u32 salt)
+u32 ConnectionMap::hash_addr(const NetAddr &addr, u32 salt)
 {
-	u32 key = MurmurHash32(GetIP6(addr), sizeof(IP6), salt);
+	u32 key;
+
+	// If address is IPv6,
+	if (addr.Is6())
+	{
+		// Hash 128-bit address to 32 bits
+		key = MurmurHash32(addr.GetIP6(), NetAddr::IP6_BYTES, salt);
+	}
+	else // assuming IPv4 and address is not invalid
+	{
+		key = addr.GetIP4();
+
+		// Thomas Wang's integer hash function
+		// http://www.cris.com/~Ttwang/tech/inthash.htm
+		key = (key ^ 61) ^ (key >> 16);
+		key = key + (key << 3);
+		key = key ^ (key >> 4);
+		key = key * 0x27d4eb2d;
+		key = key ^ (key >> 15);
+	}
 
 	// Hide this from the client-side to prevent users from generating
 	// hash table collisions by changing their port number.
 	const int SECRET_CONSTANT = 104729; // 1,000th prime number
 
 	// Map 16-bit port 1:1 to a random-looking number
-	key += ((u32)addr.sin6_port * (SECRET_CONSTANT*4 + 1)) & 0xffff;
+	key += ((u32)addr.GetPort() * (SECRET_CONSTANT*4 + 1)) & 0xffff;
 
 	return key % ConnectionMap::HASH_TABLE_SIZE;
 }
@@ -299,7 +318,7 @@ u32 ConnectionMap::next_collision_key(u32 key)
 	return (key * COLLISION_MULTIPLIER + COLLISION_INCREMENTER) % HASH_TABLE_SIZE;
 }
 
-Connection *ConnectionMap::Get(const sockaddr_in6 &addr)
+Connection *ConnectionMap::Get(const NetAddr &addr)
 {
 	Connection *conn;
 
@@ -314,8 +333,7 @@ Connection *ConnectionMap::Get(const sockaddr_in6 &addr)
 
 		// If the slot is used and the user address matches,
 		if (conn->IsFlagSet(Connection::FLAG_USED) &&
-			conn->remote_port == GetPort6(addr) &&
-			IP6Equal(GetIP6(addr), &conn->remote_ip))
+			conn->client_addr == addr)
 		{
 			// Return this slot with reference still held
 			return conn;
@@ -345,7 +363,7 @@ Connection *ConnectionMap::Get(const sockaddr_in6 &addr)
 	Insertion is only done from a single thread, so it is guaranteed
 	that the address does not already exist in the hash table.
 */
-Connection *ConnectionMap::Insert(const sockaddr_in6 &addr)
+Connection *ConnectionMap::Insert(const NetAddr &addr)
 {
 	// Hash IP:port:salt to get the hash table key
 	u32 key = hash_addr(addr, _hash_salt);
@@ -483,7 +501,7 @@ SessionEndpoint::~SessionEndpoint()
 
 }
 
-void SessionEndpoint::OnRead(ThreadPoolLocalStorage *tls, const sockaddr_in6 &src, u8 *data, u32 bytes)
+void SessionEndpoint::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes)
 {
 	// Look up an existing connection for this source address
 	Connection *conn = _conn_map->Get(src);
@@ -517,7 +535,7 @@ void SessionEndpoint::OnClose()
 void SessionEndpoint::HandleMessageLayer(Connection *conn, u8 *msg, int bytes)
 {
 	INFO("SessionEndpoint") << "Got message with " << bytes << " bytes from "
-		<< IP6ToString(&conn->remote_ip) << ":" << conn->remote_port;
+		<< conn->client_addr.IPToString() << ":" << conn->client_addr.GetPort();
 }
 
 
@@ -744,7 +762,7 @@ u32 ScalableServer::GetTotalPopulation()
 	return population;
 }
 
-void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, const sockaddr_in6 &src, u8 *data, u32 bytes)
+void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes)
 {
 	// c2s 00 (protocol magic[4])
 	if (bytes == 1+4 && data[0] == C2S_HELLO)
@@ -895,8 +913,7 @@ void ScalableServer::OnRead(ThreadPoolLocalStorage *tls, const sockaddr_in6 &src
 			// Initialize Connection object
 			memcpy(conn->first_challenge, challenge, CHALLENGE_BYTES);
 			memcpy(conn->cached_answer, pkt3_answer, ANSWER_BYTES);
-			memcpy(&conn->remote_ip, GetIP6(src), sizeof(IP6));
-			conn->remote_port = GetPort6(src);
+			conn->client_addr = src;
 			conn->server_port = server_port;
 			conn->server_endpoint = server_endpoint;
 			conn->last_recv_tsc = Clock::msec();
@@ -1043,7 +1060,7 @@ ScalableClient::~ScalableClient()
 	}
 }
 
-bool ScalableClient::Connect(ThreadPoolLocalStorage *tls, const sockaddr_in6 &addr, const void *server_key, int key_bytes)
+bool ScalableClient::Connect(ThreadPoolLocalStorage *tls, const NetAddr &addr, const void *server_key, int key_bytes)
 {
 	// Verify that we are not already connected
 	if (_connected)
@@ -1110,10 +1127,10 @@ bool ScalableClient::Connect(ThreadPoolLocalStorage *tls, const sockaddr_in6 &ad
 	return true;
 }
 
-void ScalableClient::OnUnreachable(const sockaddr_in6 &src)
+void ScalableClient::OnUnreachable(const NetAddr &src)
 {
 	// If IP matches the server and we're not connected yet,
-	if (!_connected && IP6Equal(GetIP6(src), GetIP6(_server_addr)))
+	if (!_connected && _server_addr.EqualsIPOnly(src))
 	{
 		WARN("ScalableClient") << "Failed to connect: ICMP error received from server address";
 
@@ -1124,10 +1141,10 @@ void ScalableClient::OnUnreachable(const sockaddr_in6 &src)
 	}
 }
 
-void ScalableClient::OnRead(ThreadPoolLocalStorage *tls, const sockaddr_in6 &src, u8 *data, u32 bytes)
+void ScalableClient::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes)
 {
 	// If packet source is not the server, ignore this packet
-	if (!AddressEqual(src, _server_addr))
+	if (_server_addr != src)
 		return;
 
 	// If connection has completed
@@ -1205,7 +1222,7 @@ void ScalableClient::OnRead(ThreadPoolLocalStorage *tls, const sockaddr_in6 &src
 		Port server_session_port = getLE(*port);
 
 		// Ignore packet if the port doesn't make sense
-		if (server_session_port > GetPort6(_server_addr))
+		if (server_session_port > _server_addr.GetPort())
 		{
 			Skein key_hash;
 
@@ -1216,7 +1233,7 @@ void ScalableClient::OnRead(ThreadPoolLocalStorage *tls, const sockaddr_in6 &src
 				_connected = true;
 
 				// Note: Will now only listen to packets from the session port
-				SetPort6(_server_addr, server_session_port);
+				_server_addr.SetPort(server_session_port);
 
 				OnConnect();
 			}

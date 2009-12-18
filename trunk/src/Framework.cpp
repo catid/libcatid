@@ -45,7 +45,7 @@ bool cat::InitializeFramework()
 	}
 
 	// Initialize logging subsystem with INFO reporting level
-	Logging::ref()->Initialize(LVL_INFO);
+	Logging::ref()->Initialize(LVL_INANE);
 
 	// Initialize disk settings subsystem
 	Settings::ref()->read();

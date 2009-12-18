@@ -38,12 +38,6 @@
 using namespace std;
 using namespace cat;
 
-
-#if defined (CAT_COMPILER_MSVC)
-#pragma comment(lib, "ws2_32.lib")
-#endif
-
-
 // Amount of data to receive overlapped, tuned to exactly fit a
 // 2048-byte buffer in the region allocator.
 static const int RECV_DATA_SIZE = 2048 - sizeof(TypedOverlapped) - 8; // -8 for rebroadcast inflation
@@ -69,92 +63,6 @@ void RecvFromOverlapped::Reset()
 
 namespace cat
 {
-    std::string SocketGetLastErrorString()
-    {
-        return SocketGetErrorString(WSAGetLastError());
-    }
-
-    std::string SocketGetErrorString(int code)
-    {
-        switch (code)
-        {
-        case WSAEADDRNOTAVAIL:         return "[Address not available]";
-        case WSAEADDRINUSE:            return "[Address is in use]";
-        case WSANOTINITIALISED:        return "[Winsock not initialized]";
-        case WSAENETDOWN:              return "[Network is down]";
-        case WSAEINPROGRESS:           return "[Operation in progress]";
-        case WSA_NOT_ENOUGH_MEMORY:    return "[Out of memory]";
-        case WSA_INVALID_HANDLE:       return "[Invalid handle]";
-        case WSA_INVALID_PARAMETER:    return "[Invalid parameter]";
-        case WSAEFAULT:                return "[Fault]";
-        case WSAEINTR:                 return "[Interrupted]";
-        case WSAEINVAL:                return "[Invalid]";
-        case WSAEISCONN:               return "[Is connected]";
-        case WSAENETRESET:             return "[Network reset]";
-        case WSAENOTSOCK:              return "[Parameter is not a socket]";
-        case WSAEOPNOTSUPP:            return "[Operation not supported]";
-        case WSAESOCKTNOSUPPORT:       return "[Socket type not supported]";
-        case WSAESHUTDOWN:             return "[Shutdown]";
-        case WSAEWOULDBLOCK:           return "[Operation would block]";
-        case WSAEMSGSIZE:              return "[Message size]";
-        case WSAETIMEDOUT:             return "[Operation timed out]";
-        case WSAECONNRESET:            return "[Connection reset]";
-        case WSAENOTCONN:              return "[Socket not connected]";
-        case WSAEDISCON:               return "[Disconnected]";
-		case WSAENOBUFS:               return "[No buffer space available]";
-        case ERROR_IO_PENDING:         return "[IO operation will complete in IOCP worker thread]";
-        case WSA_OPERATION_ABORTED:    return "[Operation aborted]";
-        case ERROR_CONNECTION_ABORTED: return "[Connection aborted locally]";
-        case ERROR_NETNAME_DELETED:    return "[Socket was already closed]";
-        case ERROR_PORT_UNREACHABLE:   return "[Destination port is unreachable]";
-        case ERROR_MORE_DATA:          return "[More data is available]";
-        };
-
-        ostringstream oss;
-        oss << "[Error code: " << code << " (0x" << hex << code << ")]";
-        return oss.str();
-    }
-
-	std::string AddressToString(const sockaddr_in6 &addr)
-	{
-		char addr_str[INET6_ADDRSTRLEN + 32];
-		DWORD str_len = sizeof(addr_str);
-
-		// Because inet_ntop() is not supported in Windows XP, only Vista+
-		if (SOCKET_ERROR == WSAAddressToString((sockaddr*)&addr, sizeof(addr), 0,
-											   addr_str, &str_len))
-		{
-			return SocketGetLastErrorString();
-		}
-
-		return addr_str;
-	}
-
-	std::string IP6ToString(const IP6 *ip)
-	{
-		sockaddr_in6 addr;
-		CAT_OBJCLR(addr);
-		addr.sin6_family = AF_INET6;
-		//addr.sin6_port = 0;
-		memcpy(&addr.sin6_addr, ip, sizeof(IP6));
-
-		return AddressToString(addr);
-	}
-
-	bool StringToAddress6(const char *in_str, sockaddr_in6 &out_addr)
-	{
-		int out_addr_len = sizeof(out_addr);
-
-		if (SOCKET_ERROR == WSAStringToAddress((char*)in_str, AF_INET6, 0,
-									   (sockaddr*)&out_addr, &out_addr_len))
-		{
-			WARN("IOCPSockets") << "Unable to parse '" << in_str << "': " << SocketGetLastErrorString();
-			return false;
-		}
-
-		return true;
-	}
-
     u8 *GetPostBuffer(u32 bytes)
     {
         TypedOverlapped *sendOv = reinterpret_cast<TypedOverlapped*>(
@@ -215,6 +123,15 @@ bool TCPServer::Bind(Port port)
         FATAL("TCPServer") << "Unable to create a TCP socket: " << SocketGetLastErrorString();
         return false;
     }
+
+	// Turn off IPV6_V6ONLY so that IPv4 is able to communicate with the socket also
+	int on = 0;
+	if (setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&on, sizeof(on)))
+	{
+		FATAL("TCPServer") << "Unable to allow IPv4: " << SocketGetLastErrorString();
+		closesocket(s);
+		return false;
+	}
 
     // Set SO_SNDBUF to zero for a zero-copy network stack (we maintain the buffers)
     int buffsize = 0;
@@ -430,20 +347,20 @@ void TCPServer::OnAcceptExComplete(int error, AcceptExOverlapped *overlapped)
 
     // Get local and remote socket addresses
     int localLen = 0, remoteLen = 0;
-	sockaddr_in6 *local, *remote;
+	sockaddr *local, *remote;
 
 	const int addr_buf_len = sizeof(overlapped->addresses.addr) + 16;
 
 	_lpfnGetAcceptExSockAddrs(&overlapped->addresses, 0, addr_buf_len, addr_buf_len,
-							  (sockaddr**)&local, &localLen,
-							  (sockaddr**)&remote, &remoteLen);
+							  &local, &localLen, &remote, &remoteLen);
 
     // Instantiate a server connection
     TCPServerConnection *conn = InstantiateServerConnection();
     if (!conn) return;
 
     // Pass the connection parameters to the connection instance for acceptance
-    if (!conn->AcceptConnection(_socket, overlapped->acceptSocket, _lpfnDisconnectEx, local, remote))
+    if (!conn->AcceptConnection(_socket, overlapped->acceptSocket, _lpfnDisconnectEx,
+								NetAddr(local), NetAddr(remote)))
         conn->ReleaseRef();
 
     // Queue up another AcceptEx to fill in for this one
@@ -513,7 +430,7 @@ bool TCPServerConnection::PostToClient(void *buffer, u32 bytes)
 
 bool TCPServerConnection::AcceptConnection(SOCKET listenSocket, SOCKET acceptSocket,
                                 LPFN_DISCONNECTEX lpfnDisconnectEx,
-                                sockaddr_in6 *acceptAddress, sockaddr_in6 *remoteClientAddress)
+                                const NetAddr &acceptAddress, const NetAddr &remoteClientAddress)
 {
     // If we return false here this object will be deleted.
 
@@ -558,7 +475,7 @@ bool TCPServerConnection::AcceptConnection(SOCKET listenSocket, SOCKET acceptSoc
     // and use DisconnectClient() to abort the connection instead now.
 
     // Let the derived class determine if the connection should be accepted
-    if (!OnConnectFromClient(*remoteClientAddress))
+    if (!OnConnectFromClient(remoteClientAddress))
         DisconnectClient();
     else
     {
@@ -727,7 +644,7 @@ bool TCPClient::ValidClient()
     return _socket != SOCKET_ERROR;
 }
 
-bool TCPClient::Connect(const sockaddr_in6 &remoteServerAddress)
+bool TCPClient::Connect(const NetAddr &remoteServerAddress)
 {
     // Create an unbound, overlapped TCP socket for the listen port
     SOCKET s = WSASocket(AF_INET6, SOCK_STREAM, IPPROTO_TCP, 0, 0, WSA_FLAG_OVERLAPPED);
@@ -737,6 +654,15 @@ bool TCPClient::Connect(const sockaddr_in6 &remoteServerAddress)
         FATAL("TCPClient") << "Unable to create a TCP socket: " << SocketGetLastErrorString();
         return false;
     }
+
+	// Turn off IPV6_V6ONLY so that IPv4 is able to communicate with the socket also
+	int on = 0;
+	if (setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&on, sizeof(on)))
+	{
+		FATAL("TCPClient") << "Unable to allow IPv4: " << SocketGetLastErrorString();
+		closesocket(s);
+		return false;
+	}
 
     // Set SO_SNDBUF to zero for a zero-copy network stack (we maintain the buffers)
     int buffsize = 0;
@@ -806,7 +732,7 @@ bool TCPClient::PostToServer(void *buffer, u32 bytes)
 }
 
 
-bool TCPClient::QueueConnectEx(const sockaddr_in6 &remoteServerAddress)
+bool TCPClient::QueueConnectEx(const NetAddr &remoteServerAddress)
 {
     // Get ConnectEx() interface
     GUID GuidConnectEx = WSAID_CONNECTEX;
@@ -820,12 +746,21 @@ bool TCPClient::QueueConnectEx(const sockaddr_in6 &remoteServerAddress)
         return false;
     }
 
+	// Unwrap NetAddr
+	NetAddr::SockAddr addr_out;
+	int addr_len;
+	if (!remoteServerAddress.Unwrap(addr_out, addr_len))
+	{
+		FATAL("TCPClient") << "Unable to execute ConnectEx: Server address invalid";
+		return false;
+	}
+
     // Create a new overlapped structure for receiving
     TypedOverlapped *overlapped = reinterpret_cast<TypedOverlapped*>(
 		RegionAllocator::ii->Acquire(sizeof(TypedOverlapped)) );
     if (!overlapped)
     {
-        FATAL("TCPClient") << "Unable to allocate a ConnectEx overlapped structure: Out of memory";
+		FATAL("TCPClient") << "Unable to allocate a ConnectEx overlapped structure: Out of memory";
         return false;
     }
     overlapped->Set(OVOP_CONNECT_EX);
@@ -833,8 +768,8 @@ bool TCPClient::QueueConnectEx(const sockaddr_in6 &remoteServerAddress)
     AddRef();
 
     // Queue up a ConnectEx()
-    BOOL result = lpfnConnectEx(_socket, (sockaddr*)&remoteServerAddress,
-                                sizeof(remoteServerAddress), 0, 0, 0, &overlapped->ov); 
+    BOOL result = lpfnConnectEx(_socket, reinterpret_cast<sockaddr*>( &addr_out ),
+                                addr_len, 0, 0, 0, &overlapped->ov); 
 
     // This overlapped operation will always complete unless
     // we get an error code other than ERROR_IO_PENDING.
@@ -1164,13 +1099,22 @@ bool UDPEndpoint::Bind(Port port, bool ignoreUnreachable)
         return false;
     }
 
+	// Turn off IPV6_V6ONLY so that IPv4 is able to communicate with the socket also
+	int on = 0;
+	if (setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&on, sizeof(on)))
+	{
+		FATAL("UDPEndpoint") << "Unable to allow IPv4: " << SocketGetLastErrorString();
+		closesocket(s);
+		return false;
+	}
+
     // Set SO_SNDBUF to zero for a zero-copy network stack (we maintain the buffers)
     int buffsize = 0;
     if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, (char*)&buffsize, sizeof(buffsize)))
     {
-        FATAL("UDPEndpoint") << "Unable to zero the send buffer: " << SocketGetLastErrorString();
-        closesocket(s);
-        return false;
+		FATAL("UDPEndpoint") << "Unable to zero the send buffer: " << SocketGetLastErrorString();
+		closesocket(s);
+		return false;
     }
 
     _socket = s;
@@ -1233,7 +1177,7 @@ Port UDPEndpoint::GetPort()
     return _port;
 }
 
-bool UDPEndpoint::Post(const sockaddr_in6 &addr, void *buffer, u32 bytes)
+bool UDPEndpoint::Post(const NetAddr &addr, void *buffer, u32 bytes)
 {
 	if (_closing)
 		return false;
@@ -1335,10 +1279,16 @@ void UDPEndpoint::OnWSARecvFromComplete(ThreadPoolLocalStorage *tls, int error, 
     }
 }
 
-bool UDPEndpoint::QueueWSASendTo(const sockaddr_in6 &addr, TypedOverlapped *sendOv, u32 bytes)
+bool UDPEndpoint::QueueWSASendTo(const NetAddr &addr, TypedOverlapped *sendOv, u32 bytes)
 {
     if (_closing)
         return false;
+
+	// Unwrap NetAddr object to something sockaddr-compatible
+	NetAddr::SockAddr out_addr;
+	int addr_len;
+	if (!addr.Unwrap(out_addr, addr_len))
+		return false;
 
     WSABUF wsabuf;
     wsabuf.buf = reinterpret_cast<CHAR*>( GetTrailingBytes(sendOv) );
@@ -1348,8 +1298,8 @@ bool UDPEndpoint::QueueWSASendTo(const sockaddr_in6 &addr, TypedOverlapped *send
 
     // Fire off a WSASendTo() and forget about it
     int result = WSASendTo(_socket, &wsabuf, 1, 0, 0,
-						   reinterpret_cast<const sockaddr*>( &addr ),
-						   sizeof(addr), &sendOv->ov, 0);
+						   reinterpret_cast<const sockaddr*>( &out_addr ),
+						   addr_len, &sendOv->ov, 0);
 
     // This overlapped operation will always complete unless
     // we get an error code other than ERROR_IO_PENDING.
