@@ -43,11 +43,16 @@ namespace cat
 {
     std::string SocketGetLastErrorString()
     {
+#if defined(CAT_MS_SOCKET_API)
         return SocketGetErrorString(WSAGetLastError());
+#else
+        return SocketGetErrorString(errno);
+#endif
     }
 
     std::string SocketGetErrorString(int code)
     {
+#if defined(CAT_MS_SOCKET_API)
         switch (code)
         {
         case WSAEADDRNOTAVAIL:         return "[Address not available]";
@@ -81,12 +86,14 @@ namespace cat
         case ERROR_PORT_UNREACHABLE:   return "[Destination port is unreachable]";
         case ERROR_MORE_DATA:          return "[More data is available]";
         };
+#endif
 
         ostringstream oss;
         oss << "[Error code: " << code << " (0x" << hex << code << ")]";
         return oss.str();
     }
 
+#if defined(CAT_MS_SOCKET_API)
 	static bool IsWindowsVistaOrNewer()
 	{
 		DWORD dwVersion = 0; 
@@ -98,6 +105,16 @@ namespace cat
 		// 5: 2000(.0), XP(.1), 2003(.2)
 		// 6: Vista(.0), 7(.1)
 		return (dwMajorVersion >= 6);
+	}
+#endif
+
+	// Returns true on success
+	static bool DisableV6ONLY(Socket s)
+	{
+		int on = 0;
+
+		// Turn off IPV6_V6ONLY so that IPv4 is able to communicate with the socket also
+		return 0 == setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&on, sizeof(on));
 	}
 
 	bool CreateSocket(int type, int protocol, bool SupportIPv4, Socket &out_s, bool &out_OnlyIPv4)
@@ -111,18 +128,14 @@ namespace cat
 			Socket s = WSASocket(AF_INET6, type, protocol, 0, 0, WSA_FLAG_OVERLAPPED);
 
 			// If the socket was created,
-			if (s != CAT_SOCKET_INVALID)
+			while (s != CAT_SOCKET_INVALID)
 			{
-				// If supporting IPv4 as well,
-				if (SupportIPv4)
+				// Attempt to disable IPv6_Only flag
+				if (SupportIPv4 && !DisableV6ONLY(s))
 				{
-					// Turn off IPV6_V6ONLY so that IPv4 is able to communicate with the socket also
-					int on = 0;
-					if (setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&on, sizeof(on)))
-					{
-						CloseSocket(s);
-						return false;
-					}
+					// If IPv4 cannot be supported, just create an IPv4 socket
+					CloseSocket(s);
+					break;
 				}
 
 				out_OnlyIPv4 = false;
