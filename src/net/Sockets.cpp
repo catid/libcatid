@@ -396,18 +396,48 @@ std::string NetAddr::IPToString() const
 	}
 }
 
-bool NetAddr::Unwrap(SockAddr &addr, int &addr_len) const
+bool NetAddr::Unwrap(SockAddr &addr, int &addr_len, bool PromoteToIP6) const
 {
 	if (_family == AF_INET)
 	{
-		sockaddr_in *addr4 = reinterpret_cast<sockaddr_in*>( &addr );
+		// If the user wants us to unwrap to an IPv6 address,
+		if (PromoteToIP6)
+		{
+			sockaddr_in6 *addr6 = reinterpret_cast<sockaddr_in6*>( &addr );
 
-		addr4->sin_family = AF_INET;
-		addr4->sin_port = htons(_port);
-		addr4->sin_addr.S_un.S_addr = _ip.v4;
-		CAT_OBJCLR(addr4->sin_zero);
+			CAT_OBJCLR(*addr6);
+			addr6->sin6_family = AF_INET6;
+			addr6->sin6_port = htons(_port);
 
-		addr_len = sizeof(sockaddr_in);
+			u32 ipv4 = _ip.v4;
+
+			// If loopback,
+			if ((ipv4 & 0x00FFFFFF) == 0x0000007f)
+			{
+				addr6->sin6_addr.u.Byte[15] = 1;
+			}
+			else
+			{
+				addr6->sin6_addr.u.Word[5] = 0xFFFF;
+				addr6->sin6_addr.u.Byte[12] = (u8)(ipv4 >> 24);
+				addr6->sin6_addr.u.Byte[13] = (u8)(ipv4 >> 16);
+				addr6->sin6_addr.u.Byte[14] = (u8)(ipv4 >> 8);
+				addr6->sin6_addr.u.Byte[15] = (u8)(ipv4);
+			}
+
+			addr_len = sizeof(sockaddr_in6);
+		}
+		else
+		{
+			sockaddr_in *addr4 = reinterpret_cast<sockaddr_in*>( &addr );
+
+			addr4->sin_family = AF_INET;
+			addr4->sin_port = htons(_port);
+			addr4->sin_addr.S_un.S_addr = _ip.v4;
+			CAT_OBJCLR(addr4->sin_zero);
+
+			addr_len = sizeof(sockaddr_in);
+		}
 
 		return true;
 	}
@@ -427,5 +457,38 @@ bool NetAddr::Unwrap(SockAddr &addr, int &addr_len) const
 	else
 	{
 		return false;
+	}
+}
+
+// Promote an IPv4 address to an IPv6 address if needed
+void NetAddr::PromoteTo6()
+{
+	if (_family == AF_INET)
+	{
+		_family = AF_INET6;
+
+		u32 ipv4 = _ip.v4;
+
+		_ip.v6[0] = 0;
+
+		// If loopback,
+		if ((ipv4 & 0x00FFFFFF) == 0x0000007f)
+		{
+			_ip.v6_words[4] = 0;
+			_ip.v6_words[5] = 0;
+			_ip.v6_bytes[12] = 0;
+			_ip.v6_bytes[13] = 0;
+			_ip.v6_bytes[14] = 0;
+			_ip.v6_bytes[15] = 1;
+		}
+		else
+		{
+			_ip.v6_words[4] = 0;
+			_ip.v6_words[5] = 0xFFFF;
+			_ip.v6_bytes[12] = (u8)(ipv4 >> 24);
+			_ip.v6_bytes[13] = (u8)(ipv4 >> 16);
+			_ip.v6_bytes[14] = (u8)(ipv4 >> 8);
+			_ip.v6_bytes[15] = (u8)(ipv4);
+		}
 	}
 }

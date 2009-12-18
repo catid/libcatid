@@ -240,6 +240,7 @@ private:
     Socket _socket;
     TypedOverlapped *_recvOv;
     volatile u32 _disconnecting;
+	bool _ipv6;
 
 private:
     bool QueueConnectEx(const NetAddr &remoteServerAddress);
@@ -299,6 +300,7 @@ public:
 
     bool Valid();
     Port GetPort();
+	CAT_INLINE bool Is6() { return _ipv6; } // Returns true if socket is IPv6
 
     // For servers: Bind() with ignoreUnreachable = true ((default))
     // For clients: Bind() with ignoreUnreachable = false and call this
@@ -307,8 +309,11 @@ public:
 
     void Close(); // Invalidates this object
     bool Bind(Port port = 0, bool ignoreUnreachable = true);
-    bool Post(const NetAddr &addr, void *data, u32 bytes);
     bool QueueWSARecvFrom();
+
+	// If Is6() == true, the address must be promoted to IPv6
+	// before calling Post() with addr.PromoteTo6()
+	bool Post(const NetAddr &addr, void *data, u32 bytes);
 
 protected:
     virtual void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &addr, u8 *data, u32 bytes) = 0; // false = close
@@ -320,6 +325,7 @@ private:
     Socket _socket;
     Port _port;
     volatile u32 _closing;
+	bool _ipv6;
 
 private:
     bool QueueWSARecvFrom(RecvFromOverlapped *recvOv);
