@@ -32,10 +32,13 @@
 #include <cat/Platform.hpp>
 #include <string>
 
-#if defined(CAT_OS_WINDOWS)
+#if defined(CAT_OS_WINDOWS) || defined(CAT_OS_WINDOWS_CE)
+# define CAT_MS_SOCKET_API
 # include <WS2tcpip.h>
 # include <MSWSock.h>
 # include <cat/port/WindowsInclude.hpp>
+#else
+# define CAT_UNIX_SOCKET_API
 #endif
 
 #define CAT_IP6_LOOPBACK "::1"
@@ -44,7 +47,13 @@
 namespace cat {
 
 
-//// Network Addresses
+//// Data Types
+
+#if defined(CAT_MS_SOCKET_API)
+typedef SOCKET Socket;
+#else
+typedef int Socket;
+#endif
 
 typedef u16 Port;
 
@@ -112,6 +121,23 @@ public:
 public:
 	bool Unwrap(SockAddr &addr, int &addr_len) const;
 };
+
+
+//// Helper Functions
+
+// Sets OnlyIPv4 if IPv6 will be unsupported
+// Returns true on success
+bool CreateSocket(int type, int protocol, bool SupportIPv4, Socket &out_s, bool &out_OnlyIPv4);
+
+// Returns true on success
+#if defined(CAT_MS_SOCKET_API)
+CAT_INLINE bool CloseSocket(Socket s) { return 0 == closesocket(s); }
+#else
+CAT_INLINE bool CloseSocket(Socket s) { return 0 == close(s); }
+#endif
+
+// Returns true on success
+bool NetBind(Socket s, Port port, bool OnlyIPv4);
 
 
 //// Error Codes

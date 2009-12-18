@@ -86,6 +86,101 @@ namespace cat
         oss << "[Error code: " << code << " (0x" << hex << code << ")]";
         return oss.str();
     }
+
+	static bool IsWindows2003OrEarlier()
+	{
+		DWORD dwVersion = 0; 
+		DWORD dwMajorVersion = 0;
+
+		dwVersion = GetVersion();
+		dwMajorVersion = (DWORD)(LOBYTE(LOWORD(dwVersion)));
+
+		// 5: 2000(.0), XP(.1), 2003(.2)
+		// 6: Vista(.0), 7(.1)
+		return (dwMajorVersion <= 5);
+	}
+
+	bool CreateSocket(int type, int protocol, bool SupportIPv4, Socket &out_s, bool &out_OnlyIPv4)
+	{
+		// Under Windows 2003 or earlier, when a server binds to an IPv6 address it
+		// cannot be contacted by IPv4 clients, which is currently a very bad thing,
+		// so just do IPv4 under Windows 2003 or earlier.
+		if (!IsWindows2003OrEarlier())
+		{
+			// Attempt to create an IPv6 socket
+			Socket s = WSASocket(AF_INET6, type, protocol, 0, 0, WSA_FLAG_OVERLAPPED);
+
+			// If the socket was created,
+			if (s != INVALID_SOCKET)
+			{
+				// If supporting IPv4 as well,
+				if (SupportIPv4)
+				{
+					// Turn off IPV6_V6ONLY so that IPv4 is able to communicate with the socket also
+					int on = 0;
+					if (setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&on, sizeof(on)))
+					{
+						CloseSocket(s);
+						return false;
+					}
+				}
+
+				out_OnlyIPv4 = false;
+				out_s = s;
+				return true;
+			}
+		}
+
+		// Attempt to create an IPv4 socket
+		Socket s = WSASocket(AF_INET, type, protocol, 0, 0, WSA_FLAG_OVERLAPPED);
+
+		// If the socket was created,
+		if (s != INVALID_SOCKET)
+		{
+			out_OnlyIPv4 = true;
+			out_s = s;
+			return true;
+		}
+
+		return false;
+	}
+
+	bool NetBind(Socket s, Port port, bool OnlyIPv4)
+	{
+		if (s == SOCKET_ERROR)
+			return false;
+
+		// Bind socket to port
+		sockaddr_in6 addr;
+		int addr_len;
+
+		// If only IPv4 is desired,
+		if (OnlyIPv4)
+		{
+			// Fill in IPv4 sockaddr within IPv6 addr
+			sockaddr_in *addr4 = reinterpret_cast<sockaddr_in*>( &addr );
+
+			addr4->sin_family = AF_INET;
+			addr4->sin_addr.S_un.S_addr = INADDR_ANY;
+			addr4->sin_port = htons(port);
+			CAT_OBJCLR(addr4->sin_zero);
+
+			addr_len = sizeof(sockaddr_in);
+		}
+		else
+		{
+			// Fill in IPv6 sockaddr
+			CAT_OBJCLR(addr);
+			addr.sin6_family = AF_INET6;
+			addr.sin6_addr = in6addr_any;
+			addr.sin6_port = htons(port);
+
+			addr_len = sizeof(sockaddr_in6);
+		}
+
+		// Attempt to bind
+		return 0 == bind(s, (sockaddr*)&addr, sizeof(addr));
+	}
 }
 
 
@@ -124,19 +219,24 @@ NetAddr &NetAddr::operator=(const NetAddr &addr)
 
 bool NetAddr::Wrap(const sockaddr_in6 &addr)
 {
-	// Initialize from IPv6 address
-	_family = AF_INET6;
-	_port = ntohs(addr.sin6_port);
-	memcpy(_ip.v6, &addr.sin6_addr, sizeof(_ip.v6));
-	return true;
+	// May be IPv4 that has been stuffed into an IPv6 sockaddr
+	return Wrap(reinterpret_cast<const sockaddr*>( &addr ));
 }
 bool NetAddr::Wrap(const sockaddr_in &addr)
 {
-	// Initialize from IPv4 address
-	_family = AF_INET;
-	_port = ntohs(addr.sin_port);
-	_ip.v4 = addr.sin_addr.S_un.S_addr;
-	return true;
+	// Can only fit IPv4 in this address structure
+	if (addr.sin_family == AF_INET)
+	{
+		_family = AF_INET;
+		_port = ntohs(addr.sin_port);
+		_ip.v4 = addr.sin_addr.S_un.S_addr;
+		return true;
+	}
+	else
+	{
+		_valid = 0;
+		return false;
+	}
 }
 bool NetAddr::Wrap(const sockaddr *addr)
 {
@@ -146,12 +246,20 @@ bool NetAddr::Wrap(const sockaddr *addr)
 	if (family == AF_INET)
 	{
 		const sockaddr_in *addr4 = reinterpret_cast<const sockaddr_in*>( addr );
-		return Wrap(*addr4);
+
+		_family = AF_INET;
+		_port = ntohs(addr4->sin_port);
+		_ip.v4 = addr4->sin_addr.S_un.S_addr;
+		return true;
 	}
 	else if (family == AF_INET6)
 	{
-		const sockaddr_in *addr6 = reinterpret_cast<const sockaddr_in*>( addr );
-		return Wrap(*addr6);
+		const sockaddr_in6 *addr6 = reinterpret_cast<const sockaddr_in6*>( addr );
+
+		_family = AF_INET6;
+		_port = ntohs(addr6->sin6_port);
+		memcpy(_ip.v6, &addr6->sin6_addr, sizeof(_ip.v6));
+		return true;
 	}
 	else
 	{
