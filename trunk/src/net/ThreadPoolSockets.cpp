@@ -639,6 +639,7 @@ bool TCPClient::Connect(const NetAddr &remoteServerAddress)
 		FATAL("TCPClient") << "Unable to create a TCP socket: " << SocketGetLastErrorString();
 		return false;
     }
+	_ipv6 = !ipv4;
 
     // Set SO_SNDBUF to zero for a zero-copy network stack (we maintain the buffers)
     int buffsize = 0;
@@ -719,7 +720,7 @@ bool TCPClient::QueueConnectEx(const NetAddr &remoteServerAddress)
 	// Unwrap NetAddr
 	NetAddr::SockAddr addr_out;
 	int addr_len;
-	if (!remoteServerAddress.Unwrap(addr_out, addr_len))
+	if (!remoteServerAddress.Unwrap(addr_out, addr_len, _ipv6))
 	{
 		FATAL("TCPClient") << "Unable to execute ConnectEx: Server address invalid";
 		return false;
@@ -1068,6 +1069,7 @@ bool UDPEndpoint::Bind(Port port, bool ignoreUnreachable)
 		FATAL("UDPEndpoint") << "Unable to create a UDP socket: " << SocketGetLastErrorString();
 		return false;
     }
+	_ipv6 = !ipv4;
 
     // Set SO_SNDBUF to zero for a zero-copy network stack (we maintain the buffers)
     int buffsize = 0;

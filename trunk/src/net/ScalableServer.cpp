@@ -1106,7 +1106,8 @@ bool ScalableClient::Connect(ThreadPoolLocalStorage *tls, const NetAddr &addr, c
 
 	// Cache public key and server address
 	memcpy(_server_public_key, server_key, sizeof(_server_public_key));
-	memcpy(&_server_addr, &addr, sizeof(addr));
+	_server_addr = addr;
+	if (Is6()) _server_addr.PromoteTo6();
 
 	// Attempt to bind to any port and accept ICMP errors initially
 	if (!Bind(0, false))

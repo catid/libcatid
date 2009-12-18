@@ -62,6 +62,8 @@ class NetAddr
 {
 	union
 	{
+		u8 v6_bytes[16];
+		u16 v6_words[8];
 		u64 v6[2];
 		struct {
 			u32 v4;
@@ -100,6 +102,10 @@ public:
 	bool Wrap(const sockaddr *addr);
 
 public:
+	// Promote an IPv4 address to an IPv6 address if needed
+	void PromoteTo6();
+
+public:
 	CAT_INLINE bool Valid() const { return _valid != 0; }
 	CAT_INLINE bool Is6() const { return _family == AF_INET6; }
 
@@ -119,7 +125,7 @@ public:
 	std::string IPToString() const;
 
 public:
-	bool Unwrap(SockAddr &addr, int &addr_len) const;
+	bool Unwrap(SockAddr &addr, int &addr_len, bool PromoteToIP6 = false) const;
 };
 
 
