@@ -37,6 +37,7 @@
 # include <WS2tcpip.h>
 #else
 # define CAT_UNIX_SOCKET_API
+#include <unistd.h>
 #endif
 
 #define CAT_IP6_LOOPBACK "::1"
