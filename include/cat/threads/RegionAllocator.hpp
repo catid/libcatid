@@ -167,6 +167,17 @@ typedef std::basic_ostringstream<char, std::char_traits<char>, STLRegionAllocato
 typedef std::basic_string<char, std::char_traits<char>, STLRegionAllocator<char> > region_string;
 
 
+// Acquires a buffer from the allocator that is the size of the type.
+// It further allocates a number of extra bytes beyond the end of the buffer.
+// Release the buffer with:
+//   RegionAllocator::ii->Release(ptr);
+template<class T> T *AcquireBuffer(u32 extra_bytes = 0)
+{
+	return reinterpret_cast<T*>(
+		RegionAllocator::ii->Acquire(sizeof(T) + extra_bytes) );
+}
+
+
 } // namespace cat
 
 // Provide placement new constructor and delete pair to allow for
@@ -184,5 +195,6 @@ inline void operator delete(void *ptr, cat::RegionAllocator *allocator)
 {
     allocator->Release(ptr);
 }
+
 
 #endif // CAT_REGION_ALLOCATOR_HPP
