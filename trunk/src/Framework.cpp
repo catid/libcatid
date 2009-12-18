@@ -53,9 +53,18 @@ bool cat::InitializeFramework()
 	// Read logging subsystem settings
 	Logging::ref()->ReadSettings();
 
+	// Start the CS PRNG subsystem
 	if (!FortunaFactory::ref()->Initialize())
 	{
 		FATAL("Framework") << "Unable to initialize the CSPRNG";
+		ShutdownFramework(false);
+		return false;
+	}
+
+	// Start the socket subsystem
+	if (!StartupSockets())
+	{
+		FATAL("Framework") << "Unable to initialize Sockets: " << SocketGetLastErrorString();
 		ShutdownFramework(false);
 		return false;
 	}
@@ -76,6 +85,9 @@ void cat::ShutdownFramework(bool WriteSettings)
 {
 	// Terminate worker threads
 	ThreadPool::ref()->Shutdown();
+
+	// Terminate sockets
+	CleanupSockets();
 
 	// Terminate the entropy collection thread in the CSPRNG
 	FortunaFactory::ref()->Shutdown();
