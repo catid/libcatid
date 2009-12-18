@@ -201,8 +201,7 @@ bool TCPServer::QueueAcceptEx()
 	}
 
     // Create a new AcceptExOverlapped structure
-    AcceptExOverlapped *overlapped = reinterpret_cast<AcceptExOverlapped*>(
-		RegionAllocator::ii->Acquire(sizeof(AcceptExOverlapped)) );
+    AcceptExOverlapped *overlapped = AcquireBuffer<AcceptExOverlapped>();
     if (!overlapped)
     {
         WARN("TCPServer") << "Unable to allocate AcceptEx overlapped structure: Out of memory.";

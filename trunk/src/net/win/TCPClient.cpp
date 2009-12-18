@@ -160,8 +160,7 @@ bool TCPClient::QueueConnectEx(const NetAddr &remoteServerAddress)
 	}
 
     // Create a new overlapped structure for receiving
-    TypedOverlapped *overlapped = reinterpret_cast<TypedOverlapped*>(
-		RegionAllocator::ii->Acquire(sizeof(TypedOverlapped)) );
+    TypedOverlapped *overlapped = AcquireBuffer<TypedOverlapped>();
     if (!overlapped)
     {
 		FATAL("TCPClient") << "Unable to allocate a ConnectEx overlapped structure: Out of memory";
@@ -208,8 +207,7 @@ void TCPClient::OnConnectExComplete(int error)
     }
 
     // Create a new overlapped structure for receiving
-    _recvOv = reinterpret_cast<TypedOverlapped*>(
-		RegionAllocator::ii->Acquire(sizeof(TypedOverlapped) + RECV_DATA_SIZE) );
+    _recvOv = AcquireBuffer<TypedOverlapped>(RECV_DATA_SIZE);
     if (!_recvOv)
     {
         FATAL("TCPClient") << "Unable to allocate a receive buffer: Out of memory";
@@ -341,8 +339,7 @@ bool TCPClient::QueueDisconnectEx()
     }
 
     // Create a new overlapped structure for receiving
-    TypedOverlapped *overlapped = reinterpret_cast<TypedOverlapped*>(
-		RegionAllocator::ii->Acquire(sizeof(TypedOverlapped)) );
+    TypedOverlapped *overlapped = AcquireBuffer<TypedOverlapped>();
     if (!overlapped)
     {
         FATAL("TCPClient") << "Unable to allocate a DisconnectEx overlapped structure: Out of memory";
@@ -404,8 +401,10 @@ bool TCPClientQueued::PostToServer(void *buffer, u32 bytes)
         return TCPClient::PostToServer(buffer, bytes);
     }
 
+	// If queue buffer is already created,
     if (_queueBuffer)
     {
+		// Attempt to resize it
         _queueBuffer = ResizePostBuffer(_queueBuffer, _queueBytes + bytes);
         memcpy((u8*)_queueBuffer + _queueBytes, buffer, bytes);
         _queueBytes += bytes;
@@ -424,6 +423,7 @@ void TCPClientQueued::PostQueuedToServer()
 {
     AutoMutex lock(_queueLock);
 
+	// If queue buffer exists,
     if (_queueBuffer)
     {
         TCPClient::PostToServer(_queueBuffer, _queueBytes);

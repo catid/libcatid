@@ -234,8 +234,7 @@ bool UDPEndpoint::QueueWSARecvFrom()
         return false;
 
     // Create a new RecvFromOverlapped structure for receiving
-    RecvFromOverlapped *recvOv = reinterpret_cast<RecvFromOverlapped*>(
-		RegionAllocator::ii->Acquire(sizeof(RecvFromOverlapped) + RECVFROM_DATA_SIZE) );
+    RecvFromOverlapped *recvOv = AcquireBuffer<RecvFromOverlapped>(RECVFROM_DATA_SIZE);
     if (!recvOv)
     {
         FATAL("UDPEndpoint") << "Unable to allocate a receive buffer: Out of memory";

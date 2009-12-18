@@ -125,8 +125,7 @@ bool TCPConnection::AcceptConnection(Socket listenSocket, Socket acceptSocket,
     }
 
     // Create a new overlapped structure for receiving
-    _recvOv = reinterpret_cast<TypedOverlapped*>(
-		RegionAllocator::ii->Acquire(sizeof(TypedOverlapped) + RECV_DATA_SIZE) );
+    _recvOv = AcquireBuffer<TypedOverlapped>(RECV_DATA_SIZE);
     if (!_recvOv)
     {
         FATAL("TCPConnection") << "Unable to allocate a receive buffer: Out of memory";
@@ -255,8 +254,7 @@ void TCPConnection::OnWSASendComplete(int error, u32 bytes)
 bool TCPConnection::QueueDisconnectEx()
 {
     // Create a new overlapped structure for receiving
-    TypedOverlapped *overlapped = reinterpret_cast<TypedOverlapped*>(
-		RegionAllocator::ii->Acquire(sizeof(TypedOverlapped)) );
+    TypedOverlapped *overlapped = AcquireBuffer<TypedOverlapped>();
     if (!overlapped)
     {
         FATAL("TCPConnection") << "Unable to allocate a DisconnectEx overlapped structure: Out of memory";

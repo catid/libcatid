@@ -33,49 +33,51 @@ using namespace std;
 using namespace cat;
 
 
-//// Sockets
+//// Windows-style IOCP
+
+#if defined (CAT_MS_SOCKET_API)
 
 namespace cat
 {
-    u8 *GetPostBuffer(u32 bytes)
-    {
-        TypedOverlapped *sendOv = reinterpret_cast<TypedOverlapped*>(
-			RegionAllocator::ii->Acquire(sizeof(TypedOverlapped) + bytes) );
+
+	// Get a buffer used for posting data over the network
+	u8 *GetPostBuffer(u32 bytes)
+	{
+		TypedOverlapped *sendOv = AcquireBuffer<TypedOverlapped>(bytes);
+		if (!sendOv)
+		{
+			FATAL("IOCPSockets") << "Unable to allocate a send buffer: Out of memory";
+			return 0;
+		}
+
+		return GetTrailingBytes(sendOv);
+	}
+
+	// Resize a previously acquired buffer larger or smaller
+	void *ResizePostBuffer(void *buffer, u32 newBytes)
+	{
+		TypedOverlapped *sendOv = reinterpret_cast<TypedOverlapped*>(
+			RegionAllocator::ii->Resize(
+			reinterpret_cast<u8*>(buffer) - sizeof(TypedOverlapped),
+			sizeof(TypedOverlapped) + newBytes) );
 
 		if (!sendOv)
-        {
-            FATAL("IOCPSockets") << "Unable to allocate a send buffer: Out of memory";
-            return 0;
-        }
+		{
+			FATAL("IOCPSockets") << "Unable to resize a send buffer: Out of memory";
+			return 0;
+		}
 
-        return GetTrailingBytes(sendOv);
-    }
+		return GetTrailingBytes(sendOv);
+	}
 
-    void *ResizePostBuffer(void *buffer, u32 newBytes)
-    {
-        TypedOverlapped *sendOv = reinterpret_cast<TypedOverlapped*>(
-			RegionAllocator::ii->Resize(
-				reinterpret_cast<u8*>(buffer) - sizeof(TypedOverlapped),
-				sizeof(TypedOverlapped) + newBytes) );
-
-        if (!sendOv)
-        {
-            FATAL("IOCPSockets") << "Unable to resize a send buffer: Out of memory";
-            return 0;
-        }
-
-        return GetTrailingBytes(sendOv);
-    }
-
-    void ReleasePostBuffer(void *buffer)
-    {
-        RegionAllocator::ii->Release(
+	// Release a post buffer
+	void ReleasePostBuffer(void *buffer)
+	{
+		RegionAllocator::ii->Release(
 			reinterpret_cast<u8*>(buffer) - sizeof(TypedOverlapped));
-    }
-}
+	}
 
-
-#if defined (CAT_MS_SOCKET_API) // Windows-style IOCP
+} // namespace cat
 
 // Amount of data to receive overlapped, tuned to exactly fit a
 // 2048-byte buffer in the region allocator.
@@ -87,21 +89,30 @@ static const int RECVFROM_DATA_SIZE = 2048 - sizeof(RecvFromOverlapped) - 8;
 #include "win/TCPClient.cpp"
 #include "win/UDPEndpoint.cpp"
 
-#elif defined(CAT_OS_LINUX) // Linux-style eventfd
+
+//// Linux-style eventfd
+
+#elif defined(CAT_OS_LINUX)
 
 #include "linux/TCPServer.cpp"
 #include "linux/TCPConnection.cpp"
 #include "linux/TCPClient.cpp"
 #include "linux/UDPEndpoint.cpp"
 
-#elif defined(CAT_OS_OSX) || defined(CAT_OS_BSD) // BSD-style kevent
+
+//// BSD-style kevent
+
+#elif defined(CAT_OS_OSX) || defined(CAT_OS_BSD)
 
 #include "bsd/TCPServer.cpp"
 #include "bsd/TCPConnection.cpp"
 #include "bsd/TCPClient.cpp"
 #include "bsd/UDPEndpoint.cpp"
 
-#else // Fall-back
+
+//// Fall-back
+
+#else
 
 #include "generic/TCPServer.cpp"
 #include "generic/TCPConnection.cpp"
