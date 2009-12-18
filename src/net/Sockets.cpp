@@ -455,7 +455,7 @@ bool NetAddr::Unwrap(SockAddr &addr, int &addr_len, bool PromoteToIP6) const
 			addr6->sin6_family = AF_INET6;
 			addr6->sin6_port = htons(_port);
 
-			u32 ipv4 = ntohs(_ip.v4);
+			u32 ipv4 = ntohl(_ip.v4);
 
 			// If loopback,
 			if ((ipv4 & 0xFFFFFF00) == 0x7f000000)
@@ -513,7 +513,7 @@ void NetAddr::PromoteTo6()
 	{
 		_family = AF_INET6;
 
-		u32 ipv4 = ntohs(_ip.v4);
+		u32 ipv4 = ntohl(_ip.v4);
 
 		_ip.v6[0] = 0;
 
