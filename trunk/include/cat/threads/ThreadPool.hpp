@@ -123,7 +123,7 @@ public:
 class ThreadPool : public Singleton<ThreadPool>
 {
     friend class TCPServer;
-    friend class TCPServerConnection;
+    friend class TCPConnection;
     friend class TCPClient;
     friend class UDPEndpoint;
 	friend class AsyncReadFile;

@@ -350,20 +350,20 @@ unsigned int WINAPI ThreadPool::CompletionThread(void *port)
             break;
 
         case OVOP_SERVER_RECV:
-            ( (TCPServerConnection*)key )->OnWSARecvComplete( error, bytes );
-            ( (TCPServerConnection*)key )->ReleaseRef();
+            ( (TCPConnection*)key )->OnWSARecvComplete( error, bytes );
+            ( (TCPConnection*)key )->ReleaseRef();
             // TCPServer tracks the overlapped buffer lifetime
             break;
 
         case OVOP_SERVER_SEND:
-            ( (TCPServerConnection*)key )->OnWSASendComplete( error, bytes );
-            ( (TCPServerConnection*)key )->ReleaseRef();
+            ( (TCPConnection*)key )->OnWSASendComplete( error, bytes );
+            ( (TCPConnection*)key )->ReleaseRef();
             RegionAllocator::ii->Release(ov);
             break;
 
         case OVOP_SERVER_CLOSE:
-            ( (TCPServerConnection*)key )->OnDisconnectExComplete( error );
-            ( (TCPServerConnection*)key )->ReleaseRef();
+            ( (TCPConnection*)key )->OnDisconnectExComplete( error );
+            ( (TCPConnection*)key )->ReleaseRef();
             RegionAllocator::ii->Release(ov);
             break;
 

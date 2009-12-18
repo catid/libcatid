@@ -404,6 +404,26 @@
 					RelativePath="..\..\include\cat\net\ThreadPoolSockets.hpp"
 					>
 				</File>
+				<Filter
+					Name="win"
+					>
+					<File
+						RelativePath="..\..\include\cat\net\win\ThreadPoolTCPClient.hpp"
+						>
+					</File>
+					<File
+						RelativePath="..\..\include\cat\net\win\ThreadPoolTCPConnection.hpp"
+						>
+					</File>
+					<File
+						RelativePath="..\..\include\cat\net\win\ThreadPoolTCPServer.hpp"
+						>
+					</File>
+					<File
+						RelativePath="..\..\include\cat\net\win\ThreadPoolUDPEndpoint.hpp"
+						>
+					</File>
+				</Filter>
 			</Filter>
 			<Filter
 				Name="threads"
