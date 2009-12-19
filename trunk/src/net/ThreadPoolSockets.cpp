@@ -79,6 +79,7 @@ namespace cat
 
 } // namespace cat
 
+
 // Amount of data to receive overlapped, tuned to exactly fit a
 // 2048-byte buffer in the region allocator.
 static const int RECV_DATA_SIZE = 2048 - sizeof(TypedOverlapped) - 8; // -8 for rebroadcast inflation
