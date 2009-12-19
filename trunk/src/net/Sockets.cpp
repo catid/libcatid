@@ -498,6 +498,29 @@ bool NetAddr::SetFromString(const char *ip_str, Port port)
 		}
 	}
 }
+bool NetAddr::SetFromRawIP(const u8 *ip_binary, int bytes)
+{
+	if (bytes == IP4_BYTES)
+	{
+		const u32 *ipv4 = reinterpret_cast<const u32*>( ip_binary );
+
+		_family = AF_INET;
+		_ip.v4 = *ipv4; // Endian agnostic
+		// Does not touch port
+	}
+	else if (bytes == IP6_BYTES)
+	{
+		_family = AF_INET6;
+		memcpy(_ip.v6_bytes, ip_binary, IP6_BYTES); // Endian agnostic
+		// Does not touch port
+	}
+	else
+	{
+		// Otherwise mark address as invalid and return false
+		_valid = 0;
+		return false;
+	}
+}
 std::string NetAddr::IPToString() const
 {
 	if (_family == AF_INET6)

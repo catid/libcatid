@@ -30,6 +30,7 @@
 #include <cat/port/AlignedAlloc.hpp>
 #include <cat/io/Logging.hpp>
 #include <cat/io/MMapFile.hpp>
+#include <cat/net/DNSClient.hpp>
 #include <fstream>
 using namespace std;
 using namespace cat;
@@ -57,15 +58,8 @@ Client::~Client()
 	}
 }
 
-bool Client::Connect(ThreadPoolLocalStorage *tls, const NetAddr &addr, const void *server_key, int key_bytes)
+bool Client::SetServerKey(ThreadPoolLocalStorage *tls, const void *server_key, int key_bytes)
 {
-	// Verify that we are not already connected
-	if (_connected)
-	{
-		WARN("Client") << "Failed to connect: Already connected";
-		return false;
-	}
-
 	// Verify the key bytes are correct
 	if (key_bytes != sizeof(_server_public_key))
 	{
@@ -94,6 +88,35 @@ bool Client::Connect(ThreadPoolLocalStorage *tls, const NetAddr &addr, const voi
 		return false;
 	}
 
+	memcpy(_server_public_key, server_key, sizeof(_server_public_key));
+
+	return true;
+}
+
+bool Client::Connect(const char *hostname, Port port)
+{
+	// Set port
+	_server_addr.SetPort(port);
+
+	// If DNS resolution fails,
+	if (!DNSClient::ii->Resolve(hostname, fastdelegate::MakeDelegate(this, &Client::OnResolve), this))
+	{
+		WARN("Client") << "Failed to connect: Unable to resolve server hostname";
+		return false;
+	}
+
+	return true;
+}
+
+bool Client::Connect(const NetAddr &addr)
+{
+	// Validate port
+	if (addr.GetPort() == 0)
+	{
+		WARN("Client") << "Failed to connect: Invalid server port specified";
+		return false;
+	}
+
 	// Attempt to bind to any port and accept ICMP errors initially
 	if (!Bind(0, false))
 	{
@@ -101,8 +124,7 @@ bool Client::Connect(ThreadPoolLocalStorage *tls, const NetAddr &addr, const voi
 		return false;
 	}
 
-	// Cache public key and server address
-	memcpy(_server_public_key, server_key, sizeof(_server_public_key));
+	// Cache server address
 	_server_addr = addr;
 	if (Is6()) _server_addr.PromoteTo6();
 
@@ -125,6 +147,27 @@ bool Client::Connect(ThreadPoolLocalStorage *tls, const NetAddr &addr, const voi
 	return true;
 }
 
+bool Client::OnResolve(const char *hostname, const NetAddr *array, int array_length)
+{
+	// If resolve failed,
+	if (array_length <= 0)
+	{
+		WARN("Client") << "Failed to connect: Server hostname resolve failed";
+
+		Close();
+	}
+	else
+	{
+		NetAddr addr = array[0];
+		addr.SetPort(_server_addr.GetPort());
+
+		if (!Connect(addr))
+			Close();
+	}
+
+	return true;
+}
+
 void Client::OnUnreachable(const NetAddr &src)
 {
 	// If IP matches the server and we're not connected yet,
@@ -133,8 +176,6 @@ void Client::OnUnreachable(const NetAddr &src)
 		WARN("Client") << "Failed to connect: ICMP error received from server address";
 
 		// ICMP error from server means it is down
-		OnConnectFail();
-
 		Close();
 	}
 }
@@ -168,7 +209,6 @@ void Client::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 		if (!SecureEqual(in_public_key, _server_public_key, PUBLIC_KEY_BYTES))
 		{
 			WARN("Client") << "Unable to connect: Server public key does not match expected key";
-			OnConnectFail();
 			Close();
 			return;
 		}
@@ -180,7 +220,6 @@ void Client::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 		if (!response)
 		{
 			WARN("Client") << "Unable to connect: Cannot allocate buffer for challenge message";
-			OnConnectFail();
 			Close();
 			return;
 		}
@@ -203,7 +242,6 @@ void Client::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 		if (!Post(_server_addr, response, response_len))
 		{
 			WARN("Client") << "Unable to connect: Cannot post response to cookie";
-			OnConnectFail();
 			Close();
 		}
 		else
@@ -246,7 +284,14 @@ void Client::OnWrite(u32 bytes)
 
 void Client::OnClose()
 {
-	WARN("Client") << "CLOSED";
+	if (!_connected)
+	{
+		OnConnectFail();
+	}
+	else
+	{
+		WARN("Client") << "Socket CLOSED.";
+	}
 }
 
 void Client::OnConnectFail()
@@ -335,7 +380,6 @@ bool Client::ThreadFunction(void *)
 		{
 			// NOTE: Connection can complete before or after OnConnectFail()
 			WARN("Client") << "Unable to connect: Timeout";
-			OnConnectFail();
 			Close();
 			return false;
 		}

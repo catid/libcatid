@@ -30,7 +30,80 @@
 #include <cat/io/Logging.hpp>
 #include <cat/time/Clock.hpp>
 #include <cat/lang/Strings.hpp>
+#include <cat/port/EndianNeutral.hpp>
 using namespace cat;
+
+
+/*
+	DNS protocol:
+
+	Big-endian of course.
+
+	Header
+		ID(16)
+		QR(1) OPCODE(4) AA(1) TC(1) RD(1) RA(1) Z(3) RCODE(4) [=16]
+		QDCOUNT(16)
+		ANCOUNT(16)
+		NSCOUNT(16)
+		ARCOUNT(16)
+	Question
+		QNAME(x)
+		QTYPE(16)
+		QCLASS(16)
+	Answer, Authority, Additional
+		NAME(x)
+		TYPE(16)
+		CLASS(16)
+		TTL(32)
+		RDLENGTH(16)
+		RDATA(x)
+*/
+
+enum HeaderBits
+{
+	DNSHDR_QR = 15,
+	DNSHDR_OPCODE = 11,
+	DNSHDR_AA = 10,
+	DNSHDR_TC = 9,
+	DNSHDR_RD = 8,
+	DNSHDR_RA = 7,
+	DNSHDR_Z = 4,
+	DNSHDR_RCODE = 0
+};
+
+enum SectionWordOffsets
+{
+	DNS_ID,
+	DNS_HDR,
+	DNS_QDCOUNT,
+	DNS_ANCOUNT,
+	DNS_NSCOUNT,
+	DNS_ARCOUNT,
+};
+
+enum QuestionFooterWordOffsets
+{
+	DNS_FOOT_QTYPE,
+	DNS_FOOT_QCLASS
+};
+
+enum SectionSizes
+{
+	DNS_HDRLEN = 12,
+	DNS_QUESTION_FOOTER = 4,
+	DNS_ANS_HDRLEN = 12
+};
+
+enum QTypes
+{
+	QTYPE_ADDR_IPV4 = 1,
+	QTYPE_ADDR_IPV6 = 28
+};
+
+enum QClasses
+{
+	QCLASS_INTERNET = 1
+};
 
 
 //// DNSClient
@@ -102,26 +175,66 @@ bool DNSClient::GetServerAddr()
 
 #endif
 
+	if (Is6()) _server_addr.PromoteTo6();
+
 	// Return success if server address is now valid
 	return _server_addr.Valid();
 }
 
 bool DNSClient::PostDNSPacket(DNSRequest *req, u32 now)
 {
-	req->last_post_time = now;
+	// Allocate post buffer
+	int str_len = (int)strlen(req->hostname);
+	int bytes = DNS_HDRLEN + 1 + str_len + 1 + DNS_QUESTION_FOOTER;
 
-	int bytes = 32;
 	u8 *dns_packet = GetPostBuffer(bytes);
+	if (!dns_packet) return false;
 
-	// TODO
+	// Write header
+	u16 *dns_hdr = reinterpret_cast<u16*>( dns_packet );
+
+	dns_hdr[DNS_ID] = req->id; // Endianness doesn't matter
+	dns_hdr[DNS_HDR] = getBE16(1 << DNSHDR_RD);
+	dns_hdr[DNS_QDCOUNT] = getBE16(1); // One question
+	dns_hdr[DNS_ANCOUNT] = 0;
+	dns_hdr[DNS_NSCOUNT] = 0;
+	dns_hdr[DNS_ARCOUNT] = 0;
+
+	// Copy hostname over
+	int last_dot = str_len-1;
+
+	dns_packet[DNS_HDRLEN + 1 + str_len] = '\0';
+
+	for (int ii = last_dot; ii >= 0; --ii)
+	{
+		u8 byte = req->hostname[ii];
+
+		// Replace dots with label lengths
+		if (byte == '.')
+		{
+			byte = (u8)(last_dot - ii);
+			last_dot = ii-1;
+		}
+
+		dns_packet[DNS_HDRLEN + ii + 1] = byte;
+	}
+
+	dns_packet[DNS_HDRLEN] = (u8)(last_dot + 1);
+
+	// Write request footer
+	u16 *foot = reinterpret_cast<u16*>( dns_packet + DNS_HDRLEN + 1 + str_len + 1 );
+
+	foot[DNS_FOOT_QTYPE] = getBE16(QTYPE_ADDR_IPV4);
+	foot[DNS_FOOT_QCLASS] = getBE16(QCLASS_INTERNET);
+
+	// Post DNS request
+	req->last_post_time = now;
 
 	return Post(_server_addr, dns_packet, bytes);
 }
 
 bool DNSClient::PerformLookup(DNSRequest *req)
 {
-	AutoMutex lock(_request_lock);
-
 	u32 now = Clock::msec_fast();
 
 	if (!PostDNSPacket(req, now))
@@ -136,13 +249,13 @@ bool DNSClient::PerformLookup(DNSRequest *req)
 	else _request_head = req;
 	_request_tail = req;
 
+	++_request_queue_size;
+
 	return true;
 }
 
 void DNSClient::CacheAdd(DNSRequest *req)
 {
-	AutoMutex lock(_cache_lock);
-
 	// If still growing cache,
 	if (_cache_size < DNSCACHE_MAX_REQS)
 		_cache_size++;
@@ -176,42 +289,41 @@ void DNSClient::CacheAdd(DNSRequest *req)
 
 DNSRequest *DNSClient::CacheGet(const char *hostname)
 {
+	u32 now = Clock::msec_fast();
+
 	// For each cache entry,
 	for (DNSRequest *req = _cache_head; req; req = req->next)
 	{
-		// If hostname of cached request equals the new request,
-		if (iStrEqual(req->hostname, hostname))
+		// If the cache has not expired,
+		if (now - req->last_post_time < DNSCACHE_TIMEOUT)
 		{
-			// If the cache has not expired,
-			if (Clock::msec_fast() - req->last_post_time < DNSCACHE_TIMEOUT)
-			{
-				// Return the cache entry
+			// If hostname of cached request equals the new request,
+			if (iStrEqual(req->hostname, hostname))
 				return req;
-			}
-			else
+		}
+		else
+		{
+			// Unlink remainder of list (they will all be old)
+			DNSRequest *last = req->last;
+
+			_cache_tail = last;
+			if (last) last->next = 0;
+			else _cache_head = 0;
+
+			// For each item that was unlinked,
+			for (DNSRequest *next, *tokill = req; tokill; tokill = next)
 			{
-				// Unlink remainder of list (they will all be old)
-				DNSRequest *last = req->last;
+				next = tokill->next;
 
-				_cache_tail = last;
-				if (last) last->next = 0;
-				else _cache_head = 0;
+				// Delete each item
+				delete tokill;
 
-				// For each item that was unlinked,
-				for (DNSRequest *next, *tokill = req; tokill; tokill = next)
-				{
-					next = tokill->next;
-
-					// Delete each item
-					delete tokill;
-
-					// Reduce the cache size
-					--_cache_size;
-				}
-
-				// Return indicating that the cache did not contain the hostname
-				return 0;
+				// Reduce the cache size
+				--_cache_size;
 			}
+
+			// Return indicating that the cache did not contain the hostname
+			return 0;
 		}
 	}
 
@@ -256,12 +368,6 @@ bool DNSClient::ThreadFunction(void *param)
 			if ((now - req->first_post_time >= DNSREQ_TIMEOUT) ||
 				(now - req->last_post_time >= DNSREQ_REPOST_TIME && !PostDNSPacket(req, now)))
 			{
-				// Invoke callback with number of responses = 0 to indicate error
-				req->cb(req->hostname, req->responses, 0);
-
-				// Release reference if desired
-				if (req->ref) req->ref->ReleaseRef();
-
 				// Unlink from doubly-linked list
 				DNSRequest *next = req->next;
 				DNSRequest *last = req->last;
@@ -271,8 +377,7 @@ bool DNSClient::ThreadFunction(void *param)
 				if (last) last->next = next;
 				else _request_head = next;
 
-				// Free memory
-				delete req;
+				NotifyRequesters(req);
 			}
 		}
 	}
@@ -288,6 +393,28 @@ DNSClient::~DNSClient()
 	}
 }
 
+bool DNSClient::BindToRandomPort()
+{
+	// Attempt to bind to a more random port and accept ICMP errors initially
+	// This is the standard fix for Dan Kaminsky's DNS exploit
+	const int RANDOM_BIND_ATTEMPTS_MAX = 16;
+
+	// Try to use a more random port
+	int tries = RANDOM_BIND_ATTEMPTS_MAX;
+	while (tries--)
+	{
+		// Generate a random port
+		Port port = (u16)_csprng->Generate();
+
+		// If bind succeeded,
+		if (Bind(port, false))
+			return true;
+	}
+
+	// Fall back to OS-chosen port
+	return Bind(0, false);
+}
+
 bool DNSClient::Initialize()
 {
 	// Add a reference so that DNSClient cannot be destroyed
@@ -295,8 +422,16 @@ bool DNSClient::Initialize()
 
 	_dns_unavailable = true;
 
+	// Create a CSPRNG
+	_csprng = FortunaFactory::ii->Create();
+	if (!_csprng)
+	{
+		WARN("DNS") << "Initialization failure: Unable create CSPRNG";
+		return false;
+	}
+
 	// Attempt to bind to any port and accept ICMP errors initially
-	if (!Bind(0, false))
+	if (!BindToRandomPort())
 	{
 		WARN("DNS") << "Initialization failure: Unable to bind to any port";
 		return false;
@@ -331,12 +466,114 @@ void DNSClient::Shutdown()
 	Close();
 }
 
+bool DNSClient::GetUnusedID(u16 &unused_id)
+{
+	// If too many requests already pending,
+	if (_request_queue_size >= DNSREQ_MAX_SIMUL)
+		return false;
+
+	// Attempt to generate an unused ID
+	const int INCREMENT_THRESHOLD = 32;
+	bool already_used;
+	int tries = 0;
+	u16 id;
+	do 
+	{
+		// If we have been sitting here trying for a long time,
+		if (++tries >= INCREMENT_THRESHOLD)
+			++id; // Just use incrementing IDs to insure we exit eventually
+		else
+			id = (u16)_csprng->Generate(); // Generate a random ID
+
+		// For each pending request,
+		already_used = false;
+		for (DNSRequest *req = _request_head; req; req = req->next)
+		{
+			// If the ID is already used,
+			if (req->id == id)
+			{
+				// Try again
+				already_used = true;
+				break;
+			}
+		}
+	} while (already_used);
+
+	unused_id = id;
+
+	return true;
+}
+
+bool DNSClient::IsValidHostname(const char *hostname)
+{
+	int str_len = (int)strlen(hostname);
+
+	// Name can be up to 63 characters
+	if (str_len > HOSTNAME_MAXLEN)
+		return false;
+
+	// Initialize state
+	char last_char = '\0';
+	bool seen_alphabetic = false;
+
+	// For each symbol in the hostname,
+	++str_len;
+	for (int ii = 0; ii < str_len; ++ii)
+	{
+		char symbol = hostname[ii];
+
+		// Switch based on symbol type:
+		if ((symbol >= 'A' && symbol <= 'Z') ||
+			(symbol >= 'a' && symbol <= 'z')) // Alphabetic
+		{
+			seen_alphabetic = true;
+			// Don't react to alphabetic until label end
+		}
+		else if (symbol >= '0' && symbol <= '9') // Numeric
+		{
+			// Don't react to numeric until label end
+		}
+		else if (symbol == '-') // Dash
+		{
+			// Don't allow strings of - or start with -
+			if (last_char == '-' || last_char == '\0') return false;
+		}
+		else if (symbol == '.' || symbol == '\0') // End of a label
+		{
+			// If we didn't see an alphabetic character in this label,
+			if (!seen_alphabetic) return false;
+
+			// If last character in label was not alphanumeric,
+			if ((last_char < 'A' || last_char > 'Z') &&
+				(last_char < 'a' || last_char > 'z') &&
+				(last_char < '0' || last_char > '9'))
+			{
+				return false;
+			}
+
+			// Reset state for next label
+			seen_alphabetic = false;
+			last_char = '\0';
+
+			continue;
+		}
+		else
+		{
+			return false;
+		}
+
+		last_char = symbol;
+	}
+
+	return true;
+}
+
 bool DNSClient::Resolve(const char *hostname, DNSResultCallback callback, ThreadRefObject *holdRef)
 {
 	// Try to interpret hostname as numeric
 	NetAddr addr(hostname);
 
-	// If it was interpreted,
+	// If it was numeric,
 	if (addr.Valid())
 	{
 		// Immediately invoke callback
@@ -345,7 +582,11 @@ bool DNSClient::Resolve(const char *hostname, DNSResultCallback callback, Thread
 		return true;
 	}
 
-	AutoMutex lock(_cache_lock);
+	// If hostname is invalid,
+	if (!IsValidHostname(hostname))
+		return false;
+
+	AutoMutex cache_lock(_cache_lock);
 
 	// Check cache
 	DNSRequest *cached_request = CacheGet(hostname);
@@ -363,15 +604,39 @@ bool DNSClient::Resolve(const char *hostname, DNSResultCallback callback, Thread
 		return true;
 	}
 
-	lock.Release();
+	cache_lock.Release();
 
 	// If DNS lookup is unavailable,
 	if (_dns_unavailable)
 		return false;
 
-	// If the hostname was too long,
-	if (strlen(hostname) > HOSTNAME_MAXLEN)
+	AutoMutex req_lock(_request_lock);
+
+	for (DNSRequest *req = _request_head; req; req = req->next)
+	{
+		if (iStrEqual(req->hostname, hostname))
+		{
+			DNSCallback *cb = new DNSCallback;
+			if (!cb) return false;
+
+			if (holdRef) holdRef->AddRef();
+
+			cb->cb = callback;
+			cb->ref = holdRef;
+			cb->next = req->callback_head.next;
+			req->callback_head.next = cb;
+
+			return true;
+		}
+	}
+
+	// Get an unused ID
+	u16 id;
+	if (!GetUnusedID(id))
+	{
+		WARN("DNS") << "Too many DNS requests pending";
 		return false;
+	}
 
 	// Create a new request
 	DNSRequest *request = new DNSRequest;
@@ -379,12 +644,14 @@ bool DNSClient::Resolve(const char *hostname, DNSResultCallback callback, Thread
 
 	// Fill request
 	CAT_STRNCPY(request->hostname, hostname, sizeof(request->hostname));
-	request->ref = holdRef;
-	request->cb = callback;
+	request->callback_head.ref = holdRef;
+	request->callback_head.cb = callback;
+	request->callback_head.next = 0;
+	request->id = id;
 
 	if (holdRef) holdRef->AddRef();
 
-	// If lookup could not be performed,
+	// Attempt to perform lookup
 	if (!PerformLookup(request))
 	{
 		if (holdRef) holdRef->ReleaseRef();
@@ -396,6 +663,8 @@ bool DNSClient::Resolve(const char *hostname, DNSResultCallback callback, Thread
 
 void DNSClient::OnUnreachable(const NetAddr &src)
 {
+	// TODO: Recover from server failure by re-detecting servers
+
 	// If IP matches the server and we're not connected yet,
 	if (_server_addr.EqualsIPOnly(src))
 	{
@@ -406,13 +675,196 @@ void DNSClient::OnUnreachable(const NetAddr &src)
 	}
 }
 
+DNSRequest *DNSClient::PullRequest(u16 id)
+{
+	// For each pending request,
+	for (DNSRequest *req = _request_head; req; req = req->next)
+	{
+		// If ID matches,
+		if (req->id == id)
+		{
+			// Remove from doubly-linked list
+			DNSRequest *last = req->last;
+			DNSRequest *next = req->next;
+
+			if (last) last->next = next;
+			else _request_head = next;
+			if (next) next->last = last;
+			else _request_tail = last;
+
+			return req;
+		}
+	}
+
+	return 0;
+}
+
+void DNSClient::NotifyRequesters(DNSRequest *req)
+{
+	bool add_to_cache = false;
+
+	// Invoke the callback
+	add_to_cache |= req->callback_head.cb(req->hostname, req->responses, req->num_responses);
+
+	// Release ref if requested
+	if (req->callback_head.ref)
+		req->callback_head.ref->ReleaseRef();
+
+	// For each requester,
+	for (DNSCallback *cbnext, *cb = req->callback_head.next; cb; cb = cbnext)
+	{
+		cbnext = cb->next; // cache for deletion
+
+		// Invoke the callback
+		add_to_cache |= cb->cb(req->hostname, req->responses, req->num_responses);
+
+		// Release ref if requested
+		if (cb->ref)
+			cb->ref->ReleaseRef();
+
+		delete cb;
+	}
+
+	// If any of the callbacks requested us to add it to the cache,
+	if (add_to_cache)
+	{
+		AutoMutex lock(_cache_lock);
+		CacheAdd(req);
+	}
+	else
+	{
+		delete req;
+	}
+}
+
+void DNSClient::ProcessDNSResponse(DNSRequest *req, int qdcount, int ancount, u8 *data, u32 bytes)
+{
+	int offset = DNS_HDRLEN;
+
+	// Get past question part
+	while (qdcount-- > 0)
+	{
+		while (offset < bytes)
+		{
+			u8 byte = data[offset++];
+			if (!byte) break;
+
+			offset += byte;
+		}
+
+		offset += 4;
+
+		// On overflow,
+		if (offset >= bytes)
+		{
+			return;
+		}
+	}
+
+	// Crunch answers
+	while (ancount-- > 0)
+	{
+		while (offset < bytes)
+		{
+			u16 *words = reinterpret_cast<u16*>( data + offset );
+
+			//u16 name_offset = getBE(words[0]);
+			u16 name_type = getBE(words[1]);
+			u16 name_class = getBE(words[2]);
+			//u32 name_ttl = getBE(words[3] | words[4]);
+			u16 addr_len = getBE(words[5]);
+			u8 *addr_data = data + offset + DNS_ANS_HDRLEN;
+
+			offset += DNS_ANS_HDRLEN + addr_len;
+
+			// 32-bit IPv4
+			if (name_type == QTYPE_ADDR_IPV4 &&
+				name_class == QCLASS_INTERNET &&
+				addr_len == NetAddr::IP4_BYTES && offset <= bytes &&
+				req->responses[req->num_responses].SetFromRawIP(addr_data, NetAddr::IP4_BYTES))
+			{
+				if (++req->num_responses >= DNSCACHE_MAX_RESP)
+				{
+					return;
+				}
+			}
+
+			// 128-bit IPv6
+			if (name_type == QTYPE_ADDR_IPV6 &&
+				name_class == QCLASS_INTERNET &&
+				addr_len == NetAddr::IP6_BYTES && offset <= bytes &&
+				req->responses[req->num_responses].SetFromRawIP(addr_data, NetAddr::IP6_BYTES))
+			{
+				if (++req->num_responses >= DNSCACHE_MAX_RESP)
+				{
+					return;
+				}
+			}
+		}
+
+		// On overflow,
+		if (offset >= bytes)
+		{
+			return;
+		}
+	}
+}
+
 void DNSClient::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes)
 {
 	// If packet source is not the server, ignore this packet
 	if (_server_addr != src)
 		return;
 
-	// TODO
+	// If packet is truncated, ignore this packet
+	if (bytes < DNS_HDRLEN)
+		return;
+
+	u16 *hdr_words = reinterpret_cast<u16*>( data );
+
+	// QR(1) OPCODE(4) AA(1) TC(1) RD(1) RA(1) Z(3) RCODE(4) [=16]
+	u16 hdr = getBE(hdr_words[DNS_HDR]);
+
+	// Header bits
+	u16 qr = (hdr >> DNSHDR_QR) & 1; // Response
+	u16 opcode = (hdr >> DNSHDR_OPCODE) & 0x000F; // Opcode
+
+	// If header is invalid, ignore this packet
+	if (!qr || opcode != 0) return;
+
+	// Extract ID; endian agnostic
+	u16 id = hdr_words[DNS_ID];
+
+	AutoMutex lock(_request_lock);
+
+	// Pull request from pending queue
+	DNSRequest *req = PullRequest(id);
+
+	// If request was not found to match ID,
+	if (!req) return;
+
+	// Initialize number of responses to zero
+	req->num_responses = 0;
+
+	//u16 aa = (hdr >> DNSHDR_AA) & 1; // Authoritative
+	//u16 tc = (hdr >> DNSHDR_TC) & 1; // Truncated
+	//u16 rd = (hdr >> DNSHDR_RD) & 1; // Recursion desired
+	//u16 ra = (hdr >> DNSHDR_RA) & 1; // Recursion available
+	//u16 z = (hdr >> DNSHDR_Z) & 0x0007; // Reserved
+	u16 rcode = hdr & 0x000F; // Reply code
+
+	// If non-error result,
+	if (rcode == 0)
+	{
+		int qdcount = getBE(hdr_words[DNS_QDCOUNT]); // Question count
+		int ancount = getBE(hdr_words[DNS_ANCOUNT]); // Answer RRs
+		//int nscount = getBE(hdr_words[DNS_NSCOUNT]); // Authority RRs
+		//int arcount = getBE(hdr_words[DNS_ARCOUNT]); // Additional RRs
+
+		ProcessDNSResponse(req, qdcount, ancount, data, bytes);
+	}
+
+	NotifyRequesters(req);
 }
 
 void DNSClient::OnWrite(u32 bytes)
