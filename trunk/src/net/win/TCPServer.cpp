@@ -48,7 +48,7 @@ void AcceptExOverlapped::Set(Socket s)
 
 TCPServer::TCPServer()
 {
-    _socket = CAT_SOCKET_ERROR;
+    _socket = SOCKET_ERROR;
 }
 
 TCPServer::~TCPServer()
@@ -157,7 +157,7 @@ bool TCPServer::Bind(Port port)
 
 bool TCPServer::ValidServer()
 {
-    return _socket != CAT_SOCKET_ERROR;
+    return _socket != SOCKET_ERROR;
 }
 
 Port TCPServer::GetPort()
@@ -179,10 +179,10 @@ Port TCPServer::GetPort()
 
 void TCPServer::Close()
 {
-    if (_socket != CAT_SOCKET_ERROR)
+    if (_socket != SOCKET_ERROR)
     {
         CloseSocket(_socket);
-        _socket = CAT_SOCKET_ERROR;
+        _socket = SOCKET_ERROR;
     }
 }
 

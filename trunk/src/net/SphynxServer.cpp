@@ -333,7 +333,7 @@ void ServerWorker::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *d
 	{
 		// Flag having seen an encrypted packet
 		conn->SetFlag(Connection::FLAG_C2S_ENC);
-		conn->last_recv_tsc = Clock::msec();
+		conn->last_recv_tsc = Clock::msec_fast();
 
 		// Handle the decrypted data
 		conn->transport.OnPacket(this, data, buf_bytes, conn,
@@ -742,7 +742,7 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			conn->client_addr = src;
 			conn->server_port = server_port;
 			conn->server_endpoint = server_endpoint;
-			conn->last_recv_tsc = Clock::msec();
+			conn->last_recv_tsc = Clock::msec_fast();
 
 			// Increment session count for this endpoint (only done here)
 			Atomic::Add(&server_endpoint->_session_count, 1);
@@ -784,7 +784,7 @@ bool Server::ThreadFunction(void *)
 	// While quit signal is not flagged,
 	while (WaitForQuitSignal(TICK_RATE))
 	{
-		u32 now = Clock::msec();
+		u32 now = Clock::msec_fast();
 		Connection *conn;
 		Connection *next_timed;
 

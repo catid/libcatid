@@ -50,14 +50,12 @@ namespace cat {
 
 #if defined(CAT_MS_SOCKET_API)
 	typedef SOCKET Socket;
-# define CAT_SOCKET_INVALID INVALID_SOCKET
-# define CAT_SOCKET_ERROR SOCKET_ERROR
-# define CloseSocket(s) (0 == closesocket(s))
+	CAT_INLINE bool CloseSocket(Socket s) { return !closesocket(s); }
 #else
 	typedef int Socket;
-# define CAT_SOCKET_INVALID -1
-# define CAT_SOCKET_ERROR -1
-# define CloseSocket(s) (0 == close(s))
+	static const Socket INVALID_SOCKET = -1;
+	static const int SOCKET_ERROR = -1;
+	CAT_INLINE bool CloseSocket(Socket s) { return !close(s); }
 #endif
 
 typedef u16 Port;
@@ -92,7 +90,7 @@ public:
 
 public:
 	CAT_INLINE NetAddr() {}
-	NetAddr(const char *ip_str, Port port);
+	NetAddr(const char *ip_str, Port port = 0);
 	NetAddr(const sockaddr_in6 &addr);
 	NetAddr(const sockaddr_in &addr);
 	NetAddr(const sockaddr *addr);
@@ -120,10 +118,22 @@ public:
 	CAT_INLINE Port GetPort() const { return _port; }
 	CAT_INLINE void SetPort(Port port) { _port = port; }
 
+	// Mark the address as invalid
+	CAT_INLINE void Invalidate() { _valid = 0; }
+
 public:
 	bool EqualsIPOnly(const NetAddr &addr) const;
 	bool operator==(const NetAddr &addr) const;
 	bool operator!=(const NetAddr &addr) const;
+
+public:
+	// To validate external input; don't want clients connecting
+	// to their local network instead of the actual game server.
+	bool IsInternetRoutable();
+
+	// Returns true if the address is routable on local network or Internet.
+	// Returns false if the address is IPv4 multicast, loopback, or weird.
+	bool IsRoutable();
 
 public:
 	bool SetFromString(const char *ip_str, Port port = 0);

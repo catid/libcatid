@@ -41,14 +41,14 @@ TCPConnection::TCPConnection()
 {
     // Initialize to an invalid state.
     // Connection is invalid until AcceptConnection() runs successfully.
-    _socket = CAT_SOCKET_ERROR;
+    _socket = SOCKET_ERROR;
     _recvOv = 0;
     _disconnecting = 0;
 }
 
 TCPConnection::~TCPConnection()
 {
-    if (_socket != CAT_SOCKET_ERROR)
+    if (_socket != SOCKET_ERROR)
         CloseSocket(_socket);
 
     // Release memory for the overlapped structure
@@ -58,7 +58,7 @@ TCPConnection::~TCPConnection()
 
 bool TCPConnection::ValidServerConnection()
 {
-    return _socket != CAT_SOCKET_ERROR;
+    return _socket != SOCKET_ERROR;
 }
 
 void TCPConnection::DisconnectClient()

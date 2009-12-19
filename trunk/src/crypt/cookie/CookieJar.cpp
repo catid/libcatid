@@ -125,7 +125,7 @@ u32 CookieJar::Hash(const void *address_info, int bytes, u32 epoch)
 
 u32 CookieJar::GetEpoch()
 {
-    return Clock::msec() / BIN_TIME;
+    return Clock::msec_fast() / BIN_TIME;
 }
 
 u32 CookieJar::ReconstructEpoch(u32 cookie)

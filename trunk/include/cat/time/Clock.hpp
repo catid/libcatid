@@ -50,7 +50,7 @@ public:
 	static bool Shutdown();
 
     static u32 sec();     // timestamp in seconds
-    static u32 hsec();    // timestamp in hundredths of a second
+    static u32 msec_fast(); // timestamp in milliseconds, less accurate than msec() but faster
     static u32 msec();    // timestamp in milliseconds, must call Initialize() first
 	static double usec(); // timestamp in microseconds, must call Initialize() first
 	static u32 cycles();  // timestamp in cycles
