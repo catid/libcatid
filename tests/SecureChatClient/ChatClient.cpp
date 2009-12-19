@@ -12,13 +12,6 @@ int main()
 
 	INFO("Client") << "Secure Chat Client 1.0";
 
-	NetAddr server_addr("127.0.0.1", 22000);
-
-	if (!server_addr.Valid())
-	{
-		FatalStop("Invalid address specified for server");
-	}
-
 	unsigned char SERVER_PUBLIC_KEY[64] = {
 		87,147,94,32,179,79,225,106,189,138,1,75,159,26,70,47,
 		233,255,228,177,23,40,61,255,25,202,211,179,115,93,31,26,
@@ -33,7 +26,12 @@ int main()
 		{
 			sphynx::Client *client = new sphynx::Client;
 
-			if (!client->Connect(&tls, server_addr, SERVER_PUBLIC_KEY, sizeof(SERVER_PUBLIC_KEY)))
+			if (!client->SetServerKey(&tls, SERVER_PUBLIC_KEY, sizeof(SERVER_PUBLIC_KEY)))
+			{
+				FATAL("Client") << "Provided server key invalid";
+			}
+
+			if (!client->Connect("1agasdfsdgasdgasdg", 22000))
 			{
 				FATAL("Client") << "Unable to connect to server";
 			}

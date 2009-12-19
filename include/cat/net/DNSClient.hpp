@@ -34,22 +34,32 @@
 #include <cat/net/ThreadPoolSockets.hpp>
 #include <cat/threads/LoopThread.hpp>
 #include <cat/port/FastDelegate.h>
+#include <cat/crypt/rand/Fortuna.hpp>
 
 namespace cat {
 
 
-static const int HOSTNAME_MAXLEN = 128; // Max characters in a hostname request
+static const int HOSTNAME_MAXLEN = 63; // Max characters in a hostname request
 static const int DNSREQ_TIMEOUT = 3000; // DNS request timeout interval
 static const int DNSREQ_REPOST_TIME = 300; // Number of milliseconds between retries
+static const int DNSREQ_MAX_SIMUL = 2048; // Maximum number of simultaneous DNS requests
 static const int DNSCACHE_MAX_REQS = 8; // Maximum number of requests to cache
 static const int DNSCACHE_MAX_RESP = 8; // Maximum number of responses to cache
 static const int DNSCACHE_TIMEOUT = 60000; // Time until a cached response is dropped
 
-// Prototype: bool MyResultCallback(const char *hostname, NetAddr array[], int array_length);
-typedef fastdelegate::FastDelegate3<const char *, NetAddr[], int, bool> DNSResultCallback;
+// Prototype: bool MyResultCallback(const char *, const NetAddr*, int);
+typedef fastdelegate::FastDelegate3<const char *, const NetAddr*, int, bool> DNSResultCallback;
 
 
 //// DNSRequest
+
+struct DNSCallback
+{
+	DNSCallback *next;
+
+	DNSResultCallback cb;
+	ThreadRefObject *ref;
+};
 
 struct DNSRequest
 {
@@ -58,10 +68,10 @@ struct DNSRequest
 	u32 first_post_time; // Timestamp for first post, for timeout
 	u32 last_post_time; // Timestamp for last post, for retries and cache
 
-	// Our copy of the hostname string and callback
+	// Our copy of the hostname string
 	char hostname[HOSTNAME_MAXLEN+1];
-	DNSResultCallback cb;
-	ThreadRefObject *ref;
+	u16 id; // Random request ID
+	DNSCallback callback_head;
 
 	// For caching purposes
 	NetAddr responses[DNSCACHE_MAX_RESP];
@@ -75,12 +85,14 @@ class DNSClient : LoopThread, protected UDPEndpoint, public Singleton<DNSClient>
 {
 	CAT_SINGLETON(DNSClient)
 	{
+		_server_addr.Invalidate();
 		_dns_unavailable = true;
 
 		_cache_head = _cache_tail = 0;
 		_cache_size = 0;
 
-		_request_head = 0;
+		_request_head = _request_tail = 0;
+		_request_queue_size = 0;
 	}
 
 public:
@@ -119,11 +131,17 @@ public:
 private:
 	NetAddr _server_addr;
 	volatile bool _dns_unavailable;
+	FortunaOutput *_csprng;
 
 private:
 	Mutex _request_lock;
 	DNSRequest *_request_head;
 	DNSRequest *_request_tail;
+	int _request_queue_size;
+
+	bool GetUnusedID(u16 &id); // not thread-safe, caller must lock
+	bool IsValidHostname(const char *hostname);
+	DNSRequest *PullRequest(u16 id); // not thread-safe, caller must lock
 
 private:
 	Mutex _cache_lock;
@@ -138,17 +156,25 @@ private:
 
 private:
 	bool GetServerAddr();
+	bool BindToRandomPort();
 	bool PostDNSPacket(DNSRequest *req, u32 now);
-	bool PerformLookup(DNSRequest *req);
+	bool PerformLookup(DNSRequest *req); // not thread-safe, caller must lock
 
 private:
 	bool ThreadFunction(void *param);
+
+private:
+	u32 _last_response_time;
 
 protected:
 	void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes);
 	void OnWrite(u32 bytes);
 	void OnClose();
 	void OnUnreachable(const NetAddr &src);
+
+protected:
+	void ProcessDNSResponse(DNSRequest *req, int qdcount, int ancount, u8 *data, u32 bytes);
+	void NotifyRequesters(DNSRequest *req);
 };
 
 

@@ -131,7 +131,7 @@ bool UDPEndpoint::Bind(Port port, bool ignoreUnreachable)
     // Bind the socket to a given port
     if (!NetBind(s, port, ipv4))
     {
-        FATAL("UDPEndpoint") << "Unable to bind to port: " << SocketGetLastErrorString();
+        INANE("UDPEndpoint") << "Unable to bind to port: " << SocketGetLastErrorString();
         CloseSocket(s);
         _socket = SOCKET_ERROR;
         return false;

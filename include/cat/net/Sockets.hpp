@@ -84,6 +84,7 @@ class NetAddr
 	};
 
 public:
+	static const int IP4_BYTES = 4;
 	static const int IP6_BYTES = 16;
 
 	typedef sockaddr_in6 SockAddr;
@@ -138,6 +139,8 @@ public:
 public:
 	bool SetFromString(const char *ip_str, Port port = 0);
 	std::string IPToString() const;
+
+	bool SetFromRawIP(const u8 *ip_binary, int bytes);
 
 public:
 	bool Unwrap(SockAddr &addr, int &addr_len, bool PromoteToIP6 = false) const;

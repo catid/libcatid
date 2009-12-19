@@ -57,7 +57,14 @@ public:
 	Client();
 	virtual ~Client();
 
-	bool Connect(ThreadPoolLocalStorage *tls, const NetAddr &addr, const void *server_key, int key_bytes);
+	bool SetServerKey(ThreadPoolLocalStorage *tls, const void *server_key, int key_bytes);
+
+	bool Connect(const char *hostname, Port port);
+	bool Connect(const NetAddr &addr);
+
+protected:
+	// Return false to remove resolve from cache
+	bool OnResolve(const char *hostname, const NetAddr *array, int array_length);
 
 protected:
 	void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes);
