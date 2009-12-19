@@ -26,47 +26,31 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_SINGLETON_HPP
-#define CAT_SINGLETON_HPP
+#include <cat/lang/Strings.hpp>
+using namespace cat;
 
-#include <cat/Platform.hpp>
+#if defined(CAT_UNKNOWN_BUILTIN_ISTRCMP)
 
-namespace cat {
-
-
-// Derived class should define the constructor using this macro:
-#define CAT_SINGLETON(subclass) \
-    private: \
-        friend class Singleton<subclass>; \
-        subclass()
-
-
-//// Singleton
-
-template<class T> class Singleton
+bool cat::iStrEqual(const char *A, const char *B)
 {
-protected:
-    Singleton<T>() {}
-    Singleton<T>(Singleton<T> &) {}
-    Singleton<T> &operator=(Singleton<T> &) {}
+	// Forever,
+	for (;;)
+	{
+		// Grab next character from each string
+		char a = *A++;
+		char b = *B++;
 
-public:
-    static T *ii;
+		// Convert to lower case if needed
+		if (a >= 'A' && a <= 'Z') a += 'a' - 'Z';
+		if (b >= 'A' && b <= 'Z') b += 'a' - 'Z';
 
-public:
-    CAT_INLINE static T *ref()
-    {
-        if (ii) return ii;
-        return ii = new T;
-    }
+		// If characters do not match, return false
+		if (a != b) return false;
 
-	virtual ~Singleton() {}
-};
+		// If both characters are '\0', we have reached
+		// the end and no characters were different
+		if (a == '\0') return true;
+	}
+}
 
-// TODO: I'm actually not 100% sure this always works
-template<class T> T *Singleton<T>::ii = 0;
-
-
-} // namespace cat
-
-#endif // CAT_SINGLETON_HPP
+#endif // CAT_UNKNOWN_BUILTIN_ISTRCMP

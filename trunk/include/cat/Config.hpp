@@ -32,6 +32,9 @@
 namespace cat {
 
 
+// If you want to remove server-side code from a binary distribution of a client program:
+//#define CAT_OMIT_SERVER_CODE
+
 // If you know the endianness of your target, uncomment one of these for better performance.
 //#define __LITTLE_ENDIAN__
 //#define __BIG_ENDIAN__

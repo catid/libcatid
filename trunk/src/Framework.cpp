@@ -80,7 +80,7 @@ bool cat::InitializeFramework()
 	}
 
 	// Start the DNS client
-	if (!DNSClient::Initialize())
+	if (!DNSClient::ref()->Initialize())
 	{
 		FATAL("Framework") << "Unable to initialize the DNSClient";
 		ShutdownFramework(false);
@@ -94,7 +94,7 @@ bool cat::InitializeFramework()
 void cat::ShutdownFramework(bool WriteSettings)
 {
 	// Shutdown DNS client
-	DNSClient::Shutdown();
+	DNSClient::ref()->Shutdown();
 
 	// Terminate worker threads
 	ThreadPool::ref()->Shutdown();

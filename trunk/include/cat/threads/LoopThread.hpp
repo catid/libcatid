@@ -87,7 +87,7 @@ protected:
 
 public:
     LoopThread();
-    ~LoopThread();
+    virtual ~LoopThread();
 };
 
 
