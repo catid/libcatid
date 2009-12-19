@@ -29,6 +29,8 @@
 #include <cat/AllFramework.hpp>
 using namespace cat;
 
+static DNSClient *dns_client = 0;
+
 // Framework Initialize
 bool cat::InitializeFramework()
 {
@@ -53,7 +55,7 @@ bool cat::InitializeFramework()
 	// Read logging subsystem settings
 	Logging::ref()->ReadSettings();
 
-	// Start the CS PRNG subsystem
+	// Start the CSPRNG subsystem
 	if (!FortunaFactory::ref()->Initialize())
 	{
 		FATAL("Framework") << "Unable to initialize the CSPRNG";
@@ -77,12 +79,23 @@ bool cat::InitializeFramework()
 		return false;
 	}
 
+	// Start the DNS client
+	if (!DNSClient::Initialize())
+	{
+		FATAL("Framework") << "Unable to initialize the DNSClient";
+		ShutdownFramework(false);
+		return false;
+	}
+
 	return true;
 }
 
 // Framework Shutdown
 void cat::ShutdownFramework(bool WriteSettings)
 {
+	// Shutdown DNS client
+	DNSClient::Shutdown();
+
 	// Terminate worker threads
 	ThreadPool::ref()->Shutdown();
 
@@ -96,5 +109,6 @@ void cat::ShutdownFramework(bool WriteSettings)
 	if (WriteSettings)
 		Settings::ref()->write();
 
+	// Cleanup clock subsystem
 	Clock::Shutdown();
 }

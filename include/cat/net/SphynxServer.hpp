@@ -130,7 +130,7 @@ class ServerWorker : public UDPEndpoint
 
 public:
 	ServerWorker(Map *conn_map);
-	~ServerWorker();
+	virtual ~ServerWorker();
 
 protected:
 	void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes);
@@ -161,7 +161,7 @@ private:
 
 public:
 	Server();
-	~Server();
+	virtual ~Server();
 
 	bool Initialize(ThreadPoolLocalStorage *tls, Port port);
 

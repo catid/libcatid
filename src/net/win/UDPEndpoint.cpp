@@ -50,12 +50,12 @@ UDPEndpoint::UDPEndpoint()
 {
     _port = 0;
     _closing = 0;
-    _socket = CAT_SOCKET_ERROR;
+    _socket = SOCKET_ERROR;
 }
 
 UDPEndpoint::~UDPEndpoint()
 {
-    if (_socket != CAT_SOCKET_ERROR)
+    if (_socket != SOCKET_ERROR)
         CloseSocket(_socket);
 }
 
@@ -64,10 +64,10 @@ void UDPEndpoint::Close()
     // Only allow close to run once
     if (Atomic::Add(&_closing, 1) == 0)
     {
-        if (_socket != CAT_SOCKET_ERROR)
+        if (_socket != SOCKET_ERROR)
         {
             CloseSocket(_socket);
-            _socket = CAT_SOCKET_ERROR;
+            _socket = SOCKET_ERROR;
         }
 
 		// Allow the library user to react to closure sooner than the destructor.
@@ -87,13 +87,13 @@ bool UDPEndpoint::IgnoreUnreachable()
     // ICMP Port Unreachable or other failures until you get the first packet.
     // After that call IgnoreUnreachable() to avoid spoofed ICMP exploits.
 
-	if (_socket == CAT_SOCKET_ERROR)
+	if (_socket == SOCKET_ERROR)
 		return false;
 
 	DWORD dwBytesReturned = 0;
     BOOL bNewBehavior = FALSE;
     if (WSAIoctl(_socket, SIO_UDP_CONNRESET, &bNewBehavior,
-				 sizeof(bNewBehavior), 0, 0, &dwBytesReturned, 0, 0) == CAT_SOCKET_ERROR)
+				 sizeof(bNewBehavior), 0, 0, &dwBytesReturned, 0, 0) == SOCKET_ERROR)
 	{
 		WARN("UDPEndpoint") << "Unable to ignore ICMP Unreachable: " << SocketGetLastErrorString();
 		return false;
@@ -133,7 +133,7 @@ bool UDPEndpoint::Bind(Port port, bool ignoreUnreachable)
     {
         FATAL("UDPEndpoint") << "Unable to bind to port: " << SocketGetLastErrorString();
         CloseSocket(s);
-        _socket = CAT_SOCKET_ERROR;
+        _socket = SOCKET_ERROR;
         return false;
     }
 
@@ -142,7 +142,7 @@ bool UDPEndpoint::Bind(Port port, bool ignoreUnreachable)
         !QueueWSARecvFrom())
     {
         CloseSocket(s);
-        _socket = CAT_SOCKET_ERROR;
+        _socket = SOCKET_ERROR;
         return false;
     }
 
@@ -155,7 +155,7 @@ bool UDPEndpoint::Bind(Port port, bool ignoreUnreachable)
 
 bool UDPEndpoint::Valid()
 {
-    return _socket != CAT_SOCKET_ERROR;
+    return _socket != SOCKET_ERROR;
 }
 
 Port UDPEndpoint::GetPort()

@@ -41,13 +41,13 @@ TCPClient::TCPClient()
 {
     // Initialize to invalid socket
     _recvOv = 0;
-    _socket = CAT_SOCKET_ERROR;
+    _socket = SOCKET_ERROR;
     _disconnecting = 0;
 }
 
 TCPClient::~TCPClient()
 {
-    if (_socket != CAT_SOCKET_ERROR)
+    if (_socket != SOCKET_ERROR)
         CloseSocket(_socket);
 
     // Release memory for the overlapped structure
@@ -57,7 +57,7 @@ TCPClient::~TCPClient()
 
 bool TCPClient::ValidClient()
 {
-    return _socket != CAT_SOCKET_ERROR;
+    return _socket != SOCKET_ERROR;
 }
 
 bool TCPClient::Connect(const NetAddr &remoteServerAddress)
@@ -97,7 +97,7 @@ bool TCPClient::Connect(const NetAddr &remoteServerAddress)
         !QueueConnectEx(remoteServerAddress))
     {
         CloseSocket(s);
-        _socket = CAT_SOCKET_ERROR;
+        _socket = SOCKET_ERROR;
         return false;
     }
 

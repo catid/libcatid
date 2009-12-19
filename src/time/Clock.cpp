@@ -64,7 +64,7 @@ using namespace std;
 
 bool Clock::Initialize()
 {
-#if defined(CAT_OS_WINDOWS)
+#if defined(CAT_OS_WINDOWS) || defined(CAT_OS_WINDOWS_CE)
 	// Protect with a mutex
 	AutoMutex lock(init_lock);
 
@@ -89,7 +89,7 @@ bool Clock::Initialize()
 
 bool Clock::Shutdown()
 {
-#if defined(CAT_OS_WINDOWS)
+#if defined(CAT_OS_WINDOWS) || defined(CAT_OS_WINDOWS_CE)
 	// Protect with a mutex
 	AutoMutex lock(init_lock);
 
@@ -109,7 +109,7 @@ bool Clock::Shutdown()
 
 u32 Clock::sec()
 {
-#if defined(CAT_OS_WINDOWS)
+#if defined(CAT_OS_WINDOWS) || defined(CAT_OS_WINDOWS_CE)
 
     return GetTickCount() / 1000;
 
@@ -125,27 +125,22 @@ u32 Clock::sec()
 #endif
 }
 
-u32 Clock::hsec()
+u32 Clock::msec_fast()
 {
-#if defined(CAT_OS_WINDOWS)
+#if defined(CAT_OS_WINDOWS) || defined(CAT_OS_WINDOWS_CE)
 
-	return GetTickCount() / 10;
+	return GetTickCount();
 
 #else
 
-	struct timeval cateq_v;
-	struct timezone cateq_z;
-
-	gettimeofday(&cateq_v, &cateq_z);
-
-	return static_cast<u32>(100.0 * static_cast<double>(cateq_v.tv_sec) + static_cast<double>(cateq_v.tv_usec) / 10000.0);
+	return msec();
 
 #endif
 }
 
 u32 Clock::msec()
 {
-#if defined(CAT_OS_WINDOWS)
+#if defined(CAT_OS_WINDOWS) || defined(CAT_OS_WINDOWS_CE)
 
 	return timeGetTime();
 
@@ -163,7 +158,7 @@ u32 Clock::msec()
 
 double Clock::usec()
 {
-#if defined(CAT_OS_WINDOWS)
+#if defined(CAT_OS_WINDOWS) || defined(CAT_OS_WINDOWS_CE)
 
     /* In Windows, this value can leap forward randomly:
      * http://support.microsoft.com/default.aspx?scid=KB;EN-US;Q274323
@@ -194,7 +189,7 @@ double Clock::usec()
 
 void Clock::sleep(u32 milliseconds)
 {
-#if defined(CAT_OS_WINDOWS)
+#if defined(CAT_OS_WINDOWS) || defined(CAT_OS_WINDOWS_CE)
 
 	Sleep(milliseconds);
 
@@ -215,7 +210,7 @@ std::string Clock::format(const char *format_string)
 
     struct tm *pLocalTime;
 
-#if defined(CAT_OS_WINDOWS)
+#if defined(CAT_OS_WINDOWS) || defined(CAT_OS_WINDOWS_CE)
 # if defined(CAT_COMPILER_MSVC)
     struct tm localTime;
     __time64_t long_time;

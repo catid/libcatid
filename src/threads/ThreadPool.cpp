@@ -122,7 +122,7 @@ bool ThreadPool::Associate(HANDLE h, void *key)
 
     if (result != _port)
     {
-        FATAL("ThreadPool") << "Unable to create completion port: " << SocketGetLastErrorString();
+        FATAL("ThreadPool") << "Unable to create completion port: " << GetLastError();
         return false;
     }
 
@@ -189,7 +189,7 @@ bool ThreadPool::Startup()
 
 	if (!result)
 	{
-		FATAL("ThreadPool") << "Unable to create initial completion port: " << SocketGetLastErrorString();
+		FATAL("ThreadPool") << "Unable to create initial completion port: " << GetLastError();
 		return false;
 	}
 

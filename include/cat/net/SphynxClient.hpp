@@ -55,7 +55,7 @@ private:
 
 public:
 	Client();
-	~Client();
+	virtual ~Client();
 
 	bool Connect(ThreadPoolLocalStorage *tls, const NetAddr &addr, const void *server_key, int key_bytes);
 

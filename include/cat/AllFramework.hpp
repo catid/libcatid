@@ -56,6 +56,8 @@
 #include <cat/io/ThreadPoolFiles.hpp>
 #include <cat/net/ThreadPoolSockets.hpp>
 
+#include <cat/net/DNSClient.hpp>
+
 #include <cat/net/SphynxTransport.hpp>
 #include <cat/net/SphynxServer.hpp>
 #include <cat/net/SphynxClient.hpp>

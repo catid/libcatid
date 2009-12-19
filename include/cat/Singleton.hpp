@@ -26,19 +26,22 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_CAT_SINGLETON_HPP
-#define CAT_CAT_SINGLETON_HPP
+#ifndef CAT_SINGLETON_HPP
+#define CAT_SINGLETON_HPP
 
 #include <cat/Platform.hpp>
 
 namespace cat {
 
 
+// Derived class should define the constructor using this macro:
 #define CAT_SINGLETON(subclass) \
     private: \
         friend class Singleton<subclass>; \
         subclass()
 
+
+//// Singleton
 
 template<class T> class Singleton
 {
@@ -51,16 +54,17 @@ public:
     static T *ii;
 
 public:
-    inline static T *ref()
+    CAT_INLINE static T *ref()
     {
         if (ii) return ii;
         return ii = new T;
     }
 };
 
+// TODO: I'm actually not 100% sure this always works
 template<class T> T *Singleton<T>::ii = 0;
 
 
 } // namespace cat
 
-#endif // CAT_CAT_SINGLETON_HPP
+#endif // CAT_SINGLETON_HPP

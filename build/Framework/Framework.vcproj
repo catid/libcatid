@@ -308,6 +308,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\src\net\DNSClient.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\src\Framework.cpp"
 				>
 			</File>
@@ -400,6 +404,10 @@
 			<Filter
 				Name="net"
 				>
+				<File
+					RelativePath="..\..\include\cat\net\DNSClient.hpp"
+					>
+				</File>
 				<File
 					RelativePath="..\..\include\cat\net\Sockets.hpp"
 					>

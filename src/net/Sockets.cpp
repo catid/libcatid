@@ -128,7 +128,7 @@ namespace cat
 			Socket s = WSASocket(AF_INET6, type, protocol, 0, 0, WSA_FLAG_OVERLAPPED);
 
 			// If the socket was created,
-			while (s != CAT_SOCKET_INVALID)
+			while (s != INVALID_SOCKET)
 			{
 				// Attempt to disable IPv6_Only flag
 				if (SupportIPv4 && !DisableV6ONLY(s))
@@ -148,7 +148,7 @@ namespace cat
 		Socket s = WSASocket(AF_INET, type, protocol, 0, 0, WSA_FLAG_OVERLAPPED);
 
 		// If the socket was created,
-		if (s != CAT_SOCKET_INVALID)
+		if (s != INVALID_SOCKET)
 		{
 			out_OnlyIPv4 = true;
 			out_s = s;
@@ -160,7 +160,7 @@ namespace cat
 
 	bool NetBind(Socket s, Port port, bool OnlyIPv4)
 	{
-		if (s == CAT_SOCKET_ERROR)
+		if (s == SOCKET_ERROR)
 			return false;
 
 		// Bind socket to port
@@ -357,6 +357,109 @@ bool NetAddr::operator!=(const NetAddr &addr) const
 	return !(*this == addr);
 }
 
+bool NetAddr::IsInternetRoutable()
+{
+	if (_family == AF_INET)
+	{
+		u32 ipv4 = ntohl(_ip.v4);
+
+		switch ((u8)(ipv4 >> 24))
+		{
+		case   0: // This Net: 0.0.0.0
+		case  10: // Private: 10/8
+		case 127: // Loopback: 127/8
+		case 255: // Broadcast: 255.255.255.255
+			return false;
+
+		case 192: // Private: 192.168/16
+			return ((ipv4 & 0xFFFF0000) != 0xC0A80000);
+
+		case 172: // Private: 172.16.0.0 ... 172.31.0.0
+			{
+				u8 b = (u8)(ipv4 >> 16);
+
+				return b < 16 || b > 31;
+			}
+
+		default:
+			// Otherwise it is Internet routable
+			return true;
+		}
+	}
+	else if (_family == AF_INET6)
+	{
+		// Site-local addresses (fec0:/16) [may be deprecated now...]
+		if (_ip.v6_words[0] == 0xfec0) return false;
+
+		// Link-local addresses (fe80:/16)
+		if (_ip.v6_words[0] == 0xfe80) return false;
+
+		// Unique local addresses (fc00:/7)
+		if ((_ip.v6_words[0] & 0xfe00) == 0xfc00) return false;
+
+		// Loopback address (::1)
+		if (_ip.v6[0] == 0 && _ip.v6_words[4] == 0 &&
+			_ip.v6_words[5] == 0 && _ip.v6_words[6] == 0 &&
+			_ip.v6_bytes[14] == 0 && _ip.v6_bytes[15] == 1)
+		{
+			return false;
+		}
+
+		return true;
+	}
+	else
+	{
+		// Catches invalid addresses
+		return false;
+	}
+}
+
+bool NetAddr::IsRoutable()
+{
+	if (_family == AF_INET)
+	{
+		u32 ipv4 = ntohl(_ip.v4);
+
+		switch ((u8)(ipv4 >> 24))
+		{
+		case   0: // This Net: 0.0.0.0
+		case 127: // Loopback: 127/8
+		case 255: // Broadcast: 255.255.255.255
+			return false;
+
+		default:
+			// Otherwise it is routable
+			return true;
+		}
+	}
+	else if (_family == AF_INET6)
+	{
+		if (_ip.v6[0] == 0)
+		{
+			// Invalid address (::)
+			if (_ip.v6[1] == 0)
+			{
+				return false;
+			}
+
+			// Loopback address (::1)
+			if (_ip.v6_bytes[15] == 1 &&
+				_ip.v6_words[4] == 0 && _ip.v6_words[5] == 0 &&
+				_ip.v6_words[6] == 0 && _ip.v6_bytes[14] == 0)
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
+	else
+	{
+		// Catches invalid addresses
+		return false;
+	}
+}
+
 bool NetAddr::SetFromString(const char *ip_str, Port port)
 {
 	// Try to convert from IPv6 address first
@@ -410,8 +513,8 @@ std::string NetAddr::IPToString() const
 		DWORD str_len6 = sizeof(addr_str6);
 
 		// Because inet_ntop() is not supported in Windows XP, only Vista+
-		if (CAT_SOCKET_ERROR == WSAAddressToString((sockaddr*)&addr6, sizeof(addr6),
-												   0, addr_str6, &str_len6))
+		if (SOCKET_ERROR == WSAAddressToString((sockaddr*)&addr6, sizeof(addr6),
+											   0, addr_str6, &str_len6))
 			return SocketGetLastErrorString();
 
 		return addr_str6;
@@ -429,8 +532,8 @@ std::string NetAddr::IPToString() const
 		DWORD str_len4 = sizeof(addr_str4);
 
 		// Because inet_ntop() is not supported in Windows XP, only Vista+
-		if (CAT_SOCKET_ERROR == WSAAddressToString((sockaddr*)&addr4, sizeof(addr4),
-												   0, addr_str4, &str_len4))
+		if (SOCKET_ERROR == WSAAddressToString((sockaddr*)&addr4, sizeof(addr4),
+											   0, addr_str4, &str_len4))
 			return SocketGetLastErrorString();
 
 		return addr_str4;
@@ -458,7 +561,7 @@ bool NetAddr::Unwrap(SockAddr &addr, int &addr_len, bool PromoteToIP6) const
 			u32 ipv4 = ntohl(_ip.v4);
 
 			// If loopback,
-			if ((ipv4 & 0xFFFFFF00) == 0x7f000000)
+			if ((ipv4 & 0xFF000000) == 0x7F000000)
 			{
 				addr6->sin6_addr.u.Byte[15] = 1;
 			}
@@ -518,7 +621,7 @@ void NetAddr::PromoteTo6()
 		_ip.v6[0] = 0;
 
 		// If loopback,
-		if ((ipv4 & 0xFFFFFF00) == 0x7f000000)
+		if ((ipv4 & 0xFF000000) == 0x7F000000)
 		{
 			_ip.v6[1] = 0;
 			_ip.v6_bytes[15] = 1;

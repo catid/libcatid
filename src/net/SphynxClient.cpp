@@ -53,7 +53,7 @@ Client::~Client()
 {
 	if (!StopThread())
 	{
-		WARN("ScalableServer") << "Unable to stop timer thread.  Was it started?";
+		WARN("Client") << "Unable to stop timer thread.  Was it started?";
 	}
 }
 
@@ -312,7 +312,7 @@ bool Client::ThreadFunction(void *)
 	const int HELLO_POST_INTERVAL = 200; // milliseconds
 	const int CONNECT_TIMEOUT = 6000; // milliseconds
 
-	u32 now = Clock::msec();
+	u32 now = Clock::msec_fast();
 
 	u32 first_hello_post = now;
 	u32 last_hello_post = now;
@@ -328,7 +328,7 @@ bool Client::ThreadFunction(void *)
 		if (_connected)
 			break;
 
-		u32 now = Clock::msec();
+		u32 now = Clock::msec_fast();
 
 		// If connection timed out,
 		if (now - first_hello_post >= CONNECT_TIMEOUT)
