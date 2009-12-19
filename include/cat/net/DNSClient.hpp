@@ -26,6 +26,12 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
+// TODO: Port to UNIX
+// TODO: React to timeouts from DNS server by switching to a backup
+// TODO: Use TTL from DNS record instead of fixed constant
+// TODO: If the DNS resolution load is high, it would make sense to put
+//       multiple requests in the same DNS packet
+// TODO: Retransmissions could also be grouped into the same DNS packets
 // TODO: The locks held in DNSClient are fairly coarse and could be broken up
 
 #ifndef CAT_DNS_CLIENT_HPP
@@ -162,9 +168,6 @@ private:
 
 private:
 	bool ThreadFunction(void *param);
-
-private:
-	u32 _last_response_time;
 
 protected:
 	void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes);
