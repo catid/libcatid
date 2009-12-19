@@ -29,30 +29,18 @@
 #include <cat/net/DNSClient.hpp>
 #include <cat/io/Logging.hpp>
 #include <cat/time/Clock.hpp>
+#include <cat/lang/Strings.hpp>
 using namespace cat;
 
 
-void DNSClient::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes)
-{
-
-}
-void DNSClient::OnWrite(u32 bytes)
-{
-
-}
-void DNSClient::OnClose()
-{
-
-}
-void DNSClient::OnUnreachable(const NetAddr &src)
-{
-
-}
+//// DNSClient
 
 bool DNSClient::GetServerAddr()
 {
 	// Mark server address as invalid
 	_server_addr.Invalidate();
+
+#if defined(CAT_OS_WINDOWS) || defined(CAT_OS_WINDOWS_CE)
 
 	// Based on approach used in Tiny Asynchronous DNS project by
 	// Sergey Lyubka <valenok@gmail.com>.  I owe you a beer! =)
@@ -75,48 +63,218 @@ bool DNSClient::GetServerAddr()
 	char subkey_name[SUBKEY_NAME_MAXLEN];
 	for (int ii = 0; ERROR_SUCCESS == RegEnumKey(key, ii, subkey_name, sizeof(subkey_name)); ++ii)
 	{
-		char data[SUBKEY_DATA_MAXLEN];
-		DWORD data_len = sizeof(data);
+		HKEY subkey;
 
-		// Get subkey's DhcpNameServer value
-		if (ERROR_SUCCESS == RegGetValue(key, subkey_name, "DhcpNameServer", data,
-								RRF_RT_REG_MULTI_SZ | RRF_RT_REG_SZ, &type, data, &data_len))
+		// Open interface subkey
+		if (ERROR_SUCCESS == RegOpenKey(key, subkey_name, &subkey))
 		{
-			// Convert address string to binary address
-			NetAddr addr(data, 53);
+			BYTE data[SUBKEY_DATA_MAXLEN];
+			DWORD type, data_len = sizeof(data);
 
-			// If address is routable,
-			if (addr.IsRoutable())
+			// Get subkey's DhcpNameServer value
+			if (ERROR_SUCCESS == RegQueryValueEx(subkey, "DhcpNameServer", 0, &type, data, &data_len))
 			{
-				// Set server address to the last one in the enumeration
-				_server_addr = addr;
+				// If type is a string,
+				if (type == REG_EXPAND_SZ || type == REG_SZ)
+				{
+					// Insure it is nul-terminated
+					data[sizeof(data) - 1] = '\0';
+
+					// Convert address string to binary address
+					NetAddr addr((const char*)data, 53);
+
+					// If address is routable,
+					if (addr.IsRoutable())
+					{
+						// Set server address to the last valid one in the enumeration
+						_server_addr = addr;
+					}
+				}
 			}
 		}
 	}
 
 	RegCloseKey(key);
 
+#else // POSIX version:
+
+	// TODO
+
+#endif
+
 	// Return success if server address is now valid
 	return _server_addr.Valid();
 }
 
+bool DNSClient::PostDNSPacket(DNSRequest *req, u32 now)
+{
+	req->last_post_time = now;
+
+	int bytes = 32;
+	u8 *dns_packet = GetPostBuffer(bytes);
+
+	// TODO
+
+	return Post(_server_addr, dns_packet, bytes);
+}
+
+bool DNSClient::PerformLookup(DNSRequest *req)
+{
+	AutoMutex lock(_request_lock);
+
+	u32 now = Clock::msec_fast();
+
+	if (!PostDNSPacket(req, now))
+		return false;
+
+	req->first_post_time = now;
+
+	// Insert at end of list
+	req->next = 0;
+	req->last = _request_tail;
+	if (_request_tail) _request_tail->next = req;
+	else _request_head = req;
+	_request_tail = req;
+
+	return true;
+}
+
+void DNSClient::CacheAdd(DNSRequest *req)
+{
+	AutoMutex lock(_cache_lock);
+
+	// If still growing cache,
+	if (_cache_size < DNSCACHE_MAX_REQS)
+		_cache_size++;
+	else
+	{
+		// Remove oldest one from cache
+		DNSRequest *tokill = _cache_tail;
+
+		if (tokill)
+		{
+			DNSRequest *last = tokill->last;
+
+			_cache_tail = last;
+			if (last) last->next = 0;
+			else _cache_head = 0;
+
+			delete tokill;
+		}
+	}
+
+	// Insert at head
+	req->next = _cache_head;
+	req->last = 0;
+	if (_cache_head) _cache_head->last = req;
+	else _cache_tail = req;
+	_cache_head = req;
+
+	// Set update time
+	req->last_post_time = Clock::msec_fast();
+}
+
 DNSRequest *DNSClient::CacheGet(const char *hostname)
 {
+	// For each cache entry,
+	for (DNSRequest *req = _cache_head; req; req = req->next)
+	{
+		// If hostname of cached request equals the new request,
+		if (iStrEqual(req->hostname, hostname))
+		{
+			// If the cache has not expired,
+			if (Clock::msec_fast() - req->last_post_time < DNSCACHE_TIMEOUT)
+			{
+				// Return the cache entry
+				return req;
+			}
+			else
+			{
+				// Unlink remainder of list (they will all be old)
+				DNSRequest *last = req->last;
 
+				_cache_tail = last;
+				if (last) last->next = 0;
+				else _cache_head = 0;
+
+				// For each item that was unlinked,
+				for (DNSRequest *next, *tokill = req; tokill; tokill = next)
+				{
+					next = tokill->next;
+
+					// Delete each item
+					delete tokill;
+
+					// Reduce the cache size
+					--_cache_size;
+				}
+
+				// Return indicating that the cache did not contain the hostname
+				return 0;
+			}
+		}
+	}
+
+	return 0;
 }
 
 void DNSClient::CacheKill(DNSRequest *req)
 {
+	// Unlink from doubly-linked list
+	DNSRequest *last = req->last;
+	DNSRequest *next = req->next;
 
+	if (last) last->next = next;
+	else _cache_head = next;
+	if (next) next->last = last;
+	else _cache_tail = last;
+
+	--_cache_size;
+
+	// Free memory
+	delete req;
 }
 
 bool DNSClient::ThreadFunction(void *param)
 {
 	const int TICK_RATE = 200; // milliseconds
 
-	// Wait for quit signal
+	// Check for timeouts
 	while (WaitForQuitSignal(TICK_RATE))
 	{
+		AutoMutex lock(_request_lock);
+
+		// Cache current time
+		u32 now = Clock::msec_fast();
+
+		// For each pending request,
+		for (DNSRequest *req_next, *req = _request_head; req; req = req_next)
+		{
+			req_next = req->next; // cached for deletion
+
+			// If the request has timed out or reposting failed,
+			if ((now - req->first_post_time >= DNSREQ_TIMEOUT) ||
+				(now - req->last_post_time >= DNSREQ_REPOST_TIME && !PostDNSPacket(req, now)))
+			{
+				// Invoke callback with number of responses = 0 to indicate error
+				req->cb(req->hostname, req->responses, 0);
+
+				// Release reference if desired
+				if (req->ref) req->ref->ReleaseRef();
+
+				// Unlink from doubly-linked list
+				DNSRequest *next = req->next;
+				DNSRequest *last = req->last;
+
+				if (next) next->last = last;
+				else _request_tail = last;
+				if (last) last->next = next;
+				else _request_head = next;
+
+				// Free memory
+				delete req;
+			}
+		}
 	}
 
 	return true;
@@ -132,6 +290,9 @@ DNSClient::~DNSClient()
 
 bool DNSClient::Initialize()
 {
+	// Add a reference so that DNSClient cannot be destroyed
+	DNSClient::ii->AddRef();
+
 	_dns_unavailable = true;
 
 	// Attempt to bind to any port and accept ICMP errors initially
@@ -144,7 +305,7 @@ bool DNSClient::Initialize()
 	// Attempt to get server address from operating system
 	if (!GetServerAddr())
 	{
-		WARN("DNS") << "Initialization failure: Unable to discover DNS server";
+		WARN("DNS") << "Initialization failure: Unable to discover DNS server address";
 		Close();
 		return false;
 	}
@@ -163,7 +324,11 @@ bool DNSClient::Initialize()
 }
 void DNSClient::Shutdown()
 {
+	// NOTE: Does not remove artificial reference added on Initialize(), so
+	// the object is not actually destroyed.  We allow the ThreadPool to
+	// destroy this object after all the worker threads are dead.
 
+	Close();
 }
 
 bool DNSClient::Resolve(const char *hostname, DNSResultCallback callback, ThreadRefObject *holdRef)
@@ -179,6 +344,8 @@ bool DNSClient::Resolve(const char *hostname, DNSResultCallback callback, Thread
 
 		return true;
 	}
+
+	AutoMutex lock(_cache_lock);
 
 	// Check cache
 	DNSRequest *cached_request = CacheGet(hostname);
@@ -196,6 +363,8 @@ bool DNSClient::Resolve(const char *hostname, DNSResultCallback callback, Thread
 		return true;
 	}
 
+	lock.Release();
+
 	// If DNS lookup is unavailable,
 	if (_dns_unavailable)
 		return false;
@@ -210,7 +379,6 @@ bool DNSClient::Resolve(const char *hostname, DNSResultCallback callback, Thread
 
 	// Fill request
 	CAT_STRNCPY(request->hostname, hostname, sizeof(request->hostname));
-	request->last_update_time = Clock::msec_fast();
 	request->ref = holdRef;
 	request->cb = callback;
 
@@ -231,7 +399,9 @@ void DNSClient::OnUnreachable(const NetAddr &src)
 	// If IP matches the server and we're not connected yet,
 	if (_server_addr.EqualsIPOnly(src))
 	{
-		WARN("DNS") << "Failed to connect: ICMP error received from server address";
+		WARN("DNS") << "Failed to contact DNS server: ICMP error received from server address";
+
+		// Close socket so that DNS resolves will be squelched
 		Close();
 	}
 }
@@ -241,9 +411,17 @@ void DNSClient::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data
 	// If packet source is not the server, ignore this packet
 	if (_server_addr != src)
 		return;
+
+	// TODO
 }
 
 void DNSClient::OnWrite(u32 bytes)
 {
 
+}
+
+void DNSClient::OnClose()
+{
+	// Marks DNS as unavailable OnClose() so that further resolve requests are squelched.
+	_dns_unavailable = true;
 }

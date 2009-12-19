@@ -26,47 +26,36 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_SINGLETON_HPP
-#define CAT_SINGLETON_HPP
-
-#include <cat/Platform.hpp>
+#ifndef CAT_STRINGS_HPP
+#define CAT_STRINGS_HPP
 
 namespace cat {
 
 
-// Derived class should define the constructor using this macro:
-#define CAT_SINGLETON(subclass) \
-    private: \
-        friend class Singleton<subclass>; \
-        subclass()
+// iStrEqual(): Returns true if strings match.  Case-insensitive
 
+#if defined(CAT_COMPILER_MSVC)
 
-//// Singleton
+	CAT_INLINE bool iStrEqual(const char *A, const char *B)
+	{
+		return _stricmp(A, B) == 0;
+	}
 
-template<class T> class Singleton
-{
-protected:
-    Singleton<T>() {}
-    Singleton<T>(Singleton<T> &) {}
-    Singleton<T> &operator=(Singleton<T> &) {}
+#elif defined(CAT_COMPILER_GCC)
 
-public:
-    static T *ii;
+	CAT_INLINE bool iStrEqual(const char *A, const char *B)
+	{
+		return strcasecmp(A, B) == 0;
+	}
 
-public:
-    CAT_INLINE static T *ref()
-    {
-        if (ii) return ii;
-        return ii = new T;
-    }
+#else
 
-	virtual ~Singleton() {}
-};
+# define CAT_UNKNOWN_BUILTIN_ISTRCMP
+	bool iStrEqual(const char *A, const char *B);
 
-// TODO: I'm actually not 100% sure this always works
-template<class T> T *Singleton<T>::ii = 0;
+#endif
 
 
 } // namespace cat
 
-#endif // CAT_SINGLETON_HPP
+#endif // CAT_STRINGS_HPP

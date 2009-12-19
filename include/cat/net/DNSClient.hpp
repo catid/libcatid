@@ -26,6 +26,8 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
+// TODO: The locks held in DNSClient are fairly coarse and could be broken up
+
 #ifndef CAT_DNS_CLIENT_HPP
 #define CAT_DNS_CLIENT_HPP
 
@@ -38,6 +40,7 @@ namespace cat {
 
 static const int HOSTNAME_MAXLEN = 128; // Max characters in a hostname request
 static const int DNSREQ_TIMEOUT = 3000; // DNS request timeout interval
+static const int DNSREQ_REPOST_TIME = 300; // Number of milliseconds between retries
 static const int DNSCACHE_MAX_REQS = 8; // Maximum number of requests to cache
 static const int DNSCACHE_MAX_RESP = 8; // Maximum number of responses to cache
 static const int DNSCACHE_TIMEOUT = 60000; // Time until a cached response is dropped
@@ -52,8 +55,8 @@ struct DNSRequest
 {
 	DNSRequest *last, *next;
 
-	// Timestamp for last update, used for resolve timeout and cache timeout
-	u32 last_update_time;
+	u32 first_post_time; // Timestamp for first post, for timeout
+	u32 last_post_time; // Timestamp for last post, for retries and cache
 
 	// Our copy of the hostname string and callback
 	char hostname[HOSTNAME_MAXLEN+1];
@@ -73,6 +76,11 @@ class DNSClient : LoopThread, protected UDPEndpoint, public Singleton<DNSClient>
 	CAT_SINGLETON(DNSClient)
 	{
 		_dns_unavailable = true;
+
+		_cache_head = _cache_tail = 0;
+		_cache_size = 0;
+
+		_request_head = 0;
 	}
 
 public:
@@ -110,22 +118,28 @@ public:
 
 private:
 	NetAddr _server_addr;
-	bool _dns_unavailable;
+	volatile bool _dns_unavailable;
 
 private:
-	Mutex _list_lock;
+	Mutex _request_lock;
 	DNSRequest *_request_head;
+	DNSRequest *_request_tail;
+
+private:
+	Mutex _cache_lock;
 	DNSRequest *_cache_head;
+	DNSRequest *_cache_tail;
 	int _cache_size;
+
+	// These functions do not lock, caller must lock:
+	void CacheAdd(DNSRequest *req); // Assumes not already in cache
+	DNSRequest *CacheGet(const char *hostname); // Case-insensitive
+	void CacheKill(DNSRequest *req); // Assumes already in cache
 
 private:
 	bool GetServerAddr();
+	bool PostDNSPacket(DNSRequest *req, u32 now);
 	bool PerformLookup(DNSRequest *req);
-
-private:
-	// These may be called from multiple threads simultaneously
-	DNSRequest *CacheGet(const char *hostname);
-	void CacheKill(DNSRequest *req);
 
 private:
 	bool ThreadFunction(void *param);

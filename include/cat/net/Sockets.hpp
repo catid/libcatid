@@ -37,7 +37,7 @@
 # include <WS2tcpip.h>
 #else
 # define CAT_UNIX_SOCKET_API
-#include <unistd.h>
+# include <unistd.h>
 #endif
 
 #define CAT_IP4_LOOPBACK "127.0.0.1"

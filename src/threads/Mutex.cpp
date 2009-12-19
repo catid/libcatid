@@ -75,13 +75,25 @@ bool Mutex::Enter()
 {
 #if defined(CAT_MUTEX_WINDOWS)
 
+	CAT_FENCE_COMPILER
+
 	EnterCriticalSection(&cs);
+
+	CAT_FENCE_COMPILER
+
 	return true;
 
 #elif defined(CAT_MUTEX_POSIX)
 
 	if (init_failure) return false;
-	return pthread_mutex_lock(&mx) == 0;
+
+	CAT_FENCE_COMPILER
+
+	bool result = pthread_mutex_lock(&mx) == 0;
+
+	CAT_FENCE_COMPILER
+
+	return result;
 
 #endif
 }
@@ -90,13 +102,25 @@ bool Mutex::Leave()
 {
 #if defined(CAT_MUTEX_WINDOWS)
 
+	CAT_FENCE_COMPILER
+
 	LeaveCriticalSection(&cs);
+
+	CAT_FENCE_COMPILER
+
 	return true;
 
 #elif defined(CAT_MUTEX_POSIX)
 
 	if (init_failure) return false;
-	return pthread_mutex_unlock(&mx) == 0;
+
+	CAT_FENCE_COMPILER
+
+	bool result = pthread_mutex_unlock(&mx) == 0;
+
+	CAT_FENCE_COMPILER
+
+	return result;
 
 #endif
 }
