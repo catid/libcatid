@@ -45,7 +45,8 @@ class Client : LoopThread, public UDPEndpoint
 private:
 	KeyAgreementInitiator _key_agreement_initiator;
 	AuthenticatedEncryption _auth_enc;
-	Transport _transport;
+	TransportSender _transport_sender;
+	TransportReceiver _transport_receiver;
 	NetAddr _server_addr;
 	bool _connected;
 	u8 _server_public_key[PUBLIC_KEY_BYTES];

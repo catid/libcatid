@@ -84,7 +84,8 @@ public:
 	AuthenticatedEncryption auth_enc;
 
 public:
-	Transport transport;
+	TransportSender transport_sender;
+	TransportReceiver transport_receiver;
 };
 
 

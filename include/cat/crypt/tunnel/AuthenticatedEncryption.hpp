@@ -84,7 +84,7 @@ class AuthenticatedEncryption
     Skein key_hash;
 
     HMAC_MD5 local_mac, remote_mac;
-    ChaCha local_cipher, remote_cipher;
+    ChaChaKey local_cipher_key, remote_cipher_key;
     u64 local_iv, remote_iv;
 
     // 1024-bit anti-replay sliding window

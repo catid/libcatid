@@ -336,7 +336,7 @@ void ServerWorker::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *d
 		conn->last_recv_tsc = Clock::msec_fast();
 
 		// Handle the decrypted data
-		conn->transport.OnPacket(this, data, buf_bytes, conn,
+		conn->transport_receiver.OnPacket(this, data, buf_bytes, conn,
 			fastdelegate::MakeDelegate(this, &ServerWorker::HandleMessageLayer));
 	}
 }
@@ -862,7 +862,8 @@ bool Server::ThreadFunction(void *)
 			if (conn->IsFlagSet(Connection::FLAG_C2S_ENC))
 			{
 				// Tick the transport layer for this connection
-				conn->transport.Tick(conn->server_endpoint);
+				conn->transport_receiver.Tick(conn->server_endpoint);
+				conn->transport_sender.Tick(conn->server_endpoint);
 			}
 		}
 	}

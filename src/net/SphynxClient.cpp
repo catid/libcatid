@@ -197,7 +197,7 @@ void Client::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 		if (_auth_enc.Decrypt(data, buf_bytes))
 		{
 			// Pass the packet to the transport layer
-			_transport.OnPacket(this, data, buf_bytes, 0,
+			_transport_receiver.OnPacket(this, data, buf_bytes, 0,
 				fastdelegate::MakeDelegate(this, &Client::HandleMessageLayer));
 		}
 	}
@@ -402,7 +402,8 @@ bool Client::ThreadFunction(void *)
 	// While waiting for quit signal,
 	while (WaitForQuitSignal(TICK_RATE))
 	{
-		_transport.Tick(this);
+		_transport_receiver.Tick(this);
+		_transport_sender.Tick(this);
 	}
 
 	return true;

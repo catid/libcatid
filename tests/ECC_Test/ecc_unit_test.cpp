@@ -1252,13 +1252,13 @@ void TestSkein512()
 }
 
 static int cc_bytes;
-static ChaCha cc_test;
+static ChaChaKey cc_test_key;
 
 void ChaChaOnce()
 {
     char in[1500], out[1500];
 
-    cc_test.Begin(0x0123456701234567LL);
+	ChaChaOutput cc_test(cc_test_key, 0x0123456701234567LL);
     cc_test.Crypt(in, out, cc_bytes);
 }
 
@@ -1268,7 +1268,7 @@ void TestChaCha()
 
     const char *key = "what is the key?";
 
-    cc_test.Key(key, (int)strlen(key));
+    cc_test_key.Set(key, (int)strlen(key));
 
     static const int TIMING_BYTES[] = {
         16, 64, 128, 256, 512, 1024, 1500
