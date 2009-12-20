@@ -28,7 +28,7 @@
 
 /*
     The ChaCha cipher is a symmetric stream cipher based on Salsa20.
-    Author website: http://cr.yp.to/chacha.html
+    http://cr.yp.to/chacha.html
 */
 
 #ifndef CAT_CHACHA_HPP
@@ -43,10 +43,10 @@ namespace cat {
 
     Code example:
 
-        ChaCha cc;
+        ChaChaKey cck;
         char key[32]; // fill key here
 
-        cc.Key(key);
+        cck.Key(key, sizeof(key));
 
     Before each encryption or decryption with the ChaCha cipher,
     a 64-bit Initialization Vector (IV) must be specified.  Every
@@ -60,15 +60,15 @@ namespace cat {
         u64 message_iv = iv;
         iv = iv + 1;
 
-        cc.Begin(message_iv);
-        cc.Crypt(message, ciphertext, sizeof(ciphertext));
+		ChaChaOutput cco(cck, message_iv);
+        cco.Crypt(message, ciphertext, sizeof(ciphertext));
 
     Decryption code example:
 
         char ciphertext[19], decrypted[19]; // ciphertext filled here
 
-        cc.Begin(message_iv);
-        cc.Crypt(ciphertext, decrypted, sizeof(decrypted));
+		ChaChaOutput cco(cck, message_iv);
+        cco.Crypt(ciphertext, decrypted, sizeof(decrypted));
 
     Sending all 8 bytes of the IV in every packet is not necessary.
     Instead, only a few of the low bits of the IV need to be sent,
@@ -102,31 +102,41 @@ namespace cat {
         Otherwise: An attacker can recover the plaintext without the key.
 
     Remember that an attacker can impersonate the remote computer, so be
-    sure not to accept the new IV until the message hash has been verified
-    if your protocol has a hash on each message.
+    sure not to accept the new IV until the message authentication code has
+	been verified if your protocol uses a message authentication code (MAC).
         Otherwise: An attacker could desynchronize the IVs.
 */
 
 
-//// ChaCha cipher
+//// ChaChaKey
 
-class ChaCha
+class ChaChaKey
 {
-    u32 state[16];
-
-    void GenerateKeyStream(u32 *out);
+	friend class ChaChaOutput;
+	u32 state[16];
 
 public:
-    ~ChaCha();
+    ~ChaChaKey();
 
     // Key up to 384 bits
-    void Key(const void *key, int bytes);
+    void Set(const void *key, int bytes);
+};
 
-    // 64-bit iv
-    void Begin(u64 iv);
 
-    // Message with any number of bytes
-    void Crypt(const void *in, void *out, int bytes);
+//// ChaChaOutput
+
+class ChaChaOutput
+{
+	u32 state[16];
+
+	void GenerateKeyStream(u32 *out);
+
+public:
+	ChaChaOutput(const ChaChaKey &key, u64 iv);
+	~ChaChaOutput();
+
+	// Message with any number of bytes
+	void Crypt(const void *in, void *out, int bytes);
 };
 
 

@@ -64,7 +64,7 @@ bool AuthenticatedEncryption::SetKey(int KeyBytes, Skein *key, bool is_initiator
     kdf.CrunchString(is_initiator ? "upstream-ENC" : "downstream-ENC");
     kdf.End();
     kdf.Generate(local_key, KeyBytes);
-    local_cipher.Key(local_key, KeyBytes);
+    local_cipher_key.Set(local_key, KeyBytes);
     local_iv = 1;
 
     u8 remote_key[KeyAgreementCommon::MAX_BYTES];
@@ -73,7 +73,7 @@ bool AuthenticatedEncryption::SetKey(int KeyBytes, Skein *key, bool is_initiator
     kdf.CrunchString(is_initiator ? "downstream-ENC" : "upstream-ENC");
     kdf.End();
     kdf.Generate(remote_key, KeyBytes);
-    remote_cipher.Key(remote_key, KeyBytes);
+    remote_cipher_key.Set(remote_key, KeyBytes);
     remote_iv = 0;
 
     CAT_OBJCLR(iv_bitmap);
@@ -210,7 +210,7 @@ bool AuthenticatedEncryption::Decrypt(u8 *buffer, int &buf_bytes)
     if (!IsValidIV(iv)) return false;
 
     // Decrypt the message and the MAC
-    remote_cipher.Begin(iv);
+	ChaChaOutput remote_cipher(remote_cipher_key, iv);
     remote_cipher.Crypt(buffer, buffer, buf_bytes - IV_BYTES);
 
     // Generate the expected MAC given the decrypted message and full IV
@@ -249,7 +249,7 @@ bool AuthenticatedEncryption::Encrypt(u8 *buffer, int buffer_bytes, int &msg_byt
     local_mac.Generate(overhead, MAC_BYTES);
 
     // Encrypt the message and MAC
-    local_cipher.Begin(local_iv);
+	ChaChaOutput local_cipher(local_cipher_key, local_iv);
     local_cipher.Crypt(buffer, buffer, msg_bytes + MAC_BYTES);
 
     // Obfuscate the truncated IV

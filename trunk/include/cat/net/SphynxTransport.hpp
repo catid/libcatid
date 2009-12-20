@@ -38,6 +38,14 @@ namespace cat {
 namespace sphynx {
 
 
+class Connection;
+class Map;
+class Server;
+class ServerWorker;
+class Client;
+class TransportSender;
+class TransportReceiver;
+
 // Protocol constants
 static const u32 PROTOCOL_MAGIC = 0xC47D0001;
 static const int PUBLIC_KEY_BYTES = 64;
@@ -55,13 +63,6 @@ static const int COLLISION_MULTIPLIER = 71*5861 * 4 + 1;
 static const int COLLISION_INCREMENTER = 1013904223;
 
 
-class Connection;
-class Map;
-class Server;
-class ServerWorker;
-class Client;
-
-
 // Handshake packet types
 enum HandshakeTypes
 {
@@ -72,55 +73,28 @@ enum HandshakeTypes
 };
 
 
-/*
-	Transport layer:
-
-	Supports message clustering, several streams for
-	four types of transport: {unreliable/reliable}, {ordered/unordered}
-	and fragmentation for reliable, ordered messages.
-
-	Unreliable
-	0 stream(4) len(11) msg(x)
-	stream = 0
-
-	Unreliable, ordered
-	0 stream(4) len(11) id(24) msg(x)
-	stream = 1-15
-
-	Reliable, unordered
-	1 0 stream(3) len(11) id(15) unused(1) msg(x)
-	1 1 stream(3) count-1(3) id(15) nack(1) id(15) nack(1) id(15) nack(1)
-	stream = 0
-
-	Reliable, ordered
-	1 0 stream(3) len(11) id(15) frag(1) msg(x)
-	1 1 stream(3) count-1(3) id(15) nack(1) id(15) nack(1) id(15) nack(1)
-	stream = 1-7
-
-	To transmit a large buffer over several packets, it must be reassembled in order.
-	If any parts are lost, then the whole buffer is lost.
-	Therefore only reliable, ordered streams make sense.
-	This is implemented with the frag(ment) bit:
-		frag = 1 : Fragment in a larger message
-		frag = 0 : Final fragment or a whole message
-*/
-
 typedef fastdelegate::FastDelegate3<Connection*, u8*, int, void> MessageLayerHandler;
 
 
-//// sphynx::Transport
+//// sphynx::TransportSender
 
-class Transport
+class TransportSender
 {
-protected:
-	u32 _recv_unreliable_id[16];
-	u32 _recv_reliable_id[8];
-	u32 _send_unreliable_id[16];
-	u32 _send_reliable_id[8];
-
 public:
-	Transport();
-	~Transport();
+	TransportSender();
+	~TransportSender();
+
+	void Tick(UDPEndpoint *endpoint);
+};
+
+
+//// sphynx::TransportReceiver
+
+class TransportReceiver
+{
+public:
+	TransportReceiver();
+	~TransportReceiver();
 
 	void OnPacket(UDPEndpoint *endpoint, u8 *data, int bytes, Connection *conn, MessageLayerHandler handler);
 
