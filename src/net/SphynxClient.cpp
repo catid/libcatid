@@ -126,8 +126,7 @@ bool Client::Connect(const NetAddr &addr)
 
 	// Cache server address
 	_server_addr = addr;
-	if (Is6()) _server_addr.PromoteTo6();
-	else _server_addr.DemoteTo4();
+	_server_addr.Convert(Is6());
 
 	// Attempt to post hello message
 	if (!PostHello())
