@@ -30,7 +30,7 @@
 #include <cat/time/Clock.hpp>
 using namespace cat;
 
-#if defined(CAT_THREAD_WINDOWS)
+#if defined(CAT_OS_WINDOWS)
 
 #include <process.h>
 
@@ -48,7 +48,7 @@ unsigned int __stdcall LoopThread::ThreadWrapper(void *this_object)
 	return exitCode;
 }
 
-#elif defined(CAT_THREAD_POSIX)
+#else
 
 void *LoopThread::ThreadWrapper(void *this_object)
 {
@@ -65,12 +65,12 @@ void *LoopThread::ThreadWrapper(void *this_object)
 
 LoopThread::LoopThread()
 {
-#if defined(CAT_THREAD_WINDOWS)
+#if defined(CAT_OS_WINDOWS)
 
 	_quit_signal = 0;
 	_thread = 0;
 
-#elif defined(CAT_THREAD_POSIX)
+#else
 
 	_quit_signal = false;
 	_thread_started = false;
@@ -87,7 +87,7 @@ bool LoopThread::StartThread(void *param)
 {
 	caller_param = param;
 
-#if defined(CAT_THREAD_WINDOWS)
+#if defined(CAT_OS_WINDOWS)
 
 	if (_quit_signal || _thread)
 		return false;
@@ -100,7 +100,7 @@ bool LoopThread::StartThread(void *param)
 	_thread = (HANDLE)_beginthreadex(0, 0, &LoopThread::ThreadWrapper, static_cast<void*>( this ), 0, 0);
 	return _thread != 0;
 
-#elif defined(CAT_THREAD_POSIX)
+#else
 
 	if (_thread_started)
 		return false;
@@ -122,7 +122,7 @@ bool LoopThread::StopThread()
 {
 	bool success = false;
 
-#if defined(CAT_THREAD_WINDOWS)
+#if defined(CAT_OS_WINDOWS)
 
 	if (_thread && _quit_signal)
 	{
@@ -148,7 +148,7 @@ bool LoopThread::StopThread()
 		_thread = 0;
 	}
 
-#elif defined(CAT_THREAD_POSIX)
+#else
 
 	if (_thread_started)
 	{
@@ -167,7 +167,7 @@ bool LoopThread::StopThread()
 // Returns false if it is time to quit
 bool LoopThread::WaitForQuitSignal(int msec)
 {
-#if defined(CAT_THREAD_WINDOWS)
+#if defined(CAT_OS_WINDOWS)
 
 	switch (WaitForSingleObject(_quit_signal, msec))
 	{
@@ -180,7 +180,7 @@ bool LoopThread::WaitForQuitSignal(int msec)
 		return true;
 	}
 
-#elif defined(CAT_THREAD_POSIX)
+#else
 
 	// I would prefer something like WaitForSingleObject()
 	if (_quit_signal) return false;

@@ -313,6 +313,7 @@ namespace cat {
 
 #elif defined(_WIN32_WCE)
 # define CAT_OS_WINDOWS_CE
+# define CAT_OS_WINDOWS /* Also defined */
 
 #elif defined(_WIN32)
 # define CAT_OS_WINDOWS

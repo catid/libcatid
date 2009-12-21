@@ -68,7 +68,7 @@ void ReleasePostBuffer(void *buffer);
 } // namespace cat
 
 
-#if defined (CAT_MS_SOCKET_API) // Windows-style IOCP
+#if defined (CAT_OS_WINDOWS) // Windows-style IOCP
 
 #include <MSWSock.h>
 #include <cat/port/WindowsInclude.hpp>

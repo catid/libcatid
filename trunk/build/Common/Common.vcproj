@@ -323,6 +323,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\src\threads\RWLock.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\src\rand\StdRand.cpp"
 				>
 			</File>
@@ -397,6 +401,10 @@
 				</File>
 				<File
 					RelativePath="..\..\include\cat\threads\Mutex.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\threads\RWLock.hpp"
 					>
 				</File>
 			</Filter>

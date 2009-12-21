@@ -35,7 +35,7 @@ using namespace cat;
 
 //// Windows-style IOCP
 
-#if defined (CAT_MS_SOCKET_API)
+#if defined (CAT_OS_WINDOWS)
 
 namespace cat
 {

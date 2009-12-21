@@ -32,7 +32,7 @@ using namespace cat;
 // Used for MacOSX, iPhone, PS3, XBox, and others (for now)
 // I want to have more of these operating systems defined
 
-#if !defined(CAT_OS_WINDOWS) && !defined(CAT_OS_LINUX) && !defined(CAT_OS_WINDOWS_CE)
+#if !defined(CAT_OS_WINDOWS) && !defined(CAT_OS_LINUX)
 
 #if !defined(CAT_NO_ENTROPY_THREAD)
 

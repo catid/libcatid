@@ -26,128 +26,37 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
+#ifndef CAT_RW_LOCK_HPP
+#define CAT_RW_LOCK_HPP
+
 #include <cat/threads/Mutex.hpp>
-using namespace cat;
+
+namespace cat {
 
 
-//// Mutex
-
-Mutex::Mutex()
+class RWLock
 {
 #if defined(CAT_OS_WINDOWS)
-
-	InitializeCriticalSection(&cs);
-
+	volatile u32 _wr_lock_count;
+	Mutex _wr_lock;
+	HANDLE _wr_unlock_event;
+	HANDLE _rd_unlock_event;
+	volatile u32 _rd_lock_count;
 #else
-
-	init_failure = pthread_mutex_init(&mx, 0);
-
 #endif
-}
 
-Mutex::~Mutex()
-{
-#if defined(CAT_OS_WINDOWS)
+public:
+	RWLock();
+	~RWLock();
 
-	DeleteCriticalSection(&cs);
+	void ReadLock();
+	void ReadUnlock();
 
-#else
-
-	if (!init_failure) pthread_mutex_destroy(&mx);
-
-#endif
-}
-
-bool Mutex::Valid()
-{
-#if defined(CAT_OS_WINDOWS)
-
-	return true; // No failure state for critical sections
-
-#else
-
-	return init_failure == 0;
-
-#endif
-}
-
-bool Mutex::Enter()
-{
-#if defined(CAT_OS_WINDOWS)
-
-	CAT_FENCE_COMPILER
-
-	EnterCriticalSection(&cs);
-
-	CAT_FENCE_COMPILER
-
-	return true;
-
-#else
-
-	if (init_failure) return false;
-
-	CAT_FENCE_COMPILER
-
-	bool result = pthread_mutex_lock(&mx) == 0;
-
-	CAT_FENCE_COMPILER
-
-	return result;
-
-#endif
-}
-
-bool Mutex::Leave()
-{
-#if defined(CAT_OS_WINDOWS)
-
-	CAT_FENCE_COMPILER
-
-	LeaveCriticalSection(&cs);
-
-	CAT_FENCE_COMPILER
-
-	return true;
-
-#else
-
-	if (init_failure) return false;
-
-	CAT_FENCE_COMPILER
-
-	bool result = pthread_mutex_unlock(&mx) == 0;
-
-	CAT_FENCE_COMPILER
-
-	return result;
-
-#endif
-}
+	void WriteLock();
+	void WriteUnlock();
+};
 
 
-//// AutoMutex
+} // namespace cat
 
-AutoMutex::AutoMutex(Mutex &mutex)
-{
-    _mutex = &mutex;
-    mutex.Enter();
-}
-
-AutoMutex::~AutoMutex()
-{
-    Release();
-}
-
-bool AutoMutex::Release()
-{
-	bool success = false;
-
-    if (_mutex)
-    {
-        success = _mutex->Leave();
-        _mutex = 0;
-    }
-
-	return success;
-}
+#endif // CAT_RW_LOCK_HPP
