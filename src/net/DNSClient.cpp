@@ -741,7 +741,7 @@ void DNSClient::NotifyRequesters(DNSRequest *req)
 
 void DNSClient::ProcessDNSResponse(DNSRequest *req, int qdcount, int ancount, u8 *data, u32 bytes)
 {
-	int offset = DNS_HDRLEN;
+	u32 offset = DNS_HDRLEN;
 
 	// Get past question part
 	while (qdcount-- > 0)
