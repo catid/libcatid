@@ -248,6 +248,12 @@ NetAddr::NetAddr(const sockaddr *addr)
 {
 	Wrap(addr);
 }
+NetAddr::NetAddr(int a, int b, int c, int d, Port port)
+{
+	// Invoke SetFromDotDecimals(), ignoring the return value because
+	// it will leave the object in an invalid state if needed.
+	SetFromDotDecimals(a, b, c, d, port);
+}
 
 NetAddr::NetAddr(const NetAddr &addr)
 {
@@ -507,18 +513,36 @@ bool NetAddr::SetFromRawIP(const u8 *ip_binary, int bytes)
 		_family = AF_INET;
 		_ip.v4 = *ipv4; // Endian agnostic
 		// Does not touch port
+		return true;
 	}
 	else if (bytes == IP6_BYTES)
 	{
 		_family = AF_INET6;
 		memcpy(_ip.v6_bytes, ip_binary, IP6_BYTES); // Endian agnostic
 		// Does not touch port
+		return true;
 	}
 	else
 	{
 		// Otherwise mark address as invalid and return false
 		_valid = 0;
 		return false;
+	}
+}
+bool NetAddr::SetFromDotDecimals(int a, int b, int c, int d, Port port)
+{
+	if ((a | b | c | d) & 0xFFFFFF00)
+	{
+		_valid = 0;
+		return false;
+	}
+	else
+	{
+		_family = AF_INET;
+		_port = port;
+
+		_ip.v4 = htonl((a << 24) | (b << 16) | (c << 8) | d);
+		return true;
 	}
 }
 std::string NetAddr::IPToString() const
@@ -658,5 +682,52 @@ void NetAddr::PromoteTo6()
 			_ip.v6_bytes[14] = (u8)(ipv4 >> 8);
 			_ip.v6_bytes[15] = (u8)(ipv4);
 		}
+	}
+}
+
+// Demote an IPv6 address to an IPv4 address if possible,
+// otherwise marks address as invalid and returns false
+bool NetAddr::DemoteTo4()
+{
+	if (_family == AF_INET)
+	{
+		// Already IPv4
+		return true;
+	}
+	else if (_family == AF_INET6)
+	{
+		if (_ip.v6[0] != 0 || _ip.v6_words[4] != 0)
+		{
+			_valid = 0;
+			return false;
+		}
+		else if (_ip.v6_words[5] == 0 && _ip.v6_words[6] == 0 &&
+				 _ip.v6_bytes[14] == 0 && _ip.v6_bytes[15] == 1)
+		{
+			// Loopback
+			_family = AF_INET;
+			_ip.v4 = htonl(0x7F000001);
+			return true;
+		}
+		else if (_ip.v6_words[5] == 0xFFFF)
+		{
+			// Embedded IPv4 address
+			_family = AF_INET;
+			_ip.v4 = htonl( ((u32)_ip.v6_bytes[12] << 24) |
+							((u32)_ip.v6_bytes[13] << 16) |
+							((u32)_ip.v6_bytes[14] << 8) |
+							((u32)_ip.v6_bytes[15]) );
+			return true;
+		}
+		else
+		{
+			_valid = 0;
+			return false;
+		}
+	}
+	else
+	{
+		// Already invalid
+		return false;
 	}
 }

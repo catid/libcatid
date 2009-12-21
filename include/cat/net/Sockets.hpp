@@ -95,6 +95,7 @@ public:
 	NetAddr(const sockaddr_in6 &addr);
 	NetAddr(const sockaddr_in &addr);
 	NetAddr(const sockaddr *addr);
+	NetAddr(int a, int b, int c, int d, Port port = 0);
 
 public:
 	NetAddr(const NetAddr &addr);
@@ -108,6 +109,10 @@ public:
 public:
 	// Promote an IPv4 address to an IPv6 address if needed
 	void PromoteTo6();
+
+	// Demote an IPv6 address to an IPv4 address if possible,
+	// otherwise marks address as invalid and returns false
+	bool DemoteTo4();
 
 public:
 	CAT_INLINE bool Valid() const { return _valid != 0; }
@@ -141,6 +146,7 @@ public:
 	std::string IPToString() const;
 
 	bool SetFromRawIP(const u8 *ip_binary, int bytes);
+	bool SetFromDotDecimals(int a, int b, int c, int d, Port port = 0);
 
 public:
 	bool Unwrap(SockAddr &addr, int &addr_len, bool PromoteToIP6 = false) const;

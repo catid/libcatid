@@ -31,8 +31,9 @@
 #include <cat/time/Clock.hpp>
 #include <cat/lang/Strings.hpp>
 #include <cat/port/EndianNeutral.hpp>
+#include <cstdio>
+#include <fstream>
 using namespace cat;
-
 
 /*
 	DNS protocol:
@@ -169,16 +170,65 @@ bool DNSClient::GetServerAddr()
 
 	RegCloseKey(key);
 
-#else // POSIX version:
+#else // Unix version:
 
-	// TODO
+	const char *DNS_ADDRESS_FILE = "/etc/resolv.conf";
+	std::ifstream file(DNS_ADDRESS_FILE);
+
+	if (!!file)
+	{
+		const int LINE_MAXCHARS = 512;
+		char line[LINE_MAXCHARS];
+
+		// For each line in the address file,
+		while (file.getline(line, sizeof(line)))
+		{
+			// Insure the line is nul-terminated
+			line[sizeof(line)-1] = '\0';
+
+			int a, b, c, d;
+
+			// If the line contains a nameserver addrses in dot-decimal format,
+			if (std::sscanf(line, "nameserver %d.%d.%d.%d", &a, &b, &c, &d) == 4)
+			{
+				NetAddr addr(a, b, c, d, 53);
+
+				// If address is routable,
+				if (addr.IsRoutable())
+				{
+					// Set server address to the last valid one in the enumeration
+					_server_addr = addr;
+				}
+			}
+		}
+	}
 
 #endif
 
-	if (Is6()) _server_addr.PromoteTo6();
-
 	// Return success if server address is now valid
-	return _server_addr.Valid();
+	if (_server_addr.Valid() && 0)
+	{
+		INANE("DNS") << "Using nameserver at " << _server_addr.IPToString();
+	}
+	else
+	{
+		const char *ANYCAST_DNS_SERVER = "4.2.2.1"; // Level 3 / Verizon
+
+		WARN("DNS") << "Unable to determine nameserver from OS.  Using anycast address " << ANYCAST_DNS_SERVER;
+
+		// Attempt to get server address from anycast DNS server string
+		if (!_server_addr.SetFromString(ANYCAST_DNS_SERVER, 53))
+		{
+			FATAL("DNS") << "Unable to resolve anycast address " << ANYCAST_DNS_SERVER;
+			return false;
+		}
+	}
+
+	// Convert address to socket type
+	if (Is6()) _server_addr.PromoteTo6();
+	else _server_addr.DemoteTo4();
+
+	return true;
 }
 
 bool DNSClient::PostDNSPacket(DNSRequest *req, u32 now)
