@@ -64,7 +64,7 @@ using namespace std;
 
 bool Clock::Initialize()
 {
-#if defined(CAT_OS_WINDOWS) || defined(CAT_OS_WINDOWS_CE)
+#if defined(CAT_OS_WINDOWS)
 	// Protect with a mutex
 	AutoMutex lock(init_lock);
 
@@ -89,7 +89,7 @@ bool Clock::Initialize()
 
 bool Clock::Shutdown()
 {
-#if defined(CAT_OS_WINDOWS) || defined(CAT_OS_WINDOWS_CE)
+#if defined(CAT_OS_WINDOWS)
 	// Protect with a mutex
 	AutoMutex lock(init_lock);
 
@@ -109,7 +109,7 @@ bool Clock::Shutdown()
 
 u32 Clock::sec()
 {
-#if defined(CAT_OS_WINDOWS) || defined(CAT_OS_WINDOWS_CE)
+#if defined(CAT_OS_WINDOWS)
 
     return GetTickCount() / 1000;
 
@@ -127,7 +127,7 @@ u32 Clock::sec()
 
 u32 Clock::msec_fast()
 {
-#if defined(CAT_OS_WINDOWS) || defined(CAT_OS_WINDOWS_CE)
+#if defined(CAT_OS_WINDOWS)
 
 	return GetTickCount();
 
@@ -140,7 +140,7 @@ u32 Clock::msec_fast()
 
 u32 Clock::msec()
 {
-#if defined(CAT_OS_WINDOWS) || defined(CAT_OS_WINDOWS_CE)
+#if defined(CAT_OS_WINDOWS)
 
 	return timeGetTime();
 
@@ -158,7 +158,7 @@ u32 Clock::msec()
 
 double Clock::usec()
 {
-#if defined(CAT_OS_WINDOWS) || defined(CAT_OS_WINDOWS_CE)
+#if defined(CAT_OS_WINDOWS)
 
     /* In Windows, this value can leap forward randomly:
      * http://support.microsoft.com/default.aspx?scid=KB;EN-US;Q274323
@@ -189,7 +189,7 @@ double Clock::usec()
 
 void Clock::sleep(u32 milliseconds)
 {
-#if defined(CAT_OS_WINDOWS) || defined(CAT_OS_WINDOWS_CE)
+#if defined(CAT_OS_WINDOWS)
 
 	Sleep(milliseconds);
 
@@ -210,7 +210,7 @@ std::string Clock::format(const char *format_string)
 
     struct tm *pLocalTime;
 
-#if defined(CAT_OS_WINDOWS) || defined(CAT_OS_WINDOWS_CE)
+#if defined(CAT_OS_WINDOWS)
 # if defined(CAT_COMPILER_MSVC)
     struct tm localTime;
     __time64_t long_time;

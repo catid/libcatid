@@ -92,7 +92,7 @@
 #endif
 
 
-#if defined(CAT_OS_WINDOWS) || defined(CAT_OS_WINDOWS_CE)
+#if defined(CAT_OS_WINDOWS)
 # include <cat/port/WindowsInclude.hpp>
 # include <wincrypt.h>
 #endif
@@ -119,7 +119,7 @@ class FortunaFactory : public Singleton<FortunaFactory>
 
     friend class FortunaOutput;
 
-#if defined(CAT_OS_WINDOWS)
+#if defined(CAT_OS_WINDOWS) && !defined(CAT_OS_WINDOWS_CE)
 
 	typedef LONG (WINAPI *PtNtQuerySystemInformation)(
 		int SystemInformationClass,

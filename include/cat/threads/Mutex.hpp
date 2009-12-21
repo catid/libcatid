@@ -26,16 +26,14 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef MUTEX_HPP
-#define MUTEX_HPP
+#ifndef CAT_MUTEX_HPP
+#define CAT_MUTEX_HPP
 
 #include <cat/Platform.hpp>
 
-#if defined(CAT_OS_WINDOWS) || defined(CAT_OS_WINDOWS_CE)
-# define CAT_MUTEX_WINDOWS
+#if defined(CAT_OS_WINDOWS)
 # include <cat/port/WindowsInclude.hpp>
 #else // use POSIX mutex library otherwise
-# define CAT_MUTEX_POSIX
 # include <pthread.h>
 #endif
 
@@ -45,9 +43,9 @@ namespace cat {
 // Implements a mutex that is NOT reentrant (for speed)
 class Mutex
 {
-#if defined(CAT_MUTEX_WINDOWS)
+#if defined(CAT_OS_WINDOWS)
     CRITICAL_SECTION cs;
-#elif defined(CAT_MUTEX_POSIX)
+#else
 	int init_failure;
 	pthread_mutex_t mx;
 #endif
@@ -77,4 +75,4 @@ public:
 
 } // namespace cat
 
-#endif // MUTEX_HPP
+#endif // CAT_MUTEX_HPP

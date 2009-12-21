@@ -32,11 +32,9 @@
 #include <cat/Platform.hpp>
 #include <string>
 
-#if defined(CAT_OS_WINDOWS) || defined(CAT_OS_WINDOWS_CE)
-# define CAT_MS_SOCKET_API
+#if defined(CAT_OS_WINDOWS)
 # include <WS2tcpip.h>
 #else
-# define CAT_UNIX_SOCKET_API
 # include <unistd.h>
 #endif
 
@@ -48,7 +46,7 @@ namespace cat {
 
 //// Data Types
 
-#if defined(CAT_MS_SOCKET_API)
+#if defined(CAT_OS_WINDOWS)
 	typedef SOCKET Socket;
 	CAT_INLINE bool CloseSocket(Socket s) { return !closesocket(s); }
 #else

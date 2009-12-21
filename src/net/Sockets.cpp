@@ -43,7 +43,7 @@ namespace cat
 {
     std::string SocketGetLastErrorString()
     {
-#if defined(CAT_MS_SOCKET_API)
+#if defined(CAT_OS_WINDOWS)
         return SocketGetErrorString(WSAGetLastError());
 #else
         return SocketGetErrorString(errno);
@@ -52,7 +52,7 @@ namespace cat
 
     std::string SocketGetErrorString(int code)
     {
-#if defined(CAT_MS_SOCKET_API)
+#if defined(CAT_OS_WINDOWS)
         switch (code)
         {
         case WSAEADDRNOTAVAIL:         return "[Address not available]";
@@ -93,7 +93,7 @@ namespace cat
         return oss.str();
     }
 
-#if defined(CAT_MS_SOCKET_API)
+#if defined(CAT_OS_WINDOWS)
 	static bool IsWindowsVistaOrNewer()
 	{
 		DWORD dwVersion = 0; 
@@ -211,7 +211,7 @@ namespace cat
 	// Run startup and cleanup functions needed under some OS
 	bool StartupSockets()
 	{
-#if defined(CAT_MS_SOCKET_API)
+#if defined(CAT_OS_WINDOWS)
 		WSADATA wsaData;
 
 		// Request Winsock 2.2
@@ -223,7 +223,7 @@ namespace cat
 
 	void CleanupSockets()
 	{
-#if defined(CAT_MS_SOCKET_API)
+#if defined(CAT_OS_WINDOWS)
 		WSACleanup();
 #endif
 	}

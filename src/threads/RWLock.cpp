@@ -26,128 +26,66 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/threads/Mutex.hpp>
+#include <cat/threads/RWLock.hpp>
+#include <cat/threads/Atomic.hpp>
 using namespace cat;
 
-
-//// Mutex
-
-Mutex::Mutex()
+RWLock::RWLock()
 {
-#if defined(CAT_OS_WINDOWS)
+	_wr_lock_count = 0;
+	_rd_lock_count = 0;
 
-	InitializeCriticalSection(&cs);
-
-#else
-
-	init_failure = pthread_mutex_init(&mx, 0);
-
-#endif
+	_wr_unlock_event = CreateEvent(0, FALSE, FALSE, 0);
+	_rd_unlock_event = CreateEvent(0, FALSE, FALSE, 0);
 }
 
-Mutex::~Mutex()
+RWLock::~RWLock()
 {
-#if defined(CAT_OS_WINDOWS)
-
-	DeleteCriticalSection(&cs);
-
-#else
-
-	if (!init_failure) pthread_mutex_destroy(&mx);
-
-#endif
+	CloseHandle(_wr_unlock_event);
+	CloseHandle(_rd_unlock_event);
 }
 
-bool Mutex::Valid()
+void RWLock::ReadLock()
 {
-#if defined(CAT_OS_WINDOWS)
+	Atomic::Add(&_rd_lock_count, 1);
 
-	return true; // No failure state for critical sections
+	u32 count = _wr_lock_count;
 
-#else
+	CAT_FENCE_COMPILER
 
-	return init_failure == 0;
-
-#endif
+	if (count)
+	{
+		WaitForSingleObject(_wr_unlock_event, INFINITE);
+	}
 }
 
-bool Mutex::Enter()
+void RWLock::ReadUnlock()
 {
-#if defined(CAT_OS_WINDOWS)
-
-	CAT_FENCE_COMPILER
-
-	EnterCriticalSection(&cs);
-
-	CAT_FENCE_COMPILER
-
-	return true;
-
-#else
-
-	if (init_failure) return false;
-
-	CAT_FENCE_COMPILER
-
-	bool result = pthread_mutex_lock(&mx) == 0;
-
-	CAT_FENCE_COMPILER
-
-	return result;
-
-#endif
+	if (Atomic::Add(&_rd_lock_count, -1) == 1)
+	{
+		if (_wr_lock_count)
+		{
+			SetEvent(_rd_unlock_event);
+		}
+	}
 }
 
-bool Mutex::Leave()
+void RWLock::WriteLock()
 {
-#if defined(CAT_OS_WINDOWS)
+	_wr_lock.Enter();
 
-	CAT_FENCE_COMPILER
+	_wr_lock_count = 1;
 
-	LeaveCriticalSection(&cs);
-
-	CAT_FENCE_COMPILER
-
-	return true;
-
-#else
-
-	if (init_failure) return false;
-
-	CAT_FENCE_COMPILER
-
-	bool result = pthread_mutex_unlock(&mx) == 0;
-
-	CAT_FENCE_COMPILER
-
-	return result;
-
-#endif
+	WaitForSingleObject(_rd_unlock_event, INFINITE);
 }
 
-
-//// AutoMutex
-
-AutoMutex::AutoMutex(Mutex &mutex)
+void RWLock::WriteUnlock()
 {
-    _mutex = &mutex;
-    mutex.Enter();
-}
+	_wr_lock_count = 0;
 
-AutoMutex::~AutoMutex()
-{
-    Release();
-}
+	CAT_FENCE_COMPILER
 
-bool AutoMutex::Release()
-{
-	bool success = false;
+	SetEvent(_wr_unlock_event);
 
-    if (_mutex)
-    {
-        success = _mutex->Leave();
-        _mutex = 0;
-    }
-
-	return success;
+	_wr_lock.Leave();
 }

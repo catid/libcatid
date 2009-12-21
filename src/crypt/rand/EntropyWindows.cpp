@@ -29,7 +29,7 @@
 #include <cat/crypt/rand/Fortuna.hpp>
 using namespace cat;
 
-#if defined(CAT_OS_WINDOWS)
+#if defined(CAT_OS_WINDOWS) && !defined(CAT_OS_WINDOWS_CE)
 
 /*
     Windows entropy sources inspired by the Fortuna implementation from

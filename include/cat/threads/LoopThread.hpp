@@ -31,11 +31,9 @@
 
 #include <cat/Platform.hpp>
 
-#if defined(CAT_OS_WINDOWS) || defined(CAT_OS_WINDOWS_CE)
-# define CAT_THREAD_WINDOWS
+#if defined(CAT_OS_WINDOWS)
 # include <cat/port/WindowsInclude.hpp>
 #else // use POSIX thread library otherwise
-# define CAT_THREAD_POSIX
 # include <pthread.h>
 #endif
 
@@ -53,12 +51,12 @@ class LoopThread
 {
 	void *caller_param;
 
-#if defined(CAT_THREAD_WINDOWS)
+#if defined(CAT_OS_WINDOWS)
 
 	HANDLE _thread, _quit_signal;
 	static unsigned int __stdcall ThreadWrapper(void *this_object);
 
-#elif defined(CAT_THREAD_POSIX)
+#else
 
 	pthread_t _thread;
 	bool _thread_started;
@@ -73,9 +71,9 @@ protected:
 
 	CAT_INLINE bool ThreadRunning()
 	{
-#if defined(CAT_THREAD_WINDOWS)
+#if defined(CAT_OS_WINDOWS)
 		return _thread != 0;
-#elif defined(CAT_THREAD_POSIX)
+#else
 		return _thread_started;
 #endif
 	}
