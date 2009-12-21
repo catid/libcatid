@@ -225,8 +225,7 @@ bool DNSClient::GetServerAddr()
 	}
 
 	// Convert address to socket type
-	if (Is6()) _server_addr.PromoteTo6();
-	else _server_addr.DemoteTo4();
+	_server_addr.Convert(Is6());
 
 	return true;
 }

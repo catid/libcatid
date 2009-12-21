@@ -114,6 +114,8 @@ public:
 	// otherwise marks address as invalid and returns false
 	bool DemoteTo4();
 
+	CAT_INLINE void Convert(bool To6) { if (To6) PromoteTo6(); else DemoteTo4(); }
+
 public:
 	CAT_INLINE bool Valid() const { return _valid != 0; }
 	CAT_INLINE bool Is6() const { return _family == AF_INET6; }
