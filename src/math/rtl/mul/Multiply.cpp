@@ -80,7 +80,7 @@ void CAT_FASTCALL BigRTL::Multiply(const Leg *in_a, const Leg *in_b, Leg *out)
 	case 6: CombaMul<6>(in_a, in_b, out); return;
 #endif
 	case 8: CombaMul<8>(in_a, in_b, out); return;
-#if defined(CAT_WORD_32)
+#if defined(CAT_WORD_32) && defined(CAT_UNROLL_OVER_256_BITS)
 	case 12: CombaMul<12>(in_a, in_b, out); return;
 	case 16: CombaMul<16>(in_a, in_b, out); return;
 #endif

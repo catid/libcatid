@@ -38,6 +38,7 @@
 
 #include <cat/threads/Atomic.hpp>
 #include <cat/threads/Mutex.hpp>
+#include <cat/threads/RWLock.hpp>
 #include <cat/threads/LoopThread.hpp>
 
 #include <cat/math/BitMath.hpp>

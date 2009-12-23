@@ -34,91 +34,57 @@ using namespace cat;
 
 RWLock::RWLock()
 {
-	_rd_request_count = 0;
-	_rd_allow = 1;
-	_rd_enable_count = 0;
-	_wr_request = 0;
-	_wr_allow = 1;
-	_wr_enabled = 0;
-
-	// Events require ResetEvent() for a reset and are initially reset
-	_wr_event = CreateEvent(0, TRUE, FALSE, 0);
-	_rd_event = CreateEvent(0, TRUE, FALSE, 0);
+	_locked = 0;
+	_rd_count = 0;
+	_wr_count = 0;
 }
 
 RWLock::~RWLock()
 {
-	CloseHandle(_wr_event);
-	CloseHandle(_rd_event);
 }
 
 void RWLock::ReadLock()
 {
 	for (;;)
 	{
-		// If fast path may be available,
-		if (_rd_allow)
+		while (_wr_count != 0)
 		{
-			bool first = (Atomic::Add(&_rd_enable_count, 1) == 0);
+			SwitchToThread();
+		}
 
-			if (_rd_allow)
-			{
-				// Fast path success: Established read lock without using kernel objects
-				return;
-			}
-			else
-			{
-				// Fast path failure: Block on kernel object
+		Atomic::Add(&_rd_count, 1);
 
-				if (Atomic::Add(&_rd_enable_count, -1) == 1)
-				{
-					// Last failed fast path
-				}
-				else
-				{
-					// Not last failed fast path
-				}
-			}
+		if (_wr_count != 0)
+		{
+			Atomic::Add(&_rd_count, -1);
 		}
 		else
 		{
-			// Fast path unavailable: Block on kernel object
+			return;
 		}
-
-		// TODO: Pause
 	}
 }
 
 void RWLock::ReadUnlock()
 {
-	// If this is the last read unlock,
-	if (Atomic::Add(&_rd_enable_count, -1) == 1)
-	{
-		// Last failed fast path
-	}
-	else
-	{
-		// Not last failed fast path
-	}
+	Atomic::Add(&_rd_count, -1);
 }
 
 void RWLock::WriteLock()
 {
 	_wr_lock.Enter();
 
-	_rd_allow = 0;
+	_wr_count = 1;
 
-	CAT_FENCE_COMPILER
-
-	while (_rd_enable_count > 0)
+	while (_rd_count != 0)
 	{
-		// TODO: Pause
+		SwitchToThread();
 	}
 }
 
 void RWLock::WriteUnlock()
 {
-	_rd_allow = 1;
+	_wr_count = 0;
 
 	_wr_lock.Leave();
 }
@@ -129,7 +95,6 @@ void RWLock::WriteUnlock()
 AutoReadLock::AutoReadLock(RWLock &lock)
 {
 	_lock = &lock;
-
 	lock.ReadLock();
 }
 
@@ -155,7 +120,6 @@ bool AutoReadLock::Release()
 AutoWriteLock::AutoWriteLock(RWLock &lock)
 {
 	_lock = &lock;
-
 	lock.WriteLock();
 }
 
