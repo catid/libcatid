@@ -69,11 +69,25 @@ enum HandshakeTypes
 	C2S_HELLO,
 	S2C_COOKIE,
 	C2S_CHALLENGE,
-	S2C_ANSWER
+	S2C_ANSWER,
+	S2C_ERROR
+};
+
+enum HandshakeErrors
+{
+	ERR_SERVER_FULL
+};
+
+// Transport send time
+enum TransportSendTime
+{
+	SEND_NOW, // Sent immediately, out of band
+	SEND_ASAP, // Sent at next opportunity in band
+	SEND_LAZY, // Try to group the message in with others
 };
 
 
-typedef fastdelegate::FastDelegate3<Connection*, u8*, int, void> MessageLayerHandler;
+typedef fastdelegate::FastDelegate2<u8*, u32, void> MessageLayerHandler;
 
 
 //// sphynx::TransportSender
@@ -84,7 +98,7 @@ public:
 	TransportSender();
 	~TransportSender();
 
-	void Tick(UDPEndpoint *endpoint);
+	void Tick(UDPEndpoint *endpoint, u32 now);
 };
 
 
@@ -96,9 +110,9 @@ public:
 	TransportReceiver();
 	~TransportReceiver();
 
-	void OnPacket(UDPEndpoint *endpoint, u8 *data, int bytes, Connection *conn, MessageLayerHandler handler);
+	void OnPacket(UDPEndpoint *endpoint, u8 *data, u32 bytes, MessageLayerHandler handler);
 
-	void Tick(UDPEndpoint *endpoint);
+	void Tick(UDPEndpoint *endpoint, u32 now);
 };
 
 

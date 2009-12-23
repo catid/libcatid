@@ -192,11 +192,11 @@ void AuthenticatedEncryption::AcceptIV(u64 iv)
 
 
 // Decrypt a packet from the remote host
-bool AuthenticatedEncryption::Decrypt(u8 *buffer, int &buf_bytes)
+bool AuthenticatedEncryption::Decrypt(u8 *buffer, u32 &buf_bytes)
 {
     if (buf_bytes < OVERHEAD_BYTES) return false;
 
-	int msg_bytes = buf_bytes - OVERHEAD_BYTES;
+	u32 msg_bytes = buf_bytes - OVERHEAD_BYTES;
 
     u8 *overhead = buffer + msg_bytes;
     // overhead: encrypted { ... MAC(8 bytes) } || truncated IV(3 bytes)
@@ -234,9 +234,9 @@ bool AuthenticatedEncryption::Decrypt(u8 *buffer, int &buf_bytes)
 }
 
 // Encrypt a packet to send to the remote host
-bool AuthenticatedEncryption::Encrypt(u8 *buffer, int buffer_bytes, int &msg_bytes)
+bool AuthenticatedEncryption::Encrypt(u8 *buffer, u32 buffer_bytes, u32 &msg_bytes)
 {
-	int out_bytes = msg_bytes + OVERHEAD_BYTES;
+	u32 out_bytes = msg_bytes + OVERHEAD_BYTES;
 	if (out_bytes > buffer_bytes) return false;
 
     u8 *overhead = buffer + msg_bytes;

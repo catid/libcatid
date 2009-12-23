@@ -79,7 +79,7 @@ protected:
 protected:
 	virtual void OnConnectFail();
 	virtual void OnConnect();
-	virtual void HandleMessageLayer(Connection *key, u8 *msg, int bytes);
+	virtual void HandleMessage(u8 *msg, u32 bytes);
 	virtual void OnDisconnect(bool timeout);
 };
 

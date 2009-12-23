@@ -40,48 +40,53 @@ using namespace sphynx;
 
 static const char *SERVER_PRIVATE_KEY_FILE = "s_server_private_key.bin";
 static const char *SERVER_PUBLIC_KEY_FILE = "u_server_public_key.c";
-static const char *SESSION_KEY_NAME = "SessionKey";
+static const char *SESSION_KEY_NAME = "SphynxSessionKey";
 
 
 //// Connection
 
 Connection::Connection()
 {
-	flags = 0;
-	next_inserted = 0;
+	delete_me = false;
 }
 
-void Connection::ClearFlags()
+bool Connection::Tick(u32 now)
 {
-	flags = 0;
+	const int DISCONNCT_TIMEOUT = 15000; // 15 seconds
+
+	// If no packets have been received,
+	if (now - last_recv_tsc >= DISCONNCT_TIMEOUT)
+	{
+		// Return false to destroy this connection
+		return false;
+	}
+
+	transport_sender.Tick(server_endpoint, now);
+	transport_receiver.Tick(server_endpoint, now);
+
+	return true;
 }
 
-bool Connection::IsFlagSet(int bit)
+void Connection::HandleRawData(u8 *data, u32 bytes)
 {
-	bool is_set = (flags & (1 << bit)) != 0;
-	CAT_FENCE_COMPILER
-	return is_set;
+	u32 buf_bytes = bytes;
+
+	// If packet is valid,
+	if (auth_enc.Decrypt(data, buf_bytes))
+	{
+		// Pass it to the transport layer
+		transport_receiver.OnPacket(server_endpoint, data, buf_bytes,
+			fastdelegate::MakeDelegate(this, &Connection::HandleMessage));
+	}
 }
 
-bool Connection::IsFlagUnset(int bit)
+void Connection::HandleMessage(u8 *msg, u32 bytes)
 {
-	bool is_unset = (flags & (1 << bit)) == 0;
-	CAT_FENCE_COMPILER
-	return is_unset;
 }
 
-bool Connection::SetFlag(int bit)
+bool Post(u8 *msg, u32 bytes)
 {
-	if (IsFlagSet(bit)) return false;
-	bool first = !Atomic::BTS(&flags, bit);
-	return first;
-}
-
-bool Connection::UnsetFlag(int bit)
-{
-	if (IsFlagUnset(bit)) return false;
-	bool first = Atomic::BTR(&flags, bit);
-	return first;
+	return false;
 }
 
 
@@ -95,7 +100,39 @@ Map::Map()
 	// TODO: Determine if this needs stronger protection
 	_hash_salt = (u32)s32(Clock::usec() * 1000.0);
 
-	_insert_head_key1 = 0;
+	_active_head = 0;
+	_insert_head = 0;
+
+	CAT_OBJCLR(_table);
+}
+
+Map::~Map()
+{
+	Slot *slot, *next;
+
+	// Free all active connection objects
+	for (slot = _active_head; slot; slot = next)
+	{
+		next = slot->next;
+
+		if (slot->connection)
+		{
+			delete slot->connection;
+			slot->connection = 0;
+		}
+	}
+
+	// Free all recently inserted connection objects
+	for (slot = _insert_head; slot; slot = next)
+	{
+		next = slot->next;
+
+		if (slot->connection)
+		{
+			delete slot->connection;
+			slot->connection = 0;
+		}
+	}
 }
 
 u32 Map::hash_addr(const NetAddr &addr, u32 salt)
@@ -137,30 +174,32 @@ u32 Map::next_collision_key(u32 key)
 	return (key * COLLISION_MULTIPLIER + COLLISION_INCREMENTER) % HASH_TABLE_SIZE;
 }
 
-Connection *Map::Get(const NetAddr &addr)
+Connection *Map::GetLock(const NetAddr &addr)
 {
-	Connection *conn;
+	Slot *slot;
 
 	// Hash IP:port:salt to get the hash table key
 	u32 key = hash_addr(addr, _hash_salt);
+
+	_table_lock.ReadLock();
 
 	// Forever,
 	for (;;)
 	{
 		// Grab the slot
-		conn = &_table[key];
+		slot = &_table[key];
+
+		Connection *conn = slot->connection;
 
 		// If the slot is used and the user address matches,
-		if (conn->IsFlagSet(Connection::FLAG_USED) &&
-			conn->client_addr == addr)
+		if (conn && conn->client_addr == addr)
 		{
-			// Return this slot with reference still held
 			return conn;
 		}
 		else
 		{
 			// If the slot indicates a collision,
-			if (conn->IsFlagSet(Connection::FLAG_COLLISION))
+			if (slot->collision)
 			{
 				// Calculate next collision key
 				key = next_collision_key(key);
@@ -170,140 +209,173 @@ Connection *Map::Get(const NetAddr &addr)
 			else
 			{
 				// Reached end of collision list, so the address was not found in the table
-				break;
+				return 0;
 			}
 		}
 	}
 
+	// Never gets here
 	return 0;
+}
+
+void Map::ReleaseLock()
+{
+	_table_lock.ReadUnlock();
 }
 
 /*
 	Insertion is only done from a single thread, so it is guaranteed
 	that the address does not already exist in the hash table.
 */
-Connection *Map::Insert(const NetAddr &addr)
+void Map::Insert(Connection *conn)
 {
 	// Hash IP:port:salt to get the hash table key
-	u32 key = hash_addr(addr, _hash_salt);
+	u32 key = hash_addr(conn->client_addr, _hash_salt);
 
 	// Grab the slot
-	Connection *conn = &_table[key];
+	Slot *slot = &_table[key];
+
+	AutoWriteLock lock(_table_lock);
 
 	// While collision keys are marked used,
-	while (conn->IsFlagSet(Connection::FLAG_USED))
+	while (slot->connection)
 	{
 		// Set flag for collision
-		conn->SetFlag(Connection::FLAG_COLLISION);
+		slot->collision = true;
 
 		// Iterate to next collision key
 		key = next_collision_key(key);
-		conn = &_table[key];
+		slot = &_table[key];
 
 		// NOTE: This will loop forever if every table key is marked used
 	}
 
-	Connection *chosen_slot = conn;
+	// Mark used
+	slot->connection = conn;
 
-	// Unset delete flag before setting used flag (only place this is done)
-	chosen_slot->UnsetFlag(Connection::FLAG_DELETE);
-
-	// NOTE: Used flag for this connection is set after initializing the connection object
+	_insert_lock.Enter();
+	slot->next = _insert_head;
+	_insert_head = slot;
+	_insert_lock.Leave();
 
 	// If collision list continues after this slot,
-	if (conn->IsFlagSet(Connection::FLAG_COLLISION))
+	if (slot->collision)
 	{
-		Connection *end_of_list = conn;
+		Slot *end_of_list = slot;
 
 		// While collision list continues,
 		do
 		{
 			// Iterate to next collision key
 			key = next_collision_key(key);
-			conn = &_table[key];
+			slot = &_table[key];
 
 			// If this key is also used,
-			if (conn->IsFlagSet(Connection::FLAG_USED))
+			if (slot->connection)
 			{
 				// Remember it as the end of the collision list
-				end_of_list = conn;
+				end_of_list = slot;
 			}
-		} while (conn->IsFlagSet(Connection::FLAG_COLLISION));
+		} while (slot->collision);
 
 		// Truncate collision list at the detected end of the list
-		conn = end_of_list;
-		while (conn->UnsetFlag(Connection::FLAG_COLLISION))
+		slot = end_of_list;
+		while (slot->collision)
 		{
 			// Iterate to next collision key
 			key = next_collision_key(key);
-			conn = &_table[key];
+			slot = &_table[key];
+		}
+	}
+}
+
+void Map::Tick()
+{
+	u32 now = Clock::msec_fast();
+
+	Slot *active_head = _active_head;
+	Slot *insert_head = 0;
+
+	// Grab and reset the insert head
+	if (_insert_head)
+	{
+		_insert_lock.Enter();
+		insert_head = _insert_head;
+		_insert_head = 0;
+		_insert_lock.Leave();
+	}
+
+	// For each recently inserted slot,
+	for (Slot *next, *slot = insert_head; slot; slot = next)
+	{
+		next = slot->next;
+
+		// Link into active list
+		slot->next = active_head;
+		active_head = slot;
+	}
+
+	Slot *kill_list = 0;
+	Slot *last = 0;
+
+	// For each active slot,
+	for (Slot *next, *slot = active_head; slot; slot = next)
+	{
+		next = slot->next;
+
+		Connection *conn = slot->connection;
+
+		if (!conn || conn->delete_me || !conn->Tick(now))
+		{
+			// Unlink from active list
+			if (last) last->next = next;
+			else active_head = next;
+
+			// Link into kill list
+			slot->next = kill_list;
+			kill_list = slot;
+		}
+		else
+		{
+			last = slot;
 		}
 	}
 
-	return chosen_slot;
-}
+	// If some of the slots need to be killed,
+	if (kill_list)
+	{
+		AutoWriteLock lock(_table_lock);
 
-bool Map::Remove(Connection *conn)
-{
-	// Set delete flag
-	return conn->SetFlag(Connection::FLAG_DELETE);
+		Connection *delete_head = 0;
 
-	// NOTE: Collision lists are truncated lazily on insertion
-}
+		// For each slot to kill,
+		for (Slot *next, *slot = kill_list; slot; slot = next)
+		{
+			next = slot->next;
 
-void Map::CompleteInsertion(Connection *conn)
-{
-	// Set the used flag, indicating it is ready to be used
-	conn->SetFlag(Connection::FLAG_USED);
+			Connection *conn = slot->connection;
 
-	CAT_FENCE_COMPILER
+			if (conn)
+			{
+				conn->next_delete = delete_head;
+				delete_head = conn;
 
-	// Recover key from slot pointer
-	u32 key = (int)(conn - _table);
+				slot->connection = 0;
+			}
+		}
 
-	// Add to head of recently-inserted list
-	conn->next_inserted = (_insert_head_key1 != key + 1) ? _insert_head_key1 : 0;
+		lock.Release();
 
-	CAT_FENCE_COMPILER
+		// For each connection object to delete,
+		for (Connection *next, *conn = delete_head; conn; conn = next)
+		{
+			next = conn->next_delete;
 
-	_insert_head_key1 = key + 1;
+			delete conn;
+		}
+	}
 
-	CAT_FENCE_COMPILER
-}
-
-Connection *Map::GetFirstInserted()
-{
-	CAT_FENCE_COMPILER
-
-	// Cache recently-inserted head
-	u32 key = _insert_head_key1;
-
-	CAT_FENCE_COMPILER
-
-	// If there are no recently-inserted slots, return 0
-	if (!key) return 0;
-
-	// Return pointer to head recently-inserted slot
-	return &_table[key - 1];
-}
-
-Connection *Map::GetNextInserted(Connection *conn)
-{
-	CAT_FENCE_COMPILER
-
-	// Cache next recently-inserted slot
-	u32 next = conn->next_inserted;
-
-	// If there are no more, return 0
-	if (!next) return 0;
-
-	// Unlink slot
-	conn->next_inserted = 0;
-
-	CAT_FENCE_COMPILER
-
-	// Return pointer to next recently-inserted slot
-	return &_table[next - 1];
+	_active_head = active_head;
 }
 
 
@@ -323,22 +395,16 @@ ServerWorker::~ServerWorker()
 void ServerWorker::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes)
 {
 	// Look up an existing connection for this source address
-	Connection *conn = _conn_map->Get(src);
+	Connection *conn = _conn_map->GetLock(src);
 	int buf_bytes = bytes;
 
-	// If the packet is not full of fail,
-	if (conn && conn->server_port == GetPort() &&
-		conn->IsFlagUnset(Connection::FLAG_DELETE) &&
-		conn->auth_enc.Decrypt(data, buf_bytes))
+	// If connection is valid and on the right port,
+	if (conn && !conn->delete_me && conn->server_endpoint == this)
 	{
-		// Flag having seen an encrypted packet
-		conn->SetFlag(Connection::FLAG_C2S_ENC);
-		conn->last_recv_tsc = Clock::msec_fast();
-
-		// Handle the decrypted data
-		conn->transport_receiver.OnPacket(this, data, buf_bytes, conn,
-			fastdelegate::MakeDelegate(this, &ServerWorker::HandleMessageLayer));
+		conn->HandleRawData(data, bytes);
 	}
+
+	_conn_map->ReleaseLock();
 }
 
 void ServerWorker::OnWrite(u32 bytes)
@@ -349,12 +415,6 @@ void ServerWorker::OnWrite(u32 bytes)
 void ServerWorker::OnClose()
 {
 
-}
-
-void ServerWorker::HandleMessageLayer(Connection *conn, u8 *msg, int bytes)
-{
-	INFO("ServerWorker") << "Got message with " << bytes << " bytes from "
-		<< conn->client_addr.IPToString() << ":" << conn->client_addr.GetPort();
 }
 
 
@@ -647,22 +707,24 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 		u8 *pkt3_answer = pkt3 + 1+2;
 
 		// They took the time to get the cookie right, might as well check if we know them
-		Connection *conn = _conn_map.Get(src);
+		Connection *conn = _conn_map.GetLock(src);
 
 		// If connection already exists,
 		if (conn)
 		{
 			// If the connection exists but has recently been deleted,
-			if (conn->IsFlagSet(Connection::FLAG_DELETE))
+			if (conn->delete_me)
 			{
+				_conn_map.ReleaseLock();
 				INANE("Server") << "Ignoring challenge: Connection recently deleted";
 				ReleasePostBuffer(pkt3);
 				return;
 			}
 
 			// If we have seen the first encrypted packet already,
-			if (conn->IsFlagSet(Connection::FLAG_C2S_ENC))
+			if (conn->seen_encrypted)
 			{
+				_conn_map.ReleaseLock();
 				WARN("Server") << "Ignoring challenge: Already in session";
 				ReleasePostBuffer(pkt3);
 				return;
@@ -671,6 +733,7 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			// If we the challenge does not match the previous one,
 			if (!SecureEqual(conn->first_challenge, challenge, CHALLENGE_BYTES))
 			{
+				_conn_map.ReleaseLock();
 				INANE("Server") << "Ignoring challenge: Challenge not replayed";
 				ReleasePostBuffer(pkt3);
 				return;
@@ -678,8 +741,10 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 
 			// Construct packet 3
 			pkt3[0] = S2C_ANSWER;
-			*pkt3_port = getLE(conn->server_port);
+			*pkt3_port = getLE(conn->server_endpoint->GetPort());
 			memcpy(pkt3_answer, conn->cached_answer, ANSWER_BYTES);
+
+			_conn_map.ReleaseLock();
 
 			// Post packet without checking for errors
 			Post(src, pkt3, PKT3_LEN);
@@ -688,14 +753,23 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 		}
 		else
 		{
+			_conn_map.ReleaseLock();
+
 			Skein key_hash;
 
 			// If server is overpopulated,
 			if (GetTotalPopulation() >= MAX_POPULATION)
 			{
 				WARN("Server") << "Ignoring challenge: Server is full";
-				ReleasePostBuffer(pkt3);
-				// TODO: Should send a packet back to explain problem
+
+				// Construct packet 4
+				u16 *error_field = reinterpret_cast<u16*>( pkt3 + 1 );
+				pkt3[0] = S2C_ERROR;
+				*error_field = getLE(ERR_SERVER_FULL);
+
+				// Post packet without checking for errors
+				Post(src, pkt3, 3);
+
 				return;
 			}
 
@@ -709,22 +783,15 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 				return;
 			}
 
-			// Insert a hash key
-			conn = _conn_map.Insert(src);
-
-			// If unable to insert a hash key,
-			if (!conn)
-			{
-				WARN("Server") << "Ignoring challenge: Unable to insert into hash table";
-				ReleasePostBuffer(pkt3);
-				return;
-			}
+			conn = new Connection;
+			conn->client_addr = src;
 
 			// If unable to key encryption from session key,
 			if (!_key_agreement_responder.KeyEncryption(&key_hash, &conn->auth_enc, SESSION_KEY_NAME))
 			{
 				WARN("Server") << "Ignoring challenge: Unable to key encryption";
 				ReleasePostBuffer(pkt3);
+				delete conn;
 				return;
 			}
 
@@ -739,26 +806,25 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			// Initialize Connection object
 			memcpy(conn->first_challenge, challenge, CHALLENGE_BYTES);
 			memcpy(conn->cached_answer, pkt3_answer, ANSWER_BYTES);
-			conn->client_addr = src;
-			conn->server_port = server_port;
 			conn->server_endpoint = server_endpoint;
 			conn->last_recv_tsc = Clock::msec_fast();
-
-			// Increment session count for this endpoint (only done here)
-			Atomic::Add(&server_endpoint->_session_count, 1);
-
-			// Finalize insertion into table
-			_conn_map.CompleteInsertion(conn);
 
 			// If packet 3 post fails,
 			if (!Post(src, pkt3, PKT3_LEN))
 			{
 				WARN("Server") << "Ignoring challenge: Unable to post packet";
-				_conn_map.Remove(conn);
+
+				delete conn;
 			}
 			else
 			{
 				INANE("Server") << "Accepted challenge and posted answer.  Client connected";
+
+				// Increment session count for this endpoint (only done here)
+				Atomic::Add(&server_endpoint->_session_count, 1);
+
+				// Insert a hash key
+				_conn_map.Insert(conn);
 			}
 		}
 	}
@@ -777,95 +843,11 @@ void Server::OnClose()
 bool Server::ThreadFunction(void *)
 {
 	const int TICK_RATE = 10; // milliseconds
-	const int DISCONNECT_TIMEOUT = 15000; // milliseconds
-
-	Connection *timed_head = 0;
 
 	// While quit signal is not flagged,
 	while (WaitForQuitSignal(TICK_RATE))
 	{
-		u32 now = Clock::msec_fast();
-		Connection *conn;
-		Connection *next_timed;
-
-		// For each recently inserted slot,
-		for (conn = _conn_map.GetFirstInserted(); conn; conn = _conn_map.GetNextInserted(conn))
-		{
-			// Ignore unused slots
-			if (conn->IsFlagUnset(Connection::FLAG_USED))
-				continue;
-
-			// Ignore slots already in the timed list
-			if (!conn->SetFlag(Connection::FLAG_TIMED))
-				continue;
-
-			INANE("Server") << "Added " << conn << " to timed list";
-
-			// Insert into linked list
-			if (timed_head) timed_head->last_timed = conn;
-			conn->next_timed = timed_head;
-			conn->last_timed = 0;
-			timed_head = conn;
-		}
-
-		// For each timed slot,
-		for (conn = timed_head; conn; conn = next_timed)
-		{
-			// Cache next timed slot because this one may be removed
-			next_timed = conn->next_timed;
-
-			// If slot is marked for deletion,
-			if (conn->IsFlagSet(Connection::FLAG_DELETE))
-			{
-				// Unset used flag (only place this is done)
-				if (conn->UnsetFlag(Connection::FLAG_USED))
-				{
-					// If endpoint pointer is non-zero,
-					ServerWorker *endpoint = conn->server_endpoint;
-					if (endpoint)
-					{
-						// Decrement the number of sessions active on this endpoint (only done here)
-						Atomic::Add(&endpoint->_session_count, -1);
-					}
-				}
-			}
-
-			// If slot is now unused,
-			if (conn->IsFlagUnset(Connection::FLAG_USED))
-			{
-				INANE("Server") << "Removing unused slot " << conn << " from timed list";
-
-				// Remove from the timed list
-				conn->UnsetFlag(Connection::FLAG_TIMED);
-
-				// Linked list remove
-				Connection *next = conn->next_timed;
-				Connection *last = conn->last_timed;
-				if (next) next->last_timed = last;
-				if (last) last->next_timed = next;
-				else timed_head = next;
-
-				continue;
-			}
-
-			// If we haven't received any data from the user,
-			if (now - conn->last_recv_tsc >= DISCONNECT_TIMEOUT)
-			{
-				INANE("Server") << "Removing timeout slot " << conn;
-
-				_conn_map.Remove(conn);
-
-				continue;
-			}
-
-			// If seen first encrypted packet already,
-			if (conn->IsFlagSet(Connection::FLAG_C2S_ENC))
-			{
-				// Tick the transport layer for this connection
-				conn->transport_receiver.Tick(conn->server_endpoint);
-				conn->transport_sender.Tick(conn->server_endpoint);
-			}
-		}
+		_conn_map.Tick();
 	}
 
 	return true;
