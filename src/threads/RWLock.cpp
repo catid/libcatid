@@ -34,7 +34,7 @@ using namespace cat;
 
 RWLock::RWLock()
 {
-	_locked = 0;
+	_wr_count = 0;
 	_rd_count = 0;
 	_rd_event = CreateEvent(0, TRUE, TRUE, 0);
 }
@@ -48,11 +48,14 @@ void RWLock::ReadLock()
 {
 	for (;;)
 	{
-		WaitForSingleObject(_rd_event, INFINITE);
+		if (_wr_count)
+		{
+			WaitForSingleObject(_rd_event, INFINITE);
+		}
 
 		Atomic::Add(&_rd_count, 1);
 
-		if (WaitForSingleObject(_rd_event, 0) == WAIT_TIMEOUT)
+		if (_wr_count)
 		{
 			Atomic::Add(&_rd_count, -1);
 		}
@@ -72,6 +75,7 @@ void RWLock::WriteLock()
 {
 	_wr_lock.Enter();
 
+	_wr_count = 1;
 	ResetEvent(_rd_event);
 
 	while (_rd_count != 0)
@@ -82,6 +86,7 @@ void RWLock::WriteLock()
 
 void RWLock::WriteUnlock()
 {
+	_wr_count = 0;
 	SetEvent(_rd_event);
 
 	_wr_lock.Leave();

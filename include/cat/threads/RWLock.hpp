@@ -39,8 +39,8 @@ namespace cat {
 class RWLock
 {
 #if defined(CAT_OS_WINDOWS)
-	volatile u32 _locked;
 	volatile u32 _rd_count;
+	volatile u32 _wr_count;
 	HANDLE _rd_event;
 	Mutex _wr_lock;
 #else
