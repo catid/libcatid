@@ -39,6 +39,8 @@ namespace cat {
 //#define __LITTLE_ENDIAN__
 //#define __BIG_ENDIAN__
 
+// If you want to use faster 384-bit or 512-bit math, define this:
+//#define CAT_UNROLL_OVER_256_BITS
 
 } // namespace cat
 
