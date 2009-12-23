@@ -50,13 +50,13 @@ bool AuthenticatedEncryption::SetKey(int KeyBytes, Skein *key, bool is_initiator
     if (!kdf.BeginKDF()) return false;
     kdf.CrunchString(is_initiator ? "upstream-MAC" : "downstream-MAC");
     kdf.End();
-    if (!local_mac.SetKey(&kdf)) return false;
+    if (!local_mac_key.SetKey(&kdf)) return false;
 
     if (!kdf.SetKey(&key_hash)) return false;
     if (!kdf.BeginKDF()) return false;
     kdf.CrunchString(is_initiator ? "downstream-MAC" : "upstream-MAC");
     kdf.End();
-    if (!remote_mac.SetKey(&kdf)) return false;
+    if (!remote_mac_key.SetKey(&kdf)) return false;
 
     u8 local_key[KeyAgreementCommon::MAX_BYTES];
     if (!kdf.SetKey(&key_hash)) return false;
@@ -214,6 +214,8 @@ bool AuthenticatedEncryption::Decrypt(u8 *buffer, u32 &buf_bytes)
     remote_cipher.Crypt(buffer, buffer, buf_bytes - IV_BYTES);
 
     // Generate the expected MAC given the decrypted message and full IV
+	HMAC_MD5 remote_mac;
+	remote_mac.RekeyFromMD5(&remote_mac_key);
     remote_mac.BeginMAC();
     remote_mac.Crunch(&iv, sizeof(iv));
     remote_mac.Crunch(buffer, msg_bytes);
@@ -241,25 +243,27 @@ bool AuthenticatedEncryption::Encrypt(u8 *buffer, u32 buffer_bytes, u32 &msg_byt
 
     u8 *overhead = buffer + msg_bytes;
 
+	u64 iv = local_iv++;
+
     // Generate a MAC for the message and full IV
+	HMAC_MD5 local_mac;
+	local_mac.RekeyFromMD5(&local_mac_key);
     local_mac.BeginMAC();
-    local_mac.Crunch(&local_iv, sizeof(local_iv));
+    local_mac.Crunch(&iv, sizeof(iv));
     local_mac.Crunch(buffer, msg_bytes);
     local_mac.End();
     local_mac.Generate(overhead, MAC_BYTES);
 
     // Encrypt the message and MAC
-	ChaChaOutput local_cipher(local_cipher_key, local_iv);
+	ChaChaOutput local_cipher(local_cipher_key, iv);
     local_cipher.Crypt(buffer, buffer, msg_bytes + MAC_BYTES);
 
     // Obfuscate the truncated IV
-    u32 trunc_iv = IV_MASK & (getLE((u32)local_iv ^ *(u32*)overhead) ^ IV_FUZZ);
+    u32 trunc_iv = IV_MASK & (getLE((u32)iv ^ *(u32*)overhead) ^ IV_FUZZ);
 
     overhead[MAC_BYTES] = (u8)trunc_iv;
     overhead[MAC_BYTES+1] = (u8)(trunc_iv >> 8);
     overhead[MAC_BYTES+2] = (u8)(trunc_iv >> 16);
-
-    ++local_iv;
 
 	// Return the number of ciphertext bytes in msg_bytes
 	msg_bytes = out_bytes;

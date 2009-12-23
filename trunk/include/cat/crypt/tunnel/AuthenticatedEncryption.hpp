@@ -83,7 +83,7 @@ class AuthenticatedEncryption
     bool _is_initiator, _accept_out_of_order;
     Skein key_hash;
 
-    HMAC_MD5 local_mac, remote_mac;
+    HMAC_MD5 local_mac_key, remote_mac_key;
     ChaChaKey local_cipher_key, remote_cipher_key;
     u64 local_iv, remote_iv;
 

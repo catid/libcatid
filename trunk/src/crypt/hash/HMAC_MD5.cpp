@@ -204,12 +204,15 @@ bool HMAC_MD5::SetKey(ICryptHash *parent)
     memset(Work + KEY_BYTES, 0x5c, WORK_BYTES - KEY_BYTES); // Pad to fill a whole block
 
     // Crunch one whole block
-    HashComputation(Work, 1, State);
-
-    // Store this as the cached final state
-    memcpy(CachedFinalState, State, DIGEST_BYTES);
+    HashComputation(Work, 1, CachedFinalState);
 
     return true;
+}
+
+void HMAC_MD5::RekeyFromMD5(HMAC_MD5 *parent)
+{
+	memcpy(CachedInitialState, parent->CachedInitialState, sizeof(CachedInitialState));
+	memcpy(CachedFinalState, parent->CachedFinalState, sizeof(CachedFinalState));
 }
 
 bool HMAC_MD5::BeginMAC()

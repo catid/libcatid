@@ -127,7 +127,6 @@ public:
 
 class ServerWorker : public UDPEndpoint
 {
-	friend class Server;
 	volatile u32 _session_count;
 	Map *_conn_map;
 	MessageLayerHandler _handler;
@@ -135,6 +134,10 @@ class ServerWorker : public UDPEndpoint
 public:
 	ServerWorker(Map *conn_map);
 	virtual ~ServerWorker();
+
+	void IncrementPopulation();
+	void DecrementPopulation();
+	u32 GetPopulation() { return _session_count; }
 
 protected:
 	void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes);
