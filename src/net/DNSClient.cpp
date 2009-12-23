@@ -154,6 +154,18 @@ bool DNSClient::GetServerAddr()
 					// Insure it is nul-terminated
 					data[sizeof(data) - 1] = '\0';
 
+					// Replace the first non-number/dot with nul
+					for (int ii = 0; ii < sizeof(data); ++ii)
+					{
+						char ch = data[ii];
+
+						if ((ch < '0' || ch > '9') && ch != '.')
+						{
+							data[ii] = '\0';
+							break;
+						}
+					}
+
 					// Convert address string to binary address
 					NetAddr addr((const char*)data, 53);
 
@@ -206,7 +218,7 @@ bool DNSClient::GetServerAddr()
 #endif
 
 	// Return success if server address is now valid
-	if (_server_addr.Valid() && 0)
+	if (_server_addr.Valid())
 	{
 		INANE("DNS") << "Using nameserver at " << _server_addr.IPToString();
 	}

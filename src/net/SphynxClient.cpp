@@ -161,7 +161,7 @@ bool Client::OnResolve(const char *hostname, const NetAddr *array, int array_len
 		NetAddr addr = array[0];
 		addr.SetPort(_server_addr.GetPort());
 
-		INFO("Client") << "Connecting: Resolved '" << hostname << "' to " << addr.IPToString();
+		INANE("Client") << "Connecting: Resolved '" << hostname << "' to " << addr.IPToString();
 
 		if (!Connect(addr))
 			Close();

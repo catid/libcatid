@@ -110,6 +110,8 @@ Map::~Map()
 {
 	Slot *slot, *next;
 
+	INANE("SphynxServerMap") << "Freeing connection objects";
+
 	// Free all active connection objects
 	for (slot = _active_head; slot; slot = next)
 	{
@@ -310,6 +312,8 @@ void Map::Tick()
 	{
 		next = slot->next;
 
+		INANE("SphynxServerMap") << "Linking new connection into active list";
+
 		// Link into active list
 		slot->next = active_head;
 		active_head = slot;
@@ -330,6 +334,8 @@ void Map::Tick()
 			// Unlink from active list
 			if (last) last->next = next;
 			else active_head = next;
+
+			INANE("SphynxServerMap") << "Moving active connection to kill list";
 
 			// Link into kill list
 			slot->next = kill_list;
@@ -370,6 +376,8 @@ void Map::Tick()
 		for (Connection *next, *conn = delete_head; conn; conn = next)
 		{
 			next = conn->next_delete;
+
+			INANE("SphynxServerMap") << "Deleting connection";
 
 			delete conn;
 		}

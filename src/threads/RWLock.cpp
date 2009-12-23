@@ -135,13 +135,17 @@ AutoReadLock::AutoReadLock(RWLock &lock)
 
 AutoReadLock::~AutoReadLock()
 {
-	if (_lock)
-		_lock->ReadUnlock();
+	Release();
 }
 
 bool AutoReadLock::Release()
 {
-	_lock = 0;
+	if (_lock)
+	{
+		_lock->ReadUnlock();
+		_lock = 0;
+	}
+
 	return true;
 }
 
@@ -157,12 +161,16 @@ AutoWriteLock::AutoWriteLock(RWLock &lock)
 
 AutoWriteLock::~AutoWriteLock()
 {
-	if (_lock)
-		_lock->WriteUnlock();
+	Release();
 }
 
 bool AutoWriteLock::Release()
 {
-	_lock = 0;
+	if (_lock)
+	{
+		_lock->WriteUnlock();
+		_lock = 0;
+	}
+
 	return true;
 }
