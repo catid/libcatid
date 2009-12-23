@@ -379,6 +379,8 @@ void Map::Tick()
 
 			INANE("SphynxServerMap") << "Deleting connection";
 
+			conn->server_endpoint->DecrementPopulation();
+
 			delete conn;
 		}
 	}
@@ -398,6 +400,16 @@ ServerWorker::ServerWorker(Map *conn_map)
 ServerWorker::~ServerWorker()
 {
 
+}
+
+void ServerWorker::IncrementPopulation()
+{
+	Atomic::Add(&_session_count, 1);
+}
+
+void ServerWorker::DecrementPopulation()
+{
+	Atomic::Add(&_session_count, -1);
 }
 
 void ServerWorker::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes)
@@ -621,7 +633,7 @@ ServerWorker *Server::FindLeastPopulatedPort()
 	{
 		// Grab the session count for this port
 		ServerWorker *port = _sessions[ii];
-		u32 count = port->_session_count;
+		u32 count = port->GetPopulation();
 
 		// If we found a lower session count,
 		if (count < best_count)
@@ -643,7 +655,7 @@ u32 Server::GetTotalPopulation()
 	for (int ii = 0; ii < _session_port_count; ++ii)
 	{
 		// Accumulate population
-		population += _sessions[ii]->_session_count;
+		population += _sessions[ii]->GetPopulation();
 	}
 
 	return population;
@@ -829,7 +841,7 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 				INANE("Server") << "Accepted challenge and posted answer.  Client connected";
 
 				// Increment session count for this endpoint (only done here)
-				Atomic::Add(&server_endpoint->_session_count, 1);
+				server_endpoint->IncrementPopulation();
 
 				// Insert a hash key
 				_conn_map.Insert(conn);

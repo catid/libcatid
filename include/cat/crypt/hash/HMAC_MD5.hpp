@@ -72,6 +72,7 @@ protected:
 public:
     ~HMAC_MD5();
     bool SetKey(ICryptHash *parent);
+	void RekeyFromMD5(HMAC_MD5 *parent);
     bool BeginMAC();
     void Crunch(const void *message, int bytes);
     void End();

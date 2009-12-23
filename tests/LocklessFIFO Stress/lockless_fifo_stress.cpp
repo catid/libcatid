@@ -30,7 +30,10 @@ using namespace cat;
 u32 data[64];
 RWLock data_lock;
 
+u32 read_ts;
 u32 read_ctr;
+
+u32 write_ts;
 u32 write_ctr;
 
 class ReadJob : public LoopThread
@@ -57,7 +60,15 @@ public:
 				FATAL("Read") << "Write detected during read lock";
 			}
 
-			Atomic::Add(&read_ctr, 1);
+			if (Atomic::Add(&read_ctr, 1) == 10000000)
+			{
+				u32 now = Clock::msec_fast();
+
+				INFO("Test") << "Read throughput: " << (read_ctr / float(now - read_ts)) << "k/sec";
+
+				read_ts = now;
+				read_ctr = 0;
+			}
 		}
 
 		return true;
@@ -94,7 +105,15 @@ public:
 				data[ii]++;
 			}
 
-			Atomic::Add(&write_ctr, 1);
+			if (Atomic::Add(&write_ctr, 1) == 1000000)
+			{
+				u32 now = Clock::msec_fast();
+
+				INFO("Test") << "Write throughput: " << (write_ctr / float(now - write_ts)) << "k/sec";
+
+				write_ts = now;
+				write_ctr = 0;
+			}
 		}
 
 		return true;
@@ -126,15 +145,17 @@ int main(int argc, const char **argv)
 
     INFO("Test") << "** Press any key to begin.";
 
-	read_ctr = 0;
-	write_ctr = 0;
-	u32 ts = Clock::msec_fast();
-
 	while (!getch())
 		Sleep(100);
 
+	read_ctr = 0;
+	write_ctr = 0;
+	u32 ts = Clock::msec_fast();
+	read_ts = ts;
+	write_ts = ts;
+
 	{
-		const int READER_COUNT = 8;
+		const int READER_COUNT = 4;
 		ReadJob read_jobs[READER_COUNT];
 
 		const int WRITER_COUNT = 1;
@@ -143,18 +164,7 @@ int main(int argc, const char **argv)
 	    INFO("Test") << "** Test in progress.  Press any key to stop.";
 
 		while (!getch())
-		{
 			Sleep(100);
-
-			u32 now = Clock::msec_fast();
-
-			INFO("Test") << "Throughput: " << (read_ctr / float(now - ts)) << "k reads/sec. " << (write_ctr / float(now - ts)) << "k writes/sec";
-
-			ts = now;
-
-			read_ctr = 0;
-			write_ctr = 0;
-		}
 	}
 
     INFO("Test") << "** Test aborted.  Press any key to shutdown.";
