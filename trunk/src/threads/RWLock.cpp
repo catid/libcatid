@@ -36,25 +36,23 @@ RWLock::RWLock()
 {
 	_locked = 0;
 	_rd_count = 0;
-	_wr_count = 0;
+	_rd_event = CreateEvent(0, TRUE, TRUE, 0);
 }
 
 RWLock::~RWLock()
 {
+	CloseHandle(_rd_event);
 }
 
 void RWLock::ReadLock()
 {
 	for (;;)
 	{
-		while (_wr_count != 0)
-		{
-			SwitchToThread();
-		}
+		WaitForSingleObject(_rd_event, INFINITE);
 
 		Atomic::Add(&_rd_count, 1);
 
-		if (_wr_count != 0)
+		if (WaitForSingleObject(_rd_event, 0) == WAIT_TIMEOUT)
 		{
 			Atomic::Add(&_rd_count, -1);
 		}
@@ -74,7 +72,7 @@ void RWLock::WriteLock()
 {
 	_wr_lock.Enter();
 
-	_wr_count = 1;
+	ResetEvent(_rd_event);
 
 	while (_rd_count != 0)
 	{
@@ -84,7 +82,7 @@ void RWLock::WriteLock()
 
 void RWLock::WriteUnlock()
 {
-	_wr_count = 0;
+	SetEvent(_rd_event);
 
 	_wr_lock.Leave();
 }
