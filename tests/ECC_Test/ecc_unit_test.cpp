@@ -1335,6 +1335,8 @@ void ECCSpeed()
 
 int main()
 {
+	Clock::Initialize();
+
     if (!FortunaFactory::ref()->Initialize())
     {
         cout << "FAILURE: Unable to initialize the Fortuna factory" << endl;
@@ -1399,6 +1401,8 @@ int main()
 
     cout << endl << "ChaCha testing and timing:" << endl;
     TestChaCha();
+
+	Clock::Shutdown();
 
     return 0;
 }

@@ -30,43 +30,75 @@
 #include <cat/threads/Atomic.hpp>
 using namespace cat;
 
+//// RWLock
+
 RWLock::RWLock()
 {
-	_wr_lock_count = 0;
-	_rd_lock_count = 0;
+	_rd_request_count = 0;
+	_rd_allow = 1;
+	_rd_enable_count = 0;
+	_wr_request = 0;
+	_wr_allow = 1;
+	_wr_enabled = 0;
 
-	_wr_unlock_event = CreateEvent(0, FALSE, FALSE, 0);
-	_rd_unlock_event = CreateEvent(0, FALSE, FALSE, 0);
+	// Events require ResetEvent() for a reset and are initially reset
+	_wr_event = CreateEvent(0, TRUE, FALSE, 0);
+	_rd_event = CreateEvent(0, TRUE, FALSE, 0);
 }
 
 RWLock::~RWLock()
 {
-	CloseHandle(_wr_unlock_event);
-	CloseHandle(_rd_unlock_event);
+	CloseHandle(_wr_event);
+	CloseHandle(_rd_event);
 }
 
 void RWLock::ReadLock()
 {
-	Atomic::Add(&_rd_lock_count, 1);
-
-	u32 count = _wr_lock_count;
-
-	CAT_FENCE_COMPILER
-
-	if (count)
+	for (;;)
 	{
-		WaitForSingleObject(_wr_unlock_event, INFINITE);
+		// If fast path may be available,
+		if (_rd_allow)
+		{
+			bool first = (Atomic::Add(&_rd_enable_count, 1) == 0);
+
+			if (_rd_allow)
+			{
+				// Fast path success: Established read lock without using kernel objects
+				return;
+			}
+			else
+			{
+				// Fast path failure: Block on kernel object
+
+				if (Atomic::Add(&_rd_enable_count, -1) == 1)
+				{
+					// Last failed fast path
+				}
+				else
+				{
+					// Not last failed fast path
+				}
+			}
+		}
+		else
+		{
+			// Fast path unavailable: Block on kernel object
+		}
+
+		// TODO: Pause
 	}
 }
 
 void RWLock::ReadUnlock()
 {
-	if (Atomic::Add(&_rd_lock_count, -1) == 1)
+	// If this is the last read unlock,
+	if (Atomic::Add(&_rd_enable_count, -1) == 1)
 	{
-		if (_wr_lock_count)
-		{
-			SetEvent(_rd_unlock_event);
-		}
+		// Last failed fast path
+	}
+	else
+	{
+		// Not last failed fast path
 	}
 }
 
@@ -74,18 +106,63 @@ void RWLock::WriteLock()
 {
 	_wr_lock.Enter();
 
-	_wr_lock_count = 1;
+	_rd_allow = 0;
 
-	WaitForSingleObject(_rd_unlock_event, INFINITE);
+	CAT_FENCE_COMPILER
+
+	while (_rd_enable_count > 0)
+	{
+		// TODO: Pause
+	}
 }
 
 void RWLock::WriteUnlock()
 {
-	_wr_lock_count = 0;
-
-	CAT_FENCE_COMPILER
-
-	SetEvent(_wr_unlock_event);
+	_rd_allow = 1;
 
 	_wr_lock.Leave();
+}
+
+
+//// AutoReadLock
+
+AutoReadLock::AutoReadLock(RWLock &lock)
+{
+	_lock = &lock;
+
+	lock.ReadLock();
+}
+
+AutoReadLock::~AutoReadLock()
+{
+	if (_lock)
+		_lock->ReadUnlock();
+}
+
+bool AutoReadLock::Release()
+{
+	_lock = 0;
+	return true;
+}
+
+
+//// AutoWriteLock
+
+AutoWriteLock::AutoWriteLock(RWLock &lock)
+{
+	_lock = &lock;
+
+	lock.WriteLock();
+}
+
+AutoWriteLock::~AutoWriteLock()
+{
+	if (_lock)
+		_lock->WriteUnlock();
+}
+
+bool AutoWriteLock::Release()
+{
+	_lock = 0;
+	return true;
 }

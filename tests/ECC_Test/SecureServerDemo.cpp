@@ -85,7 +85,7 @@ void SecureServerDemo::OnChallenge(BigTwistedEdwards *math, FortunaOutput *csprn
     client_ref->OnPacket(my_addr, answer, CAT_S2C_ANSWER_BYTES);
 }
 
-void SecureServerDemo::OnSessionMessage(Connection *client, u8 *buffer, int bytes)
+void SecureServerDemo::OnSessionMessage(Connection *client, u8 *buffer, u32 bytes)
 {
     //cout << "Server: Processing valid message from client (" << bytes << " bytes)" << endl;
 
@@ -163,7 +163,7 @@ void SecureServerDemo::Reset(SecureClientDemo *cclient_ref, const u8 *server_pub
 	Cleanup();
 }
 
-void SecureServerDemo::OnPacket(const Address &source, u8 *buffer, int bytes)
+void SecureServerDemo::OnPacket(const Address &source, u8 *buffer, u32 bytes)
 {
     //cout << "Server: Got packet (" << bytes << " bytes)" << endl;
 

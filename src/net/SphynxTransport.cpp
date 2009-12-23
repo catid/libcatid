@@ -45,7 +45,7 @@ TransportSender::~TransportSender()
 
 }
 
-void TransportSender::Tick(UDPEndpoint *endpoint)
+void TransportSender::Tick(UDPEndpoint *endpoint, u32 now)
 {
 
 }
@@ -63,12 +63,12 @@ TransportReceiver::~TransportReceiver()
 
 }
 
-void TransportReceiver::OnPacket(UDPEndpoint *endpoint, u8 *data, int bytes, Connection *conn, MessageLayerHandler handler)
+void TransportReceiver::OnPacket(UDPEndpoint *endpoint, u8 *data, u32 bytes, MessageLayerHandler handler)
 {
 
 }
 
-void TransportReceiver::Tick(UDPEndpoint *endpoint)
+void TransportReceiver::Tick(UDPEndpoint *endpoint, u32 now)
 {
 
 }

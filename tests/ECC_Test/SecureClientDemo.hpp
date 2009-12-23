@@ -39,12 +39,12 @@ protected:
     void OnCookie(BigTwistedEdwards *math, FortunaOutput *csprng, u8 *buffer);
     void OnAnswer(BigTwistedEdwards *math, u8 *buffer);
     void OnConnect();
-    void OnSessionMessage(u8 *buffer, int bytes);
+    void OnSessionMessage(u8 *buffer, u32 bytes);
 
 public:
     void Reset(SecureServerDemo *server_ref, const u8 *server_public_key);
     void SendHello();
-    void OnPacket(const Address &source, u8 *buffer, int bytes);
+    void OnPacket(const Address &source, u8 *buffer, u32 bytes);
 
     Address GetAddress() { return my_addr; }
 

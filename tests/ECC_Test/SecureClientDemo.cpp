@@ -95,7 +95,7 @@ void SecureClientDemo::OnConnect()
     }
 
     // Encrypt it
-	int bytes = 1500;
+	u32 bytes = 1500;
     auth_enc.Encrypt(buffer, sizeof(buffer), bytes);
 
     double t2 = Clock::usec();
@@ -105,7 +105,7 @@ void SecureClientDemo::OnConnect()
     server_ref->OnPacket(my_addr, buffer, bytes);
 }
 
-void SecureClientDemo::OnSessionMessage(u8 *buffer, int bytes)
+void SecureClientDemo::OnSessionMessage(u8 *buffer, u32 bytes)
 {
     //cout << "Client: Got pong message from server (" << bytes << " bytes)" << endl;
 
@@ -138,7 +138,7 @@ void SecureClientDemo::OnSessionMessage(u8 *buffer, int bytes)
 
     *(u32*)&response[1] = id;
 
-	int response_bytes = 1500;
+	u32 response_bytes = 1500;
     auth_enc.Encrypt(response, sizeof(response), response_bytes);
 
     double t2 = Clock::usec();
@@ -191,7 +191,7 @@ void SecureClientDemo::SendHello()
     server_ref->OnPacket(my_addr, buffer, sizeof(buffer));
 }
 
-void SecureClientDemo::OnPacket(const Address &source, u8 *buffer, int bytes)
+void SecureClientDemo::OnPacket(const Address &source, u8 *buffer, u32 bytes)
 {
     //cout << "Client: Got packet (" << bytes << " bytes)" << endl;
 

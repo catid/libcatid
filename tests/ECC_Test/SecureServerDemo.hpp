@@ -126,13 +126,13 @@ protected:
     void OnHello(BigTwistedEdwards *math, FortunaOutput *csprng, const Address &source, u8 *buffer);
     void OnChallenge(BigTwistedEdwards *math, FortunaOutput *csprng, const Address &source, u8 *buffer);
 
-    void OnSessionMessage(Connection *client, u8 *buffer, int bytes);
+    void OnSessionMessage(Connection *client, u8 *buffer, u32 bytes);
 
 public:
 	~SecureServerDemo();
 
     void Reset(SecureClientDemo *client_ref, const u8 *server_public_key, const u8 *server_private_key);
-    void OnPacket(const Address &source, u8 *buffer, int bytes);
+    void OnPacket(const Address &source, u8 *buffer, u32 bytes);
 
     Address GetAddress() { return my_addr; }
 };

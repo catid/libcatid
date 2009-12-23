@@ -31,6 +31,7 @@
 
 #include <cat/net/SphynxTransport.hpp>
 #include <cat/AllTunnel.hpp>
+#include <cat/threads/RWLock.hpp>
 
 namespace cat {
 
@@ -43,24 +44,40 @@ namespace sphynx {
 class Connection
 {
 public:
-	Connection *next, *last;
+	Connection();
 
 public:
+	bool delete_me;
+	Connection *next_delete;
 	NetAddr client_addr;
-	Port server_port;
 	ServerWorker *server_endpoint;
-	u32 last_recv_tsc; // Last time a packet was received from this user -- for disconnect timeouts
+
+	// Last time a packet was received from this user -- for disconnect timeouts
+	u32 last_recv_tsc;
 
 public:
 	u8 first_challenge[64]; // First challenge seen from this client address
 	u8 cached_answer[128]; // Cached answer to this first challenge, to avoid eating server CPU time
 
 public:
+	bool seen_encrypted;
 	AuthenticatedEncryption auth_enc;
+	Mutex send_lock;
 
 public:
 	TransportSender transport_sender;
 	TransportReceiver transport_receiver;
+
+public:
+	// Returns false iff connection should be deleted
+	bool Tick(u32 now);
+
+public:
+	void HandleRawData(u8 *data, u32 bytes);
+	void HandleMessage(u8 *msg, u32 bytes);
+
+public:
+	bool Post(u8 *msg, u32 bytes);
 };
 
 
@@ -72,31 +89,37 @@ protected:
 	CAT_INLINE u32 hash_addr(const NetAddr &addr, u32 salt);
 	CAT_INLINE u32 next_collision_key(u32 key);
 
-	struct ConnectionSlot
+	struct Slot
 	{
-		Connection *conn;
-		bool used;
+		Connection *connection;
 		bool collision;
+		Slot *next;
 	};
 
 	u32 _hash_salt;
-	CAT_ALIGNED(16) ConnectionSlot _table[HASH_TABLE_SIZE];
-	Mutex _table_lock;
+	CAT_ALIGNED(16) Slot _table[HASH_TABLE_SIZE];
+	RWLock _table_lock;
+
+protected:
+	Slot *_insert_head;
+	Mutex _insert_lock;
+
+protected:
+	Slot *_active_head;
 
 public:
 	Map();
-
-	Connection *Get(const NetAddr &addr);
-	Connection *Insert(const NetAddr &addr);
-	bool Remove(Connection *conn); // Return false iff connection was already removed
+	virtual ~Map();
 
 public:
-	void CompleteInsertion(Connection *conn);
+	Connection *GetLock(const NetAddr &addr);
+	void ReleaseLock();
 
 public:
-	Connection *GetFirstInserted();
-	// Get next recently-inserted slot and unlink it
-	Connection *GetNextInserted(Connection *conn);
+	void Insert(Connection *conn);
+
+public:
+	void Tick();
 };
 
 
@@ -107,6 +130,7 @@ class ServerWorker : public UDPEndpoint
 	friend class Server;
 	volatile u32 _session_count;
 	Map *_conn_map;
+	MessageLayerHandler _handler;
 
 public:
 	ServerWorker(Map *conn_map);
@@ -116,8 +140,6 @@ protected:
 	void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes);
 	void OnWrite(u32 bytes);
 	void OnClose();
-
-	void HandleMessageLayer(Connection *conn, u8 *msg, int bytes);
 };
 
 
