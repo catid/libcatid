@@ -36,9 +36,9 @@ namespace cat {
 
 //// Compiler ////
 
-// Apple/iPhone compiler flags
+// Mac OS X additional compilation flags
 #ifdef __APPLE__
-# include "TargetConditionals.h" // iPhone target flags
+# include <TargetConditionals.h>
 #endif
 
 //-----------------------------------------------------------------------------
