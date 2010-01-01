@@ -60,7 +60,7 @@ class TCPClient : public ThreadRefObject
     friend class ThreadPool;
 
 public:
-    TCPClient();
+    TCPClient(int priorityLevel);
     virtual ~TCPClient();
 
     bool ValidClient();
@@ -121,7 +121,7 @@ protected:
     void PostQueuedToServer();
 
 public:
-    TCPClientQueued();
+    TCPClientQueued(int priorityLevel);
     virtual ~TCPClientQueued();
 
     bool PostToServer(void *buffer, u32 bytes);

@@ -26,7 +26,6 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-// TODO: Port to UNIX
 // TODO: React to timeouts from DNS server by switching to a backup
 // TODO: Use TTL from DNS record instead of fixed constant
 // TODO: If the DNS resolution load is high, it would make sense to put
@@ -90,6 +89,7 @@ struct DNSRequest
 class DNSClient : LoopThread, protected UDPEndpoint, public Singleton<DNSClient>
 {
 	CAT_SINGLETON(DNSClient)
+		: UDPEndpoint(REFOBJ_PRIO_0+3)
 	{
 		_server_addr.Invalidate();
 		_dns_unavailable = true;
@@ -162,7 +162,7 @@ private:
 
 private:
 	bool GetServerAddr();
-	bool BindToRandomPort();
+	bool BindToRandomPort(bool ignoreUnreachable);
 	bool PostDNSPacket(DNSRequest *req, u32 now);
 	bool PerformLookup(DNSRequest *req); // not thread-safe, caller must lock
 

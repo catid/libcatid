@@ -37,7 +37,8 @@ using namespace cat;
 
 //// TCPConnection
 
-TCPConnection::TCPConnection()
+TCPConnection::TCPConnection(int priorityLevel)
+	: ThreadRefObject(priorityLevel)
 {
     // Initialize to an invalid state.
     // Connection is invalid until AcceptConnection() runs successfully.

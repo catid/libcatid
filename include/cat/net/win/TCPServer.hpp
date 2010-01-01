@@ -73,7 +73,7 @@ class TCPServer : public ThreadRefObject
     friend class ThreadPool;
 
 public:
-    TCPServer();
+    TCPServer(int priorityLevel);
     virtual ~TCPServer();
 
     bool ValidServer();

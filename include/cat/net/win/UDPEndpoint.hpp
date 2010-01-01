@@ -67,7 +67,7 @@ class UDPEndpoint : public ThreadRefObject
     friend class ThreadPool;
 
 public:
-    UDPEndpoint();
+    UDPEndpoint(int priorityLevel);
     virtual ~UDPEndpoint();
 
     bool Valid();

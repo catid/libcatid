@@ -46,6 +46,7 @@ static const char *SESSION_KEY_NAME = "SessionKey";
 //// Client
 
 Client::Client()
+	: UDPEndpoint(REFOBJ_PRIO_0+4)
 {
 	_connected = false;
 }

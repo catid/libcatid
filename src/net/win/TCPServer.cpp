@@ -46,7 +46,8 @@ void AcceptExOverlapped::Set(Socket s)
 
 //// TCPServer
 
-TCPServer::TCPServer()
+TCPServer::TCPServer(int priorityLevel)
+	: ThreadRefObject(priorityLevel)
 {
     _socket = SOCKET_ERROR;
 }
