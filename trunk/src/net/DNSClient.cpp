@@ -454,11 +454,11 @@ DNSClient::~DNSClient()
 	}
 }
 
-bool DNSClient::BindToRandomPort()
+bool DNSClient::BindToRandomPort(bool ignoreUnreachable)
 {
 	// NOTE: Ignores ICMP unreachable errors from DNS server; prefers timeouts
 
-	// Attempt to bind to a more random port and accept ICMP errors initially
+	// Attempt to bind to a more random port.
 	// This is the standard fix for Dan Kaminsky's DNS exploit
 	const int RANDOM_BIND_ATTEMPTS_MAX = 16;
 
@@ -470,12 +470,12 @@ bool DNSClient::BindToRandomPort()
 		Port port = (u16)_csprng->Generate();
 
 		// If bind succeeded,
-		if (Bind(port))
+		if (port >= 1024 && Bind(port, ignoreUnreachable))
 			return true;
 	}
 
 	// Fall back to OS-chosen port
-	return Bind(0);
+	return Bind(0, ignoreUnreachable);
 }
 
 bool DNSClient::Initialize()
@@ -493,8 +493,8 @@ bool DNSClient::Initialize()
 		return false;
 	}
 
-	// Attempt to bind to any port and accept ICMP errors initially
-	if (!BindToRandomPort())
+	// Attempt to bind to any port; ignore ICMP unreachable messages
+	if (!BindToRandomPort(true))
 	{
 		WARN("DNS") << "Initialization failure: Unable to bind to any port";
 		return false;

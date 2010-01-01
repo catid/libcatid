@@ -61,7 +61,7 @@ class TCPConnection : public ThreadRefObject
     friend class ThreadPool;
 
 public:
-    TCPConnection();
+    TCPConnection(int priorityLevel);
     virtual ~TCPConnection();
 
     bool ValidServerConnection();

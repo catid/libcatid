@@ -56,7 +56,7 @@ void TypedOverlapped::Reset()
 ThreadPool::ThreadPool()
 {
     _port = 0;
-    _objectRefHead = 0;
+    CAT_OBJCLR(_objectRefHead);
 	_active_thread_count = 0;
 }
 
@@ -132,21 +132,22 @@ bool ThreadPool::Associate(HANDLE h, void *key)
 
 //// ThreadRefObject
 
-ThreadRefObject::ThreadRefObject()
+ThreadRefObject::ThreadRefObject(int priorityLevel)
 {
-	refCount = 1;
+	_refCount = 1;
+	_priorityLevel = priorityLevel;
 
 	ThreadPool::ref()->TrackObject(this);
 }
 
 void ThreadRefObject::AddRef()
 {
-	Atomic::Add(&refCount, 1);
+	Atomic::Add(&_refCount, 1);
 }
 
 void ThreadRefObject::ReleaseRef()
 {
-	if (Atomic::Add(&refCount, -1) == 1)
+	if (Atomic::Add(&_refCount, -1) == 1)
 	{
 		ThreadPool::ref()->UntrackObject(this);
 		delete this;
@@ -155,26 +156,29 @@ void ThreadRefObject::ReleaseRef()
 
 void ThreadPool::TrackObject(ThreadRefObject *object)
 {
+	int level = object->_priorityLevel;
     object->last = 0;
 
-    AutoMutex lock(_objectRefLock);
+    AutoMutex lock(_objectRefLock[level]);
 
     // Add to the head of a doubly-linked list of tracked sockets,
     // used for releasing sockets during termination.
-    object->next = _objectRefHead;
-    if (_objectRefHead) _objectRefHead->last = object;
-    _objectRefHead = object;
+    object->next = _objectRefHead[level];
+    if (_objectRefHead[level]) _objectRefHead[level]->last = object;
+    _objectRefHead[level] = object;
 }
 
 void ThreadPool::UntrackObject(ThreadRefObject *object)
 {
-    AutoMutex lock(_objectRefLock);
+	int level = object->_priorityLevel;
+
+	AutoMutex lock(_objectRefLock[level]);
 
     // Remove from the middle of a doubly-linked list of tracked sockets,
     // used for releasing sockets during termination.
     ThreadRefObject *last = object->last, *next = object->next;
     if (last) last->next = next;
-    else _objectRefHead = next;
+    else _objectRefHead[level] = next;
     if (next) next->last = last;
 }
 
@@ -248,13 +252,16 @@ void ThreadPool::Shutdown()
 
     INANE("ThreadPool") << "Shutdown task (2/3): Deleting remaining reference-counted objects...";
 
-    ThreadRefObject *kill, *object = _objectRefHead;
-    while (object)
-    {
-        kill = object;
-        object = object->next;
-        delete kill;
-    }
+	for (int ii = 0; ii < REFOBJ_PRIO_COUNT; ++ii)
+	{
+		ThreadRefObject *kill, *object = _objectRefHead[ii];
+		while (object)
+		{
+			kill = object;
+			object = object->next;
+			delete kill;
+		}
+	}
 
     if (!_port)
 	{

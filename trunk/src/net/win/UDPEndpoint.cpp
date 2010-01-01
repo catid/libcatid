@@ -46,7 +46,8 @@ void RecvFromOverlapped::Reset()
 
 //// UDP Endpoint
 
-UDPEndpoint::UDPEndpoint()
+UDPEndpoint::UDPEndpoint(int priorityLevel)
+	: ThreadRefObject(priorityLevel)
 {
     _port = 0;
     _closing = 0;

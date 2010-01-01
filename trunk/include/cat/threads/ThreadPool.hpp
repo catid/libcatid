@@ -74,6 +74,12 @@ struct TypedOverlapped
 };
 
 
+enum RefObjectPriorities
+{
+	REFOBJ_PRIO_0,
+	REFOBJ_PRIO_COUNT = 32,
+};
+
 /*
     class ThreadRefObject
 
@@ -86,10 +92,11 @@ class ThreadRefObject
     friend class ThreadPool;
     ThreadRefObject *last, *next;
 
-    volatile u32 refCount;
+	int _priorityLevel;
+    volatile u32 _refCount;
 
 public:
-    ThreadRefObject();
+    ThreadRefObject(int priorityLevel);
     virtual ~ThreadRefObject() {}
 
 public:
@@ -142,8 +149,8 @@ protected:
     friend class ThreadRefObject;
 
 	// Track sockets for graceful termination
-    Mutex _objectRefLock;
-    ThreadRefObject *_objectRefHead;
+    Mutex _objectRefLock[REFOBJ_PRIO_COUNT];
+    ThreadRefObject *_objectRefHead[REFOBJ_PRIO_COUNT];
 
     void TrackObject(ThreadRefObject *object);
     void UntrackObject(ThreadRefObject *object);

@@ -42,6 +42,7 @@ class Connection;
 class Map;
 class Server;
 class ServerWorker;
+class ServerTimer;
 class Client;
 class TransportSender;
 class TransportReceiver;

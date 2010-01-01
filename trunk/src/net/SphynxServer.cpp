@@ -47,7 +47,16 @@ static const char *SESSION_KEY_NAME = "SphynxSessionKey";
 
 Connection::Connection()
 {
-	delete_me = false;
+	destroyed = 0;
+	seen_encrypted = false;
+}
+
+void Connection::Destroy()
+{
+	if (Atomic::Set(&destroyed, 1) == 0)
+	{
+		OnDestroy();
+	}
 }
 
 bool Connection::Tick(u32 now)
@@ -57,34 +66,43 @@ bool Connection::Tick(u32 now)
 	// If no packets have been received,
 	if (now - last_recv_tsc >= DISCONNCT_TIMEOUT)
 	{
-		// Return false to destroy this connection
+		Destroy();
 		return false;
 	}
-
-	transport_sender.Tick(server_endpoint, now);
-	transport_receiver.Tick(server_endpoint, now);
+	else
+	{
+		transport_sender.Tick(server_endpoint, now);
+		transport_receiver.Tick(server_endpoint, now);
+	}
 
 	return true;
 }
 
-void Connection::HandleRawData(u8 *data, u32 bytes)
+void Connection::OnRawData(u8 *data, u32 bytes)
 {
 	u32 buf_bytes = bytes;
 
 	// If packet is valid,
 	if (auth_enc.Decrypt(data, buf_bytes))
 	{
+		last_recv_tsc = Clock::msec_fast();
+
 		// Pass it to the transport layer
 		transport_receiver.OnPacket(server_endpoint, data, buf_bytes,
-			fastdelegate::MakeDelegate(this, &Connection::HandleMessage));
+			fastdelegate::MakeDelegate(this, &Connection::OnMessage));
 	}
 }
 
-void Connection::HandleMessage(u8 *msg, u32 bytes)
+void Connection::OnMessage(u8 *msg, u32 bytes)
 {
 }
 
-bool Post(u8 *msg, u32 bytes)
+void Connection::OnDestroy()
+{
+
+}
+
+bool Connection::Post(u8 *msg, u32 bytes)
 {
 	return false;
 }
@@ -100,41 +118,12 @@ Map::Map()
 	// TODO: Determine if this needs stronger protection
 	_hash_salt = (u32)s32(Clock::usec() * 1000.0);
 
-	_active_head = 0;
-	_insert_head = 0;
-
 	CAT_OBJCLR(_table);
 }
 
 Map::~Map()
 {
-	Slot *slot, *next;
-
-	INANE("SphynxServerMap") << "Freeing connection objects";
-
-	// Free all active connection objects
-	for (slot = _active_head; slot; slot = next)
-	{
-		next = slot->next;
-
-		if (slot->connection)
-		{
-			delete slot->connection;
-			slot->connection = 0;
-		}
-	}
-
-	// Free all recently inserted connection objects
-	for (slot = _insert_head; slot; slot = next)
-	{
-		next = slot->next;
-
-		if (slot->connection)
-		{
-			delete slot->connection;
-			slot->connection = 0;
-		}
-	}
+	WARN("Destroy") << "Killing Map";
 }
 
 u32 Map::hash_addr(const NetAddr &addr, u32 salt)
@@ -255,10 +244,7 @@ void Map::Insert(Connection *conn)
 	// Mark used
 	slot->connection = conn;
 
-	_insert_lock.Enter();
-	slot->next = _insert_head;
-	_insert_head = slot;
-	_insert_lock.Leave();
+	conn->server_endpoint->_server_timer->InsertSlot(slot);
 
 	// If collision list continues after this slot,
 	if (slot->collision)
@@ -291,115 +277,57 @@ void Map::Insert(Connection *conn)
 	}
 }
 
-void Map::Tick()
+// Destroy a list described by the 'next' member of Slot
+void Map::DestroyList(Map::Slot *kill_list)
 {
-	u32 now = Clock::msec_fast();
+	Connection *delete_head = 0;
 
-	Slot *active_head = _active_head;
-	Slot *insert_head = 0;
+	AutoWriteLock lock(_table_lock);
 
-	// Grab and reset the insert head
-	if (_insert_head)
+	// For each slot to kill,
+	for (Map::Slot *slot = kill_list; slot; slot = slot->next)
 	{
-		_insert_lock.Enter();
-		insert_head = _insert_head;
-		_insert_head = 0;
-		_insert_lock.Leave();
-	}
-
-	// For each recently inserted slot,
-	for (Slot *next, *slot = insert_head; slot; slot = next)
-	{
-		next = slot->next;
-
-		INANE("SphynxServerMap") << "Linking new connection into active list";
-
-		// Link into active list
-		slot->next = active_head;
-		active_head = slot;
-	}
-
-	Slot *kill_list = 0;
-	Slot *last = 0;
-
-	// For each active slot,
-	for (Slot *next, *slot = active_head; slot; slot = next)
-	{
-		next = slot->next;
-
 		Connection *conn = slot->connection;
 
-		if (!conn || conn->delete_me || !conn->Tick(now))
+		if (conn)
 		{
-			// Unlink from active list
-			if (last) last->next = next;
-			else active_head = next;
+			conn->next_delete = delete_head;
+			delete_head = conn;
 
-			INANE("SphynxServerMap") << "Moving active connection to kill list";
-
-			// Link into kill list
-			slot->next = kill_list;
-			kill_list = slot;
-		}
-		else
-		{
-			last = slot;
+			slot->connection = 0;
 		}
 	}
 
-	// If some of the slots need to be killed,
-	if (kill_list)
+	lock.Release();
+
+	// For each connection object to delete,
+	for (Connection *next, *conn = delete_head; conn; conn = next)
 	{
-		AutoWriteLock lock(_table_lock);
+		next = conn->next_delete;
 
-		Connection *delete_head = 0;
+		INANE("ServerMap") << "Deleting connection " << conn;
 
-		// For each slot to kill,
-		for (Slot *next, *slot = kill_list; slot; slot = next)
-		{
-			next = slot->next;
+		conn->server_endpoint->DecrementPopulation();
 
-			Connection *conn = slot->connection;
-
-			if (conn)
-			{
-				conn->next_delete = delete_head;
-				delete_head = conn;
-
-				slot->connection = 0;
-			}
-		}
-
-		lock.Release();
-
-		// For each connection object to delete,
-		for (Connection *next, *conn = delete_head; conn; conn = next)
-		{
-			next = conn->next_delete;
-
-			INANE("SphynxServerMap") << "Deleting connection";
-
-			conn->server_endpoint->DecrementPopulation();
-
-			delete conn;
-		}
+		delete conn;
 	}
-
-	_active_head = active_head;
 }
 
 
 //// ServerWorker
 
-ServerWorker::ServerWorker(Map *conn_map)
+ServerWorker::ServerWorker(Map *conn_map, ServerTimer *server_timer)
+	: UDPEndpoint(REFOBJ_PRIO_0+1)
 {
+	_server_timer = server_timer;
 	_conn_map = conn_map;
+
 	_session_count = 0;
 }
 
 ServerWorker::~ServerWorker()
 {
-
+	WARN("Destroy") << "Killing Worker";
 }
 
 void ServerWorker::IncrementPopulation()
@@ -419,9 +347,9 @@ void ServerWorker::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *d
 	int buf_bytes = bytes;
 
 	// If connection is valid and on the right port,
-	if (conn && !conn->delete_me && conn->server_endpoint == this)
+	if (conn && conn->IsValid() && conn->server_endpoint == this)
 	{
-		conn->HandleRawData(data, bytes);
+		conn->OnRawData(data, bytes);
 	}
 
 	_conn_map->ReleaseLock();
@@ -438,22 +366,199 @@ void ServerWorker::OnClose()
 }
 
 
+//// ServerTimer
+
+ServerTimer::ServerTimer(Map *conn_map, ServerWorker **workers, int worker_count)
+{
+	_conn_map = conn_map;
+	_workers = workers;
+	_worker_count = worker_count;
+
+	_insert_head = 0;
+	_active_head = 0;
+
+	// If unable to start the clock thread,
+	if (!StartThread())
+	{
+		WARN("ServerTimer") << "Failed to initialize: Unable to start timer thread. LastError=" << GetLastError();
+
+		// Note failure
+		_worker_count = 0;
+	}
+}
+
+ServerTimer::~ServerTimer()
+{
+	WARN("Destroy") << "Killing Timer";
+
+	Map::Slot *slot, *next;
+
+	if (!StopThread())
+	{
+		WARN("ServerTimer") << "Unable to stop timer thread.  Was it started?";
+	}
+
+	INANE("ServerTimer") << "Freeing connection objects";
+
+	// Free all active connection objects
+	for (slot = _active_head; slot; slot = next)
+	{
+		next = slot->next;
+
+		if (slot->connection)
+		{
+			delete slot->connection;
+			slot->connection = 0;
+		}
+	}
+
+	// Free all recently inserted connection objects
+	for (slot = _insert_head; slot; slot = next)
+	{
+		next = slot->next;
+
+		if (slot->connection)
+		{
+			delete slot->connection;
+			slot->connection = 0;
+		}
+	}
+}
+
+void ServerTimer::InsertSlot(Map::Slot *slot)
+{
+	AutoMutex lock(_insert_lock);
+
+	slot->next = _insert_head;
+	_insert_head = slot;
+}
+
+void ServerTimer::Tick()
+{
+	u32 now = Clock::msec_fast();
+
+	Map::Slot *active_head = _active_head;
+	Map::Slot *insert_head = 0;
+
+	// Grab and reset the insert head
+	if (_insert_head)
+	{
+		_insert_lock.Enter();
+		insert_head = _insert_head;
+		_insert_head = 0;
+		_insert_lock.Leave();
+	}
+
+	// For each recently inserted slot,
+	for (Map::Slot *next, *slot = insert_head; slot; slot = next)
+	{
+		next = slot->next;
+
+		INANE("ServerTimer") << "Linking new connection into active list";
+
+		// Link into active list
+		slot->next = active_head;
+		active_head = slot;
+	}
+
+	Map::Slot *kill_list = 0;
+	Map::Slot *last = 0;
+
+	// For each active slot,
+	for (Map::Slot *next, *slot = active_head; slot; slot = next)
+	{
+		next = slot->next;
+
+		Connection *conn = slot->connection;
+
+		if (!conn || !conn->IsValid() || !conn->Tick(now))
+		{
+			// Unlink from active list
+			if (last) last->next = next;
+			else active_head = next;
+
+			INANE("ServerTimer") << "Relinking dead connection into kill list";
+
+			// Link into kill list
+			slot->next = kill_list;
+			kill_list = slot;
+		}
+		else
+		{
+			last = slot;
+		}
+	}
+
+	// If some of the slots need to be killed,
+	if (kill_list)
+	{
+		_conn_map->DestroyList(kill_list);
+	}
+
+	_active_head = active_head;
+}
+
+bool ServerTimer::ThreadFunction(void *param)
+{
+	const int TICK_RATE = 10; // milliseconds
+
+	// While quit signal is not flagged,
+	while (WaitForQuitSignal(TICK_RATE))
+	{
+		Tick();
+	}
+
+	return true;
+}
 
 
 //// Server
 
 Server::Server()
+	: UDPEndpoint(REFOBJ_PRIO_0)
 {
-	_sessions = 0;
+	_workers = 0;
+	_worker_count = 0;
+
+	_timers = 0;
+	_timer_count = 0;
 }
 
 Server::~Server()
 {
-	if (_sessions) delete[] _sessions;
+	WARN("Destroy") << "Killing Server";
 
-	if (!StopThread())
+	// Delete timer objects
+	if (_timers)
 	{
-		WARN("Server") << "Unable to stop timer thread.  Was it started?";
+		for (int ii = 0; ii < _timer_count; ++ii)
+		{
+			ServerTimer *timer = _timers[ii];
+
+			if (timer)
+			{
+				delete timer;
+			}
+		}
+
+		delete[] _timers;
+	}
+
+	// Delete worker object array
+	if (_workers)
+	{
+		for (int ii = 0; ii < _worker_count; ++ii)
+		{
+			ServerWorker *worker = _workers[ii];
+
+			if (worker)
+			{
+				// Release final ref
+				worker->ReleaseRef();
+			}
+		}
+
+		delete[] _workers;
 	}
 }
 
@@ -466,20 +571,29 @@ bool Server::Initialize(ThreadPoolLocalStorage *tls, Port port)
 		return false;
 	}
 
-	// Use the number of processors we have access to as the number of ports
-	_session_port_count = ThreadPool::ref()->GetProcessorCount() * 4;
-	if (_session_port_count < 1)
+	// Allocate worker array
+	_worker_count = ThreadPool::ref()->GetProcessorCount() * 4;
+	if (_worker_count < 1) _worker_count = 1;
+
+	if (_workers) delete[] _workers;
+
+	_workers = new ServerWorker*[_worker_count];
+	if (!_workers)
 	{
-		WARN("Server") << "Failed to initialize: Thread pool does not have at least 1 thread running";
+		WARN("Server") << "Failed to initialize: Unable to allocate " << _worker_count << " workers";
 		return false;
 	}
 
-	if (_sessions) delete[] _sessions;
+	// Allocate timer array
+	_timer_count = ThreadPool::ref()->GetProcessorCount() / 2;
+	if (_timer_count < 1) _timer_count = 1;
 
-	_sessions = new ServerWorker*[_session_port_count];
-	if (!_sessions)
+	if (_timers) delete[] _timers;
+
+	_timers = new ServerTimer*[_timer_count];
+	if (!_timers)
 	{
-		WARN("Server") << "Failed to initialize: Unable to allocate " << _session_port_count << " session endpoint objects";
+		WARN("Server") << "Failed to initialize: Unable to allocate " << _timer_count << " timers";
 		return false;
 	}
 
@@ -588,35 +702,56 @@ bool Server::Initialize(ThreadPoolLocalStorage *tls, Port port)
 		return false;
 	}
 
-	// For each session port,
 	bool success = true;
 
-	for (int ii = 0; ii < _session_port_count; ++ii)
+	int workers_per_timer = _worker_count / _timer_count;
+
+	// For each timer,
+	for (int ii = 0; ii < _timer_count; ++ii)
+	{
+		int first = ii * workers_per_timer;
+		int range = workers_per_timer;
+
+		if (first + range > _worker_count)
+		{
+			range = _worker_count - first;
+		}
+
+		ServerTimer *timer = new ServerTimer(&_conn_map, &_workers[first], range);
+
+		_timers[ii] = timer;
+
+		if (!timer || !timer->Valid())
+		{
+			WARN("Server") << "Failed to initialize: Unable to create server timer object";
+
+			success = false;
+		}
+	}
+
+	// For each data port,
+	for (int ii = 0; ii < _worker_count; ++ii)
 	{
 		// Create a new session endpoint
-		ServerWorker *endpoint = new ServerWorker(&_conn_map);
+		ServerWorker *worker = new ServerWorker(&_conn_map, _timers[ii / workers_per_timer]);
+
+		// Add a ref right away to avoid deletion until server is destroyed
+		worker->AddRef();
 
 		// Store it whether it is null or not
-		_sessions[ii] = endpoint;
+		_workers[ii] = worker;
+
+		Port worker_port = port + ii + 1;
 
 		// If allocation or bind failed, report failure after done
-		if (!endpoint || !endpoint->Bind(port + ii + 1))
+		if (!worker || !worker->Bind(worker_port))
 		{
-			WARN("Server") << "Failed to initialize: Unable to bind session port. "
+			WARN("Server") << "Failed to initialize: Unable to bind to data port " << worker_port << ": "
 				<< SocketGetLastErrorString();
 
 			// Note failure
 			success = false;
 		}
-	}
-
-	// If unable to start the timer thread,
-	if (success && !StartThread())
-	{
-		WARN("Server") << "Failed to initialize: Unable to start timer thread";
-
-		// Note failure
-		success = false;
 	}
 
 	return success;
@@ -629,10 +764,10 @@ ServerWorker *Server::FindLeastPopulatedPort()
 	ServerWorker *best_port = 0;
 
 	// For each port,
-	for (int ii = 0; ii < _session_port_count; ++ii)
+	for (int ii = 0; ii < _worker_count; ++ii)
 	{
 		// Grab the session count for this port
-		ServerWorker *port = _sessions[ii];
+		ServerWorker *port = _workers[ii];
 		u32 count = port->GetPopulation();
 
 		// If we found a lower session count,
@@ -652,10 +787,10 @@ u32 Server::GetTotalPopulation()
 	u32 population = 0;
 
 	// For each port,
-	for (int ii = 0; ii < _session_port_count; ++ii)
+	for (int ii = 0; ii < _worker_count; ++ii)
 	{
 		// Accumulate population
-		population += _sessions[ii]->GetPopulation();
+		population += _workers[ii]->GetPopulation();
 	}
 
 	return population;
@@ -733,7 +868,7 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 		if (conn)
 		{
 			// If the connection exists but has recently been deleted,
-			if (conn->delete_me)
+			if (!conn->IsValid())
 			{
 				_conn_map.ReleaseLock();
 				INANE("Server") << "Ignoring challenge: Connection recently deleted";
@@ -858,17 +993,4 @@ void Server::OnWrite(u32 bytes)
 void Server::OnClose()
 {
 
-}
-
-bool Server::ThreadFunction(void *)
-{
-	const int TICK_RATE = 10; // milliseconds
-
-	// While quit signal is not flagged,
-	while (WaitForQuitSignal(TICK_RATE))
-	{
-		_conn_map.Tick();
-	}
-
-	return true;
 }

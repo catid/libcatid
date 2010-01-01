@@ -37,7 +37,8 @@ using namespace cat;
 
 //// TCP Client
 
-TCPClient::TCPClient()
+TCPClient::TCPClient(int priorityLevel)
+	: ThreadRefObject(priorityLevel)
 {
     // Initialize to invalid socket
     _recvOv = 0;
@@ -371,7 +372,8 @@ void TCPClient::OnDisconnectExComplete(int error)
 
 //// TCPClientQueued
 
-TCPClientQueued::TCPClientQueued()
+TCPClientQueued::TCPClientQueued(int priorityLevel)
+	: TCPClient(priorityLevel)
 {
     _queueBuffer = 0;
     //_queueBytes = 0;

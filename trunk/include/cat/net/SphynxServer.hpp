@@ -38,6 +38,40 @@ namespace cat {
 
 namespace sphynx {
 
+/*
+	Designed for server hardware with many processors.
+
+	In order to handle many users, the Sphynx server opens up a single UDP port
+	to accept new connections, and several other UDP data ports for data.
+
+	For retransmissions and detecting link loss due to timeout, the server runs
+	several additional threads that wake up periodically to perform timed tasks.
+
+	Server uses thread pool to receive packets on connect and worker ports,
+	meaning that packets are processed by any free CPU as soon as they arrive.
+
+	Sphynx Server
+		UDP Hello Port [1]
+			+ In case this thread spins constantly, only use one CPU for new
+			  connections since in-game experience is more important than login
+		    + Assigns users to a data port after handshake completes
+
+		UDP Data Ports [4 * (CPU Count)]
+			+ Spread users evenly across several ports since
+			  only one packet can be processed from a single port at a time
+		    + Any free CPU will process incoming packets as fast as possible
+
+		ServerTimer threads [(CPU Count) / 2]
+			+ In case these threads spin constantly, they only consume
+			  half of the CPU resources available
+			+ Wake up every 10 milliseconds
+				+ As per UDT (transport layer) spec
+			+ Detect link loss due to silence timeout
+			+ Update transport layer
+				+ Retransmit lost messages
+				+ Re-evaluate bandwidth and transmit queued messages
+*/
+
 
 //// sphynx::Connection
 
@@ -46,8 +80,10 @@ class Connection
 public:
 	Connection();
 
+protected:
+	volatile u32 destroyed;
+
 public:
-	bool delete_me;
 	Connection *next_delete;
 	NetAddr client_addr;
 	ServerWorker *server_endpoint;
@@ -69,12 +105,18 @@ public:
 	TransportReceiver transport_receiver;
 
 public:
-	// Returns false iff connection should be deleted
+	CAT_INLINE bool IsValid() { return destroyed == 0; }
+
+	void Destroy();
+
+public:
+	// Return false to destroy this object
 	bool Tick(u32 now);
 
 public:
-	void HandleRawData(u8 *data, u32 bytes);
-	void HandleMessage(u8 *msg, u32 bytes);
+	void OnRawData(u8 *data, u32 bytes);
+	void OnMessage(u8 *msg, u32 bytes);
+	void OnDestroy();
 
 public:
 	bool Post(u8 *msg, u32 bytes);
@@ -89,6 +131,7 @@ protected:
 	CAT_INLINE u32 hash_addr(const NetAddr &addr, u32 salt);
 	CAT_INLINE u32 next_collision_key(u32 key);
 
+public:
 	struct Slot
 	{
 		Connection *connection;
@@ -96,16 +139,10 @@ protected:
 		Slot *next;
 	};
 
+protected:
 	u32 _hash_salt;
 	CAT_ALIGNED(16) Slot _table[HASH_TABLE_SIZE];
 	RWLock _table_lock;
-
-protected:
-	Slot *_insert_head;
-	Mutex _insert_lock;
-
-protected:
-	Slot *_active_head;
 
 public:
 	Map();
@@ -119,6 +156,10 @@ public:
 	void Insert(Connection *conn);
 
 public:
+	// Destroy a list described by the 'next' member of Slot
+	void DestroyList(Map::Slot *kill_list);
+
+public:
 	void Tick();
 };
 
@@ -127,12 +168,20 @@ public:
 
 class ServerWorker : public UDPEndpoint
 {
-	volatile u32 _session_count;
+	friend class Map;
+
+protected:
 	Map *_conn_map;
+	ServerTimer *_server_timer;
+
+protected:
+	volatile u32 _session_count;
+
+protected:
 	MessageLayerHandler _handler;
 
 public:
-	ServerWorker(Map *conn_map);
+	ServerWorker(Map *conn_map, ServerTimer *server_timer);
 	virtual ~ServerWorker();
 
 	void IncrementPopulation();
@@ -146,23 +195,63 @@ protected:
 };
 
 
+//// sphynx::ServerTimer
+
+class ServerTimer : LoopThread
+{
+protected:
+	Map *_conn_map;
+
+protected:
+	ServerWorker **_workers;
+	int _worker_count;
+
+protected:
+	Map::Slot *_insert_head;
+	Mutex _insert_lock;
+
+protected:
+	Map::Slot *_active_head;
+
+public:
+	ServerTimer(Map *conn_map, ServerWorker **workers, int worker_count);
+	virtual ~ServerTimer();
+
+	CAT_INLINE bool Valid() { return _worker_count > 0; }
+
+public:
+	void InsertSlot(Map::Slot *slot);
+
+protected:
+	CAT_INLINE void Tick();
+	bool ThreadFunction(void *param);
+};
+
+
 //// sphynx::Server
 
-class Server : LoopThread, public UDPEndpoint
+class Server : public UDPEndpoint
 {
-private:
+protected:
 	Port _server_port;
 	Map _conn_map;
+
+protected:
 	CookieJar _cookie_jar;
 	KeyAgreementResponder _key_agreement_responder;
 	u8 _public_key[PUBLIC_KEY_BYTES];
-	int _session_port_count;
-	ServerWorker **_sessions;
 
+protected:
+	ServerWorker **_workers;
+	int _worker_count;
+
+protected:
+	ServerTimer **_timers;
+	int _timer_count;
+
+protected:
 	ServerWorker *FindLeastPopulatedPort();
 	u32 GetTotalPopulation();
-
-	bool ThreadFunction(void *param);
 
 public:
 	Server();
