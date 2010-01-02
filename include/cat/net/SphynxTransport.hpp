@@ -44,8 +44,7 @@ class Server;
 class ServerWorker;
 class ServerTimer;
 class Client;
-class TransportSender;
-class TransportReceiver;
+class Transport;
 
 // Protocol constants
 static const u32 PROTOCOL_MAGIC = 0xC47D0001;
@@ -88,32 +87,22 @@ enum TransportSendTime
 };
 
 
-typedef fastdelegate::FastDelegate2<u8*, u32, void> MessageLayerHandler;
+//// sphynx::Transport
 
-
-//// sphynx::TransportSender
-
-class TransportSender
+class Transport
 {
 public:
-	TransportSender();
-	~TransportSender();
+	Transport();
+	virtual ~Transport();
 
-	void Tick(UDPEndpoint *endpoint, u32 now);
-};
+protected:
+	void TickTransport(u32 now);
+	void OnPacket(u8 *data, u32 bytes);
+	void SendMessage(TransportSendTime, u8 *data, u32 bytes);
 
-
-//// sphynx::TransportReceiver
-
-class TransportReceiver
-{
-public:
-	TransportReceiver();
-	~TransportReceiver();
-
-	void OnPacket(UDPEndpoint *endpoint, u8 *data, u32 bytes, MessageLayerHandler handler);
-
-	void Tick(UDPEndpoint *endpoint, u32 now);
+protected:
+	virtual void OnMessage(u8 *msg, u32 bytes) = 0;
+	virtual bool SendPacket(u8 *msg, u32 bytes) = 0;
 };
 
 

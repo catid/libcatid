@@ -33,42 +33,29 @@ using namespace cat;
 using namespace sphynx;
 
 
-//// sphynx::TransportSender
+//// sphynx::Transport
 
-TransportSender::TransportSender()
+Transport::Transport()
 {
 
 }
 
-TransportSender::~TransportSender()
+Transport::~Transport()
 {
 
 }
 
-void TransportSender::Tick(UDPEndpoint *endpoint, u32 now)
+void Transport::TickTransport(u32 now)
 {
 
 }
 
-
-//// sphynx::TransportReceiver
-
-TransportReceiver::TransportReceiver()
+void Transport::OnPacket(u8 *data, u32 bytes)
 {
 
 }
 
-TransportReceiver::~TransportReceiver()
-{
-
-}
-
-void TransportReceiver::OnPacket(UDPEndpoint *endpoint, u8 *data, u32 bytes, MessageLayerHandler handler)
-{
-
-}
-
-void TransportReceiver::Tick(UDPEndpoint *endpoint, u32 now)
+void Transport::SendMessage(TransportSendTime send_time, u8 *data, u32 bytes)
 {
 
 }
