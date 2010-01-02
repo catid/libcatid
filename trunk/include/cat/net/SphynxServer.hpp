@@ -75,7 +75,7 @@ namespace sphynx {
 
 //// sphynx::Connection
 
-class Connection
+class Connection : public Transport
 {
 public:
 	Connection();
@@ -101,10 +101,6 @@ public:
 	Mutex send_lock;
 
 public:
-	TransportSender transport_sender;
-	TransportReceiver transport_receiver;
-
-public:
 	CAT_INLINE bool IsValid() { return destroyed == 0; }
 
 	void Destroy();
@@ -115,11 +111,11 @@ public:
 
 public:
 	void OnRawData(u8 *data, u32 bytes);
-	void OnMessage(u8 *msg, u32 bytes);
 	void OnDestroy();
 
-public:
-	bool Post(u8 *msg, u32 bytes);
+protected:
+	virtual void OnMessage(u8 *msg, u32 bytes);
+	virtual bool SendPacket(u8 *msg, u32 bytes);
 };
 
 
@@ -176,9 +172,6 @@ protected:
 
 protected:
 	volatile u32 _session_count;
-
-protected:
-	MessageLayerHandler _handler;
 
 public:
 	ServerWorker(Map *conn_map, ServerTimer *server_timer);

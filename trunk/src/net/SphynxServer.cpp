@@ -71,8 +71,7 @@ bool Connection::Tick(u32 now)
 	}
 	else
 	{
-		transport_sender.Tick(server_endpoint, now);
-		transport_receiver.Tick(server_endpoint, now);
+		TickTransport(now);
 	}
 
 	return true;
@@ -88,13 +87,8 @@ void Connection::OnRawData(u8 *data, u32 bytes)
 		last_recv_tsc = Clock::msec_fast();
 
 		// Pass it to the transport layer
-		transport_receiver.OnPacket(server_endpoint, data, buf_bytes,
-			fastdelegate::MakeDelegate(this, &Connection::OnMessage));
+		OnPacket(data, buf_bytes);
 	}
-}
-
-void Connection::OnMessage(u8 *msg, u32 bytes)
-{
 }
 
 void Connection::OnDestroy()
@@ -102,9 +96,14 @@ void Connection::OnDestroy()
 
 }
 
-bool Connection::Post(u8 *msg, u32 bytes)
+void Connection::OnMessage(u8 *msg, u32 bytes)
 {
-	return false;
+
+}
+
+bool Connection::SendPacket(u8 *msg, u32 bytes)
+{
+	return true;
 }
 
 

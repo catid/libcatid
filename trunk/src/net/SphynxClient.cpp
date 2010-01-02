@@ -198,8 +198,7 @@ void Client::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 		if (_auth_enc.Decrypt(data, buf_bytes))
 		{
 			// Pass the packet to the transport layer
-			_transport_receiver.OnPacket(this, data, buf_bytes,
-				fastdelegate::MakeDelegate(this, &Client::HandleMessage));
+			OnPacket(data, buf_bytes);
 		}
 	}
 	// s2c 01 (cookie[4]) (public key[64])
@@ -344,11 +343,6 @@ void Client::OnConnect()
 	INFO("Client") << "Connected";
 }
 
-void Client::HandleMessage(u8 *msg, u32 bytes)
-{
-	INFO("Client") << "Got message with " << bytes << " bytes";
-}
-
 void Client::OnDisconnect(bool timeout)
 {
 	WARN("Client") << "Disconnected. Timeout=" << timeout;
@@ -403,11 +397,18 @@ bool Client::ThreadFunction(void *)
 	// While waiting for quit signal,
 	while (WaitForQuitSignal(TICK_RATE))
 	{
-		u32 now = Clock::msec_fast();
-
-		_transport_receiver.Tick(this, now);
-		_transport_sender.Tick(this, now);
+		TickTransport(Clock::msec_fast());
 	}
 
+	return true;
+}
+
+void Client::OnMessage(u8 *msg, u32 bytes)
+{
+	INFO("Client") << "Got message with " << bytes << " bytes";
+}
+
+bool Client::SendPacket(u8 *msg, u32 bytes)
+{
 	return true;
 }

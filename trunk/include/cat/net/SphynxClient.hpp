@@ -40,13 +40,11 @@ namespace sphynx {
 
 //// sphynx::Client
 
-class Client : LoopThread, public UDPEndpoint
+class Client : LoopThread, public UDPEndpoint, public Transport
 {
 private:
 	KeyAgreementInitiator _key_agreement_initiator;
 	AuthenticatedEncryption _auth_enc;
-	TransportSender _transport_sender;
-	TransportReceiver _transport_receiver;
 	NetAddr _server_addr;
 	bool _connected;
 	u8 _server_public_key[PUBLIC_KEY_BYTES];
@@ -79,8 +77,11 @@ protected:
 protected:
 	virtual void OnConnectFail();
 	virtual void OnConnect();
-	virtual void HandleMessage(u8 *msg, u32 bytes);
 	virtual void OnDisconnect(bool timeout);
+
+protected:
+	virtual void OnMessage(u8 *msg, u32 bytes);
+	virtual bool SendPacket(u8 *msg, u32 bytes);
 };
 
 
