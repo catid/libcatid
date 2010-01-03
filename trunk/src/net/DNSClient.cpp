@@ -218,7 +218,8 @@ bool DNSClient::GetServerAddr()
 #endif
 
 	// Return success if server address is now valid
-	if (_server_addr.Valid())
+	if (_server_addr.Valid() &&
+		_server_addr.Convert(Is6()))
 	{
 		INANE("DNS") << "Using nameserver at " << _server_addr.IPToString();
 	}
@@ -229,15 +230,13 @@ bool DNSClient::GetServerAddr()
 		WARN("DNS") << "Unable to determine nameserver from OS.  Using anycast address " << ANYCAST_DNS_SERVER;
 
 		// Attempt to get server address from anycast DNS server string
-		if (!_server_addr.SetFromString(ANYCAST_DNS_SERVER, 53))
+		if (!_server_addr.SetFromString(ANYCAST_DNS_SERVER, 53) ||
+			!_server_addr.Convert(Is6()))
 		{
 			FATAL("DNS") << "Unable to resolve anycast address " << ANYCAST_DNS_SERVER;
 			return false;
 		}
 	}
-
-	// Convert address to socket type
-	_server_addr.Convert(Is6());
 
 	return true;
 }

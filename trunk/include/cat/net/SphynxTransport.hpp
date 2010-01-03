@@ -31,6 +31,7 @@
 
 #include <cat/net/ThreadPoolSockets.hpp>
 #include <cat/threads/Mutex.hpp>
+#include <cat/crypt/tunnel/AuthenticatedEncryption.hpp>
 
 namespace cat {
 
@@ -92,12 +93,15 @@ enum TransportMode
 class Transport
 {
 protected:
+	static const u32 MINIMUM_MTU = 576; // Dialup
+	static const u32 MEDIUM_MTU = 1400; // Highspeed with unexpected overhead, maybe VPN
+	static const u32 MAXIMUM_MTU = 1500; // Highspeed
+
 	static const u32 IPV6_HEADER_BYTES = 40;
 	static const u32 IPV4_HEADER_BYTES = 20;
 	static const u32 UDP_HEADER_BYTES = 8;
-	static const u32 DEFAULT_MTU = 1492;
 
-	// Maximum transfer unit (MTU) in UDP payload bytes, excluding the IP and UDP headers
+	// Maximum transfer unit (MTU) in UDP payload bytes, excluding the IP and UDP headers and encryption overhead
 	u32 _mtu;
 
 public:
@@ -168,14 +172,17 @@ public:
 	static const int TICK_RATE = 20; // 20 milliseconds
 
 protected:
-	void TickTransport(u32 now);
+	void TickTransport(ThreadPoolLocalStorage *tls, u32 now);
 	void OnPacket(u8 *data, u32 bytes);
 	void OnFragment(u8 *data, u32 bytes, bool frag);
 	void SendMessage(TransportMode, u8 *data, u32 bytes);
 
 protected:
+	bool PostMTUDiscoveryRequest(ThreadPoolLocalStorage *tls, u32 payload_bytes);
+
+protected:
 	virtual void OnMessage(u8 *msg, u32 bytes) = 0;
-	virtual bool SendPacket(u8 *data, u32 bytes) = 0;
+	virtual bool SendPacket(u8 *data, u32 buf_bytes, u32 msg_bytes) = 0;
 };
 
 

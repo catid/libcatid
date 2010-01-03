@@ -654,9 +654,14 @@ bool NetAddr::Unwrap(SockAddr &addr, int &addr_len, bool PromoteToIP6) const
 }
 
 // Promote an IPv4 address to an IPv6 address if needed
-void NetAddr::PromoteTo6()
+bool NetAddr::PromoteTo6()
 {
-	if (_family == AF_INET)
+	if (_family == AF_INET6)
+	{
+		// Already IPv6
+		return true;
+	}
+	else if (_family == AF_INET)
 	{
 		_family = AF_INET6;
 
@@ -679,6 +684,13 @@ void NetAddr::PromoteTo6()
 			_ip.v6_bytes[14] = (u8)(ipv4 >> 8);
 			_ip.v6_bytes[15] = (u8)(ipv4);
 		}
+
+		return true;
+	}
+	else
+	{
+		// Already invalid
+		return false;
 	}
 }
 

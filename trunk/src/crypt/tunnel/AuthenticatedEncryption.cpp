@@ -38,6 +38,9 @@ bool AuthenticatedEncryption::SetKey(int KeyBytes, Skein *key, bool is_initiator
 {
 	_accept_out_of_order = true;
     _is_initiator = is_initiator;
+	CAT_OBJCLR(iv_bitmap);
+
+	// Add key name:
 
 	if (!key_hash.SetKey(key)) return false;
 	if (!key_hash.BeginKDF()) return false;
@@ -45,6 +48,8 @@ bool AuthenticatedEncryption::SetKey(int KeyBytes, Skein *key, bool is_initiator
     key_hash.End();
 
     Skein kdf;
+
+	// MAC keys:
 
     if (!kdf.SetKey(&key_hash)) return false;
     if (!kdf.BeginKDF()) return false;
@@ -58,6 +63,8 @@ bool AuthenticatedEncryption::SetKey(int KeyBytes, Skein *key, bool is_initiator
     kdf.End();
     if (!remote_mac_key.SetKey(&kdf)) return false;
 
+	// Encryption keys:
+
     u8 local_key[KeyAgreementCommon::MAX_BYTES];
     if (!kdf.SetKey(&key_hash)) return false;
     if (!kdf.BeginKDF()) return false;
@@ -65,18 +72,30 @@ bool AuthenticatedEncryption::SetKey(int KeyBytes, Skein *key, bool is_initiator
     kdf.End();
     kdf.Generate(local_key, KeyBytes);
     local_cipher_key.Set(local_key, KeyBytes);
-    local_iv = 1;
 
-    u8 remote_key[KeyAgreementCommon::MAX_BYTES];
-    if (!kdf.SetKey(&key_hash)) return false;
-    if (!kdf.BeginKDF()) return false;
-    kdf.CrunchString(is_initiator ? "downstream-ENC" : "upstream-ENC");
-    kdf.End();
-    kdf.Generate(remote_key, KeyBytes);
-    remote_cipher_key.Set(remote_key, KeyBytes);
-    remote_iv = 0;
+	u8 remote_key[KeyAgreementCommon::MAX_BYTES];
+	if (!kdf.SetKey(&key_hash)) return false;
+	if (!kdf.BeginKDF()) return false;
+	kdf.CrunchString(is_initiator ? "downstream-ENC" : "upstream-ENC");
+	kdf.End();
+	kdf.Generate(remote_key, KeyBytes);
+	remote_cipher_key.Set(remote_key, KeyBytes);
 
-    CAT_OBJCLR(iv_bitmap);
+	// Random IVs:
+
+	if (!kdf.SetKey(&key_hash)) return false;
+	if (!kdf.BeginKDF()) return false;
+	kdf.CrunchString(is_initiator ? "upstream-IV" : "downstream-IV");
+	kdf.End();
+	kdf.Generate(&local_iv, sizeof(local_iv));
+	local_iv = getLE(local_iv) + 1;
+
+	if (!kdf.SetKey(&key_hash)) return false;
+	if (!kdf.BeginKDF()) return false;
+	kdf.CrunchString(is_initiator ? "downstream-IV" : "upstream-IV");
+	kdf.End();
+	kdf.Generate(&remote_iv, sizeof(remote_iv));
+	remote_iv = getLE(remote_iv);
 
 	return true;
 }

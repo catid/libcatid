@@ -36,6 +36,8 @@ using namespace sphynx;
 
 enum MessageTypes
 {
+	TYPE_MTU_PROBE,		// MTU probe packet
+	TYPE_MTU_RESPONSE,	// MTU response message
 	TYPE_UNRELIABLE,	// Unreliable message
 	TYPE_RELIABLE,		// Reliable, ordered message
 	TYPE_RELIABLE_FRAG,	// Reliable, ordered, fragmented message
@@ -109,7 +111,7 @@ void Transport::TransmitQueued()
 	// TODO: Transmit ACKs
 }
 
-void Transport::TickTransport(u32 now)
+void Transport::TickTransport(ThreadPoolLocalStorage *tls, u32 now)
 {
 	TransmitQueued();
 }
@@ -135,11 +137,7 @@ void Transport::OnPacket(u8 *data, u32 bytes)
 			This is done to allow the receiver to ignore message
 			types that it does not recognize.
 
-			Types:
-				0 = Unreliable message
-				1 = Reliable, ordered message
-				2 = Reliable, ordered, fragmented message
-				3 = Acknowledgment of reliable, ordered messages
+			Types: See enum MessageTypes
 		*/
 
 		u16 header = getLE(*reinterpret_cast<u16*>( data ));
@@ -391,6 +389,26 @@ void Transport::OnFragment(u8 *data, u32 bytes, bool frag)
 			OnMessage(data, bytes);
 		}
 	}
+}
+
+bool Transport::PostMTUDiscoveryRequest(ThreadPoolLocalStorage *tls, u32 payload_bytes)
+{
+	if (payload_bytes < MINIMUM_MTU - IPV6_HEADER_BYTES - UDP_HEADER_BYTES)
+		return false;
+
+	u32 buffer_bytes = payload_bytes + AuthenticatedEncryption::OVERHEAD_BYTES;
+
+	u8 *buffer = GetPostBuffer(buffer_bytes);
+	if (!buffer) return false;
+
+	// Write header
+	*reinterpret_cast<u16*>( buffer ) = getLE16((payload_bytes - 2) | TYPE_MTU_PROBE);
+
+	// Fill contents
+	tls->csprng->Generate(buffer + 2, payload_bytes - 2);
+
+	// Encrypt and send buffer
+	return SendPacket(buffer, buffer_bytes, payload_bytes);
 }
 
 void Transport::SendMessage(TransportMode mode, u8 *data, u32 bytes)

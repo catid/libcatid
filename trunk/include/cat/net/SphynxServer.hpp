@@ -107,7 +107,7 @@ public:
 
 public:
 	// Return false to destroy this object
-	bool Tick(u32 now);
+	bool Tick(ThreadPoolLocalStorage *tls, u32 now);
 
 public:
 	void OnRawData(u8 *data, u32 bytes);
@@ -115,7 +115,7 @@ public:
 
 protected:
 	virtual void OnMessage(u8 *msg, u32 bytes);
-	virtual bool SendPacket(u8 *data, u32 bytes);
+	virtual bool SendPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes);
 };
 
 
@@ -156,7 +156,7 @@ public:
 	void DestroyList(Map::Slot *kill_list);
 
 public:
-	void Tick();
+	void Tick(ThreadPoolLocalStorage *tls);
 };
 
 
@@ -216,7 +216,7 @@ public:
 	void InsertSlot(Map::Slot *slot);
 
 protected:
-	CAT_INLINE void Tick();
+	CAT_INLINE void Tick(ThreadPoolLocalStorage *tls);
 	bool ThreadFunction(void *param);
 };
 
