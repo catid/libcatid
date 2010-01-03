@@ -88,7 +88,7 @@ bool AuthenticatedEncryption::SetKey(int KeyBytes, Skein *key, bool is_initiator
 	kdf.CrunchString(is_initiator ? "upstream-IV" : "downstream-IV");
 	kdf.End();
 	kdf.Generate(&local_iv, sizeof(local_iv));
-	local_iv = getLE(local_iv) + 1;
+	local_iv = getLE(local_iv);
 
 	if (!kdf.SetKey(&key_hash)) return false;
 	if (!kdf.BeginKDF()) return false;
@@ -262,7 +262,8 @@ bool AuthenticatedEncryption::Encrypt(u8 *buffer, u32 buffer_bytes, u32 &msg_byt
 
     u8 *overhead = buffer + msg_bytes;
 
-	u64 iv = local_iv++;
+	// Outgoing IV increments by one each time, and starts one ahead of remotely generated IV
+	u64 iv = ++local_iv;
 
     // Generate a MAC for the message and full IV
 	HMAC_MD5 local_mac;

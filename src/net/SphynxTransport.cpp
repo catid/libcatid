@@ -37,7 +37,6 @@ using namespace sphynx;
 enum MessageTypes
 {
 	TYPE_MTU_PROBE,		// MTU probe packet
-	TYPE_MTU_RESPONSE,	// MTU response message
 	TYPE_UNRELIABLE,	// Unreliable message
 	TYPE_RELIABLE,		// Reliable, ordered message
 	TYPE_RELIABLE_FRAG,	// Reliable, ordered, fragmented message
