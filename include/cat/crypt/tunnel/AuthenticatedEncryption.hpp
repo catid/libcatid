@@ -45,12 +45,14 @@ namespace cat {
 	Cipher: 12-round ChaCha with 256-bit or 384-bit keys
 	KDF: Key derivation function (Skein)
 	MAC: 64-bit truncated HMAC-MD5
-	IV: Initialization vector always starting at 0 and incrementing by 1 each time
+	IV: Initialization vector incrementing by 1 each time
 
     c2sMKey = KDF(k) { "upstream-MAC" }
     s2cMKey = KDF(k) { "downstream-MAC" }
     c2sEKey = KDF(k) { "upstream-ENC" }
     s2cEKey = KDF(k) { "downstream-ENC" }
+	c2sIV = KDF(k) { "upstream-IV" }
+	s2cIV = KDF(k) { "downstream-IV" }
 
 	To transmit a message, the client calculates a MAC with the c2sMKey of the IV concatenated with
 	the plaintext message and then appends the 8-byte MAC and low 3 bytes of the IV to the message,
@@ -67,6 +69,8 @@ namespace cat {
     s2c Encrypt(s2cEKey) { message || MAC(s2cMKey) { full-iv-ds||message } } || Obfuscated { trunc-iv-ds }
 
         encrypted { MESSAGE(X) MAC(8by) } IV(3by) = 11 bytes overhead at end of packet
+
+	The full 64-bit IVs are initialized to c2sIV and s2cIV, and the first one sent is IV+1.
 */
 
 

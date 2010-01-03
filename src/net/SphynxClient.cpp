@@ -118,6 +118,8 @@ bool Client::Connect(const NetAddr &addr)
 		return false;
 	}
 
+	_server_addr = addr;
+
 	// Attempt to bind to any port and accept ICMP errors initially
 	if (!Bind(0, false))
 	{
@@ -125,9 +127,13 @@ bool Client::Connect(const NetAddr &addr)
 		return false;
 	}
 
-	// Cache server address
-	_server_addr = addr;
-	_server_addr.Convert(Is6());
+	// Convert server address if needed
+	if (!_server_addr.Convert(Is6()))
+	{
+		WARN("Client") << "Failed to connect: Invalid address specified";
+		Close();
+		return false;
+	}
 
 	// Attempt to post hello message
 	if (!PostHello())
@@ -350,6 +356,14 @@ void Client::OnDisconnect(bool timeout)
 
 bool Client::ThreadFunction(void *)
 {
+	ThreadPoolLocalStorage tls;
+
+	if (!tls.Valid())
+	{
+		WARN("Client") << "Unable to create thread pool local storage";
+		return false;
+	}
+
 	const int HANDSHAKE_TICK_RATE = 100; // milliseconds
 	const int HELLO_POST_INTERVAL = 200; // milliseconds
 	const int CONNECT_TIMEOUT = 6000; // milliseconds
@@ -397,7 +411,7 @@ bool Client::ThreadFunction(void *)
 	// While waiting for quit signal,
 	while (WaitForQuitSignal(Transport::TICK_RATE))
 	{
-		TickTransport(Clock::msec());
+		TickTransport(&tls, Clock::msec());
 	}
 
 	return true;
@@ -408,7 +422,14 @@ void Client::OnMessage(u8 *msg, u32 bytes)
 	INFO("Client") << "Got message with " << bytes << " bytes";
 }
 
-bool Client::SendPacket(u8 *data, u32 bytes)
+bool Client::SendPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes)
 {
-	return Post(_server_addr, data, bytes);
+	if (!_auth_enc.Encrypt(buffer, buf_bytes, msg_bytes))
+	{
+		WARN("Client") << "Encryption failure while sending packet";
+		ReleasePostBuffer(buffer);
+		return false;
+	}
+
+	return Post(_server_addr, buffer, msg_bytes);
 }

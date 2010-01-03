@@ -59,7 +59,7 @@ void Connection::Destroy()
 	}
 }
 
-bool Connection::Tick(u32 now)
+bool Connection::Tick(ThreadPoolLocalStorage *tls, u32 now)
 {
 	const int DISCONNCT_TIMEOUT = 15000; // 15 seconds
 
@@ -71,7 +71,7 @@ bool Connection::Tick(u32 now)
 	}
 	else
 	{
-		TickTransport(now);
+		TickTransport(tls, now);
 	}
 
 	return true;
@@ -101,9 +101,16 @@ void Connection::OnMessage(u8 *msg, u32 bytes)
 
 }
 
-bool Connection::SendPacket(u8 *data, u32 bytes)
+bool Connection::SendPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes)
 {
-	return server_worker->Post(client_addr, data, bytes);
+	if (!auth_enc.Encrypt(buffer, buf_bytes, msg_bytes))
+	{
+		WARN("Client") << "Encryption failure while sending packet";
+		ReleasePostBuffer(buffer);
+		return false;
+	}
+
+	return server_worker->Post(client_addr, buffer, msg_bytes);
 }
 
 
@@ -432,7 +439,7 @@ void ServerTimer::InsertSlot(Map::Slot *slot)
 	_insert_head = slot;
 }
 
-void ServerTimer::Tick()
+void ServerTimer::Tick(ThreadPoolLocalStorage *tls)
 {
 	u32 now = Clock::msec();
 
@@ -470,7 +477,7 @@ void ServerTimer::Tick()
 
 		Connection *conn = slot->connection;
 
-		if (!conn || !conn->IsValid() || !conn->Tick(now))
+		if (!conn || !conn->IsValid() || !conn->Tick(tls, now))
 		{
 			// Unlink from active list
 			if (last) last->next = next;
@@ -499,10 +506,18 @@ void ServerTimer::Tick()
 
 bool ServerTimer::ThreadFunction(void *param)
 {
+	ThreadPoolLocalStorage tls;
+
+	if (!tls.Valid())
+	{
+		WARN("ServerTimer") << "Unable to create thread pool local storage";
+		return false;
+	}
+
 	// While quit signal is not flagged,
 	while (WaitForQuitSignal(Transport::TICK_RATE))
 	{
-		Tick();
+		Tick(&tls);
 	}
 
 	return true;

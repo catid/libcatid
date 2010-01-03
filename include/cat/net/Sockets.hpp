@@ -106,13 +106,13 @@ public:
 
 public:
 	// Promote an IPv4 address to an IPv6 address if needed
-	void PromoteTo6();
+	bool PromoteTo6();
 
 	// Demote an IPv6 address to an IPv4 address if possible,
 	// otherwise marks address as invalid and returns false
 	bool DemoteTo4();
 
-	CAT_INLINE void Convert(bool To6) { if (To6) PromoteTo6(); else DemoteTo4(); }
+	CAT_INLINE bool Convert(bool To6) { if (To6) return PromoteTo6(); else return DemoteTo4(); }
 
 public:
 	CAT_INLINE bool Valid() const { return _valid != 0; }
