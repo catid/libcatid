@@ -30,7 +30,7 @@
 #define CAT_SPHYNX_TRANSPORT_HPP
 
 #include <cat/net/ThreadPoolSockets.hpp>
-#include <cat/port/FastDelegate.h>
+#include <cat/threads/Mutex.hpp>
 
 namespace cat {
 
@@ -78,12 +78,12 @@ enum HandshakeErrors
 	ERR_SERVER_FULL
 };
 
-// Transport send time
-enum TransportSendTime
+// Transport mode
+enum TransportMode
 {
-	SEND_NOW, // Sent immediately, out of band
-	SEND_ASAP, // Sent at next opportunity in band
-	SEND_LAZY, // Try to group the message in with others
+	MODE_UNRELIABLE_NOW,	// Out-of-band, unreliable transport
+	MODE_UNRELIABLE,		// In-band, unreliable transport
+	MODE_RELIABLE			// In-band, reliable, ordered transport
 };
 
 
@@ -91,18 +91,91 @@ enum TransportSendTime
 
 class Transport
 {
+protected:
+	static const u32 IPV6_HEADER_BYTES = 40;
+	static const u32 IPV4_HEADER_BYTES = 20;
+	static const u32 UDP_HEADER_BYTES = 8;
+	static const u32 DEFAULT_MTU = 1492;
+
+	// Maximum transfer unit (MTU) in UDP payload bytes, excluding the IP and UDP headers
+	u32 _mtu;
+
+public:
+	CAT_INLINE void SetMTU(u32 mtu) { _mtu = mtu; }
+
+protected:
+	// Receive state: Next expected ack id to receive
+	u32 _next_recv_expected_id;
+
+	// Receive state: Fragmentation
+	u8 *_fragment_buffer; // Buffer for accumulating fragment
+	u32 _fragment_offset; // Current write offset in buffer
+	u32 _fragment_length; // Number of bytes in fragment buffer
+
+	static const u32 FRAG_MIN = 2;		// Min bytes for a fragmented message
+	static const u32 FRAG_MAX = 256000;	// Max bytes for a fragmented message
+
+	// Receive state: Receive queue
+	struct RecvQueue
+	{
+		static const u32 FRAG_FLAG = 0x80000000;
+		static const u32 BYTE_MASK = 0x7fffffff;
+
+		RecvQueue *next;	// Next in queue
+		u32 id;				// Acknowledgment id
+		u32 bytes;			// High bit: Fragment?
+
+		// Message contents follow
+	};
+
+	// Receive state: Receive queue head
+	RecvQueue *_recv_queue_head; // Head of queue for messages that are waiting on a lost message
+
+	void QueueRecv(u8 *data, u32 bytes, u32 ack_id, bool frag);
+
+protected:
+	// Send state: Next ack id to use
+	u32 _next_send_id;
+
+	// Send state: Send queue
+	struct SendQueue
+	{
+		static const u32 FRAG_FLAG = 0x80000000;
+		static const u32 BYTE_MASK = 0x7fffffff;
+
+		SendQueue *next; // Next in queue
+		u32 id; // Acknowledgment id
+		u32 bytes; // High bit: Fragment?
+
+		// Message contents follow
+	};
+
+	SendQueue *_send_queue_head; // Head of queue for messages that are waiting to be sent
+
+	SendQueue *_sent_list_head; // Head of queue for messages that are waiting to be acknowledged
+
+	Mutex _send_lock;
+
+protected:
+	// Called whenever a connection-related event occurs to simulate smooth
+	// and consistent transmission of messages queued for delivery
+	void TransmitQueued();
+
 public:
 	Transport();
 	virtual ~Transport();
 
+	static const int TICK_RATE = 20; // 20 milliseconds
+
 protected:
 	void TickTransport(u32 now);
 	void OnPacket(u8 *data, u32 bytes);
-	void SendMessage(TransportSendTime, u8 *data, u32 bytes);
+	void OnFragment(u8 *data, u32 bytes, bool frag);
+	void SendMessage(TransportMode, u8 *data, u32 bytes);
 
 protected:
 	virtual void OnMessage(u8 *msg, u32 bytes) = 0;
-	virtual bool SendPacket(u8 *msg, u32 bytes) = 0;
+	virtual bool SendPacket(u8 *data, u32 bytes) = 0;
 };
 
 

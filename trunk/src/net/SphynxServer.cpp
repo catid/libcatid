@@ -101,9 +101,9 @@ void Connection::OnMessage(u8 *msg, u32 bytes)
 
 }
 
-bool Connection::SendPacket(u8 *msg, u32 bytes)
+bool Connection::SendPacket(u8 *data, u32 bytes)
 {
-	return true;
+	return server_worker->Post(client_addr, data, bytes);
 }
 
 
@@ -243,7 +243,7 @@ void Map::Insert(Connection *conn)
 	// Mark used
 	slot->connection = conn;
 
-	conn->server_endpoint->_server_timer->InsertSlot(slot);
+	conn->server_worker->_server_timer->InsertSlot(slot);
 
 	// If collision list continues after this slot,
 	if (slot->collision)
@@ -306,7 +306,7 @@ void Map::DestroyList(Map::Slot *kill_list)
 
 		INANE("ServerMap") << "Deleting connection " << conn;
 
-		conn->server_endpoint->DecrementPopulation();
+		conn->server_worker->DecrementPopulation();
 
 		delete conn;
 	}
@@ -346,7 +346,7 @@ void ServerWorker::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *d
 	int buf_bytes = bytes;
 
 	// If connection is valid and on the right port,
-	if (conn && conn->IsValid() && conn->server_endpoint == this)
+	if (conn && conn->IsValid() && conn->server_worker == this)
 	{
 		conn->OnRawData(data, bytes);
 	}
@@ -434,7 +434,7 @@ void ServerTimer::InsertSlot(Map::Slot *slot)
 
 void ServerTimer::Tick()
 {
-	u32 now = Clock::msec_fast();
+	u32 now = Clock::msec();
 
 	Map::Slot *active_head = _active_head;
 	Map::Slot *insert_head = 0;
@@ -499,10 +499,8 @@ void ServerTimer::Tick()
 
 bool ServerTimer::ThreadFunction(void *param)
 {
-	const int TICK_RATE = 10; // milliseconds
-
 	// While quit signal is not flagged,
-	while (WaitForQuitSignal(TICK_RATE))
+	while (WaitForQuitSignal(Transport::TICK_RATE))
 	{
 		Tick();
 	}
@@ -895,7 +893,7 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 
 			// Construct packet 3
 			pkt3[0] = S2C_ANSWER;
-			*pkt3_port = getLE(conn->server_endpoint->GetPort());
+			*pkt3_port = getLE(conn->server_worker->GetPort());
 			memcpy(pkt3_answer, conn->cached_answer, ANSWER_BYTES);
 
 			_conn_map.ReleaseLock();
@@ -950,8 +948,8 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			}
 
 			// Find the least populated port
-			ServerWorker *server_endpoint = FindLeastPopulatedPort();
-			Port server_port = server_endpoint->GetPort();
+			ServerWorker *server_worker = FindLeastPopulatedPort();
+			Port server_port = server_worker->GetPort();
 
 			// Construct packet 3
 			pkt3[0] = S2C_ANSWER;
@@ -960,7 +958,7 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			// Initialize Connection object
 			memcpy(conn->first_challenge, challenge, CHALLENGE_BYTES);
 			memcpy(conn->cached_answer, pkt3_answer, ANSWER_BYTES);
-			conn->server_endpoint = server_endpoint;
+			conn->server_worker = server_worker;
 			conn->last_recv_tsc = Clock::msec_fast();
 
 			// If packet 3 post fails,
@@ -975,7 +973,7 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 				INANE("Server") << "Accepted challenge and posted answer.  Client connected";
 
 				// Increment session count for this endpoint (only done here)
-				server_endpoint->IncrementPopulation();
+				server_worker->IncrementPopulation();
 
 				// Insert a hash key
 				_conn_map.Insert(conn);

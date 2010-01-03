@@ -44,6 +44,8 @@ class RWLock
 	HANDLE _rd_event;
 	Mutex _wr_lock;
 #else
+	int init_failure;
+	pthread_rwlock_t rw;
 #endif
 
 public:

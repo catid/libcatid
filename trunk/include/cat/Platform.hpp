@@ -478,12 +478,18 @@ template<typename T> u8 *GetTrailingBytes(T *t) { return reinterpret_cast<u8*>( 
 #pragma intrinsic(_BitScanForward)
 #pragma intrinsic(_BitScanReverse)
 #pragma intrinsic(__emulu)
+#pragma intrinsic(_InterlockedExchange)
+#pragma intrinsic(_interlockedbittestandset)
+#pragma intrinsic(_interlockedbittestandreset)
 
 #if defined(CAT_WORD_64)
 #pragma intrinsic(__rdtsc)
 #pragma intrinsic(_umul128)
 #pragma intrinsic(_BitScanForward64)
 #pragma intrinsic(_BitScanReverse64)
+#pragma intrinsic(_InterlockedCompareExchange128)
+#else
+#pragma intrinsic(_InterlockedCompareExchange64)
 #endif
 
 #undef CAT_ROL32

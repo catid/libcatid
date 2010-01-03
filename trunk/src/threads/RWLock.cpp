@@ -34,18 +34,38 @@ using namespace cat;
 
 RWLock::RWLock()
 {
+#if defined(CAT_OS_WINDOWS)
+
 	_wr_count = 0;
 	_rd_count = 0;
 	_rd_event = CreateEvent(0, TRUE, TRUE, 0);
+
+#else
+
+	init_failure = pthread_rwlock_init(&rw, 0);
+
+#endif
 }
 
 RWLock::~RWLock()
 {
+#if defined(CAT_OS_WINDOWS)
+
 	CloseHandle(_rd_event);
+
+#else
+
+	if (!init_failure) pthread_rwlock_destroy(&rw);
+
+#endif
 }
 
 void RWLock::ReadLock()
 {
+	CAT_FENCE_COMPILER
+
+#if defined(CAT_OS_WINDOWS)
+
 	for (;;)
 	{
 		if (_wr_count)
@@ -64,15 +84,39 @@ void RWLock::ReadLock()
 			return;
 		}
 	}
+
+#else
+
+	if (!init_failure) pthread_rwlock_rdlock(&rw);
+
+#endif
+
+	CAT_FENCE_COMPILER
 }
 
 void RWLock::ReadUnlock()
 {
+#if defined(CAT_OS_WINDOWS)
+
 	Atomic::Add(&_rd_count, -1);
+
+#else
+
+	CAT_FENCE_COMPILER
+
+	if (!init_failure) pthread_rwlock_unlock(&rw);
+
+	CAT_FENCE_COMPILER
+
+#endif
 }
 
 void RWLock::WriteLock()
 {
+	CAT_FENCE_COMPILER
+
+#if defined(CAT_OS_WINDOWS)
+
 	_wr_lock.Enter();
 
 	_wr_count = 1;
@@ -82,14 +126,34 @@ void RWLock::WriteLock()
 	{
 		SwitchToThread();
 	}
+
+#else
+
+	if (!init_failure) pthread_rwlock_wrlock(&rw);
+
+#endif
+
+	CAT_FENCE_COMPILER
 }
 
 void RWLock::WriteUnlock()
 {
+	CAT_FENCE_COMPILER
+
+#if defined(CAT_OS_WINDOWS)
+
 	_wr_count = 0;
 	SetEvent(_rd_event);
 
 	_wr_lock.Leave();
+
+#else
+
+	if (!init_failure) pthread_rwlock_unlock(&rw);
+
+#endif
+
+	CAT_FENCE_COMPILER
 }
 
 

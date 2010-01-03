@@ -350,7 +350,7 @@ void Client::OnDisconnect(bool timeout)
 
 bool Client::ThreadFunction(void *)
 {
-	const int TICK_RATE = 10; // milliseconds
+	const int HANDSHAKE_TICK_RATE = 100; // milliseconds
 	const int HELLO_POST_INTERVAL = 200; // milliseconds
 	const int CONNECT_TIMEOUT = 6000; // milliseconds
 
@@ -363,7 +363,7 @@ bool Client::ThreadFunction(void *)
 	while (!_connected)
 	{
 		// Wait for quit signal
-		if (!WaitForQuitSignal(TICK_RATE))
+		if (!WaitForQuitSignal(HANDSHAKE_TICK_RATE))
 			return false;
 
 		// If now connected, break out
@@ -395,9 +395,9 @@ bool Client::ThreadFunction(void *)
 	}
 
 	// While waiting for quit signal,
-	while (WaitForQuitSignal(TICK_RATE))
+	while (WaitForQuitSignal(Transport::TICK_RATE))
 	{
-		TickTransport(Clock::msec_fast());
+		TickTransport(Clock::msec());
 	}
 
 	return true;
@@ -408,7 +408,7 @@ void Client::OnMessage(u8 *msg, u32 bytes)
 	INFO("Client") << "Got message with " << bytes << " bytes";
 }
 
-bool Client::SendPacket(u8 *msg, u32 bytes)
+bool Client::SendPacket(u8 *data, u32 bytes)
 {
-	return true;
+	return Post(_server_addr, data, bytes);
 }

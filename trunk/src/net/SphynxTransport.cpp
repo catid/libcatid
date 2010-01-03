@@ -29,33 +29,398 @@
 #include <cat/net/SphynxTransport.hpp>
 #include <cat/port/EndianNeutral.hpp>
 #include <cat/math/BitMath.hpp>
+#include <cat/threads/RegionAllocator.hpp>
+#include <cat/io/Logging.hpp>
 using namespace cat;
 using namespace sphynx;
+
+enum MessageTypes
+{
+	TYPE_UNRELIABLE,	// Unreliable message
+	TYPE_RELIABLE,		// Reliable, ordered message
+	TYPE_RELIABLE_FRAG,	// Reliable, ordered, fragmented message
+	TYPE_RELIABLE_ACK,	// Acknowledgment of reliable, ordered messages
+};
 
 
 //// sphynx::Transport
 
 Transport::Transport()
 {
+	// Receive state
+	_next_recv_expected_id = 0;
 
+	_fragment_length = 0;
+
+	_recv_queue_head = 0;
+
+	// Send state
+	_next_send_id = 0;
+
+	_send_queue_head = 0;
+
+	_sent_list_head = 0;
 }
 
 Transport::~Transport()
 {
+	// Release memory for receive queue
+	RecvQueue *recv_node = _recv_queue_head;
+	while (recv_node)
+	{
+		RecvQueue *next = recv_node->next;
+		RegionAllocator::ii->Release(recv_node);
+		recv_node = next;
+	}
 
+	// Release memory for fragment buffer
+	if (_fragment_length)
+	{
+		delete []_fragment_buffer;
+	}
+
+	// Release memory for send queue
+	SendQueue *send_node = _send_queue_head;
+	while (send_node)
+	{
+		SendQueue *next = send_node->next;
+		RegionAllocator::ii->Release(send_node);
+		send_node = next;
+	}
+
+	// Release memory for sent list
+	SendQueue *sent_node = _sent_list_head;
+	while (sent_node)
+	{
+		SendQueue *next = sent_node->next;
+		RegionAllocator::ii->Release(sent_node);
+		sent_node = next;
+	}
+}
+
+// Called whenever a connection-related event occurs to simulate smooth
+// and consistent transmission of messages queued for delivery
+void Transport::TransmitQueued()
+{
+	// TODO: Retransmit messages that are lost
+
+	// TODO: Transmit messages that are now ready to go
+
+	// TODO: Transmit ACKs
 }
 
 void Transport::TickTransport(u32 now)
 {
-
+	TransmitQueued();
 }
 
 void Transport::OnPacket(u8 *data, u32 bytes)
 {
+	while (bytes >= 2)
+	{
+		/*
+			Packet: Decrypted buffer from UDP payload.
+			Message: One message from the buffer, 0..2047 bytes.
 
+			All multi-byte fields are in little-endian byte order.
+
+			--- Message Header  (16 bits) ---
+			 0 1 2 3 4 5 6 7 8 9 a b c d e f
+			<-- LSB ----------------- MSB -->
+			|    Msg.Bytes(11)    | Type(5) |
+			---------------------------------
+
+			Msg.Bytes includes all data after this header related
+			to the message, such as acknowledgment identifiers.
+			This is done to allow the receiver to ignore message
+			types that it does not recognize.
+
+			Types:
+				0 = Unreliable message
+				1 = Reliable, ordered message
+				2 = Reliable, ordered, fragmented message
+				3 = Acknowledgment of reliable, ordered messages
+		*/
+
+		u16 header = getLE(*reinterpret_cast<u16*>( data ));
+		bytes -= 2;
+		data += 2;
+
+		u16 msg_bytes = header & 0x7ff;
+		if (bytes < msg_bytes) break;
+		u16 msg_type = header >> 11;
+
+		switch (msg_type)
+		{
+		case TYPE_UNRELIABLE:
+			// Message data continues directly after header
+			if (msg_bytes > 0) OnMessage(data, msg_bytes);
+			break;
+
+		case TYPE_RELIABLE:
+		case TYPE_RELIABLE_FRAG:
+			if (msg_bytes > 2)
+			{
+				// 16-bit acknowledgment identifier after header
+				u32 ack_id = ReconstructCounter<16>(_next_recv_expected_id, getLE(*reinterpret_cast<u16*>( data )));
+
+				s32 diff = (s32)(_next_recv_expected_id - ack_id);
+
+				// If message is next expected,
+				if (diff == 0)
+				{
+					// Process fragment immediately
+					OnFragment(data+2, msg_bytes-2, msg_type == TYPE_RELIABLE_FRAG);
+
+					// Cache node and ack_id on stack
+					RecvQueue *node = _recv_queue_head;
+					++ack_id;
+
+					// For each queued message that is now ready to go,
+					while (node && node->id == ack_id)
+					{
+						// Grab the queued message
+						bool frag = (node->bytes & RecvQueue::FRAG_FLAG) != 0;
+						u32 bytes = node->bytes & RecvQueue::BYTE_MASK;
+						RecvQueue *next = node->next;
+						u8 *old_data = GetTrailingBytes(node);
+
+						// Process fragment now
+						OnFragment(old_data, bytes, frag);
+
+						// Delete queued message
+						RegionAllocator::ii->Release(node);
+
+						// And proceed on to next message
+						++ack_id;
+						node = next;
+					}
+
+					// Update receive queue state
+					_recv_queue_head = node;
+					_next_recv_expected_id = ack_id;
+				}
+				else if (diff > 0) // Message is due to arrive
+				{
+					QueueRecv(data+2, msg_bytes-2, ack_id, msg_type == TYPE_RELIABLE_FRAG);
+				}
+			}
+			break;
+
+		case TYPE_RELIABLE_ACK:
+			if (msg_bytes >= 4 + 2)
+			{
+				/*
+					--- Acknowledgment (48+ bits) ---
+					 0 1 2 3 4 5 6 7 8 9 a b c d e f
+					<-- LSB ----------------- MSB -->
+					|  Receiver Bandwidth High (16) |
+					---------------------------------
+					|  Receiver Bandwidth Low (16)  |
+					---------------------------------
+					|     Next Expected ID (16)     |
+					---------------------------------
+					|      Start Of Range 1 (16)    | <-- Optional
+					---------------------------------
+					|       End Of Range 1 (16)     |
+					---------------------------------
+					|      Start Of Range 2 (16)    | <-- Optional
+					---------------------------------
+					|       End Of Range 2 (16)     |
+					---------------------------------
+					|              ...              | <-- Optional
+					---------------------------------
+
+					Receiver Bandwidth: Bytes per second that the sender
+					should limit itself to.
+
+					Next Expected ID: Next AckId that the receiver expects to see.
+					Implicitly acknowledges all messages up to this one.
+
+					Start Of Range, End Of Range: Inclusive ranges of IDs to acknowledge.
+				*/
+
+				u32 receiver_bandwidth_limit = getLE(*reinterpret_cast<u32*>( data ));
+
+				// Ack ID list follows header
+				u16 *ids = reinterpret_cast<u16*>( data + 4 );
+
+				// First ID is the next sequenced ID the remote host is expecting
+				u32 next_expected_id = ReconstructCounter<16>(_next_send_id, ids[0]);
+
+				// If the next expected ID is ahead of the next send ID,
+				if ((s32)(_next_send_id - next_expected_id) < 0)
+				{
+					WARN("Transport") << "Synchronization lost: Remote host is acknowledging a packet we haven't sent yet";
+				}
+
+				// TODO: Acknowledge up to expected id
+
+				// For each remaining ID pair,
+				u16 id_count = ((msg_bytes - 6) >> 2);
+				while (id_count--)
+				{
+					u32 range_start = ReconstructCounter<16>(next_expected_id, getLE(*++ids));
+					u32 range_end = ReconstructCounter<16>(next_expected_id, getLE(*++ids));
+
+					// If the ranges are out of order,
+					if ((s32)(range_end - range_start) < 0)
+					{
+						WARN("Transport") << "Synchronization lost: Remote host is acknowledging too large a range";
+					}
+					else
+					{
+						// TODO: Acknowledge range
+					}
+				}
+			}
+			break;
+		}
+
+		bytes -= msg_bytes;
+		data += msg_bytes;
+	}
+
+	TransmitQueued();
 }
 
-void Transport::SendMessage(TransportSendTime send_time, u8 *data, u32 bytes)
+void Transport::QueueRecv(u8 *data, u32 bytes, u32 ack_id, bool frag)
 {
+	RecvQueue *node = _recv_queue_head;
+	RecvQueue *last = 0;
 
+	while (node)
+	{
+		s32 diff = (s32)(ack_id - node->id);
+
+		if (diff == 0)
+		{
+			// Ignore duplicate message
+			return;
+		}
+		else if (diff < 0)
+		{
+			// Insert before this node
+			break;
+		}
+
+		// Keep searching for insertion point
+		node = node->next;
+	}
+
+	RecvQueue *new_node = reinterpret_cast<RecvQueue*>( RegionAllocator::ii->Acquire(sizeof(RecvQueue) + bytes) );
+
+	if (!new_node)
+	{
+		WARN("Transport") << "Out of memory for incoming packet queue";
+	}
+	else
+	{
+		// Insert new data into queue
+		new_node->bytes = frag ? (bytes | RecvQueue::FRAG_FLAG) : bytes;
+		new_node->id = ack_id;
+		new_node->next = node;
+		if (last) last->next = new_node;
+		else _recv_queue_head = new_node;
+
+		u8 *new_data = GetTrailingBytes(new_node);
+		memcpy(new_data, data, bytes);
+	}
+}
+
+void Transport::OnFragment(u8 *data, u32 bytes, bool frag)
+{
+	if (frag)
+	{
+		if (_fragment_length)
+		{
+			// Fragment body
+
+			if (bytes < _fragment_length - _fragment_offset)
+			{
+				memcpy(_fragment_buffer + _fragment_offset, data, bytes);
+				_fragment_offset += bytes;
+			}
+		}
+		else
+		{
+			// Fragment head
+
+			// First 4 bytes of fragment will be overall fragment length
+
+			if (bytes > 4)
+			{
+				u32 frag_length = getLE(*reinterpret_cast<u32*>( data ));
+				data += 4;
+				bytes -= 4;
+
+				if (frag_length >= FRAG_MIN && frag_length <= FRAG_MAX && bytes < frag_length)
+				{
+					_fragment_buffer = new u8[frag_length];
+
+					if (_fragment_buffer)
+					{
+						_fragment_length = frag_length;
+						memcpy(_fragment_buffer, data, bytes);
+						_fragment_offset = bytes;
+					}
+				}
+			}
+		}
+	}
+	else
+	{
+		if (_fragment_length)
+		{
+			// Fragment tail
+
+			if (bytes == _fragment_length - _fragment_offset)
+			{
+				memcpy(_fragment_buffer + _fragment_offset, data, bytes);
+
+				OnMessage(_fragment_buffer, _fragment_length);
+			}
+
+			delete []_fragment_buffer;
+			_fragment_length = 0;
+		}
+		else
+		{
+			// Not fragmented
+
+			OnMessage(data, bytes);
+		}
+	}
+}
+
+void Transport::SendMessage(TransportMode mode, u8 *data, u32 bytes)
+{
+	AutoMutex lock(_send_lock);
+
+	switch (mode)
+	{
+	case MODE_UNRELIABLE_NOW:
+		{
+			// TODO: Check message length
+
+			// TODO: Send it along with other outgoing messages immediately
+		}
+		break;
+	case MODE_UNRELIABLE:
+		{
+			// TODO: Check message length
+
+			// TODO: Stick it at the back of the send queue
+		}
+		break;
+	case MODE_RELIABLE:
+		{
+			// TODO: Check message length
+
+			// TODO: Stick it at the back of the send queue
+		}
+		break;
+	}
+
+	TransmitQueued();
 }
