@@ -42,8 +42,8 @@ namespace Atomic {
 
 
 // Compare-and-Swap 2x word size (CAS2)
-// On 32-bit architectures, the arguments point to 64-bit values
-// On 64-bit architectures, the arguments point to 128-bit values
+// On 32-bit architectures, the arguments point to 64-bit values, and must be aligned to 8 byte boundary
+// On 64-bit architectures, the arguments point to 128-bit values, and must be aligned to 16 byte boundary
 // Returns true if the old value was equal to the expected value
 CAT_INLINE bool CAS2(volatile void *x, const void *expected_old_value, const void *new_value);
 // Will define CAT_NO_ATOMIC_CAS2 if the platform/compiler does not support atomic CAS2
@@ -79,7 +79,7 @@ bool Atomic::CAS2(volatile void *x, const void *expected_old_value, const void *
 {
 	CAT_FENCE_COMPILER
 
-#if defined(CAT_COMPILER_MSVC) && (_MSC_VER > 1400)
+#if defined(CAT_COMPILER_MSVC) && (_MSC_VER > 1400) // MSVC 2008+
 
     __int64 ComparandResult[2] = { ((u64*)expected_old_value)[0],
                                    ((u64*)expected_old_value)[1] };
@@ -130,7 +130,16 @@ bool Atomic::CAS2(volatile void *x, const void *expected_old_value, const void *
 {
 	CAT_FENCE_COMPILER
 
-#if defined(CAT_ASM_INTEL) && defined(CAT_ISA_X86)
+#if defined(CAT_COMPILER_MSVC)
+
+	s64 old_value = ((s64*)expected_old_value)[0];
+
+	bool success = (old_value == _InterlockedCompareExchange64((s64*)x, ((s64*)new_value)[0], old_value));
+
+	CAT_FENCE_COMPILER
+	return success;
+
+#elif defined(CAT_ASM_INTEL) && defined(CAT_ISA_X86)
 
     CAT_ASM_BEGIN
 		push ebx
@@ -241,7 +250,7 @@ u32 Atomic::Set(volatile u32 *x, u32 new_value)
 {
 	CAT_FENCE_COMPILER
 
-#if defined(CAT_COMPILER_MSVC) && defined(CAT_WORD_64)
+#if defined(CAT_COMPILER_MSVC)
 
 #if (_MSC_VER <= 1400) // MSVC 2005
 	u32 result = _InterlockedExchange((long*)x, new_value);
@@ -294,7 +303,7 @@ bool Atomic::BTS(volatile u32 *x, int bit)
 {
 	CAT_FENCE_COMPILER
 
-#if defined(CAT_COMPILER_MSVC) && defined(CAT_WORD_64)
+#if defined(CAT_COMPILER_MSVC)
 
 #if (_MSC_VER <= 1400) // MSVC 2005
 	bool success = !!_interlockedbittestandset((long*)x, bit);
@@ -351,7 +360,7 @@ bool Atomic::BTR(volatile u32 *x, int bit)
 {
 	CAT_FENCE_COMPILER
 
-#if defined(CAT_COMPILER_MSVC) && defined(CAT_WORD_64)
+#if defined(CAT_COMPILER_MSVC)
 
 #if (_MSC_VER <= 1400) // MSVC 2005
 	bool success = !!_interlockedbittestandreset((long*)x, bit);

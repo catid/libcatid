@@ -103,6 +103,21 @@ bool UDPEndpoint::IgnoreUnreachable()
 	return true;
 }
 
+bool UDPEndpoint::DontFragment(bool df)
+{
+	if (_socket == SOCKET_ERROR)
+		return false;
+
+	DWORD bNewBehavior = df ? TRUE : FALSE;
+	if (setsockopt(_socket, IPPROTO_IP, IP_DONTFRAGMENT, (const char*)&bNewBehavior, sizeof(bNewBehavior)))
+	{
+		WARN("UDPEndpoint") << "Unable to change don't fragment bit: " << SocketGetLastErrorString();
+		return false;
+	}
+
+	return true;
+}
+
 bool UDPEndpoint::Bind(Port port, bool ignoreUnreachable)
 {
     // Create an unbound, overlapped UDP socket for the endpoint

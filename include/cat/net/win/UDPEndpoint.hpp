@@ -81,6 +81,9 @@ public:
     //              after the first packet from the server is received.
     bool IgnoreUnreachable();
 
+	// Disabled by default; useful for MTU discovery
+	bool DontFragment(bool df = true);
+
     void Close(); // Invalidates this object
     bool Bind(Port port = 0, bool ignoreUnreachable = true);
     bool QueueWSARecvFrom();

@@ -86,7 +86,7 @@ protected:
 public:
 	Connection *next_delete;
 	NetAddr client_addr;
-	ServerWorker *server_endpoint;
+	ServerWorker *server_worker;
 
 	// Last time a packet was received from this user -- for disconnect timeouts
 	u32 last_recv_tsc;
@@ -115,7 +115,7 @@ public:
 
 protected:
 	virtual void OnMessage(u8 *msg, u32 bytes);
-	virtual bool SendPacket(u8 *msg, u32 bytes);
+	virtual bool SendPacket(u8 *data, u32 bytes);
 };
 
 
