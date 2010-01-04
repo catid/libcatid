@@ -59,6 +59,7 @@ Transport::Transport()
 	_next_send_id = 0;
 
 	_send_queue_head = 0;
+	_send_queue_tail = 0;
 
 	_sent_list_head = 0;
 }
@@ -99,15 +100,11 @@ Transport::~Transport()
 	}
 }
 
-// Called whenever a connection-related event occurs to simulate smooth
-// and consistent transmission of messages queued for delivery
-void Transport::TransmitQueued()
+void Transport::InitializePayloadBytes(bool ip6)
 {
-	// TODO: Retransmit messages that are lost
+	u32 overhead = (ip6 ? IPV6_HEADER_BYTES : IPV4_HEADER_BYTES) + UDP_HEADER_BYTES + AuthenticatedEncryption::OVERHEAD_BYTES;
 
-	// TODO: Transmit messages that are now ready to go
-
-	// TODO: Transmit ACKs
+	_max_payload_bytes = MINIMUM_MTU - overhead;
 }
 
 void Transport::TickTransport(ThreadPoolLocalStorage *tls, u32 now)
@@ -149,6 +146,22 @@ void Transport::OnPacket(u8 *data, u32 bytes)
 
 		switch (msg_type)
 		{
+		case TYPE_MTU_PROBE:
+			if (msg_bytes + 2 > _max_payload_bytes)
+			{
+				u16 payload_bytes = msg_bytes + 2;
+
+				u8 msg[3];
+
+				msg[0] = OP_MTU_CHANGE;
+				*reinterpret_cast<u16*>( msg + 1 ) = getLE(payload_bytes);
+
+				PostMsg(MODE_RELIABLE, msg, sizeof(msg));
+
+				_max_payload_bytes = payload_bytes;
+			}
+			break;
+
 		case TYPE_UNRELIABLE:
 			// Message data continues directly after header
 			if (msg_bytes > 0) OnMessage(data, msg_bytes);
@@ -401,43 +414,78 @@ bool Transport::PostMTUDiscoveryRequest(ThreadPoolLocalStorage *tls, u32 payload
 	if (!buffer) return false;
 
 	// Write header
-	*reinterpret_cast<u16*>( buffer ) = getLE16((payload_bytes - 2) | TYPE_MTU_PROBE);
+	*reinterpret_cast<u16*>( buffer ) = getLE16((payload_bytes - 2) | (TYPE_MTU_PROBE << 11));
 
-	// Fill contents
+	// Fill contents with random data
 	tls->csprng->Generate(buffer + 2, payload_bytes - 2);
 
 	// Encrypt and send buffer
-	return SendPacket(buffer, buffer_bytes, payload_bytes);
+	return PostPacket(buffer, buffer_bytes, payload_bytes);
 }
 
-void Transport::SendMessage(TransportMode mode, u8 *data, u32 bytes)
+bool Transport::PostMsg(TransportMode mode, u8 *msg, u32 bytes)
 {
-	AutoMutex lock(_send_lock);
+	bool success = false;
 
 	switch (mode)
 	{
-	case MODE_UNRELIABLE_NOW:
-		{
-			// TODO: Check message length
-
-			// TODO: Send it along with other outgoing messages immediately
-		}
-		break;
 	case MODE_UNRELIABLE:
 		{
-			// TODO: Check message length
+			// Post the packet immediately
+			u32 msg_bytes = 2 + bytes;
+			if (msg_bytes <= _max_payload_bytes)
+			{
+				u32 buf_bytes = msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES;
+				u8 *buffer = GetPostBuffer(buf_bytes);
+				if (buffer)
+				{
+					*reinterpret_cast<u16*>( buffer ) = getLE16(bytes | (TYPE_UNRELIABLE << 11));
+					memcpy(buffer + 2, msg, bytes);
 
-			// TODO: Stick it at the back of the send queue
+					AutoMutex lock(_send_lock);
+					success = PostPacket(buffer, buf_bytes, msg_bytes);
+				}
+			}
 		}
 		break;
 	case MODE_RELIABLE:
 		{
-			// TODO: Check message length
+			u32 msg_bytes = 2 + bytes;
+			if (msg_bytes <= _max_payload_bytes)
+			{
+				SendQueue *node = RegionAllocator::ii->Acquire(sizeof(SendQueue) + msg_bytes);
+				if (node)
+				{
+					node->next = 0;
+					node->bytes = msg_bytes;
 
-			// TODO: Stick it at the back of the send queue
+					u8 *buffer = GetTrailingBytes(node);
+					*reinterpret_cast<u16*>( buffer ) = getLE16(bytes | (TYPE_UNRELIABLE << 11));
+					memcpy(buffer + 2, msg, bytes);
+
+					AutoMutex lock(_send_lock);
+
+					if (!_send_queue_head) _send_queue_head = node;
+					else _send_queue_tail->next = node;
+					_send_queue_tail = node;
+				}
+			}
 		}
 		break;
 	}
 
 	TransmitQueued();
+
+	return success;
+}
+
+// Called whenever a connection-related event occurs to simulate smooth
+// and consistent transmission of messages queued for delivery
+void Transport::TransmitQueued()
+{
+	// TODO: Retransmit messages that are lost
+
+	// TODO: Transmit messages that are now ready to go
+
+	// TODO: Transmit ACKs
 }
