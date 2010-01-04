@@ -135,6 +135,9 @@ bool Client::Connect(const NetAddr &addr)
 		return false;
 	}
 
+	// Initialize max payload bytes
+	InitializePayloadBytes(Is6());
+
 	// Attempt to post hello message
 	if (!PostHello())
 	{
@@ -368,10 +371,9 @@ bool Client::ThreadFunction(void *)
 	const int HELLO_POST_INTERVAL = 200; // milliseconds
 	const int CONNECT_TIMEOUT = 6000; // milliseconds
 
-	u32 now = Clock::msec_fast();
-
-	u32 first_hello_post = now;
-	u32 last_hello_post = now;
+	u32 start_time = Clock::msec_fast();
+	u32 first_hello_post = start_time;
+	u32 last_hello_post = start_time;
 
 	// While still not connected,
 	while (!_connected)
@@ -401,6 +403,7 @@ bool Client::ThreadFunction(void *)
 			if (!PostHello())
 			{
 				WARN("Client") << "Unable to connect: Post failure";
+				Close();
 				return false;
 			}
 
@@ -408,10 +411,71 @@ bool Client::ThreadFunction(void *)
 		}
 	}
 
+	// Begin MTU probing after connection completes
+	const u32 MTU_PROBE_INTERVAL = 4000; // 4 seconds
+	u32 overhead = (Is6() ? IPV6_HEADER_BYTES : IPV4_HEADER_BYTES) + UDP_HEADER_BYTES + AuthenticatedEncryption::OVERHEAD_BYTES;
+	u32 mtu_discovery_time = Clock::msec();
+	int mtu_discovery_attempts = 2;
+
+	if (!DontFragment())
+	{
+		WARN("Client") << "Unable to detect MTU: Unable to set DF bit";
+		mtu_discovery_attempts = 0;
+	}
+	else if (!PostMTUDiscoveryRequest(&tls, MAXIMUM_MTU - overhead) ||
+			 !PostMTUDiscoveryRequest(&tls, MEDIUM_MTU - overhead))
+	{
+		WARN("Client") << "Unable to detect MTU: First probe post failure";
+	}
+
 	// While waiting for quit signal,
 	while (WaitForQuitSignal(Transport::TICK_RATE))
 	{
-		TickTransport(&tls, Clock::msec());
+		u32 now = Clock::msec();
+
+		TickTransport(&tls, now);
+
+		// If MTU discovery attempts continue,
+		if (mtu_discovery_attempts > 0)
+		{
+			// If it is time to reprobe the MTU,
+			if (now - mtu_discovery_time >= MTU_PROBE_INTERVAL)
+			{
+				// If payload bytes already maxed out,
+				if (_max_payload_bytes >= MAXIMUM_MTU - overhead)
+				{
+					// Stop posting probes
+					mtu_discovery_attempts = 0;
+
+					// On final attempt set DF=0
+					DontFragment(true);
+				}
+				else
+				{
+					// If not on final attempt,
+					if (mtu_discovery_attempts > 1)
+					{
+						// Post probes
+						if (!PostMTUDiscoveryRequest(&tls, MAXIMUM_MTU - overhead) ||
+							!PostMTUDiscoveryRequest(&tls, MEDIUM_MTU - overhead))
+						{
+							WARN("Client") << "Unable to detect MTU: Probe post failure";
+						}
+
+						mtu_discovery_time = now;
+						--mtu_discovery_attempts;
+					}
+					else
+					{
+						// Stop posting probes
+						mtu_discovery_attempts = 0;
+
+						// On final attempt set DF=0
+						DontFragment(true);
+					}
+				}
+			}
+		}
 	}
 
 	return true;
@@ -420,9 +484,26 @@ bool Client::ThreadFunction(void *)
 void Client::OnMessage(u8 *msg, u32 bytes)
 {
 	INFO("Client") << "Got message with " << bytes << " bytes";
+
+	if (bytes < 1)
+	{
+		switch (msg[0])
+		{
+		case OP_MTU_CHANGE:
+			if (bytes == 3)
+			{
+				u16 payload_bytes = getLE(*reinterpret_cast<u16*>( msg + 1 ));
+
+				// Accept the new payload bytes if the MTU improves
+				if (_max_payload_bytes < payload_bytes)
+					_max_payload_bytes = payload_bytes;
+			}
+			break;
+		}
+	}
 }
 
-bool Client::SendPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes)
+bool Client::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes)
 {
 	if (!_auth_enc.Encrypt(buffer, buf_bytes, msg_bytes))
 	{

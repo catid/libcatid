@@ -74,6 +74,12 @@ enum HandshakeTypes
 	S2C_ERROR
 };
 
+enum OpCodes
+{
+	OP_MTU_CHANGE,		// Change channel MTU
+	OP_USER_DEFINED,	// First user-defined opcode
+};
+
 enum HandshakeErrors
 {
 	ERR_SERVER_FULL
@@ -82,8 +88,7 @@ enum HandshakeErrors
 // Transport mode
 enum TransportMode
 {
-	MODE_UNRELIABLE_NOW,	// Out-of-band, unreliable transport
-	MODE_UNRELIABLE,		// In-band, unreliable transport
+	MODE_UNRELIABLE,		// Out-of-band, unreliable transport
 	MODE_RELIABLE			// In-band, reliable, ordered transport
 };
 
@@ -102,10 +107,10 @@ protected:
 	static const u32 UDP_HEADER_BYTES = 8;
 
 	// Maximum transfer unit (MTU) in UDP payload bytes, excluding the IP and UDP headers and encryption overhead
-	u32 _mtu;
+	u32 _max_payload_bytes;
 
 public:
-	CAT_INLINE void SetMTU(u32 mtu) { _mtu = mtu; }
+	void InitializePayloadBytes(bool ip6);
 
 protected:
 	// Receive state: Next expected ack id to receive
@@ -154,9 +159,11 @@ protected:
 		// Message contents follow
 	};
 
-	SendQueue *_send_queue_head; // Head of queue for messages that are waiting to be sent
+	// Queue of messages that are waiting to be sent
+	SendQueue *_send_queue_head, *_send_queue_tail;
 
-	SendQueue *_sent_list_head; // Head of queue for messages that are waiting to be acknowledged
+	// List of messages that are waiting to be acknowledged
+	SendQueue *_sent_list_head;
 
 	Mutex _send_lock;
 
@@ -171,18 +178,20 @@ public:
 
 	static const int TICK_RATE = 20; // 20 milliseconds
 
+public:
+	bool PostMsg(TransportMode, u8 *msg, u32 bytes);
+
 protected:
 	void TickTransport(ThreadPoolLocalStorage *tls, u32 now);
 	void OnPacket(u8 *data, u32 bytes);
 	void OnFragment(u8 *data, u32 bytes, bool frag);
-	void SendMessage(TransportMode, u8 *data, u32 bytes);
 
 protected:
 	bool PostMTUDiscoveryRequest(ThreadPoolLocalStorage *tls, u32 payload_bytes);
 
 protected:
 	virtual void OnMessage(u8 *msg, u32 bytes) = 0;
-	virtual bool SendPacket(u8 *data, u32 buf_bytes, u32 msg_bytes) = 0;
+	virtual bool PostPacket(u8 *data, u32 buf_bytes, u32 msg_bytes) = 0;
 };
 
 

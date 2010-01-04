@@ -101,7 +101,7 @@ void Connection::OnMessage(u8 *msg, u32 bytes)
 
 }
 
-bool Connection::SendPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes)
+bool Connection::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes)
 {
 	if (!auth_enc.Encrypt(buffer, buf_bytes, msg_bytes))
 	{
@@ -975,6 +975,7 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			memcpy(conn->cached_answer, pkt3_answer, ANSWER_BYTES);
 			conn->server_worker = server_worker;
 			conn->last_recv_tsc = Clock::msec_fast();
+			conn->InitializePayloadBytes(Is6());
 
 			// If packet 3 post fails,
 			if (!Post(src, pkt3, PKT3_LEN))
