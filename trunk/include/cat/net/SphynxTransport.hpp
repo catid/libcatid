@@ -38,6 +38,16 @@ namespace cat {
 
 namespace sphynx {
 
+/*
+	E { CTRL | DATA | DATA } | IV(3) | MAC(8)
+
+	CTRL:
+		--- Message Header  (16 bits) ---
+		 0 1 2 3 4 5 6 7 8 9 a b c d e f
+		<-- LSB ----------------- MSB -->
+		|    Msg.Bytes(11)    | Type(5) |
+		---------------------------------
+*/
 
 class Connection;
 class Map;
@@ -74,10 +84,12 @@ enum HandshakeTypes
 	S2C_ERROR
 };
 
-enum OpCodes
+// Message opcodes
+enum MessageOpCode
 {
-	OP_MTU_CHANGE,		// Change channel MTU
-	OP_USER_DEFINED,	// First user-defined opcode
+	MOP_MTU_CHANGE,			// Change channel MTU
+	MOP_TIMESYNC_REQUEST,	// Time synchronization request
+	MOP_USER_DEFINED,		// First user-defined opcode
 };
 
 enum HandshakeErrors
@@ -85,11 +97,22 @@ enum HandshakeErrors
 	ERR_SERVER_FULL
 };
 
-// Transport mode
-enum TransportMode
+// Super opcodes
+enum SuperOpCode
 {
-	MODE_UNRELIABLE,		// Out-of-band, unreliable transport
-	MODE_RELIABLE			// In-band, reliable, ordered transport
+	SOP_MTU_PROBE,		// MTU probe packet
+	SOP_UNRELIABLE,		// Unreliable message
+	SOP_RELIABLE,		// Reliable, ordered message
+	SOP_RELIABLE_FRAG,	// Reliable, ordered, fragmented message
+	SOP_RELIABLE_ACK,	// Acknowledgment of reliable, ordered messages
+	SOP_RELIABLE_NAK,	// Negative-acknowledgment of reliable, ordered messages
+};
+
+// Transport modes
+enum TransportModes
+{
+	MODE_UNRELIABLE,	// Out-of-band, unreliable transport
+	MODE_RELIABLE		// In-band, reliable, ordered transport
 };
 
 
@@ -140,11 +163,17 @@ protected:
 	// Receive state: Receive queue head
 	RecvQueue *_recv_queue_head; // Head of queue for messages that are waiting on a lost message
 
+protected:
 	void QueueRecv(u8 *data, u32 bytes, u32 ack_id, bool frag);
 
 protected:
 	// Send state: Next ack id to use
 	u32 _next_send_id;
+
+	// Send state: Buffered writes
+	u8 *_send_buffer;
+	u32 _send_buffer_bytes;
+	u32 _send_buffer_offset;
 
 	// Send state: Send queue
 	struct SendQueue
@@ -179,7 +208,8 @@ public:
 	static const int TICK_RATE = 20; // 20 milliseconds
 
 public:
-	bool PostMsg(TransportMode, u8 *msg, u32 bytes);
+	bool WriteBuffer(TransportMode, u8 *msg, u32 bytes);
+	void WriteFlush();
 
 protected:
 	void TickTransport(ThreadPoolLocalStorage *tls, u32 now);

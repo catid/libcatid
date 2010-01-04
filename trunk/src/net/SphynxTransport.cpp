@@ -34,15 +34,6 @@
 using namespace cat;
 using namespace sphynx;
 
-enum MessageTypes
-{
-	TYPE_MTU_PROBE,		// MTU probe packet
-	TYPE_UNRELIABLE,	// Unreliable message
-	TYPE_RELIABLE,		// Reliable, ordered message
-	TYPE_RELIABLE_FRAG,	// Reliable, ordered, fragmented message
-	TYPE_RELIABLE_ACK,	// Acknowledgment of reliable, ordered messages
-};
-
 
 //// sphynx::Transport
 
@@ -57,6 +48,9 @@ Transport::Transport()
 
 	// Send state
 	_next_send_id = 0;
+
+	_send_buffer = 0;
+	_send_buffer_bytes = 0;
 
 	_send_queue_head = 0;
 	_send_queue_tail = 0;
@@ -79,6 +73,12 @@ Transport::~Transport()
 	if (_fragment_length)
 	{
 		delete []_fragment_buffer;
+	}
+
+	// Release memory for send buffer
+	if (_send_buffer_bytes)
+	{
+		RegionAllocator::ii->Release(_send_buffer);
 	}
 
 	// Release memory for send queue
@@ -423,7 +423,7 @@ bool Transport::PostMTUDiscoveryRequest(ThreadPoolLocalStorage *tls, u32 payload
 	return PostPacket(buffer, buffer_bytes, payload_bytes);
 }
 
-bool Transport::PostMsg(TransportMode mode, u8 *msg, u32 bytes)
+bool Transport::WriteMessage(TransportMode mode, u8 *msg, u32 bytes)
 {
 	bool success = false;
 
@@ -453,6 +453,7 @@ bool Transport::PostMsg(TransportMode mode, u8 *msg, u32 bytes)
 			u32 msg_bytes = 2 + bytes;
 			if (msg_bytes <= _max_payload_bytes)
 			{
+				// No need to fragment
 				SendQueue *node = RegionAllocator::ii->Acquire(sizeof(SendQueue) + msg_bytes);
 				if (node)
 				{
@@ -477,6 +478,10 @@ bool Transport::PostMsg(TransportMode mode, u8 *msg, u32 bytes)
 	TransmitQueued();
 
 	return success;
+}
+
+void Transport::WriteFlush()
+{
 }
 
 // Called whenever a connection-related event occurs to simulate smooth
