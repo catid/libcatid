@@ -428,12 +428,32 @@ bool Client::ThreadFunction(void *)
 		WARN("Client") << "Unable to detect MTU: First probe post failure";
 	}
 
+	// Time synchronization begins right away
+	u32 next_synch_time = Clock::msec();
+	u32 synch_attempts = 0;
+
 	// While waiting for quit signal,
 	while (WaitForQuitSignal(Transport::TICK_RATE))
 	{
 		u32 now = Clock::msec();
 
 		TickTransport(&tls, now);
+
+		// If it is time for time synch,
+		if ((s32)(now - next_synch_time) >= 0)
+		{
+			u8 time_sync_request[5];
+			WriteBuffer(MODE_UNRELIABLE, 
+
+			// Increase synch interval after the first 8 data points
+			if (synch_attempts >= 8)
+				next_sync_time = now + 20000; // 20 seconds from now
+			else
+			{
+				next_sync_time = now + 5000; // 5 seconds from now
+				++synch_attempts;
+			}
+		}
 
 		// If MTU discovery attempts continue,
 		if (mtu_discovery_attempts > 0)
