@@ -44,7 +44,7 @@ protected:
 public:
     void Reset(SecureServerDemo *server_ref, const u8 *server_public_key);
     void SendHello();
-    void OnPacket(const Address &source, u8 *buffer, u32 bytes);
+    void OnDatagram(const Address &source, u8 *buffer, u32 bytes);
 
     Address GetAddress() { return my_addr; }
 

@@ -87,7 +87,7 @@ void Connection::OnRawData(u8 *data, u32 bytes)
 		last_recv_tsc = Clock::msec_fast();
 
 		// Pass it to the transport layer
-		OnPacket(data, buf_bytes);
+		OnDatagram(data, buf_bytes);
 	}
 }
 

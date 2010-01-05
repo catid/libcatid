@@ -51,7 +51,7 @@ void SecureClientDemo::OnCookie(BigTwistedEdwards *math, FortunaOutput *csprng, 
 
     //cout << "Client: Sending challenge to server" << endl;
 
-    server_ref->OnPacket(my_addr, challenge, sizeof(challenge));
+    server_ref->OnDatagram(my_addr, challenge, sizeof(challenge));
 }
 
 void SecureClientDemo::OnAnswer(BigTwistedEdwards *math, u8 *buffer)
@@ -102,7 +102,7 @@ void SecureClientDemo::OnConnect()
 
     cout << "Client: Message 0 construction time = " << (t2 - t1) << " usec" << endl;
 
-    server_ref->OnPacket(my_addr, buffer, bytes);
+    server_ref->OnDatagram(my_addr, buffer, bytes);
 }
 
 void SecureClientDemo::OnSessionMessage(u8 *buffer, u32 bytes)
@@ -145,7 +145,7 @@ void SecureClientDemo::OnSessionMessage(u8 *buffer, u32 bytes)
 
     cout << "Client: Message " << id << " construction time = " << (t2 - t1) << " usec" << endl;
 
-    server_ref->OnPacket(my_addr, response, response_bytes);
+    server_ref->OnDatagram(my_addr, response, response_bytes);
 }
 
 static BigTwistedEdwards *tls_math = 0;
@@ -188,10 +188,10 @@ void SecureClientDemo::SendHello()
 
     *(u32*)buffer = getLE(0xca7eed);
 
-    server_ref->OnPacket(my_addr, buffer, sizeof(buffer));
+    server_ref->OnDatagram(my_addr, buffer, sizeof(buffer));
 }
 
-void SecureClientDemo::OnPacket(const Address &source, u8 *buffer, u32 bytes)
+void SecureClientDemo::OnDatagram(const Address &source, u8 *buffer, u32 bytes)
 {
     //cout << "Client: Got packet (" << bytes << " bytes)" << endl;
 

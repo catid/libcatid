@@ -112,186 +112,228 @@ void Transport::TickTransport(ThreadPoolLocalStorage *tls, u32 now)
 	TransmitQueued();
 }
 
-void Transport::OnPacket(u8 *data, u32 bytes)
+void Transport::OnSuperMessage(u16 super_opcode, u8 *data, u32 data_bytes)
 {
-	while (bytes >= 2)
+	switch (super_opcode)
 	{
-		/*
-			Packet: Decrypted buffer from UDP payload.
-			Message: One message from the buffer, 0..2047 bytes.
-
-			All multi-byte fields are in little-endian byte order.
-
-			--- Message Header  (16 bits) ---
-			 0 1 2 3 4 5 6 7 8 9 a b c d e f
-			<-- LSB ----------------- MSB -->
-			|    Msg.Bytes(11)    | Type(5) |
-			---------------------------------
-
-			Msg.Bytes includes all data after this header related
-			to the message, such as acknowledgment identifiers.
-			This is done to allow the receiver to ignore message
-			types that it does not recognize.
-
-			Types: See enum MessageTypes
-		*/
-
-		u16 header = getLE(*reinterpret_cast<u16*>( data ));
-		bytes -= 2;
-		data += 2;
-
-		u16 msg_bytes = header & 0x7ff;
-		if (bytes < msg_bytes) break;
-		u16 msg_type = header >> 11;
-
-		switch (msg_type)
+	case SOP_MTU_PROBE:		// MTU probe packet (unreliable)
+		if (data_bytes + 2 > _max_payload_bytes)
 		{
-		case TYPE_MTU_PROBE:
-			if (msg_bytes + 2 > _max_payload_bytes)
-			{
-				u16 payload_bytes = msg_bytes + 2;
+			u16 payload_bytes = data_bytes + 2;
 
-				u8 msg[3];
-
-				msg[0] = OP_MTU_CHANGE;
-				*reinterpret_cast<u16*>( msg + 1 ) = getLE(payload_bytes);
-
-				PostMsg(MODE_RELIABLE, msg, sizeof(msg));
-
-				_max_payload_bytes = payload_bytes;
-			}
-			break;
-
-		case TYPE_UNRELIABLE:
-			// Message data continues directly after header
-			if (msg_bytes > 0) OnMessage(data, msg_bytes);
-			break;
-
-		case TYPE_RELIABLE:
-		case TYPE_RELIABLE_FRAG:
-			if (msg_bytes > 2)
-			{
-				// 16-bit acknowledgment identifier after header
-				u32 ack_id = ReconstructCounter<16>(_next_recv_expected_id, getLE(*reinterpret_cast<u16*>( data )));
-
-				s32 diff = (s32)(_next_recv_expected_id - ack_id);
-
-				// If message is next expected,
-				if (diff == 0)
-				{
-					// Process fragment immediately
-					OnFragment(data+2, msg_bytes-2, msg_type == TYPE_RELIABLE_FRAG);
-
-					// Cache node and ack_id on stack
-					RecvQueue *node = _recv_queue_head;
-					++ack_id;
-
-					// For each queued message that is now ready to go,
-					while (node && node->id == ack_id)
-					{
-						// Grab the queued message
-						bool frag = (node->bytes & RecvQueue::FRAG_FLAG) != 0;
-						u32 bytes = node->bytes & RecvQueue::BYTE_MASK;
-						RecvQueue *next = node->next;
-						u8 *old_data = GetTrailingBytes(node);
-
-						// Process fragment now
-						OnFragment(old_data, bytes, frag);
-
-						// Delete queued message
-						RegionAllocator::ii->Release(node);
-
-						// And proceed on to next message
-						++ack_id;
-						node = next;
-					}
-
-					// Update receive queue state
-					_recv_queue_head = node;
-					_next_recv_expected_id = ack_id;
-				}
-				else if (diff > 0) // Message is due to arrive
-				{
-					QueueRecv(data+2, msg_bytes-2, ack_id, msg_type == TYPE_RELIABLE_FRAG);
-				}
-			}
-			break;
-
-		case TYPE_RELIABLE_ACK:
-			if (msg_bytes >= 4 + 2)
-			{
-				/*
-					--- Acknowledgment (48+ bits) ---
-					 0 1 2 3 4 5 6 7 8 9 a b c d e f
-					<-- LSB ----------------- MSB -->
-					|  Receiver Bandwidth High (16) |
-					---------------------------------
-					|  Receiver Bandwidth Low (16)  |
-					---------------------------------
-					|     Next Expected ID (16)     |
-					---------------------------------
-					|      Start Of Range 1 (16)    | <-- Optional
-					---------------------------------
-					|       End Of Range 1 (16)     |
-					---------------------------------
-					|      Start Of Range 2 (16)    | <-- Optional
-					---------------------------------
-					|       End Of Range 2 (16)     |
-					---------------------------------
-					|              ...              | <-- Optional
-					---------------------------------
-
-					Receiver Bandwidth: Bytes per second that the sender
-					should limit itself to.
-
-					Next Expected ID: Next AckId that the receiver expects to see.
-					Implicitly acknowledges all messages up to this one.
-
-					Start Of Range, End Of Range: Inclusive ranges of IDs to acknowledge.
-				*/
-
-				u32 receiver_bandwidth_limit = getLE(*reinterpret_cast<u32*>( data ));
-
-				// Ack ID list follows header
-				u16 *ids = reinterpret_cast<u16*>( data + 4 );
-
-				// First ID is the next sequenced ID the remote host is expecting
-				u32 next_expected_id = ReconstructCounter<16>(_next_send_id, ids[0]);
-
-				// If the next expected ID is ahead of the next send ID,
-				if ((s32)(_next_send_id - next_expected_id) < 0)
-				{
-					WARN("Transport") << "Synchronization lost: Remote host is acknowledging a packet we haven't sent yet";
-				}
-
-				// TODO: Acknowledge up to expected id
-
-				// For each remaining ID pair,
-				u16 id_count = ((msg_bytes - 6) >> 2);
-				while (id_count--)
-				{
-					u32 range_start = ReconstructCounter<16>(next_expected_id, getLE(*++ids));
-					u32 range_end = ReconstructCounter<16>(next_expected_id, getLE(*++ids));
-
-					// If the ranges are out of order,
-					if ((s32)(range_end - range_start) < 0)
-					{
-						WARN("Transport") << "Synchronization lost: Remote host is acknowledging too large a range";
-					}
-					else
-					{
-						// TODO: Acknowledge range
-					}
-				}
-			}
-			break;
+			// Write MTU Update message
+			u16 *out_data = reinterpret_cast<u16*>( GetReliableBuffer(2, SOP_MTU_UPDATE) );
+			if (out_data) *out_data = getLE(payload_bytes);
+			_max_payload_bytes = payload_bytes;
 		}
+		break;
 
-		bytes -= msg_bytes;
-		data += msg_bytes;
+	case SOP_MTU_UPDATE:	// MTU update (reliable)
+		if (data_bytes == 2)
+		{
+			u16 max_payload_bytes = getLE(*reinterpret_cast<u16*>( data ));
+
+			// Accept the new max payload bytes if it is larger
+			if (_max_payload_bytes < max_payload_bytes)
+				_max_payload_bytes = max_payload_bytes;
+		}
+		break;
+
+	case SOP_TIME_PING:		// Time synchronization ping (unreliable)
+		if (data_bytes == 4)
+		{
+			u32 server_msts = Clock::msec();
+			u32 client_msts = getLE(*reinterpret_cast<u32*>( data ));
+
+			// Write Time Pong message
+			u32 *out_data = reinterpret_cast<u32*>( GetUnreliableBuffer(8, SOP_TIME_PONG) );
+			if (out_data)
+			{
+				out_data[0] = getLE(client_msts);
+				out_data[1] = getLE(server_msts);
+			}
+		}
+		break;
+
+	case SOP_TIME_PONG:		// Time synchronization pong (unreliable)
+		if (data_bytes == 8)
+		{
+			u32 client_now = Clock::msec();
+
+			u32 *ts = reinterpret_cast<u32*>( data );
+			u32 client_ts = getLE(ts[0]);
+			u32 server_ts = getLE(ts[1]);
+
+			u32 rtt = client_now - client_ts;
+
+			// If RTT is not impossible,
+			if (rtt < TIMEOUT_DISCONNECT)
+			{
+				s32 delta = (server_ts - (rtt >> 1)) - client_ts;
+
+				OnTimestampDeltaUpdate(rtt, delta);
+			}
+		}
+		break;
+
+	case SOP_DATA:			// Data (reliable or unreliable)
+		if (data_bytes > 0) OnMessage(data, data_bytes);
+		break;
+
+	case SOP_FRAG:			// Data fragment (reliable); initial fragment begins with 32-bit total length
+		{
+			// TODO: Handle fragment
+		}
+		break;
+
+	case SOP_ACK:			// Acknowledgment of reliable, ordered messages (unreliable)
+		if (data_bytes >= 3)
+		{
+			// TODO: Handle ACK
+		}
+		break;
+
+	case SOP_NAK:			// Negative-acknowledgment of reliable, ordered messages (unreliable)
+		if (data_bytes >= 6)
+		{
+			// TODO: Handle NAK
+		}
+		break;
 	}
 
-	TransmitQueued();
+	case TYPE_RELIABLE:
+	case TYPE_RELIABLE_FRAG:
+		if (msg_bytes > 2)
+		{
+			// 16-bit acknowledgment identifier after header
+			u32 ack_id = ReconstructCounter<16>(_next_recv_expected_id, getLE(*reinterpret_cast<u16*>( data )));
+
+			s32 diff = (s32)(_next_recv_expected_id - ack_id);
+
+			// If message is next expected,
+			if (diff == 0)
+			{
+				// Process fragment immediately
+				OnFragment(data+2, msg_bytes-2, msg_type == TYPE_RELIABLE_FRAG);
+
+				// Cache node and ack_id on stack
+				RecvQueue *node = _recv_queue_head;
+				++ack_id;
+
+				// For each queued message that is now ready to go,
+				while (node && node->id == ack_id)
+				{
+					// Grab the queued message
+					bool frag = (node->bytes & RecvQueue::FRAG_FLAG) != 0;
+					u32 bytes = node->bytes & RecvQueue::BYTE_MASK;
+					RecvQueue *next = node->next;
+					u8 *old_data = GetTrailingBytes(node);
+
+					// Process fragment now
+					OnFragment(old_data, bytes, frag);
+
+					// Delete queued message
+					RegionAllocator::ii->Release(node);
+
+					// And proceed on to next message
+					++ack_id;
+					node = next;
+				}
+
+				// Update receive queue state
+				_recv_queue_head = node;
+				_next_recv_expected_id = ack_id;
+			}
+			else if (diff > 0) // Message is due to arrive
+			{
+				QueueRecv(data+2, msg_bytes-2, ack_id, msg_type == TYPE_RELIABLE_FRAG);
+			}
+		}
+		break;
+
+	case TYPE_RELIABLE_ACK:
+		if (msg_bytes >= 4 + 2)
+		{
+			u32 receiver_bandwidth_limit = getLE(*reinterpret_cast<u32*>( data ));
+
+			// Ack ID list follows header
+			u16 *ids = reinterpret_cast<u16*>( data + 4 );
+
+			// First ID is the next sequenced ID the remote host is expecting
+			u32 next_expected_id = ReconstructCounter<16>(_next_send_id, ids[0]);
+
+			// If the next expected ID is ahead of the next send ID,
+			if ((s32)(_next_send_id - next_expected_id) < 0)
+			{
+				WARN("Transport") << "Synchronization lost: Remote host is acknowledging a packet we haven't sent yet";
+			}
+
+			// TODO: Acknowledge up to expected id
+
+			// For each remaining ID pair,
+			u16 id_count = ((msg_bytes - 6) >> 2);
+			while (id_count--)
+			{
+				u32 range_start = ReconstructCounter<16>(next_expected_id, getLE(*++ids));
+				u32 range_end = ReconstructCounter<16>(next_expected_id, getLE(*++ids));
+
+				// If the ranges are out of order,
+				if ((s32)(range_end - range_start) < 0)
+				{
+					WARN("Transport") << "Synchronization lost: Remote host is acknowledging too large a range";
+				}
+				else
+				{
+					// TODO: Acknowledge range
+				}
+			}
+		}
+		break;
+	}
+}
+
+void Transport::OnDatagram(u8 *data, u32 bytes)
+{
+	BeginWrite();
+
+	u32 ack_id = 0;
+
+	while (bytes >= 2)
+	{
+		u16 header = getLE(*reinterpret_cast<u16*>( data ));
+
+		data += 2;
+		bytes -= 2;
+
+		u16 data_bytes = header & 0x7ff;
+		if (bytes < data_bytes) break;
+		u16 is_reliable = (header >> 11) & 1;
+		u16 update_ack_id = (header >> 12) & 1;
+		u16 super_opcode = header >> 13;
+
+		if (update_ack_id)
+		{
+			if (data_bytes < 3) break;
+
+			ack_id = ((u32)data[0] << 16) | ((u16)data[1] << 8) | data[2];
+
+			data += 3;
+			bytes -= 3;
+			data_bytes -= 3;
+		}
+
+		if (is_reliable)
+		{
+			// TODO: Check if ack_id is due
+		}
+
+		OnSuperMessage(super_opcode, data, data_bytes);
+
+		bytes -= data_bytes;
+		data += data_bytes;
+	}
+
+	FlushWrite();
 }
 
 void Transport::QueueRecv(u8 *data, u32 bytes, u32 ack_id, bool frag)

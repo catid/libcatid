@@ -207,7 +207,7 @@ void Client::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 		if (_auth_enc.Decrypt(data, buf_bytes))
 		{
 			// Pass the packet to the transport layer
-			OnPacket(data, buf_bytes);
+			OnDatagram(data, buf_bytes);
 		}
 	}
 	// s2c 01 (cookie[4]) (public key[64])
@@ -412,7 +412,7 @@ bool Client::ThreadFunction(void *)
 	}
 
 	// Begin MTU probing after connection completes
-	const u32 MTU_PROBE_INTERVAL = 4000; // 4 seconds
+	const u32 MTU_PROBE_INTERVAL = 8000; // 8 seconds
 	u32 overhead = (Is6() ? IPV6_HEADER_BYTES : IPV4_HEADER_BYTES) + UDP_HEADER_BYTES + AuthenticatedEncryption::OVERHEAD_BYTES;
 	u32 mtu_discovery_time = Clock::msec();
 	int mtu_discovery_attempts = 2;
