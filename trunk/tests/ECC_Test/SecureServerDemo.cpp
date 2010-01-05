@@ -43,7 +43,7 @@ void SecureServerDemo::OnHello(BigTwistedEdwards *math, FortunaOutput *csprng, c
 
     cout << "Server: Signature generation time = " << (t2 - t1) << " usec" << endl;
 
-    client_ref->OnPacket(my_addr, response, sizeof(response));
+    client_ref->OnDatagram(my_addr, response, sizeof(response));
 }
 
 void SecureServerDemo::OnChallenge(BigTwistedEdwards *math, FortunaOutput *csprng, const Address &source, u8 *buffer)
@@ -82,7 +82,7 @@ void SecureServerDemo::OnChallenge(BigTwistedEdwards *math, FortunaOutput *csprn
 
     connections[source] = client;
 
-    client_ref->OnPacket(my_addr, answer, CAT_S2C_ANSWER_BYTES);
+    client_ref->OnDatagram(my_addr, answer, CAT_S2C_ANSWER_BYTES);
 }
 
 void SecureServerDemo::OnSessionMessage(Connection *client, u8 *buffer, u32 bytes)
@@ -118,7 +118,7 @@ void SecureServerDemo::OnSessionMessage(Connection *client, u8 *buffer, u32 byte
 
     //cout << "Server: Sending pong message back to client" << endl;
 
-    client_ref->OnPacket(my_addr, response, bytes);
+    client_ref->OnDatagram(my_addr, response, bytes);
 }
 
 SecureServerDemo::~SecureServerDemo()
@@ -163,7 +163,7 @@ void SecureServerDemo::Reset(SecureClientDemo *cclient_ref, const u8 *server_pub
 	Cleanup();
 }
 
-void SecureServerDemo::OnPacket(const Address &source, u8 *buffer, u32 bytes)
+void SecureServerDemo::OnDatagram(const Address &source, u8 *buffer, u32 bytes)
 {
     //cout << "Server: Got packet (" << bytes << " bytes)" << endl;
 
