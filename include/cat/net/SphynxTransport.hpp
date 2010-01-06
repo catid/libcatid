@@ -218,7 +218,7 @@ enum SuperOpCode
 	SOP_TIME_PING,	// Time synchronization ping (unreliable)
 	SOP_TIME_PONG,	// Time synchronization pong (unreliable)
 	SOP_DATA,		// Data (reliable or unreliable)
-	SOP_FRAG,		// Data fragment (reliable); initial fragment begins with 32-bit total length
+	SOP_FRAG,		// Data fragment (reliable); initial fragment begins with 16-bit total length
 	SOP_ACK,		// Acknowledgment of reliable, ordered messages (unreliable)
 	SOP_NAK			// Negative-acknowledgment of reliable, ordered messages (unreliable)
 };
@@ -288,23 +288,24 @@ protected:
 	void QueueRecv(u8 *data, u32 bytes, u32 ack_id, bool frag);
 
 protected:
+	// Send state: Synchronization objects
+	volatile u32 _writer_count;
+	Mutex _send_lock;
+
 	// Send state: Next ack id to use
 	u32 _next_send_id;
 
 	// Send state: Buffered writes
 	u8 *_send_buffer;
 	u32 _send_buffer_bytes;
-	u32 _send_buffer_offset;
 
 	// Send state: Send queue
 	struct SendQueue
 	{
-		static const u32 FRAG_FLAG = 0x80000000;
-		static const u32 BYTE_MASK = 0x7fffffff;
-
 		SendQueue *next; // Next in queue
 		u32 id; // Acknowledgment id
-		u32 bytes; // High bit: Fragment?
+		u32 bytes; // Data bytes
+		u16 header; // Header
 
 		// Message contents follow
 	};
@@ -314,13 +315,6 @@ protected:
 
 	// List of messages that are waiting to be acknowledged
 	SendQueue *_sent_list_head;
-
-	Mutex _send_lock;
-
-protected:
-	// Called whenever a connection-related event occurs to simulate smooth
-	// and consistent transmission of messages queued for delivery
-	void TransmitQueued();
 
 public:
 	Transport();
@@ -332,7 +326,7 @@ public:
 	void BeginWrite();
 	u8 *GetReliableBuffer(u32 data_bytes, SuperOpCode sop);
 	u8 *GetUnreliableBuffer(u32 data_bytes, SuperOpCode sop);
-	void FlushWrite();
+	void EndWrite();
 
 protected:
 	void TickTransport(ThreadPoolLocalStorage *tls, u32 now);
@@ -341,8 +335,8 @@ protected:
 	void OnFragment(u8 *data, u32 bytes, bool frag);
 
 protected:
-	bool PostMTUDiscoveryRequest(ThreadPoolLocalStorage *tls, u32 payload_bytes);
-	void PostTimePing();
+	bool PostMTUProbe(ThreadPoolLocalStorage *tls, u32 payload_bytes);
+	bool PostTimePing();
 
 protected:
 	virtual void OnMessage(u8 *msg, u32 bytes) = 0;

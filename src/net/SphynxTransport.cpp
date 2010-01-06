@@ -47,6 +47,8 @@ Transport::Transport()
 	_recv_queue_head = 0;
 
 	// Send state
+	_writer_count = 0;
+
 	_next_send_id = 0;
 
 	_send_buffer = 0;
@@ -105,11 +107,6 @@ void Transport::InitializePayloadBytes(bool ip6)
 	u32 overhead = (ip6 ? IPV6_HEADER_BYTES : IPV4_HEADER_BYTES) + UDP_HEADER_BYTES + AuthenticatedEncryption::OVERHEAD_BYTES;
 
 	_max_payload_bytes = MINIMUM_MTU - overhead;
-}
-
-void Transport::TickTransport(ThreadPoolLocalStorage *tls, u32 now)
-{
-	TransmitQueued();
 }
 
 void Transport::OnSuperMessage(u16 super_opcode, u8 *data, u32 data_bytes)
@@ -333,7 +330,7 @@ void Transport::OnDatagram(u8 *data, u32 bytes)
 		data += data_bytes;
 	}
 
-	FlushWrite();
+	EndWrite();
 }
 
 void Transport::QueueRecv(u8 *data, u32 bytes, u32 ack_id, bool frag)
@@ -445,7 +442,7 @@ void Transport::OnFragment(u8 *data, u32 bytes, bool frag)
 	}
 }
 
-bool Transport::PostMTUDiscoveryRequest(ThreadPoolLocalStorage *tls, u32 payload_bytes)
+bool Transport::PostMTUProbe(ThreadPoolLocalStorage *tls, u32 payload_bytes)
 {
 	if (payload_bytes < MINIMUM_MTU - IPV6_HEADER_BYTES - UDP_HEADER_BYTES)
 		return false;
@@ -456,7 +453,7 @@ bool Transport::PostMTUDiscoveryRequest(ThreadPoolLocalStorage *tls, u32 payload
 	if (!buffer) return false;
 
 	// Write header
-	*reinterpret_cast<u16*>( buffer ) = getLE16((payload_bytes - 2) | (TYPE_MTU_PROBE << 11));
+	*reinterpret_cast<u16*>( buffer ) = getLE16((payload_bytes - 2) | (SOP_MTU_PROBE << 13));
 
 	// Fill contents with random data
 	tls->csprng->Generate(buffer + 2, payload_bytes - 2);
@@ -465,74 +462,123 @@ bool Transport::PostMTUDiscoveryRequest(ThreadPoolLocalStorage *tls, u32 payload
 	return PostPacket(buffer, buffer_bytes, payload_bytes);
 }
 
-bool Transport::WriteMessage(TransportMode mode, u8 *msg, u32 bytes)
+bool Transport::PostTimePing()
 {
-	bool success = false;
+	const u32 DATA_BYTES = 4;
+	const u32 PAYLOAD_BYTES = 2 + DATA_BYTES;
+	const u32 BUFFER_BYTES = PAYLOAD_BYTES + AuthenticatedEncryption::OVERHEAD_BYTES;
 
-	switch (mode)
+	u8 *buffer = GetPostBuffer(BUFFER_BYTES);
+	if (!buffer) return false;
+
+	// Write Time Ping
+	*reinterpret_cast<u16*>( buffer ) = getLE16(DATA_BYTES | (SOP_TIME_PING << 13));
+	*reinterpret_cast<u32*>( buffer + 2 ) = getLE32(Clock::msec());
+
+	// Encrypt and send buffer
+	return PostPacket(buffer, BUFFER_BYTES, PAYLOAD_BYTES);
+}
+
+void Transport::BeginWrite()
+{
+	// Atomically increment writer count
+	Atomic::Add(&_writer_count, 1);
+}
+
+u8 *Transport::GetReliableBuffer(u32 data_bytes, SuperOpCode sop)
+{
+	// Allocate SendQueue object
+	SendQueue *node = reinterpret_cast<SendQueue*>(
+		RegionAllocator::ii->Acquire(sizeof(SendQueue) + data_bytes) );
+	if (!node) return 0; // Returns null on failure
+
+	// Fill the object
+	node->bytes = data_bytes;
+	node->header = sop;
+	node->next = 0;
+	u8 *data = GetTrailingBytes(node);
+
+	// Lock send lock while adding to the back of the send queue
+	AutoMutex lock(_send_lock);
+
+	// Add to back of send queue
+	if (_send_queue_tail) _send_queue_tail->next = node;
+	else _send_queue_head = node;
+	_send_queue_tail = node;
+
+	// Return pointer to data part
+	return data;
+}
+
+u8 *Transport::GetUnreliableBuffer(u32 data_bytes, SuperOpCode sop)
+{
+	u32 msg_bytes = 2 + data_bytes;
+	if (msg_bytes > _max_payload_bytes) return 0;
+
+	AutoMutex lock(_send_lock);
+
+	u32 send_buffer_bytes = _send_buffer_bytes;
+
+	// If the growing send buffer cannot contain the new message,
+	if (send_buffer_bytes + msg_bytes > _max_payload_bytes)
 	{
-	case MODE_UNRELIABLE:
-		{
-			// Post the packet immediately
-			u32 msg_bytes = 2 + bytes;
-			if (msg_bytes <= _max_payload_bytes)
-			{
-				u32 buf_bytes = msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES;
-				u8 *buffer = GetPostBuffer(buf_bytes);
-				if (buffer)
-				{
-					*reinterpret_cast<u16*>( buffer ) = getLE16(bytes | (TYPE_UNRELIABLE << 11));
-					memcpy(buffer + 2, msg, bytes);
+		u8 *old_send_buffer = _send_buffer;
 
-					AutoMutex lock(_send_lock);
-					success = PostPacket(buffer, buf_bytes, msg_bytes);
-				}
-			}
-		}
-		break;
-	case MODE_RELIABLE:
-		{
-			u32 msg_bytes = 2 + bytes;
-			if (msg_bytes <= _max_payload_bytes)
-			{
-				// No need to fragment
-				SendQueue *node = RegionAllocator::ii->Acquire(sizeof(SendQueue) + msg_bytes);
-				if (node)
-				{
-					node->next = 0;
-					node->bytes = msg_bytes;
+		u8 *msg_buffer = GetPostBuffer(msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
+		if (!msg_buffer) return 0;
 
-					u8 *buffer = GetTrailingBytes(node);
-					*reinterpret_cast<u16*>( buffer ) = getLE16(bytes | (TYPE_UNRELIABLE << 11));
-					memcpy(buffer + 2, msg, bytes);
+		*reinterpret_cast<u16*>( msg_buffer ) = getLE16(data_bytes | (sop << 13));
 
-					AutoMutex lock(_send_lock);
+		_send_buffer = msg_buffer;
+		_send_buffer_bytes = msg_bytes;
 
-					if (!_send_queue_head) _send_queue_head = node;
-					else _send_queue_tail->next = node;
-					_send_queue_tail = node;
-				}
-			}
-		}
-		break;
+		lock.Release();
+
+		// Post packet without checking return value
+		PostPacket(old_send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes);
+
+		return msg_buffer + 2;
 	}
+	else
+	{
+		// Create or grow buffer and write into it
+		_send_buffer = ResizePostBuffer(_send_buffer, send_buffer_bytes + msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
+		if (!_send_buffer)
+		{
+			_send_buffer_bytes = 0;
+			return 0;
+		}
 
-	TransmitQueued();
+		u8 *msg_buffer = _send_buffer + send_buffer_bytes;
 
-	return success;
+		*reinterpret_cast<u16*>( msg_buffer ) = getLE16(data_bytes | (sop << 13));
+
+		_send_buffer_bytes = send_buffer_bytes + msg_bytes;
+
+		return msg_buffer + 2;
+	}
 }
 
-void Transport::WriteFlush()
+// if decrement writer count == 0,
+// lock send lock:
+// dq reliable backlog up to specified bandwidth:
+// first fill existing packet with resizing, setting I flag,
+// then dq sets of reliable messages into packets, setting I flag for each new packet
+// after whole SendQueue object is transmitted, move it to sent list
+// if a SendQueue object is fragmented, allocate new SendQueue objects for sent list, with reference to the original
+// assign ACK-IDs to the sent list version as they go out and mark when they were sent
+void Transport::EndWrite()
 {
+	if (Atomic::Add(&_writer_count, 1) == 1)
+	{
+		AutoMutex lock(_send_lock);
+	}
 }
 
-// Called whenever a connection-related event occurs to simulate smooth
-// and consistent transmission of messages queued for delivery
-void Transport::TransmitQueued()
+// lock send lock:
+// sent list is organized from oldest to youngest packet
+// so walk the sent list and determine if any are considered lost yet
+// resend lost packets -- all following packets with the same ack id are delivered out of band
+void Transport::TickTransport(ThreadPoolLocalStorage *tls, u32 now)
 {
-	// TODO: Retransmit messages that are lost
-
-	// TODO: Transmit messages that are now ready to go
-
-	// TODO: Transmit ACKs
 }
