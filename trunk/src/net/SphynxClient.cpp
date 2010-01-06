@@ -422,8 +422,8 @@ bool Client::ThreadFunction(void *)
 		WARN("Client") << "Unable to detect MTU: Unable to set DF bit";
 		mtu_discovery_attempts = 0;
 	}
-	else if (!PostMTUDiscoveryRequest(&tls, MAXIMUM_MTU - overhead) ||
-			 !PostMTUDiscoveryRequest(&tls, MEDIUM_MTU - overhead))
+	else if (!PostMTUProbe(&tls, MAXIMUM_MTU - overhead) ||
+			 !PostMTUProbe(&tls, MEDIUM_MTU - overhead))
 	{
 		WARN("Client") << "Unable to detect MTU: First probe post failure";
 	}
@@ -476,8 +476,8 @@ bool Client::ThreadFunction(void *)
 					if (mtu_discovery_attempts > 1)
 					{
 						// Post probes
-						if (!PostMTUDiscoveryRequest(&tls, MAXIMUM_MTU - overhead) ||
-							!PostMTUDiscoveryRequest(&tls, MEDIUM_MTU - overhead))
+						if (!PostMTUProbe(&tls, MAXIMUM_MTU - overhead) ||
+							!PostMTUProbe(&tls, MEDIUM_MTU - overhead))
 						{
 							WARN("Client") << "Unable to detect MTU: Probe post failure";
 						}
