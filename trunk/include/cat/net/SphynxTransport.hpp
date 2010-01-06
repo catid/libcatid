@@ -69,7 +69,7 @@ namespace sphynx {
 		 --- Message Header  (16 bits) ---
 		  0 1 2 3 4 5 6 7 8 9 a b c d e f
 		 <-- LSB ----------------- MSB -->
-		 |   DATA.BYTES(11)    |R|I| SOP |
+		 |   DATA.BYTES(11)    |R|I|F|O|A|
 		 ---------------------------------
 
 	   DATA.BYTES: Number of bytes in data part of message.
@@ -295,7 +295,7 @@ protected:
 	// Send state: Next ack id to use
 	u32 _next_send_id;
 
-	// Send state: Buffered writes
+	// Send state: Combined writes
 	u8 *_send_buffer;
 	u32 _send_buffer_bytes;
 
@@ -308,6 +308,12 @@ protected:
 		u16 header; // Header
 
 		// Message contents follow
+	};
+
+	struct FragmentSendQueue
+	{
+		SendQueue *master;
+		u32 offset;
 	};
 
 	// Queue of messages that are waiting to be sent

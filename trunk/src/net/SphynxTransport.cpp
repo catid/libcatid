@@ -505,6 +505,7 @@ u8 *Transport::GetReliableBuffer(u32 data_bytes, SuperOpCode sop)
 	// Fill the object
 	node->bytes = data_bytes;
 	node->header = sop;
+	node->id = 0;
 	node->next = 0;
 	u8 *data = GetTrailingBytes(node);
 
@@ -582,6 +583,8 @@ void Transport::EndWrite()
 	if (Atomic::Add(&_writer_count, 1) == 1)
 	{
 		AutoMutex lock(_send_lock);
+
+		SendQueue *node = _send_queue_head;
 	}
 }
 
