@@ -337,6 +337,7 @@ protected:
 protected:
 	bool PostMTUProbe(ThreadPoolLocalStorage *tls, u32 payload_bytes);
 	bool PostTimePing();
+	bool PostTimePong(u32 client_ts);
 
 protected:
 	virtual void OnMessage(u8 *msg, u32 bytes) = 0;

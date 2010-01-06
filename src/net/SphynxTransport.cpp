@@ -139,16 +139,8 @@ void Transport::OnSuperMessage(u16 super_opcode, u8 *data, u32 data_bytes)
 	case SOP_TIME_PING:		// Time synchronization ping (unreliable)
 		if (data_bytes == 4)
 		{
-			u32 server_msts = Clock::msec();
-			u32 client_msts = getLE(*reinterpret_cast<u32*>( data ));
-
-			// Write Time Pong message
-			u32 *out_data = reinterpret_cast<u32*>( GetUnreliableBuffer(8, SOP_TIME_PONG) );
-			if (out_data)
-			{
-				out_data[0] = getLE(client_msts);
-				out_data[1] = getLE(server_msts);
-			}
+			// Parameter is endian-agnostic
+			PostTimePong(*reinterpret_cast<u32*>( data ));
 		}
 		break;
 
@@ -474,6 +466,24 @@ bool Transport::PostTimePing()
 	// Write Time Ping
 	*reinterpret_cast<u16*>( buffer ) = getLE16(DATA_BYTES | (SOP_TIME_PING << 13));
 	*reinterpret_cast<u32*>( buffer + 2 ) = getLE32(Clock::msec());
+
+	// Encrypt and send buffer
+	return PostPacket(buffer, BUFFER_BYTES, PAYLOAD_BYTES);
+}
+
+bool Transport::PostTimePong(u32 client_ts)
+{
+	const u32 DATA_BYTES = 8;
+	const u32 PAYLOAD_BYTES = 2 + DATA_BYTES;
+	const u32 BUFFER_BYTES = PAYLOAD_BYTES + AuthenticatedEncryption::OVERHEAD_BYTES;
+
+	u8 *buffer = GetPostBuffer(BUFFER_BYTES);
+	if (!buffer) return false;
+
+	// Write Time Pong
+	*reinterpret_cast<u16*>( buffer ) = getLE16(DATA_BYTES | (SOP_TIME_PONG << 13));
+	*reinterpret_cast<u32*>( buffer + 2 ) = client_ts;
+	*reinterpret_cast<u32*>( buffer + 6 ) = getLE32(Clock::msec());
 
 	// Encrypt and send buffer
 	return PostPacket(buffer, BUFFER_BYTES, PAYLOAD_BYTES);
