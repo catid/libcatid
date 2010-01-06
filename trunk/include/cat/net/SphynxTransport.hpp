@@ -242,8 +242,12 @@ protected:
 	static const u32 MEDIUM_MTU = 1400; // Highspeed with unexpected overhead, maybe VPN
 	static const u32 MAXIMUM_MTU = 1500; // Highspeed
 
-	static const u32 IPV6_HEADER_BYTES = 40;
-	static const u32 IPV4_HEADER_BYTES = 20;
+	static const u32 IPV6_OPTIONS_BYTES = 40; // Not sure about this
+	static const u32 IPV6_HEADER_BYTES = 40 + IPV6_OPTIONS_BYTES;
+
+	static const u32 IPV4_OPTIONS_BYTES = 40;
+	static const u32 IPV4_HEADER_BYTES = 20 + IPV4_OPTIONS_BYTES;
+
 	static const u32 UDP_HEADER_BYTES = 8;
 
 	// Maximum transfer unit (MTU) in UDP payload bytes, excluding the IP and UDP headers and encryption overhead
