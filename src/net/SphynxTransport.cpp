@@ -434,6 +434,7 @@ void Transport::OnFragment(u8 *data, u32 bytes, bool frag)
 	}
 }
 
+/*
 bool Transport::PostMTUProbe(ThreadPoolLocalStorage *tls, u32 payload_bytes)
 {
 	if (payload_bytes < MINIMUM_MTU - IPV6_HEADER_BYTES - UDP_HEADER_BYTES)
@@ -488,6 +489,7 @@ bool Transport::PostTimePong(u32 client_ts)
 	// Encrypt and send buffer
 	return PostPacket(buffer, BUFFER_BYTES, PAYLOAD_BYTES);
 }
+*/
 
 void Transport::BeginWrite()
 {
