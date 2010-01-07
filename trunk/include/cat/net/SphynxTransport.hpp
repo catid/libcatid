@@ -294,7 +294,8 @@ public:
 
 protected:
 	void TickTransport(ThreadPoolLocalStorage *tls, u32 now);
-	void OnSuperMessage(u16 super_opcode, u8 *data, u32 data_bytes);
+
+private:
 	void OnDatagram(u8 *data, u32 bytes);
 	void OnFragment(u8 *data, u32 bytes);
 
