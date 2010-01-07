@@ -68,11 +68,11 @@ namespace sphynx {
 
 		 0 : Unreliable message
 			F = 1, I = x, STM = 0, D=1 (x = don't care)
-		 1 : Stream 0 unfragmented message without ACKID
+		 1 : Unordered stream 0 unfragmented message without ACKID
 			F = 0, I = 0, STM = 0, D=1
-		 2 : Stream 0 unfragmented message with ACKID
+		 2 : Unordered stream 0 unfragmented message with ACKID
 			F = 0, I = 1, STM = 0, D=1
-		 3 : Stream 0 acknowledgment
+		 3 : Unordered stream 0 acknowledgment
 			F = x, I = x, STM = 0, D=0 (x = don't care)
 		 4 : Stream 1 unfragmented message without ACKID
 			F = 0, I = 0, STM = 1, D=1
@@ -115,9 +115,6 @@ namespace sphynx {
 		This additional size IS accounted for in the DATA_BYTES field.
 
 	TODO:
-		New GetBuffer functions
-			Needs no-header "raw" version
-			Needs unbuffered, unreliable "fast" version
 		Message router built into transport layer
 		Message router used differently in client and server derivations
 			FE: Time Ping/Pong
@@ -184,6 +181,13 @@ enum StreamMode
 class Transport
 {
 protected:
+	static const u16 DATALEN_MASK = 0x7ff;
+	static const u16 F_MASK = 1 << 13;
+	static const u16 I_MASK = 1 << 14;
+	static const u16 D_MASK = 1 << 15;
+	static const u16 STM_MASK = 3 << 11;
+	static const u32 STM_OFFSET = 11;
+
 	static const u32 NUM_STREAMS = 4; // Number of reliable streams
 
 	static const u32 TIMEOUT_DISCONNECT = 15000; // 15 seconds
@@ -219,8 +223,8 @@ protected:
 	u32 _fragment_offset[NUM_STREAMS]; // Current write offset in buffer
 	u32 _fragment_length[NUM_STREAMS]; // Number of bytes in fragment buffer
 
-	static const u32 FRAG_MIN = 2;		// Min bytes for a fragmented message
-	static const u32 FRAG_MAX = 256000;	// Max bytes for a fragmented message
+	static const u32 FRAG_MIN = 0;		// Min bytes for a fragmented message
+	static const u32 FRAG_MAX = 65535;	// Max bytes for a fragmented message
 
 	// Receive state: Receive queue
 	struct RecvQueue
@@ -288,15 +292,11 @@ public:
 	u8 *GetReliableBuffer(StreamMode, u32 data_bytes);
 	void EndWrite();
 
-	// The return value must be passed to PostPacket() or ReleasePostBuffer()
-	u8 *GetUnreliablePostBuffer(u32 data_bytes); // Sticks an unreliable header in the first two bytes
-	u8 *GetRawPostBuffer(u32 data_bytes); // Raw payload access
-
 protected:
 	void TickTransport(ThreadPoolLocalStorage *tls, u32 now);
 	void OnSuperMessage(u16 super_opcode, u8 *data, u32 data_bytes);
 	void OnDatagram(u8 *data, u32 bytes);
-	void OnFragment(u8 *data, u32 bytes, bool frag);
+	void OnFragment(u8 *data, u32 bytes);
 
 protected:
 	virtual void OnMessage(u8 *msg, u32 bytes) = 0;
