@@ -42,7 +42,7 @@ namespace sphynx {
 /*
 	Packet format on top of UDP header:
 
-		E { HDR(2 bytes)|DATA || HDR(2 bytes)|DATA || ... } || IV(3 bytes)|MAC(8 bytes)
+		E { HDR(2 bytes)|DATA || HDR(2 bytes)|DATA || ... || MAC(8 bytes) } || IV(3 bytes)
 
 		E: ChaCha-12 stream cipher.
 		IV: Initialization vector used by security layer (Randomly initialized).
@@ -55,71 +55,76 @@ namespace sphynx {
 		--- Message Header  (16 bits) ---
 		 0 1 2 3 4 5 6 7 8 9 a b c d e f
 		<-- LSB ----------------- MSB -->
-		|   DATA.BYTES(11)    |R|I|F|STM|
+		|   DATA_BYTES(11)    |STM|F|I|D|
 		---------------------------------
 
-		DATA.BYTES: Number of bytes in data part of message.
+		DATA_BYTES: Number of bytes in data part of message.
+		STM: 0=Unordered stream, 1-3: Ordered streams.
+		F: 1=Fragmented when STM=1-3 or Unreliable when STM=0. 0=Not fragmented.
+		I: 1=Followed by ACK-ID.
+		D: 1=Data, 0=ACK.
+
+		Message meanings in no particular order:
 
 		 0 : Unreliable message
-			 R = 0, F = 0, I = 0, STM = 0
-		 1 : Unreliable Time Ping message
-			 R = 0, F = 0, I = 0, STM = 1
-		 2 : Unreliable Time Pong message
-			 R = 0, F = 0, I = 0, STM = 2
-		 3 : Unreliable MTU Probe message
-			 R = 0, F = 0, I = 0, STM = 3
-		 6 : Unordered message without ACKID
-			 R = 0, F = 1, I = 0, STM = 0
-	     7 : Unordered message with ACKID
-			 R = 0, F = 1, I = 1, STM = 0
-		 4 : Unordered MTU Update message without ACKID
-			 R = 0, F = 1, I = 0, STM = 1
-		 5 : Unordered MTU Update message with ACKID
-			 R = 0, F = 1, I = 1, STM = 1
-		 8 : Stream 0 unfragmented message without ACKID
-			 R = 1, F = 0, I = 0, STM = 0
-		 9 : Stream 0 unfragmented message with ACKID
-			 R = 1, F = 0, I = 1, STM = 0
-		10 : Stream 0 fragmented message without ACKID
-			 R = 1, F = 1, I = 0, STM = 0
-		11 : Stream 0 fragmented message with ACKID
-			 R = 1, F = 1, I = 1, STM = 0
-		12 : Stream 0 acknowledgment
-			 R = 0, F = 0, I = 1, STM = 0
-		13 : Stream 1 unfragmented message without ACKID
-			 R = 1, F = 0, I = 0, STM = 1
-		14 : Stream 1 unfragmented message with ACKID
-			 R = 1, F = 0, I = 1, STM = 1
-		15 : Stream 1 fragmented message without ACKID
-			 R = 1, F = 1, I = 0, STM = 1
-		16 : Stream 1 fragmented message with ACKID
-			 R = 1, F = 1, I = 1, STM = 1
-		17 : Stream 1 acknowledgment
-			 R = 0, F = 0, I = 1, STM = 1
-		18 : Stream 2 unfragmented message without ACKID
-			R = 1, F = 1, I = 0, STM = 2
-		19 : Stream 2 unfragmented message with ACKID
-			R = 1, F = 1, I = 1, STM = 2
-		20 : Stream 2 fragmented message without ACKID
-			R = 1, F = 1, I = 0, STM = 2
-		21 : Stream 2 fragmented message with ACKID
-			R = 1, F = 1, I = 1, STM = 2
-		22 : Stream 2 acknowledgment
-			R = 0, F = 0, I = 1, STM = 2
-		23 : Stream 3 unfragmented message without ACKID
-			R = 1, F = 1, I = 0, STM = 3
-		24 : Stream 3 unfragmented message with ACKID
-			R = 1, F = 1, I = 1, STM = 3
-		25 : Stream 3 fragmented message without ACKID
-			R = 1, F = 1, I = 0, STM = 3
-		26 : Stream 3 fragmented message with ACKID
-			R = 1, F = 1, I = 1, STM = 3
-		27 : Stream 3 acknowledgment
-			R = 0, F = 0, I = 1, STM = 3
-		28 : Undefined
-		29 : Undefined
-		30 : Undefined
-		31 : Undefined
+			F = 1, I = x, STM = 0, D=1 (x = don't care)
+		 1 : Stream 0 unfragmented message without ACKID
+			F = 0, I = 0, STM = 0, D=1
+		 2 : Stream 0 unfragmented message with ACKID
+			F = 0, I = 1, STM = 0, D=1
+		 3 : Stream 0 acknowledgment
+			F = x, I = x, STM = 0, D=0 (x = don't care)
+		 4 : Stream 1 unfragmented message without ACKID
+			F = 0, I = 0, STM = 1, D=1
+		 5 : Stream 1 unfragmented message with ACKID
+			F = 0, I = 1, STM = 1, D=1
+		 6 : Stream 1 fragmented message without ACKID
+			F = 1, I = 0, STM = 1, D=1
+		 7 : Stream 1 fragmented message with ACKID
+			F = 1, I = 1, STM = 1, D=1
+		 8 : Stream 1 acknowledgment
+			F = x, I = x, STM = 1, D=0 (x = don't care)
+		 9 : Stream 2 unfragmented message without ACKID
+			F = 0, I = 0, STM = 2, D=1
+		10 : Stream 2 unfragmented message with ACKID
+			F = 0, I = 1, STM = 2, D=1
+		11 : Stream 2 fragmented message without ACKID
+			F = 1, I = 0, STM = 2, D=1
+		12 : Stream 2 fragmented message with ACKID
+			F = 1, I = 1, STM = 2, D=1
+		13 : Stream 2 acknowledgment
+			F = x, I = x, STM = 2, D=0 (x = don't care)
+		14 : Stream 3 unfragmented message without ACKID
+			F = 0, I = 0, STM = 3, D=1
+		15 : Stream 3 unfragmented message with ACKID
+			F = 0, I = 1, STM = 3, D=1
+		16 : Stream 3 fragmented message without ACKID
+			F = 1, I = 0, STM = 3, D=1
+		17 : Stream 3 fragmented message with ACKID
+			F = 1, I = 1, STM = 3, D=1
+		18 : Stream 3 acknowledgment
+			F = x, I = x, STM = 3, D=0 (x = don't care)
+		19-31 : Undefined (contained in the don't care cases above)
+
+		When the I bit is set, the data part is preceded by a 24-bit ACK-ID,
+		which is then applied to all following reliable messages.
+		This additional size is NOT accounted for in the DATA_BYTES field.
+
+		When the F bit is set for the first time in an ordered stream,
+		the data part begins with a 16-bit Total Message Length.
+		This additional size IS accounted for in the DATA_BYTES field.
+
+	TODO:
+		New GetBuffer functions
+			Needs no-header "raw" version
+			Needs unbuffered, unreliable "fast" version
+		Message router built into transport layer
+		Message router used differently in client and server derivations
+			FE: Time Ping/Pong
+			FF: MTU Probe/Update
+		EndWrite()
+		ACK transmit
+		ACK receive
 */
 
 
@@ -164,12 +169,13 @@ enum HandshakeErrors
 	ERR_SERVER_FULL
 };
 
-// Transport modes
-enum TransportModes
+// Stream modes
+enum StreamMode
 {
-	MODE_UNRELIABLE,	// Out-of-band, unreliable transport
-	MODE_ORDERED,		// In-band, reliable, ordered transport
-	MODE_UNORDERED		// In-band, reliable, un-ordered transport
+	STREAM_UNORDERED = 0,	// Reliable, unordered stream 0
+	STREAM_1 = 1,			// Reliable, ordered stream 1
+	STREAM_2 = 2,			// Reliable, ordered stream 2
+	STREAM_3 = 3			// Reliable, ordered stream 3
 };
 
 
@@ -178,13 +184,15 @@ enum TransportModes
 class Transport
 {
 protected:
+	static const u32 NUM_STREAMS = 4; // Number of reliable streams
+
 	static const u32 TIMEOUT_DISCONNECT = 15000; // 15 seconds
 
 	static const u32 MINIMUM_MTU = 576; // Dialup
 	static const u32 MEDIUM_MTU = 1400; // Highspeed with unexpected overhead, maybe VPN
 	static const u32 MAXIMUM_MTU = 1500; // Highspeed
 
-	static const u32 IPV6_OPTIONS_BYTES = 40; // Not sure about this
+	static const u32 IPV6_OPTIONS_BYTES = 40; // TODO: Not sure about this
 	static const u32 IPV6_HEADER_BYTES = 40 + IPV6_OPTIONS_BYTES;
 
 	static const u32 IPV4_OPTIONS_BYTES = 40;
@@ -204,12 +212,12 @@ public:
 
 protected:
 	// Receive state: Next expected ack id to receive
-	u32 _next_recv_expected_id;
+	u32 _next_recv_expected_id[NUM_STREAMS];
 
 	// Receive state: Fragmentation
-	u8 *_fragment_buffer; // Buffer for accumulating fragment
-	u32 _fragment_offset; // Current write offset in buffer
-	u32 _fragment_length; // Number of bytes in fragment buffer
+	u8 *_fragment_buffer[NUM_STREAMS]; // Buffer for accumulating fragment
+	u32 _fragment_offset[NUM_STREAMS]; // Current write offset in buffer
+	u32 _fragment_length[NUM_STREAMS]; // Number of bytes in fragment buffer
 
 	static const u32 FRAG_MIN = 2;		// Min bytes for a fragmented message
 	static const u32 FRAG_MAX = 256000;	// Max bytes for a fragmented message
@@ -228,7 +236,7 @@ protected:
 	};
 
 	// Receive state: Receive queue head
-	RecvQueue *_recv_queue_head; // Head of queue for messages that are waiting on a lost message
+	RecvQueue *_recv_queue_head[NUM_STREAMS]; // Head of queue for messages that are waiting on a lost message
 
 protected:
 	void QueueRecv(u8 *data, u32 bytes, u32 ack_id, bool frag);
@@ -239,7 +247,7 @@ protected:
 	Mutex _send_lock;
 
 	// Send state: Next ack id to use
-	u32 _next_send_id;
+	u32 _next_send_id[NUM_STREAMS];
 
 	// Send state: Combined writes
 	u8 *_send_buffer;
@@ -251,7 +259,7 @@ protected:
 		SendQueue *next; // Next in queue
 		u32 id; // Acknowledgment id, or number of sent bytes while fragmenting a large message
 		u32 bytes; // Data bytes
-		u16 header; // Header
+		u32 mode; // Transmit mode
 
 		// Message contents follow
 	};
@@ -263,10 +271,10 @@ protected:
 	};
 
 	// Queue of messages that are waiting to be sent
-	SendQueue *_send_queue_head, *_send_queue_tail;
+	SendQueue *_send_queue_head[NUM_STREAMS], *_send_queue_tail[NUM_STREAMS];
 
 	// List of messages that are waiting to be acknowledged
-	SendQueue *_sent_list_head;
+	SendQueue *_sent_list_head[NUM_STREAMS];
 
 public:
 	Transport();
@@ -276,20 +284,19 @@ public:
 
 public:
 	void BeginWrite();
-	u8 *GetReliableBuffer(u32 data_bytes, SuperOpCode sop = SOP_DATA);
-	u8 *GetUnreliableBuffer(u32 data_bytes, SuperOpCode sop = SOP_DATA);
+	u8 *GetUnreliableBuffer(u32 data_bytes);
+	u8 *GetReliableBuffer(StreamMode, u32 data_bytes);
 	void EndWrite();
+
+	// The return value must be passed to PostPacket() or ReleasePostBuffer()
+	u8 *GetUnreliablePostBuffer(u32 data_bytes); // Sticks an unreliable header in the first two bytes
+	u8 *GetRawPostBuffer(u32 data_bytes); // Raw payload access
 
 protected:
 	void TickTransport(ThreadPoolLocalStorage *tls, u32 now);
 	void OnSuperMessage(u16 super_opcode, u8 *data, u32 data_bytes);
 	void OnDatagram(u8 *data, u32 bytes);
 	void OnFragment(u8 *data, u32 bytes, bool frag);
-
-protected:
-	bool PostMTUProbe(ThreadPoolLocalStorage *tls, u32 payload_bytes);
-	bool PostTimePing();
-	bool PostTimePong(u32 client_ts);
 
 protected:
 	virtual void OnMessage(u8 *msg, u32 bytes) = 0;
