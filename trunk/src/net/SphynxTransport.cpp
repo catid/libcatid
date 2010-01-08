@@ -53,6 +53,7 @@ Transport::Transport()
 	CAT_OBJCLR(_send_queue_tail);
 
 	CAT_OBJCLR(_sent_list_head);
+	CAT_OBJCLR(_sent_list_tail);
 }
 
 Transport::~Transport()
@@ -379,7 +380,11 @@ u8 *Transport::GetUnreliableBuffer(u32 data_bytes)
 	u32 msg_bytes = 2 + data_bytes;
 
 	// Fail on invalid input
-	if (msg_bytes > max_payload_bytes) return 0;
+	if (msg_bytes > max_payload_bytes)
+	{
+		WARN("Transport") << "Invalid input: Unreliable buffer size request too large";
+		return 0;
+	}
 
 	AutoMutex lock(_send_lock);
 
@@ -391,17 +396,23 @@ u8 *Transport::GetUnreliableBuffer(u32 data_bytes)
 		u8 *old_send_buffer = _send_buffer;
 
 		u8 *msg_buffer = GetPostBuffer(msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
-		if (!msg_buffer) return 0;
+		if (!msg_buffer)
+		{
+			WARN("Transport") << "Out of memory: Unable to allocate unreliable post buffer";
+			return 0;
+		}
 
-		*reinterpret_cast<u16*>( msg_buffer ) = getLE16(data_bytes | (sop << 13));
+		*reinterpret_cast<u16*>( msg_buffer ) = getLE16(data_bytes | F_MASK | D_MASK);
 
 		_send_buffer = msg_buffer;
 		_send_buffer_bytes = msg_bytes;
 
 		lock.Release();
 
-		// Post packet without checking return value
-		PostPacket(old_send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes);
+		if (!PostPacket(old_send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes))
+		{
+			WARN("Transport") << "Packet post failure during unreliable overflow";
+		}
 
 		return msg_buffer + 2;
 	}
@@ -411,13 +422,14 @@ u8 *Transport::GetUnreliableBuffer(u32 data_bytes)
 		_send_buffer = ResizePostBuffer(_send_buffer, send_buffer_bytes + msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
 		if (!_send_buffer)
 		{
+			WARN("Transport") << "Out of memory: Unable to resize unreliable post buffer";
 			_send_buffer_bytes = 0;
 			return 0;
 		}
 
 		u8 *msg_buffer = _send_buffer + send_buffer_bytes;
 
-		*reinterpret_cast<u16*>( msg_buffer ) = getLE16(data_bytes | (sop << 13));
+		*reinterpret_cast<u16*>( msg_buffer ) = getLE16(data_bytes | F_MASK | D_MASK);
 
 		_send_buffer_bytes = send_buffer_bytes + msg_bytes;
 
@@ -430,11 +442,19 @@ u8 *Transport::GetReliableBuffer(StreamMode stream, u32 data_bytes)
 	// Fail on invalid input
 	if (stream == STREAM_UNORDERED)
 	{
-		if (data_bytes + 2 + 3 > _max_payload_bytes) return 0;
+		if (data_bytes + 2 + 3 > _max_payload_bytes)
+		{
+			WARN("Transport") << "Invalid input: Unordered buffer size request too large";
+			return 0;
+		}
 	}
 	else
 	{
-		if (data_bytes > MAX_MESSAGE_DATALEN) return 0;
+		if (data_bytes > MAX_MESSAGE_DATALEN)
+		{
+			WARN("Transport") << "Invalid input: Stream buffer size request too large";
+			return 0;
+		}
 	}
 
 	// Allocate SendQueue object
@@ -448,7 +468,7 @@ u8 *Transport::GetReliableBuffer(StreamMode stream, u32 data_bytes)
 
 	// Fill the object
 	node->bytes = data_bytes;
-	node->mode = 0;
+	node->offset = 0;
 	node->id = 0;
 	node->next = 0;
 	u8 *data = GetTrailingBytes(node);
@@ -457,7 +477,9 @@ u8 *Transport::GetReliableBuffer(StreamMode stream, u32 data_bytes)
 	AutoMutex lock(_send_lock);
 
 	// Add to back of send queue
-	if (_send_queue_tail[stream]) _send_queue_tail[stream]->next = node;
+	SendQueue *tail = _send_queue_tail[stream];
+	node->prev = tail;
+	if (tail) tail->next = node;
 	else _send_queue_head[stream] = node;
 	_send_queue_tail[stream] = node;
 
@@ -467,138 +489,187 @@ u8 *Transport::GetReliableBuffer(StreamMode stream, u32 data_bytes)
 
 void Transport::EndWrite()
 {
+	// If this is the last writer,
 	if (Atomic::Add(&_writer_count, -1) == 1)
 	{
 		AutoMutex lock(_send_lock);
 
+		// Use the same timestamp for all messages delivered now, to insure they are clustered on retransmission
+		u32 now = Clock::msec();
+
+		// Cache send buffer
 		u32 send_buffer_bytes = _send_buffer_bytes;
 		u8 *send_buffer = _send_buffer;
 		u32 max_payload_bytes = _max_payload_bytes;
 
+		// For each reliable stream,
 		for (int stream = 0; stream < NUM_STREAMS; ++stream)
 		{
+			// Cache stream
 			SendQueue *node = _send_queue_head[stream];
 			u32 ack_id = _next_send_id[stream];
-			u32 overhead = 3; // for first ack_id
 
+			// Start sending ACK-ID for this stream
+			u32 ack_id_overhead = 3;
+
+			// For each message ready to go,
 			while (node)
 			{
-				u32 offset = node->id;
-				u32 data_bytes = node->bytes - offset;
-				u32 msg_bytes = 2 + overhead + data_bytes;
+				// Cache next pointer since node will be modified
+				SendQueue *next = node->next;
 
-				// If the growing send buffer cannot contain the new message,
-				if (send_buffer_bytes + msg_bytes > max_payload_bytes)
-				{
-					// If fragmentation is worthwhile, leaving a decent number of bytes in both packets,
-					if (max_payload_bytes >= send_buffer_bytes + FRAG_THRESHOLD &&
-						send_buffer_bytes + msg_bytes - max_payload_bytes >= FRAG_THRESHOLD)
+				bool fragmented = node->offset != 0;
+
+				do {
+					u32 remaining_data_bytes = node->bytes - node->offset;
+					u32 remaining_send_buffer = max_payload_bytes - send_buffer_bytes;
+					u32 frag_overhead = 0;
+
+					// If message would be fragmented,
+					if (2 + ack_id_overhead + remaining_data_bytes > remaining_send_buffer)
 					{
-						// Start fragmenting message
-						send_buffer = ResizePostBuffer(send_buffer, max_payload_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
-						if (!send_buffer)
+						// If it is worth fragmentation,
+						if (remaining_send_buffer >= FRAG_THRESHOLD &&
+							2 + 3 + remaining_data_bytes - remaining_send_buffer >= FRAG_THRESHOLD)
 						{
-							WARN("Transport") << "Out of memory: Lost combined write(1)";
+							if (!fragmented)
+							{
+								frag_overhead = 2;
+								fragmented = true;
+							}
+						}
+						else // Not worth fragmentation
+						{
+							// Post accumulated send buffer
+							if (!PostPacket(send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes))
+							{
+								WARN("Transport") << "Unable to post send buffer";
+								continue; // Retry
+							}
+
+							// Reset state for empty send buffer
+							send_buffer = 0;
 							send_buffer_bytes = 0;
+							remaining_send_buffer = max_payload_bytes;
+							ack_id_overhead = 3;
+
+							// If the message is still fragmented after emptying the send buffer,
+							if (!fragmented && 2 + 3 + remaining_data_bytes > remaining_send_buffer)
+							{
+								frag_overhead = 2;
+								fragmented = true;
+							}
+						}
+					}
+
+					// Calculate total bytes to write to the send buffer on this pass
+					u32 overhead = 2 + ack_id_overhead + frag_overhead;
+					u32 msg_bytes = overhead + remaining_data_bytes;
+					u32 write_bytes = remaining_send_buffer;
+					if (write_bytes > msg_bytes) write_bytes = msg_bytes;
+					u32 data_bytes_to_copy = write_bytes - overhead;
+
+					// Link to the end of the sent list (Expectation is that acks will be received for nodes close to the head first)
+					SendQueue *tail = _sent_list_tail[stream];
+					if (fragmented)
+					{
+						SendFrag *proxy = new (RegionAllocator::ii) SendFrag;
+						if (!proxy)
+						{
+							WARN("Transport") << "Out of memory: Unable to allocate fragment node";
+							continue; // Retry
 						}
 						else
 						{
-							u32 eat = max_payload_bytes - send_buffer_bytes;
-							u32 copy_bytes = eat;
-
-							u8 *msg = send_buffer + send_buffer_bytes;
-
-							if (overhead)
-							{
-								*reinterpret_cast<u16*>( msg ) = getLE16(copy_bytes | (stream << STM_OFFSET) | I_MASK | F_MASK | D_MASK);
-								msg[2] = (u8)(ack_id >> 16);
-								msg[3] = (u8)(ack_id >> 8);
-								msg[4] = (u8)ack_id;
-								*reinterpret_cast<u16*>( msg + 2 + 3 ) = getLE((u16)data_bytes);
-								msg += 2 + 3 + 2;
-								copy_bytes -= 2 + 3 + 2;
-
-								++ack_id;
-								overhead = 0;
-								send_buffer_bytes += 2 + 3 + 2 + copy_bytes;
-							}
-							else
-							{
-								*reinterpret_cast<u16*>( msg ) = getLE16(copy_bytes | (stream << STM_OFFSET) | F_MASK | D_MASK);
-								*reinterpret_cast<u16*>( msg + 2 ) = getLE((u16)data_bytes);
-								msg += 2 + 2;
-								copy_bytes -= 2 + 2;
-								send_buffer_bytes += 2 + 2 + copy_bytes;
-							}
-
-							// TODO: create fragment object, loop and continue sending fragments
-
-							node->id = copy_bytes;
-							memcpy(msg, GetTrailingBytes(node), copy_bytes);
+							proxy->id = ack_id;
+							proxy->next = 0;
+							proxy->prev = tail;
+							proxy->bytes = data_bytes_to_copy;
+							proxy->offset = node->offset;
+							proxy->timestamp = now;
+							proxy->full_data = node;
+							if (tail) tail->next = reinterpret_cast<SendQueue*>( proxy );
+							else _sent_list_head[stream] = reinterpret_cast<SendQueue*>( proxy );
+							_sent_list_tail[stream] = reinterpret_cast<SendQueue*>( proxy );
 						}
 					}
 					else
 					{
-						// Post send buffer and start a new one
-						PostPacket(send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes);
-
-						if (msg_bytes > max_payload_bytes)
-						{
-							// Message will need to be fragmented starting with the new buffer
-
-							send_buffer = GetPostBuffer(max_payload_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
-
-							// TODO
-						}
-						else
-						{
-							// Copy whole message into buffer without fragmentation
-						}
+						node->id = ack_id;
+						node->next = 0;
+						node->prev = tail;
+						node->timestamp = now;
+						if (tail) tail->next = node;
+						else _sent_list_head[stream] = node;
+						_sent_list_tail[stream] = node;
 					}
-				}
-				else // Growing send buffer can contain the new message
-				{
-					send_buffer = ResizePostBuffer(send_buffer, send_buffer_bytes + msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
+
+					// Resize post buffer to contain the bytes that will be written
+					send_buffer = ResizePostBuffer(send_buffer, send_buffer_bytes + write_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
 					if (!send_buffer)
 					{
-						WARN("Transport") << "Out of memory: Lost combined write(2)";
+						WARN("Transport") << "Out of memory: Unable to allocate send buffer";
 						send_buffer_bytes = 0;
+						continue; // Retry
 					}
-					else
+
+					// Generate header word
+					u16 header = (write_bytes - ack_id_overhead) | (stream << STM_OFFSET) | D_MASK;
+					if (ack_id_overhead) header |= I_MASK;
+					if (fragmented) header |= F_MASK;
+
+					// Write header
+					u8 *msg = send_buffer;
+					*reinterpret_cast<u16*>( msg ) = getLE16(header);
+					msg += 2;
+
+					// Write optional ACK-ID
+					if (ack_id_overhead)
 					{
-						u8 *msg = send_buffer + send_buffer_bytes;
-
-						if (overhead)
-						{
-							*reinterpret_cast<u16*>( msg ) = getLE16(data_bytes | (stream << STM_OFFSET) | I_MASK | D_MASK);
-							msg[2] = (u8)(ack_id >> 16);
-							msg[3] = (u8)(ack_id >> 8);
-							msg[4] = (u8)ack_id;
-							msg += 2 + 3;
-
-							++ack_id;
-							overhead = 0;
-						}
-						else
-						{
-							*reinterpret_cast<u16*>( msg ) = getLE16(data_bytes | (stream << STM_OFFSET) | D_MASK);
-							msg += 2;
-						}
-
-						memcpy(msg, GetTrailingBytes(node), data_bytes);
-						send_buffer_bytes += msg_bytes;
+						msg[0] = (u8)(ack_id >> 16);
+						msg[1] = (u8)(ack_id >> 8);
+						msg[2] = (u8)ack_id;
+						++ack_id;
+						ack_id_overhead = 0;
+						msg += 3;
 					}
-				}
-			}
 
-			_send_queue_head[stream] = node;
+					// Write optional fragment word
+					if (frag_overhead)
+					{
+						*reinterpret_cast<u16*>( msg ) = getLE((u16)node->bytes);
+						frag_overhead = 0;
+						msg += 2;
+					}
+
+					// Copy data bytes
+					memcpy(msg, GetTrailingBytes(node) + node->offset, data_bytes_to_copy);
+					send_buffer_bytes += data_bytes_to_copy;
+					node->offset += data_bytes_to_copy;
+
+				} while (node->offset < node->bytes);
+
+				if (node->offset > node->bytes)
+				{
+					WARN("Transport") << "Node offset somehow escaped";
+				}
+
+				node = next;
+			} // walking send queue
+
+			// Update send queue state for this stream
+			_send_queue_tail[stream] = 0;
+			_send_queue_head[stream] = 0;
 			_next_send_id[stream] = ack_id;
-		}
+		} // walking streams
 
 		// If data remains to be delivered,
 		if (send_buffer_bytes)
 		{
-			PostPacket(send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes);
+			if (!PostPacket(send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes))
+			{
+				WARN("Transport") << "Unable to post final send buffer";
+			}
 
 			_send_buffer = 0;
 			_send_buffer_bytes = 0;

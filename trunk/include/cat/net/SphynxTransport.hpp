@@ -204,7 +204,7 @@ protected:
 
 	static const u32 UDP_HEADER_BYTES = 8;
 
-	static const u32 FRAG_THRESHOLD = 64; // Fragment if 64 bytes would be in each fragment
+	static const u32 FRAG_THRESHOLD = 32; // Fragment if FRAG_THRESHOLD bytes would be in each fragment
 
 	static const u32 MAX_MESSAGE_DATALEN = 65535; // Maximum number of bytes in the data part of a message
 
@@ -260,25 +260,26 @@ protected:
 	// Send state: Send queue
 	struct SendQueue
 	{
+		SendQueue *prev; // Previous in queue
 		SendQueue *next; // Next in queue
 		u32 id; // Acknowledgment id, or number of sent bytes while fragmenting a large message
 		u32 bytes; // Data bytes
-		u32 mode; // Transmit mode
+		u32 offset; // Fragment data offset: If offset < bytes, then it is a SendFrag object
+		u32 timestamp; // Timestamp when it was sent
 
 		// Message contents follow
 	};
 
-	struct SendFrag
+	struct SendFrag : public SendQueue
 	{
 		SendQueue *full_data;
-		u32 offset;
 	};
 
 	// Queue of messages that are waiting to be sent
 	SendQueue *_send_queue_head[NUM_STREAMS], *_send_queue_tail[NUM_STREAMS];
 
 	// List of messages that are waiting to be acknowledged
-	SendQueue *_sent_list_head[NUM_STREAMS];
+	SendQueue *_sent_list_head[NUM_STREAMS], *_sent_list_tail[NUM_STREAMS];
 
 public:
 	Transport();
@@ -298,6 +299,7 @@ protected:
 private:
 	void OnDatagram(u8 *data, u32 bytes);
 	void OnFragment(u8 *data, u32 bytes);
+	void CombineNextWrite();
 
 protected:
 	virtual void OnMessage(u8 *msg, u32 bytes) = 0;
