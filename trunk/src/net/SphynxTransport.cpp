@@ -267,8 +267,10 @@ void Transport::RunQueue(u32 ack_id, u32 stream)
 
 void Transport::QueueRecv(u8 *data, u32 data_bytes, u32 ack_id, u32 stream, bool frag)
 {
-	RecvQueue *node = _recv_queue_head;
-	RecvQueue *prev = 0;
+	// Walk backwards from the end because we're probably receiving
+	// a blast of messages after a drop.
+	RecvQueue *node = _recv_queue_tail;
+	RecvQueue *next = 0;
 
 	// Search for queue insertion point
 	while (node)
@@ -281,15 +283,15 @@ void Transport::QueueRecv(u8 *data, u32 data_bytes, u32 ack_id, u32 stream, bool
 			WARN("Transport") << "Ignored duplicate queued reliable message";
 			return;
 		}
-		else if (diff < 0)
+		else if (diff > 0)
 		{
-			// Insert before this node
+			// Insert after this node
 			break;
 		}
 
 		// Keep searching for insertion point
-		prev = node;
-		node = node->next;
+		next = node;
+		node = node->prev;
 	}
 
 	u32 stored_bytes;
@@ -323,26 +325,25 @@ void Transport::QueueRecv(u8 *data, u32 data_bytes, u32 ack_id, u32 stream, bool
 	else
 	{
 		// Insert new data into queue
-		new_node->bytes = (frag) ? (stored_bytes | RecvQueue::FRAG_FLAG) : stored_bytes;
+		new_node->bytes = frag ? (stored_bytes | RecvQueue::FRAG_FLAG) : stored_bytes;
 		new_node->id = ack_id;
-		new_node->prev = prev;
-		new_node->next = node;
+		new_node->prev = node;
+		new_node->next = next;
 
 		// Just need to protect writes to the list linkages
 		_recv_lock.Enter();
 
-		if (node) node->prev = new_node;
+		if (next) next->prev = new_node;
 		else _recv_queue_tail[stream] = new_node;
-		if (prev) prev->next = new_node;
+		if (node) node->next = new_node;
 		else _recv_queue_head[stream] = new_node;
+		_got_reliable = true;
 
 		_recv_lock.Leave();
 
 		u8 *new_data = GetTrailingBytes(new_node);
 		memcpy(new_data, data, data_bytes);
 	}
-
-	_got_reliable = true;
 }
 
 void Transport::OnFragment(u8 *data, u32 bytes)
@@ -723,31 +724,44 @@ void Transport::EndWrite()
 // resend lost packets -- all following packets with the same ack id are delivered out of band
 void Transport::TickTransport(ThreadPoolLocalStorage *tls, u32 now)
 {
-	// TODO
+	BeginWrite();
 
-	/*
-		ACK message format:
+	_recv_lock.Enter();
 
-		HDR(2) || DATA
+	// If an ACK should be sent,
+	for (int stream = 0; stream < NUM_STREAMS; ++stream)
+	{
+		if (_got_reliable[stream])
+		{
+			u32 rollup = _next_recv_expected_id[stream];
 
-		HDR:
-			DATA_BYTES just includes DATA part
-			STM = stream number
-			F = 0
-			I = 0
-			D = 0
+			RecvQueue *node = _recv_queue_head;
+			if (node)
+			{
 
-		DATA:
-			ROLLUP(3) || RANGE1 || RANGE2 || ...
+			}
+			u32 range_start = rollup;
+			u32 range_end = rollup;
 
-			ROLLUP = Next expected ACK-ID.  Acknowledges every ID before this one.
+			while (node)
+			{
+				u32 id = node->id;
 
-			RANGE1:
-				START(3) || END(3)
+				if (id == range_end + 1)
+				{
+					++range_end;
+				}
+				else
+				{
+					// break in the list
+				}
 
-				START = First inclusive ACK-ID in a range to acknowledge.
-				END = Final inclusive ACK-ID in a range to acknowledge.
+				node = node->next;
+			}
+		}
+	}
 
-			Negative acknowledgment can be inferred from the holes in the RANGEs.
-	*/
+	_recv_lock.Leave();
+
+	EndWrite();
 }

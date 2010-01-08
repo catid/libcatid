@@ -113,15 +113,32 @@ namespace sphynx {
 		When the F bit is set for the first time in an ordered stream,
 		the data part begins with a 16-bit Total Message Length.
 		This additional size IS accounted for in the DATA_BYTES field.
+*/
 
-	TODO:
-		Message router built into transport layer
-		Message router used differently in client and server derivations
-			FE: Time Ping/Pong
-			FF: MTU Probe/Update
-		EndWrite()
-		ACK transmit
-		ACK receive
+/*
+	ACK message format:
+
+	HDR(2) || DATA
+
+	HDR:
+		DATA_BYTES just includes DATA part
+		STM = stream number
+		F = 0
+		I = 0
+		D = 0
+
+	DATA:
+		ROLLUP(3) || RANGE1 || RANGE2 || ...
+
+		ROLLUP = Next expected ACK-ID.  Acknowledges every ID before this one.
+
+		RANGE1:
+			START(3) || END(3)
+
+			START = First inclusive ACK-ID in a range to acknowledge.
+			END = Final inclusive ACK-ID in a range to acknowledge.
+
+		Negative acknowledgment can be inferred from the holes in the RANGEs.
 */
 
 
