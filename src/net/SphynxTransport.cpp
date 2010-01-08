@@ -38,8 +38,13 @@ Transport::Transport()
 {
 	// Receive state
 	CAT_OBJCLR(_next_recv_expected_id);
+
 	CAT_OBJCLR(_fragment_length);
+
+	CAT_OBJCLR(_got_reliable);
+
 	CAT_OBJCLR(_recv_queue_head);
+	CAT_OBJCLR(_recv_queue_tail);
 
 	// Send state
 	_writer_count = 0;
@@ -166,9 +171,7 @@ void Transport::OnDatagram(u8 *data, u32 bytes)
 			}
 			else // Reliable message:
 			{
-				u32 next_expected_id = _next_recv_expected_id[stream];
-
-				s32 diff = (s32)(ack_id - next_expected_id);
+				s32 diff = (s32)(ack_id - _next_recv_expected_id[stream]);
 
 				// If message is next expected,
 				if (diff == 0)
@@ -184,108 +187,11 @@ void Transport::OnDatagram(u8 *data, u32 bytes)
 						WARN("Transport") << "Zero-length reliable message ignored";
 					}
 
-					// Cache node and ack_id on stack
-					RecvQueue *node = _recv_queue_head[stream];
-					++ack_id;
-
-					// For each queued message that is now ready to go,
-					while (node && node->id == ack_id)
-					{
-						// Grab the queued message
-						bool frag = (node->bytes & RecvQueue::FRAG_FLAG) != 0;
-						u32 old_data_bytes = node->bytes & RecvQueue::BYTE_MASK;
-						RecvQueue *next = node->next;
-						u8 *old_data = GetTrailingBytes(node);
-
-						// Process fragment now
-						if (old_data_bytes > 0)
-						{
-							if (frag) OnFragment(old_data, old_data_bytes);
-							else OnMessage(old_data, old_data_bytes);
-
-							// NOTE: Unordered stream writes zero-length messages
-							// to the receive queue since it processes immediately
-							// and does not need to store the data.
-						}
-
-						// Delete queued message
-						RegionAllocator::ii->Release(node);
-
-						// And proceed on to next message
-						++ack_id;
-						node = next;
-					}
-
-					// Update receive queue state
-					_recv_queue_head[stream] = node;
-					_next_recv_expected_id[stream] = ack_id;
+					RunQueue(ack_id, stream);
 				}
 				else if (diff > 0) // Message is due to arrive
 				{
-					RecvQueue *node = _recv_queue_head;
-					RecvQueue *last = 0;
-
-					// Search for queue insertion point
-					while (node)
-					{
-						s32 diff = (s32)(ack_id - node->id);
-
-						if (diff == 0)
-						{
-							// Ignore duplicate message
-							WARN("Transport") << "Ignored duplicate queued reliable message";
-							return;
-						}
-						else if (diff < 0)
-						{
-							// Insert before this node
-							break;
-						}
-
-						// Keep searching for insertion point
-						last = node;
-						node = node->next;
-					}
-
-					u32 stored_bytes;
-
-					if (stream == STREAM_UNORDERED)
-					{
-						// Process it immediately
-						if (data_bytes > 0)
-						{
-							if (header & F_MASK) OnFragment(data, data_bytes);
-							else OnMessage(data, data_bytes);
-						}
-						else
-						{
-							WARN("Transport") << "Zero-length reliable message ignored";
-						}
-
-						stored_bytes = 0;
-					}
-					else
-					{
-						stored_bytes = data_bytes;
-					}
-
-					RecvQueue *new_node = reinterpret_cast<RecvQueue*>( RegionAllocator::ii->Acquire(sizeof(RecvQueue) + stored_bytes) );
-					if (!new_node)
-					{
-						WARN("Transport") << "Out of memory for incoming packet queue";
-					}
-					else
-					{
-						// Insert new data into queue
-						new_node->bytes = (header & F_MASK) ? (stored_bytes | RecvQueue::FRAG_FLAG) : stored_bytes;
-						new_node->id = ack_id;
-						new_node->next = node;
-						if (last) last->next = new_node;
-						else _recv_queue_head = new_node;
-
-						u8 *new_data = GetTrailingBytes(new_node);
-						memcpy(new_data, data, bytes);
-					}
+					QueueRecv(data, data_bytes, ack_id, stream, (header & F_MASK) != 0);
 				}
 				else
 				{
@@ -303,6 +209,140 @@ void Transport::OnDatagram(u8 *data, u32 bytes)
 	}
 
 	EndWrite();
+}
+
+void Transport::RunQueue(u32 ack_id, u32 stream)
+{
+	// Cache node and ack_id on stack
+	RecvQueue *node = _recv_queue_head[stream];
+	RecvQueue *kill_node = node;
+	++ack_id;
+
+	// For each queued message that is now ready to go,
+	while (node && node->id == ack_id)
+	{
+		// Grab the queued message
+		u32 old_data_bytes = node->bytes & RecvQueue::BYTE_MASK;
+		u8 *old_data = GetTrailingBytes(node);
+
+		// Process fragment now
+		if (old_data_bytes > 0)
+		{
+			if (node->bytes & RecvQueue::FRAG_FLAG)
+				OnFragment(old_data, old_data_bytes);
+			else
+				OnMessage(old_data, old_data_bytes);
+
+			// NOTE: Unordered stream writes zero-length messages
+			// to the receive queue since it processes immediately
+			// and does not need to store the data.
+		}
+
+		// And proceed on to next message
+		++ack_id;
+		node = node->next;
+	}
+
+	_recv_lock.Enter();
+
+	// Update receive queue state
+	_recv_queue_head[stream] = node;
+	if (!node) _recv_queue_tail[stream] = 0;
+	_next_recv_expected_id[stream] = ack_id;
+	_got_reliable = true;
+
+	_recv_lock.Leave();
+
+	// Split deletion from processing to reduce lock contention
+	while (kill_node != node)
+	{
+		RecvQueue *next = kill_node->next;
+
+		// Delete queued message
+		RegionAllocator::ii->Release(kill_node);
+
+		kill_node = next;
+	}
+}
+
+void Transport::QueueRecv(u8 *data, u32 data_bytes, u32 ack_id, u32 stream, bool frag)
+{
+	RecvQueue *node = _recv_queue_head;
+	RecvQueue *prev = 0;
+
+	// Search for queue insertion point
+	while (node)
+	{
+		s32 diff = (s32)(ack_id - node->id);
+
+		if (diff == 0)
+		{
+			// Ignore duplicate message
+			WARN("Transport") << "Ignored duplicate queued reliable message";
+			return;
+		}
+		else if (diff < 0)
+		{
+			// Insert before this node
+			break;
+		}
+
+		// Keep searching for insertion point
+		prev = node;
+		node = node->next;
+	}
+
+	u32 stored_bytes;
+
+	if (stream == STREAM_UNORDERED)
+	{
+		// Process it immediately
+		if (data_bytes > 0)
+		{
+			if (frag) OnFragment(data, data_bytes);
+			else OnMessage(data, data_bytes);
+		}
+		else
+		{
+			WARN("Transport") << "Zero-length reliable message ignored";
+		}
+
+		stored_bytes = 0;
+	}
+	else
+	{
+		stored_bytes = data_bytes;
+	}
+
+	RecvQueue *new_node = reinterpret_cast<RecvQueue*>(
+		RegionAllocator::ii->Acquire(sizeof(RecvQueue) + stored_bytes) );
+	if (!new_node)
+	{
+		WARN("Transport") << "Out of memory for incoming packet queue";
+	}
+	else
+	{
+		// Insert new data into queue
+		new_node->bytes = (frag) ? (stored_bytes | RecvQueue::FRAG_FLAG) : stored_bytes;
+		new_node->id = ack_id;
+		new_node->prev = prev;
+		new_node->next = node;
+
+		// Just need to protect writes to the list linkages
+		_recv_lock.Enter();
+
+		if (node) node->prev = new_node;
+		else _recv_queue_tail[stream] = new_node;
+		if (prev) prev->next = new_node;
+		else _recv_queue_head[stream] = new_node;
+
+		_recv_lock.Leave();
+
+		u8 *new_data = GetTrailingBytes(new_node);
+		memcpy(new_data, data, data_bytes);
+	}
+
+	_got_reliable = true;
 }
 
 void Transport::OnFragment(u8 *data, u32 bytes)
@@ -684,4 +724,30 @@ void Transport::EndWrite()
 void Transport::TickTransport(ThreadPoolLocalStorage *tls, u32 now)
 {
 	// TODO
+
+	/*
+		ACK message format:
+
+		HDR(2) || DATA
+
+		HDR:
+			DATA_BYTES just includes DATA part
+			STM = stream number
+			F = 0
+			I = 0
+			D = 0
+
+		DATA:
+			ROLLUP(3) || RANGE1 || RANGE2 || ...
+
+			ROLLUP = Next expected ACK-ID.  Acknowledges every ID before this one.
+
+			RANGE1:
+				START(3) || END(3)
+
+				START = First inclusive ACK-ID in a range to acknowledge.
+				END = Final inclusive ACK-ID in a range to acknowledge.
+
+			Negative acknowledgment can be inferred from the holes in the RANGEs.
+	*/
 }

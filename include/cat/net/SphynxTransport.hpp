@@ -218,6 +218,10 @@ protected:
 	// Receive state: Next expected ack id to receive
 	u32 _next_recv_expected_id[NUM_STREAMS];
 
+	// Receive state: Synchronization objects
+	volatile bool _got_reliable[NUM_STREAMS];
+	Mutex _recv_lock; // Just needs to protect writes OnDatagram() from messing up reads on tick
+
 	// Receive state: Fragmentation
 	u8 *_fragment_buffer[NUM_STREAMS]; // Buffer for accumulating fragment
 	u32 _fragment_offset[NUM_STREAMS]; // Current write offset in buffer
@@ -232,6 +236,7 @@ protected:
 		static const u32 FRAG_FLAG = 0x80000000;
 		static const u32 BYTE_MASK = 0x7fffffff;
 
+		RecvQueue *prev;	// Previous in queue
 		RecvQueue *next;	// Next in queue
 		u32 id;				// Acknowledgment id
 		u32 bytes;			// High bit: Fragment?
@@ -240,10 +245,11 @@ protected:
 	};
 
 	// Receive state: Receive queue head
-	RecvQueue *_recv_queue_head[NUM_STREAMS]; // Head of queue for messages that are waiting on a lost message
+	RecvQueue *_recv_queue_head[NUM_STREAMS], *_recv_queue_tail[NUM_STREAMS];
 
-protected:
-	void QueueRecv(u8 *data, u32 bytes, u32 ack_id, bool frag);
+private:
+	void RunQueue(u32 ack_id, u32 stream);
+	void QueueRecv(u8 *data, u32 bytes, u32 ack_id, u32 stream, bool frag);
 
 protected:
 	// Send state: Synchronization objects
