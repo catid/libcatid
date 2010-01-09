@@ -55,90 +55,64 @@ namespace sphynx {
 		--- Message Header  (16 bits) ---
 		 0 1 2 3 4 5 6 7 8 9 a b c d e f
 		<-- LSB ----------------- MSB -->
-		|   DATA_BYTES(11)    |STM|F|I|D|
+		|   DATA_BYTES(11)    |I|R| SOP |
 		---------------------------------
 
 		DATA_BYTES: Number of bytes in data part of message.
-		STM: 0=Unordered stream, 1-3: Ordered streams.
-		F: 1=Fragmented when STM=1-3 or Unreliable when STM=0. 0=Not fragmented.
-		I: 1=Followed by ACK-ID.
-		D: 1=Data, 0=ACK.
+		I: 1=Followed by ACK-ID field.
+		R: 1=Reliable. 0=Unreliable.
+		SOP: Super opcodes:
+			0=Data (reliable or unreliable)
+			1=Fragment (reliable)
+			2=ACK (unreliable)
+			3=MTU Probe (unreliable)
+			4=MTU Set (unordered reliable)
+			5=Time Ping (unreliable)
+			6=Time Pong (unreliable)
+			7=Disconnect (unreliable)
 
-		Message meanings in no particular order:
+			When the I bit is set, the data part is preceded by an ACK-ID,
+			which is then applied to all following reliable messages.
+			This additional size is NOT accounted for in the DATA_BYTES field.
 
-		 0 : Unreliable message
-			F = 1, I = x, STM = 0, D=1 (x = don't care)
-		 1 : Unordered stream 0 unfragmented message without ACKID
-			F = 0, I = 0, STM = 0, D=1
-		 2 : Unordered stream 0 unfragmented message with ACKID
-			F = 0, I = 1, STM = 0, D=1
-		 3 : Unordered stream 0 acknowledgment
-			F = x, I = x, STM = 0, D=0 (x = don't care)
-		 4 : Stream 1 unfragmented message without ACKID
-			F = 0, I = 0, STM = 1, D=1
-		 5 : Stream 1 unfragmented message with ACKID
-			F = 0, I = 1, STM = 1, D=1
-		 6 : Stream 1 fragmented message without ACKID
-			F = 1, I = 0, STM = 1, D=1
-		 7 : Stream 1 fragmented message with ACKID
-			F = 1, I = 1, STM = 1, D=1
-		 8 : Stream 1 acknowledgment
-			F = x, I = x, STM = 1, D=0 (x = don't care)
-		 9 : Stream 2 unfragmented message without ACKID
-			F = 0, I = 0, STM = 2, D=1
-		10 : Stream 2 unfragmented message with ACKID
-			F = 0, I = 1, STM = 2, D=1
-		11 : Stream 2 fragmented message without ACKID
-			F = 1, I = 0, STM = 2, D=1
-		12 : Stream 2 fragmented message with ACKID
-			F = 1, I = 1, STM = 2, D=1
-		13 : Stream 2 acknowledgment
-			F = x, I = x, STM = 2, D=0 (x = don't care)
-		14 : Stream 3 unfragmented message without ACKID
-			F = 0, I = 0, STM = 3, D=1
-		15 : Stream 3 unfragmented message with ACKID
-			F = 0, I = 1, STM = 3, D=1
-		16 : Stream 3 fragmented message without ACKID
-			F = 1, I = 0, STM = 3, D=1
-		17 : Stream 3 fragmented message with ACKID
-			F = 1, I = 1, STM = 3, D=1
-		18 : Stream 3 acknowledgment
-			F = x, I = x, STM = 3, D=0 (x = don't care)
-		19-31 : Undefined (contained in the don't care cases above)
+			When the FRAG opcode used for the first time in an ordered stream,
+			the data part begins with a 16-bit Fragment Header.
+			This additional size IS accounted for in the DATA_BYTES field.
 
-		When the I bit is set, the data part is preceded by a 24-bit ACK-ID,
-		which is then applied to all following reliable messages.
-		This additional size is NOT accounted for in the DATA_BYTES field.
+		------------------- ACK-ID Field (32 bits) ----------------------
+		 0 1 2 3 4 5 6 7 8 9 a b c d e f 0 1 2 3 4 5 6 7 8 9 a b c d e f
+		<-- LSB ------------------------------------------------- MSB -->
+		| S | IDA (5) |C|   IDB (7)   |C|  IDC (7)    |C|    IDD (8)    |
+		-----------------------------------------------------------------
 
-		When the F bit is set for the first time in an ordered stream,
-		the data part begins with a 16-bit Total Message Length.
-		This additional size IS accounted for in the DATA_BYTES field.
+		C: Continues to next byte
+		S: 0=Unordered stream, 1-3: Ordered streams.
+		ID: IDD | IDC | IDB | IDA
+
+		--- Fragment Header (16 bits) ---
+		 0 1 2 3 4 5 6 7 8 9 a b c d e f
+		<-- LSB ----------------- MSB -->
+		|        TOTAL_BYTES(16)        |
+		---------------------------------
+
+		TOTAL_BYTES: Total bytes in data part of fragmented message, not including this header.
 */
 
 /*
 	ACK message format:
 
-	HDR(2) || DATA
+	Header: I=0, R=0, T=2
+	Data: ROLLUP(3) || RANGE1 || RANGE2 || ...
 
-	HDR:
-		DATA_BYTES just includes DATA part
-		STM = stream number
-		F = 0
-		I = 0
-		D = 0
+	ROLLUP = Next expected ACK-ID.  Acknowledges every ID before this one.
 
-	DATA:
-		ROLLUP(3) || RANGE1 || RANGE2 || ...
+	RANGE1:
+		START(3) || END(3)
 
-		ROLLUP = Next expected ACK-ID.  Acknowledges every ID before this one.
+		START = First inclusive ACK-ID in a range to acknowledge.
+		END = Final inclusive ACK-ID in a range to acknowledge.
 
-		RANGE1:
-			START(3) || END(3)
-
-			START = First inclusive ACK-ID in a range to acknowledge.
-			END = Final inclusive ACK-ID in a range to acknowledge.
-
-		Negative acknowledgment can be inferred from the holes in the RANGEs.
+	Negative acknowledgment can be inferred from the holes in the RANGEs.
 */
 
 
@@ -167,8 +141,8 @@ static const int COLLISION_MULTIPLIER = 71*5861 * 4 + 1;
 static const int COLLISION_INCREMENTER = 1013904223;
 
 
-// Handshake packet types
-enum HandshakeTypes
+// Handshake types
+enum HandshakeType
 {
 	C2S_HELLO,
 	S2C_COOKIE,
@@ -177,8 +151,8 @@ enum HandshakeTypes
 	S2C_ERROR
 };
 
-// Message opcodes
-enum HandshakeErrors
+// Handshake errors
+enum HandshakeError
 {
 	ERR_SERVER_FULL
 };
@@ -192,6 +166,19 @@ enum StreamMode
 	STREAM_3 = 3			// Reliable, ordered stream 3
 };
 
+// Super Opcodes
+enum SuperOpcode
+{
+	SOP_DATA,			// 0=Data (reliable or unreliable)
+	SOP_FRAG,			// 1=Fragment (reliable)
+	SOP_ACK,			// 2=ACK (unreliable)
+	SOP_MTU_PROBE,		// 3=MTU Probe (unreliable)
+	SOP_MTU_SET,		// 4=MTU Set (unordered reliable)
+	SOP_TIME_PING,		// 5=Time Ping (unreliable)
+	SOP_TIME_PONG,		// 6=Time Pong (unreliable)
+	SOP_DISCO,			// 7=Disconnect (unreliable)
+};
+
 
 //// sphynx::Transport
 
@@ -199,11 +186,10 @@ class Transport
 {
 protected:
 	static const u16 DATALEN_MASK = 0x7ff;
-	static const u16 F_MASK = 1 << 13;
-	static const u16 I_MASK = 1 << 14;
-	static const u16 D_MASK = 1 << 15;
-	static const u16 STM_MASK = 3 << 11;
-	static const u32 STM_OFFSET = 11;
+	static const u16 I_MASK = 1 << 11;
+	static const u16 R_MASK = 1 << 12;
+	static const u16 SOP_MASK = 7 << 13;
+	static const u16 SOP_SHIFT = 13;
 
 	static const u32 NUM_STREAMS = 4; // Number of reliable streams
 
@@ -227,6 +213,7 @@ protected:
 
 	// Maximum transfer unit (MTU) in UDP payload bytes, excluding the IP and UDP headers and encryption overhead
 	u32 _max_payload_bytes;
+	u32 _rtt;
 
 public:
 	void InitializePayloadBytes(bool ip6);
@@ -266,7 +253,7 @@ protected:
 
 private:
 	void RunQueue(u32 ack_id, u32 stream);
-	void QueueRecv(u8 *data, u32 bytes, u32 ack_id, u32 stream, bool frag);
+	void QueueRecv(u8 *data, u32 bytes, u32 ack_id, u32 stream, u32 super_opcode);
 
 protected:
 	// Send state: Synchronization objects
@@ -288,7 +275,8 @@ protected:
 		u32 id; // Acknowledgment id, or number of sent bytes while fragmenting a large message
 		u32 bytes; // Data bytes
 		u32 offset; // Fragment data offset: If offset < bytes, then it is a SendFrag object
-		u32 timestamp; // Timestamp when it was sent
+		u32 ts_firstsend; // Timestamp when it was sent
+		u32 ts_lastsend; // Timestamp when it was last sent
 
 		// Message contents follow
 	};
@@ -304,6 +292,11 @@ protected:
 	// List of messages that are waiting to be acknowledged
 	SendQueue *_sent_list_head[NUM_STREAMS], *_sent_list_tail[NUM_STREAMS];
 
+private:
+	void Retransmit(SendQueue *node);
+	void OnACK(u8 *data, u32 data_bytes);
+	void OnMTUSet(u8 *data, u32 data_bytes);
+
 public:
 	Transport();
 	virtual ~Transport();
@@ -312,8 +305,8 @@ public:
 
 public:
 	void BeginWrite();
-	u8 *GetUnreliableBuffer(u32 data_bytes);
-	u8 *GetReliableBuffer(StreamMode, u32 data_bytes);
+	bool WriteUnreliable(u8 *msg, u32 bytes);
+	bool WriteReliable(StreamMode, u8 *msg, u32 bytes, SuperOpcode super_opcode = SOP_DATA);
 	void EndWrite();
 
 protected:
@@ -325,9 +318,15 @@ private:
 	void CombineNextWrite();
 
 protected:
-	virtual void OnMessage(u8 *msg, u32 bytes) = 0;
 	virtual bool PostPacket(u8 *data, u32 buf_bytes, u32 msg_bytes) = 0;
 	virtual void OnTimestampDeltaUpdate(u32 rtt, s32 delta) {}
+	virtual void OnMessage(u8 *msg, u32 bytes) = 0;
+	virtual void OnDisconnect() = 0;
+
+protected:
+	bool PostMTUProbe(ThreadPoolLocalStorage *tls, u16 payload_bytes);
+	bool PostTimePing();
+	bool PostTimePong(u32 client_ts);
 };
 
 
