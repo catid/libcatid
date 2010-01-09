@@ -442,8 +442,7 @@ bool Client::ThreadFunction(void *)
 		// If it is time for time synch,
 		if ((s32)(now - next_synch_time) >= 0)
 		{
-			u8 time_sync_request[5];
-			WriteBuffer(MODE_UNRELIABLE, 
+			PostTimePing();
 
 			// Increase synch interval after the first 8 data points
 			if (synch_attempts >= 8)
@@ -468,7 +467,7 @@ bool Client::ThreadFunction(void *)
 					mtu_discovery_attempts = 0;
 
 					// On final attempt set DF=0
-					DontFragment(true);
+					DontFragment(false);
 				}
 				else
 				{
@@ -491,7 +490,7 @@ bool Client::ThreadFunction(void *)
 						mtu_discovery_attempts = 0;
 
 						// On final attempt set DF=0
-						DontFragment(true);
+						DontFragment(false);
 					}
 				}
 			}
@@ -504,23 +503,6 @@ bool Client::ThreadFunction(void *)
 void Client::OnMessage(u8 *msg, u32 bytes)
 {
 	INFO("Client") << "Got message with " << bytes << " bytes";
-
-	if (bytes < 1)
-	{
-		switch (msg[0])
-		{
-		case OP_MTU_CHANGE:
-			if (bytes == 3)
-			{
-				u16 payload_bytes = getLE(*reinterpret_cast<u16*>( msg + 1 ));
-
-				// Accept the new payload bytes if the MTU improves
-				if (_max_payload_bytes < payload_bytes)
-					_max_payload_bytes = payload_bytes;
-			}
-			break;
-		}
-	}
 }
 
 bool Client::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes)
@@ -534,119 +516,3 @@ bool Client::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes)
 
 	return Post(_server_addr, buffer, msg_bytes);
 }
-
-
-
-
-/*
-	case SOP_MTU_PROBE:		// MTU probe packet (unreliable)
-		if (data_bytes + 2 > _max_payload_bytes)
-		{
-			u16 payload_bytes = data_bytes + 2;
-
-			// Write MTU Update message
-			u16 *out_data = reinterpret_cast<u16*>( GetReliableBuffer(2, SOP_MTU_UPDATE) );
-			if (out_data) *out_data = getLE(payload_bytes);
-			_max_payload_bytes = payload_bytes;
-		}
-		break;
-
-	case SOP_MTU_UPDATE:	// MTU update (reliable)
-		if (data_bytes == 2)
-		{
-			u16 max_payload_bytes = getLE(*reinterpret_cast<u16*>( data ));
-
-			// Accept the new max payload bytes if it is larger
-			if (_max_payload_bytes < max_payload_bytes)
-				_max_payload_bytes = max_payload_bytes;
-		}
-		break;
-
-	case SOP_TIME_PING:		// Time synchronization ping (unreliable)
-		if (data_bytes == 4)
-		{
-			// Parameter is endian-agnostic
-			PostTimePong(*reinterpret_cast<u32*>( data ));
-		}
-		break;
-
-	case SOP_TIME_PONG:		// Time synchronization pong (unreliable)
-		if (data_bytes == 8)
-		{
-			u32 client_now = Clock::msec();
-
-			u32 *ts = reinterpret_cast<u32*>( data );
-			u32 client_ts = getLE(ts[0]);
-			u32 server_ts = getLE(ts[1]);
-
-			u32 rtt = client_now - client_ts;
-
-			// If RTT is not impossible,
-			if (rtt < TIMEOUT_DISCONNECT)
-			{
-				s32 delta = (server_ts - (rtt >> 1)) - client_ts;
-
-				OnTimestampDeltaUpdate(rtt, delta);
-			}
-		}
-		break;
-*/
-
-
-
-/*
-bool Transport::PostMTUProbe(ThreadPoolLocalStorage *tls, u32 payload_bytes)
-{
-	if (payload_bytes < MINIMUM_MTU - IPV6_HEADER_BYTES - UDP_HEADER_BYTES)
-		return false;
-
-	u32 buffer_bytes = payload_bytes + AuthenticatedEncryption::OVERHEAD_BYTES;
-
-	u8 *buffer = GetPostBuffer(buffer_bytes);
-	if (!buffer) return false;
-
-	// Write header
-	*reinterpret_cast<u16*>( buffer ) = getLE16((payload_bytes - 2) | (SOP_MTU_PROBE << 13));
-
-	// Fill contents with random data
-	tls->csprng->Generate(buffer + 2, payload_bytes - 2);
-
-	// Encrypt and send buffer
-	return PostPacket(buffer, buffer_bytes, payload_bytes);
-}
-
-bool Transport::PostTimePing()
-{
-	const u32 DATA_BYTES = 4;
-	const u32 PAYLOAD_BYTES = 2 + DATA_BYTES;
-	const u32 BUFFER_BYTES = PAYLOAD_BYTES + AuthenticatedEncryption::OVERHEAD_BYTES;
-
-	u8 *buffer = GetPostBuffer(BUFFER_BYTES);
-	if (!buffer) return false;
-
-	// Write Time Ping
-	*reinterpret_cast<u16*>( buffer ) = getLE16(DATA_BYTES | (SOP_TIME_PING << 13));
-	*reinterpret_cast<u32*>( buffer + 2 ) = getLE32(Clock::msec());
-
-	// Encrypt and send buffer
-	return PostPacket(buffer, BUFFER_BYTES, PAYLOAD_BYTES);
-}
-
-bool Transport::PostTimePong(u32 client_ts)
-{
-	const u32 DATA_BYTES = 8;
-	const u32 PAYLOAD_BYTES = 2 + DATA_BYTES;
-	const u32 BUFFER_BYTES = PAYLOAD_BYTES + AuthenticatedEncryption::OVERHEAD_BYTES;
-
-	u8 *buffer = GetPostBuffer(BUFFER_BYTES);
-	if (!buffer) return false;
-
-	// Write Time Pong
-	*reinterpret_cast<u16*>( buffer ) = getLE16(DATA_BYTES | (SOP_TIME_PONG << 13));
-	*reinterpret_cast<u32*>( buffer + 2 ) = client_ts;
-	*reinterpret_cast<u32*>( buffer + 6 ) = getLE32(Clock::msec());
-
-	// Encrypt and send buffer
-	return PostPacket(buffer, BUFFER_BYTES, PAYLOAD_BYTES);
-}
-*/
