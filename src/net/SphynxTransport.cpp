@@ -49,8 +49,6 @@ Transport::Transport()
 	CAT_OBJCLR(_recv_queue_tail);
 
 	// Send state
-	_writer_count = 0;
-
 	CAT_OBJCLR(_next_send_id);
 
 	_send_buffer = 0;
@@ -117,8 +115,6 @@ void Transport::InitializePayloadBytes(bool ip6)
 
 void Transport::OnDatagram(u8 *data, u32 bytes)
 {
-	BeginWrite();
-
 	u32 ack_id = 0;
 	u32 stream = 0;
 
@@ -318,18 +314,20 @@ void Transport::OnDatagram(u8 *data, u32 bytes)
 		data += data_bytes;
 	}
 
-	EndWrite();
+	FlushWrite();
 }
 
 void Transport::RunQueue(u32 ack_id, u32 stream)
 {
-	// Cache node and ack_id on stack
 	RecvQueue *node = _recv_queue_head[stream];
+
+	if (!node || node->id != ++ack_id)
+		return;
+
 	RecvQueue *kill_node = node;
-	++ack_id;
 
 	// For each queued message that is now ready to go,
-	while (node && node->id == ack_id)
+	do
 	{
 		// Grab the queued message
 		u32 old_data_bytes = node->bytes & RecvQueue::BYTE_MASK;
@@ -351,7 +349,7 @@ void Transport::RunQueue(u32 ack_id, u32 stream)
 		// And proceed on to next message
 		++ack_id;
 		node = node->next;
-	}
+	} while (node && node->id == ack_id);
 
 	_recv_lock.Enter();
 
@@ -523,13 +521,7 @@ void Transport::OnFragment(u8 *data, u32 bytes)
 	}
 }
 
-void Transport::BeginWrite()
-{
-	// Atomically increment writer count
-	Atomic::Add(&_writer_count, 1);
-}
-
-bool WriteUnreliable(u8 *msg, u32 bytes)
+bool Transport::WriteUnreliable(u8 *data, u32 data_bytes)
 {
 	u32 max_payload_bytes = _max_payload_bytes;
 	u32 msg_bytes = 2 + data_bytes;
@@ -557,7 +549,7 @@ bool WriteUnreliable(u8 *msg, u32 bytes)
 			return 0;
 		}
 
-		*reinterpret_cast<u16*>( msg_buffer ) = getLE(header);
+		*reinterpret_cast<u16*>( msg_buffer ) = getLE16(data_bytes | (SOP_DATA << SOP_SHIFT));
 
 		_send_buffer = msg_buffer;
 		_send_buffer_bytes = msg_bytes;
@@ -584,7 +576,7 @@ bool WriteUnreliable(u8 *msg, u32 bytes)
 
 		u8 *msg_buffer = _send_buffer + send_buffer_bytes;
 
-		*reinterpret_cast<u16*>( msg_buffer ) = getLE(header);
+		*reinterpret_cast<u16*>( msg_buffer ) = getLE16(data_bytes | (SOP_DATA << SOP_SHIFT));
 
 		_send_buffer_bytes = send_buffer_bytes + msg_bytes;
 
@@ -594,18 +586,18 @@ bool WriteUnreliable(u8 *msg, u32 bytes)
 
 bool WriteReliable(StreamMode, u8 *msg, u32 bytes, SuperOpcode super_opcode)
 {
-
+	// TODO: Rewrite
 }
 
-u8 *Transport::GetUnreliableBuffer(u32 data_bytes)
+void FlushWrite()
 {
-	u32 header = data_bytes | F_MASK | D_MASK;
-
-	return GetUnreliableRawBuffer((u16)header, data_bytes);
+	// TODO: Rewrite
 }
 
 u8 *Transport::GetReliableBuffer(StreamMode stream, u32 data_bytes)
 {
+	// TODO: Rewrite
+
 	// Fail on invalid input
 	if (stream == STREAM_UNORDERED)
 	{
@@ -656,6 +648,8 @@ u8 *Transport::GetReliableBuffer(StreamMode stream, u32 data_bytes)
 
 void Transport::EndWrite()
 {
+	// TODO: Rewrite
+
 	// If this is the last writer,
 	if (Atomic::Add(&_writer_count, -1) == 1)
 	{
@@ -848,6 +842,8 @@ void Transport::EndWrite()
 
 void Transport::Retransmit(SendQueue *node)
 {
+	// TODO: Rewrite
+
 	u32 max_payload_bytes = _max_payload_bytes;
 	u32 msg_bytes = 2 + data_bytes;
 
@@ -857,8 +853,6 @@ void Transport::Retransmit(SendQueue *node)
 		WARN("Transport") << "Invalid input: Unreliable buffer size request too large";
 		return 0;
 	}
-
-	AutoMutex lock(_send_lock);
 
 	u32 send_buffer_bytes = _send_buffer_bytes;
 
@@ -878,8 +872,6 @@ void Transport::Retransmit(SendQueue *node)
 
 		_send_buffer = msg_buffer;
 		_send_buffer_bytes = msg_bytes;
-
-		lock.Release();
 
 		if (!PostPacket(old_send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes))
 		{
@@ -909,19 +901,93 @@ void Transport::Retransmit(SendQueue *node)
 	}
 }
 
-void Transport::TickTransport(ThreadPoolLocalStorage *tls, u32 now)
+void Transport::WriteACK()
 {
+	// TODO: Rewrite
+
 	u8 ack_packet[MAXIMUM_MTU];
 	u32 packet_used = 0;
 	u32 max_payload_bytes = _max_payload_bytes;
 
-	BeginWrite();
+	u8 *msg = &ack_packet[3];
+
+	_recv_lock.Enter();
+
+	u32 rollup = _next_recv_expected_id[stream];
+	ack_packet[0] = (u8)(rollup >> 16);
+	ack_packet[1] = (u8)((u16)rollup >> 8);
+	ack_packet[2] = (u8)rollup;
+	packet_used = 3;
+
+	RecvQueue *node = _recv_queue_head[stream];
+	if (!node)
+		_recv_lock.Leave();
+	else
+	{
+		u32 range_start = node->id;
+		u32 range_end = node->id;
+		node = node->next;
+
+		while (node)
+		{
+			u32 id = node->id;
+
+			if (id == range_end + 1)
+			{
+				range_end = id;
+			}
+			else
+			{
+				if (2 + packet_used + 6 > max_payload_bytes)
+					break;
+
+				// Inside range
+				msg[0] = (u8)(range_start >> 16);
+				msg[1] = (u8)((u16)range_start >> 8);
+				msg[2] = (u8)range_start;
+				msg[3] = (u8)(range_end >> 16);
+				msg[4] = (u8)((u16)range_end >> 8);
+				msg[5] = (u8)range_end;
+				packet_used += 6;
+
+				range_start = id;
+				range_end = id;
+			}
+
+			node = node->next;
+		}
+
+		_recv_lock.Leave();
+
+		if (2 + packet_used + 6 <= max_payload_bytes)
+		{
+			// Final range
+			msg[0] = (u8)(range_start >> 16);
+			msg[1] = (u8)((u16)range_start >> 8);
+			msg[2] = (u8)range_start;
+			packet_used += 3;
+			if (range_start == range_end)
+			{
+				msg[3] = (u8)(range_end >> 16);
+				msg[4] = (u8)((u16)range_end >> 8);
+				msg[5] = (u8)range_end;
+				packet_used += 3;
+			}
+		}
+	}
+
+	u8 *ack_msg = GetUnreliableRawBuffer((u16)(packet_used | (stream << STM_OFFSET)), packet_used);
+
+	memcpy(ack_msg, msg, packet_used);
+}
+
+void Transport::TickTransport(ThreadPoolLocalStorage *tls, u32 now)
+{
+	_send_lock.Enter();
 
 	// Retransmit lost packets
 	for (int stream = 0; stream < NUM_STREAMS; ++stream)
 	{
-		_send_lock.Enter();
-
 		SendQueue *node = _sent_list_head[stream];
 
 		// For each sendqueue node that might be ready for a retransmission,
@@ -929,92 +995,23 @@ void Transport::TickTransport(ThreadPoolLocalStorage *tls, u32 now)
 		{
 			// If this node actually needs to be resent,
 			if ((now - node->ts_lastsend) >= 4 * _rtt)
-			{
-			}
+				Retransmit(node);
 		}
-
-		_send_lock.Leave();
 	}
+
+	_send_lock.Leave();
 
 	// Acknowledge recent reliable packets
 	for (int stream = 0; stream < NUM_STREAMS; ++stream)
 	{
 		if (_got_reliable[stream])
 		{
-			u8 *msg = &ack_packet[3];
-
-			_recv_lock.Enter();
-
-			u32 rollup = _next_recv_expected_id[stream];
-			ack_packet[0] = (u8)(rollup >> 16);
-			ack_packet[1] = (u8)((u16)rollup >> 8);
-			ack_packet[2] = (u8)rollup;
-			packet_used = 3;
-
-			RecvQueue *node = _recv_queue_head[stream];
-			if (!node)
-				_recv_lock.Leave();
-			else
-			{
-				u32 range_start = node->id;
-				u32 range_end = node->id;
-				node = node->next;
-
-				while (node)
-				{
-					u32 id = node->id;
-
-					if (id == range_end + 1)
-					{
-						range_end = id;
-					}
-					else
-					{
-						if (2 + packet_used + 6 > max_payload_bytes)
-							break;
-
-						// Inside range
-						msg[0] = (u8)(range_start >> 16);
-						msg[1] = (u8)((u16)range_start >> 8);
-						msg[2] = (u8)range_start;
-						msg[3] = (u8)(range_end >> 16);
-						msg[4] = (u8)((u16)range_end >> 8);
-						msg[5] = (u8)range_end;
-						packet_used += 6;
-
-						range_start = id;
-						range_end = id;
-					}
-
-					node = node->next;
-				}
-
-				_recv_lock.Leave();
-
-				if (2 + packet_used + 6 <= max_payload_bytes)
-				{
-					// Final range
-					msg[0] = (u8)(range_start >> 16);
-					msg[1] = (u8)((u16)range_start >> 8);
-					msg[2] = (u8)range_start;
-					packet_used += 3;
-					if (range_start == range_end)
-					{
-						msg[3] = (u8)(range_end >> 16);
-						msg[4] = (u8)((u16)range_end >> 8);
-						msg[5] = (u8)range_end;
-						packet_used += 3;
-					}
-				}
-			}
-
-			u8 *ack_msg = GetUnreliableRawBuffer((u16)(packet_used | (stream << STM_OFFSET)), packet_used);
-
-			memcpy(ack_msg, msg, packet_used);
+			WriteACK();
+			break;
 		}
 	}
 
-	EndWrite();
+	FlushWrite();
 }
 
 void Transport::OnMTUSet(u8 *data, u32 data_bytes)
@@ -1087,4 +1084,259 @@ bool Transport::PostTimePong(u32 client_ts)
 
 	// Encrypt and send buffer
 	return PostPacket(buffer, BUFFER_BYTES, PAYLOAD_BYTES);
+}
+
+void Transport::OnACK(u8 *data, u32 data_bytes)
+{
+	u32 stream = NUM_STREAMS, last_ack_id = 0;
+	SendQueue *node = 0, *kill_list = 0;
+	u32 now = Clock::msec();
+
+	AutoMutex lock(_send_lock);
+
+	while (data_bytes > 0)
+	{
+		u8 ida = *data++;
+		--data_bytes;
+
+		// If field is ROLLUP,
+		if (ida & 1)
+		{
+			if (data_bytes >= 2)
+			{
+				u8 idb = data[0];
+				u8 idc = data[1];
+				data += 2;
+				data_bytes -= 2;
+
+				// Retransmit lost packets
+				if (stream < NUM_STREAMS)
+				{
+					// Just saw the end of a stream's ACK list.
+					// We can now detect losses: Any node that is under
+					// last_ack_id that still remains in the sent list
+					// is probably lost.
+					// TODO: Check if it causes too many retransmissions
+
+					SendQueue *rnode = _sent_list_head[stream];
+
+					while ((s32)(last_ack_id - rnode->id) > 0)
+					{
+						if (now - rnode->ts_lastsend > _rtt)
+							Retransmit(rnode);
+
+						rnode = rnode->next;
+						if (!rnode) break;
+					}
+				}
+
+				stream = (ida >> 1) & 3;
+				u32 ack_id = ((u32)idc << 13) | ((u16)idb << 5) | (ida >> 3);
+
+				node = _sent_list_head[stream];
+
+				if (node)
+				{
+					ack_id = ReconstructCounter<21>(node->id, ack_id);
+					last_ack_id = ack_id;
+
+					// If the id got rolled,
+					if ((s32)(ack_id - node->id) >= 0)
+					{
+						// For each rolled node,
+						do
+						{
+							SendQueue *next = node->next;
+
+							// If this node is just a fragment of a larger message,
+							if (node->frag_count)
+							{
+								SendQueue *full_data_node = (reinterpret_cast<SendFrag*>( node ))->full_data;
+								u16 frag_count = full_data_node->frag_count;
+
+								// Release the larger message after all fragments are released
+								if (frag_count == 1)
+								{
+									// Insert into kill list
+									full_data_node->next = kill_list;
+									kill_list = full_data_node;
+								}
+								else
+									full_data_node->frag_count = frag_count - 1;
+							}
+
+							// Insert into kill list
+							node->next = kill_list;
+							kill_list = node;
+
+							node = next;
+						} while (node && (s32)(++ack_id - node->id) >= 0);
+
+						// Update list
+						if (node) node->prev = 0;
+						else _sent_list_tail[stream] = 0;
+						_sent_list_head[stream] = node;
+					}
+				}
+			}
+			else
+			{
+				WARN("Transport") << "Truncated ACK ignored(1)";
+				break;
+			}
+		}
+		else // Field is RANGE
+		{
+			// Parse START:
+			bool has_end = (ida & 2) != 0;
+			u32 start_ack_id = last_ack_id + ((ida >> 2) & 31);
+
+			if (ida & 0x80)
+			{
+				if (data_bytes >= 1)
+				{
+					u8 idb = *data++;
+					--data_bytes;
+
+					start_ack_id += (u16)(idb & 0x7f) << 5;
+
+					if (idb & 0x80)
+					{
+						if (data_bytes >= 1)
+						{
+							u8 idc = *data++;
+							--data_bytes;
+
+							start_ack_id += (u32)idc << 12;
+						}
+						else
+						{
+							WARN("Transport") << "Truncated ACK ignored(2)";
+							break;
+						}
+					}
+				}
+				else
+				{
+					WARN("Transport") << "Truncated ACK ignored(3)";
+					break;
+				}
+			}
+
+			// Parse END:
+			u32 end_ack_id = start_ack_id;
+
+			if (has_end)
+			{
+				if (data_bytes >= 1)
+				{
+					u8 ida1 = *data++;
+					--data_bytes;
+
+					end_ack_id += ida1 & 0x7f;
+
+					if (ida1 & 0x80)
+					{
+						if (data_bytes >= 1)
+						{
+							u8 idb = *data++;
+							--data_bytes;
+
+							end_ack_id += (u16)(idb & 0x7f) << 7;
+
+							if (idb & 0x80)
+							{
+								if (data_bytes >= 1)
+								{
+									u8 idc = *data++;
+									--data_bytes;
+
+									end_ack_id += (u32)idc << 14;
+								}
+								else
+								{
+									WARN("Transport") << "Truncated ACK ignored(4)";
+									break;
+								}
+							}
+						}
+						else
+						{
+							WARN("Transport") << "Truncated ACK ignored(5)";
+							break;
+						}
+					}
+				}
+				else
+				{
+					WARN("Transport") << "Truncated ACK ignored(6)";
+					break;
+				}
+			}
+
+			// Handle range:
+			if (node)
+			{
+				u32 ack_id = node->id;
+
+				// Skip through sent list under range start
+				while ((s32)(ack_id - start_ack_id) < 0)
+				{
+					node = node->next;
+					if (!node) break;
+					ack_id = node->id;
+				}
+
+				// Remaining nodes are in or over the range
+				if (node && (s32)(end_ack_id - ack_id) >= 0)
+				{
+					SendQueue *prev = node->prev;
+
+					// While nodes are in range,
+					do 
+					{
+						SendQueue *next = node->next;
+
+						// Insert into kill list
+						node->next = kill_list;
+						kill_list = node;
+
+						node = next;
+						if (!node) break;
+						ack_id = node->id;
+					} while ((s32)(end_ack_id - ack_id) >= 0);
+
+					// Remove killed from sent list
+					if (prev) prev->next = node;
+					else _sent_list_head[stream] = node;
+					if (!node) _sent_list_tail[stream] = prev;
+				}
+			}
+		}
+	}
+
+	// Retransmit lost packets
+	if (stream < NUM_STREAMS)
+	{
+		SendQueue *rnode = _sent_list_head[stream];
+
+		while ((s32)(last_ack_id - rnode->id) > 0)
+		{
+			if (now - rnode->ts_lastsend > _rtt)
+				Retransmit(rnode);
+
+			rnode = rnode->next;
+			if (!rnode) break;
+		}
+	}
+
+	lock.Release();
+
+	// Release kill list after lock is released
+	while (kill_list)
+	{
+		SendQueue *next = kill_list->next;
+		RegionAllocator::ii->Release(kill_list);
+		kill_list = next;
+	}
 }

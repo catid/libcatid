@@ -85,7 +85,7 @@ namespace sphynx {
 		| S | IDA (5) |C|   IDB (7)   |C|  IDC (7)    |C|    IDD (8)    |
 		-----------------------------------------------------------------
 
-		C: Continues to next byte
+		C: 1=Continues to next byte.
 		S: 0=Unordered stream, 1-3: Ordered streams.
 		ID: IDD | IDC | IDB | IDA
 
@@ -101,18 +101,50 @@ namespace sphynx {
 /*
 	ACK message format:
 
-	Header: I=0, R=0, T=2
-	Data: ROLLUP(3) || RANGE1 || RANGE2 || ...
+	Header: I=0, R=0, SOP=SOP_ACK
+	Data: ROLLUP(3) || RANGE1 || RANGE2 || ... ROLLUP(3) || RANGE1 || RANGE2 || ...
 
 	ROLLUP = Next expected ACK-ID.  Acknowledges every ID before this one.
 
 	RANGE1:
-		START(3) || END(3)
+		START || END
 
 		START = First inclusive ACK-ID in a range to acknowledge.
 		END = Final inclusive ACK-ID in a range to acknowledge.
 
 	Negative acknowledgment can be inferred from the holes in the RANGEs.
+
+	------------ ROLLUP Field (24 bits) -------------
+	 0 1 2 3 4 5 6 7 8 9 a b c d e f 0 1 2 3 4 5 6 7 
+	<-- LSB --------------------------------- MSB -->
+	|1| S | IDA (5) |    IDB (8)    |    IDC (8)    |
+	-------------------------------------------------
+
+	1: Indicates start of ROLLUP field.
+	S: 0=Unordered stream, 1-3: Ordered streams.
+	ID: IDC | IDB | IDA (21 bits)
+
+	ROLLUP is always 3 bytes since we cannot tell how far ahead the remote host is now.
+
+	--------- RANGE START Field (24 bits) -----------
+	 0 1 2 3 4 5 6 7 8 9 a b c d e f 0 1 2 3 4 5 6 7 
+	<-- LSB --------------------------------- MSB -->
+	|0|E| IDA (5) |C|   IDB (7)   |C|    IDC (8)    |
+	-------------------------------------------------
+
+	0: Indicates start of RANGE field.
+	C: 1=Continues to next byte.
+	E: 1=Has end field. 0=One ID in range.
+	ID: IDC | IDB | IDA (20 bits) + last ack id in message
+
+	---------- RANGE END Field (24 bits) ------------
+	 0 1 2 3 4 5 6 7 8 9 a b c d e f 0 1 2 3 4 5 6 7 
+	<-- LSB --------------------------------- MSB -->
+	|   IDA (7)   |C|   IDB (7)   |C|    IDC (8)    |
+	-------------------------------------------------
+
+	C: 1=Continues to next byte.
+	ID: IDC | IDB | IDA (22 bits) + START.ID
 */
 
 
@@ -211,6 +243,7 @@ protected:
 
 	static const u32 MAX_MESSAGE_DATALEN = 65535; // Maximum number of bytes in the data part of a message
 
+protected:
 	// Maximum transfer unit (MTU) in UDP payload bytes, excluding the IP and UDP headers and encryption overhead
 	u32 _max_payload_bytes;
 	u32 _rtt;
@@ -228,8 +261,8 @@ protected:
 
 	// Receive state: Fragmentation
 	u8 *_fragment_buffer[NUM_STREAMS]; // Buffer for accumulating fragment
-	u32 _fragment_offset[NUM_STREAMS]; // Current write offset in buffer
-	u32 _fragment_length[NUM_STREAMS]; // Number of bytes in fragment buffer
+	u16 _fragment_length[NUM_STREAMS]; // Number of bytes in fragment buffer
+	u16 _fragment_offset[NUM_STREAMS]; // Current write offset in buffer
 
 	static const u32 FRAG_MIN = 0;		// Min bytes for a fragmented message
 	static const u32 FRAG_MAX = 65535;	// Max bytes for a fragmented message
@@ -257,7 +290,6 @@ private:
 
 protected:
 	// Send state: Synchronization objects
-	volatile u32 _writer_count;
 	Mutex _send_lock;
 
 	// Send state: Next ack id to use
@@ -272,11 +304,15 @@ protected:
 	{
 		SendQueue *prev; // Previous in queue
 		SendQueue *next; // Next in queue
-		u32 id; // Acknowledgment id, or number of sent bytes while fragmenting a large message
-		u32 bytes; // Data bytes
-		u32 offset; // Fragment data offset: If offset < bytes, then it is a SendFrag object
-		u32 ts_firstsend; // Timestamp when it was sent
+		u32 ts_firstsend; // Timestamp when it was first sent
 		u32 ts_lastsend; // Timestamp when it was last sent
+		union{
+			u32 id; // Acknowledgment id
+			u32 sent_bytes; // Number of sent bytes while fragmenting a large message
+		};
+		u16 frag_count; // Number of fragments remaining to be delivered.
+						// In sent list, this indicates that the object is a SendFrag.
+		u16 bytes; // Data bytes
 
 		// Message contents follow
 	};
@@ -284,6 +320,7 @@ protected:
 	struct SendFrag : public SendQueue
 	{
 		SendQueue *full_data;
+		u16 offset; // Fragment data offset
 	};
 
 	// Queue of messages that are waiting to be sent
@@ -293,7 +330,8 @@ protected:
 	SendQueue *_sent_list_head[NUM_STREAMS], *_sent_list_tail[NUM_STREAMS];
 
 private:
-	void Retransmit(SendQueue *node);
+	void Retransmit(SendQueue *node); // Does not hold the send lock!
+	void WriteACK();
 	void OnACK(u8 *data, u32 data_bytes);
 	void OnMTUSet(u8 *data, u32 data_bytes);
 
@@ -304,10 +342,9 @@ public:
 	static const int TICK_RATE = 20; // 20 milliseconds
 
 public:
-	void BeginWrite();
 	bool WriteUnreliable(u8 *msg, u32 bytes);
 	bool WriteReliable(StreamMode, u8 *msg, u32 bytes, SuperOpcode super_opcode = SOP_DATA);
-	void EndWrite();
+	void FlushWrite();
 
 protected:
 	void TickTransport(ThreadPoolLocalStorage *tls, u32 now);
