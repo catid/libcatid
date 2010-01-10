@@ -131,6 +131,8 @@ void Transport::OnDatagram(u8 *data, u32 bytes)
 	u32 ack_id = 0;
 	u32 stream = 0;
 
+	INANE("Transport") << "Datagram dump " << bytes << ":" << HexDumpString(data, bytes);
+
 	while (bytes >= 2)
 	{
 		u16 header = getLE(*reinterpret_cast<u16*>( data ));
@@ -202,6 +204,10 @@ void Transport::OnDatagram(u8 *data, u32 bytes)
 		if (header & R_MASK)
 		{
 			s32 diff = (s32)(ack_id - _next_recv_expected_id[stream]);
+
+			// TODO: Don't update next expected id or run queue until after datagram is completed
+			// TODO: While writing datagram, use better compression for interleaved streams -- should just be one byte -- and make sure they are all using the same ack id
+			// TODO: QueueRecv() should accept messages with the same ack id from the same datagram
 
 			// If message is next expected,
 			if (diff == 0)
@@ -482,7 +488,7 @@ void Transport::QueueRecv(u8 *data, u32 data_bytes, u32 ack_id, u32 stream, u32 
 void Transport::OnFragment(u8 *data, u32 bytes, u32 stream)
 {
 	// If fragment is starting,
-	if (!_fragment_length)
+	if (!_fragment_length[stream])
 	{
 		if (bytes < 2)
 		{
@@ -1409,6 +1415,8 @@ void Transport::TransmitQueued()
 		// For each message ready to go,
 		while (node)
 		{
+			INFO("Transport") << "Delivering queued message # " << ack_id;
+
 			// Cache next pointer since node will be modified
 			SendQueue *next = node->next;
 			bool fragmented = node->sop == SOP_FRAG;
@@ -1464,6 +1472,11 @@ void Transport::TransmitQueued()
 				u32 msg_bytes = overhead + remaining_data_bytes;
 				u32 write_bytes = remaining_send_buffer;
 				if (write_bytes > msg_bytes) write_bytes = msg_bytes;
+
+				// Limit size to allow ACK-ID decompression during retransmission
+				u32 retransmit_limit = max_payload_bytes - (3 - ack_id_overhead);
+				if (write_bytes > retransmit_limit) write_bytes = retransmit_limit;
+
 				u32 data_bytes_to_copy = write_bytes - overhead;
 
 				// Link to the end of the sent list (Expectation is that acks will be received for nodes close to the head first)
@@ -1514,10 +1527,6 @@ void Transport::TransmitQueued()
 					continue; // Retry
 				}
 
-				// Update byte counters
-				send_buffer_bytes += write_bytes;
-				sent_bytes += data_bytes_to_copy;
-
 				// Generate header word
 				u16 header = (data_bytes_to_copy + frag_overhead) | R_MASK;
 				if (ack_id_overhead) header |= I_MASK;
@@ -1525,7 +1534,7 @@ void Transport::TransmitQueued()
 				else header |= node->sop << SOP_SHIFT;
 
 				// Write header
-				u8 *msg = send_buffer;
+				u8 *msg = send_buffer + send_buffer_bytes;
 				*reinterpret_cast<u16*>( msg ) = getLE16(header);
 				msg += 2;
 
@@ -1578,6 +1587,9 @@ void Transport::TransmitQueued()
 				// Copy data bytes
 				memcpy(msg, GetTrailingBytes(node) + sent_bytes, data_bytes_to_copy);
 
+				sent_bytes += data_bytes_to_copy;
+				send_buffer_bytes += write_bytes;
+
 			} while (sent_bytes < total_bytes);
 
 			if (sent_bytes > total_bytes)
@@ -1606,6 +1618,8 @@ void Transport::TransmitQueued()
 
 		u32 bytes = packet_send_head->negative_offset;
 		u8 *data = reinterpret_cast<u8*>( packet_send_head ) - bytes;
+
+		WARN("Transport") << "Sending packet with " << bytes;
 
 		if (!PostPacket(data, bytes + AuthenticatedEncryption::OVERHEAD_BYTES, bytes))
 		{
