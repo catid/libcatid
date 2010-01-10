@@ -90,6 +90,10 @@ void Connection::OnRawData(u8 *data, u32 bytes)
 		// Pass it to the transport layer
 		OnDatagram(data, buf_bytes);
 	}
+	else
+	{
+		WARN("Server") << "Ignoring invalid encrypted data";
+	}
 }
 
 void Connection::OnDestroy()
@@ -99,7 +103,7 @@ void Connection::OnDestroy()
 
 void Connection::OnMessage(u8 *msg, u32 bytes)
 {
-
+	WARN("Server") << "Received a message with " << bytes;
 }
 
 bool Connection::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes)
@@ -602,6 +606,9 @@ bool Server::Initialize(ThreadPoolLocalStorage *tls, Port port)
 		return false;
 	}
 
+	for (int ii = 0; ii < _worker_count; ++ii)
+		_workers[ii] = 0;
+
 	// Allocate timer array
 	_timer_count = ThreadPool::ref()->GetProcessorCount() / 2;
 	if (_timer_count < 1) _timer_count = 1;
@@ -614,6 +621,9 @@ bool Server::Initialize(ThreadPoolLocalStorage *tls, Port port)
 		WARN("Server") << "Failed to initialize: Unable to allocate " << _timer_count << " timers";
 		return false;
 	}
+
+	for (int ii = 0; ii < _timer_count; ++ii)
+		_timers[ii] = 0;
 
 	// Initialize cookie jar
 	_cookie_jar.Initialize(tls->csprng);
@@ -1011,5 +1021,5 @@ void Server::OnWrite(u32 bytes)
 
 void Server::OnClose()
 {
-
+	WARN("Server") << "CLOSED";
 }
