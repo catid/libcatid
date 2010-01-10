@@ -96,6 +96,30 @@ Transport::~Transport()
 			delete []_fragment_buffer[stream];
 		}
 
+		// Release memory for sent list
+		SendQueue *sent_node = _sent_list_head[stream];
+		while (sent_node)
+		{
+			SendQueue *next = sent_node->next;
+
+			// TODO: When bandwidth limit is added, be careful about this!
+
+			// If node is a fragment,
+			if (sent_node->frag_count)
+			{
+				SendFrag *frag = reinterpret_cast<SendFrag*>( sent_node );
+
+				// Deallocate master node for a series of SendFrags
+				if (frag->full_data->frag_count == 1)
+					RegionAllocator::ii->Release(frag->full_data);
+				else
+					frag->full_data->frag_count--;
+			}
+
+			RegionAllocator::ii->Release(sent_node);
+			sent_node = next;
+		}
+
 		// Release memory for send queue
 		SendQueue *send_node = _send_queue_head[stream];
 		while (send_node)
@@ -103,15 +127,6 @@ Transport::~Transport()
 			SendQueue *next = send_node->next;
 			RegionAllocator::ii->Release(send_node);
 			send_node = next;
-		}
-
-		// Release memory for sent list
-		SendQueue *sent_node = _sent_list_head[stream];
-		while (sent_node)
-		{
-			SendQueue *next = sent_node->next;
-			RegionAllocator::ii->Release(sent_node);
-			sent_node = next;
 		}
 	}
 }
@@ -204,7 +219,7 @@ void Transport::OnDatagram(u8 *data, u32 bytes)
 		// If reliable message,
 		if (header & R_MASK)
 		{
-			WARN("Transport") << "Got # " << ack_id;
+			//WARN("Transport") << "Got # " << ack_id;
 
 			s32 diff = (s32)(ack_id - _next_recv_expected_id[stream]);
 
@@ -360,7 +375,7 @@ void Transport::RunQueue(u32 ack_id, u32 stream)
 		// Process fragment now
 		if (old_data_bytes > 0)
 		{
-			INFO("Transport") << "Running queued message # " << stream << ":" << ack_id;
+			//INFO("Transport") << "Running queued message # " << stream << ":" << ack_id;
 
 			if (node->bytes & RecvQueue::FRAG_FLAG)
 				OnFragment(old_data, old_data_bytes, stream);
@@ -428,7 +443,7 @@ void Transport::QueueRecv(u8 *data, u32 data_bytes, u32 ack_id, u32 stream, u32 
 		node = node->prev;
 	}
 
-	INFO("Transport") << "Queued out-of-order message # " << stream << ":" << ack_id;
+	//INFO("Transport") << "Queued out-of-order message # " << stream << ":" << ack_id;
 
 	u32 stored_bytes;
 
@@ -741,7 +756,7 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 
 	node->ts_lastsend = now;
 
-	WARN("Transport") << "Retransmitted # " << ack_id;
+	//WARN("Transport") << "Retransmitted # " << ack_id;
 }
 
 void Transport::WriteACK()
@@ -772,7 +787,7 @@ void Transport::WriteACK()
 			offset += 3;
 			remaining -= 3;
 
-			INFO("Transport") << "Acknowledging rollup # " << rollup_ack_id;
+			//INFO("Transport") << "Acknowledging rollup # " << rollup_ack_id;
 
 			RecvQueue *node = _recv_queue_head[stream];
 
@@ -800,7 +815,7 @@ void Transport::WriteACK()
 						u32 end_offset = end_id - start_id;
 						last_id = end_id;
 
-						INFO("Transport") << "Acknowledging range # " << start_id << " - " << end_id;
+						//INFO("Transport") << "Acknowledging range # " << start_id << " - " << end_id;
 
 						// Write START
 						if (start_offset & ~0x1f)
@@ -1122,7 +1137,7 @@ void Transport::OnACK(u8 *data, u32 data_bytes)
 
 					last_ack_id = ack_id;
 
-					INFO("Transport") << "Got acknowledgment for rollup # " << ack_id;
+					//INFO("Transport") << "Got acknowledgment for rollup # " << ack_id;
 
 					// If the id got rolled,
 					if ((s32)(ack_id - node->id) > 0)
@@ -1258,7 +1273,7 @@ void Transport::OnACK(u8 *data, u32 data_bytes)
 				}
 			}
 
-			INFO("Transport") << "Got acknowledgment for range # " << start_ack_id << " - " << end_ack_id;
+			//INFO("Transport") << "Got acknowledgment for range # " << start_ack_id << " - " << end_ack_id;
 
 			// Handle range:
 			if (node)
@@ -1437,7 +1452,7 @@ void Transport::TransmitQueued()
 
 			// Cache next pointer since node will be modified
 			SendQueue *next = node->next;
-			bool fragmented = node->sop == SOP_FRAG;
+			bool fragmented = (node->frag_count != 0);
 			u32 sent_bytes = node->sent_bytes, total_bytes = node->bytes;
 
 			do {
@@ -1501,26 +1516,59 @@ void Transport::TransmitQueued()
 				SendQueue *tail = _sent_list_tail[stream];
 				if (fragmented)
 				{
-					SendFrag *proxy = new (RegionAllocator::ii) SendFrag;
-					if (!proxy)
+					SendFrag *frag = new (RegionAllocator::ii) SendFrag;
+					if (!frag)
 					{
 						WARN("Transport") << "Out of memory: Unable to allocate fragment node";
 						continue; // Retry
 					}
 					else
 					{
-						proxy->id = ack_id;
-						proxy->next = 0;
-						proxy->prev = tail;
-						proxy->bytes = data_bytes_to_copy;
-						proxy->offset = sent_bytes;
-						proxy->ts_firstsend = now;
-						proxy->ts_lastsend = now;
-						proxy->full_data = node;
+						frag->id = ack_id;
+						frag->next = 0;
+						frag->prev = tail;
+						frag->bytes = data_bytes_to_copy;
+						frag->offset = sent_bytes;
+						frag->ts_firstsend = now;
+						frag->ts_lastsend = now;
+						frag->full_data = node;
+						frag->frag_count = 1;
 
-						if (tail) tail->next = reinterpret_cast<SendQueue*>( proxy );
-						else _sent_list_head[stream] = reinterpret_cast<SendQueue*>( proxy );
-						_sent_list_tail[stream] = reinterpret_cast<SendQueue*>( proxy );
+						if (tail) tail->next = reinterpret_cast<SendQueue*>( frag );
+						else _sent_list_head[stream] = reinterpret_cast<SendQueue*>( frag );
+						_sent_list_tail[stream] = reinterpret_cast<SendQueue*>( frag );
+
+						/*
+							How do we know when to deallocate the master node for fragments?
+
+							node->frag_count is used to know when to deallocate a master node.
+							When all of the fragments are acknowledged, the master node can be
+							deallocated.  Each fragment decreases frag_count by 1 until it
+							reaches zero, signaling that all fragments have been acknowledged.
+
+							Since we're sending fragments while they're being received, and the
+							rate may be very low, node->frag_count could conceivably be reduced
+							to zero before all fragments are transmitted.  This would cause the
+							trigger condition for deleting the master node prematurely.
+
+							To avoid the above problem, I begin by setting node->frag_count to
+							to 2 instead of 1 for the first fragment.  For the final fragment,
+							node->frag_count is not incremented, allowing the master node to
+							be deallocated at the correct time.
+						*/
+
+						// For first fragment,
+						if (sent_bytes == 0)
+						{
+							// Set master node frag count to 2
+							node->frag_count = 2;
+						}
+						// And for all other fragments until the final one,
+						else if (sent_bytes + data_bytes_to_copy < total_bytes)
+						{
+							// Increment the frag count
+							node->frag_count++;
+						}
 					}
 				}
 				else
@@ -1530,6 +1578,7 @@ void Transport::TransmitQueued()
 					node->prev = tail;
 					node->ts_firstsend = now;
 					node->ts_lastsend = now;
+					//node->frag_count = 0;  Set during reliable write
 
 					if (tail) tail->next = node;
 					else _sent_list_head[stream] = node;
@@ -1548,8 +1597,7 @@ void Transport::TransmitQueued()
 				// Generate header word
 				u16 header = (data_bytes_to_copy + frag_overhead) | R_MASK;
 				if (ack_id_overhead) header |= I_MASK;
-				if (fragmented) header |= SOP_FRAG << SOP_SHIFT;
-				else header |= node->sop << SOP_SHIFT;
+				header |= (fragmented ? SOP_FRAG : node->sop) << SOP_SHIFT;
 
 				// Write header
 				u8 *msg = send_buffer + send_buffer_bytes;
@@ -1608,7 +1656,7 @@ void Transport::TransmitQueued()
 				sent_bytes += data_bytes_to_copy;
 				send_buffer_bytes += write_bytes;
 
-				WARN("Transport") << "Wrote " << sent_bytes << " / " << total_bytes;
+				//WARN("Transport") << "Wrote " << sent_bytes << " / " << total_bytes;
 
 			} while (sent_bytes < total_bytes);
 
@@ -1619,6 +1667,10 @@ void Transport::TransmitQueued()
 
 			node = next;
 		} // walking send queue
+
+		// TODO: When bandwidth limit is introduced, be careful about
+		// dtor deallocation of fragment master node.  Update master
+		// node sent_bytes!
 
 		// Update send queue state for this stream
 		_send_queue_tail[stream] = 0;
