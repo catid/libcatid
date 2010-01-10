@@ -528,4 +528,10 @@ bool Client::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes)
 void Client::OnDisconnect()
 {
 	WARN("Client") << "Disconnected by server";
+	Close();
+}
+
+void Client::OnTimestampDeltaUpdate(u32 rtt, s32 delta)
+{
+	INFO("Client") << "Timestamp delta update: RTT = " << rtt << ". Delta = " << delta;
 }

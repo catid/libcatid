@@ -38,7 +38,11 @@ using namespace sphynx;
 Transport::Transport()
 {
 	// Receive state
-	CAT_OBJCLR(_next_recv_expected_id);
+	_next_recv_expected_id[STREAM_UNORDERED] = 0x11223344;
+	_next_recv_expected_id[STREAM_1] = 0x55667788;
+	_next_recv_expected_id[STREAM_2] = 0x99aabbcc;
+	_next_recv_expected_id[STREAM_3] = 0xddeeff00;
+
 	CAT_OBJCLR(_got_reliable);
 
 	CAT_OBJCLR(_fragment_length);
@@ -47,8 +51,15 @@ Transport::Transport()
 	CAT_OBJCLR(_recv_queue_tail);
 
 	// Send state
-	CAT_OBJCLR(_next_send_id);
-	CAT_OBJCLR(_send_next_remote_expected);
+	_next_send_id[STREAM_UNORDERED] = 0x11223344;
+	_next_send_id[STREAM_1] = 0x55667788;
+	_next_send_id[STREAM_2] = 0x99aabbcc;
+	_next_send_id[STREAM_3] = 0xddeeff00;
+
+	_send_next_remote_expected[STREAM_UNORDERED] = 0x11223344;
+	_send_next_remote_expected[STREAM_1] = 0x55667788;
+	_send_next_remote_expected[STREAM_2] = 0x99aabbcc;
+	_send_next_remote_expected[STREAM_3] = 0xddeeff00;
 
 	_rtt = 1500;
 
@@ -127,8 +138,6 @@ void Transport::OnDatagram(u8 *data, u32 bytes)
 		data += 2;
 		bytes -= 2;
 
-		u32 data_bytes = header & DATALEN_MASK;
-
 		// If this message has an ACK-ID attached,
 		if (header & I_MASK)
 		{
@@ -182,6 +191,13 @@ void Transport::OnDatagram(u8 *data, u32 bytes)
 			}
 		}
 
+		u32 data_bytes = header & DATALEN_MASK;
+		if (bytes < data_bytes)
+		{
+			WARN("Transport") << "Truncated transport message ignored";
+			break;
+		}
+
 		// If reliable message,
 		if (header & R_MASK)
 		{
@@ -209,7 +225,7 @@ void Transport::OnDatagram(u8 *data, u32 bytes)
 					WARN("Transport") << "Zero-length reliable message ignored";
 				}
 
-				RunQueue(ack_id, stream);
+				RunQueue(ack_id + 1, stream);
 			}
 			else if (diff > 0) // Message is due to arrive
 			{
@@ -313,8 +329,17 @@ void Transport::RunQueue(u32 ack_id, u32 stream)
 {
 	RecvQueue *node = _recv_queue_head[stream];
 
-	if (!node || node->id != ++ack_id)
+	if (!node || node->id != ack_id)
+	{
+		_recv_lock.Enter();
+
+		_next_recv_expected_id[stream] = ack_id;
+		_got_reliable[stream] = true;
+
+		_recv_lock.Leave();
+
 		return;
+	}
 
 	RecvQueue *kill_node = node;
 
@@ -328,6 +353,8 @@ void Transport::RunQueue(u32 ack_id, u32 stream)
 		// Process fragment now
 		if (old_data_bytes > 0)
 		{
+			INFO("Transport") << "Running queued message # " << stream << ":" << ack_id;
+
 			if (node->bytes & RecvQueue::FRAG_FLAG)
 				OnFragment(old_data, old_data_bytes, stream);
 			else
@@ -393,6 +420,8 @@ void Transport::QueueRecv(u8 *data, u32 data_bytes, u32 ack_id, u32 stream, u32 
 		next = node;
 		node = node->prev;
 	}
+
+	INFO("Transport") << "Queued out-of-order message # " << stream << ":" << ack_id;
 
 	u32 stored_bytes;
 
@@ -732,6 +761,8 @@ void Transport::WriteACK()
 			offset += 3;
 			remaining -= 3;
 
+			INFO("Transport") << "Acknowledging rollup # " << rollup_ack_id;
+
 			RecvQueue *node = _recv_queue_head[stream];
 
 			if (node)
@@ -757,6 +788,8 @@ void Transport::WriteACK()
 						u32 start_offset = start_id - last_id;
 						u32 end_offset = end_id - start_id;
 						last_id = end_id;
+
+						INFO("Transport") << "Acknowledging range # " << start_id << " - " << end_id;
 
 						// Write START
 						if (start_offset & ~0x1f)
@@ -1074,6 +1107,8 @@ void Transport::OnACK(u8 *data, u32 data_bytes)
 
 					last_ack_id = ack_id;
 
+					INFO("Transport") << "Got acknowledgment for rollup # " << ack_id;
+
 					// If the id got rolled,
 					if ((s32)(ack_id - node->id) > 0)
 					{
@@ -1207,6 +1242,8 @@ void Transport::OnACK(u8 *data, u32 data_bytes)
 					break;
 				}
 			}
+
+			INFO("Transport") << "Got acknowledgment for range # " << start_ack_id << " - " << end_ack_id;
 
 			// Handle range:
 			if (node)
@@ -1374,11 +1411,11 @@ void Transport::TransmitQueued()
 		{
 			// Cache next pointer since node will be modified
 			SendQueue *next = node->next;
-
 			bool fragmented = node->sop == SOP_FRAG;
+			u32 sent_bytes = node->sent_bytes, total_bytes = node->bytes;
 
 			do {
-				u32 remaining_data_bytes = node->bytes - node->sent_bytes;
+				u32 remaining_data_bytes = total_bytes - sent_bytes;
 				u32 remaining_send_buffer = max_payload_bytes - send_buffer_bytes;
 				u32 frag_overhead = 0;
 
@@ -1445,7 +1482,7 @@ void Transport::TransmitQueued()
 						proxy->next = 0;
 						proxy->prev = tail;
 						proxy->bytes = data_bytes_to_copy;
-						proxy->offset = node->sent_bytes;
+						proxy->offset = sent_bytes;
 						proxy->ts_firstsend = now;
 						proxy->ts_lastsend = now;
 						proxy->full_data = node;
@@ -1476,10 +1513,13 @@ void Transport::TransmitQueued()
 					send_buffer_bytes = 0;
 					continue; // Retry
 				}
+
+				// Update byte counters
 				send_buffer_bytes += write_bytes;
+				sent_bytes += data_bytes_to_copy;
 
 				// Generate header word
-				u16 header = (write_bytes - ack_id_overhead) | R_MASK;
+				u16 header = (data_bytes_to_copy + frag_overhead) | R_MASK;
 				if (ack_id_overhead) header |= I_MASK;
 				if (fragmented) header |= SOP_FRAG << SOP_SHIFT;
 				else header |= node->sop << SOP_SHIFT;
@@ -1536,12 +1576,11 @@ void Transport::TransmitQueued()
 				}
 
 				// Copy data bytes
-				memcpy(msg, GetTrailingBytes(node) + node->sent_bytes, data_bytes_to_copy);
-				node->sent_bytes += data_bytes_to_copy;
+				memcpy(msg, GetTrailingBytes(node) + sent_bytes, data_bytes_to_copy);
 
-			} while (node->sent_bytes < node->bytes);
+			} while (sent_bytes < total_bytes);
 
-			if (node->sent_bytes > node->bytes)
+			if (sent_bytes > total_bytes)
 			{
 				WARN("Transport") << "Node offset somehow escaped";
 			}
