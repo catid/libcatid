@@ -104,6 +104,8 @@ void Connection::OnDestroy()
 void Connection::OnMessage(u8 *msg, u32 bytes)
 {
 	WARN("Server") << "Received a message with " << bytes;
+
+	//INANE("Server") << "Message dump " << bytes << ":" << HexDumpString(msg, bytes);
 }
 
 bool Connection::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes)

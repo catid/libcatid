@@ -59,7 +59,7 @@ namespace sphynx {
 		---------------------------------
 
 		DATA_BYTES: Number of bytes in data part of message.
-		I: 1=Followed by ACK-ID field.
+		I: 1=Followed by ACK-ID field. 0=ACK-ID is one higher than the last.
 		R: 1=Reliable. 0=Unreliable.
 		SOP: Super opcodes:
 			0=Data (reliable or unreliable)
@@ -79,7 +79,7 @@ namespace sphynx {
 			the data part begins with a 16-bit Fragment Header.
 			This additional size IS accounted for in the DATA_BYTES field.
 
-		------------------- ACK-ID Field (24 bits) ------
+		------------- ACK-ID Field (24 bits) ------------
 		 0 1 2 3 4 5 6 7 8 9 a b c d e f 0 1 2 3 4 5 6 7 
 		<-- LSB --------------------------------- MSB -->
 		| S | IDA (5) |C|   IDB (7)   |C|  IDC (8)      |
@@ -228,6 +228,7 @@ protected:
 	static const u16 SOP_SHIFT = 13;
 
 	static const u32 NUM_STREAMS = 4; // Number of reliable streams
+	static const u32 MIN_RTT = 50; // Minimum milliseconds for RTT
 
 	static const u32 TIMEOUT_DISCONNECT = 15000; // 15 seconds
 
