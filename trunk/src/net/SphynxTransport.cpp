@@ -35,13 +35,17 @@
 using namespace cat;
 using namespace sphynx;
 
+static const u32 INITIAL_ACK_IDS[NUM_STREAMS] = {
+	0x11223344,
+	0x55667788,
+	0x99aabbcc,
+	0xddeeff00
+};
+
 Transport::Transport()
 {
 	// Receive state
-	_next_recv_expected_id[STREAM_UNORDERED] = 0x11223344;
-	_next_recv_expected_id[STREAM_1] = 0x55667788;
-	_next_recv_expected_id[STREAM_2] = 0x99aabbcc;
-	_next_recv_expected_id[STREAM_3] = 0xddeeff00;
+	memcpy(_next_recv_expected_id, INITIAL_ACK_IDS, sizeof(INITIAL_ACK_IDS));
 
 	CAT_OBJCLR(_got_reliable);
 
@@ -51,15 +55,8 @@ Transport::Transport()
 	CAT_OBJCLR(_recv_queue_tail);
 
 	// Send state
-	_next_send_id[STREAM_UNORDERED] = 0x11223344;
-	_next_send_id[STREAM_1] = 0x55667788;
-	_next_send_id[STREAM_2] = 0x99aabbcc;
-	_next_send_id[STREAM_3] = 0xddeeff00;
-
-	_send_next_remote_expected[STREAM_UNORDERED] = 0x11223344;
-	_send_next_remote_expected[STREAM_1] = 0x55667788;
-	_send_next_remote_expected[STREAM_2] = 0x99aabbcc;
-	_send_next_remote_expected[STREAM_3] = 0xddeeff00;
+	memcpy(_next_send_id, INITIAL_ACK_IDS, sizeof(INITIAL_ACK_IDS));
+	memcpy(_send_next_remote_expected, INITIAL_ACK_IDS, sizeof(INITIAL_ACK_IDS));
 
 	_rtt = 1500;
 
