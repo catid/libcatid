@@ -78,6 +78,7 @@ protected:
 	virtual void OnConnectFail();
 	virtual void OnConnect();
 	virtual void OnDisconnect(bool timeout);
+	virtual void OnTimestampDeltaUpdate(u32 rtt, s32 delta);
 
 protected:
 	virtual void OnMessage(u8 *msg, u32 bytes);
