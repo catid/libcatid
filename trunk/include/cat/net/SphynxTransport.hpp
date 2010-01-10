@@ -384,6 +384,7 @@ protected:
 	bool PostMTUProbe(ThreadPoolLocalStorage *tls, u16 payload_bytes);
 	bool PostTimePing();
 	bool PostTimePong(u32 client_ts);
+	bool PostDisconnect();
 };
 
 

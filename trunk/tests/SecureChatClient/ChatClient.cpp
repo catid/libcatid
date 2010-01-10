@@ -19,12 +19,10 @@ int main()
 		234,70,119,124,168,97,101,81,38,243,64,207,249,171,187,39
 	};
 
-
-
 	{
 		ThreadPoolLocalStorage tls;
 
-		for (int ii = 0; ii < 1500; ++ii)
+		for (int ii = 0; ii < 1; ++ii)
 		{
 			sphynx::Client *client = new sphynx::Client;
 
