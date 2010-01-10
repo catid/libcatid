@@ -114,7 +114,7 @@ private:
     volatile bool _queuing;
 
     Mutex _queueLock;
-    void *_queueBuffer;
+    u8 *_queueBuffer;
     u32 _queueBytes;
 
 protected:
@@ -124,7 +124,7 @@ public:
     TCPClientQueued(int priorityLevel);
     virtual ~TCPClientQueued();
 
-    bool PostToServer(void *buffer, u32 bytes);
+    bool PostToServer(u8 *buffer, u32 bytes);
 };
 
 

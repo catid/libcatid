@@ -429,8 +429,8 @@ bool Client::ThreadFunction(void *)
 	}
 
 	// Time synchronization begins right away
-	u32 next_synch_time = Clock::msec();
-	u32 synch_attempts = 0;
+	u32 next_sync_time = Clock::msec();
+	u32 sync_attempts = 0;
 
 	// While waiting for quit signal,
 	while (WaitForQuitSignal(Transport::TICK_RATE))
@@ -440,17 +440,17 @@ bool Client::ThreadFunction(void *)
 		TickTransport(&tls, now);
 
 		// If it is time for time synch,
-		if ((s32)(now - next_synch_time) >= 0)
+		if ((s32)(now - next_sync_time) >= 0)
 		{
 			PostTimePing();
 
 			// Increase synch interval after the first 8 data points
-			if (synch_attempts >= 8)
+			if (sync_attempts >= 8)
 				next_sync_time = now + 20000; // 20 seconds from now
 			else
 			{
 				next_sync_time = now + 5000; // 5 seconds from now
-				++synch_attempts;
+				++sync_attempts;
 			}
 		}
 
@@ -515,4 +515,9 @@ bool Client::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes)
 	}
 
 	return Post(_server_addr, buffer, msg_bytes);
+}
+
+void Client::OnDisconnect()
+{
+	WARN("Client") << "Disconnected by server";
 }

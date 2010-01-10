@@ -398,7 +398,7 @@ union Float32 {
 #define CAT_MEMCLR(dest, size) memset(dest, 0, size)
 
 // Works for arrays, also
-#define CAT_OBJCLR(object) memset(&(object), 0, sizeof(object))
+#define CAT_OBJCLR(object) memset((void*)&(object), 0, sizeof(object))
 
 // Stringize
 #define CAT_STRINGIZE(X) DO_CAT_STRINGIZE(X)

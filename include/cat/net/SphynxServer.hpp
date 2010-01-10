@@ -116,6 +116,7 @@ public:
 protected:
 	virtual void OnMessage(u8 *msg, u32 bytes);
 	virtual bool PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes);
+	virtual void OnDisconnect();
 };
 
 

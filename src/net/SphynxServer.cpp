@@ -105,12 +105,17 @@ bool Connection::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes)
 {
 	if (!auth_enc.Encrypt(buffer, buf_bytes, msg_bytes))
 	{
-		WARN("Client") << "Encryption failure while sending packet";
+		WARN("Server") << "Encryption failure while sending packet";
 		ReleasePostBuffer(buffer);
 		return false;
 	}
 
 	return server_worker->Post(client_addr, buffer, msg_bytes);
+}
+
+void Connection::OnDisconnect()
+{
+	WARN("Server") << "Disconnected by client";
 }
 
 

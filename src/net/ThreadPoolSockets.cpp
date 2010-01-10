@@ -54,12 +54,11 @@ namespace cat
 	}
 
 	// Resize a previously acquired buffer larger or smaller
-	void *ResizePostBuffer(void *buffer, u32 newBytes)
+	u8 *ResizePostBuffer(u8 *buffer, u32 newBytes)
 	{
 		TypedOverlapped *sendOv = reinterpret_cast<TypedOverlapped*>(
-			RegionAllocator::ii->Resize(
-			reinterpret_cast<u8*>(buffer) - sizeof(TypedOverlapped),
-			sizeof(TypedOverlapped) + newBytes) );
+			RegionAllocator::ii->Resize(buffer - sizeof(TypedOverlapped),
+										sizeof(TypedOverlapped) + newBytes) );
 
 		if (!sendOv)
 		{
@@ -71,10 +70,9 @@ namespace cat
 	}
 
 	// Release a post buffer
-	void ReleasePostBuffer(void *buffer)
+	void ReleasePostBuffer(u8 *buffer)
 	{
-		RegionAllocator::ii->Release(
-			reinterpret_cast<u8*>(buffer) - sizeof(TypedOverlapped));
+		RegionAllocator::ii->Release(buffer - sizeof(TypedOverlapped));
 	}
 
 } // namespace cat
