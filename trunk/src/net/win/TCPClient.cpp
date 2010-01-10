@@ -386,7 +386,7 @@ TCPClientQueued::~TCPClientQueued()
         ReleasePostBuffer(_queueBuffer);
 }
 
-bool TCPClientQueued::PostToServer(void *buffer, u32 bytes)
+bool TCPClientQueued::PostToServer(u8 *buffer, u32 bytes)
 {
     // Try not to hold a lock if we can help it
     if (!_queuing)
@@ -406,7 +406,7 @@ bool TCPClientQueued::PostToServer(void *buffer, u32 bytes)
     {
 		// Attempt to resize it
         _queueBuffer = ResizePostBuffer(_queueBuffer, _queueBytes + bytes);
-        memcpy((u8*)_queueBuffer + _queueBytes, buffer, bytes);
+        memcpy(_queueBuffer + _queueBytes, buffer, bytes);
         _queueBytes += bytes;
         ReleasePostBuffer(buffer);
     }

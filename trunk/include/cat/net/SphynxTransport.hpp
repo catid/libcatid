@@ -79,15 +79,18 @@ namespace sphynx {
 			the data part begins with a 16-bit Fragment Header.
 			This additional size IS accounted for in the DATA_BYTES field.
 
-		------------------- ACK-ID Field (32 bits) ----------------------
-		 0 1 2 3 4 5 6 7 8 9 a b c d e f 0 1 2 3 4 5 6 7 8 9 a b c d e f
-		<-- LSB ------------------------------------------------- MSB -->
-		| S | IDA (5) |C|   IDB (7)   |C|  IDC (7)    |C|    IDD (8)    |
-		-----------------------------------------------------------------
+		------------------- ACK-ID Field (24 bits) ------
+		 0 1 2 3 4 5 6 7 8 9 a b c d e f 0 1 2 3 4 5 6 7 
+		<-- LSB --------------------------------- MSB -->
+		| S | IDA (5) |C|   IDB (7)   |C|  IDC (8)      |
+		-------------------------------------------------
 
 		C: 1=Continues to next byte.
 		S: 0=Unordered stream, 1-3: Ordered streams.
-		ID: IDD | IDC | IDB | IDA
+		ID: IDC | IDB | IDA (20 bits)
+
+		On retransmission, the ACK-ID field uses no compression
+		since the receiver state cannot be determined.
 
 		--- Fragment Header (16 bits) ---
 		 0 1 2 3 4 5 6 7 8 9 a b c d e f
@@ -95,7 +98,8 @@ namespace sphynx {
 		|        TOTAL_BYTES(16)        |
 		---------------------------------
 
-		TOTAL_BYTES: Total bytes in data part of fragmented message, not including this header.
+		TOTAL_BYTES: Total bytes in data part of fragmented message,
+					 not including this header.
 */
 
 /*
@@ -246,7 +250,6 @@ protected:
 protected:
 	// Maximum transfer unit (MTU) in UDP payload bytes, excluding the IP and UDP headers and encryption overhead
 	u32 _max_payload_bytes;
-	u32 _rtt;
 
 public:
 	void InitializePayloadBytes(bool ip6);
@@ -273,8 +276,8 @@ protected:
 		static const u32 FRAG_FLAG = 0x80000000;
 		static const u32 BYTE_MASK = 0x7fffffff;
 
-		RecvQueue *prev;	// Previous in queue
 		RecvQueue *next;	// Next in queue
+		RecvQueue *prev;	// Previous in queue
 		u32 id;				// Acknowledgment id
 		u32 bytes;			// High bit: Fragment?
 
@@ -295,32 +298,48 @@ protected:
 	// Send state: Next ack id to use
 	u32 _next_send_id[NUM_STREAMS];
 
+	// Send state: Estimated round-trip time
+	u32 _rtt; // milliseconds
+
+	// Send state: Last rollup ack id from remote receiver
+	u32 _send_next_remote_expected[NUM_STREAMS];
+
 	// Send state: Combined writes
 	u8 *_send_buffer;
 	u32 _send_buffer_bytes;
+	u32 _send_buffer_stream;
+	u32 _send_buffer_ack_id;
 
 	// Send state: Send queue
 	struct SendQueue
 	{
-		SendQueue *prev; // Previous in queue
-		SendQueue *next; // Next in queue
-		u32 ts_firstsend; // Timestamp when it was first sent
-		u32 ts_lastsend; // Timestamp when it was last sent
-		union{
-			u32 id; // Acknowledgment id
-			u32 sent_bytes; // Number of sent bytes while fragmenting a large message
+		SendQueue *next;	// Next in queue
+		SendQueue *prev;	// Previous in queue
+		u32 ts_firstsend;	// Millisecond-resolution timestamp when it was first sent
+		u32 ts_lastsend;	// Millisecond-resolution timestamp when it was last sent
+		union
+		{
+			u32 sent_bytes;	// In send queue: Number of sent bytes while fragmenting a large message
+			u32 id;			// In sent list: Acknowledgment id
 		};
-		u16 frag_count; // Number of fragments remaining to be delivered.
-						// In sent list, this indicates that the object is a SendFrag.
-		u16 bytes; // Data bytes
+		u16 bytes;			// Data bytes
+		u16 frag_count;		// Number of fragments remaining to be delivered
+		u16 sop;			// Super opcode of message
 
 		// Message contents follow
 	};
 
 	struct SendFrag : public SendQueue
 	{
-		SendQueue *full_data;
-		u16 offset; // Fragment data offset
+		SendQueue *full_data;	// Object containing message data
+		u16 offset;				// Fragment data offset
+	};
+
+	// Temporary send node structure, nestled in the encryption overhead of outgoing packets
+	struct TempSendNode // Size <= 11 bytes = AuthenticatedEncryption::OVERHEAD_BYTES
+	{
+		TempSendNode *next;
+		u16 negative_offset; // Number of bytes before this structure
 	};
 
 	// Queue of messages that are waiting to be sent
@@ -330,7 +349,8 @@ protected:
 	SendQueue *_sent_list_head[NUM_STREAMS], *_sent_list_tail[NUM_STREAMS];
 
 private:
-	void Retransmit(SendQueue *node); // Does not hold the send lock!
+	void TransmitQueued();
+	void Retransmit(u32 stream, SendQueue *node, u32 now); // Does not hold the send lock!
 	void WriteACK();
 	void OnACK(u8 *data, u32 data_bytes);
 	void OnMTUSet(u8 *data, u32 data_bytes);
@@ -343,15 +363,15 @@ public:
 
 public:
 	bool WriteUnreliable(u8 *msg, u32 bytes);
-	bool WriteReliable(StreamMode, u8 *msg, u32 bytes, SuperOpcode super_opcode = SOP_DATA);
+	bool WriteReliable(StreamMode, u8 *data, u32 data_bytes, SuperOpcode super_opcode = SOP_DATA);
 	void FlushWrite();
 
 protected:
 	void TickTransport(ThreadPoolLocalStorage *tls, u32 now);
+	void OnDatagram(u8 *data, u32 bytes);
 
 private:
-	void OnDatagram(u8 *data, u32 bytes);
-	void OnFragment(u8 *data, u32 bytes);
+	void OnFragment(u8 *data, u32 bytes, u32 stream);
 	void CombineNextWrite();
 
 protected:
