@@ -40,7 +40,7 @@ using namespace sphynx;
 //// Encryption Key Constants
 
 // Must match SphynxServer.cpp
-static const char *SESSION_KEY_NAME = "SessionKey";
+static const char *SESSION_KEY_NAME = "SphynxSessionKey";
 
 
 //// Client
@@ -284,6 +284,14 @@ void Client::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 
 				OnConnect();
 			}
+			else
+			{
+				INANE("Client") << "Ignored invalid server answer";
+			}
+		}
+		else
+		{
+			INANE("Client") << "Ignored server answer with insane port";
 		}
 	}
 }

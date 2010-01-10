@@ -56,6 +56,8 @@ namespace cat
 	// Resize a previously acquired buffer larger or smaller
 	u8 *ResizePostBuffer(u8 *buffer, u32 newBytes)
 	{
+		if (!buffer) return GetPostBuffer(newBytes);
+
 		TypedOverlapped *sendOv = reinterpret_cast<TypedOverlapped*>(
 			RegionAllocator::ii->Resize(buffer - sizeof(TypedOverlapped),
 										sizeof(TypedOverlapped) + newBytes) );

@@ -33,7 +33,6 @@
 #include <cat/math/BitMath.hpp>
 using namespace cat;
 
-
 bool AuthenticatedEncryption::SetKey(int KeyBytes, Skein *key, bool is_initiator, const char *key_name)
 {
 	_accept_out_of_order = true;
