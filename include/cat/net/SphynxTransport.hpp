@@ -172,6 +172,15 @@ class ServerTimer;
 class Client;
 class Transport;
 
+#if defined(CAT_WORD_32)
+#define CAT_PACK_TRANSPORT_STATE_STRUCTURES /* For 32-bit version, this allows fragments to fit in 32 bytes */
+#else // 64-bit version:
+//#define CAT_PACK_TRANSPORT_STATE_STRUCTURES /* No advantage for 64-bit version */
+#endif
+
+//#define CAT_TRANSPORT_DEBUG_LOGGING /* Enables info messages on console */
+//#define CAT_VERBOSE_VALIDATION /* Enables input error messages on console */
+
 // Protocol constants
 static const u32 PROTOCOL_MAGIC = 0xC47D0001;
 static const int PUBLIC_KEY_BYTES = 64;
@@ -230,6 +239,64 @@ enum SuperOpcode
 
 //// sphynx::Transport
 
+#if defined(CAT_PACK_TRANSPORT_STATE_STRUCTURES)
+#pragma pack(push)
+#pragma pack(1)
+#endif // CAT_PACK_TRANSPORT_STATE_STRUCTURES
+
+// Receive state: Receive queue
+struct RecvQueue
+{
+	static const u32 FRAG_FLAG = 0x80000000;
+	static const u32 BYTE_MASK = 0x7fffffff;
+
+	RecvQueue *next;	// Next in queue
+	RecvQueue *prev;	// Previous in queue
+	u32 id;				// Acknowledgment id
+	u32 bytes;			// High bit: Fragment?
+
+	// Message contents follow
+};
+
+// Send state: Send queue
+struct SendQueue
+{
+	SendQueue *next;	// Next in queue
+	SendQueue *prev;	// Previous in queue
+	u32 ts_firstsend;	// Millisecond-resolution timestamp when it was first sent
+	u32 ts_lastsend;	// Millisecond-resolution timestamp when it was last sent
+	union
+	{
+		u32 sent_bytes;	// In send queue: Number of sent bytes while fragmenting a large message
+		u32 id;			// In sent list: Acknowledgment id
+	};
+	u16 bytes;			// Data bytes
+	u16 frag_count;		// Number of fragments remaining to be delivered
+	u16 sop;			// Super opcode of message
+
+	// Message contents follow
+};
+
+struct SendFrag : public SendQueue
+{
+	SendQueue *full_data;	// Object containing message data
+	u16 offset;				// Fragment data offset
+};
+
+// Temporary send node structure, nestled in the encryption overhead of outgoing packets
+struct TempSendNode // Size <= 11 bytes = AuthenticatedEncryption::OVERHEAD_BYTES
+{
+	static const u32 SINGLE_FLAG = 0x8000;
+	static const u32 BYTE_MASK = 0x7fff;
+
+	TempSendNode *next;
+	u16 negative_offset; // Number of bytes before this structure, and single flag
+};
+
+#if defined(CAT_PACK_TRANSPORT_STATE_STRUCTURES)
+#pragma pack(pop)
+#endif // CAT_PACK_TRANSPORT_STATE_STRUCTURES
+
 class Transport
 {
 protected:
@@ -283,20 +350,6 @@ protected:
 	static const u32 FRAG_MIN = 0;		// Min bytes for a fragmented message
 	static const u32 FRAG_MAX = 65535;	// Max bytes for a fragmented message
 
-	// Receive state: Receive queue
-	struct RecvQueue
-	{
-		static const u32 FRAG_FLAG = 0x80000000;
-		static const u32 BYTE_MASK = 0x7fffffff;
-
-		RecvQueue *next;	// Next in queue
-		RecvQueue *prev;	// Previous in queue
-		u32 id;				// Acknowledgment id
-		u32 bytes;			// High bit: Fragment?
-
-		// Message contents follow
-	};
-
 	// Receive state: Receive queue head
 	RecvQueue *_recv_queue_head[NUM_STREAMS], *_recv_queue_tail[NUM_STREAMS];
 
@@ -322,41 +375,6 @@ protected:
 	u32 _send_buffer_bytes;
 	u32 _send_buffer_stream, _send_buffer_ack_id; // Used to compress ACK-ID by setting I=0 after the first reliable message
 	u32 _send_buffer_msg_count; // Used to compress datagrams with a single message by omitting the header's BLO field
-
-	// Send state: Send queue
-	struct SendQueue
-	{
-		SendQueue *next;	// Next in queue
-		SendQueue *prev;	// Previous in queue
-		u32 ts_firstsend;	// Millisecond-resolution timestamp when it was first sent
-		u32 ts_lastsend;	// Millisecond-resolution timestamp when it was last sent
-		union
-		{
-			u32 sent_bytes;	// In send queue: Number of sent bytes while fragmenting a large message
-			u32 id;			// In sent list: Acknowledgment id
-		};
-		u16 bytes;			// Data bytes
-		u16 frag_count;		// Number of fragments remaining to be delivered
-		u16 sop;			// Super opcode of message
-
-		// Message contents follow
-	};
-
-	struct SendFrag : public SendQueue
-	{
-		SendQueue *full_data;	// Object containing message data
-		u16 offset;				// Fragment data offset
-	};
-
-	// Temporary send node structure, nestled in the encryption overhead of outgoing packets
-	struct TempSendNode // Size <= 11 bytes = AuthenticatedEncryption::OVERHEAD_BYTES
-	{
-		static const u32 SINGLE_FLAG = 0x8000;
-		static const u32 BYTE_MASK = 0x7fff;
-
-		TempSendNode *next;
-		u16 negative_offset; // Number of bytes before this structure, and single flag
-	};
 
 	// Queue of messages that are waiting to be sent
 	SendQueue *_send_queue_head[NUM_STREAMS], *_send_queue_tail[NUM_STREAMS];
