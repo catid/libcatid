@@ -542,6 +542,7 @@ void Transport::OnFragment(u8 *data, u32 bytes, u32 stream)
 		if (bytes < 2)
 		{
 			CAT_TVV(WARN("Transport") << "Truncated message fragment head ignored");
+			return;
 		}
 		else
 		{
@@ -1523,6 +1524,10 @@ bool Transport::WriteReliable(StreamMode stream, u8 *data, u32 data_bytes, Super
 
 void Transport::TransmitQueued()
 {
+	// ACK-ID compression thresholds
+	const u32 ACK_ID_1_THRESH = 8;
+	const u32 ACK_ID_2_THRESH = 1024;
+
 	// Use the same ts_firstsend for all messages delivered now, to insure they are clustered on retransmission
 	u32 now = Clock::msec();
 	u32 max_payload_bytes = _max_payload_bytes;
@@ -1547,9 +1552,9 @@ void Transport::TransmitQueued()
 		u32 ack_id_overhead = 0, ack_id_bytes;
 
 		u32 diff = ack_id - remote_expected;
-		if (diff < 16)			ack_id_bytes = 1;
-		else if (diff < 2048)	ack_id_bytes = 2;
-		else					ack_id_bytes = 3;
+		if (diff < ACK_ID_1_THRESH)			ack_id_bytes = 1;
+		else if (diff < ACK_ID_2_THRESH)	ack_id_bytes = 2;
+		else								ack_id_bytes = 3;
 
 		// If ACK-ID needs to be sent,
 		if (_send_buffer_ack_id != ack_id ||
@@ -1772,9 +1777,9 @@ void Transport::TransmitQueued()
 
 				// Recalculate how many bytes it would take to represent
 				u32 diff = ack_id - remote_expected;
-				if (diff < 16)			ack_id_bytes = 1;
-				else if (diff < 2048)	ack_id_bytes = 2;
-				else					ack_id_bytes = 3;
+				if (diff < ACK_ID_1_THRESH)			ack_id_bytes = 1;
+				else if (diff < ACK_ID_2_THRESH)	ack_id_bytes = 2;
+				else								ack_id_bytes = 3;
 
 				// Write optional fragment word
 				if (frag_overhead)
@@ -1845,7 +1850,7 @@ void Transport::TransmitQueued()
 		if (!PostPacket(data, bytes + AuthenticatedEncryption::OVERHEAD_BYTES, bytes, skip_bytes))
 		{
 			CAT_TVV(WARN("Transport") << "Unable to post send buffer");
-			continue; // Retry
+			break;
 		}
 
 		packet_send_head = next;

@@ -563,7 +563,7 @@ void Client::OnTimestampDeltaUpdate(u32 rtt, s32 delta)
 	//WriteReliable(STREAM_2, data, 500);
 	//WriteReliable(STREAM_UNORDERED, data, 300);
 	//WriteReliable(STREAM_3, data, 1000);
-	//WriteReliable(STREAM_3, data, 65535);
+	WriteReliable(STREAM_3, data, 65535);
 	//WriteReliable(STREAM_UNORDERED, data, 300);
 	//WriteReliable(STREAM_3, data, 4000);
 	//WriteReliable(STREAM_2, data, 3000);
