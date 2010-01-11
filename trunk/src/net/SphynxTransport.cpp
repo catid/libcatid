@@ -1360,6 +1360,8 @@ void Transport::OnACK(u8 *data, u32 data_bytes)
 				}
 
 				// Remaining nodes are in or over the range
+
+				// If next node is within the range,
 				if (node && (s32)(end_ack_id - ack_id) >= 0)
 				{
 					SendQueue *prev = node->prev;
@@ -1381,14 +1383,16 @@ void Transport::OnACK(u8 *data, u32 data_bytes)
 					// Remove killed from sent list
 					if (prev) prev->next = node;
 					else _sent_list_head[stream] = node;
-					if (!node) _sent_list_tail[stream] = prev;
+					if (node) node->prev = prev;
+					else _sent_list_tail[stream] = prev;
 				}
 
 				// Next range start is offset from the end of this range
 				last_ack_id = end_ack_id;
-			}
-		}
-	}
+
+			} // nodes remain to check
+		} // field is range
+	} // while data bytes > 0
 
 	// Retransmit lost packets
 	if (stream < NUM_STREAMS)
