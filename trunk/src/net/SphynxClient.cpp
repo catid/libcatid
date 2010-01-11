@@ -124,8 +124,12 @@ bool Client::Connect(const NetAddr &addr)
 	// Get SupportIPv6 flag from settings
 	bool only_ipv4 = Settings::ii->getInt("SupportIPv6", 0) == 0;
 
+	// Get kernel receive buffer size
+	int kernelReceiveBufferBytes = Settings::ii->getInt("ClientKernelReceiveBufferBytes", 1000000);
+	if (kernelReceiveBufferBytes < 64000) kernelReceiveBufferBytes = 0;
+
 	// Attempt to bind to any port and accept ICMP errors initially
-	if (!Bind(only_ipv4, 0, false))
+	if (!Bind(only_ipv4, 0, false, kernelReceiveBufferBytes))
 	{
 		WARN("Client") << "Failed to connect: Unable to bind to any port";
 		return false;

@@ -118,7 +118,7 @@ bool UDPEndpoint::DontFragment(bool df)
 	return true;
 }
 
-bool UDPEndpoint::Bind(bool onlySupportIPv4, Port port, bool ignoreUnreachable)
+bool UDPEndpoint::Bind(bool onlySupportIPv4, Port port, bool ignoreUnreachable, int rcv_buffsize)
 {
     // Create an unbound, overlapped UDP socket for the endpoint
     Socket s;
@@ -129,14 +129,22 @@ bool UDPEndpoint::Bind(bool onlySupportIPv4, Port port, bool ignoreUnreachable)
     }
 	_ipv6 = !onlySupportIPv4;
 
-    // Set SO_SNDBUF to zero for a zero-copy network stack (we maintain the buffers)
-    int buffsize = 0;
-    if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, (char*)&buffsize, sizeof(buffsize)))
-    {
+	// Set SO_SNDBUF to zero for a zero-copy network stack (we maintain the buffers)
+	int snd_buffsize = 0;
+	if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, (char*)&snd_buffsize, sizeof(snd_buffsize)))
+	{
 		FATAL("UDPEndpoint") << "Unable to zero the send buffer: " << SocketGetLastErrorString();
 		CloseSocket(s);
 		return false;
-    }
+	}
+
+	// Set SO_RCVBUF as requested (often defaults are far too low for UDP servers or UDP file transfer clients)
+	if (rcv_buffsize && setsockopt(s, SOL_SOCKET, SO_RCVBUF, (char*)&rcv_buffsize, sizeof(rcv_buffsize)))
+	{
+		FATAL("UDPEndpoint") << "Unable to zero the send buffer: " << SocketGetLastErrorString();
+		CloseSocket(s);
+		return false;
+	}
 
     _socket = s;
 
