@@ -517,16 +517,19 @@ void Client::OnMessage(u8 *msg, u32 bytes)
 	INFO("Client") << "Got message with " << bytes << " bytes";
 }
 
-bool Client::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes)
+bool Client::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes, u32 skip_bytes)
 {
-	if (!_auth_enc.Encrypt(buffer, buf_bytes, msg_bytes))
+	buf_bytes -= skip_bytes;
+	msg_bytes -= skip_bytes;
+
+	if (!_auth_enc.Encrypt(buffer + skip_bytes, buf_bytes, msg_bytes))
 	{
 		WARN("Client") << "Encryption failure while sending packet";
 		ReleasePostBuffer(buffer);
 		return false;
 	}
 
-	return Post(_server_addr, buffer, msg_bytes);
+	return Post(_server_addr, buffer, msg_bytes, skip_bytes);
 }
 
 void Client::OnDisconnect()

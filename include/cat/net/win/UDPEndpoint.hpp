@@ -90,7 +90,8 @@ public:
 
 	// If Is6() == true, the address must be promoted to IPv6
 	// before calling Post() with addr.PromoteTo6()
-	bool Post(const NetAddr &addr, void *data, u32 bytes);
+	// skip_bytes: Number of bytes to skip at the start of the post buffer
+	bool Post(const NetAddr &addr, void *data, u32 bytes, u32 skip_bytes = 0);
 
 protected:
     virtual void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &addr, u8 *data, u32 bytes) = 0; // false = close
@@ -108,7 +109,7 @@ private:
     bool QueueWSARecvFrom(RecvFromOverlapped *recvOv);
     void OnWSARecvFromComplete(ThreadPoolLocalStorage *tls, int error, RecvFromOverlapped *recvOv, u32 bytes);
 
-    bool QueueWSASendTo(const NetAddr &addr, TypedOverlapped *sendOv, u32 bytes);
+    bool QueueWSASendTo(const NetAddr &addr, TypedOverlapped *sendOv, u32 bytes, u32 skip_bytes);
     void OnWSASendToComplete(int error, u32 bytes);
 };
 
