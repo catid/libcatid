@@ -710,7 +710,7 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 
 	u8 *data;
 	u16 data_bytes = node->bytes;
-	u16 header = data_bytes | R_MASK;
+	u8 hdr = R_MASK;
 
 	// If node is a fragment,
 	if (node->frag_count)
@@ -718,12 +718,12 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 		SendFrag *frag = reinterpret_cast<SendFrag*>( node );
 
 		data = GetTrailingBytes(frag->full_data) + frag->offset;
-		header |= SOP_FRAG << SOP_SHIFT;
+		hdr |= SOP_FRAG << SOP_SHIFT;
 	}
 	else
 	{
 		data = GetTrailingBytes(node);
-		header |= node->sop << SOP_SHIFT;
+		hdr |= node->sop << SOP_SHIFT;
 	}
 
 	u32 ack_id = node->id;
@@ -733,7 +733,7 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 	if (_send_buffer_stream != stream ||
 		_send_buffer_ack_id != ack_id)
 	{
-		header |= I_MASK;
+		hdr |= I_MASK;
 		_send_buffer_ack_id = ack_id;
 		_send_buffer_stream = stream;
 		msg_bytes += 3;
@@ -767,9 +767,9 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 		send_buffer_bytes = 0;
 		_send_buffer_msg_count = 0;
 
-		if (!(header & I_MASK))
+		if (!(hdr & I_MASK))
 		{
-			header |= I_MASK;
+			hdr |= I_MASK;
 			msg_bytes += 3;
 		}
 	}
@@ -787,12 +787,13 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 
 	u8 *msg = _send_buffer + send_buffer_bytes;
 
-	*reinterpret_cast<u16*>( msg ) = getLE16(header);
+	msg[0] = (u8)(data_bytes >> 8) | hdr;
+	msg[1] = (u8)data_bytes;
 	msg += 2;
 
 	// If ACK-ID needs to be written, do not use compression since we
 	// cannot predict receiver state on retransmission
-	if (header & I_MASK)
+	if (hdr & I_MASK)
 	{
 		msg[0] = (u8)(stream | ((ack_id & 31) << 2) | 0x80);
 		msg[1] = (u8)((ack_id >> 5) | 0x80);
@@ -816,7 +817,6 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 void Transport::WriteACK()
 {
 	u8 packet[MAXIMUM_MTU];
-	u16 *header = reinterpret_cast<u16*>( packet );
 	u8 *offset = packet + 2;
 	u32 max_payload_bytes = _max_payload_bytes;
 	u32 remaining = max_payload_bytes - 2;
@@ -944,9 +944,12 @@ void Transport::WriteACK()
 
 	_recv_lock.Leave();
 
-	// Write header
 	u32 msg_bytes = max_payload_bytes - remaining;
-	*header = getLE16((msg_bytes - 2) | (SOP_ACK << SOP_SHIFT));
+
+	// Write header
+	u32 data_bytes = msg_bytes - 2;
+	packet[0] = (u8)(data_bytes >> 8) | (SOP_ACK << SOP_SHIFT);
+	packet[1] = (u8)(data_bytes);
 
 	// Post message:
 
@@ -1078,7 +1081,7 @@ bool Transport::PostMTUProbe(ThreadPoolLocalStorage *tls, u16 payload_bytes)
 	if (!buffer) return false;
 
 	// Write header
-	*reinterpret_cast<u16*>( buffer ) = getLE16((payload_bytes - 2) | (SOP_MTU_PROBE << 13));
+	buffer[0] = (SOP_MTU_PROBE << SOP_SHIFT) | BHI_SINGLE_MESSAGE;
 
 	// Fill contents with random data
 	tls->csprng->Generate(buffer + 2, payload_bytes - 2);
@@ -1092,15 +1095,15 @@ bool Transport::PostTimePing()
 	//INANE("Transport") << "Posting Time Ping";
 
 	const u32 DATA_BYTES = 4;
-	const u32 PAYLOAD_BYTES = 2 + DATA_BYTES;
+	const u32 PAYLOAD_BYTES = 1 + DATA_BYTES;
 	const u32 BUFFER_BYTES = PAYLOAD_BYTES + AuthenticatedEncryption::OVERHEAD_BYTES;
 
 	u8 *buffer = GetPostBuffer(BUFFER_BYTES);
 	if (!buffer) return false;
 
 	// Write Time Ping
-	*reinterpret_cast<u16*>( buffer ) = getLE16(DATA_BYTES | (SOP_TIME_PING << SOP_SHIFT));
-	*reinterpret_cast<u32*>( buffer + 2 ) = getLE32(Clock::msec());
+	buffer[0] = (SOP_TIME_PING << SOP_SHIFT) | BHI_SINGLE_MESSAGE;
+	*reinterpret_cast<u32*>( buffer + 1 ) = getLE32(Clock::msec());
 
 	// Encrypt and send buffer
 	return PostPacket(buffer, BUFFER_BYTES, PAYLOAD_BYTES, 0);
@@ -1111,16 +1114,16 @@ bool Transport::PostTimePong(u32 client_ts)
 	//INANE("Transport") << "Posting Time Pong";
 
 	const u32 DATA_BYTES = 4 + 4;
-	const u32 PAYLOAD_BYTES = 2 + DATA_BYTES;
+	const u32 PAYLOAD_BYTES = 1 + DATA_BYTES;
 	const u32 BUFFER_BYTES = PAYLOAD_BYTES + AuthenticatedEncryption::OVERHEAD_BYTES;
 
 	u8 *buffer = GetPostBuffer(BUFFER_BYTES);
 	if (!buffer) return false;
 
 	// Write Time Pong
-	*reinterpret_cast<u16*>( buffer ) = getLE16(DATA_BYTES | (SOP_TIME_PONG << SOP_SHIFT));
-	*reinterpret_cast<u32*>( buffer + 2 ) = client_ts;
-	*reinterpret_cast<u32*>( buffer + 6 ) = getLE32(Clock::msec());
+	buffer[0] = (SOP_TIME_PONG << SOP_SHIFT) | BHI_SINGLE_MESSAGE;
+	*reinterpret_cast<u32*>( buffer + 1 ) = client_ts;
+	*reinterpret_cast<u32*>( buffer + 5 ) = getLE32(Clock::msec());
 
 	// Encrypt and send buffer
 	return PostPacket(buffer, BUFFER_BYTES, PAYLOAD_BYTES, 0);
@@ -1131,14 +1134,14 @@ bool Transport::PostDisconnect()
 	//INANE("Transport") << "Posting Disconnect";
 
 	const u32 DATA_BYTES = 0;
-	const u32 PAYLOAD_BYTES = 2 + DATA_BYTES;
+	const u32 PAYLOAD_BYTES = 1 + DATA_BYTES;
 	const u32 BUFFER_BYTES = PAYLOAD_BYTES + AuthenticatedEncryption::OVERHEAD_BYTES;
 
 	u8 *buffer = GetPostBuffer(BUFFER_BYTES);
 	if (!buffer) return false;
 
 	// Write Disconnect
-	*reinterpret_cast<u16*>( buffer ) = getLE16(DATA_BYTES | (SOP_DISCO << SOP_SHIFT));
+	buffer[0] = (SOP_DISCO << SOP_SHIFT) | BHI_SINGLE_MESSAGE;
 
 	// Encrypt and send buffer
 	return PostPacket(buffer, BUFFER_BYTES, PAYLOAD_BYTES, 0);
@@ -1680,14 +1683,16 @@ void Transport::TransmitQueued()
 					continue; // Retry
 				}
 
-				// Generate header word
-				u16 header = (data_bytes_to_copy + frag_overhead) | R_MASK;
-				if (ack_id_overhead) header |= I_MASK;
-				header |= (fragmented ? SOP_FRAG : node->sop) << SOP_SHIFT;
-
 				// Write header
 				u8 *msg = send_buffer + send_buffer_bytes;
-				*reinterpret_cast<u16*>( msg ) = getLE16(header);
+				u32 data_bytes = data_bytes_to_copy + frag_overhead;
+
+				u8 hdr = R_MASK;
+				hdr |= (fragmented ? SOP_FRAG : node->sop) << SOP_SHIFT;
+				if (ack_id_overhead) hdr |= I_MASK;
+
+				msg[0] = (u8)(data_bytes >> 8) | hdr;
+				msg[1] = (u8)data_bytes;
 				msg += 2;
 
 				// Write optional ACK-ID
