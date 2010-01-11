@@ -380,12 +380,13 @@ bool Client::ThreadFunction(void *)
 	}
 
 	const int HANDSHAKE_TICK_RATE = 100; // milliseconds
-	const int HELLO_POST_INTERVAL = 200; // milliseconds
+	const int INITIAL_HELLO_POST_INTERVAL = 200; // milliseconds
 	const int CONNECT_TIMEOUT = 6000; // milliseconds
 
 	u32 start_time = Clock::msec_fast();
 	u32 first_hello_post = start_time;
 	u32 last_hello_post = start_time;
+	u32 hello_post_interval = INITIAL_HELLO_POST_INTERVAL;
 
 	// While still not connected,
 	while (!_connected)
@@ -410,7 +411,7 @@ bool Client::ThreadFunction(void *)
 		}
 
 		// If time to repost hello packet,
-		if (now - last_hello_post >= HELLO_POST_INTERVAL)
+		if (now - last_hello_post >= hello_post_interval)
 		{
 			if (!PostHello())
 			{
@@ -420,6 +421,7 @@ bool Client::ThreadFunction(void *)
 			}
 
 			last_hello_post = now;
+			hello_post_interval *= 2;
 		}
 	}
 
@@ -546,12 +548,12 @@ void Client::OnTimestampDeltaUpdate(u32 rtt, s32 delta)
 	for (int ii = 0; ii < sizeof(data); ++ii)
 		data[ii] = (u8)ii + 1;
 
-	WriteReliable(STREAM_UNORDERED, data, 300);
+	//WriteReliable(STREAM_UNORDERED, data, 300);
 	//WriteReliable(STREAM_1, data, 30000);
 	//WriteReliable(STREAM_1, data, 30000);
 	//WriteReliable(STREAM_1, data, 300);
 	//WriteReliable(STREAM_UNORDERED, data, 300);
-	//WriteReliable(STREAM_2, data, 5000);
+	WriteReliable(STREAM_2, data, 5000);
 	//WriteReliable(STREAM_UNORDERED, data, 300);
 	WriteReliable(STREAM_2, data, 65535);
 	//WriteReliable(STREAM_2, data, 500);
