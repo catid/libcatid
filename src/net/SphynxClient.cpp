@@ -126,7 +126,6 @@ bool Client::Connect(const NetAddr &addr)
 
 	// Get kernel receive buffer size
 	int kernelReceiveBufferBytes = Settings::ii->getInt("ClientKernelReceiveBufferBytes", 1000000);
-	if (kernelReceiveBufferBytes < 64000) kernelReceiveBufferBytes = 0;
 
 	// Attempt to bind to any port and accept ICMP errors initially
 	if (!Bind(only_ipv4, 0, false, kernelReceiveBufferBytes))

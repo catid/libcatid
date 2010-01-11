@@ -732,7 +732,6 @@ bool Server::Initialize(ThreadPoolLocalStorage *tls, Port port)
 
 	// Get kernel receive buffer size
 	int kernelReceiveBufferBytes = Settings::ii->getInt("ServerKernelReceiveBufferBytes", 8000000);
-	if (kernelReceiveBufferBytes < 64000) kernelReceiveBufferBytes = 0;
 
 	// Attempt to bind to the server port
 	_server_port = port;

@@ -231,20 +231,40 @@ void ThreadPool::Shutdown()
         {
             if (!PostQueuedCompletionStatus(_port, 0, 0, 0))
             {
-                FATAL("ThreadPool") << "Shutdown post error: " << GetLastError();
+                FATAL("ThreadPool") << "Shutdown task (1/3): !!! Shutdown post error: " << GetLastError();
                 return;
             }
         }
 
-        if (WAIT_FAILED == WaitForMultipleObjects(_active_thread_count, _threads, TRUE, INFINITE))
-        {
-            FATAL("ThreadPool") << "error waiting for thread termination: " << GetLastError();
-            return;
-        }
+		const int SHUTDOWN_WAIT_TIMEOUT = 10000; // 10 seconds
 
-		for (int ii = 0; ii < _active_thread_count; ++ii)
+        if (WAIT_OBJECT_0 != WaitForMultipleObjects(_active_thread_count, _threads, TRUE, SHUTDOWN_WAIT_TIMEOUT))
+        {
+            FATAL("ThreadPool") << "Shutdown task (1/3): !!! Threads refuse to die.  Attempting lethal force.  Error: " << GetLastError();
+
+			// For each thread,
+			for (int ii = 0; ii < _active_thread_count; ++ii)
+			{
+				// If the thread is still stuck,
+				if (WAIT_OBJECT_0 != WaitForSingleObject(_threads[ii], 0))
+				{
+					FATAL("ThreadPool") << "Shutdown task (1/3): !!! Killing thread " << ii << "...";
+					// If we can get an exit code for the thread,
+					DWORD ExitCode;
+					if (GetExitCodeThread(_threads[ii], &ExitCode) != 0)
+					{
+						// Terminate it
+						TerminateThread(_threads[ii], ExitCode);
+					}
+				}
+			}
+        }
+		else
 		{
-			CloseHandle(_threads[ii]);
+			for (int ii = 0; ii < _active_thread_count; ++ii)
+			{
+				CloseHandle(_threads[ii]);
+			}
 		}
 
 		_active_thread_count = 0;
