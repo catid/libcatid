@@ -31,6 +31,7 @@ int main()
 				FATAL("Client") << "Provided server key invalid";
 			}
 
+			// 10.1.1.128
 			if (!client->Connect("10.1.1.128", 22000))
 			{
 				FATAL("Client") << "Unable to connect to server";

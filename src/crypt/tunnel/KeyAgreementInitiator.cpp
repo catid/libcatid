@@ -226,7 +226,17 @@ bool KeyAgreementInitiator::ProcessAnswer(BigTwistedEdwards *math,
 	key_hash->Crunch(T, KeyBytes);
 	key_hash->End();
 
-	return true;
+	// Verify initiator proof of key
+	Skein mac;
+
+	if (!mac.SetKey(key_hash) || !mac.BeginMAC()) return false;
+	mac.CrunchString("responder proof");
+	mac.End();
+
+	u8 expected[KeyAgreementCommon::MAX_BYTES];
+	mac.Generate(expected, KeyBytes);
+
+	return SecureEqual(expected, responder_answer + KeyBytes * 3, KeyBytes);
 }
 
 bool KeyAgreementInitiator::Verify(BigTwistedEdwards *math,

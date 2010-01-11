@@ -246,6 +246,15 @@ bool KeyAgreementResponder::ProcessChallenge(BigTwistedEdwards *math, FortunaOut
 	key_hash->Crunch(T, KeyBytes);
 	key_hash->End();
 
+	// Generate responder proof of key
+	Skein mac;
+
+	if (!mac.SetKey(key_hash) || !mac.BeginMAC()) return false;
+	mac.CrunchString("responder proof");
+	mac.End();
+
+	mac.Generate(responder_answer + KeyBytes*3, KeyBytes);
+
 	return true;
 }
 
