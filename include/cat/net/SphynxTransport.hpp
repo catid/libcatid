@@ -55,10 +55,12 @@ namespace sphynx {
 		--- Message Header  (16 bits) ---
 		 0 1 2 3 4 5 6 7 8 9 a b c d e f
 		<-- LSB ----------------- MSB -->
-		|   DATA_BYTES(11)    |I|R| SOP |
+		| BHI |I|R| SOP |      BLO      |
 		---------------------------------
 
-		DATA_BYTES: Number of bytes in data part of message.
+		DATA_BYTES: BHI | BLO = Number of bytes in data part of message.
+			If BHI = "111"b, the BLO byte is omitted and the receiver can
+			assume that the rest of the packet contains just one message.
 		I: 1=Followed by ACK-ID field. 0=ACK-ID is one higher than the last.
 		R: 1=Reliable. 0=Unreliable.
 		SOP: Super opcodes:
@@ -78,6 +80,15 @@ namespace sphynx {
 			When the FRAG opcode used for the first time in an ordered stream,
 			the data part begins with a 16-bit Fragment Header.
 			This additional size IS accounted for in the DATA_BYTES field.
+
+			Often times there is just one message in a datagram.  To compress
+			the header in this case, when BHI = 7 the receiver assumes that
+			only one message is in the packet and uses the payload length to
+			determine the length of the single message.  BLO byte is omitted.
+
+				This *could* also be used on the final message in a cluster,
+				but it cannot be done without a memcpy to cover up the extra
+				header byte, which I don't consider worthwhile...
 
 		------------- ACK-ID Field (24 bits) ------------
 		 0 1 2 3 4 5 6 7 8 9 a b c d e f 0 1 2 3 4 5 6 7 
@@ -221,11 +232,11 @@ enum SuperOpcode
 class Transport
 {
 protected:
-	static const u16 DATALEN_MASK = 0x7ff;
-	static const u16 I_MASK = 1 << 11;
-	static const u16 R_MASK = 1 << 12;
-	static const u16 SOP_MASK = 7 << 13;
-	static const u16 SOP_SHIFT = 13;
+	static const u8 BHI_MASK = 7;
+	static const u8 BHI_SINGLE_MESSAGE = 7;
+	static const u8 I_MASK = 1 << 3;
+	static const u8 R_MASK = 1 << 4;
+	static const u32 SOP_SHIFT = 5;
 
 	static const u32 NUM_STREAMS = 4; // Number of reliable streams
 	static const u32 MIN_RTT = 50; // Minimum milliseconds for RTT
@@ -308,8 +319,8 @@ protected:
 	// Send state: Combined writes
 	u8 *_send_buffer;
 	u32 _send_buffer_bytes;
-	u32 _send_buffer_stream;
-	u32 _send_buffer_ack_id;
+	u32 _send_buffer_stream, _send_buffer_ack_id; // Used to compress ACK-ID by setting I=0 after the first reliable message
+	u32 _send_buffer_msg_count; // Used to compress datagrams with a single message by omitting the header's BLO field
 
 	// Send state: Send queue
 	struct SendQueue
@@ -339,8 +350,11 @@ protected:
 	// Temporary send node structure, nestled in the encryption overhead of outgoing packets
 	struct TempSendNode // Size <= 11 bytes = AuthenticatedEncryption::OVERHEAD_BYTES
 	{
+		static const u32 SINGLE_FLAG = 0x8000;
+		static const u32 BYTE_MASK = 0x7fff;
+
 		TempSendNode *next;
-		u16 negative_offset; // Number of bytes before this structure
+		u16 negative_offset; // Number of bytes before this structure, and single flag
 	};
 
 	// Queue of messages that are waiting to be sent
