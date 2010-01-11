@@ -31,6 +31,7 @@
 #include <cat/io/Logging.hpp>
 #include <cat/io/MMapFile.hpp>
 #include <cat/net/DNSClient.hpp>
+#include <cat/io/Settings.hpp>
 #include <fstream>
 using namespace std;
 using namespace cat;
@@ -120,8 +121,11 @@ bool Client::Connect(const NetAddr &addr)
 
 	_server_addr = addr;
 
+	// Get SupportIPv6 flag from settings
+	bool only_ipv4 = Settings::ii->getInt("SupportIPv6", 0) == 0;
+
 	// Attempt to bind to any port and accept ICMP errors initially
-	if (!Bind(0, false))
+	if (!Bind(only_ipv4, 0, false))
 	{
 		WARN("Client") << "Failed to connect: Unable to bind to any port";
 		return false;

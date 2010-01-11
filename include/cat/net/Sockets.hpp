@@ -164,9 +164,10 @@ public:
 bool StartupSockets(); // returns false on error
 void CleanupSockets();
 
+// inout_OnlyIPv4: Indicates that only IPv4 is requested by caller
 // Sets OnlyIPv4 if IPv6 will be unsupported
 // Returns true on success
-bool CreateSocket(int type, int protocol, bool SupportIPv4, Socket &out_s, bool &out_OnlyIPv4);
+bool CreateSocket(int type, int protocol, bool SupportIPv4, Socket &out_s, bool &inout_OnlyIPv4);
 
 // Returns true on success
 bool NetBind(Socket s, Port port, bool OnlyIPv4);

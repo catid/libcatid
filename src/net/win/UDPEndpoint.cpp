@@ -118,17 +118,16 @@ bool UDPEndpoint::DontFragment(bool df)
 	return true;
 }
 
-bool UDPEndpoint::Bind(Port port, bool ignoreUnreachable)
+bool UDPEndpoint::Bind(bool onlySupportIPv4, Port port, bool ignoreUnreachable)
 {
     // Create an unbound, overlapped UDP socket for the endpoint
     Socket s;
-	bool ipv4;
-	if (!CreateSocket(SOCK_DGRAM, IPPROTO_UDP, true, s, ipv4))
+	if (!CreateSocket(SOCK_DGRAM, IPPROTO_UDP, true, s, onlySupportIPv4))
 	{
 		FATAL("UDPEndpoint") << "Unable to create a UDP socket: " << SocketGetLastErrorString();
 		return false;
     }
-	_ipv6 = !ipv4;
+	_ipv6 = !onlySupportIPv4;
 
     // Set SO_SNDBUF to zero for a zero-copy network stack (we maintain the buffers)
     int buffsize = 0;
@@ -145,7 +144,7 @@ bool UDPEndpoint::Bind(Port port, bool ignoreUnreachable)
     if (ignoreUnreachable) IgnoreUnreachable();
 
     // Bind the socket to a given port
-    if (!NetBind(s, port, ipv4))
+    if (!NetBind(s, port, onlySupportIPv4))
     {
         INANE("UDPEndpoint") << "Unable to bind to port: " << SocketGetLastErrorString();
         CloseSocket(s);

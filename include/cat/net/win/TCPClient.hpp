@@ -65,7 +65,7 @@ public:
 
     bool ValidClient();
 
-    bool Connect(const NetAddr &remoteServerAddress);
+    bool Connect(bool onlySupportIPv4, const NetAddr &remoteServerAddress);
     void DisconnectServer();
     bool PostToServer(void *buffer, u32 bytes);
 
