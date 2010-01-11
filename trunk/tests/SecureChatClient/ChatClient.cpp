@@ -32,7 +32,7 @@ int main()
 			}
 
 			// 10.1.1.128
-			if (!client->Connect("10.1.1.128", 22000))
+			if (!client->Connect("127.0.0.1", 22000))
 			{
 				FATAL("Client") << "Unable to connect to server";
 			}
