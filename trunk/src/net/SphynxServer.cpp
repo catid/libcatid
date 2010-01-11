@@ -103,7 +103,7 @@ void Connection::OnDestroy()
 
 void Connection::OnMessage(u8 *msg, u32 bytes)
 {
-	WARN("Server") << "Received a message with " << bytes;
+	WARN("Server") << "Received a message with " << bytes << " -------------------------------------------------------";
 
 	//INANE("Server") << "Message dump " << bytes << ":" << HexDumpString(msg, bytes);
 }

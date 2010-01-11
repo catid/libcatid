@@ -238,7 +238,7 @@ void Transport::OnDatagram(u8 *data, u32 bytes)
 		// If reliable message,
 		if (hdr & R_MASK)
 		{
-			WARN("Transport") << "Got # " << ack_id;
+			WARN("Transport") << "Got # " << stream << ":" << ack_id;
 
 			s32 diff = (s32)(ack_id - _next_recv_expected_id[stream]);
 
@@ -274,7 +274,7 @@ void Transport::OnDatagram(u8 *data, u32 bytes)
 			}
 			else
 			{
-				WARN("Transport") << "Ignored duplicate rolled reliable message " << ack_id;
+				WARN("Transport") << "Ignored duplicate rolled reliable message " << stream << ":" << ack_id;
 
 				//INANE("Transport") << "Rel dump " << bytes << ":" << HexDumpString(data, bytes);
 
@@ -811,7 +811,7 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 
 	node->ts_lastsend = now;
 
-	WARN("Transport") << "Retransmitted # " << ack_id;
+	WARN("Transport") << "Retransmitted # " << stream << ":" << ack_id;
 }
 
 void Transport::WriteACK()
@@ -830,7 +830,11 @@ void Transport::WriteACK()
 			// Truncates ACK message if needed.
 			// This is mitigated by not unsetting _got_reliable, so
 			// next tick perhaps the rest of the ACK list can be sent.
-			if (remaining < 3) break;
+			if (remaining < 3)
+			{
+				WARN("Transport") << "ACK packet truncated due to lack of space(1)";
+				break;
+			}
 
 			u32 rollup_ack_id = _next_recv_expected_id[stream];
 
@@ -841,7 +845,7 @@ void Transport::WriteACK()
 			offset += 3;
 			remaining -= 3;
 
-			INFO("Transport") << "Acknowledging rollup # " << rollup_ack_id;
+			INFO("Transport") << "Acknowledging rollup # " << stream << ":" << rollup_ack_id;
 
 			RecvQueue *node = _recv_queue_head[stream];
 
@@ -863,13 +867,17 @@ void Transport::WriteACK()
 					else // New range or end of ranges
 					{
 						// Encode RANGE: START(3) || END(3)
-						if (remaining < 6) break;
+						if (remaining < 6)
+						{
+							WARN("Transport") << "ACK packet truncated due to lack of space(2)";
+							break;
+						}
 
 						u32 start_offset = start_id - last_id;
 						u32 end_offset = end_id - start_id;
 						last_id = end_id;
 
-						INFO("Transport") << "Acknowledging range # " << start_id << " - " << end_id;
+						INFO("Transport") << "Acknowledging range # " << stream << ":" << start_id << " - " << end_id;
 
 						// Write START
 						if (start_offset & ~0x1f)
@@ -1153,6 +1161,8 @@ void Transport::OnACK(u8 *data, u32 data_bytes)
 	SendQueue *node = 0, *kill_list = 0;
 	u32 now = Clock::msec();
 
+	INFO("Transport") << "Got ACK with " << data_bytes << " bytes of data to decode ----";
+
 	AutoMutex lock(_send_lock);
 
 	while (data_bytes > 0)
@@ -1208,7 +1218,7 @@ void Transport::OnACK(u8 *data, u32 data_bytes)
 
 					last_ack_id = ack_id;
 
-					INFO("Transport") << "Got acknowledgment for rollup # " << ack_id;
+					INFO("Transport") << "Got acknowledgment for rollup # " << stream << ":" << ack_id;
 
 					// If the id got rolled,
 					if ((s32)(ack_id - node->id) > 0)
@@ -1344,7 +1354,7 @@ void Transport::OnACK(u8 *data, u32 data_bytes)
 				}
 			}
 
-			INFO("Transport") << "Got acknowledgment for range # " << start_ack_id << " - " << end_ack_id;
+			INFO("Transport") << "Got acknowledgment for range # " << stream << ":" << start_ack_id << " - " << end_ack_id;
 
 			// Handle range:
 			if (node)
@@ -1748,7 +1758,7 @@ void Transport::TransmitQueued()
 				send_buffer_bytes += write_bytes;
 				_send_buffer_msg_count++;
 
-				WARN("Transport") << "Wrote " << sent_bytes << " / " << total_bytes;
+				WARN("Transport") << "Wrote " << stream << ":" << sent_bytes << " / " << total_bytes;
 
 			} while (sent_bytes < total_bytes);
 
