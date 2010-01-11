@@ -61,17 +61,16 @@ bool TCPClient::ValidClient()
     return _socket != SOCKET_ERROR;
 }
 
-bool TCPClient::Connect(const NetAddr &remoteServerAddress)
+bool TCPClient::Connect(bool onlySupportIPv4, const NetAddr &remoteServerAddress)
 {
     // Create an unbound, overlapped TCP socket for the listen port
 	Socket s;
-	bool ipv4;
-	if (!CreateSocket(SOCK_STREAM, IPPROTO_TCP, true, s, ipv4))
+	if (!CreateSocket(SOCK_STREAM, IPPROTO_TCP, true, s, onlySupportIPv4))
 	{
 		FATAL("TCPClient") << "Unable to create a TCP socket: " << SocketGetLastErrorString();
 		return false;
     }
-	_ipv6 = !ipv4;
+	_ipv6 = !onlySupportIPv4;
 
     // Set SO_SNDBUF to zero for a zero-copy network stack (we maintain the buffers)
     int buffsize = 0;
@@ -83,7 +82,7 @@ bool TCPClient::Connect(const NetAddr &remoteServerAddress)
     }
 
     // Bind the socket to a random port as required by ConnectEx()
-    if (!NetBind(s, 0, ipv4))
+    if (!NetBind(s, 0, onlySupportIPv4))
     {
         FATAL("TCPClient") << "Unable to bind to port: " << SocketGetLastErrorString();
         CloseSocket(s);

@@ -117,12 +117,12 @@ namespace cat
 		return 0 == setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&on, sizeof(on));
 	}
 
-	bool CreateSocket(int type, int protocol, bool SupportIPv4, Socket &out_s, bool &out_OnlyIPv4)
+	bool CreateSocket(int type, int protocol, bool SupportIPv4, Socket &out_s, bool &inout_OnlyIPv4)
 	{
 		// Under Windows 2003 or earlier, when a server binds to an IPv6 address it
 		// cannot be contacted by IPv4 clients, which is currently a very bad thing,
 		// so just do IPv4 under Windows 2003 or earlier.
-		if (IsWindowsVistaOrNewer())
+		if (!inout_OnlyIPv4 && IsWindowsVistaOrNewer())
 		{
 			// Attempt to create an IPv6 socket
 			Socket s = WSASocket(AF_INET6, type, protocol, 0, 0, WSA_FLAG_OVERLAPPED);
@@ -138,7 +138,6 @@ namespace cat
 					break;
 				}
 
-				out_OnlyIPv4 = false;
 				out_s = s;
 				return true;
 			}
@@ -150,7 +149,7 @@ namespace cat
 		// If the socket was created,
 		if (s != INVALID_SOCKET)
 		{
-			out_OnlyIPv4 = true;
+			inout_OnlyIPv4 = true;
 			out_s = s;
 			return true;
 		}

@@ -31,6 +31,7 @@
 #include <cat/time/Clock.hpp>
 #include <cat/lang/Strings.hpp>
 #include <cat/port/EndianNeutral.hpp>
+#include <cat/io/Settings.hpp>
 #include <cstdio>
 #include <fstream>
 using namespace cat;
@@ -461,6 +462,9 @@ bool DNSClient::BindToRandomPort(bool ignoreUnreachable)
 	// This is the standard fix for Dan Kaminsky's DNS exploit
 	const int RANDOM_BIND_ATTEMPTS_MAX = 16;
 
+	// Get SupportIPv6 flag from settings
+	bool only_ipv4 = Settings::ii->getInt("SupportIPv6", 0) == 0;
+
 	// Try to use a more random port
 	int tries = RANDOM_BIND_ATTEMPTS_MAX;
 	while (tries--)
@@ -469,12 +473,12 @@ bool DNSClient::BindToRandomPort(bool ignoreUnreachable)
 		Port port = (u16)_csprng->Generate();
 
 		// If bind succeeded,
-		if (port >= 1024 && Bind(port, ignoreUnreachable))
+		if (port >= 1024 && Bind(only_ipv4, port, ignoreUnreachable))
 			return true;
 	}
 
 	// Fall back to OS-chosen port
-	return Bind(0, ignoreUnreachable);
+	return Bind(only_ipv4, 0, ignoreUnreachable);
 }
 
 bool DNSClient::Initialize()

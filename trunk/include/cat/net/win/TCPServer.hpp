@@ -79,7 +79,7 @@ public:
     bool ValidServer();
     Port GetPort();
 
-	bool Bind(Port port = 0);
+	bool Bind(bool onlySupportIPv4, Port port = 0);
     void Close();
 
 protected:

@@ -57,12 +57,11 @@ TCPServer::~TCPServer()
     Close();
 }
 
-bool TCPServer::Bind(Port port)
+bool TCPServer::Bind(bool onlySupportIPv4, Port port)
 {
     // Create an unbound, overlapped TCP socket for the listen port
-	bool ipv4;
 	Socket s;
-	if (!CreateSocket(SOCK_STREAM, IPPROTO_TCP, true, s, ipv4))
+	if (!CreateSocket(SOCK_STREAM, IPPROTO_TCP, true, s, onlySupportIPv4))
 	{
 		FATAL("TCPServer") << "Unable to create a TCP socket: " << SocketGetLastErrorString();
 		return false;
@@ -123,7 +122,7 @@ bool TCPServer::Bind(Port port)
     }
 
     // Bind socket to port
-    if (!NetBind(s, port, ipv4))
+    if (!NetBind(s, port, onlySupportIPv4))
     {
         FATAL("TCPServer") << "Unable to bind to port " << port << ": " << SocketGetLastErrorString();
         CloseSocket(s);

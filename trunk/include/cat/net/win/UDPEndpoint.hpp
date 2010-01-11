@@ -85,7 +85,7 @@ public:
 	bool DontFragment(bool df = true);
 
     void Close(); // Invalidates this object
-    bool Bind(Port port = 0, bool ignoreUnreachable = true);
+    bool Bind(bool onlySupportIPv4, Port port = 0, bool ignoreUnreachable = true);
     bool QueueWSARecvFrom();
 
 	// If Is6() == true, the address must be promoted to IPv6

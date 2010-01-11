@@ -30,6 +30,7 @@
 #include <cat/port/AlignedAlloc.hpp>
 #include <cat/io/Logging.hpp>
 #include <cat/io/MMapFile.hpp>
+#include <cat/io/Settings.hpp>
 #include <fstream>
 using namespace std;
 using namespace cat;
@@ -726,9 +727,12 @@ bool Server::Initialize(ThreadPoolLocalStorage *tls, Port port)
 		}
 	}
 
+	// Get SupportIPv6 flag from settings
+	bool only_ipv4 = Settings::ii->getInt("SupportIPv6", 0) == 0;
+
 	// Attempt to bind to the server port
 	_server_port = port;
-	if (!Bind(port))
+	if (!Bind(only_ipv4, port))
 	{
 		WARN("Server") << "Failed to initialize: Unable to bind handshake port "
 			<< port << ". " << SocketGetLastErrorString();
@@ -777,7 +781,7 @@ bool Server::Initialize(ThreadPoolLocalStorage *tls, Port port)
 		Port worker_port = port + ii + 1;
 
 		// If allocation or bind failed, report failure after done
-		if (!worker || !worker->Bind(worker_port))
+		if (!worker || !worker->Bind(only_ipv4, worker_port))
 		{
 			WARN("Server") << "Failed to initialize: Unable to bind to data port " << worker_port << ": "
 				<< SocketGetLastErrorString();
