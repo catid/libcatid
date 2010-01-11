@@ -178,8 +178,8 @@ class Transport;
 //#define CAT_PACK_TRANSPORT_STATE_STRUCTURES /* No advantage for 64-bit version */
 #endif
 
-//#define CAT_TRANSPORT_DEBUG_LOGGING /* Enables info messages on console */
-//#define CAT_VERBOSE_VALIDATION /* Enables input error messages on console */
+#define CAT_TRANSPORT_DEBUG_LOGGING /* Enables info messages on console */
+#define CAT_VERBOSE_VALIDATION /* Enables input error messages on console */
 
 // Protocol constants
 static const u32 PROTOCOL_MAGIC = 0xC47D0001;
@@ -344,8 +344,8 @@ protected:
 
 	// Receive state: Fragmentation
 	u8 *_fragment_buffer[NUM_STREAMS]; // Buffer for accumulating fragment
-	u16 _fragment_length[NUM_STREAMS]; // Number of bytes in fragment buffer
-	u16 _fragment_offset[NUM_STREAMS]; // Current write offset in buffer
+	u32 _fragment_length[NUM_STREAMS]; // Number of bytes in fragment buffer
+	u32 _fragment_offset[NUM_STREAMS]; // Current write offset in buffer
 
 	static const u32 FRAG_MIN = 0;		// Min bytes for a fragmented message
 	static const u32 FRAG_MAX = 65535;	// Max bytes for a fragmented message
