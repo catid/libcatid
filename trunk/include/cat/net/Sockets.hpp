@@ -58,6 +58,9 @@ namespace cat {
 
 typedef u16 Port;
 
+#pragma pack(push)
+#pragma pack(1)
+
 // Wrapper for IPv4 and IPv6 addresses
 class NetAddr
 {
@@ -151,6 +154,8 @@ public:
 public:
 	bool Unwrap(SockAddr &addr, int &addr_len, bool PromoteToIP6 = false) const;
 };
+
+#pragma pack(pop)
 
 
 //// Helper Functions
