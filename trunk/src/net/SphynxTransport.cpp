@@ -605,6 +605,7 @@ bool Transport::WriteUnreliable(u8 *data, u32 data_bytes)
 	if (send_buffer_bytes + msg_bytes > max_payload_bytes)
 	{
 		u8 *old_send_buffer = _send_buffer;
+		u32 old_msg_count = _send_buffer_msg_count;
 
 		u8 *msg_buffer = GetPostBuffer(msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
 		if (!msg_buffer)
@@ -626,9 +627,11 @@ bool Transport::WriteUnreliable(u8 *data, u32 data_bytes)
 
 		lock.Release();
 
-		// TODO: Remove BLO
+		// If a single message is being sent, strip the extra BLO byte
+		u32 skip_bytes = (old_msg_count == 1) ? 1 : 0;
+		if (skip_bytes) old_send_buffer[1] = old_send_buffer[0] | BHI_SINGLE_MESSAGE;
 
-		if (!PostPacket(old_send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes))
+		if (!PostPacket(old_send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes, skip_bytes))
 		{
 			WARN("Transport") << "Packet post failure during unreliable overflow";
 		}
@@ -672,6 +675,7 @@ void Transport::FlushWrite()
 	if (send_buffer)
 	{
 		u32 send_buffer_bytes = _send_buffer_bytes;
+		u32 old_msg_count = _send_buffer_msg_count;
 
 		_send_buffer = 0;
 		_send_buffer_bytes = 0;
@@ -680,9 +684,11 @@ void Transport::FlushWrite()
 
 		lock.Release();
 
-		// TODO: Remove BLO
+		// If a single message is being sent, strip the extra BLO byte
+		u32 skip_bytes = (old_msg_count == 1) ? 1 : 0;
+		if (skip_bytes) send_buffer[1] = send_buffer[0] | BHI_SINGLE_MESSAGE;
 
-		if (!PostPacket(send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes))
+		if (!PostPacket(send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes, skip_bytes))
 		{
 			WARN("Transport") << "Packet post failure during flush write";
 		}
@@ -728,7 +734,7 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 		_send_buffer_ack_id != ack_id)
 	{
 		header |= I_MASK;
-		_send_buffer_ack_id = ack_id + 1;
+		_send_buffer_ack_id = ack_id;
 		_send_buffer_stream = stream;
 		msg_bytes += 3;
 	}
@@ -748,15 +754,18 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 	// If the growing send buffer cannot contain the new message,
 	if (send_buffer_bytes + msg_bytes > max_payload_bytes)
 	{
-		// TODO: Remove BLO
+		// If a single message is being sent, strip the extra BLO byte
+		u32 skip_bytes = (_send_buffer_msg_count == 1) ? 1 : 0;
+		if (skip_bytes) send_buffer[1] = send_buffer[0] | BHI_SINGLE_MESSAGE;
 
-		if (!PostPacket(send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes))
+		if (!PostPacket(send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes, skip_bytes))
 		{
 			WARN("Transport") << "Packet post failure during retransmit overflow";
 		}
 
 		send_buffer = 0;
 		send_buffer_bytes = 0;
+		_send_buffer_msg_count = 0;
 
 		if (!(header & I_MASK))
 		{
@@ -781,12 +790,17 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 	*reinterpret_cast<u16*>( msg ) = getLE16(header);
 	msg += 2;
 
+	// If ACK-ID needs to be written, do not use compression since we
+	// cannot predict receiver state on retransmission
 	if (header & I_MASK)
 	{
 		msg[0] = (u8)(stream | ((ack_id & 31) << 2) | 0x80);
 		msg[1] = (u8)((ack_id >> 5) | 0x80);
 		msg[2] = (u8)(ack_id >> 12);
 		msg += 3;
+
+		// Next reliable message by default is one ACK-ID ahead
+		_send_buffer_ack_id = ack_id + 1;
 	}
 
 	memcpy(msg, data, data_bytes);
@@ -952,6 +966,8 @@ void Transport::WriteACK()
 		}
 		else
 		{
+			u32 msg_count = _send_buffer_msg_count;
+
 			memcpy(msg_buffer, packet, msg_bytes);
 			_send_buffer = msg_buffer;
 			_send_buffer_bytes = msg_bytes;
@@ -960,9 +976,11 @@ void Transport::WriteACK()
 
 			lock.Release();
 
-			// TODO: Remove BLO
+			// If a single message is being sent, strip the extra BLO byte
+			u32 skip_bytes = (msg_count == 1) ? 1 : 0;
+			if (skip_bytes) old_send_buffer[1] = old_send_buffer[0] | BHI_SINGLE_MESSAGE;
 
-			if (!PostPacket(old_send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes))
+			if (!PostPacket(old_send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes, skip_bytes))
 			{
 				WARN("Transport") << "Packet post failure during ACK send buffer overflow";
 			}
@@ -1066,7 +1084,7 @@ bool Transport::PostMTUProbe(ThreadPoolLocalStorage *tls, u16 payload_bytes)
 	tls->csprng->Generate(buffer + 2, payload_bytes - 2);
 
 	// Encrypt and send buffer
-	return PostPacket(buffer, buffer_bytes, payload_bytes);
+	return PostPacket(buffer, buffer_bytes, payload_bytes, 0);
 }
 
 bool Transport::PostTimePing()
@@ -1085,7 +1103,7 @@ bool Transport::PostTimePing()
 	*reinterpret_cast<u32*>( buffer + 2 ) = getLE32(Clock::msec());
 
 	// Encrypt and send buffer
-	return PostPacket(buffer, BUFFER_BYTES, PAYLOAD_BYTES);
+	return PostPacket(buffer, BUFFER_BYTES, PAYLOAD_BYTES, 0);
 }
 
 bool Transport::PostTimePong(u32 client_ts)
@@ -1105,7 +1123,7 @@ bool Transport::PostTimePong(u32 client_ts)
 	*reinterpret_cast<u32*>( buffer + 6 ) = getLE32(Clock::msec());
 
 	// Encrypt and send buffer
-	return PostPacket(buffer, BUFFER_BYTES, PAYLOAD_BYTES);
+	return PostPacket(buffer, BUFFER_BYTES, PAYLOAD_BYTES, 0);
 }
 
 bool Transport::PostDisconnect()
@@ -1123,7 +1141,7 @@ bool Transport::PostDisconnect()
 	*reinterpret_cast<u16*>( buffer ) = getLE16(DATA_BYTES | (SOP_DISCO << SOP_SHIFT));
 
 	// Encrypt and send buffer
-	return PostPacket(buffer, BUFFER_BYTES, PAYLOAD_BYTES);
+	return PostPacket(buffer, BUFFER_BYTES, PAYLOAD_BYTES, 0);
 }
 
 void Transport::OnACK(u8 *data, u32 data_bytes)
@@ -1534,8 +1552,18 @@ void Transport::TransmitQueued()
 						// Prepare a temp send node for the old packet send buffer
 						TempSendNode *node = reinterpret_cast<TempSendNode*>( send_buffer + send_buffer_bytes );
 						node->next = 0;
-						node->negative_offset = _send_buffer_msg_count == 1 ?
-							send_buffer_bytes | TempSendNode::SINGLE_FLAG : send_buffer_bytes;
+
+						if (_send_buffer_msg_count == 1)
+						{
+							node->negative_offset = send_buffer_bytes | TempSendNode::SINGLE_FLAG;
+
+							// Twiddle header here instead of before PostPacket()
+							send_buffer[1] = send_buffer[0] | BHI_SINGLE_MESSAGE;
+						}
+						else
+						{
+							node->negative_offset = send_buffer_bytes;
+						}
 
 						// Insert old packet send buffer at the end of the temp send list
 						if (packet_send_tail) packet_send_tail->next = node;
@@ -1685,10 +1713,6 @@ void Transport::TransmitQueued()
 					}
 
 					ack_id_overhead = 0; // Don't write ACK-ID next time around
-
-					// Set stream and ack_id for remainder of this packet
-					_send_buffer_stream = stream;
-					_send_buffer_ack_id = ack_id;
 				}
 
 				// Increment ack id
@@ -1727,6 +1751,10 @@ void Transport::TransmitQueued()
 			node = next;
 		} // walking send queue
 
+		// Next reliable message by default is one ACK-ID ahead
+		_send_buffer_ack_id = ack_id;
+		_send_buffer_stream = stream;
+
 		// TODO: When bandwidth limit is introduced, be careful about
 		// dtor deallocation of fragment master node.  Update master
 		// node sent_bytes!
@@ -1748,16 +1776,21 @@ void Transport::TransmitQueued()
 		TempSendNode *next = packet_send_head->next;
 
 		u32 bytes = packet_send_head->negative_offset;
+		u32 skip_bytes = 0;
+
+		// If a single message is being sent, strip the extra BLO byte
 		if (bytes & TempSendNode::SINGLE_FLAG)
 		{
-			// TODO: Remove BLO
+			skip_bytes = 1;
 			bytes &= TempSendNode::BYTE_MASK;
+			// First two data bytes are already twiddled
 		}
+
 		u8 *data = reinterpret_cast<u8*>( packet_send_head ) - bytes;
 
 		WARN("Transport") << "Sending packet with " << bytes;
 
-		if (!PostPacket(data, bytes + AuthenticatedEncryption::OVERHEAD_BYTES, bytes))
+		if (!PostPacket(data, bytes + AuthenticatedEncryption::OVERHEAD_BYTES, bytes, skip_bytes))
 		{
 			WARN("Transport") << "Unable to post send buffer";
 			continue; // Retry

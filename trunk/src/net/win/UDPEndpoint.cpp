@@ -191,7 +191,7 @@ Port UDPEndpoint::GetPort()
     return _port;
 }
 
-bool UDPEndpoint::Post(const NetAddr &addr, void *buffer, u32 bytes)
+bool UDPEndpoint::Post(const NetAddr &addr, void *buffer, u32 bytes, u32 skip_bytes)
 {
 	if (_closing)
 		return false;
@@ -202,7 +202,7 @@ bool UDPEndpoint::Post(const NetAddr &addr, void *buffer, u32 bytes)
 
     sendOv->Set(OVOP_SENDTO);
 
-    if (!QueueWSASendTo(addr, sendOv, bytes))
+    if (!QueueWSASendTo(addr, sendOv, bytes, skip_bytes))
     {
         RegionAllocator::ii->Release(sendOv);
         return false;
@@ -292,7 +292,7 @@ void UDPEndpoint::OnWSARecvFromComplete(ThreadPoolLocalStorage *tls, int error, 
     }
 }
 
-bool UDPEndpoint::QueueWSASendTo(const NetAddr &addr, TypedOverlapped *sendOv, u32 bytes)
+bool UDPEndpoint::QueueWSASendTo(const NetAddr &addr, TypedOverlapped *sendOv, u32 bytes, u32 skip_bytes)
 {
     if (_closing)
         return false;
@@ -304,7 +304,7 @@ bool UDPEndpoint::QueueWSASendTo(const NetAddr &addr, TypedOverlapped *sendOv, u
 		return false;
 
     WSABUF wsabuf;
-    wsabuf.buf = reinterpret_cast<CHAR*>( GetTrailingBytes(sendOv) );
+    wsabuf.buf = reinterpret_cast<CHAR*>( GetTrailingBytes(sendOv) + skip_bytes );
     wsabuf.len = bytes;
 
     AddRef();

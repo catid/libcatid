@@ -115,7 +115,7 @@ public:
 
 protected:
 	virtual void OnMessage(u8 *msg, u32 bytes);
-	virtual bool PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes);
+	virtual bool PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes, u32 skip_bytes);
 	virtual void OnDisconnect();
 };
 
@@ -145,18 +145,14 @@ public:
 	Map();
 	virtual ~Map();
 
-public:
 	Connection *GetLock(const NetAddr &addr);
 	void ReleaseLock();
 
-public:
 	void Insert(Connection *conn);
 
-public:
 	// Destroy a list described by the 'next' member of Slot
 	void DestroyList(Map::Slot *kill_list);
 
-public:
 	void Tick(ThreadPoolLocalStorage *tls);
 };
 

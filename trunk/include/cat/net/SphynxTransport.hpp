@@ -42,13 +42,14 @@ namespace sphynx {
 /*
 	Packet format on top of UDP header:
 
-		E { HDR(2 bytes)|DATA || HDR(2 bytes)|DATA || ... || MAC(8 bytes) } || IV(3 bytes)
+		E { HDR(2 bytes)|ACK-ID(3 bytes)|DATA || ... || MAC(8 bytes) } || IV(3 bytes)
 
 		E: ChaCha-12 stream cipher.
 		IV: Initialization vector used by security layer (Randomly initialized).
 		MAC: Message authentication code used by security layer (HMAC-MD5).
 
-		HDR|DATA: A message block inside the datagram.
+		HDR|ACK-ID|DATA: A message block inside the datagram.  The HDR and ACK-ID
+		fields employ compression to use as little as 1 byte together.
 
 	Each message follows the same format.  A two-byte header followed by data:
 
@@ -390,7 +391,9 @@ private:
 	void CombineNextWrite();
 
 protected:
-	virtual bool PostPacket(u8 *data, u32 buf_bytes, u32 msg_bytes) = 0;
+	// skip_bytes: Number of bytes to skip at the start of the buffer
+	// buf_bytes and msg_bytes contain the skipped bytes
+	virtual bool PostPacket(u8 *data, u32 buf_bytes, u32 msg_bytes, u32 skip_bytes) = 0;
 	virtual void OnTimestampDeltaUpdate(u32 rtt, s32 delta) {}
 	virtual void OnMessage(u8 *msg, u32 bytes) = 0;
 	virtual void OnDisconnect() = 0;
