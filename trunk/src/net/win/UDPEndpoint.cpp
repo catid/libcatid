@@ -137,7 +137,7 @@ bool UDPEndpoint::Bind(bool onlySupportIPv4, Port port, bool ignoreUnreachable, 
 		CloseSocket(s);
 		return false;
 	}
-
+/*
 	// Set SO_RCVBUF as requested (often defaults are far too low for UDP servers or UDP file transfer clients)
 	if (rcv_buffsize < 64000) rcv_buffsize = 64000;
 	if (setsockopt(s, SOL_SOCKET, SO_RCVBUF, (char*)&rcv_buffsize, sizeof(rcv_buffsize)))
@@ -146,7 +146,7 @@ bool UDPEndpoint::Bind(bool onlySupportIPv4, Port port, bool ignoreUnreachable, 
 		CloseSocket(s);
 		return false;
 	}
-
+*/
     _socket = s;
 
 	// Ignore ICMP Unreachable

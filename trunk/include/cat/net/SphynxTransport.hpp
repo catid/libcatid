@@ -178,7 +178,7 @@ class Transport;
 //#define CAT_PACK_TRANSPORT_STATE_STRUCTURES /* No advantage for 64-bit version */
 #endif
 
-#define CAT_TRANSPORT_DEBUG_LOGGING /* Enables info messages on console */
+//#define CAT_TRANSPORT_DEBUG_LOGGING /* Enables info messages on console */
 #define CAT_VERBOSE_VALIDATION /* Enables input error messages on console */
 
 // Protocol constants
