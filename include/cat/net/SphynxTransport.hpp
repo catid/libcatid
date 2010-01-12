@@ -40,6 +40,16 @@ namespace sphynx {
 
 
 /*
+	Based on what I have envisioned needing for my game, the following protocol is being
+	used after spending weeks looking at alternatives and false-starts.  It provides signaled
+	disconnects, fragmentation, MTU discovery, time synchronization, three reliable ordered
+	streams, one unordered reliable stream, and unreliable delivery.
+
+	The Transport object that implements a sender/receiver in the protocol requires 276 bytes
+	of memory per server connection, plus 32 bytes per message fragment in flight, plus buffers
+	for queued send/recv packets, and it keeps two mutexes for thread-safety.  A lockless memory
+	allocator is used to allocate all buffers except the fragmented message reassembly buffer.
+
 	Packet format on top of UDP header:
 
 		E { HDR(2 bytes)|ACK-ID(3 bytes)|DATA || ... || MAC(8 bytes) } || IV(3 bytes)
