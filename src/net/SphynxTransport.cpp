@@ -53,7 +53,7 @@ Transport::Transport()
 		0x11223344,
 		0x55667788,
 		0x99aabbcc,
-		0//0xddeeff00
+		0xddeeff00
 	};
 
 	// Receive state
