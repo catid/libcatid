@@ -552,26 +552,29 @@ void Client::OnTimestampDeltaUpdate(u32 rtt, s32 delta)
 	INFO("Client") << "Timestamp delta update: RTT = " << rtt << ". Delta = " << delta;
 
 	u8 data[65535];
-	for (int ii = 0; ii < sizeof(data); ++ii)
-		data[ii] = (u8)ii + 1;
+	for (int ii = 0; ii < sizeof(data); ii += 2)
+		*(u16*)(data + ii) = (u16)ii;
 
-	//WriteReliable(STREAM_UNORDERED, data, 300);
-	//WriteReliable(STREAM_1, data, 30000);
-	//WriteReliable(STREAM_1, data, 30000);
-	//WriteReliable(STREAM_1, data, 300);
-	//WriteReliable(STREAM_UNORDERED, data, 300);
+	WriteReliable(STREAM_UNORDERED, data, 300);
+	WriteReliable(STREAM_1, data, 30000);
+	WriteReliable(STREAM_1, data, 30000);
+	WriteReliable(STREAM_1, data, 300);
+	WriteUnreliable(data, 100);
+	WriteReliable(STREAM_UNORDERED, data, 300);
 	WriteReliable(STREAM_1, data, 5000);
-	//WriteReliable(STREAM_UNORDERED, data, 300);
-	WriteReliable(STREAM_2, data, 65535);
-	//WriteReliable(STREAM_2, data, 500);
-	//WriteReliable(STREAM_UNORDERED, data, 300);
-	//WriteReliable(STREAM_3, data, 1000);
-	WriteReliable(STREAM_3, data, 65535);
-	//WriteReliable(STREAM_UNORDERED, data, 300);
-	//WriteReliable(STREAM_3, data, 4000);
-	//WriteReliable(STREAM_2, data, 3000);
-	//WriteReliable(STREAM_1, data, 2000);
-	//WriteReliable(STREAM_1, data, 1000);
-	//WriteReliable(STREAM_3, data, 1000);
-	//WriteReliable(STREAM_UNORDERED, data, 300);
+	WriteReliable(STREAM_UNORDERED, data, 300);
+	WriteReliable(STREAM_1, data, 65535);
+	WriteUnreliable(data, 100);
+	WriteReliable(STREAM_2, data, 500);
+	WriteReliable(STREAM_UNORDERED, data, 300);
+	WriteReliable(STREAM_3, data, 1000);
+	WriteReliable(STREAM_1, data, 65535);
+	WriteReliable(STREAM_UNORDERED, data, 300);
+	WriteReliable(STREAM_3, data, 4000);
+	WriteReliable(STREAM_2, data, 3000);
+	WriteUnreliable(data, 100);
+	WriteReliable(STREAM_1, data, 2000);
+	WriteReliable(STREAM_1, data, 1000);
+	WriteReliable(STREAM_3, data, 1000);
+	WriteReliable(STREAM_UNORDERED, data, 300);
 }

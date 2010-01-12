@@ -157,6 +157,7 @@ void Transport::OnDatagram(u8 *data, u32 bytes)
 	u32 stream = 0;
 
 	//INANE("Transport") << "Datagram dump " << bytes << ":" << HexDumpString(data, bytes);
+	Sleep(10);
 
 	while (bytes >= 1)
 	{
@@ -476,6 +477,8 @@ void Transport::QueueRecv(u8 *data, u32 data_bytes, u32 ack_id, u32 stream, u32 
 
 	CAT_TDBG(INFO("Transport") << "Queued out-of-order message # " << stream << ":" << ack_id);
 
+	//INANE("Transport") << "Out-of-order message " << data_bytes << ":" << HexDumpString(data, data_bytes);
+
 	u32 stored_bytes;
 
 	if (stream == STREAM_UNORDERED)
@@ -725,6 +728,9 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 	u16 data_bytes = node->bytes;
 	u8 hdr = R_MASK;
 
+	u32 frag_overhead = 0;
+	u32 frag_total_bytes;
+
 	// If node is a fragment,
 	if (node->frag_count)
 	{
@@ -732,6 +738,14 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 
 		data = GetTrailingBytes(frag->full_data) + frag->offset;
 		hdr |= SOP_FRAG << SOP_SHIFT;
+
+		// If this is the first fragment of the message,
+		if (frag->offset == 0)
+		{
+			// Prepare to insert overhead
+			frag_overhead = 2;
+			frag_total_bytes = frag->full_data->bytes;
+		}
 	}
 	else
 	{
@@ -739,8 +753,8 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 		hdr |= node->sop << SOP_SHIFT;
 	}
 
+	u32 msg_bytes = 2 + frag_overhead + data_bytes;
 	u32 ack_id = node->id;
-	u32 msg_bytes = 2 + data_bytes;
 
 	// If ACK-ID needs to be written again,
 	if (_send_buffer_stream != stream ||
@@ -800,8 +814,10 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 
 	u8 *msg = _send_buffer + send_buffer_bytes;
 
-	msg[0] = (u8)(data_bytes >> 8) | hdr;
-	msg[1] = (u8)data_bytes;
+	// Include fragment header length in data bytes field
+	u32 data_bytes_with_overhead = data_bytes + frag_overhead;
+	msg[0] = (u8)(data_bytes_with_overhead >> 8) | hdr;
+	msg[1] = (u8)data_bytes_with_overhead;
 	msg += 2;
 
 	// If ACK-ID needs to be written, do not use compression since we
@@ -815,6 +831,13 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 
 		// Next reliable message by default is one ACK-ID ahead
 		_send_buffer_ack_id = ack_id + 1;
+	}
+
+	// If fragment header needs to be written,
+	if (frag_overhead)
+	{
+		*reinterpret_cast<u16*>( msg ) = getLE16((u16)frag_total_bytes);
+		msg += 2;
 	}
 
 	memcpy(msg, data, data_bytes);
