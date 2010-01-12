@@ -157,7 +157,6 @@ void Transport::OnDatagram(u8 *data, u32 bytes)
 	u32 stream = 0;
 
 	//INANE("Transport") << "Datagram dump " << bytes << ":" << HexDumpString(data, bytes);
-	Sleep(10);
 
 	while (bytes >= 1)
 	{
