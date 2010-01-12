@@ -153,8 +153,7 @@ void Transport::InitializePayloadBytes(bool ip6)
 
 void Transport::OnDatagram(u8 *data, u32 bytes)
 {
-	u32 ack_id = 0;
-	u32 stream = 0;
+	u32 ack_id = 0, stream = 0;
 
 	//INANE("Transport") << "Datagram dump " << bytes << ":" << HexDumpString(data, bytes);
 
