@@ -381,10 +381,12 @@ void Transport::RunQueue(u32 ack_id, u32 stream)
 {
 	RecvQueue *node = _recv_queue_head[stream];
 
+	// If no queue to run or queue is not ready yet,
 	if (!node || node->id != ack_id)
 	{
 		_recv_lock.Enter();
 
+		// Just update next expected id and set flag to send acks on next tick
 		_next_recv_expected_id[stream] = ack_id;
 		_got_reliable[stream] = true;
 
@@ -682,6 +684,9 @@ void Transport::FlushWrite()
 {
 	TransmitQueued();
 
+	// Avoid locking if we can help it
+	if (!_send_buffer) return;
+
 	AutoMutex lock(_send_lock);
 
 	u8 *send_buffer = _send_buffer;
@@ -691,11 +696,13 @@ void Transport::FlushWrite()
 		u32 send_buffer_bytes = _send_buffer_bytes;
 		u32 old_msg_count = _send_buffer_msg_count;
 
+		// Reset send buffer state
 		_send_buffer = 0;
 		_send_buffer_bytes = 0;
 		_send_buffer_stream = NUM_STREAMS;
 		_send_buffer_msg_count = 0;
 
+		// Release lock for actual posting
 		lock.Release();
 
 		// If a single message is being sent, strip the extra BLO byte
@@ -783,6 +790,8 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 		u32 skip_bytes = (_send_buffer_msg_count == 1) ? 1 : 0;
 		if (skip_bytes) send_buffer[1] = send_buffer[0] | BHI_SINGLE_MESSAGE;
 
+		// TODO: Eventually I should move this PostPacket() outside of the caller's send lock
+
 		if (!PostPacket(send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes, skip_bytes))
 		{
 			CAT_TVV(WARN("Transport") << "Packet post failure during retransmit overflow");
@@ -792,6 +801,7 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 		send_buffer_bytes = 0;
 		_send_buffer_msg_count = 0;
 
+		// Set ACK-ID bit if it would now need to be sent
 		if (!(hdr & I_MASK))
 		{
 			hdr |= I_MASK;
@@ -857,6 +867,7 @@ void Transport::WriteACK()
 
 	_recv_lock.Enter();
 
+	// Prioritizes ACKs for unreliable stream, then 1, 2 and 3 in that order.
 	for (int stream = 0; stream < NUM_STREAMS; ++stream)
 	{
 		if (_got_reliable[stream])
@@ -907,6 +918,7 @@ void Transport::WriteACK()
 							break;
 						}
 
+						// ACK messages transmits ids relative to the previous one in the datagram
 						u32 start_offset = start_id - last_id;
 						u32 end_offset = end_id - start_id;
 						last_id = end_id;
@@ -1449,6 +1461,7 @@ void Transport::OnACK(u8 *data, u32 data_bytes)
 		{
 			u32 retransmit_threshold = _rtt;
 
+			// While node ACK-IDs are under the final END range,
 			while ((s32)(last_ack_id - rnode->id) > 0)
 			{
 				if (now - rnode->ts_lastsend > retransmit_threshold)
@@ -1681,6 +1694,7 @@ void Transport::TransmitQueued()
 					}
 					else
 					{
+						// Fill fragment object
 						frag->id = ack_id;
 						frag->next = 0;
 						frag->prev = tail;
@@ -1691,6 +1705,7 @@ void Transport::TransmitQueued()
 						frag->full_data = node;
 						frag->frag_count = 1;
 
+						// Link fragment at the end of the sent list
 						if (tail) tail->next = reinterpret_cast<SendQueue*>( frag );
 						else _sent_list_head[stream] = reinterpret_cast<SendQueue*>( frag );
 						_sent_list_tail[stream] = reinterpret_cast<SendQueue*>( frag );
@@ -1735,6 +1750,7 @@ void Transport::TransmitQueued()
 				}
 				else
 				{
+					// Fill message node
 					node->id = ack_id;
 					node->next = 0;
 					node->prev = tail;
@@ -1742,6 +1758,7 @@ void Transport::TransmitQueued()
 					node->ts_lastsend = now;
 					//node->frag_count = 0;  Set during reliable write
 
+					// Link message at the end of the sent list
 					if (tail) tail->next = node;
 					else _sent_list_head[stream] = node;
 					_sent_list_tail[stream] = node;
@@ -1848,7 +1865,7 @@ void Transport::TransmitQueued()
 
 	lock.Release();
 
-	// Send packets:
+	// Send packets after lock is released:
 	while (packet_send_head)
 	{
 		TempSendNode *next = packet_send_head->next;
