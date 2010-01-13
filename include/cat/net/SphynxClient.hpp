@@ -62,28 +62,28 @@ public:
 	bool Connect(const NetAddr &addr);
 
 protected:
+	bool IsConnected() { return _connected; }
+
+	virtual void OnClose() = 0;
+	virtual void OnConnectFail() = 0;
+	virtual void OnConnect(ThreadPoolLocalStorage *tls) = 0;
+	virtual void OnTimestampDeltaUpdate(u32 rtt, s32 delta) {}
+	virtual void OnMessage(ThreadPoolLocalStorage *tls, u8 *msg, u32 bytes) = 0;
+	virtual void OnDisconnect() = 0;
+	virtual void OnTick(ThreadPoolLocalStorage *tls, u32 now) = 0;
+
+private:
+	virtual void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes);
+	virtual void OnWrite(u32 bytes);
+
+private:
+	bool PostHello();
+	void OnUnreachable(const NetAddr &src);
+
 	// Return false to remove resolve from cache
 	bool OnResolve(const char *hostname, const NetAddr *array, int array_length);
 
-protected:
-	void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes);
-	void OnWrite(u32 bytes);
-	void OnClose();
-	void OnUnreachable(const NetAddr &src);
-
-protected:
-	bool PostHello();
-
-protected:
-	virtual void OnConnectFail();
-	virtual void OnConnect();
-	virtual void OnDisconnect(bool timeout);
-	virtual void OnTimestampDeltaUpdate(u32 rtt, s32 delta);
-
-protected:
-	virtual void OnMessage(u8 *msg, u32 bytes);
 	virtual bool PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes, u32 skip_bytes);
-	virtual void OnDisconnect();
 };
 
 

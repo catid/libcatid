@@ -174,7 +174,7 @@ namespace sphynx {
 */
 
 
-class Connection;
+class Connexion;
 class Map;
 class Server;
 class ServerWorker;
@@ -364,8 +364,8 @@ protected:
 	RecvQueue *_recv_queue_head[NUM_STREAMS], *_recv_queue_tail[NUM_STREAMS];
 
 private:
-	void RunQueue(u32 ack_id, u32 stream);
-	void QueueRecv(u8 *data, u32 bytes, u32 ack_id, u32 stream, u32 super_opcode);
+	void RunQueue(ThreadPoolLocalStorage *tls, u32 ack_id, u32 stream);
+	void QueueRecv(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes, u32 ack_id, u32 stream, u32 super_opcode);
 
 protected:
 	// Send state: Synchronization objects
@@ -412,10 +412,10 @@ public:
 
 protected:
 	void TickTransport(ThreadPoolLocalStorage *tls, u32 now);
-	void OnDatagram(u8 *data, u32 bytes);
+	void OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes);
 
 private:
-	void OnFragment(u8 *data, u32 bytes, u32 stream);
+	void OnFragment(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes, u32 stream);
 	void CombineNextWrite();
 
 protected:
@@ -423,7 +423,7 @@ protected:
 	// buf_bytes and msg_bytes contain the skipped bytes
 	virtual bool PostPacket(u8 *data, u32 buf_bytes, u32 msg_bytes, u32 skip_bytes) = 0;
 	virtual void OnTimestampDeltaUpdate(u32 rtt, s32 delta) {}
-	virtual void OnMessage(u8 *msg, u32 bytes) = 0;
+	virtual void OnMessage(ThreadPoolLocalStorage *tls, u8 *msg, u32 bytes) = 0;
 	virtual void OnDisconnect() = 0;
 
 protected:

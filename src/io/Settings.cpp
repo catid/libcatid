@@ -154,6 +154,8 @@ void Settings::clear()
 
 void Settings::read(const char *data, int len)
 {
+	AutoMutex lock(_lock);
+
     BufferTok bt(data, len);
 
     char keyName[256];
@@ -178,6 +180,8 @@ void Settings::read(const char *data, int len)
 
 void Settings::read()
 {
+	AutoMutex lock(_lock);
+
     MMapFile sfile(SETTINGS_FILE);
     if (!sfile.good())
     {
@@ -213,6 +217,8 @@ void Settings::read()
 
 void Settings::write()
 {
+	AutoMutex lock(_lock);
+
 #ifdef ONLY_WRITE_NONDEFAULT_KEYS
     if (readSettings && !modified)
     {
@@ -244,30 +250,40 @@ void Settings::write()
 
 int Settings::getInt(const char *name)
 {
+	AutoMutex lock(_lock);
+
     SettingsKey *key = getKey(name);
     return key ? key->value.i : 0;
 }
 
 const char *Settings::getStr(const char *name)
 {
+	AutoMutex lock(_lock);
+
     SettingsKey *key = getKey(name);
     return key ? key->value.s : "";
 }
 
 int Settings::getInt(const char *name, int init)
 {
+	AutoMutex lock(_lock);
+
     SettingsKey *key = initInt(name, init);
     return key ? key->value.i : 0;
 }
 
 const char *Settings::getStr(const char *name, const char *init)
 {
+	AutoMutex lock(_lock);
+
     SettingsKey *key = initStr(name, init);
     return key ? key->value.s : "";
 }
 
 void Settings::setInt(const char *name, int n)
 {
+	AutoMutex lock(_lock);
+
     SettingsKey *key = getKey(name);
     if (key)
     {
@@ -278,6 +294,8 @@ void Settings::setInt(const char *name, int n)
 
 void Settings::setStr(const char *name, const char *value)
 {
+	AutoMutex lock(_lock);
+
     SettingsKey *key = getKey(name);
     if (key)
     {

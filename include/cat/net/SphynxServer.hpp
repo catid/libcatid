@@ -73,50 +73,55 @@ namespace sphynx {
 */
 
 
-//// sphynx::Connection
+//// sphynx::Connexion
 
-class Connection : public Transport
+// Derive from sphynx::Connexion and sphynx::Server to define server behavior
+class Connexion : public Transport
 {
-public:
-	Connection();
+	friend class Server;
+	friend class Map;
+	friend class ServerWorker;
+	friend class ServerTimer;
 
-protected:
+public:
+	Connexion();
+	virtual ~Connexion() {}
+
+private:
 	volatile u32 destroyed;
 
-public:
-	Connection *next_delete;
-	NetAddr client_addr;
+	Connexion *next_delete;
 	ServerWorker *server_worker;
 
 	// Last time a packet was received from this user -- for disconnect timeouts
 	u32 last_recv_tsc;
 
-public:
 	u8 first_challenge[64]; // First challenge seen from this client address
 	u8 cached_answer[128]; // Cached answer to this first challenge, to avoid eating server CPU time
 
-public:
 	bool seen_encrypted;
 	AuthenticatedEncryption auth_enc;
-	Mutex send_lock;
+
+private:
+	// Return false to destroy this object
+	bool Tick(ThreadPoolLocalStorage *tls, u32 now);
+
+	void OnRawData(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes);
+
+	virtual bool PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes, u32 skip_bytes);
 
 public:
 	CAT_INLINE bool IsValid() { return destroyed == 0; }
 
 	void Destroy();
 
-public:
-	// Return false to destroy this object
-	bool Tick(ThreadPoolLocalStorage *tls, u32 now);
-
-public:
-	void OnRawData(u8 *data, u32 bytes);
-	void OnDestroy();
+protected:
+	NetAddr client_addr;
 
 protected:
-	virtual void OnMessage(u8 *msg, u32 bytes);
-	virtual bool PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes, u32 skip_bytes);
-	virtual void OnDisconnect();
+	virtual void OnConnect(ThreadPoolLocalStorage *tls) = 0;
+	virtual void OnDestroy() = 0;
+	virtual void OnTick(ThreadPoolLocalStorage *tls, u32 now) = 0;
 };
 
 
@@ -131,7 +136,7 @@ protected:
 public:
 	struct Slot
 	{
-		Connection *connection;
+		Connexion *connection;
 		bool collision;
 		Slot *next;
 	};
@@ -145,10 +150,10 @@ public:
 	Map();
 	virtual ~Map();
 
-	Connection *GetLock(const NetAddr &addr);
+	Connexion *GetLock(const NetAddr &addr);
 	void ReleaseLock();
 
-	void Insert(Connection *conn);
+	void Insert(Connexion *conn);
 
 	// Destroy a list described by the 'next' member of Slot
 	void DestroyList(Map::Slot *kill_list);
@@ -180,7 +185,7 @@ public:
 
 protected:
 	void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes);
-	void OnWrite(u32 bytes);
+	void OnWrite(u32 bytes) {}
 	void OnClose();
 };
 
@@ -222,37 +227,41 @@ protected:
 
 class Server : public UDPEndpoint
 {
-protected:
-	Port _server_port;
-	Map _conn_map;
-
-protected:
-	CookieJar _cookie_jar;
-	KeyAgreementResponder _key_agreement_responder;
-	u8 _public_key[PUBLIC_KEY_BYTES];
-
-protected:
-	ServerWorker **_workers;
-	int _worker_count;
-
-protected:
-	ServerTimer **_timers;
-	int _timer_count;
-
-protected:
-	ServerWorker *FindLeastPopulatedPort();
-	u32 GetTotalPopulation();
-
 public:
 	Server();
 	virtual ~Server();
 
 	bool Initialize(ThreadPoolLocalStorage *tls, Port port);
 
-protected:
+	u32 GetTotalPopulation();
+
+private:
+	Port _server_port;
+	Map _conn_map;
+
+	CookieJar _cookie_jar;
+	KeyAgreementResponder _key_agreement_responder;
+	u8 _public_key[PUBLIC_KEY_BYTES];
+
+	ServerWorker **_workers;
+	int _worker_count;
+
+	ServerTimer **_timers;
+	int _timer_count;
+
+private:
+	ServerWorker *FindLeastPopulatedPort();
+
 	void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes);
 	void OnWrite(u32 bytes);
 	void OnClose();
+
+protected:
+	// Must return a new instance of your Connexion derivation
+	virtual Connexion *NewConnexion() = 0;
+
+	// IP address filter: Return true to allow the connection to be made
+	virtual bool AcceptNewConnexion(const NetAddr &src) = 0;
 };
 
 

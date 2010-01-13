@@ -3,6 +3,39 @@
 using namespace cat;
 
 
+class GameClient : public sphynx::Client
+{
+public:
+	virtual void OnClose()
+	{
+		WARN("GameClient") << "-- SOCKET CLOSED";
+	}
+	virtual void OnConnectFail()
+	{
+		WARN("GameClient") << "-- CONNECT FAIL";
+	}
+	virtual void OnConnect(ThreadPoolLocalStorage *tls)
+	{
+		WARN("GameClient") << "-- CONNECTED";
+	}
+	virtual void OnDisconnect()
+	{
+		WARN("GameClient") << "-- DISCONNECTED";
+	}
+	virtual void OnTimestampDeltaUpdate(u32 rtt, s32 delta)
+	{
+		WARN("GameClient") << "Got timestamp delta update rtt=" << rtt << " delta=" << delta;
+	}
+	virtual void OnMessage(ThreadPoolLocalStorage *tls, u8 *msg, u32 bytes)
+	{
+		WARN("GameClient") << "Got message with " << bytes << " bytes";
+	}
+	virtual void OnTick(ThreadPoolLocalStorage *tls, u32 now)
+	{
+	}
+};
+
+
 int main()
 {
 	if (!InitializeFramework())
@@ -24,7 +57,7 @@ int main()
 
 		for (int ii = 0; ii < 1; ++ii)
 		{
-			sphynx::Client *client = new sphynx::Client;
+			GameClient *client = new GameClient;
 
 			if (!client->SetServerKey(&tls, SERVER_PUBLIC_KEY, sizeof(SERVER_PUBLIC_KEY)))
 			{
