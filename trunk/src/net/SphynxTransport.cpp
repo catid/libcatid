@@ -151,7 +151,7 @@ void Transport::InitializePayloadBytes(bool ip6)
 	_max_payload_bytes = MINIMUM_MTU - overhead;
 }
 
-void Transport::OnDatagram(u8 *data, u32 bytes)
+void Transport::OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 {
 	u32 ack_id = 0, stream = 0;
 
@@ -262,9 +262,9 @@ void Transport::OnDatagram(u8 *data, u32 bytes)
 					u32 super_opcode = hdr >> SOP_SHIFT;
 
 					if (super_opcode == SOP_DATA)
-						OnMessage(data, data_bytes);
+						OnMessage(tls, data, data_bytes);
 					else if (super_opcode == SOP_FRAG)
-						OnFragment(data, data_bytes, stream);
+						OnFragment(tls, data, data_bytes, stream);
 					else if (super_opcode == SOP_MTU_SET)
 						OnMTUSet(data, data_bytes);
 					else
@@ -275,13 +275,13 @@ void Transport::OnDatagram(u8 *data, u32 bytes)
 					CAT_TVV(WARN("Transport") << "Zero-length reliable message ignored");
 				}
 
-				RunQueue(ack_id + 1, stream);
+				RunQueue(tls, ack_id + 1, stream);
 			}
 			else if (diff > 0) // Message is due to arrive
 			{
 				u32 super_opcode = hdr >> SOP_SHIFT;
 
-				QueueRecv(data, data_bytes, ack_id, stream, super_opcode);
+				QueueRecv(tls, data, data_bytes, ack_id, stream, super_opcode);
 			}
 			else
 			{
@@ -307,7 +307,7 @@ void Transport::OnDatagram(u8 *data, u32 bytes)
 				// Process it immediately
 				if (data_bytes > 0)
 				{
-					OnMessage(data, data_bytes);
+					OnMessage(tls, data, data_bytes);
 				}
 				else
 				{
@@ -377,7 +377,7 @@ void Transport::OnDatagram(u8 *data, u32 bytes)
 	FlushWrite();
 }
 
-void Transport::RunQueue(u32 ack_id, u32 stream)
+void Transport::RunQueue(ThreadPoolLocalStorage *tls, u32 ack_id, u32 stream)
 {
 	RecvQueue *node = _recv_queue_head[stream];
 
@@ -410,9 +410,9 @@ void Transport::RunQueue(u32 ack_id, u32 stream)
 			CAT_TDBG(INFO("Transport") << "Running queued message # " << stream << ":" << ack_id);
 
 			if (node->bytes & RecvQueue::FRAG_FLAG)
-				OnFragment(old_data, old_data_bytes, stream);
+				OnFragment(tls, old_data, old_data_bytes, stream);
 			else
-				OnMessage(old_data, old_data_bytes);
+				OnMessage(tls, old_data, old_data_bytes);
 
 			// NOTE: Unordered stream writes zero-length messages
 			// to the receive queue since it processes immediately
@@ -446,7 +446,7 @@ void Transport::RunQueue(u32 ack_id, u32 stream)
 	}
 }
 
-void Transport::QueueRecv(u8 *data, u32 data_bytes, u32 ack_id, u32 stream, u32 super_opcode)
+void Transport::QueueRecv(ThreadPoolLocalStorage *tls, u8 *data, u32 data_bytes, u32 ack_id, u32 stream, u32 super_opcode)
 {
 	// Walk backwards from the end because we're probably receiving
 	// a blast of messages after a drop.
@@ -487,9 +487,9 @@ void Transport::QueueRecv(u8 *data, u32 data_bytes, u32 ack_id, u32 stream, u32 
 		if (data_bytes > 0)
 		{
 			if (super_opcode == SOP_DATA)
-				OnMessage(data, data_bytes);
+				OnMessage(tls, data, data_bytes);
 			else if (super_opcode == SOP_FRAG)
-				OnFragment(data, data_bytes, stream);
+				OnFragment(tls, data, data_bytes, stream);
 			else if (super_opcode == SOP_MTU_SET)
 				OnMTUSet(data, data_bytes);
 		}
@@ -535,7 +535,7 @@ void Transport::QueueRecv(u8 *data, u32 data_bytes, u32 ack_id, u32 stream, u32 
 	}
 }
 
-void Transport::OnFragment(u8 *data, u32 bytes, u32 stream)
+void Transport::OnFragment(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes, u32 stream)
 {
 	//INANE("Transport") << "OnFragment " << bytes << ":" << HexDumpString(data, bytes);
 
@@ -589,7 +589,7 @@ CAT_TVV(if (bytes > fragment_remaining)
 
 		memcpy(_fragment_buffer[stream] + _fragment_offset[stream], data, fragment_remaining);
 
-		OnMessage(_fragment_buffer[stream], _fragment_length[stream]);
+		OnMessage(tls, _fragment_buffer[stream], _fragment_length[stream]);
 
 		delete []_fragment_buffer[stream];
 		_fragment_length[stream] = 0;

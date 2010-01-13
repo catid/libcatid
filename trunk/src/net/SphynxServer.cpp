@@ -44,15 +44,15 @@ static const char *SERVER_PUBLIC_KEY_FILE = "u_server_public_key.c";
 static const char *SESSION_KEY_NAME = "SphynxSessionKey";
 
 
-//// Connection
+//// Connexion
 
-Connection::Connection()
+Connexion::Connexion()
 {
 	destroyed = 0;
 	seen_encrypted = false;
 }
 
-void Connection::Destroy()
+void Connexion::Destroy()
 {
 	if (Atomic::Set(&destroyed, 1) == 0)
 	{
@@ -60,7 +60,7 @@ void Connection::Destroy()
 	}
 }
 
-bool Connection::Tick(ThreadPoolLocalStorage *tls, u32 now)
+bool Connexion::Tick(ThreadPoolLocalStorage *tls, u32 now)
 {
 	const int DISCONNECT_TIMEOUT = 15000; // 15 seconds
 
@@ -76,10 +76,12 @@ bool Connection::Tick(ThreadPoolLocalStorage *tls, u32 now)
 		TickTransport(tls, now);
 	}
 
+	OnTick(tls, now);
+
 	return true;
 }
 
-void Connection::OnRawData(u8 *data, u32 bytes)
+void Connexion::OnRawData(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 {
 	u32 buf_bytes = bytes;
 
@@ -89,7 +91,7 @@ void Connection::OnRawData(u8 *data, u32 bytes)
 		last_recv_tsc = Clock::msec_fast();
 
 		// Pass it to the transport layer
-		OnDatagram(data, buf_bytes);
+		OnDatagram(tls, data, buf_bytes);
 	}
 	else
 	{
@@ -97,19 +99,7 @@ void Connection::OnRawData(u8 *data, u32 bytes)
 	}
 }
 
-void Connection::OnDestroy()
-{
-
-}
-
-void Connection::OnMessage(u8 *msg, u32 bytes)
-{
-	WARN("Server") << "Received a message with " << bytes << " -------------------------------------------------------";
-
-	//INANE("Server") << "Message dump " << bytes << ":" << HexDumpString(msg, bytes);
-}
-
-bool Connection::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes, u32 skip_bytes)
+bool Connexion::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes, u32 skip_bytes)
 {
 	buf_bytes -= skip_bytes;
 	msg_bytes -= skip_bytes;
@@ -122,11 +112,6 @@ bool Connection::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes, u32 skip_b
 	}
 
 	return server_worker->Post(client_addr, buffer, msg_bytes, skip_bytes);
-}
-
-void Connection::OnDisconnect()
-{
-	WARN("Server") << "Disconnected by client";
 }
 
 
@@ -187,7 +172,7 @@ u32 Map::next_collision_key(u32 key)
 	return (key * COLLISION_MULTIPLIER + COLLISION_INCREMENTER) % HASH_TABLE_SIZE;
 }
 
-Connection *Map::GetLock(const NetAddr &addr)
+Connexion *Map::GetLock(const NetAddr &addr)
 {
 	Slot *slot;
 
@@ -202,7 +187,7 @@ Connection *Map::GetLock(const NetAddr &addr)
 		// Grab the slot
 		slot = &_table[key];
 
-		Connection *conn = slot->connection;
+		Connexion *conn = slot->connection;
 
 		// If the slot is used and the user address matches,
 		if (conn && conn->client_addr == addr)
@@ -240,7 +225,7 @@ void Map::ReleaseLock()
 	Insertion is only done from a single thread, so it is guaranteed
 	that the address does not already exist in the hash table.
 */
-void Map::Insert(Connection *conn)
+void Map::Insert(Connexion *conn)
 {
 	// Hash IP:port:salt to get the hash table key
 	u32 key = hash_addr(conn->client_addr, _hash_salt);
@@ -302,14 +287,14 @@ void Map::Insert(Connection *conn)
 // Destroy a list described by the 'next' member of Slot
 void Map::DestroyList(Map::Slot *kill_list)
 {
-	Connection *delete_head = 0;
+	Connexion *delete_head = 0;
 
 	AutoWriteLock lock(_table_lock);
 
 	// For each slot to kill,
 	for (Map::Slot *slot = kill_list; slot; slot = slot->next)
 	{
-		Connection *conn = slot->connection;
+		Connexion *conn = slot->connection;
 
 		if (conn)
 		{
@@ -323,7 +308,7 @@ void Map::DestroyList(Map::Slot *kill_list)
 	lock.Release();
 
 	// For each connection object to delete,
-	for (Connection *next, *conn = delete_head; conn; conn = next)
+	for (Connexion *next, *conn = delete_head; conn; conn = next)
 	{
 		next = conn->next_delete;
 
@@ -365,21 +350,16 @@ void ServerWorker::DecrementPopulation()
 void ServerWorker::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes)
 {
 	// Look up an existing connection for this source address
-	Connection *conn = _conn_map->GetLock(src);
+	Connexion *conn = _conn_map->GetLock(src);
 	int buf_bytes = bytes;
 
 	// If connection is valid and on the right port,
 	if (conn && conn->IsValid() && conn->server_worker == this)
 	{
-		conn->OnRawData(data, bytes);
+		conn->OnRawData(tls, data, bytes);
 	}
 
 	_conn_map->ReleaseLock();
-}
-
-void ServerWorker::OnWrite(u32 bytes)
-{
-
 }
 
 void ServerWorker::OnClose()
@@ -476,7 +456,7 @@ void ServerTimer::Tick(ThreadPoolLocalStorage *tls)
 	{
 		next = slot->next;
 
-		INANE("ServerTimer") << "Linking new connection into active list";
+		//INANE("ServerTimer") << "Linking new connection into active list";
 
 		// Link into active list
 		slot->next = active_head;
@@ -491,7 +471,7 @@ void ServerTimer::Tick(ThreadPoolLocalStorage *tls)
 	{
 		next = slot->next;
 
-		Connection *conn = slot->connection;
+		Connexion *conn = slot->connection;
 
 		if (!conn || !conn->IsValid() || !conn->Tick(tls, now))
 		{
@@ -499,7 +479,7 @@ void ServerTimer::Tick(ThreadPoolLocalStorage *tls)
 			if (last) last->next = next;
 			else active_head = next;
 
-			INANE("ServerTimer") << "Relinking dead connection into kill list";
+			//INANE("ServerTimer") << "Relinking dead connection into kill list";
 
 			// Link into kill list
 			slot->next = kill_list;
@@ -728,10 +708,10 @@ bool Server::Initialize(ThreadPoolLocalStorage *tls, Port port)
 	}
 
 	// Get SupportIPv6 flag from settings
-	bool only_ipv4 = Settings::ii->getInt("SupportIPv6", 0) == 0;
+	bool only_ipv4 = Settings::ii->getInt("Sphynx.Server.SupportIPv6", 0) == 0;
 
 	// Get kernel receive buffer size
-	int kernelReceiveBufferBytes = Settings::ii->getInt("ServerKernelReceiveBufferBytes", 8000000);
+	int kernelReceiveBufferBytes = Settings::ii->getInt("Sphynx.Server.KernelReceiveBuffer", 8000000);
 
 	// Attempt to bind to the server port
 	_server_port = port;
@@ -902,7 +882,7 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 		u8 *pkt3_answer = pkt3 + 1+2;
 
 		// They took the time to get the cookie right, might as well check if we know them
-		Connection *conn = _conn_map.GetLock(src);
+		Connexion *conn = _conn_map.GetLock(src);
 
 		// If connection already exists,
 		if (conn)
@@ -960,7 +940,7 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 				// Construct packet 4
 				u16 *error_field = reinterpret_cast<u16*>( pkt3 + 1 );
 				pkt3[0] = S2C_ERROR;
-				*error_field = getLE(ERR_SERVER_FULL);
+				*error_field = getLE16(ERR_SERVER_FULL);
 
 				// Post packet without checking for errors
 				Post(src, pkt3, 3);
@@ -978,7 +958,14 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 				return;
 			}
 
-			conn = new Connection;
+			conn = NewConnexion();
+			if (!conn)
+			{
+				WARN("Server") << "Out of memory: Unable to allocate new Connexion";
+				ReleasePostBuffer(pkt3);
+				return;
+			}
+
 			conn->client_addr = src;
 
 			// If unable to key encryption from session key,
@@ -998,7 +985,7 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			pkt3[0] = S2C_ANSWER;
 			*pkt3_port = getLE(server_port);
 
-			// Initialize Connection object
+			// Initialize Connexion object
 			memcpy(conn->first_challenge, challenge, CHALLENGE_BYTES);
 			memcpy(conn->cached_answer, pkt3_answer, ANSWER_BYTES);
 			conn->server_worker = server_worker;
@@ -1021,6 +1008,8 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 
 				// Insert a hash key
 				_conn_map.Insert(conn);
+
+				conn->OnConnect(tls);
 			}
 		}
 	}

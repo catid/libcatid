@@ -30,6 +30,7 @@
 #define CAT_SETTINGS_HPP
 
 #include <cat/Singleton.hpp>
+#include <cat/threads/Mutex.hpp>
 #include <fstream>
 
 namespace cat {
@@ -58,7 +59,7 @@ public:
 public:
     SettingsKey *lnode, *gnode;
 
-    char name[32]; // not necessarily nul-terminated
+    char name[64]; // not necessarily nul-terminated
 
     SettingsValue value, def; // value of key and default value of key
 
@@ -71,6 +72,8 @@ public:
 class Settings : public Singleton<Settings>
 {
     CAT_SINGLETON(Settings);
+
+	Mutex _lock;
 
 protected:
     static const int SETTINGS_HASH_BINS = 256;

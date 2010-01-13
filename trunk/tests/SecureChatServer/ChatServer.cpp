@@ -2,6 +2,43 @@
 #include <conio.h> // kbhit()
 using namespace cat;
 
+class GameConnexion : public sphynx::Connexion
+{
+public:
+	virtual void OnConnect(ThreadPoolLocalStorage *tls)
+	{
+		WARN("Connexion") << "-- CONNECTED";
+	}
+	virtual void OnDestroy()
+	{
+		WARN("Connexion") << "-- DESTROYED";
+	}
+	virtual void OnDisconnect()
+	{
+		WARN("Connexion") << "-- DISCONNECTED";
+	}
+	virtual void OnMessage(ThreadPoolLocalStorage *tls, u8 *msg, u32 bytes)
+	{
+		WARN("Connexion") << "Got message with " << bytes << " bytes";
+	}
+	virtual void OnTick(ThreadPoolLocalStorage *tls, u32 now)
+	{
+	}
+};
+
+class GameServer : public sphynx::Server
+{
+public:
+	virtual sphynx::Connexion *NewConnexion()
+	{
+		return new GameConnexion;
+	}
+	virtual bool AcceptNewConnexion(const NetAddr &src)
+	{
+		return true; // allow all
+	}
+};
+
 int main()
 {
 	if (!InitializeFramework())
@@ -11,13 +48,13 @@ int main()
 
 	INFO("Server") << "Secure Chat Server 1.0";
 
-	sphynx::Server *endpoint = new sphynx::Server();
+	GameServer *server = new GameServer();
 	const Port SERVER_PORT = 22000;
 
 	{
 		ThreadPoolLocalStorage tls;
 
-		if (!endpoint->Initialize(&tls, SERVER_PORT))
+		if (!server->Initialize(&tls, SERVER_PORT))
 		{
 			FATAL("Server") << "Unable to initialize";
 		}

@@ -60,6 +60,11 @@ Client::~Client()
 	}
 }
 
+void Client::OnWrite(u32 bytes)
+{
+
+}
+
 bool Client::SetServerKey(ThreadPoolLocalStorage *tls, const void *server_key, int key_bytes)
 {
 	// Verify the key bytes are correct
@@ -122,10 +127,10 @@ bool Client::Connect(const NetAddr &addr)
 	_server_addr = addr;
 
 	// Get SupportIPv6 flag from settings
-	bool only_ipv4 = Settings::ii->getInt("SupportIPv6", 0) == 0;
+	bool only_ipv4 = Settings::ii->getInt("Sphynx.Client.SupportIPv6", 0) == 0;
 
 	// Get kernel receive buffer size
-	int kernelReceiveBufferBytes = Settings::ii->getInt("ClientKernelReceiveBufferBytes", 1000000);
+	int kernelReceiveBufferBytes = Settings::ii->getInt("Sphynx.Client.KernelReceiveBuffer", 1000000);
 
 	// Attempt to bind to any port and accept ICMP errors initially
 	if (!Bind(only_ipv4, 0, false, kernelReceiveBufferBytes))
@@ -214,7 +219,7 @@ void Client::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 		if (_auth_enc.Decrypt(data, buf_bytes))
 		{
 			// Pass the packet to the transport layer
-			OnDatagram(data, buf_bytes);
+			OnDatagram(tls, data, buf_bytes);
 		}
 		else
 		{
@@ -293,7 +298,7 @@ void Client::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 				// Note: Will now only listen to packets from the session port
 				_server_addr.SetPort(server_session_port);
 
-				OnConnect();
+				OnConnect(tls);
 			}
 			else
 			{
@@ -305,28 +310,6 @@ void Client::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			INANE("Client") << "Ignored server answer with insane port";
 		}
 	}
-}
-
-void Client::OnWrite(u32 bytes)
-{
-
-}
-
-void Client::OnClose()
-{
-	if (!_connected)
-	{
-		OnConnectFail();
-	}
-	else
-	{
-		WARN("Client") << "Socket CLOSED.";
-	}
-}
-
-void Client::OnConnectFail()
-{
-	WARN("Client") << "Connection failed.";
 }
 
 bool Client::PostHello()
@@ -364,16 +347,6 @@ bool Client::PostHello()
 	INANE("Client") << "Posted hello packet";
 
 	return true;
-}
-
-void Client::OnConnect()
-{
-	INFO("Client") << "Connected";
-}
-
-void Client::OnDisconnect(bool timeout)
-{
-	WARN("Client") << "Disconnected. Timeout=" << timeout;
 }
 
 bool Client::ThreadFunction(void *)
@@ -430,6 +403,8 @@ bool Client::ThreadFunction(void *)
 			last_hello_post = now;
 			hello_post_interval *= 2;
 		}
+
+		OnTick(&tls, now);
 	}
 
 	// Begin MTU probing after connection completes
@@ -516,14 +491,11 @@ bool Client::ThreadFunction(void *)
 				}
 			}
 		}
+
+		OnTick(&tls, now);
 	}
 
 	return true;
-}
-
-void Client::OnMessage(u8 *msg, u32 bytes)
-{
-	INFO("Client") << "Got message with " << bytes << " bytes";
 }
 
 bool Client::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes, u32 skip_bytes)
@@ -539,42 +511,4 @@ bool Client::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes, u32 skip_bytes
 	}
 
 	return Post(_server_addr, buffer, msg_bytes, skip_bytes);
-}
-
-void Client::OnDisconnect()
-{
-	WARN("Client") << "Disconnected by server";
-	Close();
-}
-
-void Client::OnTimestampDeltaUpdate(u32 rtt, s32 delta)
-{
-	INFO("Client") << "Timestamp delta update: RTT = " << rtt << ". Delta = " << delta;
-
-	u8 data[65535];
-	for (int ii = 0; ii < sizeof(data); ii += 2)
-		*(u16*)(data + ii) = (u16)ii;
-
-	WriteReliable(STREAM_UNORDERED, data, 300);
-	WriteReliable(STREAM_1, data, 30000);
-	WriteReliable(STREAM_1, data, 30000);
-	WriteReliable(STREAM_1, data, 300);
-	WriteUnreliable(data, 100);
-	WriteReliable(STREAM_UNORDERED, data, 300);
-	WriteReliable(STREAM_1, data, 5000);
-	WriteReliable(STREAM_UNORDERED, data, 300);
-	WriteReliable(STREAM_1, data, 65535);
-	WriteUnreliable(data, 100);
-	WriteReliable(STREAM_2, data, 500);
-	WriteReliable(STREAM_UNORDERED, data, 300);
-	WriteReliable(STREAM_3, data, 1000);
-	WriteReliable(STREAM_1, data, 65535);
-	WriteReliable(STREAM_UNORDERED, data, 300);
-	WriteReliable(STREAM_3, data, 4000);
-	WriteReliable(STREAM_2, data, 3000);
-	WriteUnreliable(data, 100);
-	WriteReliable(STREAM_1, data, 2000);
-	WriteReliable(STREAM_1, data, 1000);
-	WriteReliable(STREAM_3, data, 1000);
-	WriteReliable(STREAM_UNORDERED, data, 300);
 }
