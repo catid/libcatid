@@ -349,7 +349,7 @@ void Transport::OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 					u32 client_now = Clock::msec();
 
 					u32 *ts = reinterpret_cast<u32*>( data );
-					u32 client_ts = getLE(ts[0]);
+					u32 client_ts = ts[0];
 					u32 server_ts = getLE(ts[1]);
 
 					u32 rtt = client_now - client_ts;
