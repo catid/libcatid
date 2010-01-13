@@ -682,7 +682,16 @@ bool Transport::WriteUnreliable(u8 *data, u32 data_bytes)
 
 void Transport::FlushWrite()
 {
-	TransmitQueued();
+	// Avoid locking to transmit queued if no queued exist
+	for (int stream = 0; stream < NUM_STREAMS; ++stream)
+	{
+		SendQueue *node = _send_queue_head[stream];
+		if (node)
+		{
+			TransmitQueued();
+			break;
+		}
+	}
 
 	// Avoid locking if we can help it
 	if (!_send_buffer) return;
