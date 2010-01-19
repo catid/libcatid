@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -243,6 +243,7 @@ private:
 	KeyAgreementResponder _key_agreement_responder;
 	u8 _public_key[PUBLIC_KEY_BYTES];
 
+	static const int WORKER_LIMIT = 32; // Maximum number of workers
 	ServerWorker **_workers;
 	int _worker_count;
 

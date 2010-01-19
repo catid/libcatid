@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -32,7 +32,7 @@ using namespace cat;
 static DNSClient *dns_client = 0;
 
 // Framework Initialize
-bool cat::InitializeFramework()
+bool cat::InitializeFramework(const char *service_name)
 {
 	// Initialize clock subsystem
 	if (!Clock::Initialize())
@@ -47,7 +47,8 @@ bool cat::InitializeFramework()
 	}
 
 	// Initialize logging subsystem with INFO reporting level
-	Logging::ref()->Initialize(LVL_INANE);
+	Logging::ref()->Initialize(LVL_INFO);
+	if (service_name) Logging::ii->EnableServiceMode(service_name);
 
 	// Initialize disk settings subsystem
 	Settings::ref()->read();
@@ -79,13 +80,16 @@ bool cat::InitializeFramework()
 		return false;
 	}
 
-	// Start the DNS client
-	if (!DNSClient::ref()->Initialize())
+	// Create DNSClient
+	if (!DNSClient::ref())
 	{
-		FATAL("Framework") << "Unable to initialize the DNSClient";
+		FATAL("Framework") << "Out of memory: Unable to create the DNSClient";
 		ShutdownFramework(false);
 		return false;
 	}
+
+	// Add a reference so that DNSClient cannot be destroyed
+	DNSClient::ii->AddRef();
 
 	return true;
 }

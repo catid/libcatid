@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -448,10 +448,7 @@ bool DNSClient::ThreadFunction(void *param)
 
 DNSClient::~DNSClient()
 {
-	if (!StopThread())
-	{
-		WARN("DNS") << "Unable to stop timer thread.  Was it started?";
-	}
+	StopThread();
 }
 
 bool DNSClient::BindToRandomPort(bool ignoreUnreachable)
@@ -463,7 +460,7 @@ bool DNSClient::BindToRandomPort(bool ignoreUnreachable)
 	const int RANDOM_BIND_ATTEMPTS_MAX = 16;
 
 	// Get SupportIPv6 flag from settings
-	bool only_ipv4 = Settings::ii->getInt("SupportIPv6", 0) == 0;
+	bool only_ipv4 = Settings::ii->getInt("DNS.Client.SupportIPv6", 0) == 0;
 
 	// Try to use a more random port
 	int tries = RANDOM_BIND_ATTEMPTS_MAX;
@@ -483,9 +480,6 @@ bool DNSClient::BindToRandomPort(bool ignoreUnreachable)
 
 bool DNSClient::Initialize()
 {
-	// Add a reference so that DNSClient cannot be destroyed
-	DNSClient::ii->AddRef();
-
 	_dns_unavailable = true;
 
 	// Create a CSPRNG
@@ -636,6 +630,10 @@ bool DNSClient::IsValidHostname(const char *hostname)
 
 bool DNSClient::Resolve(const char *hostname, DNSResultCallback callback, ThreadRefObject *holdRef)
 {
+	// Initialize if needed
+	if (_dns_unavailable && !Initialize())
+		return false;
+
 	// Try to interpret hostname as numeric
 	NetAddr addr(hostname);
 

@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -52,7 +52,7 @@ FortunaOutput::FortunaOutput()
 
 #else // CAT_NO_ATOMIC_ADD
 
-	thread_id = Atomic::Add(&fortuna_output_id, 1);
+	thread_id = Atomic::Add(&fortuna_output_id, 104729);
 
 #endif // CAT_NO_ATOMIC_ADD
 
