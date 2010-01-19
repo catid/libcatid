@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -130,7 +130,7 @@ Map::Map()
 
 Map::~Map()
 {
-	WARN("Destroy") << "Killing Map";
+	//WARN("Destroy") << "Killing Map";
 }
 
 u32 Map::hash_addr(const NetAddr &addr, u32 salt)
@@ -334,7 +334,7 @@ ServerWorker::ServerWorker(Map *conn_map, ServerTimer *server_timer)
 
 ServerWorker::~ServerWorker()
 {
-	WARN("Destroy") << "Killing Worker";
+	//WARN("Destroy") << "Killing Worker";
 }
 
 void ServerWorker::IncrementPopulation()
@@ -391,16 +391,11 @@ ServerTimer::ServerTimer(Map *conn_map, ServerWorker **workers, int worker_count
 
 ServerTimer::~ServerTimer()
 {
-	WARN("Destroy") << "Killing Timer";
+	//WARN("Destroy") << "Killing Timer";
 
 	Map::Slot *slot, *next;
 
-	if (!StopThread())
-	{
-		WARN("ServerTimer") << "Unable to stop timer thread.  Was it started?";
-	}
-
-	INANE("ServerTimer") << "Freeing connection objects";
+	StopThread();
 
 	// Free all active connection objects
 	for (slot = _active_head; slot; slot = next)
@@ -534,7 +529,7 @@ Server::Server()
 
 Server::~Server()
 {
-	WARN("Destroy") << "Killing Server";
+	//WARN("Destroy") << "Killing Server";
 
 	// Delete timer objects
 	if (_timers)
@@ -581,6 +576,7 @@ bool Server::Initialize(ThreadPoolLocalStorage *tls, Port port)
 
 	// Allocate worker array
 	_worker_count = ThreadPool::ref()->GetProcessorCount() * 4;
+	if (_worker_count > WORKER_LIMIT) _worker_count = WORKER_LIMIT;
 	if (_worker_count < 1) _worker_count = 1;
 
 	if (_workers) delete[] _workers;
@@ -596,7 +592,7 @@ bool Server::Initialize(ThreadPoolLocalStorage *tls, Port port)
 		_workers[ii] = 0;
 
 	// Allocate timer array
-	_timer_count = ThreadPool::ref()->GetProcessorCount() / 2;
+	_timer_count = _worker_count / 8;
 	if (_timer_count < 1) _timer_count = 1;
 
 	if (_timers) delete[] _timers;

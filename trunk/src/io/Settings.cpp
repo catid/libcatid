@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -35,8 +35,8 @@ using namespace cat;
 using namespace std;
 
 
-#define ONLY_WRITE_NONDEFAULT_KEYS
-#define SETTINGS_VERBOSE /* dump extra settings information to the console for debugging */
+//#define ONLY_WRITE_NONDEFAULT_KEYS
+//#define SETTINGS_VERBOSE /* dump extra settings information to the console for debugging */
 #define SETTINGS_FILE "settings.txt"
 #define OVERRIDE_SETTINGS_FILE "override.txt"
 

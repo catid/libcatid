@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -58,7 +58,7 @@ using namespace cat;
 
 
 static const char *const EVENT_NAME[5] = { "Inane", "Info", "Warn", "Oops", "Fatal" };
-//static const char *const SHORT_EVENT_NAME[5] = { ".", "I", "W", "!", "F" };
+static const char *const SHORT_EVENT_NAME[5] = { ".", "I", "W", "!", "F" };
 
 
 //// Free functions
@@ -106,28 +106,48 @@ region_string cat::HexDumpString(const void *vdata, u32 bytes)
 
 void cat::FatalStop(const char *message)
 {
-	cerr << "Fatal Stop: " << message << endl;
+	if (Logging::ii->IsService())
+	{
+		Logging::ii->WriteServiceLog(LVL_FATAL, message);
+	}
+	else
+	{
+		cerr << "Fatal Stop: " << message << endl;
+
 #if defined(CAT_OS_WINDOWS)
-	OutputDebugStringA(message);
+		OutputDebugStringA(message);
 #endif
+	}
 
 	CAT_ARTIFICIAL_BREAKPOINT;
 
 	std::exit(EXIT_FAILURE);
 }
 
-void cat::DefaultLogCallback(const char *severity, const char *source, region_ostringstream &msg)
+void cat::DefaultLogCallback(EventSeverity severity, const char *source, region_ostringstream &msg)
 {
-	region_ostringstream oss;
-	oss << "[" << Clock::format("%b %d %H:%M") << "] <" << source << "> " << msg.str() << endl;
+	if (Logging::ii->IsService())
+	{
+		region_ostringstream oss;
+		oss << "<" << source << "> " << msg.str() << endl;
 
-	region_string result = oss.str();
+		region_string result = oss.str();
 
-	cout << result.c_str();
+		Logging::ii->WriteServiceLog(severity, result.c_str());
+	}
+	else
+	{
+		region_ostringstream oss;
+		oss << "[" << Clock::format("%b %d %H:%M") << "] <" << source << "> " << msg.str() << endl;
+
+		region_string result = oss.str();
+
+		cout << result.c_str();
 
 #if defined(CAT_OS_WINDOWS)
-	OutputDebugStringA(result.c_str());
+		OutputDebugStringA(result.c_str());
 #endif
+	}
 }
 
 
@@ -135,23 +155,54 @@ void cat::DefaultLogCallback(const char *severity, const char *source, region_os
 
 Logging::Logging()
 {
-    callback = &DefaultLogCallback;
-    log_threshold = LVL_INANE;
+    _callback = &DefaultLogCallback;
+    _log_threshold = LVL_INANE;
+	_service = false;
 }
 
 void Logging::Initialize(EventSeverity min_severity)
 {
-    log_threshold = min_severity;
+    _log_threshold = min_severity;
 }
 
 void Logging::ReadSettings()
 {
-    log_threshold = Settings::ii->getInt("Log.Threshold", log_threshold);
+    _log_threshold = Settings::ii->getInt("Log.Threshold", _log_threshold);
 }
 
 void Logging::LogEvent(Recorder *recorder)
 {
-	callback(EVENT_NAME[recorder->_severity], recorder->_subsystem, recorder->_msg);
+	_callback(recorder->_severity, recorder->_subsystem, recorder->_msg);
+}
+
+void Logging::EnableServiceMode(const char *service_name)
+{
+	_service = true;
+
+#if defined(CAT_OS_WINDOWS)
+	_event_source = RegisterEventSourceA(0, service_name);
+#endif
+}
+
+void Logging::WriteServiceLog(EventSeverity severity, const char *line)
+{
+#if defined(CAT_OS_WINDOWS)
+	if (_event_source)
+	{
+		WORD mode;
+		switch (severity)
+		{
+		case LVL_INANE: mode = EVENTLOG_SUCCESS; break;
+		case LVL_INFO: mode = EVENTLOG_INFORMATION_TYPE; break;
+		case LVL_OOPS:
+		case LVL_WARN: mode = EVENTLOG_WARNING_TYPE; break;
+		case LVL_FATAL: mode = EVENTLOG_ERROR_TYPE; break;
+		default: return;
+		}
+
+		ReportEventA(_event_source, mode, 0, mode, 0, 1, 0, &line, 0);
+	}
+#endif
 }
 
 

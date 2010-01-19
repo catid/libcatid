@@ -35,7 +35,6 @@ public:
 	}
 };
 
-
 int main()
 {
 	if (!InitializeFramework())

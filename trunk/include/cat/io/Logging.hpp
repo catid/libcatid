@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -31,6 +31,10 @@
 
 #include <cat/threads/RegionAllocator.hpp>
 
+#if defined(CAT_OS_WINDOWS)
+#include <cat/port/WindowsInclude.hpp>
+#endif
+
 namespace cat {
 
 
@@ -52,34 +56,47 @@ enum EventSeverity
 
 region_string HexDumpString(const void *vdata, u32 bytes);
 
+// Write to console (and debug log in windows) then trigger a breakpoint and exit
 void FatalStop(const char *message);
 
-void DefaultLogCallback(const char *severity, const char *source, region_ostringstream &msg);
+void DefaultLogCallback(EventSeverity severity, const char *source, region_ostringstream &msg);
 
 
 //// Logging
 
-typedef void (*LogCallback)(const char *severity, const char *source, region_ostringstream &msg);
+typedef void (*LogCallback)(EventSeverity severity, const char *source, region_ostringstream &msg);
 
 class Logging : public Singleton<Logging>
 {
     CAT_SINGLETON(Logging);
 
-    LogCallback callback;
+    LogCallback _callback;
 
     friend class Recorder;
 	void LogEvent(Recorder *recorder);
 
 public:
-    int log_threshold;
+    int _log_threshold;
 
 public:
 	void Initialize(EventSeverity min_severity = LVL_INANE);
 	void ReadSettings();
     void Shutdown();
 
+protected:
+	bool _service;
+#if defined(CAT_OS_WINDOWS)
+	HANDLE _event_source;
+#endif
+
+public:
+	CAT_INLINE bool IsService() { return _service; }
+	void EnableServiceMode(const char *service_name);
+	void WriteServiceLog(EventSeverity severity, const char *line);
+
+public:
 	// Not thread-safe
-    void SetLogCallback(LogCallback cb) { callback = cb; }
+    CAT_INLINE void SetLogCallback(LogCallback cb) { _callback = cb; }
 };
 
 
@@ -110,7 +127,7 @@ public:
 // Instead use:
 //  if (XYZ) { WARN("SS") << "ERROR!"; } else INFO("SS") << "OK!";   <-- good
 #define RECORD(subsystem, severity) \
-    if (severity >= Logging::ii->log_threshold) Recorder(subsystem, severity)
+    if (severity >= Logging::ii->_log_threshold) Recorder(subsystem, severity)
 
 #define INANE(subsystem)    RECORD(subsystem, LVL_INANE)
 #define INFO(subsystem)     RECORD(subsystem, LVL_INFO)

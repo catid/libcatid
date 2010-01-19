@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -173,7 +173,7 @@ void FortunaFactory::PollInvariantSources(int pool_index)
     TCHAR user_name[UNLEN + 1];
     DWORD user_len = sizeof(user_name) / sizeof(TCHAR);
     if (GetUserName(user_name, &user_len))
-		pool.Crunch(user_name, user_len);
+		pool.Crunch(user_name, user_len * sizeof(TCHAR));
 
     // Hardware profile
     GetCurrentHwProfileA(&Sources.hw_profile);
