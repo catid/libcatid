@@ -88,19 +88,13 @@ public:
 	virtual ~Connexion() {}
 
 private:
-	volatile u32 destroyed;
+	volatile u32 _destroyed;
 
-	Connexion *next_delete;
-	ServerWorker *server_worker;
+	Connexion *_next_delete;
+	ServerWorker *_server_worker;
 
-	// Last time a packet was received from this user -- for disconnect timeouts
-	u32 last_recv_tsc;
-
-	u8 first_challenge[64]; // First challenge seen from this client address
-	u8 cached_answer[128]; // Cached answer to this first challenge, to avoid eating server CPU time
-
-	bool seen_encrypted;
-	AuthenticatedEncryption auth_enc;
+	u8 _first_challenge[64]; // First challenge seen from this client address
+	u8 _cached_answer[128]; // Cached answer to this first challenge, to avoid eating server CPU time
 
 private:
 	// Return false to destroy this object
@@ -111,12 +105,18 @@ private:
 	virtual bool PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes, u32 skip_bytes);
 
 public:
-	CAT_INLINE bool IsValid() { return destroyed == 0; }
+	CAT_INLINE bool IsValid() { return _destroyed == 0; }
 
 	void Destroy();
 
 protected:
-	NetAddr client_addr;
+	NetAddr _client_addr;
+
+	// Last time a packet was received from this user -- for disconnect timeouts
+	u32 _last_recv_tsc;
+
+	bool _seen_encrypted;
+	AuthenticatedEncryption _auth_enc;
 
 protected:
 	virtual void OnConnect(ThreadPoolLocalStorage *tls) = 0;

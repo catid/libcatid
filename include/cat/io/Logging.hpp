@@ -80,6 +80,7 @@ public:
 
 public:
 	void Initialize(EventSeverity min_severity = LVL_INANE);
+	CAT_INLINE void SetThreshold(EventSeverity min_severity) { _log_threshold = min_severity; }
 	void ReadSettings();
     void Shutdown();
 

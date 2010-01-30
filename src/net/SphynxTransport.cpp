@@ -82,6 +82,8 @@ Transport::Transport()
 
 	CAT_OBJCLR(_sent_list_head);
 	CAT_OBJCLR(_sent_list_tail);
+
+	_disconnected = false;
 }
 
 Transport::~Transport()
@@ -153,6 +155,8 @@ void Transport::InitializePayloadBytes(bool ip6)
 
 void Transport::OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 {
+	if (_disconnected) return;
+
 	u32 ack_id = 0, stream = 0;
 
 	//INANE("Transport") << "Datagram dump " << bytes << ":" << HexDumpString(data, bytes);
@@ -269,6 +273,8 @@ void Transport::OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 						OnMTUSet(data, data_bytes);
 					else
 						CAT_TVV(WARN("Transport") << "Invalid reliable super opcode ignored");
+
+					if (_disconnected) return; // React to message handler
 				}
 				else
 				{
@@ -276,12 +282,16 @@ void Transport::OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 				}
 
 				RunQueue(tls, ack_id + 1, stream);
+
+				if (_disconnected) return; // React to message handler
 			}
 			else if (diff > 0) // Message is due to arrive
 			{
 				u32 super_opcode = hdr >> SOP_SHIFT;
 
 				QueueRecv(tls, data, data_bytes, ack_id, stream, super_opcode);
+
+				if (_disconnected) return; // React to message handler (unordered)
 			}
 			else
 			{
@@ -308,6 +318,8 @@ void Transport::OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 				if (data_bytes > 0)
 				{
 					OnMessage(tls, data, data_bytes);
+
+					if (_disconnected) return; // React to message handler
 				}
 				else
 				{
@@ -414,6 +426,8 @@ void Transport::RunQueue(ThreadPoolLocalStorage *tls, u32 ack_id, u32 stream)
 			else
 				OnMessage(tls, old_data, old_data_bytes);
 
+			if (_disconnected) return; // React to message handler
+
 			// NOTE: Unordered stream writes zero-length messages
 			// to the receive queue since it processes immediately
 			// and does not need to store the data.
@@ -492,6 +506,8 @@ void Transport::QueueRecv(ThreadPoolLocalStorage *tls, u8 *data, u32 data_bytes,
 				OnFragment(tls, data, data_bytes, stream);
 			else if (super_opcode == SOP_MTU_SET)
 				OnMTUSet(data, data_bytes);
+
+			if (_disconnected) return; // React to message handler
 		}
 		else
 		{
@@ -1074,6 +1090,8 @@ void Transport::WriteACK()
 
 void Transport::TickTransport(ThreadPoolLocalStorage *tls, u32 now)
 {
+	if (_disconnected) return;
+
 	// Acknowledge recent reliable packets
 	for (int stream = 0; stream < NUM_STREAMS; ++stream)
 	{

@@ -31,6 +31,7 @@
 #include <cat/io/Logging.hpp>
 #include <cat/io/MMapFile.hpp>
 #include <cat/io/Settings.hpp>
+#include <cat/io/Base64.hpp>
 #include <fstream>
 using namespace std;
 using namespace cat;
@@ -40,7 +41,7 @@ using namespace sphynx;
 //// Encryption Key Constants
 
 static const char *SERVER_PRIVATE_KEY_FILE = "s_server_private_key.bin";
-static const char *SERVER_PUBLIC_KEY_FILE = "u_server_public_key.c";
+static const char *SERVER_PUBLIC_KEY_FILE = "u_server_public_key.txt";
 static const char *SESSION_KEY_NAME = "SphynxSessionKey";
 
 
@@ -48,14 +49,15 @@ static const char *SESSION_KEY_NAME = "SphynxSessionKey";
 
 Connexion::Connexion()
 {
-	destroyed = 0;
-	seen_encrypted = false;
+	_destroyed = 0;
+	_seen_encrypted = false;
 }
 
 void Connexion::Destroy()
 {
-	if (Atomic::Set(&destroyed, 1) == 0)
+	if (Atomic::Set(&_destroyed, 1) == 0)
 	{
+		TransportDisconnected();
 		OnDestroy();
 	}
 }
@@ -65,7 +67,7 @@ bool Connexion::Tick(ThreadPoolLocalStorage *tls, u32 now)
 	const int DISCONNECT_TIMEOUT = 15000; // 15 seconds
 
 	// If no packets have been received,
-	if ((s32)(now - last_recv_tsc) >= DISCONNECT_TIMEOUT)
+	if ((s32)(now - _last_recv_tsc) >= DISCONNECT_TIMEOUT)
 	{
 		PostDisconnect();
 		Destroy();
@@ -86,9 +88,9 @@ void Connexion::OnRawData(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 	u32 buf_bytes = bytes;
 
 	// If packet is valid,
-	if (auth_enc.Decrypt(data, buf_bytes))
+	if (_auth_enc.Decrypt(data, buf_bytes))
 	{
-		last_recv_tsc = Clock::msec_fast();
+		_last_recv_tsc = Clock::msec_fast();
 
 		// Pass it to the transport layer
 		OnDatagram(tls, data, buf_bytes);
@@ -104,14 +106,14 @@ bool Connexion::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes, u32 skip_by
 	buf_bytes -= skip_bytes;
 	msg_bytes -= skip_bytes;
 
-	if (!auth_enc.Encrypt(buffer + skip_bytes, buf_bytes, msg_bytes))
+	if (!_auth_enc.Encrypt(buffer + skip_bytes, buf_bytes, msg_bytes))
 	{
 		WARN("Server") << "Encryption failure while sending packet";
 		ReleasePostBuffer(buffer);
 		return false;
 	}
 
-	return server_worker->Post(client_addr, buffer, msg_bytes, skip_bytes);
+	return _server_worker->Post(_client_addr, buffer, msg_bytes, skip_bytes);
 }
 
 
@@ -190,7 +192,7 @@ Connexion *Map::GetLock(const NetAddr &addr)
 		Connexion *conn = slot->connection;
 
 		// If the slot is used and the user address matches,
-		if (conn && conn->client_addr == addr)
+		if (conn && conn->_client_addr == addr)
 		{
 			return conn;
 		}
@@ -228,7 +230,7 @@ void Map::ReleaseLock()
 void Map::Insert(Connexion *conn)
 {
 	// Hash IP:port:salt to get the hash table key
-	u32 key = hash_addr(conn->client_addr, _hash_salt);
+	u32 key = hash_addr(conn->_client_addr, _hash_salt);
 
 	// Grab the slot
 	Slot *slot = &_table[key];
@@ -251,7 +253,7 @@ void Map::Insert(Connexion *conn)
 	// Mark used
 	slot->connection = conn;
 
-	conn->server_worker->_server_timer->InsertSlot(slot);
+	conn->_server_worker->_server_timer->InsertSlot(slot);
 
 	// If collision list continues after this slot,
 	if (slot->collision)
@@ -298,7 +300,7 @@ void Map::DestroyList(Map::Slot *kill_list)
 
 		if (conn)
 		{
-			conn->next_delete = delete_head;
+			conn->_next_delete = delete_head;
 			delete_head = conn;
 
 			slot->connection = 0;
@@ -310,11 +312,11 @@ void Map::DestroyList(Map::Slot *kill_list)
 	// For each connection object to delete,
 	for (Connexion *next, *conn = delete_head; conn; conn = next)
 	{
-		next = conn->next_delete;
+		next = conn->_next_delete;
 
 		INANE("ServerMap") << "Deleting connection " << conn;
 
-		conn->server_worker->DecrementPopulation();
+		conn->_server_worker->DecrementPopulation();
 
 		delete conn;
 	}
@@ -354,7 +356,7 @@ void ServerWorker::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *d
 	int buf_bytes = bytes;
 
 	// If connection is valid and on the right port,
-	if (conn && conn->IsValid() && conn->server_worker == this)
+	if (conn && conn->IsValid() && conn->_server_worker == this)
 	{
 		conn->OnRawData(tls, data, bytes);
 	}
@@ -495,7 +497,7 @@ void ServerTimer::Tick(ThreadPoolLocalStorage *tls)
 	_active_head = active_head;
 }
 
-bool ServerTimer::ThreadFunction(void *param)
+bool ServerTimer::ThreadFunction(void *)
 {
 	ThreadPoolLocalStorage tls;
 
@@ -655,37 +657,26 @@ bool Server::Initialize(ThreadPoolLocalStorage *tls, Port port)
 			ofstream private_keyfile(SERVER_PRIVATE_KEY_FILE, ios_base::out | ios_base::binary);
 			ofstream public_keyfile(SERVER_PUBLIC_KEY_FILE, ios_base::out);
 
-			// If the key file was successfully opened in output mode,
+			// If the key file was NOT successfully opened in output mode,
 			if (public_keyfile.fail() || private_keyfile.fail())
 			{
 				WARN("Server") << "Failed to initialize: Unable to open key file(s) for writing";
 				return false;
 			}
 
-			// Write private keyfile contents
-			public_keyfile << "unsigned char SERVER_PUBLIC_KEY[" << PUBLIC_KEY_BYTES << "] = {" << endl;
-			for (int ii = 0; ii < PUBLIC_KEY_BYTES; ++ii)
-			{
-				if (ii)
-				{
-					public_keyfile << ",";
-					if (ii % 16 == 0) public_keyfile << endl;
-				}
-
-				public_keyfile << (u32)public_key[ii];
-			}
-			public_keyfile << endl << "};" << endl;
+			// Write public key file in Base64 encoding
+			WriteBase64(public_key, PUBLIC_KEY_BYTES, public_keyfile);
 			public_keyfile.flush();
 
-			// Write public keyfile contents
+			// Write private key file
 			private_keyfile.write((char*)public_key, PUBLIC_KEY_BYTES);
 			private_keyfile.write((char*)private_key, PRIVATE_KEY_BYTES);
 			private_keyfile.flush();
 
-			// If the key file was successfully written,
+			// If the key files were NOT successfully written,
 			if (public_keyfile.fail() || private_keyfile.fail())
 			{
-				WARN("Server") << "Failed to initialize: Unable to write key file";
+				WARN("Server") << "Failed to initialize: Unable to write key file(s)";
 				return false;
 			}
 
@@ -893,7 +884,7 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			}
 
 			// If we have seen the first encrypted packet already,
-			if (conn->seen_encrypted)
+			if (conn->_seen_encrypted)
 			{
 				_conn_map.ReleaseLock();
 				WARN("Server") << "Ignoring challenge: Already in session";
@@ -902,7 +893,7 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			}
 
 			// If we the challenge does not match the previous one,
-			if (!SecureEqual(conn->first_challenge, challenge, CHALLENGE_BYTES))
+			if (!SecureEqual(conn->_first_challenge, challenge, CHALLENGE_BYTES))
 			{
 				_conn_map.ReleaseLock();
 				INANE("Server") << "Ignoring challenge: Challenge not replayed";
@@ -912,8 +903,8 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 
 			// Construct packet 3
 			pkt3[0] = S2C_ANSWER;
-			*pkt3_port = getLE(conn->server_worker->GetPort());
-			memcpy(pkt3_answer, conn->cached_answer, ANSWER_BYTES);
+			*pkt3_port = getLE(conn->_server_worker->GetPort());
+			memcpy(pkt3_answer, conn->_cached_answer, ANSWER_BYTES);
 
 			_conn_map.ReleaseLock();
 
@@ -962,10 +953,10 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 				return;
 			}
 
-			conn->client_addr = src;
+			conn->_client_addr = src;
 
 			// If unable to key encryption from session key,
-			if (!_key_agreement_responder.KeyEncryption(&key_hash, &conn->auth_enc, SESSION_KEY_NAME))
+			if (!_key_agreement_responder.KeyEncryption(&key_hash, &conn->_auth_enc, SESSION_KEY_NAME))
 			{
 				WARN("Server") << "Ignoring challenge: Unable to key encryption";
 				ReleasePostBuffer(pkt3);
@@ -982,10 +973,10 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			*pkt3_port = getLE(server_port);
 
 			// Initialize Connexion object
-			memcpy(conn->first_challenge, challenge, CHALLENGE_BYTES);
-			memcpy(conn->cached_answer, pkt3_answer, ANSWER_BYTES);
-			conn->server_worker = server_worker;
-			conn->last_recv_tsc = Clock::msec_fast();
+			memcpy(conn->_first_challenge, challenge, CHALLENGE_BYTES);
+			memcpy(conn->_cached_answer, pkt3_answer, ANSWER_BYTES);
+			conn->_server_worker = server_worker;
+			conn->_last_recv_tsc = Clock::msec_fast();
 			conn->InitializePayloadBytes(Is6());
 
 			// If packet 3 post fails,
