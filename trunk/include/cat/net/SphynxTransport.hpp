@@ -392,6 +392,8 @@ protected:
 	// List of messages that are waiting to be acknowledged
 	SendQueue *_sent_list_head[NUM_STREAMS], *_sent_list_tail[NUM_STREAMS];
 
+	bool _disconnected;
+
 private:
 	void TransmitQueued();
 	void Retransmit(u32 stream, SendQueue *node, u32 now); // Does not hold the send lock!
@@ -411,6 +413,10 @@ public:
 	void FlushWrite();
 
 protected:
+	// Notify transport layer of disconnect to halt message processing
+	CAT_INLINE void TransportDisconnected() { _disconnected = true; }
+	CAT_INLINE bool IsDisconnected() { return _disconnected; }
+
 	void TickTransport(ThreadPoolLocalStorage *tls, u32 now);
 	void OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes);
 

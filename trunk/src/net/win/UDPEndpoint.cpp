@@ -120,7 +120,7 @@ bool UDPEndpoint::DontFragment(bool df)
 
 bool UDPEndpoint::Bind(bool onlySupportIPv4, Port port, bool ignoreUnreachable, int rcv_buffsize)
 {
-    // Create an unbound, overlapped UDP socket for the endpoint
+	// Create an unbound, overlapped UDP socket for the endpoint
     Socket s;
 	if (!CreateSocket(SOCK_DGRAM, IPPROTO_UDP, true, s, onlySupportIPv4))
 	{

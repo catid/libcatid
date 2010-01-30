@@ -76,6 +76,8 @@ public:
 	// Is6() result is only valid AFTER Bind()
 	CAT_INLINE bool Is6() { return _ipv6; }
 
+	CAT_INLINE bool IsClosed() { return _closing != 0; }
+
     // For servers: Bind() with ignoreUnreachable = true ((default))
     // For clients: Bind() with ignoreUnreachable = false and call this
     //              after the first packet from the server is received.

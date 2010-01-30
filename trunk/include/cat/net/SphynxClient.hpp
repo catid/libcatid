@@ -61,6 +61,8 @@ public:
 	bool Connect(const char *hostname, Port port);
 	bool Connect(const NetAddr &addr);
 
+	void Disconnect();
+
 protected:
 	bool IsConnected() { return _connected; }
 

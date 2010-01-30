@@ -509,3 +509,11 @@ bool Client::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes, u32 skip_bytes
 
 	return Post(_server_addr, buffer, msg_bytes, skip_bytes);
 }
+
+void Client::Disconnect()
+{
+	PostDisconnect();
+	TransportDisconnected();
+
+	Close();
+}

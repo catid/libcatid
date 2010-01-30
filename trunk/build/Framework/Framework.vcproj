@@ -300,6 +300,10 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
+				RelativePath="..\..\src\io\Base64.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\src\parse\BitStream.cpp"
 				>
 			</File>
@@ -375,6 +379,10 @@
 			>
 			<File
 				RelativePath="..\..\include\cat\AllFramework.hpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\include\cat\io\Base64.hpp"
 				>
 			</File>
 			<Filter

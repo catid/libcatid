@@ -39,7 +39,7 @@ namespace cat {
 
 //// BitStream manipulators ////
 
-namespace bit
+namespace bs_bit
 {
     template<u32 N_BITS> struct set
     {
@@ -54,7 +54,7 @@ namespace bit
     };
 }
 
-namespace byte
+namespace bs_byte
 {
     struct set
     {
@@ -153,13 +153,13 @@ public:
 
     template<class T> BitStream &operator<<(T data) { write(data); return *this; }
 
-    template<u32 N_BITS> BitStream &operator<<(const bit::set<N_BITS> &n) { writeBits(n.bits, N_BITS); return *this; }
-    template<> BitStream &operator<<(const bit::set<1> &n) { write1((u8)n.bits); return *this; }
-    template<> BitStream &operator<<(const bit::set<8> &n) { write((u8)n.bits); return *this; }
-    template<> BitStream &operator<<(const bit::set<16> &n) { write((u16)n.bits); return *this; }
-    template<> BitStream &operator<<(const bit::set<32> &n) { write((u32)n.bits); return *this; }
+    template<u32 N_BITS> BitStream &operator<<(const bs_bit::set<N_BITS> &n) { writeBits(n.bits, N_BITS); return *this; }
+    template<> BitStream &operator<<(const bs_bit::set<1> &n) { write1((u8)n.bits); return *this; }
+    template<> BitStream &operator<<(const bs_bit::set<8> &n) { write((u8)n.bits); return *this; }
+    template<> BitStream &operator<<(const bs_bit::set<16> &n) { write((u16)n.bits); return *this; }
+    template<> BitStream &operator<<(const bs_bit::set<32> &n) { write((u32)n.bits); return *this; }
 
-    BitStream &operator<<(const byte::set &n) { writeBytes(n.ref, n.bytes); return *this; }
+    BitStream &operator<<(const bs_byte::set &n) { writeBytes(n.ref, n.bytes); return *this; }
 
 public:
     // extraction
@@ -196,13 +196,13 @@ public:
     // stream-mode extraction
     template<class T> BitStream &operator>>(T &data) { read(data); return *this; }
 
-    template<u32 N_BITS> BitStream &operator>>(const bit::get<N_BITS> &n) { n.ref = readBits(N_BITS); return *this; }
-    template<> BitStream &operator>>(const bit::get<1> &n) { n.ref = read1(); return *this; }
-    template<> BitStream &operator>>(const bit::get<8> &n) { n.ref = read<u8>(); return *this; }
-    template<> BitStream &operator>>(const bit::get<16> &n) { n.ref = read<u16>(); return *this; }
-    template<> BitStream &operator>>(const bit::get<32> &n) { read(n.ref); return *this; }
+    template<u32 N_BITS> BitStream &operator>>(const bs_bit::get<N_BITS> &n) { n.ref = readBits(N_BITS); return *this; }
+    template<> BitStream &operator>>(const bs_bit::get<1> &n) { n.ref = read1(); return *this; }
+    template<> BitStream &operator>>(const bs_bit::get<8> &n) { n.ref = read<u8>(); return *this; }
+    template<> BitStream &operator>>(const bs_bit::get<16> &n) { n.ref = read<u16>(); return *this; }
+    template<> BitStream &operator>>(const bs_bit::get<32> &n) { read(n.ref); return *this; }
 
-    BitStream &operator>>(const byte::get &n) { readBytes(n.ref, n.bytes); return *this; }
+    BitStream &operator>>(const bs_byte::get &n) { readBytes(n.ref, n.bytes); return *this; }
 };
 
 
