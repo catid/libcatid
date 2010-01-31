@@ -46,6 +46,7 @@
 #include <cat/io/Logging.hpp>
 #include <cat/io/MMapFile.hpp>
 #include <cat/io/Settings.hpp>
+#include <cat/io/Base64.hpp>
 
 #include <cat/parse/BitStream.hpp>
 #include <cat/parse/BufferTok.hpp>

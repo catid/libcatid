@@ -37,13 +37,17 @@ namespace cat {
 
 // Write buffer to output stream in Base64 encoding
 int GetBase64LengthFromBinaryLength(int bytes);
-bool WriteBase64(const void *buffer, int bytes, char *encoded_buffer, int encoded_bytes);
-bool WriteBase64(const void *buffer, int bytes, std::ostream &output);
+
+// Returns number of bytes written, or 0 for error
+int WriteBase64(const void *buffer, int bytes, char *encoded_buffer, int encoded_bytes);
+int WriteBase64(const void *buffer, int bytes, std::ostream &output);
 
 // Read buffer in Base64 encoding
 int GetBinaryLengthFromBase64Length(const char *encoded_buffer, int bytes);
-bool ReadBase64(const char *encoded_buffer, int encoded_bytes, void *decoded_buffer, int decoded_bytes);
-bool ReadBase64(const char *encoded_buffer, int encoded_bytes, std::ostream &output);
+
+// Returns number of bytes read, or 0 for error
+int ReadBase64(const char *encoded_buffer, int encoded_bytes, void *decoded_buffer, int decoded_bytes);
+int ReadBase64(const char *encoded_buffer, int encoded_bytes, std::ostream &output);
 
 
 } // namespace cat

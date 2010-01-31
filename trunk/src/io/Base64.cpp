@@ -48,10 +48,12 @@ int cat::GetBase64LengthFromBinaryLength(int bytes)
 	return ((bytes + 2) / 3) * 4;
 }
 
-bool cat::WriteBase64(const void *buffer, int bytes, char *encoded_buffer, int encoded_bytes)
+int cat::WriteBase64(const void *buffer, int bytes, char *encoded_buffer, int encoded_bytes)
 {
-	if (bytes <= 0 || encoded_bytes < GetBase64LengthFromBinaryLength(bytes))
-		return false;
+	int written_bytes = ((bytes + 2) / 3) * 4;
+
+	if (bytes <= 0 || encoded_bytes < written_bytes)
+		return 0;
 
 	const u8 *data = reinterpret_cast<const u8*>( buffer );
 
@@ -85,12 +87,12 @@ bool cat::WriteBase64(const void *buffer, int bytes, char *encoded_buffer, int e
 		break;
 	}
 
-	return true;
+	return written_bytes;
 }
 
-bool cat::WriteBase64(const void *buffer, int bytes, ostream &output)
+int cat::WriteBase64(const void *buffer, int bytes, ostream &output)
 {
-	if (bytes <= 0) return false;
+	if (bytes <= 0) return 0;
 
 	const u8 *data = reinterpret_cast<const u8*>( buffer );
 
@@ -123,7 +125,7 @@ bool cat::WriteBase64(const void *buffer, int bytes, ostream &output)
 		break;
 	}
 
-	return true;
+	return ((bytes + 2) / 3) * 4;
 }
 
 
@@ -161,13 +163,17 @@ int cat::GetBinaryLengthFromBase64Length(const char *encoded_buffer, int bytes)
 	return ((bytes + 1) * 3) / 4;
 }
 
-bool cat::ReadBase64(const char *encoded_buffer, int encoded_bytes, void *decoded_buffer, int decoded_bytes)
+int cat::ReadBase64(const char *encoded_buffer, int encoded_bytes, void *decoded_buffer, int decoded_bytes)
 {
 	// Skip '=' characters at the end
 	while (encoded_bytes >= 1 && encoded_buffer[encoded_bytes-1] == '=')
 		--encoded_bytes;
 
-	if (encoded_bytes <= 0 || decoded_bytes <= 0) return false;
+	if (encoded_bytes <= 0 || decoded_bytes <= 0 ||
+		decoded_bytes < ((encoded_bytes + 1) * 3) / 4)
+	{
+		return 0;
+	}
 
 	const u8 *from = reinterpret_cast<const u8*>( encoded_buffer );
 	u8 *to = reinterpret_cast<u8*>( decoded_buffer );
@@ -175,7 +181,7 @@ bool cat::ReadBase64(const char *encoded_buffer, int encoded_bytes, void *decode
 	u8 a, b, c, d;
 
 	int ii, jj, end;
-	for (ii = 0, jj = 0, end = encoded_bytes - 3; jj < end; ii += 4, jj += 3)
+	for (ii = 0, jj = 0, end = encoded_bytes - 3; ii < end; ii += 4, jj += 3)
 	{
 		a = FROM_BASE64[from[ii]];
 		b = FROM_BASE64[from[ii+1]];
@@ -189,10 +195,6 @@ bool cat::ReadBase64(const char *encoded_buffer, int encoded_bytes, void *decode
 
 	switch (encoded_bytes & 4)
 	{
-	default:
-	case 0: // No characters left to read
-		break;
-
 	case 3: // 3 characters left
 		a = FROM_BASE64[from[ii]];
 		b = FROM_BASE64[from[ii+1]];
@@ -201,7 +203,11 @@ bool cat::ReadBase64(const char *encoded_buffer, int encoded_bytes, void *decode
 		to[jj] = (a << 2) | (b >> 4);
 		to[jj+1] = (b << 4) | (c >> 2);
 		to[jj+2] = c << 6;
-		break;
+
+		// fall-thru
+	default:
+	case 0: // No characters left to read
+		return jj+3;
 
 	case 2: // 2 characters left
 		a = FROM_BASE64[from[ii]];
@@ -209,30 +215,28 @@ bool cat::ReadBase64(const char *encoded_buffer, int encoded_bytes, void *decode
 
 		to[jj] = (a << 2) | (b >> 4);
 		to[jj+1] = b << 4;
-		break;
+		return jj+2;
 
 	case 1: // 1 character left
 		to[jj] = FROM_BASE64[from[ii]] << 2;
-		break;
+		return jj+1;
 	}
-
-	return true;
 }
 
-bool cat::ReadBase64(const char *encoded_buffer, int encoded_bytes, std::ostream &output)
+int cat::ReadBase64(const char *encoded_buffer, int encoded_bytes, std::ostream &output)
 {
 	// Skip '=' characters at the end
 	while (encoded_bytes >= 1 && encoded_buffer[encoded_bytes-1] == '=')
 		--encoded_bytes;
 
-	if (encoded_bytes <= 0) return false;
+	if (encoded_bytes <= 0) return 0;
 
 	const u8 *from = reinterpret_cast<const u8*>( encoded_buffer );
 
 	u8 a, b, c, d;
 
-	int ii, jj, end;
-	for (ii = 0, end = encoded_bytes - 3; jj < end; ii += 4)
+	int ii, end;
+	for (ii = 0, end = encoded_bytes - 3; ii < end; ii += 4)
 	{
 		a = FROM_BASE64[from[ii]];
 		b = FROM_BASE64[from[ii+1]];
@@ -273,5 +277,5 @@ bool cat::ReadBase64(const char *encoded_buffer, int encoded_bytes, std::ostream
 		break;
 	}
 
-	return true;
+	return ((encoded_bytes + 1) * 3) / 4;
 }
