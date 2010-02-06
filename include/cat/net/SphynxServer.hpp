@@ -231,7 +231,7 @@ public:
 	Server();
 	virtual ~Server();
 
-	bool Initialize(ThreadPoolLocalStorage *tls, Port port, u8 *public_key, int public_bytes, u8 *private_key, int private_bytes, const char *session_key);
+	bool StartServer(ThreadPoolLocalStorage *tls, Port port, u8 *public_key, int public_bytes, u8 *private_key, int private_bytes, const char *session_key);
 
 	u32 GetTotalPopulation();
 

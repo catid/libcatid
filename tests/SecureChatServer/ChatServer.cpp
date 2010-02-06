@@ -62,7 +62,7 @@ int main()
 		{
 			FATAL("Server") << "Unable to get key pair";
 		}
-		else if (!server->Initialize(&tls, SERVER_PORT, public_key, sizeof(public_key), private_key, sizeof(private_key), SessionKey))
+		else if (!server->StartServer(&tls, SERVER_PORT, public_key, sizeof(public_key), private_key, sizeof(private_key), SessionKey))
 		{
 			FATAL("Server") << "Unable to initialize";
 		}

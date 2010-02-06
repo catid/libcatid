@@ -558,7 +558,7 @@ Server::~Server()
 	}
 }
 
-bool Server::Initialize(ThreadPoolLocalStorage *tls, Port port, u8 *public_key, int public_bytes, u8 *private_key, int private_bytes, const char *session_key)
+bool Server::StartServer(ThreadPoolLocalStorage *tls, Port port, u8 *public_key, int public_bytes, u8 *private_key, int private_bytes, const char *session_key)
 {
 	// If objects were not created,
 	if (!tls->Valid())
@@ -614,6 +614,9 @@ bool Server::Initialize(ThreadPoolLocalStorage *tls, Port port, u8 *public_key, 
 
 	// Copy session key
 	CAT_STRNCPY(_session_key, session_key, SESSION_KEY_BYTES);
+
+	// Copy public key
+	memcpy(_public_key, public_key, sizeof(_public_key));
 
 	// Get SupportIPv6 flag from settings
 	bool only_ipv4 = Settings::ii->getInt("Sphynx.Server.SupportIPv6", 0) == 0;

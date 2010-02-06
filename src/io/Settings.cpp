@@ -31,6 +31,7 @@
 #include <cat/io/MMapFile.hpp>
 #include <cat/io/Logging.hpp>
 #include <cstring>
+#include <cat/hash/MurmurHash2.hpp>
 using namespace cat;
 using namespace std;
 
@@ -93,7 +94,7 @@ Settings::Settings()
 
 SettingsKey *Settings::addKey(const char *name)
 {
-    u8 treekey = (u8)name[0] % SETTINGS_HASH_BINS;
+	u32 treekey = MurmurHash32(name, strlen(name)+1, KEY_HASH_SALT) % SETTINGS_HASH_BINS;
     SettingsKey *key = hbtrees[treekey];
 
     if (!key)
@@ -123,7 +124,7 @@ SettingsKey *Settings::addKey(const char *name)
 
 SettingsKey *Settings::getKey(const char *name)
 {
-    u8 treekey = (u8)name[0] % SETTINGS_HASH_BINS;
+	u32 treekey = MurmurHash32(name, strlen(name)+1, KEY_HASH_SALT) % SETTINGS_HASH_BINS;
     SettingsKey *key = hbtrees[treekey];
 
     while (key)
