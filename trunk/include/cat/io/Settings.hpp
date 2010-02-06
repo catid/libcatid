@@ -83,6 +83,8 @@ protected:
     bool readSettings; // Flag set when settings have been read from disk
     bool modified;     // Flag set when settings have been modified since last write
 
+	std::string _settings_file;
+
 protected:
     SettingsKey *addKey(const char *name);
     SettingsKey *getKey(const char *name);
@@ -93,8 +95,8 @@ protected:
     void clear();
     
 public:
-    void read();
-    void read(const char *data, int len);
+    void readSettingsFromFile(const char *file_path = "settings.txt", const char *override_file = "override.txt");
+    void readSettingsFromBuffer(const char *data, int len);
     void write();
 
 public:

@@ -67,7 +67,7 @@ namespace cat {
 
 
 // Specifying a service name will set up service mode
-bool InitializeFramework(const char *service_name = 0);
+bool InitializeFramework(const char *settings_file, const char *service_name = 0);
 
 void ShutdownFramework(bool WriteSettings = true);
 

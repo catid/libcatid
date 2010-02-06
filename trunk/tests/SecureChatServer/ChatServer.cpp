@@ -41,7 +41,7 @@ public:
 
 int main()
 {
-	if (!InitializeFramework())
+	if (!InitializeFramework("ChatServer.txt"))
 	{
 		FatalStop("Unable to initialize framework!");
 	}
