@@ -37,8 +37,6 @@ using namespace std;
 
 //#define ONLY_WRITE_NONDEFAULT_KEYS
 //#define SETTINGS_VERBOSE /* dump extra settings information to the console for debugging */
-#define SETTINGS_FILE "settings.txt"
-#define OVERRIDE_SETTINGS_FILE "override.txt"
 
 
 SettingsKey::SettingsKey(SettingsKey *lnodei, SettingsKey *gnodei, const char *namei)
@@ -152,7 +150,7 @@ void Settings::clear()
     }
 }
 
-void Settings::read(const char *data, int len)
+void Settings::readSettingsFromBuffer(const char *data, int len)
 {
 	AutoMutex lock(_lock);
 
@@ -178,37 +176,39 @@ void Settings::read(const char *data, int len)
     }
 }
 
-void Settings::read()
+void Settings::readSettingsFromFile(const char *file_path, const char *override_file)
 {
 	AutoMutex lock(_lock);
 
-    MMapFile sfile(SETTINGS_FILE);
+	_settings_file = file_path;
+
+    MMapFile sfile(file_path);
     if (!sfile.good())
     {
-        WARN("Settings") << "Read: Unable to open " << SETTINGS_FILE;
+        WARN("Settings") << "Read: Unable to open " << file_path;
         return;
     }
 
 #ifdef SETTINGS_VERBOSE
-    INANE("Settings") << "Read: " << SETTINGS_FILE;
+    INANE("Settings") << "Read: " << file_path;
 #endif
 
-    read((const char*)sfile.look(), sfile.size());
+    readSettingsFromBuffer((const char*)sfile.look(), sfile.size());
 
-    MMapFile ofile(OVERRIDE_SETTINGS_FILE);
+    MMapFile ofile(override_file);
     if (ofile.good())
     {
 #ifdef SETTINGS_VERBOSE
-        INANE("Settings") << "Read: " << OVERRIDE_SETTINGS_FILE;
+        INANE("Settings") << "Read: " << override_file;
 #endif
 
-        read((const char*)ofile.look(), ofile.size());
+        readSettingsFromBuffer((const char*)ofile.look(), ofile.size());
     }
 
     // Delete the override settings file if settings request it
     if (getInt("override.unlink", 0))
     {
-        _unlink(OVERRIDE_SETTINGS_FILE);
+        _unlink(override_file);
         setInt("override.unlink", 0);
     }
 
@@ -229,7 +229,7 @@ void Settings::write()
     }
 #endif
 
-    ofstream file(SETTINGS_FILE);
+    ofstream file(_settings_file.c_str());
     if (!file)
     {
         WARN("Settings") << "Write: Unable to open settings.txt";

@@ -33,7 +33,7 @@ using namespace cat;
 
 int main(int argc, const char **argv)
 {
-    if (!InitializeFramework())
+    if (!InitializeFramework("TextCompress.txt"))
 	{
 		FatalStop("Unable to initialize framework!");
 	}

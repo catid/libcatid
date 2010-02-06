@@ -32,7 +32,7 @@ using namespace cat;
 static DNSClient *dns_client = 0;
 
 // Framework Initialize
-bool cat::InitializeFramework(const char *service_name)
+bool cat::InitializeFramework(const char *settings_file, const char *service_name)
 {
 	// Initialize clock subsystem
 	if (!Clock::Initialize())
@@ -51,7 +51,7 @@ bool cat::InitializeFramework(const char *service_name)
 	if (service_name) Logging::ii->EnableServiceMode(service_name);
 
 	// Initialize disk settings subsystem
-	Settings::ref()->read();
+	Settings::ref()->readSettingsFromFile(settings_file);
 
 	// Read logging subsystem settings
 	Logging::ref()->ReadSettings();

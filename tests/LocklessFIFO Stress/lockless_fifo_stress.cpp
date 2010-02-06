@@ -138,7 +138,7 @@ public:
 
 int main(int argc, const char **argv)
 {
-    if (!InitializeFramework())
+    if (!InitializeFramework("LocklessFIFOTest.txt"))
 	{
 		FatalStop("Unable to initialize framework!");
 	}
