@@ -64,10 +64,8 @@ void Connexion::Destroy()
 
 bool Connexion::Tick(ThreadPoolLocalStorage *tls, u32 now)
 {
-	const int DISCONNECT_TIMEOUT = 15000; // 15 seconds
-
 	// If no packets have been received,
-	if ((s32)(now - _last_recv_tsc) >= DISCONNECT_TIMEOUT)
+	if ((s32)(now - _last_recv_tsc) >= TIMEOUT_DISCONNECT)
 	{
 		PostDisconnect();
 		Destroy();
