@@ -53,8 +53,16 @@ int main()
 
 	{
 		ThreadPoolLocalStorage tls;
+		u8 public_key[sphynx::PUBLIC_KEY_BYTES];
+		u8 private_key[sphynx::PRIVATE_KEY_BYTES];
 
-		if (!server->Initialize(&tls, SERVER_PORT))
+		const char *SessionKey = "Chat";
+
+		if (!sphynx::Server::GenerateKeyPair(&tls, "PublicKeyFile.txt", "PrivateKeyFile.bin", public_key, sizeof(public_key), private_key, sizeof(private_key)))
+		{
+			FATAL("Server") << "Unable to get key pair";
+		}
+		else if (!server->Initialize(&tls, SERVER_PORT, public_key, sizeof(public_key), private_key, sizeof(private_key), SessionKey))
 		{
 			FATAL("Server") << "Unable to initialize";
 		}

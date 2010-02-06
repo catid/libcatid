@@ -231,11 +231,18 @@ public:
 	Server();
 	virtual ~Server();
 
-	bool Initialize(ThreadPoolLocalStorage *tls, Port port);
+	bool Initialize(ThreadPoolLocalStorage *tls, Port port, u8 *public_key, int public_bytes, u8 *private_key, int private_bytes, const char *session_key);
 
 	u32 GetTotalPopulation();
 
+	static bool GenerateKeyPair(ThreadPoolLocalStorage *tls, const char *public_key_file,
+		const char *private_key_file, u8 *public_key,
+		int public_bytes, u8 *private_key, int private_bytes);
+
 private:
+	static const int SESSION_KEY_BYTES = 32;
+	char _session_key[SESSION_KEY_BYTES];
+
 	Port _server_port;
 	Map _conn_map;
 
