@@ -103,7 +103,7 @@ void ChaChaOutput::GenerateKeyStream(u32 *out)
 ChaChaOutput::ChaChaOutput(const ChaChaKey &key, u64 iv)
 {
 	for (int ii = 0; ii < 12; ++ii)
-		state[ii] = key.state[0];
+		state[ii] = key.state[ii];
 
 	// Initialize block counter to zero
 	state[12] = 0;
