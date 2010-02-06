@@ -77,7 +77,7 @@ protected:
     u64 Tweak[2];
     u64 State[MAX_WORDS];
     u8 Work[MAX_BYTES];
-    int used_bytes, digest_bytes, digest_words;
+    int used_bytes, digest_words;
     u64 output_block_counter;
     bool output_prng_mode;
 

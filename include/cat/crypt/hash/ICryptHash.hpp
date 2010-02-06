@@ -41,7 +41,7 @@ namespace cat {
 class ICryptHash
 {
 protected:
-    u32 digest_bytes;
+    int digest_bytes;
 
 public:
     virtual ~ICryptHash() {}

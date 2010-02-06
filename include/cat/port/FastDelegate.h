@@ -557,7 +557,7 @@ struct SimplifyMemFunc<SINGLE_MEMFUNCPTR_SIZE + 3*sizeof(int) >
 // support static_cast between void * and function pointers.
 
 class DelegateMemento {
-protected: 
+public: // my modification to allow for access -cat
     // the data is protected, not private, because many
     // compilers have problems with template friends.
     typedef void (detail::GenericClass::*GenericMemFuncType)(); // arbitrary MFP.

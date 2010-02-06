@@ -44,13 +44,16 @@ class Client : LoopThread, public UDPEndpoint, public Transport
 {
 private:
 	KeyAgreementInitiator _key_agreement_initiator;
-	AuthenticatedEncryption _auth_enc;
-	NetAddr _server_addr;
-	bool _connected;
 	u8 _server_public_key[PUBLIC_KEY_BYTES];
 	u8 _cached_challenge[CHALLENGE_BYTES];
 
 	bool ThreadFunction(void *param);
+
+protected:
+	u32 _last_send_mstsc;
+	NetAddr _server_addr;
+	bool _connected;
+	AuthenticatedEncryption _auth_enc;
 
 public:
 	Client();

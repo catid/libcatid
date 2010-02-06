@@ -50,6 +50,7 @@ Client::Client()
 	: UDPEndpoint(REFOBJ_PRIO_0+4)
 {
 	_connected = false;
+	_last_send_mstsc = 0;
 }
 
 Client::~Client()
@@ -489,7 +490,16 @@ bool Client::ThreadFunction(void *)
 			}
 		}
 
+		// Tick subclass
 		OnTick(&tls, now);
+
+		// Send a keep-alive after the silence limit expires
+		if ((s32)(now - _last_send_mstsc) >= SILENCE_LIMIT)
+		{
+			// Write zero-length unordered, reliable keep-alive message
+			u8 keepalive[1] = {0};
+			WriteReliable(STREAM_UNORDERED, keepalive, 0);
+		}
 	}
 
 	return true;
@@ -507,7 +517,13 @@ bool Client::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes, u32 skip_bytes
 		return false;
 	}
 
-	return Post(_server_addr, buffer, msg_bytes, skip_bytes);
+	if (Post(_server_addr, buffer, msg_bytes, skip_bytes))
+	{
+		_last_send_mstsc = Clock::msec_fast();
+		return true;
+	}
+
+	return false;
 }
 
 void Client::Disconnect()
