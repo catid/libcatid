@@ -38,12 +38,6 @@ using namespace cat;
 using namespace sphynx;
 
 
-//// Encryption Key Constants
-
-// Must match SphynxServer.cpp
-static const char *SESSION_KEY_NAME = "SphynxSessionKey";
-
-
 //// Client
 
 Client::Client()
@@ -63,7 +57,7 @@ void Client::OnWrite(u32 bytes)
 
 }
 
-bool Client::SetServerKey(ThreadPoolLocalStorage *tls, const void *server_key, int key_bytes)
+bool Client::SetServerKey(ThreadPoolLocalStorage *tls, const void *server_key, int key_bytes, const char *session_key)
 {
 	// Verify the key bytes are correct
 	if (key_bytes != sizeof(_server_public_key))
@@ -92,6 +86,9 @@ bool Client::SetServerKey(ThreadPoolLocalStorage *tls, const void *server_key, i
 		WARN("Client") << "Failed to connect: Cannot generate challenge message";
 		return false;
 	}
+
+	// Copy session key
+	CAT_STRNCPY(_session_key, session_key, SESSION_KEY_BYTES);
 
 	memcpy(_server_public_key, server_key, sizeof(_server_public_key));
 
@@ -289,7 +286,7 @@ void Client::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 
 			// Process answer from server, ignore invalid
 			if (_key_agreement_initiator.ProcessAnswer(tls->math, answer, ANSWER_BYTES, &key_hash) &&
-				_key_agreement_initiator.KeyEncryption(&key_hash, &_auth_enc, SESSION_KEY_NAME))
+				_key_agreement_initiator.KeyEncryption(&key_hash, &_auth_enc, _session_key))
 			{
 				_connected = true;
 

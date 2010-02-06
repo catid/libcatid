@@ -43,6 +43,9 @@ namespace sphynx {
 class Client : LoopThread, public UDPEndpoint, public Transport
 {
 private:
+	static const int SESSION_KEY_BYTES = 32;
+	char _session_key[SESSION_KEY_BYTES];
+
 	KeyAgreementInitiator _key_agreement_initiator;
 	u8 _server_public_key[PUBLIC_KEY_BYTES];
 	u8 _cached_challenge[CHALLENGE_BYTES];
@@ -59,7 +62,7 @@ public:
 	Client();
 	virtual ~Client();
 
-	bool SetServerKey(ThreadPoolLocalStorage *tls, const void *server_key, int key_bytes);
+	bool SetServerKey(ThreadPoolLocalStorage *tls, const void *server_key, int key_bytes, const char *session_key);
 
 	bool Connect(const char *hostname, Port port);
 	bool Connect(const NetAddr &addr);

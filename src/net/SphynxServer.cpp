@@ -38,13 +38,6 @@ using namespace cat;
 using namespace sphynx;
 
 
-//// Encryption Key Constants
-
-static const char *SERVER_PRIVATE_KEY_FILE = "s_server_private_key.bin";
-static const char *SERVER_PUBLIC_KEY_FILE = "u_server_public_key.txt";
-static const char *SESSION_KEY_NAME = "SphynxSessionKey";
-
-
 //// Connexion
 
 Connexion::Connexion()
@@ -565,7 +558,7 @@ Server::~Server()
 	}
 }
 
-bool Server::Initialize(ThreadPoolLocalStorage *tls, Port port)
+bool Server::Initialize(ThreadPoolLocalStorage *tls, Port port, u8 *public_key, int public_bytes, u8 *private_key, int private_bytes, const char *session_key)
 {
 	// If objects were not created,
 	if (!tls->Valid())
@@ -610,87 +603,17 @@ bool Server::Initialize(ThreadPoolLocalStorage *tls, Port port)
 	// Initialize cookie jar
 	_cookie_jar.Initialize(tls->csprng);
 
-	// Open server key file (if possible)
-	MMapFile mmf(SERVER_PRIVATE_KEY_FILE);
-
-	// If the file was found and of the right size,
-	if (mmf.good() && mmf.remaining() == PUBLIC_KEY_BYTES + PRIVATE_KEY_BYTES)
+	// Initialize key agreement responder
+	if (!_key_agreement_responder.Initialize(tls->math, tls->csprng,
+											 public_key, public_bytes,
+											 private_key, private_bytes))
 	{
-		u8 *public_key = reinterpret_cast<u8*>( mmf.read(PUBLIC_KEY_BYTES) );
-		u8 *private_key = reinterpret_cast<u8*>( mmf.read(PRIVATE_KEY_BYTES) );
-
-		// Remember the public key so we can report it to connecting users
-		memcpy(_public_key, public_key, PUBLIC_KEY_BYTES);
-
-		// Initialize key agreement responder
-		if (!_key_agreement_responder.Initialize(tls->math, tls->csprng,
-												 public_key, PUBLIC_KEY_BYTES,
-												 private_key, PRIVATE_KEY_BYTES))
-		{
-			WARN("Server") << "Failed to initialize: Key from key file is invalid";
-			return false;
-		}
+		WARN("Server") << "Failed to initialize: Key pair is invalid";
+		return false;
 	}
-	else
-	{
-		INFO("Server") << "Key file not present.  Creating a new key pair...";
 
-		u8 public_key[PUBLIC_KEY_BYTES];
-		u8 private_key[PRIVATE_KEY_BYTES];
-
-		// Say hello to my little friend
-		KeyMaker Bob;
-
-		// Ask Bob to generate a key pair for the server
-		if (!Bob.GenerateKeyPair(tls->math, tls->csprng,
-								 public_key, PUBLIC_KEY_BYTES,
-								 private_key, PRIVATE_KEY_BYTES))
-		{
-			WARN("Server") << "Failed to initialize: Unable to generate key pair";
-			return false;
-		}
-		else
-		{
-			// Thanks Bob!  Now, write the key file
-			ofstream private_keyfile(SERVER_PRIVATE_KEY_FILE, ios_base::out | ios_base::binary);
-			ofstream public_keyfile(SERVER_PUBLIC_KEY_FILE, ios_base::out);
-
-			// If the key file was NOT successfully opened in output mode,
-			if (public_keyfile.fail() || private_keyfile.fail())
-			{
-				WARN("Server") << "Failed to initialize: Unable to open key file(s) for writing";
-				return false;
-			}
-
-			// Write public key file in Base64 encoding
-			WriteBase64(public_key, PUBLIC_KEY_BYTES, public_keyfile);
-			public_keyfile.flush();
-
-			// Write private key file
-			private_keyfile.write((char*)public_key, PUBLIC_KEY_BYTES);
-			private_keyfile.write((char*)private_key, PRIVATE_KEY_BYTES);
-			private_keyfile.flush();
-
-			// If the key files were NOT successfully written,
-			if (public_keyfile.fail() || private_keyfile.fail())
-			{
-				WARN("Server") << "Failed to initialize: Unable to write key file(s)";
-				return false;
-			}
-
-			// Remember the public key so we can report it to connecting users
-			memcpy(_public_key, public_key, PUBLIC_KEY_BYTES);
-
-			// Initialize key agreement responder
-			if (!_key_agreement_responder.Initialize(tls->math, tls->csprng,
-													 public_key, PUBLIC_KEY_BYTES,
-													 private_key, PRIVATE_KEY_BYTES))
-			{
-				WARN("Server") << "Failed to initialize: Key we just generated is invalid";
-				return false;
-			}
-		}
-	}
+	// Copy session key
+	CAT_STRNCPY(_session_key, session_key, SESSION_KEY_BYTES);
 
 	// Get SupportIPv6 flag from settings
 	bool only_ipv4 = Settings::ii->getInt("Sphynx.Server.SupportIPv6", 0) == 0;
@@ -954,7 +877,7 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			conn->_client_addr = src;
 
 			// If unable to key encryption from session key,
-			if (!_key_agreement_responder.KeyEncryption(&key_hash, &conn->_auth_enc, SESSION_KEY_NAME))
+			if (!_key_agreement_responder.KeyEncryption(&key_hash, &conn->_auth_enc, _session_key))
 			{
 				WARN("Server") << "Ignoring challenge: Unable to key encryption";
 				ReleasePostBuffer(pkt3);
@@ -1008,4 +931,74 @@ void Server::OnWrite(u32 bytes)
 void Server::OnClose()
 {
 	WARN("Server") << "CLOSED";
+}
+
+
+bool Server::GenerateKeyPair(ThreadPoolLocalStorage *tls, const char *public_key_file,
+							 const char *private_key_file, u8 *public_key,
+							 int public_bytes, u8 *private_key, int private_bytes)
+{
+	if (PUBLIC_KEY_BYTES != public_bytes || PRIVATE_KEY_BYTES != private_bytes)
+		return false;
+
+	// Open server key file (if possible)
+	MMapFile mmf(private_key_file);
+
+	// If the file was found and of the right size,
+	if (mmf.good() && mmf.remaining() == PUBLIC_KEY_BYTES + PRIVATE_KEY_BYTES)
+	{
+		u8 *cp_public_key = reinterpret_cast<u8*>( mmf.read(PUBLIC_KEY_BYTES) );
+		u8 *cp_private_key = reinterpret_cast<u8*>( mmf.read(PRIVATE_KEY_BYTES) );
+
+		// Remember the public key so we can report it to connecting users
+		memcpy(public_key, cp_public_key, PUBLIC_KEY_BYTES);
+		memcpy(private_key, cp_private_key, PRIVATE_KEY_BYTES);
+	}
+	else
+	{
+		INFO("KeyGenerator") << "Key file not present.  Creating a new key pair...";
+
+		// Say hello to my little friend
+		KeyMaker Bob;
+
+		// Ask Bob to generate a key pair for the server
+		if (!Bob.GenerateKeyPair(tls->math, tls->csprng,
+			public_key, PUBLIC_KEY_BYTES,
+			private_key, PRIVATE_KEY_BYTES))
+		{
+			WARN("KeyGenerator") << "Failed to initialize: Unable to generate key pair";
+			return false;
+		}
+		else
+		{
+			// Thanks Bob!  Now, write the key file
+			ofstream private_keyfile(private_key_file, ios_base::out | ios_base::binary);
+			ofstream public_keyfile(public_key_file, ios_base::out);
+
+			// If the key file was NOT successfully opened in output mode,
+			if (public_keyfile.fail() || private_keyfile.fail())
+			{
+				WARN("KeyGenerator") << "Failed to initialize: Unable to open key file(s) for writing";
+				return false;
+			}
+
+			// Write public key file in Base64 encoding
+			WriteBase64(public_key, PUBLIC_KEY_BYTES, public_keyfile);
+			public_keyfile.flush();
+
+			// Write private key file
+			private_keyfile.write((char*)public_key, PUBLIC_KEY_BYTES);
+			private_keyfile.write((char*)private_key, PRIVATE_KEY_BYTES);
+			private_keyfile.flush();
+
+			// If the key files were NOT successfully written,
+			if (public_keyfile.fail() || private_keyfile.fail())
+			{
+				WARN("KeyGenerator") << "Failed to initialize: Unable to write key file(s)";
+				return false;
+			}
+		}
+	}
+
+	return true;
 }

@@ -58,7 +58,9 @@ int main()
 		{
 			GameClient *client = new GameClient;
 
-			if (!client->SetServerKey(&tls, SERVER_PUBLIC_KEY, sizeof(SERVER_PUBLIC_KEY)))
+			const char *SessionKey = "Chat";
+
+			if (!client->SetServerKey(&tls, SERVER_PUBLIC_KEY, sizeof(SERVER_PUBLIC_KEY), SessionKey))
 			{
 				FATAL("Client") << "Provided server key invalid";
 			}
