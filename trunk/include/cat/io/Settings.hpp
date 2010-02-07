@@ -61,7 +61,7 @@ public:
 
     char name[64]; // not necessarily nul-terminated
 
-    SettingsValue value, def; // value of key and default value of key
+    SettingsValue value;
 
 public:
     void write(std::ofstream &file);
@@ -90,8 +90,8 @@ protected:
     SettingsKey *addKey(const char *name);
     SettingsKey *getKey(const char *name);
 
-    SettingsKey *initInt(const char *name, int n);
-    SettingsKey *initStr(const char *name, const char *value);
+    SettingsKey *initInt(const char *name, int n, bool overwrite);
+    SettingsKey *initStr(const char *name, const char *value, bool overwrite);
 
     void clear();
     
