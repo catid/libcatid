@@ -36,7 +36,6 @@ using namespace cat;
 using namespace std;
 
 
-//#define ONLY_WRITE_NONDEFAULT_KEYS
 //#define SETTINGS_VERBOSE /* dump extra settings information to the console for debugging */
 
 
@@ -47,7 +46,6 @@ SettingsKey::SettingsKey(SettingsKey *lnodei, SettingsKey *gnodei, const char *n
     CAT_STRNCPY(name, namei, sizeof(name));
 
     value.flags = 0;
-    def.flags = 0;
 }
 
 SettingsKey::~SettingsKey()
@@ -62,21 +60,15 @@ void SettingsKey::write(std::ofstream &file)
 
     // Only write keys that had a default value and
     // have been changed from the default value.
-    if (value.flags & def.flags & CAT_SETTINGS_FILLED)
+    if (value.flags & CAT_SETTINGS_FILLED)
     {
         if (value.flags & CAT_SETTINGS_INT)
         {
-#ifdef ONLY_WRITE_NONDEFAULT_KEYS
-            if (def.i != value.i)
-#endif
-                file << name << " = " << value.i << endl;
+			file << name << " = " << value.i << endl;
         }
         else
         {
-#ifdef ONLY_WRITE_NONDEFAULT_KEYS
-            if (strncmp(value.s, def.s, sizeof(value.s)))
-#endif
-                file << name << " = " << value.s << endl;
+			file << name << " = " << value.s << endl;
         }
     }
 
@@ -94,7 +86,7 @@ Settings::Settings()
 
 SettingsKey *Settings::addKey(const char *name)
 {
-	u32 treekey = MurmurHash32(name, strlen(name)+1, KEY_HASH_SALT) % SETTINGS_HASH_BINS;
+	u32 treekey = MurmurHash32(name, (int)strlen(name)+1, KEY_HASH_SALT) % SETTINGS_HASH_BINS;
     SettingsKey *key = hbtrees[treekey];
 
     if (!key)
@@ -124,7 +116,7 @@ SettingsKey *Settings::addKey(const char *name)
 
 SettingsKey *Settings::getKey(const char *name)
 {
-	u32 treekey = MurmurHash32(name, strlen(name)+1, KEY_HASH_SALT) % SETTINGS_HASH_BINS;
+	u32 treekey = MurmurHash32(name, (int)strlen(name)+1, KEY_HASH_SALT) % SETTINGS_HASH_BINS;
     SettingsKey *key = hbtrees[treekey];
 
     while (key)
@@ -220,7 +212,6 @@ void Settings::write()
 {
 	AutoMutex lock(_lock);
 
-#ifdef ONLY_WRITE_NONDEFAULT_KEYS
     if (readSettings && !modified)
     {
 #ifdef SETTINGS_VERBOSE
@@ -228,12 +219,11 @@ void Settings::write()
 #endif
         return;
     }
-#endif
 
     ofstream file(_settings_file.c_str());
     if (!file)
     {
-        WARN("Settings") << "Write: Unable to open settings.txt";
+        WARN("Settings") << "Write: Unable to open " << _settings_file;
         return;
     }
 
@@ -243,7 +233,7 @@ void Settings::write()
         if (hbtrees[ii]) hbtrees[ii]->write(file);
 
 #ifdef SETTINGS_VERBOSE
-    INANE("Settings") << "Write: Saved settings.txt";
+    INANE("Settings") << "Write: Saved " << _settings_file;
 #endif
 
     modified = false;
@@ -254,7 +244,15 @@ int Settings::getInt(const char *name)
 	AutoMutex lock(_lock);
 
     SettingsKey *key = getKey(name);
-    return key ? key->value.i : 0;
+	if (!key) return 0;
+
+	if (!(key->value.flags & CAT_SETTINGS_INT))
+	{
+		key->value.i = atoi(key->value.s);
+		key->value.flags |= CAT_SETTINGS_INT;
+	}
+
+	return key->value.i;
 }
 
 const char *Settings::getStr(const char *name)
@@ -269,7 +267,7 @@ int Settings::getInt(const char *name, int init)
 {
 	AutoMutex lock(_lock);
 
-    SettingsKey *key = initInt(name, init);
+    SettingsKey *key = initInt(name, init, false);
     return key ? key->value.i : 0;
 }
 
@@ -277,7 +275,7 @@ const char *Settings::getStr(const char *name, const char *init)
 {
 	AutoMutex lock(_lock);
 
-    SettingsKey *key = initStr(name, init);
+    SettingsKey *key = initStr(name, init, false);
     return key ? key->value.s : "";
 }
 
@@ -285,52 +283,47 @@ void Settings::setInt(const char *name, int n)
 {
 	AutoMutex lock(_lock);
 
-    SettingsKey *key = getKey(name);
-    if (key)
-    {
-        key->value.i = n;
-        modified = true;
-    }
+    initInt(name, n, true);
 }
 
 void Settings::setStr(const char *name, const char *value)
 {
 	AutoMutex lock(_lock);
 
-    SettingsKey *key = getKey(name);
-    if (key)
-    {
-        CAT_STRNCPY(key->value.s, value, sizeof(key->value.s));
-        modified = true;
-    }
+	initStr(name, value, true);
 }
 
-SettingsKey *Settings::initInt(const char *name, int n)
+SettingsKey *Settings::initInt(const char *name, int n, bool overwrite)
 {
     SettingsKey *key = addKey(name);
 
-    if (!(key->value.flags & CAT_SETTINGS_FILLED))
+    if (overwrite || !(key->value.flags & CAT_SETTINGS_FILLED))
+	{
         key->value.i = n;
-    else if (!(key->value.flags & CAT_SETTINGS_INT))
-        key->value.i = atoi(key->value.s);
-    key->value.flags = CAT_SETTINGS_FILLED|CAT_SETTINGS_INT;
+		key->value.flags = CAT_SETTINGS_FILLED|CAT_SETTINGS_INT;
 
-    key->def.i = n;
-    key->def.flags = CAT_SETTINGS_FILLED|CAT_SETTINGS_INT;
+		modified = true;
+	}
+	else if (!(key->value.flags & CAT_SETTINGS_INT))
+	{
+		key->value.i = atoi(key->value.s);
+		key->value.flags = CAT_SETTINGS_FILLED|CAT_SETTINGS_INT;
+	}
 
     return key;
 }
 
-SettingsKey *Settings::initStr(const char *name, const char *value)
+SettingsKey *Settings::initStr(const char *name, const char *value, bool overwrite)
 {
     SettingsKey *key = addKey(name);
 
-    if (!(key->value.flags & CAT_SETTINGS_FILLED))
-        CAT_STRNCPY(key->value.s, value, sizeof(key->value.s));
-    key->value.flags = CAT_SETTINGS_FILLED;
+	if (overwrite || !(key->value.flags & CAT_SETTINGS_FILLED))
+	{
+		CAT_STRNCPY(key->value.s, value, sizeof(key->value.s));
+		key->value.flags = CAT_SETTINGS_FILLED;
 
-    CAT_STRNCPY(key->def.s, value, sizeof(key->def.s));
-    key->def.flags = CAT_SETTINGS_FILLED;
+		modified = true;
+	}
 
     return key;
 }

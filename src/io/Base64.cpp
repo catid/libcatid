@@ -160,7 +160,7 @@ int cat::GetBinaryLengthFromBase64Length(const char *encoded_buffer, int bytes)
 	while (bytes >= 1 && encoded_buffer[bytes-1] == '=')
 		--bytes;
 
-	return ((bytes + 1) * 3) / 4;
+	return (bytes * 3) / 4;
 }
 
 int cat::ReadBase64(const char *encoded_buffer, int encoded_bytes, void *decoded_buffer, int decoded_bytes)
@@ -170,7 +170,7 @@ int cat::ReadBase64(const char *encoded_buffer, int encoded_bytes, void *decoded
 		--encoded_bytes;
 
 	if (encoded_bytes <= 0 || decoded_bytes <= 0 ||
-		decoded_bytes < ((encoded_bytes + 1) * 3) / 4)
+		decoded_bytes < (encoded_bytes * 3) / 4)
 	{
 		return 0;
 	}
@@ -193,7 +193,7 @@ int cat::ReadBase64(const char *encoded_buffer, int encoded_bytes, void *decoded
 		to[jj+2] = (c << 6) | d;
 	}
 
-	switch (encoded_bytes & 4)
+	switch (encoded_bytes & 3)
 	{
 	case 3: // 3 characters left
 		a = FROM_BASE64[from[ii]];
@@ -202,25 +202,17 @@ int cat::ReadBase64(const char *encoded_buffer, int encoded_bytes, void *decoded
 
 		to[jj] = (a << 2) | (b >> 4);
 		to[jj+1] = (b << 4) | (c >> 2);
-		to[jj+2] = c << 6;
-
-		// fall-thru
-	default:
-	case 0: // No characters left to read
-		return jj+3;
+		return jj+2;
 
 	case 2: // 2 characters left
 		a = FROM_BASE64[from[ii]];
 		b = FROM_BASE64[from[ii+1]];
 
 		to[jj] = (a << 2) | (b >> 4);
-		to[jj+1] = b << 4;
-		return jj+2;
-
-	case 1: // 1 character left
-		to[jj] = FROM_BASE64[from[ii]] << 2;
 		return jj+1;
 	}
+
+	return jj;
 }
 
 int cat::ReadBase64(const char *encoded_buffer, int encoded_bytes, std::ostream &output)
@@ -248,12 +240,8 @@ int cat::ReadBase64(const char *encoded_buffer, int encoded_bytes, std::ostream 
 		output << (u8)((c << 6) | d);
 	}
 
-	switch (encoded_bytes & 4)
+	switch (encoded_bytes & 3)
 	{
-	default:
-	case 0: // No characters left to read
-		break;
-
 	case 3: // 3 characters left
 		a = FROM_BASE64[from[ii]];
 		b = FROM_BASE64[from[ii+1]];
@@ -261,7 +249,6 @@ int cat::ReadBase64(const char *encoded_buffer, int encoded_bytes, std::ostream 
 
 		output << (u8)((a << 2) | (b >> 4));
 		output << (u8)((b << 4) | (c >> 2));
-		output << (u8)(c << 6);
 		break;
 
 	case 2: // 2 characters left
@@ -269,13 +256,8 @@ int cat::ReadBase64(const char *encoded_buffer, int encoded_bytes, std::ostream 
 		b = FROM_BASE64[from[ii+1]];
 
 		output << (u8)((a << 2) | (b >> 4));
-		output << (u8)(b << 4);
-		break;
-
-	case 1: // 1 character left
-		output << (u8)(FROM_BASE64[from[ii]] << 2);
 		break;
 	}
 
-	return ((encoded_bytes + 1) * 3) / 4;
+	return (encoded_bytes * 3) / 4;
 }
