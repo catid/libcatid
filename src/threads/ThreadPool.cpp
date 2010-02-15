@@ -431,10 +431,15 @@ unsigned int WINAPI ThreadPool::CompletionThread(void *port)
             break;
 
 		case OVOP_READFILE_EX:
-			{
-				ReadFileOverlapped *readOv = reinterpret_cast<ReadFileOverlapped*>( ov );
-				readOv->callback(GetTrailingBytes(readOv), bytes);
-			}
+			( (AsyncFile*)key )->OnReadFileExComplete( &tls, error, (ReadFileOverlapped*)ov, bytes );
+			( (AsyncFile*)key )->ReleaseRef();
+			RegionAllocator::ii->Release(ov);
+			break;
+
+		case OVOP_WRITEFILE_EX:
+			( (AsyncFile*)key )->OnWriteFileExComplete( error, (TypedOverlapped*)ov, bytes );
+			( (AsyncFile*)key )->ReleaseRef();
+			RegionAllocator::ii->Release(ov);
 			break;
         }
     }

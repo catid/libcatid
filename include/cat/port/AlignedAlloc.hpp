@@ -42,6 +42,9 @@ public:
 	// Acquires memory aligned to a CPU cache-line byte boundary from the heap
     static void *Acquire(int bytes);
 
+	// Resizes an aligned pointer
+	static void *Resize(void *ptr, int bytes);
+
     // Release an aligned pointer
     static void Release(void *ptr);
 

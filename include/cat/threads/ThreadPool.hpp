@@ -58,7 +58,8 @@ enum OverlappedOpcodes
     OVOP_CLIENT_CLOSE, // DisconnectEx() completion, graceful close
 
 	// File I/O
-	OVOP_READFILE_EX, // ReadFileEx() completion, data hopefully available
+	OVOP_READFILE_EX,  // ReadFileEx() completion
+	OVOP_WRITEFILE_EX, // WriteFileEx() completion
 };
 
 // Base class for any typed OVERLAPPED structure
@@ -133,7 +134,7 @@ class ThreadPool : public Singleton<ThreadPool>
     friend class TCPConnection;
     friend class TCPClient;
     friend class UDPEndpoint;
-	friend class AsyncReadFile;
+	friend class AsyncFile;
     static unsigned int WINAPI CompletionThread(void *port);
 
     CAT_SINGLETON(ThreadPool);

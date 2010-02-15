@@ -39,30 +39,56 @@
 namespace cat {
 
 
-typedef fastdelegate::FastDelegate<void (void *buffer, u32 bytes)> ReadFileCallback;
+typedef fastdelegate::FastDelegate4<ThreadPoolLocalStorage *, u32, u8 *, u32> ReadFileCallback;
 
-
-// ReadFile() OVERLAPPED structure
-struct ReadFileOverlapped : public TypedOverlapped
+// ReadFileEx() OVERLAPPED object
+struct ReadFileOverlapped
 {
+	TypedOverlapped ov;
+
+	u32 offset;
 	ReadFileCallback callback;
 };
 
-
-class AsyncReadFile
+enum AsyncFileModes
 {
-#if defined(CAT_OS_WINDOWS)
+	ASYNCFILE_READ = 1,
+	ASYNCFILE_WRITE = 2,
+	ASYNCFILE_NOBUFFER = 4,
+};
+
+class AsyncFile : public ThreadRefObject
+{
+	friend class ThreadPool;
+
+protected:
 	HANDLE _file;
-#endif
+	char _file_path[MAX_PATH+1];
 
 public:
-	AsyncReadFile();
-	~AsyncReadFile();
+	AsyncFile(int priorityLevel);
+	virtual ~AsyncFile();
 
 public:
-	bool Open(const char *path);
+	bool Valid();
+	const char *GetFilePath();
 
-	bool Read(u32 offset, u32 bytes, ReadFileCallback callback);
+public:
+	/*
+		In read mode, Open() will fail if the file does not exist.
+		In write mode, Open() will create the file if it does not exist.
+	*/
+	bool Open(const char *file_path, u32 async_file_modes);
+	void Close();
+
+	bool BeginRead(u32 offset, u32 bytes, ReadFileCallback);
+
+	// Buffer passed to BeginWrite() must be retrieved from GetPostBuffer()
+	bool BeginWrite(u32 offset, void *buffer, u32 bytes);
+
+private:
+	void OnReadFileExComplete(ThreadPoolLocalStorage *tls, int error, ReadFileOverlapped *readOv, u32 bytes);
+	void OnWriteFileExComplete(int error, TypedOverlapped *writeOv, u32 bytes);
 };
 
 
