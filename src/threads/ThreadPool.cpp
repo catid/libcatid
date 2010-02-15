@@ -431,7 +431,7 @@ unsigned int WINAPI ThreadPool::CompletionThread(void *port)
             break;
 
 		case OVOP_READFILE_EX:
-			( (AsyncFile*)key )->OnReadFileExComplete( &tls, error, (ReadFileOverlapped*)ov, bytes );
+			( (AsyncFile*)key )->OnRead(tls, (ReadFileOverlapped*)ov, error ? 0 : bytes);
 			( (AsyncFile*)key )->ReleaseRef();
 			RegionAllocator::ii->Release(ov);
 			break;

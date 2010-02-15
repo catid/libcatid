@@ -149,15 +149,6 @@ bool AsyncFile::BeginWrite(u32 offset, void *buffer, u32 bytes)
 	return true;
 }
 
-
-void AsyncFile::OnReadFileExComplete(ThreadPoolLocalStorage *tls, int error, ReadFileOverlapped *readOv, u32 bytes)
-{
-	// Pass 0 for bytes on error
-	if (error) bytes = 0;
-
-	readOv->callback(tls, readOv->offset, GetTrailingBytes(readOv), bytes);
-}
-
 void AsyncFile::OnWriteFileExComplete(int error, TypedOverlapped *writeOv, u32 bytes)
 {
 }
