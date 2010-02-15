@@ -31,29 +31,55 @@
 #include <cat/io/Logging.hpp>
 using namespace cat;
 
-AsyncReadFile::AsyncReadFile()
+
+AsyncFile::AsyncFile(int priorityLevel)
+	: ThreadRefObject(priorityLevel)
 {
 	_file = 0;
+	CAT_OBJCLR(_file_path);
 }
 
-AsyncReadFile::~AsyncReadFile()
+AsyncFile::~AsyncFile()
 {
-	if (_file) CloseHandle(_file);
+	Close();
 }
 
-bool AsyncReadFile::Open(const char *path)
+bool AsyncFile::Valid()
 {
-	_file = CreateFile(path, GENERIC_READ, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY | FILE_FLAG_OVERLAPPED, 0);
+	return _file != 0;
+}
 
-	if (!_file)
+const char *AsyncFile::GetFilePath()
+{
+	return _file_path;
+}
+
+bool AsyncFile::Open(const char *file_path, u32 async_file_modes)
+{
+	Close();
+
+	CAT_STRNCPY(_file_path, file_path, sizeof(_file_path));
+
+	u32 modes = 0, flags = FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED;
+	u32 creation = OPEN_EXISTING;
+
+	if (async_file_modes & ASYNCFILE_READ)
+		modes |= GENERIC_READ;
+
+	if (async_file_modes & ASYNCFILE_WRITE)
 	{
-		WARN("AsyncReadFile") << "CreateFile(" << path << ") error: " << GetLastError();
-		return false;
+		modes |= GENERIC_WRITE;
+		creation = OPEN_ALWAYS;
 	}
 
-    if (!ThreadPool::ref()->Associate(_file, 0))
+	if (async_file_modes & ASYNCFILE_NOBUFFER)
+		flags |= FILE_FLAG_RANDOM_ACCESS | FILE_FLAG_WRITE_THROUGH | FILE_FLAG_NO_BUFFERING;
+
+	_file = CreateFile(_file_path, modes, 0, 0, creation, flags, 0);
+	if (!_file) return false;
+
+	if (!ThreadPool::ref()->Associate(_file, this))
 	{
-		WARN("AsyncReadFile") << "ThreadPool::Associate() failed";
 		CloseHandle(_file);
 		return false;
 	}
@@ -61,28 +87,77 @@ bool AsyncReadFile::Open(const char *path)
 	return true;
 }
 
-bool AsyncReadFile::Read(u32 offset, u32 bytes, ReadFileCallback callback)
+void AsyncFile::Close()
 {
-	DEBUG_ENFORCE(_file != 0) << "Attempt to read from unopened file";
+	if (_file)
+	{
+		CloseHandle(_file);
+
+		_file = 0;
+	}
+}
+
+bool AsyncFile::BeginRead(u32 offset, u32 bytes, ReadFileCallback callback)
+{
+	AddRef();
 
 	// Calculate the size of the memory region containing the overlapped structure, keys and buffer
 	u32 ovb = sizeof(ReadFileOverlapped) + bytes;
 
-	ReadFileOverlapped *readOv = reinterpret_cast<ReadFileOverlapped *>( Aligned::Acquire(ovb) );
-	ENFORCE(readOv != 0) << "Out of memory";
+	// Loop until memory may be allocated
+	ReadFileOverlapped *readOv;
+	do readOv = AcquireBuffer<ReadFileOverlapped>(bytes);
+	while (!readOv);
 
-	readOv->Set(OVOP_READFILE_EX);
+	readOv->ov.Set(OVOP_READFILE_EX);
+	readOv->offset = offset;
 	readOv->callback = callback;
-	readOv->ov.Offset = offset;
 
-	BOOL result = ReadFileEx(_file, GetTrailingBytes(readOv), bytes, &readOv->ov, 0);
+	BOOL result = ReadFileEx(_file, GetTrailingBytes(readOv), bytes, &readOv->ov.ov, 0);
 
 	if (!result && GetLastError() != ERROR_IO_PENDING)
 	{
-        WARN("AsyncReadFile") << "ReadFileEx error: " << GetLastError();
-		Aligned::Release(readOv);
+		WARN("AsyncReadFile") << "ReadFileEx error: " << GetLastError();
+		RegionAllocator::ii->Release(readOv);
+		ReleaseRef();
 		return false;
 	}
 
 	return true;
+}
+
+bool AsyncFile::BeginWrite(u32 offset, void *buffer, u32 bytes)
+{
+	AddRef();
+
+	// Recover the full overlapped structure from data pointer
+	TypedOverlapped *sendOv = reinterpret_cast<TypedOverlapped*>(
+		reinterpret_cast<u8*>(buffer) - sizeof(TypedOverlapped) );
+
+	sendOv->Set(OVOP_READFILE_EX);
+
+	BOOL result = WriteFileEx(_file, buffer, bytes, &sendOv->ov, 0);
+
+	if (!result && GetLastError() != ERROR_IO_PENDING)
+	{
+		WARN("AsyncReadFile") << "WriteFileEx error: " << GetLastError();
+		RegionAllocator::ii->Release(sendOv);
+		ReleaseRef();
+		return false;
+	}
+
+	return true;
+}
+
+
+void AsyncFile::OnReadFileExComplete(ThreadPoolLocalStorage *tls, int error, ReadFileOverlapped *readOv, u32 bytes)
+{
+	// Pass 0 for bytes on error
+	if (error) bytes = 0;
+
+	readOv->callback(tls, readOv->offset, GetTrailingBytes(readOv), bytes);
+}
+
+void AsyncFile::OnWriteFileExComplete(int error, TypedOverlapped *writeOv, u32 bytes)
+{
 }

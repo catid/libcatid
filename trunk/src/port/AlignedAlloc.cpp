@@ -27,15 +27,17 @@
 */
 
 #include <cat/port/AlignedAlloc.hpp>
+#include <cstdlib>
+using namespace std;
 using namespace cat;
 
 
 Aligned Aligned::ii;
 
 
-static int CPU_CACHELINE_BYTES = 0;
+static u32 _cacheline_bytes = 0;
 
-static int DetermineCacheLineBytes()
+static CAT_INLINE u32 DetermineCacheLineBytes()
 {
 #if defined(CAT_ASM_INTEL) && defined(CAT_ISA_X86)
 
@@ -78,30 +80,59 @@ done:	pop ebx
 
 #else
 
-	return 64;
+	return 16;
 
+#endif
+}
+
+static CAT_INLINE u8 DetermineOffset(void *ptr)
+{
+#if defined(CAT_WORD_64)
+	return (u8)( _cacheline_bytes - ((u32)*(u64*)&ptr & (_cacheline_bytes-1)) );
+#else
+	return (u8)( _cacheline_bytes - (*(u32*)&ptr & (_cacheline_bytes-1)) );
 #endif
 }
 
 // Allocates memory aligned to a CPU cache-line byte boundary from the heap
 void *Aligned::Acquire(int bytes)
 {
-	if (!CPU_CACHELINE_BYTES)
-		CPU_CACHELINE_BYTES = DetermineCacheLineBytes();
+	if (!_cacheline_bytes)
+	{
+		_cacheline_bytes = DetermineCacheLineBytes();
+	}
 
-    u8 *buffer = new u8[CPU_CACHELINE_BYTES + bytes];
+    u8 *buffer = (u8*)malloc(_cacheline_bytes + bytes);
     if (!buffer) return 0;
 
-#if defined(CAT_WORD_64)
-    u32 offset = CPU_CACHELINE_BYTES - ((u32)*(u64*)&buffer & (CPU_CACHELINE_BYTES-1));
-#else
-    u32 offset = CPU_CACHELINE_BYTES - (*(u32*)&buffer & (CPU_CACHELINE_BYTES-1));
-#endif
-
+	// Get buffer aligned address
+	u8 offset = DetermineOffset(buffer);
     buffer += offset;
-    buffer[-1] = static_cast<u8>( offset );
+    buffer[-1] = offset;
 
     return buffer;
+}
+
+// Resizes an aligned pointer
+void *Aligned::Resize(void *ptr, int bytes)
+{
+	if (!ptr) return Acquire(bytes);
+
+	// Can assume here that cacheline bytes has been determined
+
+	// Get buffer base address
+	u8 *buffer = reinterpret_cast<u8*>( ptr );
+	buffer -= buffer[-1];
+
+	buffer = (u8*)realloc(buffer, _cacheline_bytes + bytes);
+	if (!buffer) return 0;
+
+	// Get buffer aligned address
+	u8 offset = DetermineOffset(buffer);
+	buffer += offset;
+	buffer[-1] = offset;
+
+	return buffer;
 }
 
 // Frees an aligned pointer
@@ -109,10 +140,10 @@ void Aligned::Release(void *ptr)
 {
     if (ptr)
     {
+		// Get buffer base address
         u8 *buffer = reinterpret_cast<u8*>( ptr );
-
         buffer -= buffer[-1];
 
-        delete []buffer;
+        free(buffer);
     }
 }

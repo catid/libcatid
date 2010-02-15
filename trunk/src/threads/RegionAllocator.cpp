@@ -31,6 +31,7 @@
 #include <cat/math/BitMath.hpp>
 #include <cat/io/Settings.hpp>
 #include <cat/io/Logging.hpp>
+#include <cat/port/AlignedAlloc.hpp>
 using namespace cat;
 
 #if defined(CAT_OS_WINDOWS)
@@ -164,7 +165,7 @@ void *RegionAllocator::Acquire(u32 bytes)
     }
 
     // Fall back to malloc if the request is too large.
-    return malloc(bytes);
+	return Aligned::Acquire(bytes);
 }
 
 void RegionAllocator::Release(void *ptr)
@@ -173,7 +174,7 @@ void RegionAllocator::Release(void *ptr)
 
     if (ptr >= region_info[0])
     {
-        free(ptr);
+		Aligned::Release(ptr);
         return;
     }
 
@@ -192,7 +193,7 @@ void RegionAllocator::Release(void *ptr)
         }
     }
 
-    free(ptr);
+    Aligned::Release(ptr);
 }
 
 void *RegionAllocator::Resize(void *ptr, u32 bytes)
@@ -201,7 +202,7 @@ void *RegionAllocator::Resize(void *ptr, u32 bytes)
         return Acquire(bytes);
 
     if (ptr >= region_info[0])
-        return realloc(ptr, bytes);
+        return Aligned::Resize(ptr, bytes);
 
     for (int ii = REGION_COUNT-1; ii >= 0; --ii)
     {
@@ -229,5 +230,5 @@ void *RegionAllocator::Resize(void *ptr, u32 bytes)
         }
     }
 
-    return realloc(ptr, bytes);
+    return Aligned::Resize(ptr, bytes);
 }
