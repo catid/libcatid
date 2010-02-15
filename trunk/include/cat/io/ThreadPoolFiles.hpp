@@ -87,8 +87,10 @@ public:
 	bool BeginWrite(u32 offset, void *buffer, u32 bytes);
 
 private:
-	void OnReadFileExComplete(ThreadPoolLocalStorage *tls, int error, ReadFileOverlapped *readOv, u32 bytes);
 	void OnWriteFileExComplete(int error, TypedOverlapped *writeOv, u32 bytes);
+
+protected:
+	virtual void OnRead(ThreadPoolLocalStorage *tls, ReadFileOverlapped *readOv, u32 bytes) = 0;
 };
 
 
