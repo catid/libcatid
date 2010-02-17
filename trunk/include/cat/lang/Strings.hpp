@@ -29,6 +29,14 @@
 #ifndef CAT_STRINGS_HPP
 #define CAT_STRINGS_HPP
 
+#include <cat/Platform.hpp>
+
+#if defined(CAT_COMPILER_MSVC)
+#include <string.h> // _stricmp
+#elif defined(CAT_COMPILER_GCC)
+#include <strings.h> // strcasecmp
+#endif
+
 namespace cat {
 
 
@@ -54,6 +62,10 @@ namespace cat {
 	bool iStrEqual(const char *A, const char *B);
 
 #endif
+
+
+// Get length of string that has a maximum length (potentially no trailing nul)
+u32 GetFixedStrLen(const char *str, u32 max_len);
 
 
 } // namespace cat
