@@ -50,11 +50,20 @@ struct ReadFileOverlapped
 	ReadFileCallback callback;
 };
 
+// ReadFileEx() OVERLAPPED object: Bulk version
+struct ReadFileBulkOverlapped
+{
+	TypedOverlapped ov;
+
+	u32 offset;
+	void *buffer;
+};
+
 enum AsyncFileModes
 {
 	ASYNCFILE_READ = 1,
 	ASYNCFILE_WRITE = 2,
-	ASYNCFILE_NOBUFFER = 4,
+	ASYNCFILE_RANDOM = 4,
 };
 
 class AsyncFile : public ThreadRefObject
@@ -81,16 +90,19 @@ public:
 	bool Open(const char *file_path, u32 async_file_modes);
 	void Close();
 
+	u32 GetSize();
+
 	bool BeginRead(u32 offset, u32 bytes, ReadFileCallback);
+
+	// Buffer must exist until completion
+	bool BeginBulkRead(u32 offset, u32 bytes, void *buffer);
 
 	// Buffer passed to BeginWrite() must be retrieved from GetPostBuffer()
 	bool BeginWrite(u32 offset, void *buffer, u32 bytes);
 
-private:
-	void OnWriteFileExComplete(int error, TypedOverlapped *writeOv, u32 bytes);
-
 protected:
-	virtual void OnRead(ThreadPoolLocalStorage *tls, ReadFileOverlapped *readOv, u32 bytes) = 0;
+	virtual void OnRead(ThreadPoolLocalStorage *tls, ReadFileOverlapped *readOv, u32 bytes);
+	virtual void OnReadBulk(ThreadPoolLocalStorage *tls, ReadFileBulkOverlapped *readOv, u32 bytes) {}
 };
 
 

@@ -34,10 +34,6 @@
 #include <cat/port/AlignedAlloc.hpp>
 using namespace cat;
 
-#if defined(CAT_OS_WINDOWS)
-# include <cat/port/WindowsInclude.hpp>
-#endif
-
 
 const u32 RegionAllocator::BLOCK_SIZE[REGION_COUNT] = {
     64,
@@ -74,9 +70,7 @@ RegionAllocator::RegionAllocator()
     }
 
     // Pre-allocate all the memory required
-#if defined(CAT_OS_WINDOWS)
-    u8 *base = (u8*)VirtualAlloc(0, bytes_overall, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-#endif
+	u8 *base = (u8*)LargeAligned::Acquire(bytes_overall);
     if (!base) return;
 
     // Set the region pointers
@@ -105,9 +99,7 @@ void RegionAllocator::Shutdown()
 {
     if (regions[0])
     {
-#if defined(CAT_OS_WINDOWS)
-        VirtualFree(regions[0], 0, MEM_RELEASE);
-#endif
+        LargeAligned::Release(regions[0]);
         regions[0] = 0;
     }
 }

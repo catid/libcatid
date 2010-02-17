@@ -59,6 +59,7 @@ enum OverlappedOpcodes
 
 	// File I/O
 	OVOP_READFILE_EX,  // ReadFileEx() completion
+	OVOP_READFILE_BULK,// ReadFileEx() bulk read completion
 	OVOP_WRITEFILE_EX, // WriteFileEx() completion
 };
 
