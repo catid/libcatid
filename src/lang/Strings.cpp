@@ -54,3 +54,13 @@ bool cat::iStrEqual(const char *A, const char *B)
 }
 
 #endif // CAT_UNKNOWN_BUILTIN_ISTRCMP
+
+// Get length of string that has a maximum length (potentially no trailing nul)
+u32 cat::GetFixedStrLen(const char *str, u32 max_len)
+{
+	for (u32 ii = 0; ii < max_len; ++ii)
+		if (str[ii] == '\0')
+			return ii;
+
+	return max_len;
+}
