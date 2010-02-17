@@ -32,8 +32,16 @@ using namespace std;
 using namespace cat;
 
 
+#if defined(CAT_OS_WINDOWS)
+#include <cat/port/WindowsInclude.hpp>
+#endif
+
+
+// Object for placement new
 Aligned Aligned::ii;
 
+
+//// Cache line size determination
 
 static u32 _cacheline_bytes = 0;
 
@@ -80,10 +88,21 @@ done:	pop ebx
 
 #else
 
-	return 16;
+	return CAT_DEFAULT_CACHE_LINE_SIZE;
 
 #endif
 }
+
+u32 cat::GetCacheLineBytes()
+{
+	if (!_cacheline_bytes)
+		_cacheline_bytes = DetermineCacheLineBytes();
+
+	return _cacheline_bytes;
+}
+
+
+//// Small to medium -size aligned heap allocator
 
 static CAT_INLINE u8 DetermineOffset(void *ptr)
 {
@@ -95,7 +114,7 @@ static CAT_INLINE u8 DetermineOffset(void *ptr)
 }
 
 // Allocates memory aligned to a CPU cache-line byte boundary from the heap
-void *Aligned::Acquire(int bytes)
+void *Aligned::Acquire(u32 bytes)
 {
 	if (!_cacheline_bytes)
 	{
@@ -114,7 +133,7 @@ void *Aligned::Acquire(int bytes)
 }
 
 // Resizes an aligned pointer
-void *Aligned::Resize(void *ptr, int bytes)
+void *Aligned::Resize(void *ptr, u32 bytes)
 {
 	if (!ptr) return Acquire(bytes);
 
@@ -146,4 +165,30 @@ void Aligned::Release(void *ptr)
 
         free(buffer);
     }
+}
+
+
+//// Large-size aligned heap allocator
+
+// Allocates memory aligned to a CPU cache-line byte boundary from the heap
+void *LargeAligned::Acquire(u32 bytes)
+{
+#if defined(CAT_OS_WINDOWS)
+	return VirtualAlloc(0, bytes, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+#else
+	return Aligned::Acquire(bytes);
+#endif
+}
+
+// Frees an aligned pointer
+void LargeAligned::Release(void *ptr)
+{
+	if (ptr)
+	{
+#if defined(CAT_OS_WINDOWS)
+		VirtualFree(ptr, 0, MEM_RELEASE);
+#else
+		Aligned::Release(ptr);
+#endif
+	}
 }

@@ -42,6 +42,10 @@ namespace cat {
 // If you want to use faster 384-bit or 512-bit math, define this:
 //#define CAT_UNROLL_OVER_256_BITS
 
+// Adjust if your architecture uses larger than 128-bit cache line
+#define CAT_DEFAULT_CACHE_LINE_SIZE 16
+
+
 } // namespace cat
 
 #endif // CAT_CONFIG_HPP

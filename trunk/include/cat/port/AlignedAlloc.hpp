@@ -34,16 +34,17 @@
 namespace cat {
 
 
+// Small to medium -size aligned heap allocator
 class Aligned
 {
 public:
-	Aligned() {}
+	CAT_INLINE Aligned() {}
 
 	// Acquires memory aligned to a CPU cache-line byte boundary from the heap
-    static void *Acquire(int bytes);
+    static void *Acquire(u32 bytes);
 
 	// Resizes an aligned pointer
-	static void *Resize(void *ptr, int bytes);
+	static void *Resize(void *ptr, u32 bytes);
 
     // Release an aligned pointer
     static void Release(void *ptr);
@@ -59,6 +60,21 @@ public:
 };
 
 
+// Large-size aligned heap allocator
+class LargeAligned
+{
+public:
+	// Acquires memory aligned to a CPU cache-line byte boundary from the heap
+    static void *Acquire(u32 bytes);
+
+    // Release an aligned pointer
+    static void Release(void *ptr);
+};
+
+
+u32 GetCacheLineBytes();
+
+
 } // namespace cat
 
 #include <cstddef>
@@ -69,12 +85,13 @@ public:
 // The object can be freed with:
 //   Aligned::Delete(a);
 // Which insures that the destructor is called before freeing memory
-inline void *operator new[](std::size_t bytes, cat::Aligned &) throw()
+CAT_INLINE void *operator new[](std::size_t bytes, cat::Aligned &) throw()
 {
 	return cat::Aligned::Acquire((int)bytes);
 }
 
-inline void operator delete(void *ptr, cat::Aligned &) throw()
+// Placement "delete": Does not call destructor
+CAT_INLINE void operator delete(void *ptr, cat::Aligned &) throw()
 {
 	cat::Aligned::Release(ptr);
 }

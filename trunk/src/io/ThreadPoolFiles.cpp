@@ -72,8 +72,8 @@ bool AsyncFile::Open(const char *file_path, u32 async_file_modes)
 		creation = OPEN_ALWAYS;
 	}
 
-	if (async_file_modes & ASYNCFILE_NOBUFFER)
-		flags |= FILE_FLAG_RANDOM_ACCESS | FILE_FLAG_WRITE_THROUGH | FILE_FLAG_NO_BUFFERING;
+	if (async_file_modes & ASYNCFILE_RANDOM)
+		flags |= FILE_FLAG_RANDOM_ACCESS;
 
 	_file = CreateFile(_file_path, modes, 0, 0, creation, flags, 0);
 	if (!_file) return false;
@@ -97,12 +97,19 @@ void AsyncFile::Close()
 	}
 }
 
+u32 AsyncFile::GetSize()
+{
+	LARGE_INTEGER size;
+
+	if (!GetFileSizeEx(_file, &size))
+		return 0;
+
+	return size.LowPart;
+}
+
 bool AsyncFile::BeginRead(u32 offset, u32 bytes, ReadFileCallback callback)
 {
 	AddRef();
-
-	// Calculate the size of the memory region containing the overlapped structure, keys and buffer
-	u32 ovb = sizeof(ReadFileOverlapped) + bytes;
 
 	// Loop until memory may be allocated
 	ReadFileOverlapped *readOv;
@@ -118,6 +125,32 @@ bool AsyncFile::BeginRead(u32 offset, u32 bytes, ReadFileCallback callback)
 	if (!result && GetLastError() != ERROR_IO_PENDING)
 	{
 		WARN("AsyncReadFile") << "ReadFileEx error: " << GetLastError();
+		RegionAllocator::ii->Release(readOv);
+		ReleaseRef();
+		return false;
+	}
+
+	return true;
+}
+
+bool AsyncFile::BeginBulkRead(u32 offset, u32 bytes, void *buffer)
+{
+	AddRef();
+
+	// Loop until memory may be allocated
+	ReadFileBulkOverlapped *readOv;
+	do readOv = AcquireBuffer<ReadFileBulkOverlapped>(0);
+	while (!readOv);
+
+	readOv->ov.Set(OVOP_READFILE_BULK);
+	readOv->offset = offset;
+	readOv->buffer = buffer;
+
+	BOOL result = ReadFileEx(_file, buffer, bytes, &readOv->ov.ov, 0);
+
+	if (!result && GetLastError() != ERROR_IO_PENDING)
+	{
+		WARN("AsyncReadFile") << "ReadFileEx bulk error: " << GetLastError();
 		RegionAllocator::ii->Release(readOv);
 		ReleaseRef();
 		return false;
@@ -149,6 +182,8 @@ bool AsyncFile::BeginWrite(u32 offset, void *buffer, u32 bytes)
 	return true;
 }
 
-void AsyncFile::OnWriteFileExComplete(int error, TypedOverlapped *writeOv, u32 bytes)
+void AsyncFile::OnRead(ThreadPoolLocalStorage *tls, ReadFileOverlapped *readOv, u32 bytes)
 {
+	if (readOv->callback)
+		readOv->callback(tls, readOv->offset, GetTrailingBytes(readOv), bytes);
 }
