@@ -76,7 +76,9 @@ public:
     bool BeginMAC();
     void Crunch(const void *message, int bytes);
     void End();
-    void Generate(void *out, int bytes);
+
+	// TODO: Strengthening is not supported right now
+    void Generate(void *out, int bytes, int strengthening_rounds = 0);
 };
 
 
