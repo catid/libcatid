@@ -99,7 +99,7 @@ public:
     bool BeginPRNG();
     void Crunch(const void *message, int bytes);
     void End();
-    void Generate(void *out, int bytes);
+    void Generate(void *out, int bytes, int strengthening_rounds = 0);
 };
 
 

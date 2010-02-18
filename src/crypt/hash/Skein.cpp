@@ -218,12 +218,26 @@ void Skein::End()
     output_block_counter = 0;
 }
 
-void Skein::Generate(void *out, int bytes)
+void Skein::Generate(void *out, int bytes, int strengthening_rounds)
 {
     // Put the Skein generator in counter mode and generate WORDS at a time
     u64 NextState[MAX_WORDS];
     u64 FinalMessage[MAX_WORDS] = {output_block_counter, 0};
     u64 *out64 = (u64 *)out;
+
+	// In strengthened mode, discard a number of rounds before producing real output
+	while (strengthening_rounds-- >= 1)
+	{
+		// T1 = FIRST | FINAL | OUT
+		Tweak[0] = 0;
+		Tweak[1] = T1_MASK_FIRST | T1_MASK_FINAL | ((u64)BLK_TYPE_OUT << T1_POS_BLK_TYPE);
+
+		// Produce next output
+		(this->*hash_func)(FinalMessage, 1, 8, NextState);
+
+		// Next counter
+		FinalMessage[0] = ++output_block_counter;
+	}
 
     // In output mode, we hide the first block of each request
     if (output_prng_mode)

@@ -70,7 +70,7 @@ public:
     virtual void End() = 0;
 
     // Extended hash output mode
-    virtual void Generate(void *out, int bytes) = 0;
+    virtual void Generate(void *out, int bytes, int strengthening_rounds = 0) = 0;
 };
 
 
