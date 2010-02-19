@@ -38,24 +38,8 @@ Skein FortunaFactory::MasterSeed;
 
 //// FortunaOutput
 
-static volatile u32 fortuna_output_id = 0;
-
 FortunaOutput::FortunaOutput()
 {
-	// Generate a unique thread id for each FortunaOutput object
-
-#if defined(CAT_NO_ATOMIC_ADD)
-
-	AutoMutex mx(FortunaFactory::ref()->_thread_id_mx);
-	thread_id = fortuna_output_id++;
-	mx.Release();
-
-#else // CAT_NO_ATOMIC_ADD
-
-	thread_id = Atomic::Add(&fortuna_output_id, 104729);
-
-#endif // CAT_NO_ATOMIC_ADD
-
     Reseed();
 }
 
@@ -69,12 +53,7 @@ FortunaOutput::~FortunaOutput()
 
 void FortunaOutput::Reseed()
 {
-    OutputHash.SetKey(&FortunaFactory::MasterSeed);
-    SeedRevision = FortunaFactory::MasterSeedRevision;
-
-    OutputHash.BeginPRNG();
-    OutputHash.Crunch(&thread_id, sizeof(thread_id));
-    OutputHash.End();
+	FortunaFactory::ii->GetNextKey(this);
 
     OutputHash.Generate(CachedRandomBytes, OUTPUT_CACHE_BYTES);
     used_bytes = 0;
@@ -128,6 +107,24 @@ void FortunaOutput::Generate(void *buffer, int bytes)
 
 //// FortunaFactory
 
+void FortunaFactory::GetNextKey(FortunaOutput *output)
+{
+	u8 key_material[POOL_BYTES];
+
+	AutoMutex lock(_lock);
+
+		MasterSeed.Generate(key_material, sizeof(key_material));
+
+		output->SeedRevision = MasterSeedRevision;
+
+	lock.Release();
+
+	output->OutputHash.BeginKey(FortunaFactory::POOL_BITS);
+	output->OutputHash.BeginPRNG();
+	output->OutputHash.Crunch(key_material, sizeof(key_material));
+	output->OutputHash.End();
+}
+
 bool FortunaFactory::Reseed()
 {
     Skein NextSeed;
@@ -160,12 +157,23 @@ bool FortunaFactory::Reseed()
         }
     }
 
-    ++reseed_counter;
-
     // Initialize the master seed with the new seed
     NextSeed.End();
-    MasterSeed.SetKey(&NextSeed);
-    ++MasterSeedRevision;
+
+	AutoMutex lock(_lock);
+
+	MasterSeed.SetKey(&NextSeed);
+	MasterSeed.BeginPRNG();
+
+	u32 material_revision = ++MasterSeedRevision;
+	u32 material_reseed_count = ++reseed_counter;
+
+	MasterSeed.Crunch(&material_revision, sizeof(material_revision));
+	MasterSeed.Crunch(&material_reseed_count, sizeof(material_reseed_count));
+
+	MasterSeed.End();
+
+	// MasterSeed is now ready to generate!
 
     return true;
 }

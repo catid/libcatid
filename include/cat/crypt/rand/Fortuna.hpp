@@ -115,7 +115,7 @@ class FortunaFactory : public Singleton<FortunaFactory>
 		_initialized = false;
     }
 
-	Mutex _thread_id_mx;
+	Mutex _lock;
 
     friend class FortunaOutput;
 
@@ -161,6 +161,7 @@ protected:
     Skein Pool[ENTROPY_POOLS];
 
     bool Reseed();
+	void GetNextKey(FortunaOutput *output);
     bool InitializeEntropySources();
     void PollInvariantSources(int pool);
     void PollSlowEntropySources(int pool);
