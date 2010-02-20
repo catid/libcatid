@@ -169,7 +169,7 @@ bool AsyncFile::BeginWrite(u32 offset, void *buffer, u32 bytes)
 
 	sendOv->Set(OVOP_READFILE_EX);
 
-	BOOL result = WriteFileEx(_file, buffer, bytes, &sendOv->ov, 0);
+	BOOL result = WriteFile(_file, buffer, bytes, 0, &sendOv->ov);
 
 	if (!result && GetLastError() != ERROR_IO_PENDING)
 	{

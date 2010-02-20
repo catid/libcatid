@@ -68,6 +68,11 @@ namespace cat {
 u32 GetFixedStrLen(const char *str, u32 max_len);
 
 
+// Set a fixed string buffer (zero-padded) from a variable-length string,
+// both either zero or length-terminated.  Returns length of copied string
+u32 SetFixedStr(char *dest, u32 dest_len, const char *src, u32 src_max_len);
+
+
 } // namespace cat
 
 #endif // CAT_STRINGS_HPP
