@@ -55,6 +55,7 @@ bool cat::iStrEqual(const char *A, const char *B)
 
 #endif // CAT_UNKNOWN_BUILTIN_ISTRCMP
 
+
 // Get length of string that has a maximum length (potentially no trailing nul)
 u32 cat::GetFixedStrLen(const char *str, u32 max_len)
 {
@@ -63,4 +64,34 @@ u32 cat::GetFixedStrLen(const char *str, u32 max_len)
 			return ii;
 
 	return max_len;
+}
+
+
+// Set a fixed string buffer (zero-padded) from a variable-length string,
+// both either zero or length-terminated.  Returns length of copied string
+u32 cat::SetFixedStr(char *dest, u32 dest_len, const char *src, u32 src_max_len)
+{
+	u32 ii;
+
+	// Copy characters until source or destination buffer ends or encounter null
+	for (ii = 0; ii < dest_len && ii < src_max_len; ++ii)
+	{
+		char ch = src[ii];
+
+		if (ch == '\0')
+			break;
+
+		dest[ii] = ch;
+	}
+
+	u32 copied = ii;
+
+	// Pad destination with null bytes
+	// NOTE: Does not guarantee the destination is null-terminated
+	for (; ii < dest_len; ++ii)
+	{
+		dest[ii] = '\0';
+	}
+
+	return copied;
 }
