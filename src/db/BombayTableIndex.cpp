@@ -256,7 +256,7 @@ void TableIndex::OnReadBulk(ThreadPoolLocalStorage *tls, u64 offset, u8 *data, u
 
 u64 TableIndex::Lookup(u64 hash)
 {
-	if (!hash) return INVALID_RECORD_INDEX;
+	if (!hash) return INVALID_RECORD_OFFSET;
 
 	u32 mask = _table_elements - 1;
 	u32 key = (hash - 1) & mask;
@@ -280,7 +280,7 @@ u64 TableIndex::Lookup(u64 hash)
 		key = (key * COLLISION_MULTIPLIER + COLLISION_INCREMENTER) & mask;
 	}
 
-	return INVALID_RECORD_INDEX;
+	return INVALID_RECORD_OFFSET;
 }
 
 void TableIndex::Insert(u64 hash, u64 offset)

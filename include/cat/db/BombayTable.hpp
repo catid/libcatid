@@ -38,7 +38,7 @@ namespace cat {
 namespace bombay {
 
 
-static u64 INVALID_RECORD_INDEX = ~(u64)0;
+static u64 INVALID_RECORD_OFFSET = ~(u64)0;
 
 struct CacheNode
 {

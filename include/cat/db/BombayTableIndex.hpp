@@ -36,6 +36,11 @@ namespace cat {
 namespace bombay {
 
 
+/*
+	Returning 0 from one of these hash functions will cause insertion or lookup to fail,
+	which is how invalid input is intended to be handled.
+*/
+
 class IHash
 {
 public:
