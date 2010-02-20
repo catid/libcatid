@@ -347,6 +347,9 @@ unsigned int WINAPI ThreadPool::CompletionThread(void *port)
 
             switch (error)
             {
+			case ERROR_HANDLE_EOF:		// Requested to read beyond end of file
+				break;
+
             case WSA_OPERATION_ABORTED:
             case ERROR_CONNECTION_ABORTED:
             case ERROR_NETNAME_DELETED:  // Operation on closed socket failed
@@ -431,13 +434,17 @@ unsigned int WINAPI ThreadPool::CompletionThread(void *port)
             break;
 
 		case OVOP_READFILE_EX:
-			( (AsyncFile*)key )->OnRead(&tls, (ReadFileOverlapped*)ov, error ? 0 : bytes);
+			( (AsyncFile*)key )->OnRead(&tls, ( (ReadFileOverlapped*)ov )->callback,
+										((u64)ov->ov.OffsetHigh << 32) | ov->ov.Offset,
+										GetTrailingBytes((ReadFileOverlapped*)ov),
+										error ? 0 : bytes);
 			( (AsyncFile*)key )->ReleaseRef();
 			RegionAllocator::ii->Release(ov);
 			break;
 
 		case OVOP_READFILE_BULK:
-			( (AsyncFile*)key )->OnReadBulk(&tls, (ReadFileBulkOverlapped*)ov, error ? 0 : bytes);
+			( (AsyncFile*)key )->OnReadBulk(&tls, ((u64)ov->ov.OffsetHigh << 32) | ov->ov.Offset,
+											(u8*)( (ReadFileBulkOverlapped*)ov )->buffer, error ? 0 : bytes);
 			( (AsyncFile*)key )->ReleaseRef();
 			RegionAllocator::ii->Release(ov);
 			break;

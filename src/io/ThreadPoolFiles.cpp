@@ -97,17 +97,17 @@ void AsyncFile::Close()
 	}
 }
 
-u32 AsyncFile::GetSize()
+u64 AsyncFile::GetSize()
 {
 	LARGE_INTEGER size;
 
 	if (!GetFileSizeEx(_file, &size))
 		return 0;
 
-	return size.LowPart;
+	return size.QuadPart;
 }
 
-bool AsyncFile::BeginRead(u32 offset, u32 bytes, ReadFileCallback callback)
+bool AsyncFile::BeginRead(u64 offset, u32 bytes, ReadFileCallback callback)
 {
 	AddRef();
 
@@ -117,10 +117,11 @@ bool AsyncFile::BeginRead(u32 offset, u32 bytes, ReadFileCallback callback)
 	while (!readOv);
 
 	readOv->ov.Set(OVOP_READFILE_EX);
-	readOv->offset = offset;
+	readOv->ov.ov.Offset = (u32)offset;
+	readOv->ov.ov.OffsetHigh = (u32)(offset >> 32);
 	readOv->callback = callback;
 
-	BOOL result = ReadFileEx(_file, GetTrailingBytes(readOv), bytes, &readOv->ov.ov, 0);
+	BOOL result = ReadFile(_file, GetTrailingBytes(readOv), bytes, 0, &readOv->ov.ov);
 
 	if (!result && GetLastError() != ERROR_IO_PENDING)
 	{
@@ -133,7 +134,7 @@ bool AsyncFile::BeginRead(u32 offset, u32 bytes, ReadFileCallback callback)
 	return true;
 }
 
-bool AsyncFile::BeginBulkRead(u32 offset, u32 bytes, void *buffer)
+bool AsyncFile::BeginBulkRead(u64 offset, u32 bytes, void *buffer)
 {
 	AddRef();
 
@@ -143,10 +144,11 @@ bool AsyncFile::BeginBulkRead(u32 offset, u32 bytes, void *buffer)
 	while (!readOv);
 
 	readOv->ov.Set(OVOP_READFILE_BULK);
-	readOv->offset = offset;
+	readOv->ov.ov.Offset = (u32)offset;
+	readOv->ov.ov.OffsetHigh = (u32)(offset >> 32);
 	readOv->buffer = buffer;
 
-	BOOL result = ReadFileEx(_file, buffer, bytes, &readOv->ov.ov, 0);
+	BOOL result = ReadFile(_file, buffer, bytes, 0, &readOv->ov.ov);
 
 	if (!result && GetLastError() != ERROR_IO_PENDING)
 	{
@@ -159,7 +161,7 @@ bool AsyncFile::BeginBulkRead(u32 offset, u32 bytes, void *buffer)
 	return true;
 }
 
-bool AsyncFile::BeginWrite(u32 offset, void *buffer, u32 bytes)
+bool AsyncFile::BeginWrite(u64 offset, void *buffer, u32 bytes)
 {
 	AddRef();
 
@@ -168,6 +170,8 @@ bool AsyncFile::BeginWrite(u32 offset, void *buffer, u32 bytes)
 		reinterpret_cast<u8*>(buffer) - sizeof(TypedOverlapped) );
 
 	sendOv->Set(OVOP_WRITEFILE_EX);
+	sendOv->ov.Offset = (u32)offset;
+	sendOv->ov.OffsetHigh = (u32)(offset >> 32);
 
 	BOOL result = WriteFile(_file, buffer, bytes, 0, &sendOv->ov);
 
@@ -182,8 +186,7 @@ bool AsyncFile::BeginWrite(u32 offset, void *buffer, u32 bytes)
 	return true;
 }
 
-void AsyncFile::OnRead(ThreadPoolLocalStorage *tls, ReadFileOverlapped *readOv, u32 bytes)
+void AsyncFile::OnRead(ThreadPoolLocalStorage *tls, ReadFileCallback callback, u64 offset, u8 *data, u32 bytes)
 {
-	if (readOv->callback)
-		readOv->callback(tls, readOv->offset, GetTrailingBytes(readOv), bytes);
+	if (callback) callback(tls, offset, data, bytes);
 }
