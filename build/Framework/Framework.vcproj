@@ -308,6 +308,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\src\db\BombayTable.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\db\BombayTableIndex.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\src\parse\BufferTok.cpp"
 				>
 			</File>
@@ -486,6 +494,18 @@
 				</File>
 				<File
 					RelativePath="..\..\include\cat\parse\MessageRouter.hpp"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="db"
+				>
+				<File
+					RelativePath="..\..\include\cat\db\BombayTable.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\db\BombayTableIndex.hpp"
 					>
 				</File>
 			</Filter>

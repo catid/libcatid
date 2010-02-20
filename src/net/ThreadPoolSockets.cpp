@@ -37,49 +37,6 @@ using namespace cat;
 
 #if defined (CAT_OS_WINDOWS)
 
-namespace cat
-{
-
-	// Get a buffer used for posting data over the network
-	u8 *GetPostBuffer(u32 bytes)
-	{
-		TypedOverlapped *sendOv = AcquireBuffer<TypedOverlapped>(bytes);
-		if (!sendOv)
-		{
-			FATAL("IOCPSockets") << "Unable to allocate a send buffer: Out of memory";
-			return 0;
-		}
-
-		return GetTrailingBytes(sendOv);
-	}
-
-	// Resize a previously acquired buffer larger or smaller
-	u8 *ResizePostBuffer(u8 *buffer, u32 newBytes)
-	{
-		if (!buffer) return GetPostBuffer(newBytes);
-
-		TypedOverlapped *sendOv = reinterpret_cast<TypedOverlapped*>(
-			RegionAllocator::ii->Resize(buffer - sizeof(TypedOverlapped),
-										sizeof(TypedOverlapped) + newBytes) );
-
-		if (!sendOv)
-		{
-			FATAL("IOCPSockets") << "Unable to resize a send buffer: Out of memory";
-			return 0;
-		}
-
-		return GetTrailingBytes(sendOv);
-	}
-
-	// Release a post buffer
-	void ReleasePostBuffer(u8 *buffer)
-	{
-		RegionAllocator::ii->Release(buffer - sizeof(TypedOverlapped));
-	}
-
-} // namespace cat
-
-
 // Amount of data to receive overlapped, tuned to exactly fit a
 // 2048-byte buffer in the region allocator.
 static const int RECV_DATA_SIZE = 2048 - sizeof(TypedOverlapped) - 8; // -8 for rebroadcast inflation

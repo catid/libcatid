@@ -53,18 +53,6 @@ class TCPClient;
 class UDPEndpoint;
 
 
-//// Buffer Management
-
-// Generate a buffer to pass to Post()
-u8 *GetPostBuffer(u32 bytes);
-
-u8 *ResizePostBuffer(u8 *buffer, u32 newBytes);
-
-// Release a buffer provided by GetPostBuffer()
-// Note: Once the buffer is submitted to Post() this is unnecessary
-void ReleasePostBuffer(u8 *buffer);
-
-
 } // namespace cat
 
 

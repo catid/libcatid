@@ -51,6 +51,46 @@ void TypedOverlapped::Reset()
 }
 
 
+//// Buffer Management
+
+// Get a buffer used for posting data over the network
+u8 *cat::GetPostBuffer(u32 bytes)
+{
+	TypedOverlapped *sendOv = AcquireBuffer<TypedOverlapped>(bytes);
+	if (!sendOv)
+	{
+		FATAL("IOCPSockets") << "Unable to allocate a send buffer: Out of memory";
+		return 0;
+	}
+
+	return GetTrailingBytes(sendOv);
+}
+
+// Resize a previously acquired buffer larger or smaller
+u8 *cat::ResizePostBuffer(u8 *buffer, u32 newBytes)
+{
+	if (!buffer) return GetPostBuffer(newBytes);
+
+	TypedOverlapped *sendOv = reinterpret_cast<TypedOverlapped*>(
+		RegionAllocator::ii->Resize(buffer - sizeof(TypedOverlapped),
+		sizeof(TypedOverlapped) + newBytes) );
+
+	if (!sendOv)
+	{
+		FATAL("IOCPSockets") << "Unable to resize a send buffer: Out of memory";
+		return 0;
+	}
+
+	return GetTrailingBytes(sendOv);
+}
+
+// Release a post buffer
+void cat::ReleasePostBuffer(u8 *buffer)
+{
+	RegionAllocator::ii->Release(buffer - sizeof(TypedOverlapped));
+}
+
+
 //// Thread Pool
 
 ThreadPool::ThreadPool()
