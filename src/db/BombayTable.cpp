@@ -54,9 +54,11 @@ Table::Table(const char *file_path, u32 record_bytes, u32 cache_bytes, ShutdownO
 	CAT_STRNCPY(_file_path, file_path, sizeof(_file_path));
 	_record_bytes = record_bytes;
 
+	// Set index read size to a multiple of record bytes as stored in the database file
+	_index_read_size = MAX_INDEX_READ_SIZE - (MAX_INDEX_READ_SIZE % record_bytes);
+
 	// Set cache bytes to a multiple of record bytes with cache node header
 	u32 node_bytes = sizeof(CacheNode) + record_bytes;
-	_index_read_size = MAX_INDEX_READ_SIZE - (MAX_INDEX_READ_SIZE % node_bytes);
 	_cache_bytes = cache_bytes - (cache_bytes % node_bytes);
 
 	// Calculate hash table size
