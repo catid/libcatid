@@ -167,7 +167,7 @@ bool AsyncFile::BeginWrite(u32 offset, void *buffer, u32 bytes)
 	TypedOverlapped *sendOv = reinterpret_cast<TypedOverlapped*>(
 		reinterpret_cast<u8*>(buffer) - sizeof(TypedOverlapped) );
 
-	sendOv->Set(OVOP_READFILE_EX);
+	sendOv->Set(OVOP_WRITEFILE_EX);
 
 	BOOL result = WriteFile(_file, buffer, bytes, 0, &sendOv->ov);
 
