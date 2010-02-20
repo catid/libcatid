@@ -341,7 +341,7 @@ u8 *Table::SetOffset(u64 offset)
 	CacheNode *node = reinterpret_cast<CacheNode*>( &_cache[next] );
 
 	// If node is already used, unlink it!
-	if (node->offset != INVALID_RECORD_INDEX && _cache_full)
+	if (node->offset != INVALID_RECORD_OFFSET && _cache_full)
 	{
 		// If the parent happens to be the one we're replacing, use parent instead
 		if (insert == node) insert = insert->parent;
@@ -368,7 +368,7 @@ u8 *Table::InsertOffset(u64 offset)
 	CacheNode *node = reinterpret_cast<CacheNode*>( &_cache[next] );
 
 	// If node is already used, unlink it!
-	if (_cache_full && node->offset != INVALID_RECORD_INDEX)
+	if (_cache_full && node->offset != INVALID_RECORD_OFFSET)
 	{
 		UnlinkNode(node);
 	}
@@ -403,7 +403,7 @@ bool Table::RemoveOffset(u64 offset)
 	UnlinkNode(node);
 
 	// Mark cache node as invalid
-	node->offset = INVALID_RECORD_INDEX;
+	node->offset = INVALID_RECORD_OFFSET;
 
 	return true;
 }
@@ -663,7 +663,7 @@ u64 Table::UniqueIndexLookup(const void *data)
 		u64 offset = index->LookupComplete(data);
 
 		// If unique identifier is already in the index,
-		if (INVALID_RECORD_INDEX != offset)
+		if (INVALID_RECORD_OFFSET != offset)
 		{
 			// It exists already
 			return offset;
@@ -671,7 +671,7 @@ u64 Table::UniqueIndexLookup(const void *data)
 	}
 
 	// Was not found
-	return INVALID_RECORD_INDEX;
+	return INVALID_RECORD_OFFSET;
 }
 
 
@@ -688,8 +688,8 @@ u64 Table::Insert(void *data)
 	AutoWriteLock lock(_lock);
 
 		// If it already exists,
-		if (INVALID_RECORD_INDEX != UniqueIndexLookup(data))
-			return INVALID_RECORD_INDEX;
+		if (INVALID_RECORD_OFFSET != UniqueIndexLookup(data))
+			return INVALID_RECORD_OFFSET;
 
 		// Get next offset
 		u64 offset = _next_record;
@@ -710,7 +710,7 @@ u64 Table::Insert(void *data)
 	if (!BeginWrite(offset, data, _record_bytes))
 	{
 		WARN("Table") << "Disk write failure on insertion for " << _file_path;
-		return INVALID_RECORD_INDEX;
+		return INVALID_RECORD_OFFSET;
 	}
 
 	return offset;
@@ -766,7 +766,7 @@ bool Table::Remove(void *data)
 		INANE("Table") << "Remove " << offset << " from " << _file_path;
 
 		// If it does not exist,
-		if (INVALID_RECORD_INDEX == offset)
+		if (INVALID_RECORD_OFFSET == offset)
 			return false;
 
 		RemoveOffset(offset);
