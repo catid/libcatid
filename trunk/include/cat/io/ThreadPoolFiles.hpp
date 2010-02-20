@@ -39,14 +39,13 @@
 namespace cat {
 
 
-typedef fastdelegate::FastDelegate4<ThreadPoolLocalStorage *, u32, u8 *, u32> ReadFileCallback;
+typedef fastdelegate::FastDelegate4<ThreadPoolLocalStorage *, u64, u8 *, u32> ReadFileCallback;
 
 // ReadFileEx() OVERLAPPED object
 struct ReadFileOverlapped
 {
 	TypedOverlapped ov;
 
-	u32 offset;
 	ReadFileCallback callback;
 };
 
@@ -55,7 +54,6 @@ struct ReadFileBulkOverlapped
 {
 	TypedOverlapped ov;
 
-	u32 offset;
 	void *buffer;
 };
 
@@ -90,19 +88,19 @@ public:
 	bool Open(const char *file_path, u32 async_file_modes);
 	void Close();
 
-	u32 GetSize();
+	u64 GetSize();
 
-	bool BeginRead(u32 offset, u32 bytes, ReadFileCallback);
+	bool BeginRead(u64 offset, u32 bytes, ReadFileCallback);
 
 	// Buffer must exist until completion
-	bool BeginBulkRead(u32 offset, u32 bytes, void *buffer);
+	bool BeginBulkRead(u64 offset, u32 bytes, void *buffer);
 
 	// Buffer passed to BeginWrite() must be retrieved from GetPostBuffer()
-	bool BeginWrite(u32 offset, void *buffer, u32 bytes);
+	bool BeginWrite(u64 offset, void *buffer, u32 bytes);
 
 protected:
-	virtual void OnRead(ThreadPoolLocalStorage *tls, ReadFileOverlapped *readOv, u32 bytes);
-	virtual void OnReadBulk(ThreadPoolLocalStorage *tls, ReadFileBulkOverlapped *readOv, u32 bytes) {}
+	virtual void OnRead(ThreadPoolLocalStorage *tls, ReadFileCallback, u64 offset, u8 *data, u32 bytes);
+	virtual void OnReadBulk(ThreadPoolLocalStorage *tls, u64 offset, u8 *data, u32 bytes) {}
 };
 
 
