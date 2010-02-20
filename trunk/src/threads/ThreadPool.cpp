@@ -301,6 +301,8 @@ void ThreadPool::Shutdown()
 }
 
 
+//// TLS
+
 ThreadPoolLocalStorage::ThreadPoolLocalStorage()
 {
 	// Create 256-bit math library instance
@@ -321,6 +323,52 @@ bool ThreadPoolLocalStorage::Valid()
 	return math && csprng;
 }
 
+
+//// Shutdown
+
+ShutdownWait::ShutdownWait(int priorityLevel)
+{
+	_observer = new ShutdownObserver(priorityLevel, this);
+	_event = CreateEvent(0, TRUE, FALSE, 0);
+}
+
+ShutdownWait::~ShutdownWait()
+{
+	CloseHandle(_event);
+	if (_observer) _observer->ReleaseRef();
+}
+
+void ShutdownWait::OnShutdownDone()
+{
+	if (_event) SetEvent(_event);
+}
+
+bool ShutdownWait::WaitForShutdown(u32 milliseconds)
+{
+	if (!_event || !_observer) return false;
+
+	// Kill observer
+	_observer->ReleaseRef();
+	_observer = 0;
+
+	// Wait for it to die
+	return WaitForSingleObject(_event, milliseconds) == WAIT_OBJECT_0;
+}
+
+ShutdownObserver::ShutdownObserver(int priorityLevel, ShutdownWait *wait)
+	: ThreadRefObject(priorityLevel)
+{
+	_wait = wait;
+}
+
+ShutdownObserver::~ShutdownObserver()
+{
+	if (_wait)
+		_wait->OnShutdownDone();
+}
+
+
+//// Thread
 
 unsigned int WINAPI ThreadPool::CompletionThread(void *port)
 {

@@ -121,6 +121,41 @@ public:
 };
 
 
+// Shutdown
+class ShutdownWait;
+class ShutdownObserver;
+
+class ShutdownWait
+{
+	friend class ShutdownObserver;
+
+	HANDLE _event;
+	ShutdownObserver *_observer;
+
+	void OnShutdownDone();
+
+public:
+	// Priority number must be higher than users'
+	ShutdownWait(int priorityLevel);
+	/*virtual*/ ~ShutdownWait();
+
+	CAT_INLINE ShutdownObserver *GetObserver() { return _observer; }
+
+	bool WaitForShutdown(u32 milliseconds);
+};
+
+class ShutdownObserver : public ThreadRefObject
+{
+	friend class ShutdownWait;
+
+	ShutdownWait *_wait;
+
+private:
+	ShutdownObserver(int priorityLevel, ShutdownWait *wait);
+	~ShutdownObserver();
+};
+
+
 /*
     class ThreadPool
 
