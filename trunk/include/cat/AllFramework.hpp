@@ -63,6 +63,9 @@
 #include <cat/net/SphynxServer.hpp>
 #include <cat/net/SphynxClient.hpp>
 
+#include <cat/db/BombayTableIndex.hpp>
+#include <cat/db/BombayTable.hpp>
+
 namespace cat {
 
 
