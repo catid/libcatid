@@ -159,6 +159,12 @@ public:
 		return this;
 	}
 
+	CAT_INLINE AsyncBase *SetSize(u32 bytes)
+	{
+		_data_bytes = bytes;
+		return this;
+	}
+
 	// Resize object to consume a different number of data bytes,
 	// returning new value pointer to the object
 	CAT_INLINE AsyncBase *Resize(u32 data_bytes)

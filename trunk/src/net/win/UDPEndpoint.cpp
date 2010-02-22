@@ -154,7 +154,7 @@ bool UDPEndpoint::Bind(bool onlySupportIPv4, Port port, bool ignoreUnreachable, 
 
     // Prepare to receive completions in the worker threads
     if (!ThreadPool::ref()->Associate((HANDLE)s, this) ||
-        !QueueWSARecvFrom())
+        !PostRead())
     {
         CloseSocket(s);
         _socket = SOCKET_ERROR;

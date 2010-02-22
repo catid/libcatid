@@ -237,9 +237,9 @@ void Client::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 
 		// Allocate a post buffer
 		static const int response_len = 1+4+CHALLENGE_BYTES;
-		AsyncSimpleData *writeOv = AsyncSimpleData::Acquire(response_len);
+		u8 *response = GetPostBuffer(response_len);
 
-		if (!writeOv)
+		if (!response)
 		{
 			WARN("Client") << "Unable to connect: Cannot allocate buffer for challenge message";
 			Close();
@@ -247,7 +247,6 @@ void Client::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 		}
 
 		// Construct challenge packet
-		u8 *response = writeOv->GetData();
 		u32 *out_cookie = reinterpret_cast<u32*>( response + 1 );
 		u8 *out_challenge = response + 1+4;
 
@@ -262,7 +261,7 @@ void Client::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 		}
 
 		// Attempt to post a response
-		if (!PostWrite(_server_addr, writeOv))
+		if (!PostWrite(_server_addr, GetPostBufferBase(response)))
 		{
 			WARN("Client") << "Unable to connect: Cannot post response to cookie";
 			Close();
@@ -318,16 +317,15 @@ bool Client::PostHello()
 
 	// Allocate space for a post buffer
 	static const int hello_len = 1+4;
-	AsyncSimpleData *writeOv = AsyncSimpleData::Acquire(hello_len);
+	u8 *hello = GetPostBuffer(hello_len);
 
 	// If unable to allocate,
-	if (!writeOv)
+	if (!hello)
 	{
 		WARN("Client") << "Cannot allocate a post buffer for hello packet";
 		return false;
 	}
 
-	u8 *hello = writeOv->GetData();
 	u32 *magic = reinterpret_cast<u32*>( hello + 1 );
 
 	// Construct packet
@@ -335,7 +333,7 @@ bool Client::PostHello()
 	*magic = getLE(PROTOCOL_MAGIC);
 
 	// Attempt to post packet
-	if (!PostWrite(_server_addr, writeOv))
+	if (!PostWrite(_server_addr, GetPostBufferBase(hello)))
 	{
 		WARN("Client") << "Unable to post hello packet";
 		return false;
@@ -516,7 +514,7 @@ bool Client::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes, u32 skip_bytes
 		return false;
 	}
 
-	if (Post(_server_addr, buffer, msg_bytes, skip_bytes))
+	if (PostWrite(_server_addr, GetPostBufferBase(buffer)->SetSize(msg_bytes), skip_bytes))
 	{
 		_last_send_mstsc = Clock::msec_fast();
 		return true;

@@ -173,6 +173,45 @@ namespace sphynx {
 	ID: IDC | IDB | IDA (22 bits) + START.ID
 */
 
+struct PacketBufferEmpty {};
+
+typedef AsyncData<PacketBufferEmpty> PacketBuffer;
+
+CAT_INLINE u8 *GetPostBuffer(u32 data_bytes)
+{
+	PacketBuffer *pkt = PacketBuffer::Acquire(data_bytes);
+	if (!pkt) return 0;
+
+	return pkt->GetData();
+}
+
+CAT_INLINE PacketBuffer *GetPostBufferBase(u8 *ptr)
+{
+	if (!ptr) return 0;
+
+	return reinterpret_cast<PacketBuffer*>( ptr - PacketBuffer::OVERHEAD() );
+}
+
+CAT_INLINE u8 *ResizePostBuffer(u8 *ptr, u32 data_bytes)
+{
+	if (!ptr) return 0;
+
+	PacketBuffer *pkt = reinterpret_cast<PacketBuffer*>( ptr - PacketBuffer::OVERHEAD() );
+
+	AsyncBase *newpkt = pkt->Resize(data_bytes);
+	if (!newpkt) return 0;
+
+	return newpkt->GetData();
+}
+
+CAT_INLINE void ReleasePostBuffer(u8 *ptr)
+{
+	if (!ptr) return;
+
+	PacketBuffer *pkt = reinterpret_cast<PacketBuffer*>( ptr - PacketBuffer::OVERHEAD() );
+
+	pkt->Release();
+}
 
 class Connexion;
 class Map;
