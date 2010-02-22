@@ -227,14 +227,17 @@ bool TableIndex::Initialize()
 	return true;
 }
 
-void TableIndex::OnReadBulk(ThreadPoolLocalStorage *tls, u64 offset, u8 *data, u32 bytes)
+bool TableIndex::OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes)
 {
-	if (offset != 0 || bytes != _table_bytes || (u64*)data != _table)
+	u64 *data = reinterpret_cast<u64*>( ov->GetData() );
+	u64 offset = ov->GetOffset();
+
+	if (error || offset != 0 || bytes != _table_bytes || data != _table)
 	{
 		WARN("TableIndex") << "Table index for " << _file_path << " was truncated.  Regenerating index..";
 
 		AllocateTable() && _parent->RequestIndexRebuild(this);
-		return;
+		return true;
 	}
 
 	// Read footer
@@ -245,10 +248,12 @@ void TableIndex::OnReadBulk(ThreadPoolLocalStorage *tls, u64 offset, u8 *data, u
 		WARN("TableIndex") << "Table index for " << _file_path << " was corrupted.  Regenerating index..";
 
 		AllocateTable() && _parent->RequestIndexRebuild(this);
-		return;
+		return true;
 	}
 
 	INFO("TableIndex") << "Table index read for " << _file_path << " successful.";
+
+	return true;
 }
 
 

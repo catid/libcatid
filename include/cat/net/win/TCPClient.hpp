@@ -44,7 +44,7 @@ namespace cat {
 
     Object that represents a TCPClient bound to a single port
 
-    ValidClient()      : Returns true iff the client socket is valid
+    ValidClient()      : Returns true if the client socket is valid
 
     Connect()          : Connects to the given address
     DisconnectServer() : Disconnects from the server
@@ -57,46 +57,40 @@ namespace cat {
 */
 class TCPClient : public ThreadRefObject
 {
-    friend class ThreadPool;
+	// Remembers if socket is IPv6 so that user-provided
+	// addresses can be promoted if necessary.
+	bool _ipv6;
+	Socket _socket;
+	volatile u32 _disconnecting; // Disconnect flag
 
 public:
     TCPClient(int priorityLevel);
     virtual ~TCPClient();
 
-    bool ValidClient();
+	CAT_INLINE bool Valid() { return _socket != SOCKET_ERROR; }
 
-    bool Connect(bool onlySupportIPv4, const NetAddr &remoteServerAddress);
-    void DisconnectServer();
-    bool PostToServer(void *buffer, u32 bytes);
+	void Disconnect();
+	bool Connect(bool onlySupportIPv4, const NetAddr &remoteServerAddress);
+
+public:
+	bool PostWrite(AsyncBase *writeOv);
+
+private:
+	bool PostConnect(const NetAddr &remoteServerAddress);
+	bool PostRead(AsyncSimpleData *readOv = 0);
+	bool PostDisco(AsyncSimpleData *discOv = 0);
+
+private:
+	bool OnConnect(ThreadPoolLocalStorage *tls, int error, AsyncBase *connectOv, u32 bytes);
+	bool OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBase *readOv, u32 bytes);
+	bool OnWrite(ThreadPoolLocalStorage *tls, int error, AsyncBase *writeOv, u32 bytes);
+	bool OnDisco(ThreadPoolLocalStorage *tls, int error, AsyncBase *discOv, u32 bytes);
 
 protected:
-    virtual void OnConnectToServer() = 0;
-    virtual bool OnReadFromServer(u8 *data, u32 bytes) = 0; // false = disconnect
-    virtual void OnWriteToServer(u32 bytes) = 0;
+    virtual void OnConnectToServer(ThreadPoolLocalStorage *tls) = 0;
+    virtual bool OnReadFromServer(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes) = 0; // false = disconnect
+    virtual bool OnWriteToServer(ThreadPoolLocalStorage *tls, AsyncBase *writeOv, u32 bytes) = 0; // true = delete AsyncBase object
     virtual void OnDisconnectFromServer() = 0;
-
-private:
-    Socket _socket;
-    TypedOverlapped *_recvOv; // Preallocated space for receive buffer
-
-	volatile u32 _disconnecting; // Disconnect flag
-
-	// Remembers if socket is IPv6 so that user-provided
-	// addresses can be promoted if necessary.
-	bool _ipv6;
-
-private:
-    bool QueueConnectEx(const NetAddr &remoteServerAddress);
-    void OnConnectExComplete(int error);
-
-    bool QueueWSARecv();
-    void OnWSARecvComplete(int error, u32 bytes);
-
-    bool QueueWSASend(TypedOverlapped *sendOv, u32 bytes);
-    void OnWSASendComplete(int error, u32 bytes);
-
-    bool QueueDisconnectEx();
-    void OnDisconnectExComplete(int error);
 };
 
 
@@ -114,8 +108,7 @@ private:
     volatile bool _queuing;
 
     Mutex _queueLock;
-    u8 *_queueBuffer;
-    u32 _queueBytes;
+    AsyncBase *_queueBuffer;
 
 protected:
     void PostQueuedToServer();
@@ -124,7 +117,7 @@ public:
     TCPClientQueued(int priorityLevel);
     virtual ~TCPClientQueued();
 
-    bool PostToServer(u8 *buffer, u32 bytes);
+    bool PostWrite(AsyncBase *writeOv);
 };
 
 

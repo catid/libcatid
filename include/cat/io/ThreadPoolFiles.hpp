@@ -39,36 +39,15 @@
 namespace cat {
 
 
-typedef fastdelegate::FastDelegate4<ThreadPoolLocalStorage *, u64, u8 *, u32> ReadFileCallback;
-
-// ReadFileEx() OVERLAPPED object
-struct ReadFileOverlapped
-{
-	TypedOverlapped ov;
-
-	ReadFileCallback callback;
-};
-
-// ReadFileEx() OVERLAPPED object: Bulk version
-struct ReadFileBulkOverlapped
-{
-	TypedOverlapped ov;
-
-	void *buffer;
-};
-
 enum AsyncFileModes
 {
 	ASYNCFILE_READ = 1,
 	ASYNCFILE_WRITE = 2,
-	ASYNCFILE_RANDOM = 4,
+	ASYNCFILE_RANDOM = 4
 };
 
 class AsyncFile : public ThreadRefObject
 {
-	friend class ThreadPool;
-
-protected:
 	HANDLE _file;
 	char _file_path[MAX_PATH+1];
 
@@ -90,17 +69,13 @@ public:
 
 	u64 GetSize();
 
-	bool BeginRead(u64 offset, u32 bytes, ReadFileCallback);
-
-	// Buffer must exist until completion
-	bool BeginBulkRead(u64 offset, u32 bytes, void *buffer);
-
-	// Buffer passed to BeginWrite() must be retrieved from GetPostBuffer()
-	bool BeginWrite(u64 offset, void *buffer, u32 bytes);
+	bool PostRead(AsyncBase *readOv, u64 offset);
+	bool PostWrite(AsyncBase *writeOv, u64 offset);
 
 protected:
-	virtual void OnRead(ThreadPoolLocalStorage *tls, ReadFileCallback, u64 offset, u8 *data, u32 bytes);
-	virtual void OnReadBulk(ThreadPoolLocalStorage *tls, u64 offset, u8 *data, u32 bytes) {}
+	// Return true to release overlapped object memory, or return false to keep it
+	virtual bool OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes);
+	virtual bool OnWrite(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes);
 };
 
 

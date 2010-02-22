@@ -405,7 +405,27 @@ union Float32 {
 #define DO_CAT_STRINGIZE(X) #X
 
 // Variable-length data trailing a struct
-template<typename T> u8 *GetTrailingBytes(T *t) { return reinterpret_cast<u8*>( t ) + sizeof(T); }
+template<typename T> CAT_INLINE u8 *GetTrailingBytes(T *t) { return reinterpret_cast<u8*>( t ) + sizeof(T); }
+
+// Bounds
+template<typename T> CAT_INLINE T BoundMin(const T &minimum, const T &x)
+{
+	if (x < minimum) return minimum;
+	return x;
+}
+
+template<typename T> CAT_INLINE T BoundMax(const T &maximum, const T &x)
+{
+	if (x > maximum) return maximum;
+	return x;
+}
+
+template<typename T> CAT_INLINE T Bound(const T &minimum, const T &maximum, const T &x)
+{
+	if (x < minimum) return minimum;
+	if (x > maximum) return maximum;
+	return x;
+}
 
 
 //// Miscellaneous bitwise macros ////

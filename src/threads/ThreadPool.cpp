@@ -31,64 +31,8 @@
 #include <cat/math/BitMath.hpp>
 #include <process.h>
 #include <cat/threads/Atomic.hpp>
-#include <cat/net/ThreadPoolSockets.hpp>
-#include <cat/io/ThreadPoolFiles.hpp>
 using namespace std;
 using namespace cat;
-
-
-//// TypedOverlapped
-
-void TypedOverlapped::Set(int new_opcode)
-{
-    CAT_OBJCLR(ov);
-    opcode = new_opcode;
-}
-
-void TypedOverlapped::Reset()
-{
-    CAT_OBJCLR(ov);
-}
-
-
-//// Buffer Management
-
-// Get a buffer used for posting data over the network
-u8 *cat::GetPostBuffer(u32 bytes)
-{
-	TypedOverlapped *sendOv = AcquireBuffer<TypedOverlapped>(bytes);
-	if (!sendOv)
-	{
-		FATAL("IOCPSockets") << "Unable to allocate a send buffer: Out of memory";
-		return 0;
-	}
-
-	return GetTrailingBytes(sendOv);
-}
-
-// Resize a previously acquired buffer larger or smaller
-u8 *cat::ResizePostBuffer(u8 *buffer, u32 newBytes)
-{
-	if (!buffer) return GetPostBuffer(newBytes);
-
-	TypedOverlapped *sendOv = reinterpret_cast<TypedOverlapped*>(
-		RegionAllocator::ii->Resize(buffer - sizeof(TypedOverlapped),
-		sizeof(TypedOverlapped) + newBytes) );
-
-	if (!sendOv)
-	{
-		FATAL("IOCPSockets") << "Unable to resize a send buffer: Out of memory";
-		return 0;
-	}
-
-	return GetTrailingBytes(sendOv);
-}
-
-// Release a post buffer
-void cat::ReleasePostBuffer(u8 *buffer)
-{
-	RegionAllocator::ii->Release(buffer - sizeof(TypedOverlapped));
-}
 
 
 //// Thread Pool
@@ -150,7 +94,7 @@ bool ThreadPool::SpawnThreads()
     return true;
 }
 
-bool ThreadPool::Associate(HANDLE h, void *key)
+bool ThreadPool::Associate(HANDLE h, ThreadRefObject *key)
 {
 	if (!_port)
 	{
@@ -414,7 +358,7 @@ unsigned int WINAPI ThreadPool::CompletionThread(void *port)
 {
     DWORD bytes;
     void *key = 0;
-    TypedOverlapped *ov = 0;
+    AsyncBase *ov = 0;
     int error;
 
 	ThreadPoolLocalStorage tls;
@@ -422,126 +366,39 @@ unsigned int WINAPI ThreadPool::CompletionThread(void *port)
 	if (!tls.Valid())
 	{
 		FATAL("ThreadPool") << "Unable to initialize thread local storage objects";
+
 		return 1;
 	}
 
 	for (;;)
     {
-        if (GetQueuedCompletionStatus((HANDLE)port, &bytes, (PULONG_PTR)&key, (OVERLAPPED**)&ov, INFINITE))
-            error = 0;
-        else
-        {
-            error = WSAGetLastError();
-
-            switch (error)
-            {
-			case ERROR_HANDLE_EOF:		// Requested to read beyond end of file
-				break;
-
-            case WSA_OPERATION_ABORTED:
-            case ERROR_CONNECTION_ABORTED:
-            case ERROR_NETNAME_DELETED:  // Operation on closed socket failed
-            case ERROR_MORE_DATA:        // UDP buffer not large enough for whole packet
-            case ERROR_PORT_UNREACHABLE: // Got an ICMP response back that the destination port is unreachable
-            case ERROR_SEM_TIMEOUT:      // Half-open TCP AcceptEx() has reset
-                // Operation failure codes (we don't differentiate between them)
-                break;
-
-            default:
-                // Report other errors this library hasn't been designed to handle yet
-                FATAL("WorkerThread") << SocketGetLastErrorString() << " (key=" << key << ", ov="
-                    << ov << ", opcode=" << (ov ? ov->opcode : -1) << ", bytes=" << bytes << ")";
-                break;
-            }
-        }
+		error = GetQueuedCompletionStatus((HANDLE)port, &bytes,
+										  (PULONG_PTR)&key, (OVERLAPPED**)&ov, INFINITE)
+				? 0 : GetLastError();
 
         // Terminate thread when we receive a zeroed completion packet
         if (!bytes && !key && !ov)
             return 0;
 
-        switch (ov->opcode)
-        {
-        case OVOP_ACCEPT_EX:
-            ( (TCPServer*)key )->OnAcceptExComplete( error, (AcceptExOverlapped*)ov );
-            ( (TCPServer*)key )->ReleaseRef();
-            RegionAllocator::ii->Release(ov);
-            break;
+		// If completion object is NOT specified,
+		ThreadRefObject *obj = reinterpret_cast<ThreadRefObject*>( key );
+		if (!obj)
+		{
+			// Release memory for overlapped object
+			ov->Release();
+		}
+		else
+		{
+			// If completion object callback returns TRUE,
+			if (ov->GetCallback()(&tls, error, ov, bytes))
+			{
+				// Release memory for overlapped object
+				ov->Release();
+			}
 
-        case OVOP_SERVER_RECV:
-            ( (TCPConnection*)key )->OnWSARecvComplete( error, bytes );
-            ( (TCPConnection*)key )->ReleaseRef();
-            // TCPServer tracks the overlapped buffer lifetime
-            break;
-
-        case OVOP_SERVER_SEND:
-            ( (TCPConnection*)key )->OnWSASendComplete( error, bytes );
-            ( (TCPConnection*)key )->ReleaseRef();
-            RegionAllocator::ii->Release(ov);
-            break;
-
-        case OVOP_SERVER_CLOSE:
-            ( (TCPConnection*)key )->OnDisconnectExComplete( error );
-            ( (TCPConnection*)key )->ReleaseRef();
-            RegionAllocator::ii->Release(ov);
-            break;
-
-        case OVOP_CONNECT_EX:
-            ( (TCPClient*)key )->OnConnectExComplete( error );
-            ( (TCPClient*)key )->ReleaseRef();
-            RegionAllocator::ii->Release(ov);
-            break;
-
-        case OVOP_CLIENT_RECV:
-            ( (TCPClient*)key )->OnWSARecvComplete( error, bytes );
-            ( (TCPClient*)key )->ReleaseRef();
-            // TCPClient tracks the overlapped buffer lifetime
-            break;
-
-        case OVOP_CLIENT_SEND:
-            ( (TCPClient*)key )->OnWSASendComplete( error, bytes );
-            ( (TCPClient*)key )->ReleaseRef();
-            RegionAllocator::ii->Release(ov);
-            break;
-
-        case OVOP_CLIENT_CLOSE:
-            ( (TCPClient*)key )->OnDisconnectExComplete( error );
-            ( (TCPClient*)key )->ReleaseRef();
-            RegionAllocator::ii->Release(ov);
-            break;
-
-        case OVOP_RECVFROM:
-            ( (UDPEndpoint*)key )->OnWSARecvFromComplete( &tls, error, (RecvFromOverlapped*)ov, bytes );
-            ( (UDPEndpoint*)key )->ReleaseRef();
-            // UDPEndpoint tracks the overlapped buffer lifetime
-            break;
-
-        case OVOP_SENDTO:
-            ( (UDPEndpoint*)key )->OnWSASendToComplete( error, bytes );
-            ( (UDPEndpoint*)key )->ReleaseRef();
-            RegionAllocator::ii->Release(ov);
-            break;
-
-		case OVOP_READFILE_EX:
-			( (AsyncFile*)key )->OnRead(&tls, ( (ReadFileOverlapped*)ov )->callback,
-										((u64)ov->ov.OffsetHigh << 32) | ov->ov.Offset,
-										GetTrailingBytes((ReadFileOverlapped*)ov),
-										error ? 0 : bytes);
-			( (AsyncFile*)key )->ReleaseRef();
-			RegionAllocator::ii->Release(ov);
-			break;
-
-		case OVOP_READFILE_BULK:
-			( (AsyncFile*)key )->OnReadBulk(&tls, ((u64)ov->ov.OffsetHigh << 32) | ov->ov.Offset,
-											(u8*)( (ReadFileBulkOverlapped*)ov )->buffer, error ? 0 : bytes);
-			( (AsyncFile*)key )->ReleaseRef();
-			RegionAllocator::ii->Release(ov);
-			break;
-
-		case OVOP_WRITEFILE_EX:
-			( (AsyncFile*)key )->ReleaseRef();
-			RegionAllocator::ii->Release(ov);
-			break;
-        }
+			// Release reference held on completion object
+			obj->ReleaseRef();
+		}
     }
 
 	return 0;

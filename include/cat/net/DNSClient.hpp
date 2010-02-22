@@ -170,10 +170,9 @@ private:
 	bool ThreadFunction(void *param);
 
 protected:
-	void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes);
-	void OnWrite(u32 bytes);
-	void OnClose();
-	void OnUnreachable(const NetAddr &src);
+	virtual void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes);
+	virtual void OnClose();
+	virtual void OnUnreachable(const NetAddr &src);
 
 protected:
 	void ProcessDNSResponse(DNSRequest *req, int qdcount, int ancount, u8 *data, u32 bytes);

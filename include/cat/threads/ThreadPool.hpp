@@ -32,6 +32,8 @@
 #include <cat/Singleton.hpp>
 #include <cat/threads/Mutex.hpp>
 #include <cat/crypt/tunnel/KeyAgreement.hpp>
+#include <cat/threads/RegionAllocator.hpp>
+#include <cat/port/FastDelegate.h>
 
 #if defined(CAT_OS_WINDOWS)
 # include <cat/port/WindowsInclude.hpp>
@@ -40,57 +42,13 @@
 namespace cat {
 
 
-//// Overlapped Opcodes
-
-// Overlapped opcodes that describe the purpose of the OVERLAPPED structure
-enum OverlappedOpcodes
-{
-	// Sockets
-    OVOP_ACCEPT_EX,    // AcceptEx() completion, remote client connected
-    OVOP_SERVER_RECV,  // WSARecv() completion for local server
-    OVOP_CLIENT_RECV,  // WSARecv() completion, for local client
-    OVOP_RECVFROM,     // WSARecvFrom() completion, for local endpoint
-    OVOP_CONNECT_EX,   // ConnectEx() completion, local client connected
-    OVOP_SERVER_SEND,  // WSASend() completion, local server sent something
-    OVOP_CLIENT_SEND,  // WSASend() completion, local client sent something
-    OVOP_SENDTO,       // WSASendTo() completion, local endpoint sent something
-    OVOP_SERVER_CLOSE, // DisconnectEx() completion, graceful close
-    OVOP_CLIENT_CLOSE, // DisconnectEx() completion, graceful close
-
-	// File I/O
-	OVOP_READFILE_EX,  // ReadFileEx() completion
-	OVOP_READFILE_BULK,// ReadFileEx() bulk read completion
-	OVOP_WRITEFILE_EX, // WriteFileEx() completion
-};
-
-// Base class for any typed OVERLAPPED structure
-struct TypedOverlapped
-{
-    OVERLAPPED ov;
-    int opcode;
-
-    void Set(int new_opcode);
-
-    // Reset after an I/O operation to prepare for the next one
-    void Reset();
-};
-
+//// Reference Object priorities
 
 enum RefObjectPriorities
 {
 	REFOBJ_PRIO_0,
 	REFOBJ_PRIO_COUNT = 32,
 };
-
-
-// Generate a buffer to pass to Post()
-u8 *GetPostBuffer(u32 bytes);
-
-u8 *ResizePostBuffer(u8 *buffer, u32 newBytes);
-
-// Release a buffer provided by GetPostBuffer()
-// Note: Once the buffer is submitted to Post() this is unnecessary
-void ReleasePostBuffer(u8 *buffer);
 
 
 /*
@@ -110,7 +68,7 @@ class ThreadRefObject
 
 public:
     ThreadRefObject(int priorityLevel);
-    virtual ~ThreadRefObject() {}
+    CAT_INLINE virtual ~ThreadRefObject() {}
 
 public:
     void AddRef();
@@ -118,7 +76,8 @@ public:
 };
 
 
-// TLS
+//// TLS
+
 class ThreadPoolLocalStorage
 {
 public:
@@ -132,7 +91,141 @@ public:
 };
 
 
-// Shutdown
+//// Event Completion Objects
+
+// Base class
+struct AsyncBase;
+
+// Data subclass
+template<class TParams> struct AsyncData;
+
+typedef fastdelegate::FastDelegate4<ThreadPoolLocalStorage *, int, AsyncBase *, u32, bool> CompletionCallback;
+
+// Base class (OS-specific)
+#if defined(CAT_OS_WINDOWS)
+
+struct AsyncBase
+{
+protected:
+	OVERLAPPED _ov;
+	u32 _overhead_bytes;
+	u32 _data_bytes;
+	CompletionCallback _callback;
+
+public:
+	CAT_INLINE OVERLAPPED *GetOv() { return &_ov; }
+	CAT_INLINE u32 GetDataBytes() { return _data_bytes; }
+	CAT_INLINE u32 GetOverheadBytes() { return _overhead_bytes; }
+	CAT_INLINE CompletionCallback &GetCallback() { return _callback; }
+
+	// Release memory
+	CAT_INLINE void Release()
+	{
+		RegionAllocator::ii->Release(this);
+	}
+
+	CAT_INLINE void Reset(CompletionCallback &callback, u64 offset = 0)
+	{
+		_ov.hEvent = 0;
+		_ov.Internal = 0;
+		_ov.InternalHigh = 0;
+		_ov.OffsetHigh = (u32)(offset >> 32);
+		_ov.Offset = (u32)offset;
+		_callback = callback;
+	}
+
+	CAT_INLINE u64 GetOffset()
+	{
+		return ((u64)_ov.OffsetHigh << 32) | _ov.Offset;
+	}
+
+	template<class TParams>
+	CAT_INLINE void Subclass(AsyncData<TParams> * &ptr)
+	{
+		ptr = reinterpret_cast<AsyncData<TParams> *>( this );
+	}
+	template<class TParams>
+	CAT_INLINE AsyncData<TParams> *Subclass()
+	{
+		return reinterpret_cast<AsyncData<TParams> *>( this );
+	}
+
+	CAT_INLINE u8 *GetData()
+	{
+		return reinterpret_cast<u8*>( this ) + _overhead_bytes;
+	}
+
+	// Resize object to consume a different number of data bytes,
+	// returning new value pointer to the object
+	CAT_INLINE AsyncBase *Resize(u32 data_bytes)
+	{
+		AsyncBase *obj = reinterpret_cast< AsyncBase* > (
+			RegionAllocator::ii->Resize(this, _overhead_bytes + data_bytes) );
+
+		if (obj) obj->_data_bytes = data_bytes;
+
+		return obj;
+	}
+
+	CAT_INLINE void Zero()
+	{
+		CAT_MEMCLR(GetData(), GetDataBytes());
+	}
+};
+
+#else
+#error "This really only works for Windows right now"
+#endif
+
+
+// Complete Type + Subtype + Data definition
+template<class TParams>
+struct AsyncData : public AsyncBase, public TParams
+{
+private:
+	// Access this with GetData() to avoid casting-related bugs
+	u8 _data[1];
+
+public:
+	typedef AsyncData<TParams> mytype;
+
+	static CAT_INLINE u32 OVERHEAD()
+	{
+		return (u32)offsetof(mytype, _data);
+	}
+
+	// Acquire memory
+	static CAT_INLINE mytype *Acquire(u32 data_bytes = 0)
+	{
+		const u32 OVERHEAD_BYTES = offsetof(mytype, _data);
+
+		// Acquire memory for object
+		mytype *ptr = reinterpret_cast< mytype* > (
+			RegionAllocator::ii->Acquire(OVERHEAD_BYTES + data_bytes) );
+
+		if (ptr)
+		{
+			ptr->_overhead_bytes = OVERHEAD_BYTES;
+			ptr->_data_bytes = data_bytes;
+		}
+
+		return ptr;
+	}
+	static CAT_INLINE bool Acquire(mytype * &ptr, u32 data_bytes = 0)
+	{
+		return !!(ptr = Acquire(data_bytes));
+	}
+};
+
+
+// Simple async data
+struct AsyncEmptyType {};
+
+typedef AsyncData<AsyncEmptyType> AsyncSimpleData;
+
+
+//// Shutdown
+
 class ShutdownWait;
 class ShutdownObserver;
 
@@ -172,16 +265,9 @@ private:
 
     Startup()  : Call to start up the thread pool
     Shutdown() : Call to destroy the thread pool and objects
-
-	This thread pool is specialized for sockets and files.
 */
 class ThreadPool : public Singleton<ThreadPool>
 {
-    friend class TCPServer;
-    friend class TCPConnection;
-    friend class TCPClient;
-    friend class UDPEndpoint;
-	friend class AsyncFile;
     static unsigned int WINAPI CompletionThread(void *port);
 
     CAT_SINGLETON(ThreadPool);
@@ -206,11 +292,11 @@ protected:
 protected:
     bool SpawnThread();
     bool SpawnThreads();
-    bool Associate(HANDLE h, void *key);
 
 public:
     bool Startup();
     void Shutdown();
+	bool Associate(HANDLE h, ThreadRefObject *key);
 
 	int GetProcessorCount() { return _processor_count; }
 	int GetThreadCount() { return _active_thread_count; }

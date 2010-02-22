@@ -83,6 +83,15 @@ public:
         ptr->~T();
         Release(ptr);
     }
+
+	// Acquires a buffer from the allocator that is the size of the type.
+	// It further allocates a number of extra bytes beyond the end of the buffer.
+	// Release the buffer with:
+	//   RegionAllocator::ii->Release(ptr);
+	template<class T> T *AcquireBuffer(u32 extra_bytes = 0)
+	{
+		return reinterpret_cast<T*>( Acquire(sizeof(T) + extra_bytes) );
+	}
 };
 
 // Use STLRegionAllocator in place of the standard STL allocator
@@ -165,17 +174,6 @@ public:
 // Common usage typedefs for using RegionAllocator as the STL allocator
 typedef std::basic_ostringstream<char, std::char_traits<char>, STLRegionAllocator<char> > region_ostringstream;
 typedef std::basic_string<char, std::char_traits<char>, STLRegionAllocator<char> > region_string;
-
-
-// Acquires a buffer from the allocator that is the size of the type.
-// It further allocates a number of extra bytes beyond the end of the buffer.
-// Release the buffer with:
-//   RegionAllocator::ii->Release(ptr);
-template<class T> T *AcquireBuffer(u32 extra_bytes = 0)
-{
-	return reinterpret_cast<T*>(
-		RegionAllocator::ii->Acquire(sizeof(T) + extra_bytes) );
-}
 
 
 } // namespace cat

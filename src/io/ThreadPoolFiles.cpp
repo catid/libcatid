@@ -107,26 +107,17 @@ u64 AsyncFile::GetSize()
 	return size.QuadPart;
 }
 
-bool AsyncFile::BeginRead(u64 offset, u32 bytes, ReadFileCallback callback)
+bool AsyncFile::PostRead(AsyncBase *readOv, u64 offset)
 {
 	AddRef();
 
-	// Loop until memory may be allocated
-	ReadFileOverlapped *readOv;
-	do readOv = AcquireBuffer<ReadFileOverlapped>(bytes);
-	while (!readOv);
+	readOv->Reset(fastdelegate::MakeDelegate(this, &AsyncFile::OnRead), offset);
 
-	readOv->ov.Set(OVOP_READFILE_EX);
-	readOv->ov.ov.Offset = (u32)offset;
-	readOv->ov.ov.OffsetHigh = (u32)(offset >> 32);
-	readOv->callback = callback;
-
-	BOOL result = ReadFile(_file, GetTrailingBytes(readOv), bytes, 0, &readOv->ov.ov);
+	BOOL result = ReadFile(_file, readOv->GetData(), readOv->GetDataBytes(), 0, readOv->GetOv());
 
 	if (!result && GetLastError() != ERROR_IO_PENDING)
 	{
-		WARN("AsyncReadFile") << "ReadFileEx error: " << GetLastError();
-		RegionAllocator::ii->Release(readOv);
+		WARN("AsyncFile") << "ReadFile error: " << GetLastError();
 		ReleaseRef();
 		return false;
 	}
@@ -134,26 +125,17 @@ bool AsyncFile::BeginRead(u64 offset, u32 bytes, ReadFileCallback callback)
 	return true;
 }
 
-bool AsyncFile::BeginBulkRead(u64 offset, u32 bytes, void *buffer)
+bool AsyncFile::PostWrite(AsyncBase *writeOv, u64 offset)
 {
 	AddRef();
 
-	// Loop until memory may be allocated
-	ReadFileBulkOverlapped *readOv;
-	do readOv = AcquireBuffer<ReadFileBulkOverlapped>(0);
-	while (!readOv);
+	writeOv->Reset(fastdelegate::MakeDelegate(this, &AsyncFile::OnWrite), offset);
 
-	readOv->ov.Set(OVOP_READFILE_BULK);
-	readOv->ov.ov.Offset = (u32)offset;
-	readOv->ov.ov.OffsetHigh = (u32)(offset >> 32);
-	readOv->buffer = buffer;
-
-	BOOL result = ReadFile(_file, buffer, bytes, 0, &readOv->ov.ov);
+	BOOL result = WriteFile(_file, writeOv->GetData(), writeOv->GetDataBytes(), 0, writeOv->GetOv());
 
 	if (!result && GetLastError() != ERROR_IO_PENDING)
 	{
-		WARN("AsyncReadFile") << "ReadFileEx bulk error: " << GetLastError();
-		RegionAllocator::ii->Release(readOv);
+		WARN("AsyncFile") << "WriteFile error: " << GetLastError();
 		ReleaseRef();
 		return false;
 	}
@@ -161,32 +143,12 @@ bool AsyncFile::BeginBulkRead(u64 offset, u32 bytes, void *buffer)
 	return true;
 }
 
-bool AsyncFile::BeginWrite(u64 offset, void *buffer, u32 bytes)
+// Return true to release overlapped object memory, or return false to keep it
+bool AsyncFile::OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes)
 {
-	AddRef();
-
-	// Recover the full overlapped structure from data pointer
-	TypedOverlapped *sendOv = reinterpret_cast<TypedOverlapped*>(
-		reinterpret_cast<u8*>(buffer) - sizeof(TypedOverlapped) );
-
-	sendOv->Set(OVOP_WRITEFILE_EX);
-	sendOv->ov.Offset = (u32)offset;
-	sendOv->ov.OffsetHigh = (u32)(offset >> 32);
-
-	BOOL result = WriteFile(_file, buffer, bytes, 0, &sendOv->ov);
-
-	if (!result && GetLastError() != ERROR_IO_PENDING)
-	{
-		WARN("AsyncReadFile") << "WriteFileEx error: " << GetLastError();
-		RegionAllocator::ii->Release(sendOv);
-		ReleaseRef();
-		return false;
-	}
-
-	return true;
+	return true; // Delete overlapped object
 }
-
-void AsyncFile::OnRead(ThreadPoolLocalStorage *tls, ReadFileCallback callback, u64 offset, u8 *data, u32 bytes)
+bool AsyncFile::OnWrite(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes)
 {
-	if (callback) callback(tls, offset, data, bytes);
+	return true; // Delete overlapped object
 }

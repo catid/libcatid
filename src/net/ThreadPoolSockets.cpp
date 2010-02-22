@@ -37,13 +37,32 @@ using namespace cat;
 
 #if defined (CAT_OS_WINDOWS)
 
-// Amount of data to receive overlapped, tuned to exactly fit a
-// 2048-byte buffer in the region allocator.
-static const int RECV_DATA_SIZE = 2048 - sizeof(TypedOverlapped) - 8; // -8 for rebroadcast inflation
-static const int RECVFROM_DATA_SIZE = 2048 - sizeof(RecvFromOverlapped) - 8;
+void cat::ReportUnexpectedSocketError(int error)
+{
+	switch (error)
+	{
+	case 0:
+		// No error
+		break;
+
+	case WSA_OPERATION_ABORTED:
+	case ERROR_CONNECTION_ABORTED:
+	case ERROR_NETNAME_DELETED:  // Operation on closed socket failed
+	case ERROR_MORE_DATA:        // UDP buffer not large enough for whole packet
+	case ERROR_PORT_UNREACHABLE: // Got an ICMP response back that the destination port is unreachable
+	case ERROR_SEM_TIMEOUT:      // Half-open TCP AcceptEx() has reset
+		// Operation failure codes (we don't differentiate between them)
+		break;
+
+	default:
+		// Report other errors this library hasn't been designed to handle yet
+		FATAL("TCPConnexion") << "Unexpected failure: " << SocketGetLastErrorString();
+		break;
+	}
+}
 
 #include "win/TCPServer.cpp"
-#include "win/TCPConnection.cpp"
+#include "win/TCPConnexion.cpp"
 #include "win/TCPClient.cpp"
 #include "win/UDPEndpoint.cpp"
 
@@ -53,7 +72,7 @@ static const int RECVFROM_DATA_SIZE = 2048 - sizeof(RecvFromOverlapped) - 8;
 #elif defined(CAT_OS_LINUX)
 
 #include "linux/TCPServer.cpp"
-#include "linux/TCPConnection.cpp"
+#include "linux/TCPConnexion.cpp"
 #include "linux/TCPClient.cpp"
 #include "linux/UDPEndpoint.cpp"
 
@@ -63,7 +82,7 @@ static const int RECVFROM_DATA_SIZE = 2048 - sizeof(RecvFromOverlapped) - 8;
 #elif defined(CAT_OS_OSX) || defined(CAT_OS_BSD)
 
 #include "bsd/TCPServer.cpp"
-#include "bsd/TCPConnection.cpp"
+#include "bsd/TCPConnexion.cpp"
 #include "bsd/TCPClient.cpp"
 #include "bsd/UDPEndpoint.cpp"
 
@@ -73,7 +92,7 @@ static const int RECVFROM_DATA_SIZE = 2048 - sizeof(RecvFromOverlapped) - 8;
 #else
 
 #include "generic/TCPServer.cpp"
-#include "generic/TCPConnection.cpp"
+#include "generic/TCPConnexion.cpp"
 #include "generic/TCPClient.cpp"
 #include "generic/UDPEndpoint.cpp"
 
