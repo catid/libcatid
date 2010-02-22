@@ -49,7 +49,7 @@ void KeyAgreementInitiator::FreeMemory()
 {
     if (B)
     {
-        memset(a, 0, KeyBytes);
+        CAT_CLR(a, KeyBytes);
         Aligned::Delete(B);
         B = 0;
     }
@@ -88,7 +88,7 @@ KeyAgreementInitiator::~KeyAgreementInitiator()
 
 void KeyAgreementInitiator::SecureErasePrivateKey()
 {
-	if (B) memset(a, 0, KeyBytes);
+	if (B) CAT_CLR(a, KeyBytes);
 }
 
 bool KeyAgreementInitiator::Initialize(BigTwistedEdwards *math, const u8 *responder_public_key, int public_bytes)

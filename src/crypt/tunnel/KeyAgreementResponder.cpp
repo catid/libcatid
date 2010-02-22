@@ -52,9 +52,9 @@ void KeyAgreementResponder::FreeMemory()
 {
     if (b)
     {
-        memset(b, 0, KeyBytes);
-        memset(y[0], 0, KeyBytes);
-        memset(y[1], 0, KeyBytes);
+        CAT_CLR(b, KeyBytes);
+        CAT_CLR(y[0], KeyBytes);
+        CAT_CLR(y[1], KeyBytes);
         Aligned::Delete(b);
         b = 0;
     }

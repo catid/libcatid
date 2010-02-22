@@ -158,7 +158,7 @@ protected:
 	virtual bool OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes);
 
 public:
-	const char *GetFilePath();
+	CAT_INLINE const char *GetFilePath() { return _file_path; }
 
 public:
 	CAT_INLINE u64 VarField(const void *data, u32 bytes)

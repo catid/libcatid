@@ -45,7 +45,7 @@ BigRTL::~BigRTL()
     if (library_memory)
     {
         // Clear and free memory for registers
-        memset(library_memory, 0, library_legs * library_regs * sizeof(Leg));
+        CAT_CLR(library_memory, library_legs * library_regs * sizeof(Leg));
         Aligned::Delete(library_memory);
     }
 }
@@ -64,7 +64,7 @@ void CAT_FASTCALL BigRTL::CopyX(Leg in, Leg *out)
 {
     // Set low leg to input, zero the rest
     out[0] = in;
-    memset(&out[1], 0, (library_legs-1) * sizeof(Leg));
+    CAT_CLR(&out[1], (library_legs-1) * sizeof(Leg));
 }
 
 int CAT_FASTCALL BigRTL::LegsUsed(const Leg *in)

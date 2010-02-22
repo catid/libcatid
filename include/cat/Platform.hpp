@@ -395,7 +395,7 @@ union Float32 {
 #endif
 
 // Because memory clearing is a frequent operation
-#define CAT_MEMCLR(dest, size) memset(dest, 0, size)
+#define CAT_CLR(dest, size) memset(dest, 0, size)
 
 // Works for arrays, also
 #define CAT_OBJCLR(object) memset((void*)&(object), 0, sizeof(object))

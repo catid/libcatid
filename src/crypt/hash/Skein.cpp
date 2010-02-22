@@ -209,7 +209,7 @@ void Skein::End()
     // NOTE: We should always have at least one message hash to perform here
 
     // Pad with zeroes
-    memset(Work + used_bytes, 0, digest_bytes - used_bytes);
+    CAT_CLR(Work + used_bytes, digest_bytes - used_bytes);
 
     // Final message hash
     Tweak[1] |= T1_MASK_FINAL;

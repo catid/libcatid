@@ -292,7 +292,7 @@ void HMAC_MD5::End()
         Work[used_bytes++] = 0x80;
 
         // Pad with zeroes
-        memset(Work + used_bytes, 0, WORK_BYTES - used_bytes);
+        CAT_CLR(Work + used_bytes, WORK_BYTES - used_bytes);
 
         HashComputation(Work, 1, State);
 
@@ -300,7 +300,7 @@ void HMAC_MD5::End()
     }
 
     // Pad out zeroes
-    memset(Work + used_bytes, 0, (WORK_BYTES - 8) - used_bytes);
+    CAT_CLR(Work + used_bytes, (WORK_BYTES - 8) - used_bytes);
 
     // Attach bit count to the end
     *(u64*)&Work[WORK_BYTES - 8] = getLE(byte_counter << 3);
@@ -321,7 +321,7 @@ void HMAC_MD5::End()
     // Pad the hash-as-message as normal and crown it with a byte counter
     byte_counter = 16;
     Work[16] = 0x80;
-    memset(Work + 17, 0, (WORK_BYTES - 8) - 17);
+    CAT_CLR(Work + 17, (WORK_BYTES - 8) - 17);
     *(u64*)&Work[WORK_BYTES - 8] = getLE(byte_counter << 3);
 
     // Final output hash
