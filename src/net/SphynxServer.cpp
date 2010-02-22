@@ -104,7 +104,7 @@ bool Connexion::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes, u32 skip_by
 		return false;
 	}
 
-	return _server_worker->Post(_client_addr, buffer, msg_bytes, skip_bytes);
+	return _server_worker->PostWrite(_client_addr, GetPostBufferBase(buffer)->SetSize(msg_bytes), skip_bytes);
 }
 
 
@@ -755,7 +755,7 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 				memcpy(pkt1_public_key, _public_key, PUBLIC_KEY_BYTES);
 
 				// Attempt to post the packet, ignoring failures
-				Post(src, pkt1, 1+4+PUBLIC_KEY_BYTES);
+				PostWrite(src, GetPostBufferBase(pkt1));
 
 				INANE("Server") << "Accepted hello and posted cookie";
 			}
@@ -833,7 +833,7 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			_conn_map.ReleaseLock();
 
 			// Post packet without checking for errors
-			Post(src, pkt3, PKT3_LEN);
+			PostWrite(src, GetPostBufferBase(pkt3));
 
 			INANE("Server") << "Replayed lost answer to client challenge";
 		}
@@ -854,7 +854,7 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 				*error_field = getLE16(ERR_SERVER_FULL);
 
 				// Post packet without checking for errors
-				Post(src, pkt3, 3);
+				PostWrite(src, GetPostBufferBase(pkt3)->SetSize(3));
 
 				return;
 			}
@@ -904,7 +904,7 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			conn->InitializePayloadBytes(Is6());
 
 			// If packet 3 post fails,
-			if (!Post(src, pkt3, PKT3_LEN))
+			if (!PostWrite(src, GetPostBufferBase(pkt3)))
 			{
 				WARN("Server") << "Ignoring challenge: Unable to post packet";
 
