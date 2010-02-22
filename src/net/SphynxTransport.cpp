@@ -1553,8 +1553,7 @@ bool Transport::WriteReliable(StreamMode stream, u8 *data, u32 data_bytes, Super
 	}
 
 	// Allocate SendQueue object
-	SendQueue *node = reinterpret_cast<SendQueue*>(
-		RegionAllocator::ii->Acquire(sizeof(SendQueue) + data_bytes) );
+	SendQueue *node = RegionAllocator::ii->AcquireBuffer<SendQueue>(data_bytes);
 	if (!node)
 	{
 		CAT_TVV(WARN("Transport") << "Out of memory: Unable to allocate sendqueue object");
