@@ -49,6 +49,8 @@ enum AsyncFileModes
 class AsyncFile : public ThreadRefObject
 {
 	HANDLE _file;
+
+protected:
 	char _file_path[MAX_PATH+1];
 
 public:
