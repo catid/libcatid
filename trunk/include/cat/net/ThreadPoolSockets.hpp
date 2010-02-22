@@ -48,9 +48,11 @@ namespace cat {
 */
 
 class TCPServer;
-class TCPConnection;
+class TCPConnexion;
 class TCPClient;
 class UDPEndpoint;
+
+void ReportUnexpectedSocketError(int error);
 
 
 } // namespace cat
@@ -62,28 +64,28 @@ class UDPEndpoint;
 #include <cat/port/WindowsInclude.hpp>
 
 #include <cat/net/win/TCPServer.hpp>
-#include <cat/net/win/TCPConnection.hpp>
+#include <cat/net/win/TCPConnexion.hpp>
 #include <cat/net/win/TCPClient.hpp>
 #include <cat/net/win/UDPEndpoint.hpp>
 
 #elif defined(CAT_OS_LINUX) // Linux-style eventfd
 
 #include <cat/net/linux/TCPServer.hpp>
-#include <cat/net/linux/TCPConnection.hpp>
+#include <cat/net/linux/TCPConnexion.hpp>
 #include <cat/net/linux/TCPClient.hpp>
 #include <cat/net/linux/UDPEndpoint.hpp>
 
 #elif defined(CAT_OS_OSX) || defined(CAT_OS_BSD) // BSD-style kevent
 
 #include <cat/net/bsd/TCPServer.hpp>
-#include <cat/net/bsd/TCPConnection.hpp>
+#include <cat/net/bsd/TCPConnexion.hpp>
 #include <cat/net/bsd/TCPClient.hpp>
 #include <cat/net/bsd/UDPEndpoint.hpp>
 
 #else // Fall-back
 
 #include <cat/net/generic/TCPServer.hpp>
-#include <cat/net/generic/TCPConnection.hpp>
+#include <cat/net/generic/TCPConnexion.hpp>
 #include <cat/net/generic/TCPClient.hpp>
 #include <cat/net/generic/UDPEndpoint.hpp>
 

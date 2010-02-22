@@ -111,13 +111,11 @@ class Table;
 class TableIndex : public AsyncFile
 {
 	friend class Table;
-	Table *_parent;
-	IHash *_index_hash;
-	TableIndex *_next;
-	TableIndex *_next_unique;
-	TableIndex *_next_loading;
 
 	ShutdownObserver *_shutdown_observer;
+	Table *_parent;
+	IHash *_index_hash;
+	TableIndex *_next, *_next_unique, *_next_loading;
 
 protected:
 	// (multiplier-1) divisible by all prime factors of table size
@@ -137,7 +135,7 @@ protected:
 
 	u64 *_table;
 	u32 _table_bytes;
-	u32 _table_elements; // A power of 2, just subtract 1 to make a mask
+	u32 _table_elements; // A power of 2; just subtract 1 to make a mask
 	u32 _used_elements;
 
 	char _file_path[MAX_PATH+1];
@@ -157,7 +155,7 @@ public:
 	bool Initialize();
 
 protected:
-	void OnReadBulk(ThreadPoolLocalStorage *tls, u64 offset, u8 *data, u32 bytes);
+	virtual bool OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes);
 
 public:
 	const char *GetFilePath();

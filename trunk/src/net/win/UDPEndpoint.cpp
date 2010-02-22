@@ -35,15 +35,6 @@ using namespace std;
 using namespace cat;
 
 
-//// Overlapped types
-
-void RecvFromOverlapped::Reset()
-{
-    CAT_OBJCLR(tov.ov);
-    addrLen = sizeof(addr);
-}
-
-
 //// UDP Endpoint
 
 UDPEndpoint::UDPEndpoint(int priorityLevel)
@@ -177,11 +168,6 @@ bool UDPEndpoint::Bind(bool onlySupportIPv4, Port port, bool ignoreUnreachable, 
     return true;
 }
 
-bool UDPEndpoint::Valid()
-{
-    return _socket != SOCKET_ERROR;
-}
-
 Port UDPEndpoint::GetPort()
 {
     // Get bound port if it was random
@@ -199,152 +185,140 @@ Port UDPEndpoint::GetPort()
     return _port;
 }
 
-bool UDPEndpoint::Post(const NetAddr &addr, void *buffer, u32 bytes, u32 skip_bytes)
+
+//// Begin Event
+
+bool UDPEndpoint::PostWrite(const NetAddr &addr, AsyncBase *writeOv, u32 skip_bytes)
 {
+	if (!writeOv) return false;
+
 	if (_closing)
+	{
+		writeOv->Release();
 		return false;
+	}
 
-    // Recover the full overlapped structure from data pointer
-    TypedOverlapped *sendOv = reinterpret_cast<TypedOverlapped*>(
-		reinterpret_cast<u8*>(buffer) - sizeof(TypedOverlapped) );
-
-    sendOv->Set(OVOP_SENDTO);
-
-    if (!QueueWSASendTo(addr, sendOv, bytes, skip_bytes))
-    {
-        RegionAllocator::ii->Release(sendOv);
-        return false;
-    }
-
-    return true;
-}
-
-bool UDPEndpoint::QueueWSARecvFrom(RecvFromOverlapped *recvOv)
-{
-	if (_closing)
+	// Unwrap NetAddr object to something sockaddr-compatible
+	NetAddr::SockAddr out_addr;
+	int addr_len;
+	if (!addr.Unwrap(out_addr, addr_len))
+	{
+		writeOv->Release();
 		return false;
+	}
+
+	WSABUF wsabuf;
+	wsabuf.buf = reinterpret_cast<CHAR*>( writeOv->GetData() + skip_bytes );
+	wsabuf.len = writeOv->GetDataBytes();
+
+	writeOv->Reset(fastdelegate::MakeDelegate(this, &UDPEndpoint::OnWriteComplete));
 
 	AddRef();
 
-    recvOv->Reset();
+	// Fire off a WSASendTo() and forget about it
+	int result = WSASendTo(_socket, &wsabuf, 1, 0, 0,
+						   reinterpret_cast<const sockaddr*>( &out_addr ),
+						   addr_len, writeOv->GetOv(), 0);
 
-    WSABUF wsabuf;
-    wsabuf.buf = reinterpret_cast<CHAR*>( GetTrailingBytes(recvOv) );
-    wsabuf.len = RECVFROM_DATA_SIZE;
-
-    // Queue up a WSARecvFrom()
-    DWORD flags = 0, bytes;
-    int result = WSARecvFrom(_socket, &wsabuf, 1, &bytes, &flags,
-							 reinterpret_cast<sockaddr*>( &recvOv->addr ),
-							 &recvOv->addrLen, &recvOv->tov.ov, 0); 
-
-    // This overlapped operation will always complete unless
-    // we get an error code other than ERROR_IO_PENDING.
-    if (result && WSAGetLastError() != ERROR_IO_PENDING)
-    {
-        FATAL("UDPEndpoint") << "WSARecvFrom error: " << SocketGetLastErrorString();
-		ReleaseRef();
-        return false;
-    }
-
-    return true;
-}
-
-bool UDPEndpoint::QueueWSARecvFrom()
-{
-    if (_closing)
-        return false;
-
-    // Create a new RecvFromOverlapped structure for receiving
-    RecvFromOverlapped *recvOv = AcquireBuffer<RecvFromOverlapped>(RECVFROM_DATA_SIZE);
-    if (!recvOv)
-    {
-        FATAL("UDPEndpoint") << "Unable to allocate a receive buffer: Out of memory";
-        return false;
-    }
-    recvOv->tov.opcode = OVOP_RECVFROM;
-
-    if (!QueueWSARecvFrom(recvOv))
+	// This overlapped operation will always complete unless
+	// we get an error code other than ERROR_IO_PENDING.
+	if (result && WSAGetLastError() != ERROR_IO_PENDING)
 	{
-		RegionAllocator::ii->Release(recvOv);
+		FATAL("UDPEndpoint") << "WSASendTo error: " << SocketGetLastErrorString();
+		writeOv->Release();
+		ReleaseRef();
 		return false;
 	}
 
 	return true;
 }
 
-void UDPEndpoint::OnWSARecvFromComplete(ThreadPoolLocalStorage *tls, int error, RecvFromOverlapped *recvOv, u32 bytes)
+bool UDPEndpoint::PostRead(AsyncUDPRead *readOv)
 {
-    switch (error)
-    {
-    case 0:
-    case ERROR_MORE_DATA: // Truncated packet
-        OnRead(tls, recvOv->addr,
-			   GetTrailingBytes(recvOv), bytes);
-        break;
-
-    case ERROR_NETWORK_UNREACHABLE:
-    case ERROR_HOST_UNREACHABLE:
-    case ERROR_PROTOCOL_UNREACHABLE:
-    case ERROR_PORT_UNREACHABLE:
-        // ICMP Errors:
-        // These can be easily spoofed and should never be used to terminate a protocol.
-        // This callback should be ignored after the first packet is received from the remote host.
-        OnUnreachable(recvOv->addr);
-    }
-
-	if (!QueueWSARecvFrom(recvOv))
-    {
-        RegionAllocator::ii->Release(recvOv);
-        Close();
-    }
-}
-
-bool UDPEndpoint::QueueWSASendTo(const NetAddr &addr, TypedOverlapped *sendOv, u32 bytes, u32 skip_bytes)
-{
-    if (_closing)
-        return false;
-
-	// Unwrap NetAddr object to something sockaddr-compatible
-	NetAddr::SockAddr out_addr;
-	int addr_len;
-	if (!addr.Unwrap(out_addr, addr_len))
+	if (_closing)
+	{
+		if (readOv) readOv->Release();
 		return false;
+	}
 
-    WSABUF wsabuf;
-    wsabuf.buf = reinterpret_cast<CHAR*>( GetTrailingBytes(sendOv) + skip_bytes );
-    wsabuf.len = bytes;
+	// If unable to get an AsyncServerAccept object,
+	if (!readOv && !AsyncUDPRead::Acquire(readOv, 2048 - AsyncUDPRead::OVERHEAD() - 8))
+	{
+		WARN("TCPClient") << "Out of memory: Unable to allocate AcceptEx overlapped structure";
+		return false;
+	}
 
-    AddRef();
+	readOv->Reset(fastdelegate::MakeDelegate(this, &UDPEndpoint::OnWriteComplete));
+	readOv->addrLen = sizeof(readOv->addr);
 
-    // Fire off a WSASendTo() and forget about it
-    int result = WSASendTo(_socket, &wsabuf, 1, 0, 0,
-						   reinterpret_cast<const sockaddr*>( &out_addr ),
-						   addr_len, &sendOv->ov, 0);
+	WSABUF wsabuf;
+	wsabuf.buf = reinterpret_cast<CHAR*>( readOv->GetData() );
+	wsabuf.len = readOv->GetDataBytes();
 
-    // This overlapped operation will always complete unless
-    // we get an error code other than ERROR_IO_PENDING.
-    if (result && WSAGetLastError() != ERROR_IO_PENDING)
-    {
-        FATAL("UDPEndpoint") << "WSASendTo error: " << SocketGetLastErrorString();
-        ReleaseRef();
-        // Does not destroy the buffer on error -- just returns false
-        return false;
-    }
+	AddRef();
 
-    return true;
+	// Queue up a WSARecvFrom()
+	DWORD flags = 0, bytes;
+	int result = WSARecvFrom(_socket, &wsabuf, 1, &bytes, &flags,
+							 reinterpret_cast<sockaddr*>( &readOv->addr ),
+							 &readOv->addrLen, readOv->GetOv(), 0); 
+
+	// This overlapped operation will always complete unless
+	// we get an error code other than ERROR_IO_PENDING.
+	if (result && WSAGetLastError() != ERROR_IO_PENDING)
+	{
+		FATAL("UDPEndpoint") << "WSARecvFrom error: " << SocketGetLastErrorString();
+		readOv->Release();
+		ReleaseRef();
+		return false;
+	}
+
+	return true;
 }
 
-void UDPEndpoint::OnWSASendToComplete(int error, u32 bytes)
+
+//// Event Completion
+
+bool UDPEndpoint::OnReadComplete(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes)
 {
-    if (_closing)
-        return;
+	AsyncUDPRead *readOv;
+	ov->Subclass(readOv);
 
-    if (error)
-    {
-        Close();
-        return;
-    }
+	switch (error)
+	{
+	case 0:
+	case ERROR_MORE_DATA: // Truncated packet
+		OnRead(tls, readOv->addr, readOv->GetData(), bytes);
+		break;
 
-    OnWrite(bytes);
+	case ERROR_NETWORK_UNREACHABLE:
+	case ERROR_HOST_UNREACHABLE:
+	case ERROR_PROTOCOL_UNREACHABLE:
+	case ERROR_PORT_UNREACHABLE:
+		// ICMP Errors:
+		// These can be easily spoofed and should never be used to terminate a protocol.
+		// This callback should be ignored after the first packet is received from the remote host.
+		OnUnreachable(readOv->addr);
+	}
+
+	if (!PostRead(readOv))
+	{
+		Close();
+	}
+
+	return false; // Do not delete AsyncBase object
+}
+
+bool UDPEndpoint::OnWriteComplete(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes)
+{
+	if (_closing)
+		return true;
+
+	if (error)
+	{
+		Close();
+		return true;
+	}
+
+	return OnWrite(tls, ov, bytes);
 }

@@ -39,22 +39,16 @@
 namespace cat {
 
 
-//// Overlapped Sockets
+//// Completion Object
 
-// WSARecvFrom() OVERLAPPED structure
-struct RecvFromOverlapped
+struct AsyncUDPType
 {
-	TypedOverlapped tov;
-
-	// Not necessarily and IPv6 address,
-	// but we allocate enough space for one
-    int addrLen;
-    sockaddr_in6 addr;
-
-	// data follows...
-
-    void Reset();
+	// Not necessarily an IPv6 address, but we allocate enough space for one
+	int addrLen;
+	sockaddr_in6 addr;
 };
+
+typedef AsyncData<AsyncUDPType> AsyncUDPRead;
 
 
 /*
@@ -64,18 +58,20 @@ struct RecvFromOverlapped
 */
 class UDPEndpoint : public ThreadRefObject
 {
-    friend class ThreadPool;
+	Socket _socket;
+	Port _port;
+	volatile u32 _closing;
+	bool _ipv6;
 
 public:
     UDPEndpoint(int priorityLevel);
     virtual ~UDPEndpoint();
 
-    bool Valid();
+	CAT_INLINE bool Valid() { return _socket != SOCKET_ERROR; }
     Port GetPort();
 
 	// Is6() result is only valid AFTER Bind()
 	CAT_INLINE bool Is6() { return _ipv6; }
-
 	CAT_INLINE bool IsClosed() { return _closing != 0; }
 
     // For servers: Bind() with ignoreUnreachable = true ((default))
@@ -91,28 +87,21 @@ public:
     bool QueueWSARecvFrom();
 
 	// If Is6() == true, the address must be promoted to IPv6
-	// before calling Post() with addr.PromoteTo6()
+	// before calling PostWrite() with addr.PromoteTo6()
 	// skip_bytes: Number of bytes to skip at the start of the post buffer
-	bool Post(const NetAddr &addr, void *data, u32 bytes, u32 skip_bytes = 0);
+	bool PostWrite(const NetAddr &addr, AsyncBase *writeOv, u32 skip_bytes = 0);
+
+private:
+	bool PostRead(AsyncUDPRead *readOv = 0);
+
+	bool OnReadComplete(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes);
+	bool OnWriteComplete(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes);
 
 protected:
-    virtual void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &addr, u8 *data, u32 bytes) = 0; // false = close
-    virtual void OnWrite(u32 bytes) = 0;
-    virtual void OnClose() = 0;
+	virtual void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &addr, u8 *data, u32 bytes) = 0; // false = close
+	virtual bool OnWrite(ThreadPoolLocalStorage *tls, AsyncBase *ov, u32 bytes) { return true; } // false = do not delete AsyncBase object
+	virtual void OnClose() = 0;
     virtual void OnUnreachable(const NetAddr &addr) {} // Only IP is valid
-
-private:
-    Socket _socket;
-    Port _port;
-    volatile u32 _closing;
-	bool _ipv6;
-
-private:
-    bool QueueWSARecvFrom(RecvFromOverlapped *recvOv);
-    void OnWSARecvFromComplete(ThreadPoolLocalStorage *tls, int error, RecvFromOverlapped *recvOv, u32 bytes);
-
-    bool QueueWSASendTo(const NetAddr &addr, TypedOverlapped *sendOv, u32 bytes, u32 skip_bytes);
-    void OnWSASendToComplete(int error, u32 bytes);
 };
 
 

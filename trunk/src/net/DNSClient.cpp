@@ -248,10 +248,11 @@ bool DNSClient::PostDNSPacket(DNSRequest *req, u32 now)
 	int str_len = (int)strlen(req->hostname);
 	int bytes = DNS_HDRLEN + 1 + str_len + 1 + DNS_QUESTION_FOOTER;
 
-	u8 *dns_packet = GetPostBuffer(bytes);
-	if (!dns_packet) return false;
+	AsyncSimpleData *post_buffer = AsyncSimpleData::Acquire(bytes);
+	if (!post_buffer) return false;
 
 	// Write header
+	u8 *dns_packet = post_buffer->GetData();
 	u16 *dns_hdr = reinterpret_cast<u16*>( dns_packet );
 
 	dns_hdr[DNS_ID] = req->id; // Endianness doesn't matter
@@ -291,7 +292,7 @@ bool DNSClient::PostDNSPacket(DNSRequest *req, u32 now)
 	// Post DNS request
 	req->last_post_time = now;
 
-	return Post(_server_addr, dns_packet, bytes);
+	return PostWrite(_server_addr, post_buffer);
 }
 
 bool DNSClient::PerformLookup(DNSRequest *req)
@@ -929,11 +930,6 @@ void DNSClient::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data
 	}
 
 	NotifyRequesters(req);
-}
-
-void DNSClient::OnWrite(u32 bytes)
-{
-
 }
 
 void DNSClient::OnClose()

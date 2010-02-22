@@ -35,15 +35,6 @@ using namespace std;
 using namespace cat;
 
 
-//// Overlapped types
-
-void AcceptExOverlapped::Set(Socket s)
-{
-    tov.Set(OVOP_ACCEPT_EX);
-    acceptSocket = s;
-}
-
-
 //// TCPServer
 
 TCPServer::TCPServer(int priorityLevel)
@@ -187,7 +178,7 @@ void TCPServer::Close()
 }
 
 
-bool TCPServer::QueueAcceptEx()
+bool TCPServer::PostAccept(AsyncServerAccept *acceptOv)
 {
     // Create an unbound overlapped TCP socket for AcceptEx()
 	bool ipv4;
@@ -195,31 +186,33 @@ bool TCPServer::QueueAcceptEx()
 	if (!CreateSocket(SOCK_STREAM, IPPROTO_TCP, false, s, ipv4))
 	{
 		WARN("TCPServer") << "Unable to create an accept socket: " << SocketGetLastErrorString();
+		if (acceptOv) acceptOv->Release();
 		return false;
 	}
 
-    // Create a new AcceptExOverlapped structure
-    AcceptExOverlapped *overlapped = AcquireBuffer<AcceptExOverlapped>();
-    if (!overlapped)
-    {
-        WARN("TCPServer") << "Unable to allocate AcceptEx overlapped structure: Out of memory.";
-        CloseSocket(s);
-        return false;
-    }
-    overlapped->Set(s);
+	// If unable to get an AsyncServerAccept object,
+	if (!acceptOv && !AsyncServerAccept::Acquire(acceptOv))
+	{
+		WARN("TCPServer") << "Unable to allocate AcceptEx overlapped structure: Out of memory.";
+		CloseSocket(s);
+		return false;
+	}
+
+	acceptOv->Reset(fastdelegate::MakeDelegate(this, &TCPServer::OnAccept));
+	acceptOv->acceptSocket = s;
 
     // Queue up an AcceptEx()
     // AcceptEx will complete on the listen socket, not the socket
     // created above that accepts the connection.
-    DWORD received;
 
     AddRef();
 
-	const int addr_buf_len = sizeof(overlapped->addresses.addr) + 16;
+	const int addr_buf_len = sizeof(acceptOv->addresses.addr) + 16;
+	DWORD received;
 
-	BOOL result = _lpfnAcceptEx(_socket, s, &overlapped->addresses, 0,
+	BOOL result = _lpfnAcceptEx(_socket, s, &acceptOv->addresses, 0,
 							   addr_buf_len, addr_buf_len,
-							   &received, &overlapped->tov.ov);
+							   &received, acceptOv->GetOv());
 
     // This overlapped operation will always complete unless
     // we get an error code other than ERROR_IO_PENDING.
@@ -227,7 +220,7 @@ bool TCPServer::QueueAcceptEx()
     {
         WARN("TCPServer") << "AcceptEx error: " << SocketGetLastErrorString();
         CloseSocket(s);
-        RegionAllocator::ii->Release(overlapped);
+        acceptOv->Release();
         ReleaseRef();
         return false;
     }
@@ -237,57 +230,65 @@ bool TCPServer::QueueAcceptEx()
 
 bool TCPServer::QueueAccepts()
 {
-    u32 queueSize = Settings::ref()->getInt("TCPServer.AcceptQueueSize", 8);
-    if (queueSize > 1000) queueSize = 1000;
+    int ctr, queueSize = Bound(1, 1000, Settings::ref()->getInt("TCPServer.AcceptQueueSize", 8));
 
-    u32 queued = queueSize;
-    while (QueueAcceptEx() && queueSize--);
-    queued -= queueSize;
+    for (ctr = queueSize; PostAccept() && ctr > 0; --ctr);
 
-    if (!queued)
+    if (ctr == queueSize)
     {
         FATAL("TCPServer") << "error to pre-accept any connections: Server cannot accept connections";
         return false;
     }
 
-    INFO("TCPServer") << "Queued " << queued << " pre-accepted connections";
+    INANE("TCPServer") << "Queued " << (queueSize - ctr) << " pre-accepted connections";
     return true;
 }
 
-void TCPServer::OnAcceptExComplete(int error, AcceptExOverlapped *overlapped)
+bool TCPServer::OnAccept(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes)
 {
-    if (error)
-    {
-        // ERROR_SEM_TIMEOUT     : This means a half-open connection has reset
-        // ERROR_NETNAME_DELETED : This means a three-way handshake reset before completion
-        if (error == ERROR_SEM_TIMEOUT ||
+	AsyncServerAccept *acceptOv;
+	ov->Subclass(acceptOv);
+
+	if (error)
+	{
+		// ERROR_SEM_TIMEOUT     : This means a half-open connection has reset
+		// ERROR_NETNAME_DELETED : This means a three-way handshake reset before completion
+		if (error == ERROR_SEM_TIMEOUT ||
 			error == ERROR_NETNAME_DELETED)
-        {
-            // Queue up another AcceptEx to fill in for this one
-            QueueAcceptEx();
-        }
+		{
+			// Queue up another AcceptEx to fill in for this one
+			PostAccept(acceptOv);
 
-        return;
-    }
+			return false; // Do not delete acceptOv
+		}
 
-    // Get local and remote socket addresses
-    int localLen = 0, remoteLen = 0;
+		return true;
+	}
+
+	// Get local and remote socket addresses
+	int localLen = 0, remoteLen = 0;
 	sockaddr *local, *remote;
 
-	const int addr_buf_len = sizeof(overlapped->addresses.addr) + 16;
+	const int addr_buf_len = sizeof(acceptOv->addresses.addr) + 16;
 
-	_lpfnGetAcceptExSockAddrs(&overlapped->addresses, 0, addr_buf_len, addr_buf_len,
+	_lpfnGetAcceptExSockAddrs(&acceptOv->addresses, 0, addr_buf_len, addr_buf_len,
 							  &local, &localLen, &remote, &remoteLen);
 
-    // Instantiate a server connection
-    TCPConnection *conn = InstantiateServerConnection();
-    if (!conn) return;
+	// Instantiate a server connection
+	TCPConnexion *conn = InstantiateServerConnexion();
+	if (!conn) return true;
 
-    // Pass the connection parameters to the connection instance for acceptance
-    if (!conn->AcceptConnection(_socket, overlapped->acceptSocket, _lpfnDisconnectEx,
-								NetAddr(local), NetAddr(remote)))
-        conn->ReleaseRef();
+	// Pass the connection parameters to the connection instance for acceptance
+	if (!conn->Accept(tls, _socket, acceptOv->acceptSocket, _lpfnDisconnectEx,
+					  NetAddr(local), NetAddr(remote)))
+	{
+		// Destroy connexion
+		conn->ReleaseRef();
+	}
 
-    // Queue up another AcceptEx to fill in for this one
-    QueueAcceptEx();
+	// Queue up another AcceptEx to fill in for this one
+	// NOTE: QueueAcceptEx() takes over ownership of the acceptOv object from here
+	PostAccept(acceptOv);
+
+	return false; // Do not delete acceptOv
 }

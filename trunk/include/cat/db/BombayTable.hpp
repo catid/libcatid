@@ -49,12 +49,22 @@ struct CacheNode
 class TableIndex;
 class IHash;
 
+// AsyncData objects passed to Table should derive from TableReadBase
+struct TableReadBase
+{
+	CompletionCallback callback;
+};
+
+typedef AsyncData<TableReadBase> AsyncTableReadSimple;
+
+
+///// Table
+
 class Table : public AsyncFile
 {
+	ShutdownObserver *_shutdown_observer;
 	u32 _record_bytes; // Bytes per record (without CacheNode overhead)
 	u64 _next_record; // Next record offset
-
-	ShutdownObserver *_shutdown_observer;
 
 protected:
 	RWLock _lock;
@@ -102,10 +112,8 @@ private:
 	u64 UniqueIndexLookup(const void *data);
 
 public:
-	/*
-		To initialize, run MakeIndex() for all of the desired indexing routines,
-		and then run Initialize(), which will initialize index objects.
-	*/
+	// To initialize, run MakeIndex() for all of the desired indexing routines,
+	// and then run Initialize(), which will initialize index objects.
 	template<class THashFunc> CAT_INLINE TableIndex *MakeIndex(const char *index_file_path, bool unique)
 	{
 		return MakeIndex(index_file_path, new THashFunc, unique);
@@ -114,27 +122,41 @@ public:
 	bool Initialize();
 
 public:
-	u32 GetCacheBytes();
-	u32 GetRecordBytes();
-
-	u8 *GetBuffer();
+	CAT_INLINE u32 GetCacheBytes() { return _cache_bytes; }
+	CAT_INLINE u32 GetRecordBytes() { return _record_bytes; }
 
 protected:
-	void OnRead(ThreadPoolLocalStorage *tls, ReadFileCallback, u64 offset, u8 *data, u32 bytes);
+	virtual bool OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes);
+	virtual bool OnWrite(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes);
 
 protected:
-	void OnReadBulk(ThreadPoolLocalStorage *tls, u64 offset, u8 *data, u32 bytes);
 	bool StartIndexing();
 	bool StartIndexingRead();
 	void OnIndexingDone();
+
+	virtual bool OnIndexRead(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes);
 
 public:
 	bool RequestIndexRebuild(TableIndex *index);
 
 public:
+	template<class TParams>
+	AsyncTableReadSimple *GetQueryBuffer(const CompletionCallback &callback)
+	{
+		AsyncTableReadSimple *ptr = reinterpret_cast<AsyncTableReadSimple *> (
+			AsyncData<TParams>::Acquire(_record_bytes) );
+
+		if (ptr)
+		{
+			ptr->callback = callback;
+		}
+
+		return ptr;
+	}
+
 	u64 Insert(void *data);
 	bool Replace(u64 offset, void *data);
-	bool Query(ThreadPoolLocalStorage *tls, u64 offset, ReadFileCallback);
+	bool Query(ThreadPoolLocalStorage *tls, u64 offset, AsyncTableReadSimple *readOv); // Use GetQueryBuffer<T>()
 	bool Remove(void *data);
 };
 

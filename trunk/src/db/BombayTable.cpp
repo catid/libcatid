@@ -454,36 +454,43 @@ bool Table::Initialize()
 	return true;
 }
 
-u32 Table::GetCacheBytes()
-{
-	return _cache_bytes;
-}
-
-u32 Table::GetRecordBytes()
-{
-	return _record_bytes;
-}
-
 
 //// Callback on read completion
 
-void Table::OnRead(ThreadPoolLocalStorage *tls, ReadFileCallback callback, u64 offset, u8 *data, u32 bytes)
+bool Table::OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes)
 {
+	u64 *data = reinterpret_cast<u64*>( ov->GetData() );
+	u64 offset = ov->GetOffset();
+	AsyncTableReadSimple *readOv;
+	ov->Subclass(readOv);
+
 	// On failure,
-	if (bytes != _record_bytes)
+	if (error || bytes != _record_bytes)
 	{
-		// Invoke callback
-		callback(tls, offset, data, bytes);
+		if (readOv->callback)
+		{
+			return readOv->callback(tls, 1, ov, 0);
+		}
 	}
 	else
 	{
 		// Update cache immediately
 		AutoWriteLock lock(_lock);
-		memcpy(SetOffset(offset), data, bytes);
+
+			memcpy(SetOffset(offset), data, bytes);
+
 		lock.Release();
 
-		callback(tls, offset, data, bytes);
+		if (readOv->callback)
+		{
+			return readOv->callback(tls, error, ov, bytes);
+		}
 	}
+}
+
+bool Table::OnWrite(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes)
+{
+
 }
 
 
@@ -498,7 +505,9 @@ bool Table::StartIndexingRead()
 		return false;
 	}
 
-	if (!BeginBulkRead(_index_read_offset, _index_read_size, buffer))
+	GetQueryBuffer(fastdelegate::MakeDelegate(this, &Table::));
+
+	if (!PostRead(_index_read_offset, _index_read_size, buffer))
 	{
 		WARN("Table") << "Read failure while indexing database " << _file_path;
 		LargeAligned::Release(buffer);
@@ -587,7 +596,7 @@ bool Table::RequestIndexRebuild(TableIndex *index)
 	return StartIndexing();
 }
 
-void Table::OnReadBulk(ThreadPoolLocalStorage *tls, u64 offset, u8 *data, u32 bytes)
+bool Table::OnIndexRead(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes)
 {
 	if (!bytes)
 	{
@@ -615,11 +624,11 @@ void Table::OnReadBulk(ThreadPoolLocalStorage *tls, u64 offset, u8 *data, u32 by
 
 		AutoWriteLock lock(_lock);
 
-			u64 completed = _index_read_completed + bytes;
-			_index_read_completed = completed;
+		u64 completed = _index_read_completed + bytes;
+		_index_read_completed = completed;
 
-			u64 next_read_offset = _index_read_offset + _index_read_size;
-			_index_read_offset = next_read_offset;
+		u64 next_read_offset = _index_read_offset + _index_read_size;
+		_index_read_offset = next_read_offset;
 
 		lock.Release();
 
@@ -677,11 +686,6 @@ u64 Table::UniqueIndexLookup(const void *data)
 
 //// User Interface
 
-u8 *Table::GetBuffer()
-{
-	return GetPostBuffer(_record_bytes);
-}
-
 u64 Table::Insert(void *data)
 {
 	// Update cache immediately
@@ -707,7 +711,12 @@ u64 Table::Insert(void *data)
 	lock.Release();
 
 	// Queue a disk write
-	if (!BeginWrite(offset, data, _record_bytes))
+	AsyncSimpleData *buffer = AsyncSimpleData::Acquire(_record_bytes);
+	if (!buffer) return false;
+
+	memcpy(buffer->GetData(), data, _record_bytes);
+
+	if (!PostWrite(offset, data, _record_bytes))
 	{
 		WARN("Table") << "Disk write failure on insertion for " << _file_path;
 		return INVALID_RECORD_OFFSET;
@@ -728,10 +737,15 @@ bool Table::Replace(u64 offset, void *data)
 	lock.Release();
 
 	// Queue a disk write
-	return BeginWrite(offset, data, _record_bytes);
+	AsyncSimpleData *buffer = AsyncSimpleData::Acquire(_record_bytes);
+	if (!buffer) return false;
+
+	memcpy(buffer->GetData(), data, _record_bytes);
+
+	return PostWrite(offset, data, _record_bytes);
 }
 
-bool Table::Query(ThreadPoolLocalStorage *tls, u64 offset, ReadFileCallback callback)
+bool Table::Query(ThreadPoolLocalStorage *tls, u64 offset, AsyncTableReadSimple *readOv)
 {
 	INANE("Table") << "Query " << offset << " in " << _file_path;
 
@@ -746,14 +760,14 @@ bool Table::Query(ThreadPoolLocalStorage *tls, u64 offset, ReadFileCallback call
 			memcpy(copy, cache, _record_bytes);
 			lock.Release();
 
-			callback(tls, offset, copy, _record_bytes);
+			readOv->callback(tls, 0, readOv, _record_bytes);
 			return true;
 		}
 
 	lock.Release();
 
 	// Queue a disk read if not in cache
-	return BeginRead(offset, _record_bytes, callback);
+	return PostRead(readOv, offset);
 }
 
 bool Table::Remove(void *data)
@@ -778,9 +792,10 @@ bool Table::Remove(void *data)
 	lock.Release();
 
 	// Zero entry on disk
-	u8 *buffer = GetPostBuffer(_record_bytes);
-	memset(buffer, 0, _record_bytes);
+	AsyncSimpleData *buffer = AsyncSimpleData::Acquire(_record_bytes);
+	if (!buffer) return false;
 
-	// Queue a disk write
-	return BeginWrite(offset, buffer, _record_bytes);
+	buffer->Zero();
+
+	return PostWrite(buffer, offset);
 }

@@ -452,7 +452,7 @@
 						>
 					</File>
 					<File
-						RelativePath="..\..\include\cat\net\win\TCPConnection.hpp"
+						RelativePath="..\..\include\cat\net\win\TCPConnexion.hpp"
 						>
 					</File>
 					<File

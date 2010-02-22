@@ -39,25 +39,23 @@
 namespace cat {
 
 
-//// Overlapped Sockets
+//// Completion Object
 
-// AcceptEx() OVERLAPPED structure
-struct AcceptExOverlapped
+struct AsyncServerType
 {
-	TypedOverlapped tov;
     Socket acceptSocket;
 
-    // Space pre-allocated to receive addresses
+	// Space pre-allocated to receive addresses
 	// NOTE: This is not necessarily how the addresses are organized in memory
-    struct
-    {
-		// Not necessarily an IPv6 address either!
+	struct
+	{
+		// Not necessarily an IPv6 address
 		sockaddr_in6 addr[2];
-        u8 padding[2*16];
-    } addresses;
-
-    void Set(Socket s);
+		u8 padding[2*16];
+	} addresses;
 };
+
+typedef AsyncData<AsyncServerType> AsyncServerAccept;
 
 
 /*
@@ -65,12 +63,20 @@ struct AcceptExOverlapped
 
     Object that represents a TCP server bound to a single port
 
-    Overload InstantiateServerConnection() to subclass connections with the server
+    Overload InstantiateServerConnexion() to subclass connections with the server
 */
 class TCPServer : public ThreadRefObject
 {
-    friend class TCPConnection;
-    friend class ThreadPool;
+    friend class TCPConnexion;
+
+	Socket _socket;
+	LPFN_ACCEPTEX _lpfnAcceptEx;
+	LPFN_GETACCEPTEXSOCKADDRS _lpfnGetAcceptExSockAddrs;
+	LPFN_DISCONNECTEX _lpfnDisconnectEx;
+	Port _port;
+
+	bool PostAccept(AsyncServerAccept *acceptOv = 0);
+	bool QueueAccepts();
 
 public:
     TCPServer(int priorityLevel);
@@ -83,20 +89,11 @@ public:
     void Close();
 
 protected:
-    virtual TCPConnection *InstantiateServerConnection() = 0;
+	// Return true to release overlapped object memory, or return false to keep it
+	virtual bool OnAccept(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes);
 
-private:
-    Socket _socket;
-    LPFN_ACCEPTEX _lpfnAcceptEx;
-    LPFN_GETACCEPTEXSOCKADDRS _lpfnGetAcceptExSockAddrs;
-    LPFN_DISCONNECTEX _lpfnDisconnectEx;
-    Port _port;
-
-private:
-    bool QueueAcceptEx();
-    bool QueueAccepts();
-
-    void OnAcceptExComplete(int error, AcceptExOverlapped *overlapped);
+protected:
+	virtual TCPConnexion *InstantiateServerConnexion() = 0;
 };
 
 

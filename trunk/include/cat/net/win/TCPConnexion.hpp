@@ -26,8 +26,8 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_TCP_CONNECTION_HPP
-#define CAT_TCP_CONNECTION_HPP
+#ifndef CAT_TCP_CONNEXION_HPP
+#define CAT_TCP_CONNEXION_HPP
 
 /*
 	Windows version of thread pool sockets with IO Completion Ports
@@ -40,63 +40,59 @@ namespace cat {
 
 
 /*
-    class TCPConnection
+    class TCPConnexion
 
     Object that represents a TCPServer's connection from a TCPClient
 
     Object is instantiated just before accepting a connection
 
-    DisconnectClient()      : Disconnect the client
-    PostToClient()          : Send a message to the client
-    ValidServerConnection() : Returns true iff the connection is valid
+    Disconnect()	: Disconnect the client
+    Post()			: Send a message to the client
+    Valid()			: Returns true if the connection is valid
 
     OnConnectFromClient()   : Return false to deny this connection
     OnReadFromClient()      : Return false to disconnect the client in response to a message
     OnWriteToClient()       : Informs the derived class that data has been sent
     OnDisconectFromClient() : Informs the derived class that the client has disconnected
 */
-class TCPConnection : public ThreadRefObject
+class TCPConnexion : public ThreadRefObject
 {
     friend class TCPServer;
-    friend class ThreadPool;
+
+	Socket _socket;
+	LPFN_DISCONNECTEX _lpfnDisconnectEx;
+	volatile u32 _disconnecting;
+
+	bool Accept(ThreadPoolLocalStorage *tls, Socket listenSocket, Socket acceptSocket,
+		LPFN_DISCONNECTEX lpfnDisconnectEx, const NetAddr &acceptAddress,
+		const NetAddr &remoteClientAddress);
 
 public:
-    TCPConnection(int priorityLevel);
-    virtual ~TCPConnection();
+    TCPConnexion(int priorityLevel);
+    virtual ~TCPConnexion();
 
-    bool ValidServerConnection();
+	CAT_INLINE bool Valid() { return _socket != SOCKET_ERROR; }
 
-    void DisconnectClient();
-    bool PostToClient(void *buffer, u32 bytes);
+    void Disconnect();
+    bool PostWrite(AsyncBase *writeOv);
+
+private:
+	bool PostRead(AsyncSimpleData *readOv = 0);
+	bool PostDisco(AsyncSimpleData *discOv = 0);
+
+private:
+	bool OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes);
+	bool OnWrite(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes);
+	bool OnDisco(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes);
 
 protected:
-    virtual bool OnConnectFromClient(const NetAddr &remoteClientAddress) = 0; // false = disconnect
-    virtual bool OnReadFromClient(u8 *data, u32 bytes) = 0; // false = disconnect
-    virtual void OnWriteToClient(u32 bytes) = 0;
+    virtual bool OnConnectFromClient(ThreadPoolLocalStorage *tls, const NetAddr &remoteClientAddress) = 0; // false = disconnect
+    virtual bool OnReadFromClient(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes) = 0; // false = disconnect
+    virtual bool OnWriteToClient(ThreadPoolLocalStorage *tls, AsyncBase *writeOv, u32 bytes) = 0; // true = delete AsyncBase object
     virtual void OnDisconnectFromClient() = 0;
-
-private:
-    Socket _socket;
-    LPFN_DISCONNECTEX _lpfnDisconnectEx;
-    TypedOverlapped *_recvOv;
-    volatile u32 _disconnecting;
-
-private:
-    bool AcceptConnection(Socket listenSocket, Socket acceptSocket,
-                LPFN_DISCONNECTEX lpfnDisconnectEx, const NetAddr &acceptAddress,
-                const NetAddr &remoteClientAddress);
-
-    bool QueueWSARecv();
-    void OnWSARecvComplete(int error, u32 bytes);
-
-    bool QueueWSASend(TypedOverlapped *sendOv, u32 bytes);
-    void OnWSASendComplete(int error, u32 bytes);
-
-    bool QueueDisconnectEx();
-    void OnDisconnectExComplete(int error);
 };
 
 
 } // namespace cat
 
-#endif // CAT_TCP_CONNECTION_HPP
+#endif // CAT_TCP_CONNEXION_HPP
