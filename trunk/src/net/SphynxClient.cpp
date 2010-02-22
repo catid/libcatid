@@ -237,9 +237,9 @@ void Client::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 
 		// Allocate a post buffer
 		static const int response_len = 1+4+CHALLENGE_BYTES;
-		u8 *response = GetPostBuffer(response_len);
+		AsyncSimpleData *writeOv = AsyncSimpleData::Acquire(response_len);
 
-		if (!response)
+		if (!writeOv)
 		{
 			WARN("Client") << "Unable to connect: Cannot allocate buffer for challenge message";
 			Close();
@@ -247,6 +247,7 @@ void Client::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 		}
 
 		// Construct challenge packet
+		u8 *response = writeOv->GetData();
 		u32 *out_cookie = reinterpret_cast<u32*>( response + 1 );
 		u8 *out_challenge = response + 1+4;
 
@@ -261,7 +262,7 @@ void Client::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 		}
 
 		// Attempt to post a response
-		if (!Post(_server_addr, response, response_len))
+		if (!PostWrite(_server_addr, writeOv))
 		{
 			WARN("Client") << "Unable to connect: Cannot post response to cookie";
 			Close();
@@ -317,15 +318,16 @@ bool Client::PostHello()
 
 	// Allocate space for a post buffer
 	static const int hello_len = 1+4;
-	u8 *hello = GetPostBuffer(hello_len);
+	AsyncSimpleData *writeOv = AsyncSimpleData::Acquire(hello_len);
 
 	// If unable to allocate,
-	if (!hello)
+	if (!writeOv)
 	{
 		WARN("Client") << "Cannot allocate a post buffer for hello packet";
 		return false;
 	}
 
+	u8 *hello = writeOv->GetData();
 	u32 *magic = reinterpret_cast<u32*>( hello + 1 );
 
 	// Construct packet
@@ -333,7 +335,7 @@ bool Client::PostHello()
 	*magic = getLE(PROTOCOL_MAGIC);
 
 	// Attempt to post packet
-	if (!Post(_server_addr, hello, hello_len))
+	if (!PostWrite(_server_addr, writeOv))
 	{
 		WARN("Client") << "Unable to post hello packet";
 		return false;
