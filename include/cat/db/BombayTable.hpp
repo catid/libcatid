@@ -125,7 +125,6 @@ public:
 
 protected:
 	virtual bool OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes);
-	virtual bool OnWrite(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes);
 
 protected:
 	bool StartIndexing();
@@ -138,8 +137,8 @@ public:
 	bool RequestIndexRebuild(TableIndex *index);
 
 public:
-	u64 Insert(void *data);
-	bool Replace(u64 offset, void *data);
+	u64 Insert(AsyncSimpleData *writeOv);
+	bool Replace(AsyncSimpleData *writeOv, u64 offset);
 	bool Query(ThreadPoolLocalStorage *tls, u64 offset, AsyncBase *ov); // Use GetQueryBuffer<T>()
 	bool Remove(void *data);
 };
