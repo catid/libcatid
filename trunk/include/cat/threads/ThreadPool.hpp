@@ -108,12 +108,14 @@ struct AsyncBase
 {
 protected:
 	OVERLAPPED _ov;
+	u8 *_data;
 	u32 _overhead_bytes;
 	u32 _data_bytes;
 	CompletionCallback _callback;
 
 public:
 	CAT_INLINE OVERLAPPED *GetOv() { return &_ov; }
+	CAT_INLINE u8 *GetData() { return _data; }
 	CAT_INLINE u32 GetDataBytes() { return _data_bytes; }
 	CAT_INLINE u32 GetOverheadBytes() { return _overhead_bytes; }
 	CAT_INLINE CompletionCallback &GetCallback() { return _callback; }
@@ -150,26 +152,32 @@ public:
 		return reinterpret_cast<AsyncData<TParams> *>( this );
 	}
 
-	CAT_INLINE u8 *GetData()
+	CAT_INLINE AsyncBase *SetBuffer(void *buffer, u32 bytes)
 	{
-		return reinterpret_cast<u8*>( this ) + _overhead_bytes;
+		_data = reinterpret_cast<u8*>( buffer );
+		_data_bytes = bytes;
+		return this;
 	}
 
 	// Resize object to consume a different number of data bytes,
 	// returning new value pointer to the object
 	CAT_INLINE AsyncBase *Resize(u32 data_bytes)
 	{
-		AsyncBase *obj = reinterpret_cast< AsyncBase* > (
+		AsyncBase *ptr = reinterpret_cast< AsyncBase* > (
 			RegionAllocator::ii->Resize(this, _overhead_bytes + data_bytes) );
 
-		if (obj) obj->_data_bytes = data_bytes;
+		if (ptr)
+		{
+			ptr->_data = reinterpret_cast<u8*>( ptr ) + _overhead_bytes;
+			ptr->_data_bytes = data_bytes;
+		}
 
-		return obj;
+		return ptr;
 	}
 
 	CAT_INLINE void Zero()
 	{
-		CAT_MEMCLR(GetData(), GetDataBytes());
+		CAT_CLR(GetData(), GetDataBytes());
 	}
 };
 
@@ -184,7 +192,7 @@ struct AsyncData : public AsyncBase, public TParams
 {
 private:
 	// Access this with GetData() to avoid casting-related bugs
-	u8 _data[1];
+	u8 _trailing[1];
 
 public:
 	typedef AsyncData<TParams> mytype;
@@ -197,7 +205,7 @@ public:
 	// Acquire memory
 	static CAT_INLINE mytype *Acquire(u32 data_bytes = 0)
 	{
-		const u32 OVERHEAD_BYTES = offsetof(mytype, _data);
+		const u32 OVERHEAD_BYTES = (u32)offsetof(mytype, _data);
 
 		// Acquire memory for object
 		mytype *ptr = reinterpret_cast< mytype* > (
@@ -205,6 +213,7 @@ public:
 
 		if (ptr)
 		{
+			ptr->_data = reinterpret_cast<u8*>( ptr ) + OVERHEAD_BYTES;
 			ptr->_overhead_bytes = OVERHEAD_BYTES;
 			ptr->_data_bytes = data_bytes;
 		}

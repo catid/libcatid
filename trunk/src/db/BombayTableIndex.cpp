@@ -65,6 +65,9 @@ TableIndex::~TableIndex()
 		_shutdown_observer->ReleaseRef();
 }
 
+
+//// Table Management
+
 bool TableIndex::AllocateTable()
 {
 	static const u32 MIN_BYTES = (MIN_ELEMENTS << 4) + TABLE_FOOTER_BYTES;
@@ -97,7 +100,7 @@ bool TableIndex::DoubleTable()
 	if (!page) return false;
 
 	// Zero it
-	memset(page, 0, bytes - TABLE_FOOTER_BYTES);
+	CAT_CLR(page, bytes - TABLE_FOOTER_BYTES);
 
 	// If there is an old table (should be),
 	u64 *old = _table;
@@ -154,10 +157,8 @@ void TableIndex::FreeTable()
 	}
 }
 
-const char *TableIndex::GetFilePath()
-{
-	return _file_path;
-}
+
+//// Access
 
 void TableIndex::Save()
 {
@@ -165,23 +166,20 @@ void TableIndex::Save()
 
 	INFO("TableIndex") << "Saving index file for " << _file_path;
 
+	AsyncSimpleData *writeOv = AsyncSimpleData::Acquire();
+	if (!writeOv)
+	{
+		WARN("TableIndex") << "Out of memory: Unable to write table index for " << _file_path;
+		return;
+	}
+
 	// Write footer
 	_table[_table_elements << 1] = _used_elements;
 	_table[(_table_elements << 1) + 1] = MurmurHash64(_table, _table_bytes - 8, TABLE_CHECK_HASH_SALT);
 
-	u8 *buffer = GetPostBuffer(_table_bytes);
-	if (!buffer)
+	if (!PostWrite(writeOv->SetBuffer(_table, _table_bytes), 0))
 	{
-		WARN("TableIndex") << "Out of memory: Unable to write table index for " << _file_path;
-	}
-	else
-	{
-		memcpy(buffer, _table, _table_bytes);
-
-		if (!BeginWrite(0, buffer, _table_bytes))
-		{
-			WARN("TableIndex") << "Unable to write table index for " << _file_path;
-		}
+		WARN("TableIndex") << "Unable to write table index for " << _file_path;
 	}
 }
 
@@ -210,6 +208,13 @@ bool TableIndex::Initialize()
 		_table_elements = table_elements;
 		_table_bytes = size;
 
+		AsyncSimpleData *readOv = AsyncSimpleData::Acquire();
+		if (!readOv)
+		{
+			WARN("TableIndex") << "Out of memory: Unable to acquire read object for " << _file_path;
+			return false;
+		}
+
 		_table = (u64*)LargeAligned::Acquire(size);
 		if (!_table)
 		{
@@ -217,7 +222,7 @@ bool TableIndex::Initialize()
 			return false;
 		}
 
-		if (!BeginBulkRead(0, size, _table))
+		if (!PostRead(readOv->SetBuffer(_table, size), 0))
 		{
 			FATAL("TableIndex") << "Read failure: Unable to read table index " << _file_path;
 			return false;

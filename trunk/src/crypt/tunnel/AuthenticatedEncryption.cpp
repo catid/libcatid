@@ -169,7 +169,7 @@ void AuthenticatedEncryption::AcceptIV(u64 iv)
         {
             // Set low bit to 1 and all other bits to 0
             iv_bitmap[0] = 1;
-            memset(&iv_bitmap[1], 0, sizeof(iv_bitmap) - sizeof(u64));
+            CAT_CLR(&iv_bitmap[1], sizeof(iv_bitmap) - sizeof(u64));
         }
         else
         {

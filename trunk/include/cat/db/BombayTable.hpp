@@ -55,8 +55,6 @@ struct TableReadBase
 	CompletionCallback callback;
 };
 
-typedef AsyncData<TableReadBase> AsyncTableReadSimple;
-
 
 ///// Table
 
@@ -134,29 +132,15 @@ protected:
 	bool StartIndexingRead();
 	void OnIndexingDone();
 
-	virtual bool OnIndexRead(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes);
+	virtual bool OnIndexingRead(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes);
 
 public:
 	bool RequestIndexRebuild(TableIndex *index);
 
 public:
-	template<class TParams>
-	AsyncTableReadSimple *GetQueryBuffer(const CompletionCallback &callback)
-	{
-		AsyncTableReadSimple *ptr = reinterpret_cast<AsyncTableReadSimple *> (
-			AsyncData<TParams>::Acquire(_record_bytes) );
-
-		if (ptr)
-		{
-			ptr->callback = callback;
-		}
-
-		return ptr;
-	}
-
 	u64 Insert(void *data);
 	bool Replace(u64 offset, void *data);
-	bool Query(ThreadPoolLocalStorage *tls, u64 offset, AsyncTableReadSimple *readOv); // Use GetQueryBuffer<T>()
+	bool Query(ThreadPoolLocalStorage *tls, u64 offset, AsyncBase *ov); // Use GetQueryBuffer<T>()
 	bool Remove(void *data);
 };
 

@@ -90,7 +90,7 @@ RegionAllocator::RegionAllocator()
     // Zero region info memory (just in case) since I noticed that
     // sometimes the allocated pages are not zeroed as the MSDN
     // documentation had led me to believe.
-    memset(region_info[0], 0, base - (u8*)region_info[0]);
+    CAT_CLR(region_info[0], base - (u8*)region_info[0]);
 
     //errors = 0;
 }
