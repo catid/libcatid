@@ -169,12 +169,12 @@ public:
 		u8 *data = reinterpret_cast<u8*>( vdata );
 		const u32 OVERHEAD_BYTES = (u32)(offsetof(AsyncBuffer, _tag));
 
-		if (!data) return 0;
+		if (!data) return Acquire(data_bytes);
 
 		AsyncBuffer *buffer = reinterpret_cast<AsyncBuffer*>( data - OVERHEAD_BYTES );
 
 		buffer = reinterpret_cast<AsyncBuffer*>(
-			RegionAllocator::ii->Resize(data - OVERHEAD_BYTES,
+			RegionAllocator::ii->Resize(buffer,
 			OVERHEAD_BYTES + buffer->_tag_bytes + data_bytes) );
 
 		if (!buffer) return 0;
