@@ -787,8 +787,8 @@ bool Table::Remove(u64 offset)
 
 	INANE("Table") << "Remove " << offset << " from " << _file_path;
 
-	AsyncBuffer *buffer = AsyncBuffer::Acquire(record_bytes);
-	if (!buffer)
+	AsyncBuffer *buffer;
+	if (!AsyncBuffer::Acquire(record_bytes))
 	{
 		WARN("Table") << "Out of memory: Unable to allocate object to remove record from " << _file_path;
 		return false;

@@ -639,7 +639,7 @@ bool Transport::WriteUnreliable(u8 *data, u32 data_bytes)
 		u8 *old_send_buffer = _send_buffer;
 		u32 old_msg_count = _send_buffer_msg_count;
 
-		u8 *msg_buffer = GetPostBuffer(msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
+		u8 *msg_buffer = AsyncBuffer::Acquire(msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
 		if (!msg_buffer)
 		{
 			CAT_TVV(WARN("Transport") << "Out of memory: Unable to allocate unreliable post buffer");
@@ -671,7 +671,7 @@ bool Transport::WriteUnreliable(u8 *data, u32 data_bytes)
 	else
 	{
 		// Create or grow buffer and write into it
-		_send_buffer = ResizePostBuffer(_send_buffer, send_buffer_bytes + msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
+		_send_buffer = AsyncBuffer::Resize(_send_buffer, send_buffer_bytes + msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
 		if (!_send_buffer)
 		{
 			CAT_TVV(WARN("Transport") << "Out of memory: Unable to resize unreliable post buffer");
@@ -835,7 +835,7 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 	}
 
 	// Create or grow buffer and write into it
-	_send_buffer = ResizePostBuffer(send_buffer, send_buffer_bytes + msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
+	_send_buffer = AsyncBuffer::Resize(send_buffer, send_buffer_bytes + msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
 	if (!_send_buffer)
 	{
 		CAT_TVV(WARN("Transport") << "Out of memory: Unable to resize post buffer");
@@ -1041,7 +1041,7 @@ void Transport::WriteACK()
 	{
 		u8 *old_send_buffer = _send_buffer;
 
-		u8 *msg_buffer = GetPostBuffer(msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
+		u8 *msg_buffer = AsyncBuffer::Acquire(msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
 		if (!msg_buffer)
 		{
 			CAT_TVV(WARN("Transport") << "Out of memory: Unable to allocate ACK post buffer");
@@ -1071,7 +1071,7 @@ void Transport::WriteACK()
 	else
 	{
 		// Create or grow buffer and write into it
-		_send_buffer = ResizePostBuffer(_send_buffer, send_buffer_bytes + msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
+		_send_buffer = AsyncBuffer::Resize(_send_buffer, send_buffer_bytes + msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
 		if (!_send_buffer)
 		{
 			CAT_TVV(WARN("Transport") << "Out of memory: Unable to resize ACK post buffer");
@@ -1158,7 +1158,7 @@ bool Transport::PostMTUProbe(ThreadPoolLocalStorage *tls, u16 payload_bytes)
 
 	u32 buffer_bytes = payload_bytes + AuthenticatedEncryption::OVERHEAD_BYTES;
 
-	u8 *buffer = GetPostBuffer(buffer_bytes);
+	u8 *buffer = AsyncBuffer::Acquire(buffer_bytes);
 	if (!buffer) return false;
 
 	// Write header
@@ -1179,7 +1179,7 @@ bool Transport::PostTimePing()
 	const u32 PAYLOAD_BYTES = 1 + DATA_BYTES;
 	const u32 BUFFER_BYTES = PAYLOAD_BYTES + AuthenticatedEncryption::OVERHEAD_BYTES;
 
-	u8 *buffer = GetPostBuffer(BUFFER_BYTES);
+	u8 *buffer = AsyncBuffer::Acquire(BUFFER_BYTES);
 	if (!buffer) return false;
 
 	// Write Time Ping
@@ -1198,7 +1198,7 @@ bool Transport::PostTimePong(u32 client_ts)
 	const u32 PAYLOAD_BYTES = 1 + DATA_BYTES;
 	const u32 BUFFER_BYTES = PAYLOAD_BYTES + AuthenticatedEncryption::OVERHEAD_BYTES;
 
-	u8 *buffer = GetPostBuffer(BUFFER_BYTES);
+	u8 *buffer = AsyncBuffer::Acquire(BUFFER_BYTES);
 	if (!buffer) return false;
 
 	// Write Time Pong
@@ -1218,7 +1218,7 @@ bool Transport::PostDisconnect()
 	const u32 PAYLOAD_BYTES = 1 + DATA_BYTES;
 	const u32 BUFFER_BYTES = PAYLOAD_BYTES + AuthenticatedEncryption::OVERHEAD_BYTES;
 
-	u8 *buffer = GetPostBuffer(BUFFER_BYTES);
+	u8 *buffer = AsyncBuffer::Acquire(BUFFER_BYTES);
 	if (!buffer) return false;
 
 	// Write Disconnect
@@ -1791,7 +1791,7 @@ void Transport::TransmitQueued()
 				}
 
 				// Resize post buffer to contain the bytes that will be written
-				send_buffer = ResizePostBuffer(send_buffer, send_buffer_bytes + write_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
+				send_buffer = AsyncBuffer::Resize(send_buffer, send_buffer_bytes + write_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
 				if (!send_buffer)
 				{
 					CAT_TVV(WARN("Transport") << "Out of memory: Unable to allocate send buffer");

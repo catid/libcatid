@@ -100,11 +100,11 @@ bool Connexion::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes, u32 skip_by
 	if (!_auth_enc.Encrypt(buffer + skip_bytes, buf_bytes, msg_bytes))
 	{
 		WARN("Server") << "Encryption failure while sending packet";
-		ReleasePostBuffer(buffer);
+		AsyncBuffer::Release(buffer);
 		return false;
 	}
 
-	return _server_worker->PostWrite(_client_addr, GetPostBufferBase(buffer)->SetSize(msg_bytes), skip_bytes);
+	return _server_worker->Post(_client_addr, buffer, msg_bytes, skip_bytes);
 }
 
 
@@ -738,7 +738,8 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 		if (*protocol_magic == getLE(PROTOCOL_MAGIC))
 		{
 			// s2c 01 (cookie[4]) (public key[64])
-			u8 *pkt1 = GetPostBuffer(1+4+PUBLIC_KEY_BYTES);
+			const u32 PKT1_LEN = 1+4+PUBLIC_KEY_BYTES;
+			u8 *pkt1 = AsyncBuffer::Acquire(PKT1_LEN);
 
 			// If packet buffer could be allocated,
 			if (pkt1)
@@ -755,7 +756,7 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 				memcpy(pkt1_public_key, _public_key, PUBLIC_KEY_BYTES);
 
 				// Attempt to post the packet, ignoring failures
-				PostWrite(src, GetPostBufferBase(pkt1));
+				Post(src, pkt1, PKT1_LEN);
 
 				INANE("Server") << "Accepted hello and posted cookie";
 			}
@@ -780,7 +781,7 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 
 		// s2c 03 (answer[128]) E{ (server session port[2]) } [13]
 		const int PKT3_LEN = 1+2+ANSWER_BYTES;
-		u8 *pkt3 = GetPostBuffer(PKT3_LEN);
+		u8 *pkt3 = AsyncBuffer::Acquire(PKT3_LEN);
 
 		// Verify that post buffer could be allocated
 		if (!pkt3)
@@ -803,7 +804,7 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			{
 				_conn_map.ReleaseLock();
 				INANE("Server") << "Ignoring challenge: Connection recently deleted";
-				ReleasePostBuffer(pkt3);
+				AsyncBuffer::Release(pkt3);
 				return;
 			}
 
@@ -812,7 +813,7 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			{
 				_conn_map.ReleaseLock();
 				WARN("Server") << "Ignoring challenge: Already in session";
-				ReleasePostBuffer(pkt3);
+				AsyncBuffer::Release(pkt3);
 				return;
 			}
 
@@ -821,7 +822,7 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			{
 				_conn_map.ReleaseLock();
 				INANE("Server") << "Ignoring challenge: Challenge not replayed";
-				ReleasePostBuffer(pkt3);
+				AsyncBuffer::Release(pkt3);
 				return;
 			}
 
@@ -833,7 +834,7 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			_conn_map.ReleaseLock();
 
 			// Post packet without checking for errors
-			PostWrite(src, GetPostBufferBase(pkt3));
+			Post(src, pkt3, PKT3_LEN);
 
 			INANE("Server") << "Replayed lost answer to client challenge";
 		}
@@ -849,12 +850,13 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 				WARN("Server") << "Ignoring challenge: Server is full";
 
 				// Construct packet 4
+				const u32 PKT4_LEN = 1+2;
 				u16 *error_field = reinterpret_cast<u16*>( pkt3 + 1 );
 				pkt3[0] = S2C_ERROR;
 				*error_field = getLE16(ERR_SERVER_FULL);
 
 				// Post packet without checking for errors
-				PostWrite(src, GetPostBufferBase(pkt3)->SetSize(3));
+				Post(src, pkt3, PKT4_LEN);
 
 				return;
 			}
@@ -865,7 +867,7 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 														   pkt3_answer, ANSWER_BYTES, &key_hash))
 			{
 				WARN("Server") << "Ignoring challenge: Invalid";
-				ReleasePostBuffer(pkt3);
+				AsyncBuffer::Release(pkt3);
 				return;
 			}
 
@@ -873,7 +875,7 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			if (!conn)
 			{
 				WARN("Server") << "Out of memory: Unable to allocate new Connexion";
-				ReleasePostBuffer(pkt3);
+				AsyncBuffer::Release(pkt3);
 				return;
 			}
 
@@ -883,7 +885,7 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			if (!_key_agreement_responder.KeyEncryption(&key_hash, &conn->_auth_enc, _session_key))
 			{
 				WARN("Server") << "Ignoring challenge: Unable to key encryption";
-				ReleasePostBuffer(pkt3);
+				AsyncBuffer::Release(pkt3);
 				delete conn;
 				return;
 			}
@@ -904,7 +906,7 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			conn->InitializePayloadBytes(Is6());
 
 			// If packet 3 post fails,
-			if (!PostWrite(src, GetPostBufferBase(pkt3)))
+			if (!Post(src, pkt3, PKT3_LEN))
 			{
 				WARN("Server") << "Ignoring challenge: Unable to post packet";
 
