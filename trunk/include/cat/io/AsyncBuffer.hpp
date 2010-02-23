@@ -90,18 +90,6 @@ public:
 	CAT_INLINE AsyncOv *GetOv() { return &_ov; }
 	CAT_INLINE u64 GetOffset() { return ((u64)_ov.OffsetHigh << 32) | _ov.Offset; }
 
-	CAT_INLINE u8 *GetData() { return _data; }
-	CAT_INLINE u32 GetDataBytes() { return _data_bytes; }
-
-	CAT_INLINE u8 *GetTagData() { return _tag; }
-	CAT_INLINE u32 GetTagBytes() { return _tag_bytes; }
-
-	template<class T>
-	CAT_INLINE T *GetTag() { return reinterpret_cast<T*>( _tag ); }
-
-	template<class T>
-	CAT_INLINE T *GetTag(T * &ptr) { return (ptr = reinterpret_cast<T*>( _tag )); }
-
 	CAT_INLINE bool Call(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes)
 	{
 		if (!_callback) return true;
@@ -112,6 +100,20 @@ public:
 	{
 		CAT_CLR(_data, _data_bytes);
 	}
+
+public:
+	CAT_INLINE u8 *GetData() { return _data; }
+	CAT_INLINE u32 GetDataBytes() { return _data_bytes; }
+
+public:
+	CAT_INLINE u8 *GetTagData() { return _tag; }
+	CAT_INLINE u32 GetTagBytes() { return _tag_bytes; }
+
+	template<class T>
+	CAT_INLINE T *GetTag() { return reinterpret_cast<T*>( _tag ); }
+
+	template<class T>
+	CAT_INLINE T *GetTag(T * &ptr) { return (ptr = reinterpret_cast<T*>( _tag )); }
 
 public:
 	// Acquire with built-in data pointer
