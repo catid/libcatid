@@ -39,25 +39,6 @@
 namespace cat {
 
 
-//// Completion Object
-
-struct AsyncServerType
-{
-    Socket acceptSocket;
-
-	// Space pre-allocated to receive addresses
-	// NOTE: This is not necessarily how the addresses are organized in memory
-	struct
-	{
-		// Not necessarily an IPv6 address
-		sockaddr_in6 addr[2];
-		u8 padding[2*16];
-	} addresses;
-};
-
-typedef AsyncData<AsyncServerType> AsyncServerAccept;
-
-
 /*
     class TCPServer
 
@@ -75,7 +56,21 @@ class TCPServer : public ThreadRefObject
 	LPFN_DISCONNECTEX _lpfnDisconnectEx;
 	Port _port;
 
-	bool PostAccept(AsyncServerAccept *acceptOv = 0);
+	struct AcceptTag
+	{
+		Socket acceptSocket;
+
+		// Space pre-allocated to receive addresses
+		// NOTE: This is not necessarily how the addresses are organized in memory
+		struct
+		{
+			// Not necessarily an IPv6 address
+			sockaddr_in6 addr[2];
+			u8 padding[2*16];
+		} addresses;
+	};
+
+	bool PostAccept(AsyncBuffer *buffer = 0);
 	bool QueueAccepts();
 
 public:
@@ -90,7 +85,7 @@ public:
 
 protected:
 	// Return true to release overlapped object memory, or return false to keep it
-	virtual bool OnAccept(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes);
+	virtual bool OnAccept(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes);
 
 protected:
 	virtual TCPConnexion *InstantiateServerConnexion() = 0;

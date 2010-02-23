@@ -74,21 +74,21 @@ public:
 	CAT_INLINE bool Valid() { return _socket != SOCKET_ERROR; }
 
     void Disconnect();
-    bool PostWrite(AsyncBase *writeOv);
+    bool Post(u8 *data, u32 data_bytes, u32 skip_bytes = 0);
 
 private:
-	bool PostRead(AsyncSimpleData *readOv = 0);
-	bool PostDisco(AsyncSimpleData *discOv = 0);
+	bool Read(AsyncBuffer *buffer = 0);
+	bool Disco(AsyncBuffer *buffer = 0);
 
 private:
-	bool OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes);
-	bool OnWrite(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes);
-	bool OnDisco(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes);
+	bool OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes);
+	bool OnWrite(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes);
+	bool OnDisco(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes);
 
 protected:
     virtual bool OnConnectFromClient(ThreadPoolLocalStorage *tls, const NetAddr &remoteClientAddress) = 0; // false = disconnect
     virtual bool OnReadFromClient(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes) = 0; // false = disconnect
-    virtual bool OnWriteToClient(ThreadPoolLocalStorage *tls, AsyncBase *writeOv, u32 bytes) = 0; // true = delete AsyncBase object
+    virtual bool OnWriteToClient(ThreadPoolLocalStorage *tls, AsyncBuffer *buffer, u32 bytes) = 0; // true = delete AsyncBuffer
     virtual void OnDisconnectFromClient() = 0;
 };
 

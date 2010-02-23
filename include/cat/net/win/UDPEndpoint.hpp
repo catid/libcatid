@@ -39,18 +39,6 @@
 namespace cat {
 
 
-//// Completion Object
-
-struct AsyncUDPType
-{
-	// Not necessarily an IPv6 address, but we allocate enough space for one
-	int addrLen;
-	sockaddr_in6 addr;
-};
-
-typedef AsyncData<AsyncUDPType> AsyncUDPRead;
-
-
 /*
     class UDPEndpoint
 
@@ -62,6 +50,13 @@ class UDPEndpoint : public ThreadRefObject
 	Port _port;
 	volatile u32 _closing;
 	bool _ipv6;
+
+	struct RecvFromTag
+	{
+		// Not necessarily an IPv6 address, but we allocate enough space for one
+		int addrLen;
+		sockaddr_in6 addr;
+	};
 
 public:
     UDPEndpoint(int priorityLevel);
@@ -89,17 +84,17 @@ public:
 	// If Is6() == true, the address must be promoted to IPv6
 	// before calling PostWrite() with addr.PromoteTo6()
 	// skip_bytes: Number of bytes to skip at the start of the post buffer
-	bool PostWrite(const NetAddr &addr, AsyncBase *writeOv, u32 skip_bytes = 0);
+	bool Post(const NetAddr &addr, u8 *data, u32 data_bytes, u32 skip_bytes = 0);
 
 private:
-	bool PostRead(AsyncUDPRead *readOv = 0);
+	bool Read(AsyncBuffer *buffer = 0);
 
-	bool OnReadComplete(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes);
-	bool OnWriteComplete(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes);
+	bool OnReadComplete(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes);
+	bool OnWriteComplete(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes);
 
 protected:
 	virtual void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &addr, u8 *data, u32 bytes) = 0; // false = close
-	virtual bool OnWrite(ThreadPoolLocalStorage *tls, AsyncBase *ov, u32 bytes) { return true; } // false = do not delete AsyncBase object
+	virtual bool OnWrite(ThreadPoolLocalStorage *tls, AsyncBuffer *buffer, u32 bytes) { return true; } // false = do not delete AsyncBase object
 	virtual void OnClose() = 0;
     virtual void OnUnreachable(const NetAddr &addr) {} // Only IP is valid
 };

@@ -178,7 +178,7 @@ void TCPServer::Close()
 }
 
 
-bool TCPServer::PostAccept(AsyncServerAccept *acceptOv)
+bool TCPServer::PostAccept(AsyncBuffer *buffer)
 {
     // Create an unbound overlapped TCP socket for AcceptEx()
 	bool ipv4;
@@ -186,20 +186,23 @@ bool TCPServer::PostAccept(AsyncServerAccept *acceptOv)
 	if (!CreateSocket(SOCK_STREAM, IPPROTO_TCP, false, s, ipv4))
 	{
 		WARN("TCPServer") << "Unable to create an accept socket: " << SocketGetLastErrorString();
-		if (acceptOv) acceptOv->Release();
+		if (buffer) buffer->Release();
 		return false;
 	}
 
 	// If unable to get an AsyncServerAccept object,
-	if (!acceptOv && !AsyncServerAccept::Acquire(acceptOv))
+	if (!buffer && !AsyncBuffer::Acquire(buffer, 0, sizeof(AcceptTag)))
 	{
 		WARN("TCPServer") << "Unable to allocate AcceptEx overlapped structure: Out of memory.";
 		CloseSocket(s);
 		return false;
 	}
 
-	acceptOv->Reset(fastdelegate::MakeDelegate(this, &TCPServer::OnAccept));
-	acceptOv->acceptSocket = s;
+	buffer->Reset(fastdelegate::MakeDelegate(this, &TCPServer::OnAccept));
+
+	AcceptTag *tag;
+	buffer->GetTag(tag);
+	tag->acceptSocket = s;
 
     // Queue up an AcceptEx()
     // AcceptEx will complete on the listen socket, not the socket
@@ -207,12 +210,12 @@ bool TCPServer::PostAccept(AsyncServerAccept *acceptOv)
 
     AddRef();
 
-	const int addr_buf_len = sizeof(acceptOv->addresses.addr) + 16;
+	const int addr_buf_len = sizeof(tag->addresses.addr) + 16;
 	DWORD received;
 
-	BOOL result = _lpfnAcceptEx(_socket, s, &acceptOv->addresses, 0,
+	BOOL result = _lpfnAcceptEx(_socket, s, &tag->addresses, 0,
 							   addr_buf_len, addr_buf_len,
-							   &received, acceptOv->GetOv());
+							   &received, buffer->GetOv());
 
     // This overlapped operation will always complete unless
     // we get an error code other than ERROR_IO_PENDING.
@@ -220,7 +223,7 @@ bool TCPServer::PostAccept(AsyncServerAccept *acceptOv)
     {
         WARN("TCPServer") << "AcceptEx error: " << SocketGetLastErrorString();
         CloseSocket(s);
-        acceptOv->Release();
+        buffer->Release();
         ReleaseRef();
         return false;
     }
@@ -244,10 +247,10 @@ bool TCPServer::QueueAccepts()
     return true;
 }
 
-bool TCPServer::OnAccept(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes)
+bool TCPServer::OnAccept(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes)
 {
-	AsyncServerAccept *acceptOv;
-	ov->Subclass(acceptOv);
+	AcceptTag *tag;
+	buffer->GetTag(tag);
 
 	if (error)
 	{
@@ -257,7 +260,7 @@ bool TCPServer::OnAccept(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, 
 			error == ERROR_NETNAME_DELETED)
 		{
 			// Queue up another AcceptEx to fill in for this one
-			PostAccept(acceptOv);
+			PostAccept(buffer);
 
 			return false; // Do not delete acceptOv
 		}
@@ -269,9 +272,9 @@ bool TCPServer::OnAccept(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, 
 	int localLen = 0, remoteLen = 0;
 	sockaddr *local, *remote;
 
-	const int addr_buf_len = sizeof(acceptOv->addresses.addr) + 16;
+	const int addr_buf_len = sizeof(tag->addresses.addr) + 16;
 
-	_lpfnGetAcceptExSockAddrs(&acceptOv->addresses, 0, addr_buf_len, addr_buf_len,
+	_lpfnGetAcceptExSockAddrs(&tag->addresses, 0, addr_buf_len, addr_buf_len,
 							  &local, &localLen, &remote, &remoteLen);
 
 	// Instantiate a server connection
@@ -279,7 +282,7 @@ bool TCPServer::OnAccept(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, 
 	if (!conn) return true;
 
 	// Pass the connection parameters to the connection instance for acceptance
-	if (!conn->Accept(tls, _socket, acceptOv->acceptSocket, _lpfnDisconnectEx,
+	if (!conn->Accept(tls, _socket, tag->acceptSocket, _lpfnDisconnectEx,
 					  NetAddr(local), NetAddr(remote)))
 	{
 		// Destroy connexion
@@ -288,7 +291,7 @@ bool TCPServer::OnAccept(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, 
 
 	// Queue up another AcceptEx to fill in for this one
 	// NOTE: QueueAcceptEx() takes over ownership of the acceptOv object from here
-	PostAccept(acceptOv);
+	PostAccept(buffer);
 
 	return false; // Do not delete acceptOv
 }

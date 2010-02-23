@@ -90,7 +90,7 @@ bool TCPConnexion::Accept(ThreadPoolLocalStorage *tls, Socket listenSocket, Sock
 
     // Let the derived class determine if the connection should be accepted
     if (!OnConnectFromClient(tls, remoteClientAddress) ||
-		!PostRead())
+		!Read())
 	{
         Disconnect();
 	}
@@ -105,7 +105,7 @@ void TCPConnexion::Disconnect()
 	{
 		OnDisconnectFromClient();
 
-		if (!PostDisco())
+		if (!Disco())
 		{
 			// Release self-reference; will delete this object if no other
 			// objects are maintaining a reference to this one.
@@ -117,33 +117,33 @@ void TCPConnexion::Disconnect()
 
 //// Begin Event
 
-bool TCPConnexion::PostWrite(AsyncBase *writeOv)
+bool TCPConnexion::Post(u8 *data, u32 data_bytes, u32 skip_bytes)
 {
-	if (!writeOv) return false;
+	AsyncBuffer *buffer = AsyncBuffer::Promote(data);
 
 	if (_disconnecting)
 	{
-		writeOv->Release();
+		buffer->Release();
 		return false;
 	}
 
-	writeOv->Reset(fastdelegate::MakeDelegate(this, &TCPConnexion::OnWrite));
+	buffer->Reset(fastdelegate::MakeDelegate(this, &TCPConnexion::OnWrite));
 
 	WSABUF wsabuf;
-	wsabuf.buf = reinterpret_cast<CHAR*>( writeOv->GetData() );
-	wsabuf.len = writeOv->GetDataBytes();
+	wsabuf.buf = reinterpret_cast<CHAR*>( data + skip_bytes );
+	wsabuf.len = data_bytes;
 
 	AddRef();
 
 	// Fire off a WSASend() and forget about it
-	int result = WSASend(_socket, &wsabuf, 1, 0, 0, writeOv->GetOv(), 0);
+	int result = WSASend(_socket, &wsabuf, 1, 0, 0, buffer->GetOv(), 0);
 
 	// This overlapped operation will always complete unless
 	// we get an error code other than ERROR_IO_PENDING.
 	if (result && WSAGetLastError() != ERROR_IO_PENDING)
 	{
 		FATAL("TCPConnexion") << "WSASend error: " << SocketGetLastErrorString();
-		writeOv->Release();
+		buffer->Release();
 		ReleaseRef();
 		return false;
 	}
@@ -151,39 +151,39 @@ bool TCPConnexion::PostWrite(AsyncBase *writeOv)
 	return true;
 }
 
-bool TCPConnexion::PostRead(AsyncSimpleData *readOv)
+bool TCPConnexion::Read(AsyncBuffer *buffer)
 {
 	if (_disconnecting)
 	{
-		if (readOv) readOv->Release();
+		if (buffer) buffer->Release();
 		return false;
 	}
 
 	// If unable to get an AsyncSimpleData object,
-	if (!readOv && !AsyncSimpleData::Acquire(readOv, 2048 - AsyncSimpleData::OVERHEAD() - 8))
+	if (!buffer && !AsyncBuffer::Acquire(buffer, 2048 - AsyncBuffer::OVERHEAD() - 8))
 	{
 		WARN("TCPConnexion") << "Out of memory: Unable to allocate AcceptEx overlapped structure";
 		return false;
 	}
 
-	readOv->Reset(fastdelegate::MakeDelegate(this, &TCPConnexion::OnRead));
+	buffer->Reset(fastdelegate::MakeDelegate(this, &TCPConnexion::OnRead));
 
 	WSABUF wsabuf;
-	wsabuf.buf = reinterpret_cast<CHAR*>( readOv->GetData() );
-	wsabuf.len = readOv->GetDataBytes();
+	wsabuf.buf = reinterpret_cast<CHAR*>( buffer->GetData() );
+	wsabuf.len = buffer->GetDataBytes();
 
 	AddRef();
 
 	// Queue up a WSARecv()
 	DWORD flags = 0, bytes;
-	int result = WSARecv(_socket, &wsabuf, 1, &bytes, &flags, readOv->GetOv(), 0); 
+	int result = WSARecv(_socket, &wsabuf, 1, &bytes, &flags, buffer->GetOv(), 0); 
 
 	// This overlapped operation will always complete unless
 	// we get an error code other than ERROR_IO_PENDING.
 	if (result && WSAGetLastError() != ERROR_IO_PENDING)
 	{
 		FATAL("TCPConnexion") << "WSARecv error: " << SocketGetLastErrorString();
-		readOv->Release();
+		buffer->Release();
 		ReleaseRef();
 		return false;
 	}
@@ -191,27 +191,27 @@ bool TCPConnexion::PostRead(AsyncSimpleData *readOv)
 	return true;
 }
 
-bool TCPConnexion::PostDisco(AsyncSimpleData *discOv)
+bool TCPConnexion::Disco(AsyncBuffer *buffer)
 {
-	if (!discOv && !AsyncSimpleData::Acquire(discOv))
+	if (!buffer && !AsyncBuffer::Acquire(buffer))
 	{
 		WARN("TCPConnexion") << "Out of memory: Unable to allocate overlapped structure";
 		return false;
 	}
 
-	discOv->Reset(fastdelegate::MakeDelegate(this, &TCPConnexion::OnDisco));
+	buffer->Reset(fastdelegate::MakeDelegate(this, &TCPConnexion::OnDisco));
 
     AddRef();
 
     // Queue up a DisconnectEx()
-    BOOL result = _lpfnDisconnectEx(_socket, discOv->GetOv(), 0, 0); 
+    BOOL result = _lpfnDisconnectEx(_socket, buffer->GetOv(), 0, 0); 
 
     // This overlapped operation will always complete unless
     // we get an error code other than ERROR_IO_PENDING.
     if (!result && WSAGetLastError() != ERROR_IO_PENDING)
     {
         FATAL("TCPConnexion") << "DisconnectEx error: " << SocketGetLastErrorString();
-		discOv->Release();
+		buffer->Release();
         ReleaseRef();
         return false;
     }
@@ -222,7 +222,7 @@ bool TCPConnexion::PostDisco(AsyncSimpleData *discOv)
 
 //// Event Completion
 
-bool TCPConnexion::OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBase *readOv, u32 bytes)
+bool TCPConnexion::OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes)
 {
 	if (_disconnecting)
 		return true;
@@ -235,12 +235,12 @@ bool TCPConnexion::OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBase *rea
 	}
 
 	// When WSARecv completes with no data, it indicates a graceful disconnect.
-	if (!bytes || !OnReadFromClient(tls, readOv->GetData(), bytes))
+	if (!bytes || !OnReadFromClient(tls, buffer->GetData(), bytes))
 		Disconnect();
 	else
 	{
 		// Queue up the next receive
-		if (!PostRead(readOv->Subclass<AsyncEmptyType>()))
+		if (!Read(buffer))
 			Disconnect();
 
 		return false; // Do not delete overlapped object
@@ -249,7 +249,7 @@ bool TCPConnexion::OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBase *rea
 	return true; // Delete overlapped object
 }
 
-bool TCPConnexion::OnWrite(ThreadPoolLocalStorage *tls, int error, AsyncBase *writeOv, u32 bytes)
+bool TCPConnexion::OnWrite(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes)
 {
 	if (_disconnecting)
 		return true;
@@ -261,10 +261,10 @@ bool TCPConnexion::OnWrite(ThreadPoolLocalStorage *tls, int error, AsyncBase *wr
 		return true;
 	}
 
-	return OnWriteToClient(tls, writeOv, bytes);
+	return OnWriteToClient(tls, buffer, bytes);
 }
 
-bool TCPConnexion::OnDisco(ThreadPoolLocalStorage *tls, int error, AsyncBase *discOv, u32 bytes)
+bool TCPConnexion::OnDisco(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes)
 {
 	if (error) ReportUnexpectedSocketError(error);
 

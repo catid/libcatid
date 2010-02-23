@@ -73,23 +73,23 @@ public:
 	bool Connect(bool onlySupportIPv4, const NetAddr &remoteServerAddress);
 
 public:
-	bool PostWrite(AsyncBase *writeOv);
+	bool Post(u8 *data, u32 data_bytes, u32 skip_bytes = 0);
 
 private:
-	bool PostConnect(const NetAddr &remoteServerAddress);
-	bool PostRead(AsyncSimpleData *readOv = 0);
-	bool PostDisco(AsyncSimpleData *discOv = 0);
+	bool ConnectEx(const NetAddr &remoteServerAddress);
+	bool Read(AsyncBuffer *buffer = 0);
+	bool Disco(AsyncBuffer *buffer = 0);
 
 private:
-	bool OnConnect(ThreadPoolLocalStorage *tls, int error, AsyncBase *connectOv, u32 bytes);
-	bool OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBase *readOv, u32 bytes);
-	bool OnWrite(ThreadPoolLocalStorage *tls, int error, AsyncBase *writeOv, u32 bytes);
-	bool OnDisco(ThreadPoolLocalStorage *tls, int error, AsyncBase *discOv, u32 bytes);
+	bool OnConnectEx(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes);
+	bool OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes);
+	bool OnWrite(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes);
+	bool OnDisco(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes);
 
 protected:
     virtual void OnConnectToServer(ThreadPoolLocalStorage *tls) = 0;
     virtual bool OnReadFromServer(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes) = 0; // false = disconnect
-    virtual bool OnWriteToServer(ThreadPoolLocalStorage *tls, AsyncBase *writeOv, u32 bytes) = 0; // true = delete AsyncBase object
+    virtual bool OnWriteToServer(ThreadPoolLocalStorage *tls, AsyncBuffer *buffer, u32 bytes) = 0; // true = delete AsyncBase object
     virtual void OnDisconnectFromServer() = 0;
 };
 
@@ -108,7 +108,7 @@ private:
     volatile bool _queuing;
 
     Mutex _queueLock;
-    AsyncBase *_queueBuffer;
+    AsyncBuffer *_queueBuffer;
 
 protected:
     void PostQueuedToServer();
@@ -117,7 +117,7 @@ public:
     TCPClientQueued(int priorityLevel);
     virtual ~TCPClientQueued();
 
-    bool PostWrite(AsyncBase *writeOv);
+    bool Post(u8 *data, u32 data_bytes, u32 skip_bytes = 0);
 };
 
 

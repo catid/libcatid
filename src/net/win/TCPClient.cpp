@@ -81,7 +81,7 @@ bool TCPClient::Connect(bool onlySupportIPv4, const NetAddr &remoteServerAddress
     // Prepare to receive completions in the worker threads
     // Connect to server asynchronously
     if (!ThreadPool::ref()->Associate((HANDLE)s, this) ||
-        !PostConnect(remoteServerAddress))
+        !ConnectEx(remoteServerAddress))
     {
         CloseSocket(s);
         _socket = SOCKET_ERROR;
@@ -98,7 +98,7 @@ void TCPClient::Disconnect()
     {
         OnDisconnectFromServer();
 
-		if (!PostDisco())
+		if (!Disco())
 		{
 			// Release self-reference; will delete this object if no other
 			// objects are maintaining a reference to this one.
@@ -110,7 +110,7 @@ void TCPClient::Disconnect()
 
 //// Begin Event
 
-bool TCPClient::PostConnect(const NetAddr &remoteServerAddress)
+bool TCPClient::ConnectEx(const NetAddr &remoteServerAddress)
 {
     // Get ConnectEx() interface
     GUID GuidConnectEx = WSAID_CONNECTEX;
@@ -134,27 +134,27 @@ bool TCPClient::PostConnect(const NetAddr &remoteServerAddress)
 	}
 
 	// If unable to get an AsyncServerAccept object,
-	AsyncSimpleData *connectOv = AsyncSimpleData::Acquire();
-	if (!connectOv)
+	AsyncBuffer *buffer;
+	if (!AsyncBuffer::Acquire(buffer))
 	{
 		FATAL("TCPClient") << "Out of memory: Unable to allocate ConnectEx overlapped structure";
 		return false;
 	}
 
-	connectOv->Reset(fastdelegate::MakeDelegate(this, &TCPClient::OnConnect));
+	buffer->Reset(fastdelegate::MakeDelegate(this, &TCPClient::OnConnectEx));
 
     AddRef();
 
     // Queue up a ConnectEx()
     BOOL result = lpfnConnectEx(_socket, reinterpret_cast<sockaddr*>( &addr_out ),
-                                addr_len, 0, 0, 0, connectOv->GetOv()); 
+                                addr_len, 0, 0, 0, buffer->GetOv()); 
 
     // This overlapped operation will always complete unless
     // we get an error code other than ERROR_IO_PENDING.
     if (!result && WSAGetLastError() != ERROR_IO_PENDING)
     {
         FATAL("TCPClient") << "ConnectEx error: " << SocketGetLastErrorString();
-        connectOv->Release();
+        buffer->Release();
         ReleaseRef();
         return false;
     }
@@ -162,33 +162,33 @@ bool TCPClient::PostConnect(const NetAddr &remoteServerAddress)
     return true;
 }
 
-bool TCPClient::PostWrite(AsyncBase *writeOv)
+bool TCPClient::Post(u8 *data, u32 data_bytes, u32 skip_bytes)
 {
-	if (!writeOv) return false;
+	AsyncBuffer *buffer = AsyncBuffer::Promote(data);
 
 	if (_disconnecting)
 	{
-		writeOv->Release();
+		buffer->Release();
 		return false;
 	}
 
-	writeOv->Reset(fastdelegate::MakeDelegate(this, &TCPClient::OnWrite));
+	buffer->Reset(fastdelegate::MakeDelegate(this, &TCPClient::OnWrite));
 
 	WSABUF wsabuf;
-	wsabuf.buf = reinterpret_cast<CHAR*>( writeOv->GetData() );
-	wsabuf.len = writeOv->GetDataBytes();
+	wsabuf.buf = reinterpret_cast<CHAR*>( data + skip_bytes );
+	wsabuf.len = data_bytes;
 
 	AddRef();
 
 	// Fire off a WSASend() and forget about it
-	int result = WSASend(_socket, &wsabuf, 1, 0, 0, writeOv->GetOv(), 0);
+	int result = WSASend(_socket, &wsabuf, 1, 0, 0, buffer->GetOv(), 0);
 
 	// This overlapped operation will always complete unless
 	// we get an error code other than ERROR_IO_PENDING.
 	if (result && WSAGetLastError() != ERROR_IO_PENDING)
 	{
 		FATAL("TCPClient") << "WSASend error: " << SocketGetLastErrorString();
-		writeOv->Release();
+		buffer->Release();
 		ReleaseRef();
 		return false;
 	}
@@ -196,39 +196,39 @@ bool TCPClient::PostWrite(AsyncBase *writeOv)
 	return true;
 }
 
-bool TCPClient::PostRead(AsyncSimpleData *readOv)
+bool TCPClient::Read(AsyncBuffer *buffer)
 {
 	if (_disconnecting)
 	{
-		if (readOv) readOv->Release();
+		if (buffer) buffer->Release();
 		return false;
 	}
 
 	// If unable to get an AsyncSimpleData object,
-	if (!readOv && !AsyncSimpleData::Acquire(readOv, 2048 - AsyncSimpleData::OVERHEAD() - 8))
+	if (!buffer && !AsyncBuffer::Acquire(buffer, 2048 - AsyncBuffer::OVERHEAD() - 8))
 	{
 		WARN("TCPClient") << "Out of memory: Unable to allocate AcceptEx overlapped structure";
 		return false;
 	}
 
-	readOv->Reset(fastdelegate::MakeDelegate(this, &TCPClient::OnRead));
+	buffer->Reset(fastdelegate::MakeDelegate(this, &TCPClient::OnRead));
 
 	WSABUF wsabuf;
-	wsabuf.buf = reinterpret_cast<CHAR*>( readOv->GetData() );
-	wsabuf.len = readOv->GetDataBytes();
+	wsabuf.buf = reinterpret_cast<CHAR*>( buffer->GetData() );
+	wsabuf.len = buffer->GetDataBytes();
 
 	AddRef();
 
 	// Queue up a WSARecv()
 	DWORD flags = 0, bytes;
-	int result = WSARecv(_socket, &wsabuf, 1, &bytes, &flags, readOv->GetOv(), 0); 
+	int result = WSARecv(_socket, &wsabuf, 1, &bytes, &flags, buffer->GetOv(), 0); 
 
 	// This overlapped operation will always complete unless
 	// we get an error code other than ERROR_IO_PENDING.
 	if (result && WSAGetLastError() != ERROR_IO_PENDING)
 	{
 		FATAL("TCPClient") << "WSARecv error: " << SocketGetLastErrorString();
-		readOv->Release();
+		buffer->Release();
 		ReleaseRef();
 		return false;
 	}
@@ -236,7 +236,7 @@ bool TCPClient::PostRead(AsyncSimpleData *readOv)
 	return true;
 }
 
-bool TCPClient::PostDisco(AsyncSimpleData *discOv)
+bool TCPClient::Disco(AsyncBuffer *buffer)
 {
     // Get DisconnectEx() interface
     GUID GuidDisconnectEx = WSAID_DISCONNECTEX;
@@ -248,29 +248,29 @@ bool TCPClient::PostDisco(AsyncSimpleData *discOv)
 				 &copied, 0, 0))
     {
         FATAL("TCPClient") << "Unable to get DisconnectEx interface: " << SocketGetLastErrorString();
-		if (discOv) discOv->Release();
+		if (buffer) buffer->Release();
         return false;
     }
 
-	if (!discOv && !AsyncSimpleData::Acquire(discOv))
+	if (!buffer && !AsyncBuffer::Acquire(buffer))
 	{
 		WARN("TCPClient") << "Out of memory: Unable to allocate overlapped structure";
 		return false;
 	}
 
-	discOv->Reset(fastdelegate::MakeDelegate(this, &TCPClient::OnDisco));
+	buffer->Reset(fastdelegate::MakeDelegate(this, &TCPClient::OnDisco));
 
 	AddRef();
 
 	// Queue up a DisconnectEx()
-	BOOL result = lpfnDisconnectEx(_socket, discOv->GetOv(), 0, 0); 
+	BOOL result = lpfnDisconnectEx(_socket, buffer->GetOv(), 0, 0); 
 
 	// This overlapped operation will always complete unless
 	// we get an error code other than ERROR_IO_PENDING.
 	if (!result && WSAGetLastError() != ERROR_IO_PENDING)
 	{
 		FATAL("TCPClient") << "DisconnectEx error: " << SocketGetLastErrorString();
-		discOv->Release();
+		buffer->Release();
 		ReleaseRef();
 		return false;
 	}
@@ -281,7 +281,7 @@ bool TCPClient::PostDisco(AsyncSimpleData *discOv)
 
 //// Event Completion
 
-bool TCPClient::OnConnect(ThreadPoolLocalStorage *tls, int error, AsyncBase *connectOv, u32 bytes)
+bool TCPClient::OnConnectEx(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes)
 {
 	if (_disconnecting)
 		return true;
@@ -305,13 +305,13 @@ bool TCPClient::OnConnect(ThreadPoolLocalStorage *tls, int error, AsyncBase *con
 	OnConnectToServer(tls);
 
 	// Queue up a receive
-	if (!PostRead())
+	if (!Read())
 		Disconnect();
 
 	return true;
 }
 
-bool TCPClient::OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBase *readOv, u32 bytes)
+bool TCPClient::OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes)
 {
 	if (_disconnecting)
 		return true;
@@ -324,12 +324,12 @@ bool TCPClient::OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBase *readOv
 	}
 
 	// When WSARecv completes with no data, it indicates a graceful disconnect.
-	if (!bytes || !OnReadFromServer(tls, readOv->GetData(), bytes))
+	if (!bytes || !OnReadFromServer(tls, buffer->GetData(), bytes))
 		Disconnect();
 	else
 	{
 		// Queue up the next receive
-		if (!PostRead(readOv->Subclass<AsyncEmptyType>()))
+		if (Read(buffer))
 			Disconnect();
 
 		return false; // Do not delete overlapped object
@@ -338,7 +338,7 @@ bool TCPClient::OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBase *readOv
 	return true;
 }
 
-bool TCPClient::OnWrite(ThreadPoolLocalStorage *tls, int error, AsyncBase *writeOv, u32 bytes)
+bool TCPClient::OnWrite(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes)
 {
 	if (_disconnecting)
 		return true;
@@ -350,10 +350,10 @@ bool TCPClient::OnWrite(ThreadPoolLocalStorage *tls, int error, AsyncBase *write
 		return true;
 	}
 
-	return OnWriteToServer(tls, writeOv, bytes);
+	return OnWriteToServer(tls, buffer, bytes);
 }
 
-bool TCPClient::OnDisco(ThreadPoolLocalStorage *tls, int error, AsyncBase *discOv, u32 bytes)
+bool TCPClient::OnDisco(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes)
 {
 	if (error) ReportUnexpectedSocketError(error);
 
@@ -378,10 +378,10 @@ TCPClientQueued::~TCPClientQueued()
     if (_queueBuffer) _queueBuffer->Release();
 }
 
-bool TCPClientQueued::PostWrite(AsyncBase *writeOv)
+bool TCPClientQueued::Post(u8 *data, u32 data_bytes, u32 skip_bytes)
 {
     // Try not to hold a lock if we can help it
-    if (!_queuing) return TCPClient::PostWrite(writeOv);
+    if (!_queuing) return TCPClient::Post(data, data_bytes, skip_bytes);
 
     AutoMutex lock(_queueLock);
 
@@ -390,29 +390,33 @@ bool TCPClientQueued::PostWrite(AsyncBase *writeOv)
     {
         lock.Release();
 
-		return TCPClient::PostWrite(writeOv);
+		return TCPClient::Post(data, data_bytes, skip_bytes);
     }
+
+	AsyncBuffer *buffer = AsyncBuffer::Promote(data);
 
 	// If queue buffer has not been created,
     if (!_queueBuffer)
 	{
-		_queueBuffer = writeOv;
+		_queueBuffer = buffer;
 	}
 	else
     {
 		// Otherwise append to the end of the queue buffer,
 		u32 queue_bytes = _queueBuffer->GetDataBytes();
-		u32 bytes = writeOv->GetDataBytes();
+		u32 bytes = buffer->GetDataBytes();
 
         _queueBuffer = _queueBuffer->Resize(queue_bytes + bytes);
-		if (!_queueBuffer)
+
+		if (_queueBuffer)
 		{
-			writeOv->Release();
-			return false;
+			memcpy(_queueBuffer->GetData() + queue_bytes, data, bytes);
 		}
 
-		memcpy(_queueBuffer->GetData() + queue_bytes, writeOv->GetData(), bytes);
-    }
+		buffer->Release();
+
+		return !!_queueBuffer;
+	}
 
     return true;
 }
@@ -427,7 +431,7 @@ void TCPClientQueued::PostQueuedToServer()
 	// If queue buffer exists,
     if (_queueBuffer)
     {
-		TCPClient::PostWrite(_queueBuffer);
+		TCPClient::Post(_queueBuffer->GetData(), _queueBuffer->GetDataBytes());
         _queueBuffer = 0;
     }
 
