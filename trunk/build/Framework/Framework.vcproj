@@ -390,6 +390,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\include\cat\io\AsyncBuffer.hpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\include\cat\io\Base64.hpp"
 				>
 			</File>
