@@ -164,8 +164,9 @@ public:
 
 	// Change number of data bytes allocated to the buffer
 	// Returns a new data pointer that may be different from the old data pointer
-	static CAT_INLINE u8 *Resize(u8 *data, u32 data_bytes)
+	static CAT_INLINE u8 *Resize(void *vdata, u32 data_bytes)
 	{
+		u8 *data = reinterpret_cast<u8*>( vdata );
 		const u32 OVERHEAD_BYTES = (u32)(offsetof(AsyncBuffer, _tag));
 
 		if (!data) return 0;
@@ -203,8 +204,9 @@ public:
 
 public:
 	// Only works on Acquired() buffers, not Wrap()ed buffers
-	static CAT_INLINE AsyncBuffer *Promote(u8 *data)
+	static CAT_INLINE AsyncBuffer *Promote(void *vdata)
 	{
+		u8 *data = reinterpret_cast<u8*>( vdata );
 		const u32 OVERHEAD_BYTES = (u32)(offsetof(AsyncBuffer, _tag));
 
 		if (!data) return 0;
@@ -221,8 +223,9 @@ public:
 	{
 		RegionAllocator::ii->Release(buffer);
 	}
-	static CAT_INLINE void Release(u8 *data)
+	static CAT_INLINE void Release(void *vdata)
 	{
+		u8 *data = reinterpret_cast<u8*>( vdata );
 		const u32 OVERHEAD_BYTES = (u32)(offsetof(AsyncBuffer, _tag));
 
 		if (!data) return;

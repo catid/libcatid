@@ -140,10 +140,10 @@ public:
 
 public:
 	// Insert an AsyncBuffer data buffer
-	u64 Insert(u8 *data);
+	u64 Insert(void *data);
 
 	// Update with an AsyncBuffer data buffer
-	bool Update(u8 *data, u64 offset);
+	bool Update(void *data, u64 offset);
 
 	// Query with an AsyncBuffer
 	// NOTE: Query() AsyncBuffer tag must derive from AsyncQueryRead
