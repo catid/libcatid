@@ -326,11 +326,9 @@ bool Client::PostHello()
 		return false;
 	}
 
-	u32 *magic = reinterpret_cast<u32*>( hello + 1 );
-
 	// Construct packet
 	hello[0] = C2S_HELLO;
-	*magic = getLE(PROTOCOL_MAGIC);
+	*reinterpret_cast<u32*>( hello + 1 ) = getLE(PROTOCOL_MAGIC);
 
 	// Attempt to post packet
 	if (!Post(_server_addr, hello, hello_len))
