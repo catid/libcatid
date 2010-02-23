@@ -248,7 +248,7 @@ bool UDPEndpoint::Read(AsyncBuffer *buffer)
 		return false;
 	}
 
-	buffer->Reset(fastdelegate::MakeDelegate(this, &UDPEndpoint::OnWriteComplete));
+	buffer->Reset(fastdelegate::MakeDelegate(this, &UDPEndpoint::OnReadComplete));
 
 	RecvFromTag *tag;
 	buffer->GetTag(tag);
