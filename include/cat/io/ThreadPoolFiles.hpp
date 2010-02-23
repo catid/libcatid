@@ -71,8 +71,8 @@ public:
 
 	u64 GetSize();
 
-	bool PostRead(AsyncBuffer *buffer, u64 offset, const AsyncCallback &callback);
-	bool PostWrite(AsyncBuffer *buffer, u64 offset, const AsyncCallback &callback = 0);
+	bool Read(AsyncBuffer *buffer, u64 offset, const AsyncCallback &callback);
+	bool Write(AsyncBuffer *buffer, u64 offset, const AsyncCallback &callback = 0);
 };
 
 

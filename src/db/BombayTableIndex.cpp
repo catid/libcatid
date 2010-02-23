@@ -48,7 +48,7 @@ TableIndex::TableIndex(Table *parent, const char *file_path,
 	_table = 0;
 	_table_elements = 0;
 	_used_elements = 0;
-	_table_bytes = 0;
+	_table_raw_bytes = 0;
 
 	_next = 0;
 	_next_unique = 0;
@@ -82,7 +82,7 @@ bool TableIndex::AllocateTable()
 	FreeTable();
 
 	_table_elements = MIN_ELEMENTS;
-	_table_bytes = MIN_BYTES;
+	_table_raw_bytes = MIN_BYTES;
 	_table = page;
 	_used_elements = 0;
 
@@ -139,7 +139,7 @@ bool TableIndex::DoubleTable()
 	// Choose new table
 	_table = page;
 	_table_elements = target_size;
-	_table_bytes = bytes;
+	_table_raw_bytes = bytes;
 
 	return true;
 }
@@ -152,7 +152,7 @@ void TableIndex::FreeTable()
 
 		_table = 0;
 		_table_elements = 0;
-		_table_bytes = 0;
+		_table_raw_bytes = 0;
 		_used_elements = 0;
 	}
 }
@@ -166,8 +166,8 @@ void TableIndex::Save()
 
 	INFO("TableIndex") << "Saving index file for " << _file_path;
 
-	AsyncSimpleData *writeOv = AsyncSimpleData::Acquire();
-	if (!writeOv)
+	AsyncBuffer *buffer = AsyncBuffer::Wrap(_table, _table_raw_bytes);
+	if (!buffer)
 	{
 		WARN("TableIndex") << "Out of memory: Unable to write table index for " << _file_path;
 		return;
@@ -175,9 +175,9 @@ void TableIndex::Save()
 
 	// Write footer
 	_table[_table_elements << 1] = _used_elements;
-	_table[(_table_elements << 1) + 1] = MurmurHash64(_table, _table_bytes - 8, TABLE_CHECK_HASH_SALT);
+	_table[(_table_elements << 1) + 1] = MurmurHash64(_table, _table_raw_bytes - 8, TABLE_CHECK_HASH_SALT);
 
-	if (!PostWrite(writeOv->SetBuffer(_table, _table_bytes), 0))
+	if (!Write(buffer, 0))
 	{
 		WARN("TableIndex") << "Unable to write table index for " << _file_path;
 	}
@@ -206,14 +206,7 @@ bool TableIndex::Initialize()
 		INFO("TableIndex") << "Requesting read of index file for " << _parent->GetFilePath() << "..";
 
 		_table_elements = table_elements;
-		_table_bytes = size;
-
-		AsyncSimpleData *readOv = AsyncSimpleData::Acquire();
-		if (!readOv)
-		{
-			WARN("TableIndex") << "Out of memory: Unable to acquire read object for " << _file_path;
-			return false;
-		}
+		_table_raw_bytes = size;
 
 		_table = (u64*)LargeAligned::Acquire(size);
 		if (!_table)
@@ -222,7 +215,14 @@ bool TableIndex::Initialize()
 			return false;
 		}
 
-		if (!PostRead(readOv->SetBuffer(_table, size), 0))
+		AsyncBuffer *buffer = AsyncBuffer::Wrap(_table, size);
+		if (!buffer)
+		{
+			WARN("TableIndex") << "Out of memory: Unable to acquire read object for " << _file_path;
+			return false;
+		}
+
+		if (!Read(buffer, 0, fastdelegate::MakeDelegate(this, &TableIndex::OnRead)))
 		{
 			FATAL("TableIndex") << "Read failure: Unable to read table index " << _file_path;
 			return false;
@@ -232,12 +232,12 @@ bool TableIndex::Initialize()
 	return true;
 }
 
-bool TableIndex::OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes)
+bool TableIndex::OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes)
 {
-	u64 *data = reinterpret_cast<u64*>( ov->GetData() );
-	u64 offset = ov->GetOffset();
+	u64 *data = reinterpret_cast<u64*>( buffer->GetData() );
+	u64 offset = buffer->GetOffset();
 
-	if (error || offset != 0 || bytes != _table_bytes || data != _table)
+	if (error || offset != 0 || bytes != _table_raw_bytes || data != _table)
 	{
 		WARN("TableIndex") << "Table index for " << _file_path << " was truncated.  Regenerating index..";
 
@@ -248,7 +248,7 @@ bool TableIndex::OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u
 	// Read footer
 	_used_elements = (u32)_table[_table_elements << 1];
 
-	if (_table[(_table_elements << 1) + 1] != MurmurHash64(_table, _table_bytes - 8, TABLE_CHECK_HASH_SALT))
+	if (_table[(_table_elements << 1) + 1] != MurmurHash64(_table, _table_raw_bytes - 8, TABLE_CHECK_HASH_SALT))
 	{
 		WARN("TableIndex") << "Table index for " << _file_path << " was corrupted.  Regenerating index..";
 
