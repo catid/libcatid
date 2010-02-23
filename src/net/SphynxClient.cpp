@@ -237,7 +237,7 @@ void Client::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 
 		// Allocate a post buffer
 		static const int response_len = 1+4+CHALLENGE_BYTES;
-		u8 *response = GetPostBuffer(response_len);
+		u8 *response = AsyncBuffer::Acquire(response_len);
 
 		if (!response)
 		{
@@ -261,7 +261,7 @@ void Client::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 		}
 
 		// Attempt to post a response
-		if (!PostWrite(_server_addr, GetPostBufferBase(response)))
+		if (!Post(_server_addr, response, response_len))
 		{
 			WARN("Client") << "Unable to connect: Cannot post response to cookie";
 			Close();
@@ -317,7 +317,7 @@ bool Client::PostHello()
 
 	// Allocate space for a post buffer
 	static const int hello_len = 1+4;
-	u8 *hello = GetPostBuffer(hello_len);
+	u8 *hello = AsyncBuffer::Acquire(hello_len);
 
 	// If unable to allocate,
 	if (!hello)
@@ -333,7 +333,7 @@ bool Client::PostHello()
 	*magic = getLE(PROTOCOL_MAGIC);
 
 	// Attempt to post packet
-	if (!PostWrite(_server_addr, GetPostBufferBase(hello)))
+	if (!Post(_server_addr, hello, hello_len))
 	{
 		WARN("Client") << "Unable to post hello packet";
 		return false;
@@ -510,11 +510,11 @@ bool Client::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes, u32 skip_bytes
 	if (!_auth_enc.Encrypt(buffer + skip_bytes, buf_bytes, msg_bytes))
 	{
 		WARN("Client") << "Encryption failure while sending packet";
-		ReleasePostBuffer(buffer);
+		AsyncBuffer::Release(buffer);
 		return false;
 	}
 
-	if (PostWrite(_server_addr, GetPostBufferBase(buffer)->SetSize(msg_bytes), skip_bytes))
+	if (Post(_server_addr, buffer, msg_bytes, skip_bytes))
 	{
 		_last_send_mstsc = Clock::msec_fast();
 		return true;

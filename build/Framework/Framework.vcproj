@@ -389,15 +389,15 @@
 				RelativePath="..\..\include\cat\AllFramework.hpp"
 				>
 			</File>
-			<File
-				RelativePath="..\..\include\cat\io\Base64.hpp"
-				>
-			</File>
 			<Filter
 				Name="io"
 				>
 				<File
 					RelativePath="..\..\include\cat\io\AsyncBuffer.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\io\Base64.hpp"
 					>
 				</File>
 				<File
