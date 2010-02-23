@@ -689,7 +689,7 @@ bool Table::OnQueryRead(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buf
 
 //// User Interface
 
-u64 Table::Insert(u8 *data)
+u64 Table::Insert(void *data)
 {
 	u32 record_bytes = _record_bytes;
 	AsyncBuffer *buffer = AsyncBuffer::Promote(data);
@@ -731,7 +731,7 @@ u64 Table::Insert(u8 *data)
 	return offset;
 }
 
-bool Table::Update(u8 *data, u64 offset)
+bool Table::Update(void *data, u64 offset)
 {
 	u32 record_bytes = _record_bytes;
 	AsyncBuffer *buffer = AsyncBuffer::Promote(data);
@@ -788,7 +788,7 @@ bool Table::Remove(u64 offset)
 	INANE("Table") << "Remove " << offset << " from " << _file_path;
 
 	AsyncBuffer *buffer;
-	if (!AsyncBuffer::Acquire(record_bytes))
+	if (!AsyncBuffer::Acquire(buffer, record_bytes))
 	{
 		WARN("Table") << "Out of memory: Unable to allocate object to remove record from " << _file_path;
 		return false;
