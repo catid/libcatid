@@ -154,7 +154,7 @@ bool UDPEndpoint::Bind(bool onlySupportIPv4, Port port, bool ignoreUnreachable, 
 
     // Prepare to receive completions in the worker threads
     if (!ThreadPool::ref()->Associate((HANDLE)s, this) ||
-        !PostRead())
+        !Read())
     {
         CloseSocket(s);
         _socket = SOCKET_ERROR;
@@ -188,13 +188,13 @@ Port UDPEndpoint::GetPort()
 
 //// Begin Event
 
-bool UDPEndpoint::PostWrite(const NetAddr &addr, AsyncBase *writeOv, u32 skip_bytes)
+bool UDPEndpoint::Post(const NetAddr &addr, u8 *data, u32 data_bytes, u32 skip_bytes)
 {
-	if (!writeOv) return false;
+	AsyncBuffer *buffer = AsyncBuffer::Promote(data);
 
 	if (_closing)
 	{
-		writeOv->Release();
+		buffer->Release();
 		return false;
 	}
 
@@ -203,29 +203,29 @@ bool UDPEndpoint::PostWrite(const NetAddr &addr, AsyncBase *writeOv, u32 skip_by
 	int addr_len;
 	if (!addr.Unwrap(out_addr, addr_len))
 	{
-		writeOv->Release();
+		buffer->Release();
 		return false;
 	}
 
 	WSABUF wsabuf;
-	wsabuf.buf = reinterpret_cast<CHAR*>( writeOv->GetData() + skip_bytes );
-	wsabuf.len = writeOv->GetDataBytes();
+	wsabuf.buf = reinterpret_cast<CHAR*>( data + skip_bytes );
+	wsabuf.len = data_bytes;
 
-	writeOv->Reset(fastdelegate::MakeDelegate(this, &UDPEndpoint::OnWriteComplete));
+	buffer->Reset(fastdelegate::MakeDelegate(this, &UDPEndpoint::OnWriteComplete));
 
 	AddRef();
 
 	// Fire off a WSASendTo() and forget about it
 	int result = WSASendTo(_socket, &wsabuf, 1, 0, 0,
 						   reinterpret_cast<const sockaddr*>( &out_addr ),
-						   addr_len, writeOv->GetOv(), 0);
+						   addr_len, buffer->GetOv(), 0);
 
 	// This overlapped operation will always complete unless
 	// we get an error code other than ERROR_IO_PENDING.
 	if (result && WSAGetLastError() != ERROR_IO_PENDING)
 	{
 		FATAL("UDPEndpoint") << "WSASendTo error: " << SocketGetLastErrorString();
-		writeOv->Release();
+		buffer->Release();
 		ReleaseRef();
 		return false;
 	}
@@ -233,42 +233,45 @@ bool UDPEndpoint::PostWrite(const NetAddr &addr, AsyncBase *writeOv, u32 skip_by
 	return true;
 }
 
-bool UDPEndpoint::PostRead(AsyncUDPRead *readOv)
+bool UDPEndpoint::Read(AsyncBuffer *buffer)
 {
 	if (_closing)
 	{
-		if (readOv) readOv->Release();
+		if (buffer) buffer->Release();
 		return false;
 	}
 
 	// If unable to get an AsyncServerAccept object,
-	if (!readOv && !AsyncUDPRead::Acquire(readOv, 2048 - AsyncUDPRead::OVERHEAD() - 8))
+	if (!buffer && !AsyncBuffer::Acquire(buffer, 2048 - AsyncBuffer::OVERHEAD() - 8, sizeof(RecvFromTag)))
 	{
 		WARN("TCPClient") << "Out of memory: Unable to allocate AcceptEx overlapped structure";
 		return false;
 	}
 
-	readOv->Reset(fastdelegate::MakeDelegate(this, &UDPEndpoint::OnWriteComplete));
-	readOv->addrLen = sizeof(readOv->addr);
+	buffer->Reset(fastdelegate::MakeDelegate(this, &UDPEndpoint::OnWriteComplete));
+
+	RecvFromTag *tag;
+	buffer->GetTag(tag);
+	tag->addrLen = sizeof(tag->addr);
 
 	WSABUF wsabuf;
-	wsabuf.buf = reinterpret_cast<CHAR*>( readOv->GetData() );
-	wsabuf.len = readOv->GetDataBytes();
+	wsabuf.buf = reinterpret_cast<CHAR*>( buffer->GetData() );
+	wsabuf.len = buffer->GetDataBytes();
 
 	AddRef();
 
 	// Queue up a WSARecvFrom()
 	DWORD flags = 0, bytes;
 	int result = WSARecvFrom(_socket, &wsabuf, 1, &bytes, &flags,
-							 reinterpret_cast<sockaddr*>( &readOv->addr ),
-							 &readOv->addrLen, readOv->GetOv(), 0); 
+							 reinterpret_cast<sockaddr*>( &tag->addr ),
+							 &tag->addrLen, buffer->GetOv(), 0); 
 
 	// This overlapped operation will always complete unless
 	// we get an error code other than ERROR_IO_PENDING.
 	if (result && WSAGetLastError() != ERROR_IO_PENDING)
 	{
 		FATAL("UDPEndpoint") << "WSARecvFrom error: " << SocketGetLastErrorString();
-		readOv->Release();
+		buffer->Release();
 		ReleaseRef();
 		return false;
 	}
@@ -279,16 +282,16 @@ bool UDPEndpoint::PostRead(AsyncUDPRead *readOv)
 
 //// Event Completion
 
-bool UDPEndpoint::OnReadComplete(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes)
+bool UDPEndpoint::OnReadComplete(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes)
 {
-	AsyncUDPRead *readOv;
-	ov->Subclass(readOv);
+	RecvFromTag *tag;
+	buffer->GetTag(tag);
 
 	switch (error)
 	{
 	case 0:
 	case ERROR_MORE_DATA: // Truncated packet
-		OnRead(tls, readOv->addr, readOv->GetData(), bytes);
+		OnRead(tls, tag->addr, buffer->GetData(), bytes);
 		break;
 
 	case ERROR_NETWORK_UNREACHABLE:
@@ -298,10 +301,10 @@ bool UDPEndpoint::OnReadComplete(ThreadPoolLocalStorage *tls, int error, AsyncBa
 		// ICMP Errors:
 		// These can be easily spoofed and should never be used to terminate a protocol.
 		// This callback should be ignored after the first packet is received from the remote host.
-		OnUnreachable(readOv->addr);
+		OnUnreachable(tag->addr);
 	}
 
-	if (!PostRead(readOv))
+	if (!Read(buffer))
 	{
 		Close();
 	}
@@ -309,7 +312,7 @@ bool UDPEndpoint::OnReadComplete(ThreadPoolLocalStorage *tls, int error, AsyncBa
 	return false; // Do not delete AsyncBase object
 }
 
-bool UDPEndpoint::OnWriteComplete(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes)
+bool UDPEndpoint::OnWriteComplete(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes)
 {
 	if (_closing)
 		return true;
@@ -320,5 +323,5 @@ bool UDPEndpoint::OnWriteComplete(ThreadPoolLocalStorage *tls, int error, AsyncB
 		return true;
 	}
 
-	return OnWrite(tls, ov, bytes);
+	return OnWrite(tls, buffer, bytes);
 }

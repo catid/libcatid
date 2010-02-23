@@ -358,7 +358,7 @@ unsigned int WINAPI ThreadPool::CompletionThread(void *port)
 {
     DWORD bytes;
     void *key = 0;
-    AsyncBase *ov = 0;
+    AsyncBuffer *buffer = 0;
     int error;
 
 	ThreadPoolLocalStorage tls;
@@ -373,11 +373,11 @@ unsigned int WINAPI ThreadPool::CompletionThread(void *port)
 	for (;;)
     {
 		error = GetQueuedCompletionStatus((HANDLE)port, &bytes,
-										  (PULONG_PTR)&key, (OVERLAPPED**)&ov, INFINITE)
+										  (PULONG_PTR)&key, (OVERLAPPED**)&buffer, INFINITE)
 				? 0 : GetLastError();
 
         // Terminate thread when we receive a zeroed completion packet
-        if (!bytes && !key && !ov)
+        if (!bytes && !key && !buffer)
             return 0;
 
 		// If completion object is NOT specified,
@@ -385,15 +385,15 @@ unsigned int WINAPI ThreadPool::CompletionThread(void *port)
 		if (!obj)
 		{
 			// Release memory for overlapped object
-			ov->Release();
+			buffer->Release();
 		}
 		else
 		{
 			// If completion object callback returns TRUE,
-			if (ov->GetCallback()(&tls, error, ov, bytes))
+			if (buffer->Call(&tls, error, buffer, bytes))
 			{
 				// Release memory for overlapped object
-				ov->Release();
+				buffer->Release();
 			}
 
 			// Release reference held on completion object

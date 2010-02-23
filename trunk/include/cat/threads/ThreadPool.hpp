@@ -93,150 +93,192 @@ public:
 
 //// Event Completion Objects
 
-// Base class
-struct AsyncBase;
+class AsyncBuffer;
 
-// Data subclass
-template<class TParams> struct AsyncData;
-
-typedef fastdelegate::FastDelegate4<ThreadPoolLocalStorage *, int, AsyncBase *, u32, bool> CompletionCallback;
+typedef fastdelegate::FastDelegate4<ThreadPoolLocalStorage *, int, AsyncBuffer *, u32, bool> AsyncCallback;
 
 // Base class (OS-specific)
 #if defined(CAT_OS_WINDOWS)
+	typedef OVERLAPPED AsyncOv;
+#else
+#error "TODO"
+#endif
 
-struct AsyncBase
+/*
+	AsyncBuffer: Utility object representing the buffers for a single I/O operation.
+
+	This is flexible enough to represent network and file IO buffers.
+*/
+class AsyncBuffer
 {
-protected:
-	OVERLAPPED _ov;
+private:
+	AsyncOv _ov;
+	AsyncCallback _callback;
 	u8 *_data;
-	u32 _overhead_bytes;
-	u32 _data_bytes;
-	CompletionCallback _callback;
+	u32 _data_bytes, _tag_bytes;
+	u8 _tag[1];
 
 public:
-	CAT_INLINE OVERLAPPED *GetOv() { return &_ov; }
-	CAT_INLINE u8 *GetData() { return _data; }
-	CAT_INLINE u32 GetDataBytes() { return _data_bytes; }
-	CAT_INLINE u32 GetOverheadBytes() { return _overhead_bytes; }
-	CAT_INLINE CompletionCallback &GetCallback() { return _callback; }
-
-	// Release memory
-	CAT_INLINE void Release()
+	// Reset AsyncOv and set offset and callback
+	CAT_INLINE void Reset(const AsyncCallback &callback, u64 offset = 0)
 	{
-		RegionAllocator::ii->Release(this);
-	}
-
-	CAT_INLINE void Reset(CompletionCallback &callback, u64 offset = 0)
-	{
+#if defined(CAT_OS_WINDOWS)
 		_ov.hEvent = 0;
 		_ov.Internal = 0;
 		_ov.InternalHigh = 0;
 		_ov.OffsetHigh = (u32)(offset >> 32);
 		_ov.Offset = (u32)offset;
+#else
+#error "TODO"
+#endif
 		_callback = callback;
 	}
 
-	CAT_INLINE u64 GetOffset()
-	{
-		return ((u64)_ov.OffsetHigh << 32) | _ov.Offset;
-	}
+public:
+	static CAT_INLINE u32 OVERHEAD() { return (u32)(offsetof(AsyncBuffer, _tag)); }
 
-	template<class TParams>
-	CAT_INLINE void Subclass(AsyncData<TParams> * &ptr)
-	{
-		ptr = reinterpret_cast<AsyncData<TParams> *>( this );
-	}
-	template<class TParams>
-	CAT_INLINE AsyncData<TParams> *Subclass()
-	{
-		return reinterpret_cast<AsyncData<TParams> *>( this );
-	}
+	CAT_INLINE AsyncOv *GetOv() { return &_ov; }
+	CAT_INLINE u64 GetOffset() { return ((u64)_ov.OffsetHigh << 32) | _ov.Offset; }
 
-	CAT_INLINE AsyncBase *SetBuffer(void *buffer, u32 bytes)
+	CAT_INLINE u8 *GetData() { return _data; }
+	CAT_INLINE u32 GetDataBytes() { return _data_bytes; }
+
+	CAT_INLINE u8 *GetTagData() { return _tag; }
+	CAT_INLINE u32 GetTagBytes() { return _tag_bytes; }
+
+	template<class T>
+	CAT_INLINE T *GetTag() { return reinterpret_cast<T*>( _tag ); }
+
+	template<class T>
+	CAT_INLINE T *GetTag(T * &ptr) { return (ptr = reinterpret_cast<T*>( _tag )); }
+
+	CAT_INLINE bool Call(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes)
 	{
-		_data = reinterpret_cast<u8*>( buffer );
-		_data_bytes = bytes;
-		return this;
-	}
-
-	CAT_INLINE AsyncBase *SetSize(u32 bytes)
-	{
-		_data_bytes = bytes;
-		return this;
-	}
-
-	// Resize object to consume a different number of data bytes,
-	// returning new value pointer to the object
-	CAT_INLINE AsyncBase *Resize(u32 data_bytes)
-	{
-		AsyncBase *ptr = reinterpret_cast< AsyncBase* > (
-			RegionAllocator::ii->Resize(this, _overhead_bytes + data_bytes) );
-
-		if (ptr)
-		{
-			ptr->_data = reinterpret_cast<u8*>( ptr ) + _overhead_bytes;
-			ptr->_data_bytes = data_bytes;
-		}
-
-		return ptr;
+		if (!_callback) return true;
+		return _callback(tls, error, buffer, bytes);
 	}
 
 	CAT_INLINE void Zero()
 	{
-		CAT_CLR(GetData(), GetDataBytes());
+		CAT_CLR(_data, _data_bytes);
 	}
-};
-
-#else
-#error "This really only works for Windows right now"
-#endif
-
-
-// Complete Type + Subtype + Data definition
-template<class TParams>
-struct AsyncData : public AsyncBase, public TParams
-{
-private:
-	// Access this with GetData() to avoid casting-related bugs
-	u8 _trailing[1];
 
 public:
-	typedef AsyncData<TParams> mytype;
-
-	static CAT_INLINE u32 OVERHEAD()
+	// Acquire with built-in data pointer
+	static CAT_INLINE AsyncBuffer *Acquire(AsyncBuffer * &ptr, u32 data_bytes = 0, u32 tag_bytes = 0)
 	{
-		return (u32)offsetof(mytype, _data);
+		const u32 OVERHEAD_BYTES = (u32)(offsetof(AsyncBuffer, _tag));
+
+		AsyncBuffer *buffer = reinterpret_cast<AsyncBuffer*>(
+			RegionAllocator::ii->Acquire(OVERHEAD_BYTES + data_bytes + tag_bytes) );
+
+		if (!buffer) return 0;
+
+		buffer->_data_bytes = data_bytes;
+		buffer->_tag_bytes = tag_bytes;
+		buffer->_data = buffer->_tag + tag_bytes;
+
+		return (ptr = buffer);
 	}
 
-	// Acquire memory
-	static CAT_INLINE mytype *Acquire(u32 data_bytes = 0)
+	// Change number of data bytes allocated to the buffer
+	// Returns a new data pointer that may be different from the old data pointer
+	CAT_INLINE AsyncBuffer *Resize(u32 data_bytes)
 	{
-		const u32 OVERHEAD_BYTES = (u32)offsetof(mytype, _data);
+		const u32 OVERHEAD_BYTES = (u32)(offsetof(AsyncBuffer, _tag));
 
-		// Acquire memory for object
-		mytype *ptr = reinterpret_cast< mytype* > (
-			RegionAllocator::ii->Acquire(OVERHEAD_BYTES + data_bytes) );
+		AsyncBuffer *buffer = reinterpret_cast<AsyncBuffer*>(
+			RegionAllocator::ii->Resize( this,
+			OVERHEAD_BYTES + _tag_bytes + data_bytes) );
 
-		if (ptr)
-		{
-			ptr->_data = reinterpret_cast<u8*>( ptr ) + OVERHEAD_BYTES;
-			ptr->_overhead_bytes = OVERHEAD_BYTES;
-			ptr->_data_bytes = data_bytes;
-		}
+		if (!buffer) return 0;
 
-		return ptr;
+		buffer->_data_bytes = data_bytes;
+		buffer->_data = buffer->_tag + buffer->_tag_bytes;
+
+		return buffer;
 	}
-	static CAT_INLINE bool Acquire(mytype * &ptr, u32 data_bytes = 0)
+
+public:
+	// Acquire with built-in data pointer
+	static CAT_INLINE u8 *Acquire(u32 data_bytes = 0, u32 tag_bytes = 0)
 	{
-		return !!(ptr = Acquire(data_bytes));
+		AsyncBuffer *buffer;
+
+		if (!Acquire(buffer, data_bytes, tag_bytes)) return 0;
+
+		return buffer->_data;
+	}
+
+	// Change number of data bytes allocated to the buffer
+	// Returns a new data pointer that may be different from the old data pointer
+	static CAT_INLINE u8 *Resize(u8 *data, u32 data_bytes)
+	{
+		const u32 OVERHEAD_BYTES = (u32)(offsetof(AsyncBuffer, _tag));
+
+		if (!data) return 0;
+
+		AsyncBuffer *buffer = reinterpret_cast<AsyncBuffer*>( data - OVERHEAD_BYTES );
+
+		buffer = reinterpret_cast<AsyncBuffer*>(
+			RegionAllocator::ii->Resize(data - OVERHEAD_BYTES,
+			OVERHEAD_BYTES + buffer->_tag_bytes + data_bytes) );
+
+		if (!buffer) return 0;
+
+		buffer->_data_bytes = data_bytes;
+
+		return (buffer->_data = buffer->_tag + buffer->_tag_bytes);
+	}
+
+public:
+	// Wrap external data pointer
+	static CAT_INLINE AsyncBuffer *Wrap(u8 *data, u32 data_bytes, u32 tag_bytes = 0)
+	{
+		const u32 OVERHEAD_BYTES = (u32)(offsetof(AsyncBuffer, _tag));
+
+		AsyncBuffer *buffer = reinterpret_cast<AsyncBuffer*>(
+			RegionAllocator::ii->Acquire(OVERHEAD_BYTES + tag_bytes) );
+
+		if (!buffer) return 0;
+
+		buffer->_data_bytes = data_bytes;
+		buffer->_tag_bytes = tag_bytes;
+		buffer->_data = data;
+		return buffer;
+	}
+
+public:
+	// Only works on Acquired() buffers, not Wrap()ed buffers
+	static CAT_INLINE AsyncBuffer *Promote(u8 *data)
+	{
+		const u32 OVERHEAD_BYTES = (u32)(offsetof(AsyncBuffer, _tag));
+
+		if (!data) return 0;
+		return reinterpret_cast<AsyncBuffer*>( data - OVERHEAD_BYTES );
+	}
+
+public:
+	// Release memory
+	CAT_INLINE void Release()
+	{
+		RegionAllocator::ii->Release(this);
+	}
+	static CAT_INLINE void Release(AsyncBuffer *buffer)
+	{
+		RegionAllocator::ii->Release(buffer);
+	}
+	static CAT_INLINE void Release(u8 *data)
+	{
+		const u32 OVERHEAD_BYTES = (u32)(offsetof(AsyncBuffer, _tag));
+
+		if (!data) return;
+
+		AsyncBuffer *buffer = reinterpret_cast<AsyncBuffer*>( data - OVERHEAD_BYTES );
+
+		RegionAllocator::ii->Release(buffer);
 	}
 };
-
-
-// Simple async data
-struct AsyncEmptyType {};
-
-typedef AsyncData<AsyncEmptyType> AsyncSimpleData;
 
 
 //// Shutdown

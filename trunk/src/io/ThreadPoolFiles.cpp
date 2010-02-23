@@ -107,13 +107,13 @@ u64 AsyncFile::GetSize()
 	return size.QuadPart;
 }
 
-bool AsyncFile::PostRead(AsyncBase *readOv, u64 offset)
+bool AsyncFile::PostRead(AsyncBuffer *buffer, u64 offset, const AsyncCallback &callback)
 {
 	AddRef();
 
-	readOv->Reset(fastdelegate::MakeDelegate(this, &AsyncFile::OnRead), offset);
+	buffer->Reset(callback, offset);
 
-	BOOL result = ReadFile(_file, readOv->GetData(), readOv->GetDataBytes(), 0, readOv->GetOv());
+	BOOL result = ReadFile(_file, buffer->GetData(), buffer->GetDataBytes(), 0, buffer->GetOv());
 
 	if (!result && GetLastError() != ERROR_IO_PENDING)
 	{
@@ -125,13 +125,13 @@ bool AsyncFile::PostRead(AsyncBase *readOv, u64 offset)
 	return true;
 }
 
-bool AsyncFile::PostWrite(AsyncBase *writeOv, u64 offset)
+bool AsyncFile::PostWrite(AsyncBuffer *buffer, u64 offset, const AsyncCallback &callback)
 {
 	AddRef();
 
-	writeOv->Reset(fastdelegate::MakeDelegate(this, &AsyncFile::OnWrite), offset);
+	buffer->Reset(callback, offset);
 
-	BOOL result = WriteFile(_file, writeOv->GetData(), writeOv->GetDataBytes(), 0, writeOv->GetOv());
+	BOOL result = WriteFile(_file, buffer->GetData(), buffer->GetDataBytes(), 0, buffer->GetOv());
 
 	if (!result && GetLastError() != ERROR_IO_PENDING)
 	{
@@ -141,14 +141,4 @@ bool AsyncFile::PostWrite(AsyncBase *writeOv, u64 offset)
 	}
 
 	return true;
-}
-
-// Return true to release overlapped object memory, or return false to keep it
-bool AsyncFile::OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes)
-{
-	return true; // Delete overlapped object
-}
-bool AsyncFile::OnWrite(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes)
-{
-	return true; // Delete overlapped object
 }

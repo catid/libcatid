@@ -71,13 +71,8 @@ public:
 
 	u64 GetSize();
 
-	bool PostRead(AsyncBase *readOv, u64 offset);
-	bool PostWrite(AsyncBase *writeOv, u64 offset);
-
-protected:
-	// Return true to release overlapped object memory, or return false to keep it
-	virtual bool OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes);
-	virtual bool OnWrite(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes);
+	bool PostRead(AsyncBuffer *buffer, u64 offset, const AsyncCallback &callback);
+	bool PostWrite(AsyncBuffer *buffer, u64 offset, const AsyncCallback &callback = 0);
 };
 
 
