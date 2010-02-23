@@ -107,7 +107,7 @@ u64 AsyncFile::GetSize()
 	return size.QuadPart;
 }
 
-bool AsyncFile::PostRead(AsyncBuffer *buffer, u64 offset, const AsyncCallback &callback)
+bool AsyncFile::Read(AsyncBuffer *buffer, u64 offset, const AsyncCallback &callback)
 {
 	AddRef();
 
@@ -125,7 +125,7 @@ bool AsyncFile::PostRead(AsyncBuffer *buffer, u64 offset, const AsyncCallback &c
 	return true;
 }
 
-bool AsyncFile::PostWrite(AsyncBuffer *buffer, u64 offset, const AsyncCallback &callback)
+bool AsyncFile::Write(AsyncBuffer *buffer, u64 offset, const AsyncCallback &callback)
 {
 	AddRef();
 

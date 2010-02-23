@@ -134,7 +134,7 @@ protected:
 	RWLock _lock;
 
 	u64 *_table;
-	u32 _table_bytes;
+	u32 _table_raw_bytes;
 	u32 _table_elements; // A power of 2; just subtract 1 to make a mask
 	u32 _used_elements;
 
@@ -155,7 +155,7 @@ public:
 	bool Initialize();
 
 protected:
-	virtual bool OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes);
+	virtual bool OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes);
 
 public:
 	CAT_INLINE const char *GetFilePath() { return _file_path; }

@@ -455,52 +455,18 @@ bool Table::Initialize()
 }
 
 
-//// Callback on read completion
-
-bool Table::OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes)
-{
-	u64 *data = reinterpret_cast<u64*>( ov->GetData() );
-	u64 offset = ov->GetOffset();
-	AsyncData<TableReadBase> *readOv;
-	ov->Subclass(readOv);
-
-	// On failure,
-	if (error || bytes < _record_bytes)
-	{
-		error = 1;
-		bytes = 0;
-	}
-	else if (bytes == _record_bytes)
-	{
-		// Update cache immediately
-		AutoWriteLock lock(_lock);
-
-		memcpy(SetOffset(offset), data, bytes);
-
-		lock.Release();
-	}
-
-	if (!readOv->callback)
-		return true; // Delete ov object
-
-	return readOv->callback(tls, error, ov, bytes);
-}
-
-
 //// Indexing
 
 bool Table::StartIndexingRead()
 {
-	AsyncData<TableReadBase> *readOv = AsyncData<TableReadBase>::Acquire(_index_read_size);
-	if (!readOv)
+	AsyncBuffer *buffer;
+	if (!AsyncBuffer::Acquire(buffer, _index_read_size))
 	{
 		WARN("Table") << "Out of memory: Unable to acquire read object for indexing database " << _file_path;
 		return false;
 	}
 
-	readOv->callback = fastdelegate::MakeDelegate(this, &Table::OnIndexingRead);
-
-	if (!PostRead(readOv, _index_read_offset))
+	if (!Read(buffer, _index_read_offset, fastdelegate::MakeDelegate(this, &Table::OnIndexingRead)))
 	{
 		WARN("Table") << "Read failure while indexing database " << _file_path;
 		return false;
@@ -590,12 +556,10 @@ bool Table::RequestIndexRebuild(TableIndex *index)
 	return StartIndexing();
 }
 
-bool Table::OnIndexingRead(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes)
+bool Table::OnIndexingRead(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes)
 {
-	u64 *data = reinterpret_cast<u64*>( ov->GetData() );
-	u64 offset = ov->GetOffset();
-	AsyncData<TableReadBase> *readOv;
-	ov->Subclass(readOv);
+	u64 *data = reinterpret_cast<u64*>( buffer->GetData() );
+	u64 offset = buffer->GetOffset();
 
 	if (!bytes)
 	{
@@ -647,7 +611,7 @@ bool Table::OnIndexingRead(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov
 		{
 			INANE("Table") << "Reading another page indexing " << _file_path;
 
-			PostRead(ov, next_read_offset);
+			Read(buffer, next_read_offset, fastdelegate::MakeDelegate(this, &Table::OnIndexingRead));
 
 			return false; // Keep buffer
 		}
@@ -675,21 +639,60 @@ u64 Table::UniqueIndexLookup(const void *data)
 	return INVALID_RECORD_OFFSET;
 }
 
+bool Table::OnRemoveRead(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes)
+{
+	// Erase buffer and abort on failure
+	if (error || bytes != _record_bytes)
+	{
+		WARN("Table") << "Remove record failure in " << _file_path << ". Error #" << error;
+		return true;
+	}
+
+	// For each table index,
+	for (TableIndex *index = _head_index; index; index = index->_next)
+	{
+		index->RemoveComplete(buffer->GetData());
+	}
+
+	buffer->Zero();
+
+	if (!Write(buffer, buffer->GetOffset()))
+	{
+		WARN("Table") << "Remove record file write failure in " << _file_path;
+	}
+
+	return false; // Do not erase buffer
+}
+
+bool Table::OnQueryRead(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes)
+{
+	// Erase buffer and abort on failure
+	if (error || bytes != _record_bytes)
+	{
+		WARN("Table") << "Query record failure in " << _file_path << ". Error #" << error;
+		return true;
+	}
+
+	// Update cache immediately
+	AutoWriteLock lock(_lock);
+
+		memcpy(SetOffset(buffer->GetOffset()), buffer->GetData(), bytes);
+
+	lock.Release();
+
+	AsyncQueryRead *tag;
+	buffer->GetTag(tag);
+
+	return tag->callback(tls, error, buffer, bytes);
+}
+
 
 //// User Interface
 
-u64 Table::Insert(AsyncSimpleData *writeOv)
+u64 Table::Insert(u8 *data)
 {
-	// Validate input
 	u32 record_bytes = _record_bytes;
-
-	if (!writeOv || writeOv->GetDataBytes() != record_bytes)
-	{
-		writeOv->Release();
-		return INVALID_RECORD_OFFSET;
-	}
-
-	u8 *data = writeOv->GetData();
+	AsyncBuffer *buffer = AsyncBuffer::Promote(data);
 
 	// Update cache immediately
 	AutoWriteLock lock(_lock);
@@ -697,7 +700,7 @@ u64 Table::Insert(AsyncSimpleData *writeOv)
 		// If it already exists,
 		if (INVALID_RECORD_OFFSET != UniqueIndexLookup(data))
 		{
-			writeOv->Release();
+			buffer->Release();
 			return INVALID_RECORD_OFFSET;
 		}
 
@@ -710,14 +713,16 @@ u64 Table::Insert(AsyncSimpleData *writeOv)
 		u8 *cache = InsertOffset(offset);
 		memcpy(cache, data, record_bytes);
 
-		// Insert into indexes
+		// For each index,
 		for (TableIndex *index = _head_index; index; index = index->_next)
+		{
 			index->InsertComplete(data, offset);
+		}
 
 	lock.Release();
 
 	// Queue a disk write
-	if (!PostWrite(writeOv, offset))
+	if (!Write(buffer, offset))
 	{
 		WARN("Table") << "Disk write failure on insertion for " << _file_path;
 		return INVALID_RECORD_OFFSET;
@@ -726,18 +731,10 @@ u64 Table::Insert(AsyncSimpleData *writeOv)
 	return offset;
 }
 
-bool Table::Replace(AsyncSimpleData *writeOv, u64 offset)
+bool Table::Update(u8 *data, u64 offset)
 {
-	// Validate input
 	u32 record_bytes = _record_bytes;
-
-	if (!writeOv || writeOv->GetDataBytes() != record_bytes)
-	{
-		writeOv->Release();
-		return false;
-	}
-
-	u8 *data = writeOv->GetData();
+	AsyncBuffer *buffer = AsyncBuffer::Promote(data);
 
 	INANE("Table") << "Replace " << offset << " in " << _file_path;
 
@@ -749,22 +746,12 @@ bool Table::Replace(AsyncSimpleData *writeOv, u64 offset)
 	lock.Release();
 
 	// Queue a disk write
-	return PostWrite(writeOv, offset);
+	return Write(buffer, offset);
 }
 
-bool Table::Query(ThreadPoolLocalStorage *tls, u64 offset, AsyncBase *ov)
+bool Table::Query(u64 offset, AsyncBuffer *buffer)
 {
-	// Validate input
 	u32 record_bytes = _record_bytes;
-
-	if (!ov || ov->GetDataBytes() != record_bytes)
-	{
-		ov->Release();
-		return false;
-	}
-
-	AsyncData<TableReadBase> *readOv;
-	ov->Subclass(readOv);
 
 	INANE("Table") << "Query " << offset << " in " << _file_path;
 
@@ -775,48 +762,57 @@ bool Table::Query(ThreadPoolLocalStorage *tls, u64 offset, AsyncBase *ov)
 
 		if (cache)
 		{
-			u8 *copy = (u8*)alloca(record_bytes);
-			memcpy(copy, cache, record_bytes);
+			memcpy(buffer->GetData(), cache, record_bytes);
+
 			lock.Release();
 
-			readOv->callback(tls, 0, ov, record_bytes);
-			ov->Release();
+			AsyncQueryRead *tag;
+			buffer->GetTag(tag);
+
+			if (tag->callback(0, 0, buffer, record_bytes))
+				buffer->Release();
+
 			return true;
 		}
 
 	lock.Release();
 
 	// Queue a disk read if not in cache
-	return PostRead(ov, offset);
+	return Read(buffer, offset, fastdelegate::MakeDelegate(this, &Table::OnQueryRead));
 }
 
-bool Table::Remove(void *data)
+bool Table::Remove(u64 offset)
 {
-	// Update cache immediately
-	AutoWriteLock lock(_lock);
+	u32 record_bytes = _record_bytes;
 
-		u64 offset = UniqueIndexLookup(data);
+	INANE("Table") << "Remove " << offset << " from " << _file_path;
 
-		INANE("Table") << "Remove " << offset << " from " << _file_path;
+	AsyncBuffer *buffer = AsyncBuffer::Acquire(record_bytes);
+	if (!buffer)
+	{
+		WARN("Table") << "Out of memory: Unable to allocate object to remove record from " << _file_path;
+		return false;
+	}
 
-		// If it does not exist,
-		if (INVALID_RECORD_OFFSET == offset)
-			return false;
+	// Check cache first
+	AutoReadLock lock(_lock);
 
-		RemoveOffset(offset);
+	u8 *cache = PeekOffset(offset);
 
-		// Remove from indexes
-		for (TableIndex *index = _head_index; index; index = index->_next)
-			index->RemoveComplete(data);
+	if (cache)
+	{
+		memcpy(buffer->GetData(), cache, record_bytes);
+
+		lock.Release();
+
+		if (OnRemoveRead(0, 0, buffer, record_bytes))
+			buffer->Release();
+
+		return true;
+	}
 
 	lock.Release();
 
-	// Zero entry on disk
-	AsyncData<TableReadBase> *writeOv = AsyncData<TableReadBase>::Acquire(_record_bytes);
-	if (!writeOv) return false;
-
-	writeOv->callback = 0;
-	writeOv->Zero();
-
-	return PostWrite(writeOv, offset);
+	// Queue a disk read if not in cache
+	return Read(buffer, offset, fastdelegate::MakeDelegate(this, &Table::OnRemoveRead));
 }

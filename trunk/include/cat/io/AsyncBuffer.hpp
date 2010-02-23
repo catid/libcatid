@@ -183,8 +183,9 @@ public:
 
 public:
 	// Wrap external data pointer
-	static CAT_INLINE AsyncBuffer *Wrap(u8 *data, u32 data_bytes, u32 tag_bytes = 0)
+	static CAT_INLINE AsyncBuffer *Wrap(void *vdata, u32 data_bytes, u32 tag_bytes = 0)
 	{
+		u8 *data = reinterpret_cast<u8*>( vdata );
 		const u32 OVERHEAD_BYTES = (u32)(offsetof(AsyncBuffer, _tag));
 
 		AsyncBuffer *buffer = reinterpret_cast<AsyncBuffer*>(

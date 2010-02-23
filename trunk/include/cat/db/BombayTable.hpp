@@ -49,10 +49,11 @@ struct CacheNode
 class TableIndex;
 class IHash;
 
-// AsyncData objects passed to Table should derive from TableReadBase
-struct TableReadBase
+
+// Query() AsyncBuffer tag must derive from AsyncQueryRead
+struct AsyncQueryRead
 {
-	CompletionCallback callback;
+	AsyncCallback callback;
 };
 
 
@@ -124,23 +125,32 @@ public:
 	CAT_INLINE u32 GetRecordBytes() { return _record_bytes; }
 
 protected:
-	virtual bool OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes);
+	virtual bool OnRemoveRead(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes);
+	virtual bool OnQueryRead(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes);
 
 protected:
 	bool StartIndexing();
 	bool StartIndexingRead();
 	void OnIndexingDone();
 
-	virtual bool OnIndexingRead(ThreadPoolLocalStorage *tls, int error, AsyncBase *ov, u32 bytes);
+	virtual bool OnIndexingRead(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes);
 
 public:
 	bool RequestIndexRebuild(TableIndex *index);
 
 public:
-	u64 Insert(AsyncSimpleData *writeOv);
-	bool Replace(AsyncSimpleData *writeOv, u64 offset);
-	bool Query(ThreadPoolLocalStorage *tls, u64 offset, AsyncBase *ov); // Use GetQueryBuffer<T>()
-	bool Remove(void *data);
+	// Insert an AsyncBuffer data buffer
+	u64 Insert(u8 *data);
+
+	// Update with an AsyncBuffer data buffer
+	bool Update(u8 *data, u64 offset);
+
+	// Query with an AsyncBuffer
+	// NOTE: Query() AsyncBuffer tag must derive from AsyncQueryRead
+	bool Query(u64 offset, AsyncBuffer *buffer);
+
+	// Remove based on offset
+	bool Remove(u64 offset);
 };
 
 
