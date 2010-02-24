@@ -119,7 +119,7 @@ public:
     // insertion
     void write1(u8 data); // data MUST be 1 or 0
 
-    template<class T> void write(T data)
+    template<class T> void write(const T &data)
     {
         grow(sizeof(T) * 8);
 
