@@ -493,6 +493,10 @@
 					>
 				</File>
 				<File
+					RelativePath="..\..\include\cat\parse\BufferStream.hpp"
+					>
+				</File>
+				<File
 					RelativePath="..\..\include\cat\parse\BufferTok.hpp"
 					>
 				</File>

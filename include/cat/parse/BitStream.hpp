@@ -26,6 +26,8 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
+// Not currently being maintained.
+
 // FIXME: Big-endian code is untested
 // FIXME: Not suitable for storing large buffers > 500 MB in size
 
@@ -119,7 +121,7 @@ public:
     // insertion
     void write1(u8 data); // data MUST be 1 or 0
 
-    template<class T> void write(const T &data)
+    template<class T> void write(T data)
     {
         grow(sizeof(T) * 8);
 

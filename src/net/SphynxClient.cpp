@@ -32,6 +32,7 @@
 #include <cat/io/MMapFile.hpp>
 #include <cat/net/DNSClient.hpp>
 #include <cat/io/Settings.hpp>
+#include <cat/parse/BufferStream.hpp>
 #include <fstream>
 using namespace std;
 using namespace cat;
@@ -326,9 +327,7 @@ bool Client::PostHello()
 		return false;
 	}
 
-	// Construct packet
-	hello[0] = C2S_HELLO;
-	*reinterpret_cast<u32*>( hello + 1 ) = getLE(PROTOCOL_MAGIC);
+	BufferStream(hello) << (u8)C2S_HELLO << PROTOCOL_MAGIC;
 
 	// Attempt to post packet
 	if (!Post(_server_addr, hello, hello_len))
