@@ -51,17 +51,25 @@ protected:
 	u8 *_buffer;
 
 public:
-	CAT_INLINE BufferStream(u8 *buffer)
-	{
-		_buffer = buffer;
-	}
+	CAT_INLINE BufferStream(u8 *buffer) { _buffer = buffer; }
+
+public:
+	// Auto-cast to u8*
+	CAT_INLINE operator u8*() { return _buffer; }
+
+	CAT_INLINE BufferStream &operator+=(int skip_bytes) { _buffer += skip_bytes; }
 
 public:
 	// Insertion
-	CAT_INLINE BufferStream &operator<<(s8 data) { *_buffer++ = (u8)data; }
-	CAT_INLINE BufferStream &operator<<(s16 data) { *(u16*)_buffer = getLE16((u16)data); _buffer += 2; }
-	CAT_INLINE BufferStream &operator<<(s32 data) { *(u32*)_buffer = getLE32((u32)data); _buffer += 4; }
-	CAT_INLINE BufferStream &operator<<(s64 data) { *(u64*)_buffer = getLE64((u64)data); _buffer += 8; }
+	CAT_INLINE BufferStream &operator<<(s8 data) { *_buffer++ = (u8)data; return *this; }
+	CAT_INLINE BufferStream &operator<<(s16 data) { *(u16*)_buffer = getLE16((u16)data); _buffer += 2; return *this; }
+	CAT_INLINE BufferStream &operator<<(s32 data) { *(u32*)_buffer = getLE32((u32)data); _buffer += 4; return *this; }
+	CAT_INLINE BufferStream &operator<<(s64 data) { *(u64*)_buffer = getLE64((u64)data); _buffer += 8; return *this; }
+
+	CAT_INLINE BufferStream &operator<<(u8 data) { *_buffer++ = data; return *this; }
+	CAT_INLINE BufferStream &operator<<(u16 data) { *(u16*)_buffer = getLE16(data); _buffer += 2; return *this; }
+	CAT_INLINE BufferStream &operator<<(u32 data) { *(u32*)_buffer = getLE32(data); _buffer += 4; return *this; }
+	CAT_INLINE BufferStream &operator<<(u64 data) { *(u64*)_buffer = getLE64(data); _buffer += 8; return *this; }
 
 	CAT_INLINE void write(void *data, u32 bytes)
 	{
@@ -71,10 +79,15 @@ public:
 
 public:
 	// Extraction
-	CAT_INLINE BufferStream &operator>>(s8 &data) { data = (s8)*_buffer++; }
-	CAT_INLINE BufferStream &operator>>(s16 &data) { data = (s16)getLE16(*(u16*)_buffer); _buffer += 2; }
-	CAT_INLINE BufferStream &operator>>(s32 &data) { data = (s32)getLE32(*(u32*)_buffer); _buffer += 4; }
-	CAT_INLINE BufferStream &operator>>(s64 &data) { data = (s64)getLE64(*(u64*)_buffer); _buffer += 8; }
+	CAT_INLINE BufferStream &operator>>(s8 &data) { data = (s8)*_buffer++; return *this; }
+	CAT_INLINE BufferStream &operator>>(s16 &data) { data = (s16)getLE16(*(u16*)_buffer); _buffer += 2; return *this; }
+	CAT_INLINE BufferStream &operator>>(s32 &data) { data = (s32)getLE32(*(u32*)_buffer); _buffer += 4; return *this; }
+	CAT_INLINE BufferStream &operator>>(s64 &data) { data = (s64)getLE64(*(u64*)_buffer); _buffer += 8; return *this; }
+
+	CAT_INLINE BufferStream &operator>>(u8 &data) { data = *_buffer++; return *this; }
+	CAT_INLINE BufferStream &operator>>(u16 &data) { data = getLE16(*(u16*)_buffer); _buffer += 2; return *this; }
+	CAT_INLINE BufferStream &operator>>(u32 &data) { data = getLE32(*(u32*)_buffer); _buffer += 4; return *this; }
+	CAT_INLINE BufferStream &operator>>(u64 &data) { data = getLE64(*(u64*)_buffer); _buffer += 8; return *this; }
 
 	CAT_INLINE void read(void *data, u32 bytes)
 	{
