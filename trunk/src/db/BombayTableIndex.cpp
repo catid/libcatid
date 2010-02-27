@@ -61,8 +61,7 @@ TableIndex::~TableIndex()
 
 	if (_index_hash) delete _index_hash;
 
-	if (_shutdown_observer)
-		_shutdown_observer->ReleaseRef();
+	ThreadRefObject::SafeRelease(_shutdown_observer);
 }
 
 

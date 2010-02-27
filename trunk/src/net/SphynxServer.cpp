@@ -545,13 +545,7 @@ Server::~Server()
 	{
 		for (int ii = 0; ii < _worker_count; ++ii)
 		{
-			ServerWorker *worker = _workers[ii];
-
-			if (worker)
-			{
-				// Release final ref
-				worker->ReleaseRef();
-			}
+			ThreadRefObject::SafeRelease(_workers[ii]);
 		}
 
 		delete[] _workers;

@@ -717,7 +717,7 @@ bool DNSClient::Resolve(const char *hostname, DNSResultCallback callback, Thread
 	// Attempt to perform lookup
 	if (!PerformLookup(request))
 	{
-		if (holdRef) holdRef->ReleaseRef();
+		ThreadRefObject::SafeRelease(holdRef);
 		return false;
 	}
 
@@ -770,8 +770,7 @@ void DNSClient::NotifyRequesters(DNSRequest *req)
 	add_to_cache |= req->callback_head.cb(req->hostname, req->responses, req->num_responses);
 
 	// Release ref if requested
-	if (req->callback_head.ref)
-		req->callback_head.ref->ReleaseRef();
+	ThreadRefObject::SafeRelease(req->callback_head.ref);
 
 	// For each requester,
 	for (DNSCallback *cbnext, *cb = req->callback_head.next; cb; cb = cbnext)
@@ -782,8 +781,7 @@ void DNSClient::NotifyRequesters(DNSRequest *req)
 		add_to_cache |= cb->cb(req->hostname, req->responses, req->num_responses);
 
 		// Release ref if requested
-		if (cb->ref)
-			cb->ref->ReleaseRef();
+		ThreadRefObject::SafeRelease(cb->ref);
 
 		delete cb;
 	}

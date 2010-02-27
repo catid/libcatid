@@ -51,7 +51,9 @@ protected:
 	u8 *_buffer;
 
 public:
-	CAT_INLINE BufferStream(u8 *buffer) { _buffer = buffer; }
+	CAT_INLINE BufferStream(void *buffer) { _buffer = reinterpret_cast<u8*>( buffer ); }
+
+	CAT_INLINE u32 GetOffset(void *buffer) { return (u32)(_buffer - reinterpret_cast<u8*>( buffer )); }
 
 public:
 	// Auto-cast to u8*
@@ -77,6 +79,9 @@ public:
 		_buffer += bytes;
 	}
 
+	template<class T>
+	CAT_INLINE BufferStream &operator<<(const T &data) { write(&data, sizeof(T)); return *this; }
+
 public:
 	// Extraction
 	CAT_INLINE BufferStream &operator>>(s8 &data) { data = (s8)*_buffer++; return *this; }
@@ -94,6 +99,9 @@ public:
 		memcpy(data, _buffer, bytes);
 		_buffer += bytes;
 	}
+
+	template<class T>
+	CAT_INLINE BufferStream &operator>>(T &data) { read(&data, sizeof(T)); return *this; }
 };
 
 

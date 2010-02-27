@@ -74,6 +74,17 @@ public:
 public:
     void AddRef();
     void ReleaseRef();
+
+	// Safe release -- If not null, then releases and sets to null
+	template<class T>
+	static CAT_INLINE void SafeRelease(T * &object)
+	{
+		if (object)
+		{
+			object->ReleaseRef();
+			object = 0;
+		}
+	}
 };
 
 
