@@ -101,8 +101,7 @@ Table::~Table()
 
 	FreeCache();
 
-	if (_shutdown_observer)
-		_shutdown_observer->ReleaseRef();
+	ThreadRefObject::SafeRelease(_shutdown_observer);
 }
 
 bool Table::AllocateCache()

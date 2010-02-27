@@ -319,7 +319,7 @@ ShutdownWait::ShutdownWait(int priorityLevel)
 ShutdownWait::~ShutdownWait()
 {
 	CloseHandle(_event);
-	if (_observer) _observer->ReleaseRef();
+	ThreadRefObject::SafeRelease(_observer);
 }
 
 void ShutdownWait::OnShutdownDone()
@@ -332,8 +332,7 @@ bool ShutdownWait::WaitForShutdown(u32 milliseconds)
 	if (!_event || !_observer) return false;
 
 	// Kill observer
-	_observer->ReleaseRef();
-	_observer = 0;
+	ThreadRefObject::SafeRelease(_observer);
 
 	// Wait for it to die
 	return WaitForSingleObject(_event, milliseconds) == WAIT_OBJECT_0;

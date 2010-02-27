@@ -162,6 +162,17 @@ public:
 		return buffer->_data;
 	}
 
+	// Acquire with built-in data pointer
+	template<class T>
+	static CAT_INLINE T *Acquire(T * &data, u32 tag_bytes = 0)
+	{
+		AsyncBuffer *buffer;
+
+		if (!Acquire(buffer, sizeof(T), tag_bytes)) return 0;
+
+		return (data = reinterpret_cast<T*>( buffer->_data ));
+	}
+
 	// Change number of data bytes allocated to the buffer
 	// Returns a new data pointer that may be different from the old data pointer
 	static CAT_INLINE u8 *Resize(void *vdata, u32 data_bytes)
