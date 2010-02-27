@@ -125,25 +125,21 @@ public:
         return &X;
     }
 
-    STLRegionAllocator()
+    STLRegionAllocator() throw ()
     {
     }
 
-private:
     template<typename S>
-    STLRegionAllocator(const STLRegionAllocator<S> &cp)
+    STLRegionAllocator(const STLRegionAllocator<S> &cp) throw ()
     {
-        // Not allowed
     }
 
     template<typename S>
-    STLRegionAllocator<T> &operator=(const STLRegionAllocator<S> &cp)
+    STLRegionAllocator<T> &operator=(const STLRegionAllocator<S> &cp) throw ()
     {
-        // Not allowed
         return *this;
     }
 
-public:
     pointer allocate(size_type Count, const void *Hint = 0)
     {
         return (pointer)RegionAllocator::ii->Acquire((u32)Count * sizeof(T));
@@ -168,8 +164,19 @@ public:
     {
         return 0x00FFFFFF;
     }
-};
 
+	template<typename S>
+	bool operator==(STLRegionAllocator <S> const &) const throw()
+	{
+		return true;
+	}
+
+	template<typename S>
+	bool operator!=(STLRegionAllocator <S> const &) const throw()
+	{
+		return false;
+	}
+};
 
 // Common usage typedefs for using RegionAllocator as the STL allocator
 typedef std::basic_ostringstream<char, std::char_traits<char>, STLRegionAllocator<char> > region_ostringstream;
