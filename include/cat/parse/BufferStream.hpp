@@ -30,6 +30,7 @@
 #define CAT_BUFFER_STREAM_HPP
 
 #include <cat/Platform.hpp>
+#include <cat/port/EndianNeutral.hpp>
 
 namespace cat {
 
@@ -51,15 +52,18 @@ protected:
 	u8 *_buffer;
 
 public:
-	CAT_INLINE BufferStream(void *buffer) { _buffer = reinterpret_cast<u8*>( buffer ); }
+	CAT_INLINE BufferStream(u8 *buffer) { _buffer = buffer; }
+	CAT_INLINE BufferStream &operator=(u8 *buffer) { _buffer = buffer; }
 
 	CAT_INLINE u32 GetOffset(void *buffer) { return (u32)(_buffer - reinterpret_cast<u8*>( buffer )); }
 
 public:
-	// Auto-cast to u8*
+	// Auto-cast to u8* or char*
 	CAT_INLINE operator u8*() { return _buffer; }
+	CAT_INLINE char *c_str() { return reinterpret_cast<char*>( _buffer ); }
 
-	CAT_INLINE BufferStream &operator+=(int skip_bytes) { _buffer += skip_bytes; }
+	CAT_INLINE BufferStream &operator++() { _buffer++; return *this; }
+	CAT_INLINE BufferStream &operator+=(int skip_bytes) { _buffer += skip_bytes; return *this; }
 
 public:
 	// Insertion
