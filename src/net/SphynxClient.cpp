@@ -490,7 +490,7 @@ bool Client::ThreadFunction(void *)
 		}
 
 		// If no packets have been received,
-		if ((s32)(now - _last_recv_tsc) >= TIMEOUT_DISCONNECT*2)
+		if ((s32)(now - _last_recv_tsc) >= TIMEOUT_DISCONNECT)
 		{
 			Disconnect();
 			return true;
