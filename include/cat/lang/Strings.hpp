@@ -73,6 +73,10 @@ u32 GetFixedStrLen(const char *str, u32 max_len);
 u32 SetFixedStr(char *dest, u32 dest_len, const char *src, u32 src_max_len);
 
 
+// Returns true if buffer contains any non-zero bytes
+bool IsZeroFixedBuffer(const void *buffer, u32 bytes);
+
+
 } // namespace cat
 
 #endif // CAT_STRINGS_HPP

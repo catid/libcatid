@@ -77,7 +77,7 @@ public:
 	CAT_INLINE BufferStream &operator<<(u32 data) { *(u32*)_buffer = getLE32(data); _buffer += 4; return *this; }
 	CAT_INLINE BufferStream &operator<<(u64 data) { *(u64*)_buffer = getLE64(data); _buffer += 8; return *this; }
 
-	CAT_INLINE void write(void *data, u32 bytes)
+	CAT_INLINE void write(const void *data, u32 bytes)
 	{
 		memcpy(_buffer, data, bytes);
 		_buffer += bytes;

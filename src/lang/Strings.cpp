@@ -95,3 +95,15 @@ u32 cat::SetFixedStr(char *dest, u32 dest_len, const char *src, u32 src_max_len)
 
 	return copied;
 }
+
+
+// Returns true if buffer contains any non-zero bytes
+bool cat::IsZeroFixedBuffer(const void *vbuffer, u32 bytes)
+{
+	const u8 *buffer = reinterpret_cast<const u8*>( vbuffer );
+
+	for (u32 ii = 0; ii < bytes; ++ii)
+		if (buffer[ii]) return false;
+
+	return true;
+}
