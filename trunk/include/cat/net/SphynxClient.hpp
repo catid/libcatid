@@ -58,6 +58,9 @@ protected:
 	bool _connected;
 	AuthenticatedEncryption _auth_enc;
 
+	// Last time a packet was received from the server -- for disconnect timeouts
+	u32 _last_recv_tsc;
+
 public:
 	Client();
 	virtual ~Client();
@@ -76,7 +79,7 @@ protected:
 	virtual void OnConnectFail() = 0;
 	virtual void OnConnect(ThreadPoolLocalStorage *tls) = 0;
 	virtual void OnTimestampDeltaUpdate(u32 rtt, s32 delta) {}
-	virtual void OnMessage(ThreadPoolLocalStorage *tls, u8 *msg, u32 bytes) = 0;
+	virtual void OnMessage(ThreadPoolLocalStorage *tls, BufferStream msg, u32 bytes) = 0;
 	virtual void OnDisconnect() = 0;
 	virtual void OnTick(ThreadPoolLocalStorage *tls, u32 now) = 0;
 

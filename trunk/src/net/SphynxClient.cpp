@@ -214,6 +214,8 @@ void Client::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 		// If the data could not be decrypted, ignore this packet
 		if (_auth_enc.Decrypt(data, buf_bytes))
 		{
+			_last_recv_tsc = Clock::msec_fast();
+
 			// Pass the packet to the transport layer
 			OnDatagram(tls, data, buf_bytes);
 		}
@@ -420,6 +422,9 @@ bool Client::ThreadFunction(void *)
 	u32 next_sync_time = Clock::msec();
 	u32 sync_attempts = 0;
 
+	// Set last receive time to avoid disconnecting due to timeout too soon
+	_last_recv_tsc = next_sync_time;
+
 	// While waiting for quit signal,
 	while (WaitForQuitSignal(Transport::TICK_RATE))
 	{
@@ -482,6 +487,13 @@ bool Client::ThreadFunction(void *)
 					}
 				}
 			}
+		}
+
+		// If no packets have been received,
+		if ((s32)(now - _last_recv_tsc) >= TIMEOUT_DISCONNECT*2)
+		{
+			Disconnect();
+			return true;
 		}
 
 		// Tick subclass

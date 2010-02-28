@@ -32,6 +32,7 @@
 #include <cat/net/ThreadPoolSockets.hpp>
 #include <cat/threads/Mutex.hpp>
 #include <cat/crypt/tunnel/AuthenticatedEncryption.hpp>
+#include <cat/parse/BufferStream.hpp>
 
 namespace cat {
 
@@ -429,7 +430,7 @@ protected:
 	// buf_bytes and msg_bytes contain the skipped bytes
 	virtual bool PostPacket(u8 *data, u32 buf_bytes, u32 msg_bytes, u32 skip_bytes) = 0;
 	virtual void OnTimestampDeltaUpdate(u32 rtt, s32 delta) {}
-	virtual void OnMessage(ThreadPoolLocalStorage *tls, u8 *msg, u32 bytes) = 0;
+	virtual void OnMessage(ThreadPoolLocalStorage *tls, BufferStream msg, u32 bytes) = 0;
 	virtual void OnDisconnect() = 0;
 
 protected:
