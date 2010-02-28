@@ -64,8 +64,7 @@ namespace sphynx {
 		ServerTimer threads [(CPU Count) / 2]
 			+ In case these threads spin constantly, they only consume
 			  half of the CPU resources available
-			+ Wake up every 10 milliseconds
-				+ As per UDT (transport layer) spec
+			+ Wake up every X milliseconds according to Transport::TICK_RATE
 			+ Detect link loss due to silence timeout
 			+ Update transport layer
 				+ Retransmit lost messages
