@@ -113,10 +113,7 @@ bool cat::IsZeroFixedBuffer(const void *vbuffer, u32 bytes)
 // Replaces all similar-looking glyphs with a common character
 char cat::DesimilarizeCharacter(char ch)
 {
-	if (ch >= 'a' || ch <= 'z')
-	{
-		ch += 'A' - 'a';
-	}
+	ch = std::tolower(ch);
 
 	switch (ch)
 	{
@@ -175,7 +172,7 @@ char cat::DesimilarizeCharacter(char ch)
 	return ch;
 }
 
-// Replaces all similar-looking glyphs with a common character while copying a string
+// Replaces all similar-looking glyphs with common characters while copying a string
 void cat::CopyDesimilarizeString(const char *from, char *to)
 {
 	char ch;
@@ -183,4 +180,18 @@ void cat::CopyDesimilarizeString(const char *from, char *to)
 	while ((ch = *from++)) *to++ = DesimilarizeCharacter(ch);
 
 	*to = '\0';
+}
+
+// Replaces all similar-looking glyphs with common characters in a fixed string
+u32 cat::DesimilarizeFixedString(char *str, u32 max_len)
+{
+	for (u32 ii = 0; ii < max_len; ++ii)
+	{
+		if (str[ii] == '\0')
+			return ii;
+
+		str[ii] = DesimilarizeCharacter(str[ii]);
+	}
+
+	return max_len;
 }
