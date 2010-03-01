@@ -502,9 +502,8 @@ bool Client::ThreadFunction(void *)
 		// Send a keep-alive after the silence limit expires
 		if ((s32)(now - _last_send_mstsc) >= SILENCE_LIMIT)
 		{
-			// Write zero-length unordered, reliable keep-alive message
-			u8 keepalive[1] = {0};
-			WriteReliable(STREAM_UNORDERED, keepalive, 0);
+			PostTimePing();
+			next_sync_time = now + 20000; // 20 seconds from now
 		}
 	}
 

@@ -338,7 +338,7 @@ protected:
 
 	static const u32 FRAG_THRESHOLD = 32; // Fragment if FRAG_THRESHOLD bytes would be in each fragment
 
-	static const u32 MAX_MESSAGE_DATALEN = 65535; // Maximum number of bytes in the data part of a message
+	static const u32 MAX_MESSAGE_DATALEN = 65535-1; // Maximum number of bytes in the data part of a message (-1 for the opcode)
 
 protected:
 	// Maximum transfer unit (MTU) in UDP payload bytes, excluding the IP and UDP headers and encryption overhead
@@ -409,8 +409,9 @@ public:
 	virtual ~Transport();
 
 public:
-	bool WriteUnreliable(u8 *msg, u32 bytes);
-	bool WriteReliable(StreamMode, u8 *data, u32 data_bytes, SuperOpcode super_opcode = SOP_DATA);
+	// ata_bytes: Length of msg_data
+	bool WriteUnreliable(u8 msg_opcode, const void *msg_data = 0, u32 data_bytes = 0);
+	bool WriteReliable(StreamMode, u8 msg_opcode, const void *msg_data = 0, u32 data_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
 	void FlushWrite();
 
 protected:
