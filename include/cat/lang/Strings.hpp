@@ -80,8 +80,11 @@ bool IsZeroFixedBuffer(const void *buffer, u32 bytes);
 // Replaces all similar-looking glyphs with a common character
 char DesimilarizeCharacter(char ch);
 
-// Replaces all similar-looking glyphs with a common character while copying a string
+// Replaces all similar-looking glyphs with common characters while copying a string
 void CopyDesimilarizeString(const char *from, char *to);
+
+// Replaces all similar-looking glyphs with common characters in a fixed string
+u32 DesimilarizeFixedString(char *str, u32 max_len);
 
 
 } // namespace cat
