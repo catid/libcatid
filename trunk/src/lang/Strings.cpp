@@ -27,6 +27,7 @@
 */
 
 #include <cat/lang/Strings.hpp>
+#include <cctype> // tolower
 using namespace cat;
 
 #if defined(CAT_UNKNOWN_BUILTIN_ISTRCMP)
@@ -106,4 +107,80 @@ bool cat::IsZeroFixedBuffer(const void *vbuffer, u32 bytes)
 		if (buffer[ii]) return false;
 
 	return true;
+}
+
+
+// Replaces all similar-looking glyphs with a common character
+char cat::DesimilarizeCharacter(char ch)
+{
+	if (ch >= 'a' || ch <= 'z')
+	{
+		ch += 'A' - 'a';
+	}
+
+	switch (ch)
+	{
+	case 'I':
+	case 'L':
+	case '1':
+	case '|':
+		return 'I';
+
+	case 'O':
+	case '0':
+		return 'O';
+
+	case 'T':
+	case '+':
+		return 'T';
+
+	case '`':
+	case '\'':
+	case '"':
+		return '`';
+
+	case '8':
+	case 'B':
+		return 'B';
+
+	case '.':
+	case ',':
+		return '.';
+
+	case '6':
+	case 'G':
+		return 'G';
+
+	case '2':
+	case 'Z':
+		return 'Z';
+
+	case '~':
+	case '-':
+		return '~';
+
+	case '\\':
+	case '/':
+		return '/';
+
+	case ':':
+	case ';':
+		return ';';
+
+	case 'N':
+	case 'M':
+		return 'N';
+	}
+
+	return ch;
+}
+
+// Replaces all similar-looking glyphs with a common character while copying a string
+void cat::CopyDesimilarizeString(const char *from, char *to)
+{
+	char ch;
+
+	while ((ch = *from++)) *to++ = DesimilarizeCharacter(ch);
+
+	*to = '\0';
 }

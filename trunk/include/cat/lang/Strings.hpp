@@ -77,6 +77,13 @@ u32 SetFixedStr(char *dest, u32 dest_len, const char *src, u32 src_max_len);
 bool IsZeroFixedBuffer(const void *buffer, u32 bytes);
 
 
+// Replaces all similar-looking glyphs with a common character
+char DesimilarizeCharacter(char ch);
+
+// Replaces all similar-looking glyphs with a common character while copying a string
+void CopyDesimilarizeString(const char *from, char *to);
+
+
 } // namespace cat
 
 #endif // CAT_STRINGS_HPP
