@@ -341,7 +341,7 @@ void Transport::OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 					_max_payload_bytes = payload_bytes;
 
 					u16 msg = getLE(payload_bytes);
-					WriteReliable(STREAM_UNORDERED, reinterpret_cast<u8*>( &msg ), sizeof(msg), SOP_MTU_SET);
+					WriteReliable(STREAM_UNORDERED, 0, reinterpret_cast<u8*>( &msg ), sizeof(msg), SOP_MTU_SET);
 				}
 				break;
 
@@ -617,10 +617,12 @@ CAT_TVV(if (bytes > fragment_remaining)
 	}
 }
 
-bool Transport::WriteUnreliable(u8 *data, u32 data_bytes)
+bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_bytes)
 {
+	const u8 *msg_data = reinterpret_cast<const u8*>( vmsg_data );
+
 	u32 max_payload_bytes = _max_payload_bytes;
-	u32 msg_bytes = 2 + data_bytes;
+	u32 msg_bytes = 2 + 1 + data_bytes;
 
 	// Fail on invalid input
 	if (msg_bytes > max_payload_bytes)
@@ -649,7 +651,8 @@ bool Transport::WriteUnreliable(u8 *data, u32 data_bytes)
 		// Write message
 		msg_buffer[0] = (u8)(data_bytes >> 8); // SOP_DATA = 0, R=0, I=0
 		msg_buffer[1] = (u8)data_bytes;
-		memcpy(msg_buffer + 2, data, data_bytes);
+		msg_buffer[2] = msg_opcode;
+		memcpy(msg_buffer + 3, msg_data, data_bytes);
 
 		// Update send buffer state
 		_send_buffer = msg_buffer;
@@ -686,7 +689,8 @@ bool Transport::WriteUnreliable(u8 *data, u32 data_bytes)
 		// Write message
 		msg_buffer[0] = (u8)(data_bytes >> 8); // SOP_DATA = 0, R=0, I=0
 		msg_buffer[1] = (u8)data_bytes;
-		memcpy(msg_buffer + 2, data, data_bytes);
+		msg_buffer[2] = msg_opcode;
+		memcpy(msg_buffer + 3, msg_data, data_bytes);
 
 		// Update send buffer state
 		_send_buffer_bytes = send_buffer_bytes + msg_bytes;
@@ -1134,9 +1138,9 @@ void Transport::OnMTUSet(u8 *data, u32 data_bytes)
 {
 	//INFO("Transport") << "Got MTU Set";
 
-	if (data_bytes == 2)
+	if (data_bytes == 1+2)
 	{
-		u16 max_payload_bytes = getLE(*reinterpret_cast<u16*>( data ));
+		u16 max_payload_bytes = getLE(*reinterpret_cast<u16*>( data + 1 ));
 
 		// Accept the new max payload bytes if it is larger
 		if (_max_payload_bytes < max_payload_bytes)
@@ -1532,12 +1536,14 @@ void Transport::OnACK(u8 *data, u32 data_bytes)
 	CAT_TDBG(WARN("Transport") << "RTT estimate: " << _rtt);
 }
 
-bool Transport::WriteReliable(StreamMode stream, u8 *data, u32 data_bytes, SuperOpcode super_opcode)
+bool Transport::WriteReliable(StreamMode stream, u8 msg_opcode, const void *vmsg_data, u32 data_bytes, SuperOpcode super_opcode)
 {
+	const u8 *msg_data = reinterpret_cast<const u8*>( vmsg_data );
+
 	// Fail on invalid input
 	if (stream == STREAM_UNORDERED)
 	{
-		if (2 + 3 + data_bytes > _max_payload_bytes)
+		if (2 + 3 + 1 + data_bytes > _max_payload_bytes)
 		{
 			CAT_TVV(WARN("Transport") << "Invalid input: Unordered buffer size request too large");
 			return false;
@@ -1553,7 +1559,7 @@ bool Transport::WriteReliable(StreamMode stream, u8 *data, u32 data_bytes, Super
 	}
 
 	// Allocate SendQueue object
-	SendQueue *node = RegionAllocator::ii->AcquireBuffer<SendQueue>(data_bytes);
+	SendQueue *node = RegionAllocator::ii->AcquireBuffer<SendQueue>(1 + data_bytes);
 	if (!node)
 	{
 		CAT_TVV(WARN("Transport") << "Out of memory: Unable to allocate sendqueue object");
@@ -1561,12 +1567,15 @@ bool Transport::WriteReliable(StreamMode stream, u8 *data, u32 data_bytes, Super
 	}
 
 	// Fill the object
-	node->bytes = data_bytes;
+	node->bytes = 1+data_bytes;
 	node->frag_count = 0;
 	node->sop = super_opcode;
 	node->sent_bytes = 0;
 	node->next = 0;
-	memcpy(GetTrailingBytes(node), data, data_bytes);
+
+	u8 *node_data = GetTrailingBytes(node);
+	node_data[0] = msg_opcode;
+	memcpy(node_data+1, msg_data, data_bytes);
 
 	_send_lock.Enter();
 
