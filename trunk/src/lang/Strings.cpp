@@ -113,7 +113,7 @@ bool cat::IsZeroFixedBuffer(const void *vbuffer, u32 bytes)
 // Replaces all similar-looking glyphs with a common character
 char cat::DesimilarizeCharacter(char ch)
 {
-	ch = std::tolower(ch);
+	ch = std::toupper(ch);
 
 	switch (ch)
 	{
