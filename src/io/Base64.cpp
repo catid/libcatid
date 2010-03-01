@@ -90,6 +90,16 @@ int cat::WriteBase64(const void *buffer, int bytes, char *encoded_buffer, int en
 	return written_bytes;
 }
 
+// This version writes a C string null-terminator
+int cat::WriteBase64Str(const void *buffer, int bytes, char *encoded_buffer, int encoded_bytes)
+{
+	int written = WriteBase64(buffer, bytes, encoded_buffer, encoded_bytes - 1);
+
+	encoded_buffer[written] = '\0';
+
+	return written;
+}
+
 int cat::WriteBase64(const void *buffer, int bytes, ostream &output)
 {
 	if (bytes <= 0) return 0;

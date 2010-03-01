@@ -40,6 +40,7 @@ int GetBase64LengthFromBinaryLength(int bytes);
 
 // Returns number of bytes written, or 0 for error
 int WriteBase64(const void *buffer, int bytes, char *encoded_buffer, int encoded_bytes);
+int WriteBase64Str(const void *buffer, int bytes, char *encoded_buffer, int encoded_bytes); // This version writes a null-terminator
 int WriteBase64(const void *buffer, int bytes, std::ostream &output);
 
 // Read buffer in Base64 encoding
