@@ -89,7 +89,7 @@ struct DNSRequest
 class DNSClient : LoopThread, public UDPEndpoint, public Singleton<DNSClient>
 {
 	CAT_SINGLETON(DNSClient)
-		: UDPEndpoint(REFOBJ_PRIO_0+3)
+		: UDPEndpoint(REFOBJ_PRIO_0+5)
 	{
 		_server_addr.Invalidate();
 		_dns_unavailable = true;

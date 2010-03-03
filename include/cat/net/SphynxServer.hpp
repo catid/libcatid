@@ -75,7 +75,7 @@ namespace sphynx {
 //// sphynx::Connexion
 
 // Derive from sphynx::Connexion and sphynx::Server to define server behavior
-class Connexion : public Transport
+class Connexion : public Transport, public ThreadRefObject
 {
 	friend class Server;
 	friend class Map;
@@ -149,10 +149,12 @@ public:
 	Map();
 	virtual ~Map();
 
-	Connexion *GetLock(const NetAddr &addr);
-	void ReleaseLock();
+	Connexion *Lookup(const NetAddr &addr);
 
-	void Insert(Connexion *conn);
+	// May return false if network address in Connexion is already in the map.
+	// This averts a potential race condition but should never happen during
+	// normal operation, so the Connexion allocation by caller won't be wasted.
+	bool Insert(Connexion *conn);
 
 	// Destroy a list described by the 'next' member of Slot
 	void DestroyList(Map::Slot *kill_list);

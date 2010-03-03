@@ -41,6 +41,7 @@ using namespace sphynx;
 //// Connexion
 
 Connexion::Connexion()
+	: ThreadRefObject(REFOBJ_PRIO_0+2)
 {
 	_destroyed = 0;
 	_seen_encrypted = false;
@@ -115,7 +116,6 @@ Map::Map()
 	// Initialize the hash salt to something that will
 	// discourage hash-based DoS attacks against servers
 	// running the protocol.
-	// TODO: Determine if this needs stronger protection
 	_hash_salt = (u32)s32(Clock::usec() * 1000.0);
 
 	CAT_OBJCLR(_table);
@@ -165,14 +165,14 @@ u32 Map::next_collision_key(u32 key)
 	return (key * COLLISION_MULTIPLIER + COLLISION_INCREMENTER) % HASH_TABLE_SIZE;
 }
 
-Connexion *Map::GetLock(const NetAddr &addr)
+Connexion *Map::Lookup(const NetAddr &addr)
 {
 	Slot *slot;
 
 	// Hash IP:port:salt to get the hash table key
 	u32 key = hash_addr(addr, _hash_salt);
 
-	_table_lock.ReadLock();
+	AutoReadLock lock(_table_lock);
 
 	// Forever,
 	for (;;)
@@ -185,6 +185,7 @@ Connexion *Map::GetLock(const NetAddr &addr)
 		// If the slot is used and the user address matches,
 		if (conn && conn->_client_addr == addr)
 		{
+			conn->AddRef();
 			return conn;
 		}
 		else
@@ -209,16 +210,11 @@ Connexion *Map::GetLock(const NetAddr &addr)
 	return 0;
 }
 
-void Map::ReleaseLock()
-{
-	_table_lock.ReadUnlock();
-}
-
 /*
 	Insertion is only done from a single thread, so it is guaranteed
 	that the address does not already exist in the hash table.
 */
-void Map::Insert(Connexion *conn)
+bool Map::Insert(Connexion *conn)
 {
 	// Hash IP:port:salt to get the hash table key
 	u32 key = hash_addr(conn->_client_addr, _hash_salt);
@@ -231,6 +227,10 @@ void Map::Insert(Connexion *conn)
 	// While collision keys are marked used,
 	while (slot->connection)
 	{
+		// If client is already connected,
+		if (slot->connection->_client_addr == conn->_client_addr)
+			return false;
+
 		// Set flag for collision
 		slot->collision = true;
 
@@ -244,6 +244,8 @@ void Map::Insert(Connexion *conn)
 	// Mark used
 	slot->connection = conn;
 
+	// Insert into ServerWorker
+	conn->_server_worker->IncrementPopulation();
 	conn->_server_worker->_server_timer->InsertSlot(slot);
 
 	// If collision list continues after this slot,
@@ -275,6 +277,8 @@ void Map::Insert(Connexion *conn)
 			slot = &_table[key];
 		}
 	}
+
+	return true;
 }
 
 // Destroy a list described by the 'next' member of Slot
@@ -309,7 +313,7 @@ void Map::DestroyList(Map::Slot *kill_list)
 
 		conn->_server_worker->DecrementPopulation();
 
-		delete conn;
+		conn->ReleaseRef();
 	}
 }
 
@@ -343,16 +347,15 @@ void ServerWorker::DecrementPopulation()
 void ServerWorker::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes)
 {
 	// Look up an existing connection for this source address
-	Connexion *conn = _conn_map->GetLock(src);
-	int buf_bytes = bytes;
+	AutoRef<Connexion> conn = _conn_map->Lookup(src);
 
-	// If connection is valid and on the right port,
-	if (conn && conn->IsValid() && conn->_server_worker == this)
+	if (conn)
 	{
-		conn->OnRawData(tls, data, bytes);
+		if (conn->IsValid() && conn->_server_worker == this)
+		{
+			conn->OnRawData(tls, data, bytes);
+		}
 	}
-
-	_conn_map->ReleaseLock();
 }
 
 void ServerWorker::OnClose()
@@ -395,11 +398,7 @@ ServerTimer::~ServerTimer()
 	{
 		next = slot->next;
 
-		if (slot->connection)
-		{
-			delete slot->connection;
-			slot->connection = 0;
-		}
+		ThreadRefObject::SafeRelease(slot->connection);
 	}
 
 	// Free all recently inserted connection objects
@@ -407,11 +406,7 @@ ServerTimer::~ServerTimer()
 	{
 		next = slot->next;
 
-		if (slot->connection)
-		{
-			delete slot->connection;
-			slot->connection = 0;
-		}
+		ThreadRefObject::SafeRelease(slot->connection);
 	}
 }
 
@@ -427,16 +422,15 @@ void ServerTimer::Tick(ThreadPoolLocalStorage *tls)
 {
 	u32 now = Clock::msec();
 
-	Map::Slot *active_head = _active_head;
-	Map::Slot *insert_head = 0;
+	Map::Slot *active_head = _active_head, *insert_head = 0;
 
 	// Grab and reset the insert head
 	if (_insert_head)
 	{
-		_insert_lock.Enter();
+		AutoMutex lock(_insert_lock);
+
 		insert_head = _insert_head;
 		_insert_head = 0;
-		_insert_lock.Leave();
 	}
 
 	// For each recently inserted slot,
@@ -451,8 +445,7 @@ void ServerTimer::Tick(ThreadPoolLocalStorage *tls)
 		active_head = slot;
 	}
 
-	Map::Slot *kill_list = 0;
-	Map::Slot *last = 0;
+	Map::Slot *kill_list = 0, *last = 0;
 
 	// For each active slot,
 	for (Map::Slot *next, *slot = active_head; slot; slot = next)
@@ -788,7 +781,7 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 		u8 *pkt3_answer = pkt3 + 1+2;
 
 		// They took the time to get the cookie right, might as well check if we know them
-		Connexion *conn = _conn_map.GetLock(src);
+		AutoRef<Connexion> conn = _conn_map.Lookup(src);
 
 		// If connection already exists,
 		if (conn)
@@ -796,7 +789,6 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			// If the connection exists but has recently been deleted,
 			if (!conn->IsValid())
 			{
-				_conn_map.ReleaseLock();
 				INANE("Server") << "Ignoring challenge: Connection recently deleted";
 				AsyncBuffer::Release(pkt3);
 				return;
@@ -805,7 +797,6 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			// If we have seen the first encrypted packet already,
 			if (conn->_seen_encrypted)
 			{
-				_conn_map.ReleaseLock();
 				WARN("Server") << "Ignoring challenge: Already in session";
 				AsyncBuffer::Release(pkt3);
 				return;
@@ -814,7 +805,6 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			// If we the challenge does not match the previous one,
 			if (!SecureEqual(conn->_first_challenge, challenge, CHALLENGE_BYTES))
 			{
-				_conn_map.ReleaseLock();
 				INANE("Server") << "Ignoring challenge: Challenge not replayed";
 				AsyncBuffer::Release(pkt3);
 				return;
@@ -825,8 +815,6 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			*pkt3_port = getLE(conn->_server_worker->GetPort());
 			memcpy(pkt3_answer, conn->_cached_answer, ANSWER_BYTES);
 
-			_conn_map.ReleaseLock();
-
 			// Post packet without checking for errors
 			Post(src, pkt3, PKT3_LEN);
 
@@ -834,8 +822,6 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 		}
 		else
 		{
-			_conn_map.ReleaseLock();
-
 			Skein key_hash;
 
 			// If server is overpopulated,
@@ -880,7 +866,6 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			{
 				WARN("Server") << "Ignoring challenge: Unable to key encryption";
 				AsyncBuffer::Release(pkt3);
-				delete conn;
 				return;
 			}
 
@@ -903,20 +888,20 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			if (!Post(src, pkt3, PKT3_LEN))
 			{
 				WARN("Server") << "Ignoring challenge: Unable to post packet";
-
-				delete conn;
 			}
 			else
 			{
 				INANE("Server") << "Accepted challenge and posted answer.  Client connected";
 
-				// Increment session count for this endpoint (only done here)
-				server_worker->IncrementPopulation();
+				// If hash key could be inserted,
+				if (_conn_map.Insert(conn))
+				{
+					conn->OnConnect(tls);
 
-				// Insert a hash key
-				_conn_map.Insert(conn);
+					conn.Forget();
+				}
 
-				conn->OnConnect(tls);
+				// otherwise connexion will be released
 			}
 		}
 	}
