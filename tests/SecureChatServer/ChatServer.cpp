@@ -17,7 +17,7 @@ public:
 	{
 		WARN("Connexion") << "-- DISCONNECTED";
 	}
-	virtual void OnMessage(ThreadPoolLocalStorage *tls, u8 *msg, u32 bytes)
+	virtual void OnMessage(ThreadPoolLocalStorage *tls, BufferStream msg, u32 bytes)
 	{
 		WARN("Connexion") << "Got message with " << bytes << " bytes";
 	}
