@@ -38,6 +38,7 @@ namespace cat {
 
 namespace sphynx {
 
+
 /*
 	Designed for server hardware with many processors.
 
@@ -122,6 +123,76 @@ protected:
 	virtual void OnDestroy() = 0;
 	virtual void OnTick(ThreadPoolLocalStorage *tls, u32 now) = 0;
 };
+
+
+//// sphynx::CollexionIterator
+
+template<class T>
+class CollexionIterator
+{
+	friend template<class T> class Collexion;
+
+	Collexion<T> *_collection;
+	u32 _offset;
+	T *_conn;
+
+	CAT_INLINE CollexionIterator(Collexion<T> *collection, u32 offset, T *conn)
+	{
+		_collection = collection;
+		_offset = offset;
+		_conn = conn;
+	}
+
+public:
+	CAT_INLINE T *Get() throw() { return _conn; }
+	CAT_INLINE T *operator->() throw() { return _conn; }
+	CAT_INLINE T &operator*() throw() { return *_conn; }
+	CAT_INLINE operator T*() { return _conn; }
+
+	// Pre-fix increment only!
+	CollexionIterator<T> &operator++();
+};
+
+
+//// sphynx::Collexion
+
+template<class T>
+class Collexion
+{
+	u32 _used, _allocated;
+	T **_list;
+	RWLock _lock;
+
+public:
+	Collexion();
+	~Collexion();
+
+	void Insert(T *conn);
+	void Remove(T *conn);
+
+	bool IsEmpty();
+	void Begin(CollexionIterator<T> &iter);
+};
+
+
+template<class T>
+CollexionIterator<T> &CollexionIterator<T>::operator++()
+{
+	ThreadRefObject::SafeRelease(_conn);
+	u32 offset = _offset;
+
+	AutoReadLock lock(_collection->_lock);
+
+	if (offset < _collection->_used)
+	{
+		_conn = _collection->_list[offset];
+		_conn->AddRef();
+
+		_offset = offset + 1;
+	}
+
+	return *this;
+}
 
 
 //// sphynx::Map
