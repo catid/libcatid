@@ -53,7 +53,17 @@ class IHash;
 // Query() AsyncBuffer tag must derive from AsyncQueryRead
 struct AsyncQueryRead
 {
-	AsyncCallback callback;
+	ThreadRefObject *_reference;
+	AsyncCallback _callback;
+
+	CAT_INLINE void SetCallback(AsyncCallback callback = 0, ThreadRefObject *reference = 0)
+	{
+		if (reference)
+			reference->AddRef();
+
+		_callback = callback;
+		_reference = reference;
+	}
 };
 
 

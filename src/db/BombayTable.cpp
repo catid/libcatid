@@ -682,7 +682,12 @@ bool Table::OnQueryRead(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buf
 	AsyncQueryRead *tag;
 	buffer->GetTag(tag);
 
-	return tag->callback(tls, error, buffer, bytes);
+	bool result = tag->_callback(tls, error, buffer, bytes);
+
+	if (tag->_reference)
+		tag->_reference->ReleaseRef();
+
+	return result;
 }
 
 
@@ -768,8 +773,10 @@ bool Table::Query(u64 offset, AsyncBuffer *buffer)
 			AsyncQueryRead *tag;
 			buffer->GetTag(tag);
 
-			if (tag->callback(0, 0, buffer, record_bytes))
+			if (tag->_callback(0, 0, buffer, record_bytes))
 				buffer->Release();
+			if (tag->_reference)
+				tag->_reference->ReleaseRef();
 
 			return true;
 		}

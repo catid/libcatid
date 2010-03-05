@@ -101,11 +101,10 @@ public:
 	CAT_INLINE T *Get() throw() { return _ref; }
 	CAT_INLINE T *operator->() throw() { return _ref; }
 	CAT_INLINE T &operator*() throw() { return *_ref; }
+	CAT_INLINE operator T*() { return _ref; }
 
 	CAT_INLINE void Forget() throw() { _ref = 0; }
 	CAT_INLINE void Reset(T *ref = 0) throw() { ThreadRefObject::SafeRelease(_ref); _ref = ref; }
-
-	CAT_INLINE operator T*() { return _ref; }
 };
 
 
