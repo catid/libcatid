@@ -29,6 +29,7 @@
 #include <cat/db/BombayTable.hpp>
 #include <cat/port/AlignedAlloc.hpp>
 #include <cat/io/Logging.hpp>
+#include <cat/math/BitMath.hpp>
 using namespace cat;
 using namespace bombay;
 
@@ -69,12 +70,7 @@ Table::Table(const char *file_path, u32 record_bytes, u32 cache_bytes, ShutdownO
 	else
 	{
 		// Round hash table size up to the next highest power-of-2
-		hash_table_size |= hash_table_size >> 1;
-		hash_table_size |= hash_table_size >> 2;
-		hash_table_size |= hash_table_size >> 4;
-		hash_table_size |= hash_table_size >> 8;
-		hash_table_size |= hash_table_size >> 16;
-		_hash_table_size = hash_table_size + 1;
+		_hash_table_size = NextHighestPow2(hash_table_size);
 	}
 
 	_cache_hash_table = 0;

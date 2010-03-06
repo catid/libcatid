@@ -59,6 +59,89 @@ public:
 	static Aligned ii;
 };
 
+// Use STLAlignedAllocator in place of the standard STL allocator
+// to make use of the Aligned in STL types.
+template<typename T>
+class STLAlignedAllocator
+{
+public:
+	typedef size_t size_type;
+	typedef size_t difference_type;
+	typedef T *pointer;
+	typedef const T *const_pointer;
+	typedef T &reference;
+	typedef const T &const_reference;
+	typedef T value_type;
+
+	template<typename S>
+	struct rebind
+	{
+		typedef STLAlignedAllocator<S> other;
+	};
+
+	pointer address(reference X) const
+	{
+		return &X;
+	}
+
+	const_pointer address(const_reference X) const
+	{
+		return &X;
+	}
+
+	STLAlignedAllocator() throw ()
+	{
+	}
+
+	template<typename S>
+	STLAlignedAllocator(const STLAlignedAllocator<S> &cp) throw ()
+	{
+	}
+
+	template<typename S>
+	STLAlignedAllocator<T> &operator=(const STLAlignedAllocator<S> &cp) throw ()
+	{
+		return *this;
+	}
+
+	pointer allocate(size_type Count, const void *Hint = 0)
+	{
+		return (pointer)Aligned::Acquire((u32)Count * sizeof(T));
+	}
+
+	void deallocate(pointer Ptr, size_type Count)
+	{
+		Aligned::Release(Ptr);
+	}
+
+	void construct(pointer Ptr, const T &Val)
+	{
+		std::_Construct(Ptr, Val);
+	}
+
+	void destroy(pointer Ptr)
+	{
+		std::_Destroy(Ptr);
+	}
+
+	size_type max_size() const
+	{
+		return 0x00FFFFFF;
+	}
+
+	template<typename S>
+	bool operator==(STLAlignedAllocator <S> const &) const throw()
+	{
+		return true;
+	}
+
+	template<typename S>
+	bool operator!=(STLAlignedAllocator <S> const &) const throw()
+	{
+		return false;
+	}
+};
+
 
 // Large-size aligned heap allocator
 class LargeAligned
@@ -69,6 +152,89 @@ public:
 
     // Release an aligned pointer
     static void Release(void *ptr);
+};
+
+// Use STLAlignedAllocator in place of the standard STL allocator
+// to make use of the Aligned in STL types.
+template<typename T>
+class STLLargeAlignedAllocator
+{
+public:
+	typedef size_t size_type;
+	typedef size_t difference_type;
+	typedef T *pointer;
+	typedef const T *const_pointer;
+	typedef T &reference;
+	typedef const T &const_reference;
+	typedef T value_type;
+
+	template<typename S>
+	struct rebind
+	{
+		typedef STLLargeAlignedAllocator<S> other;
+	};
+
+	pointer address(reference X) const
+	{
+		return &X;
+	}
+
+	const_pointer address(const_reference X) const
+	{
+		return &X;
+	}
+
+	STLLargeAlignedAllocator() throw ()
+	{
+	}
+
+	template<typename S>
+	STLLargeAlignedAllocator(const STLLargeAlignedAllocator<S> &cp) throw ()
+	{
+	}
+
+	template<typename S>
+	STLLargeAlignedAllocator<T> &operator=(const STLLargeAlignedAllocator<S> &cp) throw ()
+	{
+		return *this;
+	}
+
+	pointer allocate(size_type Count, const void *Hint = 0)
+	{
+		return (pointer)LargeAligned::Acquire((u32)Count * sizeof(T));
+	}
+
+	void deallocate(pointer Ptr, size_type Count)
+	{
+		LargeAligned::Release(Ptr);
+	}
+
+	void construct(pointer Ptr, const T &Val)
+	{
+		std::_Construct(Ptr, Val);
+	}
+
+	void destroy(pointer Ptr)
+	{
+		std::_Destroy(Ptr);
+	}
+
+	size_type max_size() const
+	{
+		return 0x00FFFFFF;
+	}
+
+	template<typename S>
+	bool operator==(STLLargeAlignedAllocator <S> const &) const throw()
+	{
+		return true;
+	}
+
+	template<typename S>
+	bool operator!=(STLLargeAlignedAllocator <S> const &) const throw()
+	{
+		return false;
+	}
 };
 
 

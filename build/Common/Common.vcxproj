@@ -154,6 +154,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\port\AlignedAlloc.cpp" />
+    <ClCompile Include="..\..\src\port\Dictionary.cpp" />
     <ClCompile Include="..\..\src\time\Clock.cpp" />
     <ClCompile Include="..\..\src\port\EndianNeutral.cpp" />
     <ClCompile Include="..\..\src\threads\LoopThread.cpp" />
@@ -168,6 +169,7 @@
     <ClInclude Include="..\..\include\cat\AllCommon.hpp" />
     <ClInclude Include="..\..\include\cat\Config.hpp" />
     <ClInclude Include="..\..\include\cat\Platform.hpp" />
+    <ClInclude Include="..\..\include\cat\port\Dictionary.hpp" />
     <ClInclude Include="..\..\include\cat\Singleton.hpp" />
     <ClInclude Include="..\..\include\cat\time\Clock.hpp" />
     <ClInclude Include="..\..\include\cat\rand\IRandom.hpp" />
