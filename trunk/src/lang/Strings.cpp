@@ -30,6 +30,69 @@
 #include <cctype> // tolower
 using namespace cat;
 
+// Convert from signed 32-bit number to string (up to 12 bytes including '\0')
+int cat::DecToString(s32 x, char *outs)
+{
+	char *out = outs;
+
+	if (x < 0)
+	{
+		*out++ = '-';
+		x = -x;
+	}
+
+	// max = 4294967295
+	u32 r, d, n = (u32)x;
+
+	r = (n >= 1000000000) ? 9 : (n >= 100000000) ? 8 : (n >= 10000000) ? 7 : 
+		(n >= 1000000) ? 6 : (n >= 100000) ? 5 : (n >= 10000) ? 4 : 
+		(n >= 1000) ? 3 : (n >= 100) ? 2 : (n >= 10) ? 1 : 0;
+
+	switch (r)
+	{
+	case 9:
+		d = n / 1000000000;
+		n %= 1000000000;
+		*out++ = '0' + d;
+	case 8:
+		d = n / 100000000;
+		n %= 100000000;
+		*out++ = '0' + d;
+	case 7:
+		d = n / 10000000;
+		n %= 10000000;
+		*out++ = '0' + d;
+	case 6:
+		d = n / 1000000;
+		n %= 1000000;
+		*out++ = '0' + d;
+	case 5:
+		d = n / 100000;
+		n %= 100000;
+		*out++ = '0' + d;
+	case 4:
+		d = n / 10000;
+		n %= 10000;
+		*out++ = '0' + d;
+	case 3:
+		d = n / 1000;
+		n %= 1000;
+		*out++ = '0' + d;
+	case 2:
+		d = n / 100;
+		n %= 100;
+		*out++ = '0' + d;
+	case 1:
+		d = n / 10;
+		n %= 10;
+		*out++ = '0' + d;
+	default:
+		*out++ = '0' + n;
+	}
+
+	return (int)(out - outs);
+}
+
 #if defined(CAT_UNKNOWN_BUILTIN_ISTRCMP)
 
 bool cat::iStrEqual(const char *A, const char *B)

@@ -40,6 +40,10 @@
 namespace cat {
 
 
+// Convert from signed 32-bit number to string (up to 12 bytes including '\0')
+int DecToString(s32 x, char *outs);
+
+
 // iStrEqual(): Returns true if strings match.  Case-insensitive
 
 #if defined(CAT_COMPILER_MSVC)

@@ -38,6 +38,27 @@
 namespace cat {
 
 
+// Next highest power of two (e.g. 13 -> 16)
+CAT_INLINE u32 NextHighestPow2(u32 n)
+{
+	n |= n >> 1;
+	n |= n >> 2;
+	n |= n >> 4;
+	n |= n >> 8;
+	n |= n >> 16;
+	return n + 1;
+}
+CAT_INLINE u64 NextHighestPow2(u64 n)
+{
+	n |= n >> 1;
+	n |= n >> 2;
+	n |= n >> 4;
+	n |= n >> 8;
+	n |= n >> 16;
+	n |= n >> 32;
+	return n + 1;
+}
+
 // Bit Scan Forward (BSF)
 // Scans from bit 0 to MSB
 // Undefined when input is zero
