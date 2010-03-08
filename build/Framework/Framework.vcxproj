@@ -176,7 +176,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\io\Base64.cpp" />
-    <ClCompile Include="..\..\src\net\SphynxCollexion.cpp" />
     <ClCompile Include="..\..\src\parse\BitStream.cpp" />
     <ClCompile Include="..\..\src\db\BombayTable.cpp" />
     <ClCompile Include="..\..\src\db\BombayTableIndex.cpp" />
@@ -209,7 +208,6 @@
     <ClInclude Include="..\..\include\cat\net\DNSClient.hpp" />
     <ClInclude Include="..\..\include\cat\net\Sockets.hpp" />
     <ClInclude Include="..\..\include\cat\net\SphynxClient.hpp" />
-    <ClInclude Include="..\..\include\cat\net\SphynxCollexion.hpp" />
     <ClInclude Include="..\..\include\cat\net\SphynxServer.hpp" />
     <ClInclude Include="..\..\include\cat\net\SphynxTransport.hpp" />
     <ClInclude Include="..\..\include\cat\net\ThreadPoolSockets.hpp" />
