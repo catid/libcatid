@@ -208,6 +208,7 @@
     <ClInclude Include="..\..\include\cat\net\DNSClient.hpp" />
     <ClInclude Include="..\..\include\cat\net\Sockets.hpp" />
     <ClInclude Include="..\..\include\cat\net\SphynxClient.hpp" />
+    <ClInclude Include="..\..\include\cat\net\SphynxCollexion.hpp" />
     <ClInclude Include="..\..\include\cat\net\SphynxServer.hpp" />
     <ClInclude Include="..\..\include\cat\net\SphynxTransport.hpp" />
     <ClInclude Include="..\..\include\cat\net\ThreadPoolSockets.hpp" />
