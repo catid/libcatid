@@ -46,8 +46,30 @@ class CollexionIterator;
 template<class T>
 struct CollexionElement
 {
-	u32 refcnt, next;
+	// Number of active enumerators using this element
+	// If references are held it cannot be deleted
+	// so the KILL flag is set on the 'next' member and
+	// the final enumerator to reduce the reference count
+	// to zero is responsible for removal.
+	u32 refcnt;
+
+	// Bitfield:
+	//  1 bit: COLLISION FLAG
+	//  1 bit: KILL FLAG
+	//  30 bits: Table index to next element in list + 1
+	u32 next;
+
+	// Data at this table element
 	T *conn;
+};
+
+struct CollexionElement2
+{
+	// Previous table element in list (not +1)
+	u32 last;
+
+	// Hash of data pointer from main entry (so it doesn't need to be recalculated during growth)
+	u32 hash;
 };
 
 template<class T>
@@ -59,15 +81,30 @@ class Collexion
 	static const u32 MIN_ALLOCATED = 32;
 
 private:
-	u32 _used, _allocated, _first;
+	// Number of used table elements
+	u32 _used;
+
+	// Number of allocated table elements
+	u32 _allocated;
+
+	// First table index in list of active elements
+	u32 _first;
+
+	// Primary table
 	CollexionElement<T> *_table;
-	u32 *_hash_cache;
+
+	// Secondary table, split off so that primary table elements will
+	// fit on a cache line.  Contains data that is only accessed rarely.
+	CollexionElement2 *_table2;
+
+	// Table lock
 	Mutex _lock;
 
 protected:
 	// Attempt to double size of hash table (does not hold lock)
 	bool DoubleTable();
 
+	// Hash a pointer to a 32-bit table key
 	static CAT_INLINE u32 HashPtr(T *ptr)
 	{
 		u64 key = 0xBADdecafDEADbeef;
@@ -88,14 +125,17 @@ protected:
 	}
 
 public:
+	// Ctor zeros everything
 	Collexion()
 	{
 		_first = 0;
 		_used = 0;
 		_allocated = 0;
 		_table = 0;
-		_hash_cache = 0;
+		_table2 = 0;
 	}
+
+	// Dtor releases dangling memory
 	~Collexion();
 
 	// Returns true if table is empty
@@ -128,10 +168,10 @@ public:
 	T *_cache[MAX_CACHE];
 
 public:
-	CAT_INLINE T *Get() throw() { return _cache[offset]; }
-	CAT_INLINE T *operator->() throw() { return _cache[offset]; }
-	CAT_INLINE T &operator*() throw() { return *_cache[offset]; }
-	CAT_INLINE operator T*() { return _cache[offset]; }
+	CAT_INLINE T *Get() throw() { return _cache[_offset]; }
+	CAT_INLINE T *operator->() throw() { return _cache[_offset]; }
+	CAT_INLINE T &operator*() throw() { return *_cache[_offset]; }
+	CAT_INLINE operator T*() { return _cache[_offset]; }
 
 public:
 	CollexionIterator &operator++();
@@ -146,10 +186,11 @@ bool Collexion<T>::DoubleTable()
 	u32 new_allocated = _allocated << 1;
 	if (new_allocated < MIN_ALLOCATED) new_allocated = MIN_ALLOCATED;
 
-	u32 *new_hash_cache = reinterpret_cast<u32*>(
-		RegionAllocator::ii->Acquire(sizeof(u32) * new_allocated) );
+	u32 new_bytes2 = sizeof(CollexionElement2) * new_allocated;
+	CollexionElement2 *new_table2 = reinterpret_cast<CollexionElement2*>(
+		RegionAllocator::ii->Acquire(new_bytes2) );
 
-	if (!new_hash_cache) return false;
+	if (!new_table2) return false;
 
 	u32 new_bytes = sizeof(CollexionElement<T>) * new_allocated;
 	CollexionElement<T> *new_table = reinterpret_cast<CollexionElement<T> *>(
@@ -157,7 +198,7 @@ bool Collexion<T>::DoubleTable()
 
 	if (!new_table)
 	{
-		RegionAllocator::ii->Release(new_hash_cache);
+		RegionAllocator::ii->Release(new_table2);
 		return false;
 	}
 
@@ -165,7 +206,7 @@ bool Collexion<T>::DoubleTable()
 
 	u32 new_first = 0;
 
-	if (_table && _hash_cache)
+	if (_table && _table2)
 	{
 		// For each entry in the old table,
 		u32 ii = _first, mask = _allocated - 1;
@@ -174,7 +215,7 @@ bool Collexion<T>::DoubleTable()
 		{
 			--ii;
 			CollexionElement<T> *oe = &_table[ii];
-			u32 hash = _hash_cache[ii];
+			u32 hash = _table2[ii].hash;
 			u32 key = hash & mask;
 
 			// While collisions occur,
@@ -189,20 +230,28 @@ bool Collexion<T>::DoubleTable()
 
 			// Fill new table element
 			new_table[key].conn = oe->conn;
-			new_hash_cache[key] = hash;
-			new_table[key].next |= new_first;
+			new_table2[key].hash = hash;
+			// new_table[key].refcnt is already zero
 
 			// Link new element to new list
-			new_first = key;
+			if (new_first)
+			{
+				new_table[key].next |= new_first;
+				new_table2[new_first - 1].last = key;
+			}
+			// new_table[key].next is already zero so no need to zero it here
+			new_first = key + 1;
 
 			// Get next old table entry
 			ii = oe->next & NEXT_MASK;
 		}
 	}
 
-	if (_hash_cache)
+	// Resulting linked list starting with _first-1 will extend until e->next == 0
+
+	if (_table2)
 	{
-		RegionAllocator::ii->Release(_hash_cache);
+		RegionAllocator::ii->Release(_table2);
 	}
 
 	if (_table)
@@ -210,8 +259,8 @@ bool Collexion<T>::DoubleTable()
 		RegionAllocator::ii->Release(_table);
 	}
 
-	_hash_cache = new_hash_cache;
 	_table = new_table;
+	_table2 = new_table2;
 	_allocated = new_allocated;
 	_first = new_first;
 	return true;
@@ -220,9 +269,9 @@ bool Collexion<T>::DoubleTable()
 template<class T>
 Collexion<T>::~Collexion()
 {
-	if (_hash_cache)
+	if (_table2)
 	{
-		RegionAllocator::ii->Release(_hash_cache);
+		RegionAllocator::ii->Release(_table2);
 	}
 
 	// If table doesn't exist, return
@@ -287,12 +336,17 @@ bool Collexion<T>::Insert(T *conn)
 		key = (key * COLLISION_MULTIPLIER + COLLISION_INCREMENTER) & mask;
 	}
 
+	// Fill new element
 	_table[key].conn = conn;
 	_table[key].refcnt = 0;
-	_hash_cache[key] = hash;
-	_table[key].next = (_table[key].next & COLLIDE_MASK) | _first;
+	_table2[key].hash = hash;
+	_table2[key].last = 0;
 
-	_first = key;
+	// Link new element to front of list
+	if (_first) _table2[_first - 1].last = key;
+	_table[key].next = (_table[key].next & COLLIDE_MASK) | _first;
+	_first = key + 1;
+
 	++_used;
 	return true;
 }
