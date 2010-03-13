@@ -125,12 +125,17 @@ protected:
 		return (u32)key;
 	}
 
+	// Common functions shared by interface for good code cache usage:
+
 	// Unlink a table key
 	void Unlink(u32 key);
 
 	// Fill an iterator with the next set of data
 	// Returns false if no data remains to fill
 	void Fill(CollexionIterator<T> &iter, u32 first);
+
+	// Find a hash table key based on data
+	u32 Find(T *conn);
 
 public:
 	// Ctor zeros everything
@@ -172,22 +177,41 @@ class CollexionIterator
 
 	static const u32 MAX_CACHE = 256;
 
+	// Parent Collexion object
 	Collexion<T> *_parent;
+
+	// First and last hash table indices in parent
 	u32 _first, _last;
-	u32 _offset, _total;
+
+	// Stores the size of the parent when snapshot was taken,
+	// will invalidate _first and _last if table changed size
+	u32 _prev_allocated;
+
+	// Connexion object cache, to avoid locking and unlocking a lot
 	T *_cache[MAX_CACHE];
 
+	// Offset into cache and total elements in cache
+	// Will grab another cache once offset reaches total
+	u32 _offset, _total;
+
 public:
+	// Smart pointer -style accessors
 	CAT_INLINE T *Get() throw() { return _cache[_offset]; }
 	CAT_INLINE T *operator->() throw() { return _cache[_offset]; }
 	CAT_INLINE T &operator*() throw() { return *_cache[_offset]; }
 	CAT_INLINE operator T*() { return _cache[_offset]; }
 
 public:
+	// Ctor: Grabs first cache of Connexions
 	CollexionIterator(Collexion<T> &begin);
+
+	// Dtor: Calls Telease()
 	~CollexionIterator();
 
+	// Iterate to next Connexion object in list
 	CollexionIterator &operator++();
+
+	// Releases reference to any outstanding Connexions
 	void Release();
 };
 
@@ -320,7 +344,9 @@ bool Collexion<T>::Insert(T *conn)
 		{
 			// On growth failure, return false
 			lock.Release();
+
 			conn->ReleaseRef();
+
 			return false;
 		}
 	}
@@ -337,7 +363,9 @@ bool Collexion<T>::Insert(T *conn)
 		{
 			// Return false on duplicate
 			lock.Release();
+
 			conn->ReleaseRef();
+
 			return false;
 		}
 
@@ -474,6 +502,9 @@ void Collexion<T>::Fill(CollexionIterator<T> &iter, u32 first)
 		return;
 	}
 
+	// Remember size of hash table in case it grows before iterator is done
+	iter._prev_allocated = _allocated;
+
 	// Remember first key for next iteration
 	iter._first = key;
 
@@ -520,6 +551,27 @@ void Collexion<T>::Begin(CollexionIterator<T> &iter)
 	Fill(iter, _first);
 }
 
+// Find a hash table key based on data
+template<class T>
+u32 Collexion<T>::Find(T *conn)
+{
+	u32 mask = _allocated - 1;
+	u32 key = HashPtr(conn) & mask;
+
+	// Find the object in the collision list starting at the expected location
+	while (_table[key].conn != conn)
+	{
+		// If at the end of the collision list,
+		if (!(_table[key].next & COLLIDE_MASK))
+			break; // Should never happen
+
+		// Walk collision list
+		key = (key * COLLISION_MULTIPLIER + COLLISION_INCREMENTER) & mask;
+	}
+
+	return key;
+}
+
 template<class T>
 void Collexion<T>::Next(CollexionIterator<T> &iter, bool refill)
 {
@@ -533,6 +585,15 @@ void Collexion<T>::Next(CollexionIterator<T> &iter, bool refill)
 	if (!key) return;
 
 	AutoMutex lock(_lock);
+
+	// If hash table changed size (rare),
+	if (iter._prev_allocated != _allocated)
+	{
+		// iter._first and iter._last are invalid
+		// ...but we can find them again based on the cached pointers!
+		key = Find(iter._cache[0]) + 1;
+		last = Find(iter._cache[iter._total - 1]) + 1;
+	}
 
 	last = _table[last-1].next & NEXT_MASK;
 
@@ -592,7 +653,7 @@ CollexionIterator<T>::CollexionIterator(Collexion<T> &begin)
 template<class T>
 CollexionIterator<T>::~CollexionIterator()
 {
-	if (_parent) _parent->Next(*this, false);
+	Release();
 }
 
 template<class T>
