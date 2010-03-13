@@ -362,7 +362,7 @@ bool Collexion<T>::Insert(T *conn)
 template<class T>
 void Collexion<T>::Unlink(u32 key)
 {
-	// Clear reference, maintaining collision flag
+	// Clear reference
 	_table[key].conn = 0;
 
 	// Unlink from active list
@@ -373,11 +373,11 @@ void Collexion<T>::Unlink(u32 key)
 	else _first = next;
 	if (next) _table2[next-1].last = last;
 
-	u32 mask = _allocated - 1;
-
 	// If this key was a leaf on a collision wind,
 	if (!(_table[key].next & COLLIDE_MASK))
 	{
+		u32 mask = _allocated - 1;
+
 		do
 		{
 			// Go backwards through the collision list one step
