@@ -260,6 +260,9 @@ bool Collexion<T>::DoubleTable()
 			// Get next old table entry
 			ii = oe->next & NEXT_MASK;
 		}
+
+		// Zero head->last
+		new_table2[new_first - 1].last = 0;
 	}
 
 	// Resulting linked list starting with _first-1 will extend until e->next == 0
