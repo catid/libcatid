@@ -65,7 +65,7 @@ struct CollexionElement
 
 struct CollexionElement2
 {
-	// Previous table element in list (not +1)
+	// Previous table element in list + 1
 	u32 last;
 
 	// Hash of data pointer from main entry (so it doesn't need to be recalculated during growth)
@@ -124,6 +124,13 @@ protected:
 		return (u32)key;
 	}
 
+	// Unlink a table key
+	void Unlink(u32 key);
+
+	// Fill an iterator with the next set of data
+	// Returns false if no data remains to fill
+	void Fill(CollexionIterator<T> &iter, u32 first);
+
 public:
 	// Ctor zeros everything
 	Collexion()
@@ -148,10 +155,10 @@ public:
 	bool Remove(T *conn);
 
 	// Begin iterating through list
-	bool Begin(CollexionIterator<T> &iter);
+	void Begin(CollexionIterator<T> &iter);
 
 	// Iterate
-	bool Next(CollexionIterator<T> &iter);
+	void Next(CollexionIterator<T> &iter, bool refill = true);
 };
 
 
@@ -160,10 +167,12 @@ public:
 template<class T>
 class CollexionIterator
 {
+	friend class Collexion<T>;
+
 	static const u32 MAX_CACHE = 256;
 
-public:
 	Collexion<T> *_parent;
+	u32 _first, _last;
 	u32 _offset, _total;
 	T *_cache[MAX_CACHE];
 
@@ -174,7 +183,11 @@ public:
 	CAT_INLINE operator T*() { return _cache[_offset]; }
 
 public:
+	CollexionIterator(Collexion<T> &begin);
+	~CollexionIterator();
+
 	CollexionIterator &operator++();
+	void Release();
 };
 
 
@@ -186,12 +199,14 @@ bool Collexion<T>::DoubleTable()
 	u32 new_allocated = _allocated << 1;
 	if (new_allocated < MIN_ALLOCATED) new_allocated = MIN_ALLOCATED;
 
+	// Allocate secondary table
 	u32 new_bytes2 = sizeof(CollexionElement2) * new_allocated;
 	CollexionElement2 *new_table2 = reinterpret_cast<CollexionElement2*>(
 		RegionAllocator::ii->Acquire(new_bytes2) );
 
 	if (!new_table2) return false;
 
+	// Allocate primary table
 	u32 new_bytes = sizeof(CollexionElement<T>) * new_allocated;
 	CollexionElement<T> *new_table = reinterpret_cast<CollexionElement<T> *>(
 		RegionAllocator::ii->Acquire(new_bytes) );
@@ -249,15 +264,8 @@ bool Collexion<T>::DoubleTable()
 
 	// Resulting linked list starting with _first-1 will extend until e->next == 0
 
-	if (_table2)
-	{
-		RegionAllocator::ii->Release(_table2);
-	}
-
-	if (_table)
-	{
-		RegionAllocator::ii->Release(_table);
-	}
+	if (_table2) RegionAllocator::ii->Release(_table2);
+	if (_table) RegionAllocator::ii->Release(_table);
 
 	_table = new_table;
 	_table2 = new_table2;
@@ -343,12 +351,50 @@ bool Collexion<T>::Insert(T *conn)
 	_table2[key].last = 0;
 
 	// Link new element to front of list
-	if (_first) _table2[_first - 1].last = key;
+	if (_first) _table2[_first - 1].last = key + 1;
 	_table[key].next = (_table[key].next & COLLIDE_MASK) | _first;
 	_first = key + 1;
 
 	++_used;
 	return true;
+}
+
+template<class T>
+void Collexion<T>::Unlink(u32 key)
+{
+	// Clear reference, maintaining collision flag
+	_table[key].conn = 0;
+
+	// Unlink from active list
+	u32 next = _table[key].next & NEXT_MASK;
+	u32 last = _table2[key].last;
+
+	if (last) _table[last-1].next = (_table[last-1].next & ~NEXT_MASK) | next;
+	else _first = next;
+	if (next) _table2[next-1].last = last;
+
+	u32 mask = _allocated - 1;
+
+	// If this key was a leaf on a collision wind,
+	if (!(_table[key].next & COLLIDE_MASK))
+	{
+		do
+		{
+			// Go backwards through the collision list one step
+			key = ((key + COLLISION_INCRINVERSE) * COLLISION_MULTINVERSE) & mask;
+
+			// Stop where collision list stops
+			if (!(_table[key].next & COLLIDE_MASK))
+				break;
+
+			// Turn off collision key for previous entry
+			_table[key].next &= ~COLLIDE_MASK;
+
+		} while (!_table[key].conn);
+	}
+
+	// Update number of used elements
+	--_used;
 }
 
 template<class T>
@@ -375,15 +421,7 @@ bool Collexion<T>::Remove(T *conn)
 			}
 			else
 			{
-				// Clear reference, maintaining collision flag
-				_table[key].conn = 0;
-
-				// If this key was a leaf on a collision list,
-				if (0 == (_table[key].next & COLLIDE_MASK))
-				{
-					// TODO: Unset collision flags with multiplicative inverse
-					// TODO: Implement this optimization in the two other dictionaries
-				}
+				Unlink(key);
 
 				lock.Release();
 
@@ -394,7 +432,7 @@ bool Collexion<T>::Remove(T *conn)
 			return true;
 		}
 
-		if (0 == (_table[key].next & COLLIDE_MASK))
+		if (!(_table[key].next & COLLIDE_MASK))
 		{
 			break; // End of collision list
 		}
@@ -408,55 +446,169 @@ bool Collexion<T>::Remove(T *conn)
 }
 
 template<class T>
-bool Collexion<T>::Begin(CollexionIterator<T> &iter)
+void Collexion<T>::Fill(CollexionIterator<T> &iter, u32 first)
 {
-	AutoMutex lock(_lock);
+	u32 key = first;
 
-	if (!_first)
+	// Find first list element that does not want to die
+	while (key && (_table[key-1].next & KILL_MASK))
 	{
-		iter._cache[0] = 0;
-		iter._offset = 0;
-		iter._total = 0;
-
-		return false;
+		// Go to next
+		key = _table[key-1].next & NEXT_MASK;
 	}
 
-	iter._element = &_table[_first];
-	iter._conn = iter._element->conn;
+	iter._offset = 0;
 
-	return true;
+	// If no elements in table,
+	if (!key)
+	{
+		// Return empty set
+		iter._cache[0] = 0;
+		iter._total = 0;
+		iter._first = 0;
+		iter._last = 0;
+		return;
+	}
+
+	// Remember first key for next iteration
+	iter._first = key;
+
+	// For each of the first MAX_CACHE elements in the table, copy the data pointer to cache
+	u32 ii = 0, final = 0;
+
+	do
+	{
+		// If element does not want to die,
+		if (!(_table[key-1].next & KILL_MASK))
+		{
+			// Copy data pointer
+			iter._cache[ii] = _table[key-1].conn;
+
+			// Increment reference count for element
+			_table[key-1].refcnt++;
+
+			// Remember key as the next iteration starting point
+			final = key;
+
+			// Check if copy is complete
+			if (++ii >= CollexionIterator<T>::MAX_CACHE) break;
+		}
+
+		// Go to next key
+		key = _table[key-1].next & NEXT_MASK;
+
+	} while (key);
+
+	// Record number of elements written
+	iter._total = ii;
+
+	// Remember next key for next iteration
+	iter._last = final;
 }
 
 template<class T>
-bool Collexion<T>::Next(CollexionIterator<T> &iter)
+void Collexion<T>::Begin(CollexionIterator<T> &iter)
 {
+	iter._parent = this;
+
 	AutoMutex lock(_lock);
 
-	u32 next = iter._element->next & NEXT_MASK;
+	Fill(iter, _first);
+}
 
-	if (!next)
+template<class T>
+void Collexion<T>::Next(CollexionIterator<T> &iter, bool refill)
+{
+	T *release_list[CollexionIterator<T>::MAX_CACHE];
+	u32 release_ii = 0;
+
+	u32 key = iter._first;
+	u32 last = iter._last;
+
+	// If iteration is done,
+	if (!key) return;
+
+	AutoMutex lock(_lock);
+
+	// Release any table elements that want to die now
+	do 
 	{
+		--key;
+
+		u32 next = _table[key].next;
+
+		// If reference count is now zero for this element,
+		if (0 == --_table[key].refcnt)
+		{
+			// If element wants to die,
+			if (next & KILL_MASK)
+			{
+				// Prepare to release data after lock is released
+				release_list[release_ii++] = _table[key].conn;
+
+				Unlink(key);
+			}
+		}
+
+		key = next & NEXT_MASK;
+
+	} while (key != last);
+
+	// Fill iterator starting with next key
+	if (refill) Fill(iter, _table[last-1].next);
+
+	lock.Release();
+
+	if (!refill)
+	{
+		// Return empty set
 		iter._cache[0] = 0;
-		iter._offset = 0;
 		iter._total = 0;
-		return false;
+		iter._offset = 0;
+		iter._first = 0;
+		iter._last = 0;
 	}
 
-	iter._element = &_table[next - 1];
-	iter._conn = iter._element->conn;
-
-	return true;
+	// Release data awaiting destruction
+	for (u32 ii = 0; ii < release_ii; ++ii)
+	{
+		release_list[ii]->ReleaseRef();
+	}
 }
 
 
 //// sphynx::CollexionIterator
 
 template<class T>
+CollexionIterator<T>::CollexionIterator(Collexion<T> &begin)
+{
+	begin.Begin(*this);
+}
+
+template<class T>
+CollexionIterator<T>::~CollexionIterator()
+{
+	if (_parent) _parent->Next(*this, false);
+}
+
+template<class T>
 CollexionIterator<T> &CollexionIterator<T>::operator++()
 {
 	if (++_offset >= _total)
 	{
-		_parent->Next(*this);
+		_parent->Next(*this, true);
+	}
+
+	return *this;
+}
+
+template<class T>
+void CollexionIterator<T>::Release()
+{
+	if (_parent)
+	{
+		_parent->Next(*this, false);
+		_parent = 0;
 	}
 }
 

@@ -204,8 +204,12 @@ static const int MAX_POPULATION = HASH_TABLE_SIZE / 2;
 // (multiplier-1) is a multiple of 4 if table size is a multiple of 4
 // These constants are from Press, Teukolsky, Vetterling and Flannery's
 // "Numerical Recipes in FORTRAN: The Art of Scientific Computing"
-static const int COLLISION_MULTIPLIER = 71*5861 * 4 + 1;
-static const int COLLISION_INCREMENTER = 1013904223;
+static const u32 COLLISION_MULTIPLIER = 71*5861 * 4 + 1;
+static const u32 COLLISION_INCREMENTER = 1013904223;
+
+// If multiplier changes, this needs to be recalculated (multiplicative inverse of above)
+static const u32 COLLISION_MULTINVERSE = 4276115653;
+static const u32 COLLISION_INCRINVERSE = 0 - COLLISION_INCREMENTER;
 
 
 // Handshake types
