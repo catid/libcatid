@@ -436,6 +436,9 @@ bool Collexion<T>::Remove(T *conn)
 
 	AutoMutex lock(_lock);
 
+	// If table doesn't exist,
+	if (!_allocated) return false;
+
 	// Mask off high bits to make table key from hash
 	u32 mask = _allocated - 1;
 	u32 key = hash & mask;
