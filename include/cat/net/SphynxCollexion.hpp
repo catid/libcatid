@@ -31,6 +31,7 @@
 
 #include <cat/threads/Mutex.hpp>
 #include <cat/threads/RegionAllocator.hpp>
+#include <cat/net/SphynxTransport.hpp>
 
 namespace cat {
 
