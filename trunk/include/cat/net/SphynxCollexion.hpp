@@ -414,8 +414,9 @@ bool Collexion<T>::Begin(CollexionIterator<T> &iter)
 
 	if (!_first)
 	{
-		iter._element = 0;
-		iter._conn = 0;
+		iter._cache[0] = 0;
+		iter._offset = 0;
+		iter._total = 0;
 
 		return false;
 	}
@@ -435,7 +436,9 @@ bool Collexion<T>::Next(CollexionIterator<T> &iter)
 
 	if (!next)
 	{
-		iter._conn = 0;
+		iter._cache[0] = 0;
+		iter._offset = 0;
+		iter._total = 0;
 		return false;
 	}
 
