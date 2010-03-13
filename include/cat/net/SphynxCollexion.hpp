@@ -530,32 +530,32 @@ void Collexion<T>::Next(CollexionIterator<T> &iter, bool refill)
 
 	AutoMutex lock(_lock);
 
+	last = _table[last-1].next & NEXT_MASK;
+
 	// Release any table elements that want to die now
 	do 
 	{
-		--key;
-
-		u32 next = _table[key].next;
+		u32 flags = _table[key-1].next;
 
 		// If reference count is now zero for this element,
-		if (0 == --_table[key].refcnt)
+		if (0 == --_table[key-1].refcnt)
 		{
 			// If element wants to die,
-			if (next & KILL_MASK)
+			if (flags & KILL_MASK)
 			{
 				// Prepare to release data after lock is released
-				release_list[release_ii++] = _table[key].conn;
+				release_list[release_ii++] = _table[key-1].conn;
 
-				Unlink(key);
+				Unlink(key-1);
 			}
 		}
 
-		key = next & NEXT_MASK;
+		key = flags & NEXT_MASK;
 
 	} while (key != last);
 
 	// Fill iterator starting with next key
-	if (refill) Fill(iter, _table[last-1].next);
+	if (refill) Fill(iter, key);
 
 	lock.Release();
 
