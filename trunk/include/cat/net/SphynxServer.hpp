@@ -91,6 +91,7 @@ public:
 private:
 	volatile u32 _destroyed;
 
+	u32 _key; // Map hash table index, unique for each active connection
 	Connexion *_next_delete;
 	ServerWorker *_server_worker;
 
@@ -107,6 +108,7 @@ private:
 
 public:
 	CAT_INLINE bool IsValid() { return _destroyed == 0; }
+	CAT_INLINE u32 GetKey() { return _key; }
 
 	void Destroy();
 
@@ -150,7 +152,11 @@ public:
 	Map();
 	virtual ~Map();
 
+	// Lookup client by address
 	Connexion *Lookup(const NetAddr &addr);
+
+	// Lookup client by key
+	Connexion *Lookup(u32 key);
 
 	// May return false if network address in Connexion is already in the map.
 	// This averts a potential race condition but should never happen during
@@ -272,6 +278,9 @@ protected:
 
 	// IP address filter: Return true to allow the connection to be made
 	virtual bool AcceptNewConnexion(const NetAddr &src) = 0;
+
+	// Lookup client by key
+	Connexion *Lookup(u32 key);
 };
 
 
