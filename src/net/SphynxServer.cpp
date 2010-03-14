@@ -159,12 +159,6 @@ u32 Map::hash_addr(const NetAddr &addr, u32 salt)
 	return key % HASH_TABLE_SIZE;
 }
 
-u32 Map::next_collision_key(u32 key)
-{
-	// LCG with period equal to the table size
-	return (key * COLLISION_MULTIPLIER + COLLISION_INCREMENTER) % HASH_TABLE_SIZE;
-}
-
 Connexion *Map::Lookup(const NetAddr &addr)
 {
 	Slot *slot;
@@ -194,7 +188,7 @@ Connexion *Map::Lookup(const NetAddr &addr)
 			if (slot->collision)
 			{
 				// Calculate next collision key
-				key = next_collision_key(key);
+				key = (key * COLLISION_MULTIPLIER + COLLISION_INCREMENTER) % HASH_TABLE_SIZE;
 
 				// Loop around and process the next slot in the collision list
 			}
@@ -235,7 +229,7 @@ bool Map::Insert(Connexion *conn)
 		slot->collision = true;
 
 		// Iterate to next collision key
-		key = next_collision_key(key);
+		key = (key * COLLISION_MULTIPLIER + COLLISION_INCREMENTER) % HASH_TABLE_SIZE;
 		slot = &_table[key];
 
 		// NOTE: This will loop forever if every table key is marked used
@@ -257,7 +251,7 @@ bool Map::Insert(Connexion *conn)
 		do
 		{
 			// Iterate to next collision key
-			key = next_collision_key(key);
+			key = (key * COLLISION_MULTIPLIER + COLLISION_INCREMENTER) % HASH_TABLE_SIZE;
 			slot = &_table[key];
 
 			// If this key is also used,
@@ -273,7 +267,7 @@ bool Map::Insert(Connexion *conn)
 		while (slot->collision)
 		{
 			// Iterate to next collision key
-			key = next_collision_key(key);
+			key = (key * COLLISION_MULTIPLIER + COLLISION_INCREMENTER) % HASH_TABLE_SIZE;
 			slot = &_table[key];
 		}
 	}

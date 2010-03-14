@@ -39,6 +39,23 @@ namespace cat {
 namespace sphynx {
 
 
+/*
+	The purpose of sphynx::Collexion and sphynx::CollexionIterator is to
+	store lists of Connexion object references and iterate through them.
+
+	Since the number of clients can number in the thousands, I feel it is
+	important to scale effectively.  So in the Collexion data structure,
+	insertion and removal are O(1) operations.  Also locks should be held
+	for the smallest amount of time possible, so I have taken care to make
+	locks short and reduce the amount of locking.  For example, the iterator
+	caches large blocks of data instead of locking for each iteration.
+
+	The design is optimized for cache usage, re-using common code to benefit
+	from code cache and allocating and accessing table entries on cache line
+	boundaries to double memory performance over a naive approach.
+*/
+
+
 //// sphynx::Collexion
 
 template<class T>
@@ -205,7 +222,7 @@ public:
 	// Ctor: Grabs first cache of Connexions
 	CollexionIterator(Collexion<T> &begin);
 
-	// Dtor: Calls Telease()
+	// Dtor: Calls Release()
 	~CollexionIterator();
 
 	// Iterate to next Connexion object in list
