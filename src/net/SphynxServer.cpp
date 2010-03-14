@@ -159,10 +159,26 @@ u32 Map::hash_addr(const NetAddr &addr, u32 salt)
 	return key % HASH_TABLE_SIZE;
 }
 
+Connexion *Map::Lookup(u32 key)
+{
+	if (key >= HASH_TABLE_SIZE) return 0;
+
+	AutoReadLock lock(_table_lock);
+
+	Connexion *conn = _table[key].connection;
+
+	if (conn)
+	{
+		conn->AddRef();
+
+		return conn;
+	}
+
+	return 0;
+}
+
 Connexion *Map::Lookup(const NetAddr &addr)
 {
-	Slot *slot;
-
 	// Hash IP:port:salt to get the hash table key
 	u32 key = hash_addr(addr, _hash_salt);
 
@@ -172,7 +188,7 @@ Connexion *Map::Lookup(const NetAddr &addr)
 	for (;;)
 	{
 		// Grab the slot
-		slot = &_table[key];
+		Slot *slot = &_table[key];
 
 		Connexion *conn = slot->connection;
 
@@ -180,6 +196,7 @@ Connexion *Map::Lookup(const NetAddr &addr)
 		if (conn && conn->_client_addr == addr)
 		{
 			conn->AddRef();
+
 			return conn;
 		}
 		else
@@ -237,6 +254,7 @@ bool Map::Insert(Connexion *conn)
 
 	// Mark used
 	slot->connection = conn;
+	conn->_key = key;
 
 	// Insert into ServerWorker
 	conn->_server_worker->IncrementPopulation();
@@ -659,6 +677,11 @@ bool Server::StartServer(ThreadPoolLocalStorage *tls, Port port, u8 *public_key,
 	}
 
 	return success;
+}
+
+Connexion *Server::Lookup(u32 key)
+{
+	return _conn_map.Lookup(key);
 }
 
 ServerWorker *Server::FindLeastPopulatedPort()
