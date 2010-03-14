@@ -242,36 +242,6 @@ bool Map::Insert(Connexion *conn)
 	conn->_server_worker->IncrementPopulation();
 	conn->_server_worker->_server_timer->InsertSlot(slot);
 
-	// If collision list continues after this slot,
-	if (slot->collision)
-	{
-		Slot *end_of_list = slot;
-
-		// While collision list continues,
-		do
-		{
-			// Iterate to next collision key
-			key = (key * COLLISION_MULTIPLIER + COLLISION_INCREMENTER) % HASH_TABLE_SIZE;
-			slot = &_table[key];
-
-			// If this key is also used,
-			if (slot->connection)
-			{
-				// Remember it as the end of the collision list
-				end_of_list = slot;
-			}
-		} while (slot->collision);
-
-		// Truncate collision list at the detected end of the list
-		slot = end_of_list;
-		while (slot->collision)
-		{
-			// Iterate to next collision key
-			key = (key * COLLISION_MULTIPLIER + COLLISION_INCREMENTER) % HASH_TABLE_SIZE;
-			slot = &_table[key];
-		}
-	}
-
 	return true;
 }
 
@@ -293,6 +263,28 @@ void Map::DestroyList(Map::Slot *kill_list)
 			delete_head = conn;
 
 			slot->connection = 0;
+
+			// If at a leaf in the collision list,
+			if (!slot->collision)
+			{
+				// Find key for this slot
+				u32 key = (u32)(slot - _table) / sizeof(Map::Slot);
+
+				// Unset collision flags until first filled entry is found
+				do 
+				{
+					// Roll backwards
+					key = ((key + COLLISION_INCRINVERSE) * COLLISION_MULTINVERSE) % HASH_TABLE_SIZE;
+
+					// If collision list is done,
+					if (!_table[key].collision)
+						break;
+
+					// Remove collision flag
+					_table[key].collision = false;
+
+				} while (!_table[key].connection);
+			}
 		}
 	}
 
