@@ -132,7 +132,6 @@ class Map
 {
 protected:
 	CAT_INLINE u32 hash_addr(const NetAddr &addr, u32 salt);
-	CAT_INLINE u32 next_collision_key(u32 key);
 
 public:
 	struct Slot
