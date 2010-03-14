@@ -43,7 +43,7 @@ namespace sphynx {
 	The purpose of sphynx::Collexion and sphynx::CollexionIterator is to
 	store lists of Connexion object references and iterate through them.
 
-	Since the number of clients can number in the thousands, I feel it is
+	Since the number of clients may be in the thousands, I feel it is
 	important to scale effectively.  So in the Collexion data structure,
 	insertion and removal are O(1) operations.  Also locks should be held
 	for the smallest amount of time possible, so I have taken care to make
