@@ -151,12 +151,12 @@ u32 Map::hash_addr(const NetAddr &addr, u32 salt)
 
 	// Hide this from the client-side to prevent users from generating
 	// hash table collisions by changing their port number.
-	const int SECRET_CONSTANT = 104729; // 1,000th prime number
+	const u32 SECRET_CONSTANT = 104729; // 1,000th prime number
 
 	// Map 16-bit port 1:1 to a random-looking number
-	key += ((u32)addr.GetPort() * (SECRET_CONSTANT*4 + 1)) & 0xffff;
+	key += (u32)addr.GetPort() * (SECRET_CONSTANT*4 + 1);
 
-	return key % HASH_TABLE_SIZE;
+	return key & HASH_TABLE_MASK;
 }
 
 Connexion *Map::Lookup(u32 key)
@@ -205,7 +205,7 @@ Connexion *Map::Lookup(const NetAddr &addr)
 			if (slot->collision)
 			{
 				// Calculate next collision key
-				key = (key * COLLISION_MULTIPLIER + COLLISION_INCREMENTER) % HASH_TABLE_SIZE;
+				key = (key * COLLISION_MULTIPLIER + COLLISION_INCREMENTER) & HASH_TABLE_MASK;
 
 				// Loop around and process the next slot in the collision list
 			}
@@ -246,7 +246,7 @@ bool Map::Insert(Connexion *conn)
 		slot->collision = true;
 
 		// Iterate to next collision key
-		key = (key * COLLISION_MULTIPLIER + COLLISION_INCREMENTER) % HASH_TABLE_SIZE;
+		key = (key * COLLISION_MULTIPLIER + COLLISION_INCREMENTER) & HASH_TABLE_MASK;
 		slot = &_table[key];
 
 		// NOTE: This will loop forever if every table key is marked used
@@ -292,7 +292,7 @@ void Map::DestroyList(Map::Slot *kill_list)
 				do 
 				{
 					// Roll backwards
-					key = ((key + COLLISION_INCRINVERSE) * COLLISION_MULTINVERSE) % HASH_TABLE_SIZE;
+					key = ((key + COLLISION_INCRINVERSE) * COLLISION_MULTINVERSE) & HASH_TABLE_MASK;
 
 					// If collision list is done,
 					if (!_table[key].collision)
