@@ -158,7 +158,7 @@
     <Lib />
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\src\gfx\LoadPNG.cpp" />
+    <ClCompile Include="..\..\src\gfx\Cheshire.cpp" />
     <ClCompile Include="..\..\src\gfx\Matrix.cpp" />
     <ClCompile Include="..\..\src\gfx\Quaternion.cpp" />
     <ClCompile Include="..\..\src\gfx\Scalar.cpp" />
@@ -166,7 +166,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\cat\AllGraphics.hpp" />
-    <ClInclude Include="..\..\include\cat\gfx\LoadPNG.hpp" />
+    <ClInclude Include="..\..\include\cat\gfx\Cheshire.hpp" />
     <ClInclude Include="..\..\include\cat\gfx\Matrix.hpp" />
     <ClInclude Include="..\..\include\cat\gfx\Quaternion.hpp" />
     <ClInclude Include="..\..\include\cat\gfx\Scalar.hpp" />

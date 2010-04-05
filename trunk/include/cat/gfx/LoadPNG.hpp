@@ -29,10 +29,132 @@
 #ifndef LOAD_PNG_HPP
 #define LOAD_PNG_HPP
 
-#include <cat/Platform.hpp>
+#include <cat/AllFramework.hpp>
+#include <string>
+using namespace std;
+#include "zlib-1.2.4/zlib.h"
 
 namespace cat {
 
+#include "CRC32.hpp"
+
+#ifdef CAT_PRAGMA_PACK
+#pragma pack(push)
+#pragma pack(1)
+#endif
+
+	typedef struct
+	{
+		u32 length;
+		char type[4];
+	} CAT_PACKED SectionHeader;
+
+	typedef struct
+	{
+		u32 length;
+		char type[4];
+		u32 crc;
+	} CAT_PACKED EmptySection;
+
+	typedef struct
+	{
+		u32 width, height;
+		u8 bitDepth, colorType, compressionMethod, filterMethod, interlaceMethod;
+	} CAT_PACKED PNG_IHDR;
+
+	typedef struct
+	{
+		u8 r, g, b;
+	} CAT_PACKED PLTE_Entry8;
+
+	typedef struct
+	{
+		PLTE_Entry8 table[256];
+	} CAT_PACKED PNG_PLTE;
+
+#ifdef CAT_PRAGMA_PACK
+#pragma pack(pop)
+#endif
+
+
+	class PNGSkeletonTokenizer
+	{
+	protected:
+		MMapFile mmf;
+		CRC32Calculator calculator;
+		string path;
+
+		// Split this from the ctor, so virtual overloads are in place by the time we start reading
+		bool read(const u8 signature[8]); // Returns false on failure
+
+	public:
+		PNGSkeletonTokenizer(const string &path, u32 CRC32polynomial);
+		virtual ~PNGSkeletonTokenizer() {}
+
+	protected:
+		// return true only if section is valid (no exceptions please)
+		virtual bool onSection(char type[4], u8 data[], u32 len) = 0;
+	};
+
+
+	class PNGTokenizer : public PNGSkeletonTokenizer
+	{
+	protected:
+		z_stream zstream;
+		u8 *obuf;
+		u32 olen;
+		int lastZlibResult;
+
+		bool requirePOTS;
+
+		PNG_IHDR header;
+		u16 bpp;
+		u32 palette[256];
+		u8 trans_red, trans_green, trans_blue;
+
+		void rasterizeImage(u8 *image);
+
+	public:
+		PNGTokenizer(const string &path, bool requirePOTS);
+		virtual ~PNGTokenizer();
+
+	protected:
+		bool onSection(char type[4], u8 data[], u32 len);
+
+	protected:
+		// Rasterized image in R8G8B8A8 format, new dimensions are powers of two
+		virtual void onImage(u32 *image, u32 newWidth, u32 newHeight);
+
+	protected:
+		// Important sections
+		void onIHDR(PNG_IHDR *infohdr);
+		void onPLTE(PNG_PLTE *c_palette);
+		void onIDAT(u8 *data, u32 len);
+		void onIEND();
+
+		// Transparency info
+		void onTRNS_Color2(u16 red, u16 green, u16 blue);
+		void onTRNS_Color3(u8 trans[256], u16 len);
+
+		// Color space information (all unimplemented)
+		void onGAMA();
+		void onCHRM();
+		void onSRGB();
+		void onICCP();
+
+		// Textual information (all unimplemented)
+		void onTEXT();
+		void onZTXT();
+		void onITXT();
+
+		// Other non-essential info (all unimplemented)
+		void onBKGD();
+		void onPHYS();
+		void onSBIT();
+		void onSPLT();
+		void onHIST();
+		void onTIME();
+	};
 
 
 } // namespace cat

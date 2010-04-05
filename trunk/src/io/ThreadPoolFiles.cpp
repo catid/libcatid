@@ -97,6 +97,27 @@ void AsyncFile::Close()
 	}
 }
 
+bool AsyncFile::SetSize(u64 bytes)
+{
+	LARGE_INTEGER offset;
+
+	offset.QuadPart = bytes;
+
+	if (!SetFilePointerEx(_file, offset, 0, FILE_BEGIN))
+	{
+		WARN("AsyncFile") << "SetFilePointerEx error: " << GetLastError();
+		return false;
+	}
+
+	if (!SetEndOfFile(_file))
+	{
+		WARN("AsyncFile") << "SetEndOfFile error: " << GetLastError();
+		return false;
+	}
+
+	return true;
+}
+
 u64 AsyncFile::GetSize()
 {
 	LARGE_INTEGER size;
