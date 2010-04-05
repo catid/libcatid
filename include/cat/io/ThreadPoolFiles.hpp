@@ -69,6 +69,7 @@ public:
 	bool Open(const char *file_path, u32 async_file_modes);
 	void Close();
 
+	bool SetSize(u64 bytes);
 	u64 GetSize();
 
 	bool Read(AsyncBuffer *buffer, u64 offset, const AsyncCallback &callback);

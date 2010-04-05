@@ -30,20 +30,13 @@
 #define CAT_PACKAGE_MANAGER_HPP
 
 #include <cat/Platform.hpp>
+#include <cat/port/FastDelegate.h>
 
 namespace cat {
 
 
-struct PackageAddress
-{
-	u32 offset, size;
-
-	CAT_INLINE PackageAddress(u32 noffset, u32 nsize) { offset = noffset; size = nsize; }
-};
-
-
 // Package resource identifier macro
-#define CAT_UNPACK(packagePath, offset, size) PackageAddress(offset, size)
+#define CAT_UNCAGE(packagePath, offset, size) offset, size
 
 /*
 	All file resources are packed into one large file and each is
@@ -53,8 +46,8 @@ struct PackageAddress
 	arguments of the CAT_UNPACK() macro with the correct ID number based
 	on the string given as the first argument.
 
-	CAT_UNPACK("world1/lightmap3.png", 0, 0)
-	-> CAT_UNPACK("world1/lightmap3.png", 15241, 256)
+	CAT_UNPACK("world1/lightmap3.png")
+	-> CAT_UNPACK("world1/lightmap3.png", 15241, 256, 0xdecryptionkey)
 
 	At runtime the client application will not be aware of the string
 	name of a resource in the package, only where to go to get it.
@@ -65,28 +58,48 @@ struct PackageAddress
 
 
 /*
-	Package File Format:
+	Kennel files are simple concatenations of all of the game resources.
 
-	<magic(8 bytes)>
-	<chunk array length(4 bytes)>
+	The goal is to reduce access time to data by cutting the operating
+	system's file-system out completely.  Furthermore, data that are
+	accessed together are stored together on disk and in the same order
+	that they are accessed.
 
-	<chunk 0 offset(4 bytes)>
-	<chunk 0 size(4 bytes)>
-	"string name for chunk 0\0"
+	Textures are compressed with modified JPEG-LS, providing the fastest
+	possible access time.
+	Sounds compression hasn't been investigated yet.
 
-	<chunk 1 offset(4 bytes)>
-	<chunk 1 size(4 bytes)>
-	"string name for chunk 1\0"
+	Each resource (sound/texture) is obfuscated with a 64-bit key, making
+	it necessary to reverse-engineer the game client to decode in-game
+	resources outside of the game.
 
-	...
-
-	[data for chunk 0]
-	[data for chunk 1]
-
-	...
-
-	eof
+	The KennelFile object implements optimized algorithms for performing
+	in-place modification to a large datafile (>4 GB).
 */
+
+class KennelPatchFile : AsyncFile
+{
+public:
+	KennelPatchFile();
+	~KennelPatchFile();
+
+public:
+	void Insert
+};
+
+
+// Kennel Patch Callback (param=bool: true on successful patch, false on error)
+typedef fastdelegate::FastDelegate1<bool, void> KennelPatchCallback;
+
+class KennelFile : AsyncFile
+{
+public:
+	KennelFile();
+	virtual ~KennelFile();
+
+public:
+	bool Move(u64 dest, u32 region_size, u64 src, KennelPatchCallback OnComplete);
+};
 
 
 } // namespace cat

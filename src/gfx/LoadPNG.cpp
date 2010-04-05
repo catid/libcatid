@@ -27,128 +27,35 @@
 */
 
 #include <cat/gfx/LoadPNG.hpp>
+#include <cat/AllFramework.hpp>
 using namespace cat;
 
-#ifdef PRAGMA_PACK
-#pragma pack(push)
-#pragma pack(1)
-#endif
 
-typedef struct
+
+//// CRC32Calculator
+
+CRC32Calculator::CRC32Calculator(u32 polynomial)
 {
-	u32 length;
-	char type[4];
-} PACKED SectionHeader;
+	for (u32 n = 0; n < 256; ++n)
+	{
+		u32 c = n;
 
-typedef struct
+		for (u16 k = 0; k < 8; ++k)
+		{
+			if (c & 1)	c = polynomial ^ (c >> 1);
+			else		c >>= 1;
+		}
+
+		table[n] = c;
+	}
+}
+
+void CRC32Calculator::perform(const void *vbuf, u32 len)
 {
-	u32 length;
-	char type[4];
-	u32 crc;
-} PACKED EmptySection;
+	const u8 *buf = (const u8*)vbuf;
 
-typedef struct
-{
-	u32 width, height;
-	u8 bitDepth, colorType, compressionMethod, filterMethod, interlaceMethod;
-} PACKED PNG_IHDR;
-
-typedef struct
-{
-	u8 r, g, b;
-} PACKED PLTE_Entry8;
-
-typedef struct
-{
-	PLTE_Entry8 table[256];
-} PACKED PNG_PLTE;
-
-#ifdef PRAGMA_PACK
-#pragma pack(pop)
-#endif
-
-
-class PNGSkeletonTokenizer
-{
-protected:
-	MMapFile mmf;
-	CRC32Calculator calculator;
-	string path;
-
-	// Split this from the ctor, so virtual overloads are in place by the time we start reading
-	bool read(const u8 signature[8]); // Returns false on failure
-
-public:
-	PNGSkeletonTokenizer(const string &path, u32 CRC32polynomial);
-	virtual ~PNGSkeletonTokenizer() {}
-
-protected:
-	// return true only if section is valid (no exceptions please)
-	virtual bool onSection(char type[4], u8 data[], u32 len) = 0;
-};
-
-
-class PNGTokenizer : public PNGSkeletonTokenizer
-{
-protected:
-	z_stream zstream;
-	u8 *obuf;
-	u32 olen;
-	int lastZlibResult;
-
-	Texture *texture;
-	bool requirePOTS;
-
-	PNG_IHDR header;
-	u16 bpp;
-	u32 palette[256];
-	u8 trans_red, trans_green, trans_blue;
-
-	void rasterizeImage(u8 *image);
-
-public:
-	PNGTokenizer(const string &path, bool requirePOTS, Texture *texture);
-	virtual ~PNGTokenizer();
-
-protected:
-	bool onSection(char type[4], u8 data[], u32 len);
-
-protected:
-	// Rasterized image in R8G8B8A8 format, new dimensions are powers of two
-	virtual void onImage(u32 *image, u32 newWidth, u32 newHeight);
-
-protected:
-	// Important sections
-	void onIHDR(PNG_IHDR *infohdr);
-	void onPLTE(PNG_PLTE *c_palette);
-	void onIDAT(u8 *data, u32 len);
-	void onIEND();
-
-	// Transparency info
-	void onTRNS_Color2(u16 red, u16 green, u16 blue);
-	void onTRNS_Color3(u8 trans[256], u16 len);
-
-	// Color space information (all unimplemented)
-	void onGAMA();
-	void onCHRM();
-	void onSRGB();
-	void onICCP();
-
-	// Textual information (all unimplemented)
-	void onTEXT();
-	void onZTXT();
-	void onITXT();
-
-	// Other non-essential info (all unimplemented)
-	void onBKGD();
-	void onPHYS();
-	void onSBIT();
-	void onSPLT();
-	void onHIST();
-	void onTIME();
-};
-
-
+	while (len--) reg = table[(reg ^ *buf++) & 0xff] ^ (reg >> 8);
+}
 const u32 PNG_CRC32_POLYNOMIAL = 0xEDB88320;
 const u8 PNG_SIGNATURE[8] = {0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'};
 
@@ -184,7 +91,7 @@ const char *PNG_SECTION_TIME = "tIME";	// Last modification time
 PNGSkeletonTokenizer::PNGSkeletonTokenizer(const string &ppath, u32 CRC32polynomial)
 	: mmf(ppath.c_str()), calculator(CRC32polynomial), path(ppath)
 {
-	ENFORCE(mmf.isValid()) << "Unable to read file: " << ppath;
+	ENFORCE(mmf.good()) << "Unable to read file: " << ppath;
 }
 
 
@@ -212,13 +119,12 @@ bool PNGSkeletonTokenizer::read(const u8 signature[8])
 	return true;
 }
 
-PNGTokenizer::PNGTokenizer(const string &path, bool prequirePOTS, Texture *ptexture)
+PNGTokenizer::PNGTokenizer(const string &path, bool prequirePOTS)
 	: PNGSkeletonTokenizer(path, PNG_CRC32_POLYNOMIAL)
 {
 	requirePOTS = prequirePOTS;
-	texture = ptexture;
 
-	OBJCLR(zstream);
+	CAT_OBJCLR(zstream);
 	ENFORCE(inflateInit(&zstream) == Z_OK) << "Unable to start zlib decompression";
 
 	obuf = 0;
@@ -343,8 +249,8 @@ void PNGTokenizer::rasterizeImage(u8 *image)
 
 	if (requirePOTS)
 	{
-		newWidth = IS_POWER_OF_2(header.width) ? header.width : nextHighestPOT(header.width);
-		newHeight = IS_POWER_OF_2(header.height) ? header.height : nextHighestPOT(header.height);
+		newWidth = CAT_IS_POWER_OF_2(header.width) ? header.width : nextHighestPOT(header.width);
+		newHeight = CAT_IS_POWER_OF_2(header.height) ? header.height : nextHighestPOT(header.height);
 	}
 	else
 	{
@@ -450,13 +356,13 @@ void PNGTokenizer::rasterizeImage(u8 *image)
 
 bool PNGTokenizer::onSection(char type[4], u8 data[], u32 len)
 {
-	if (!strncasecmp(type, PNG_SECTION_IHDR, 4))
+	if (!memcmp(type, PNG_SECTION_IHDR, 4))
 		onIHDR((PNG_IHDR *)data);
-	else if (!strncasecmp(type, PNG_SECTION_PLTE, 4))
+	else if (!memcmp(type, PNG_SECTION_PLTE, 4))
 		onPLTE((PNG_PLTE *)data);
-	else if (!strncasecmp(type, PNG_SECTION_IDAT, 4))
+	else if (!memcmp(type, PNG_SECTION_IDAT, 4))
 		onIDAT(data, len);
-	else if (!strncasecmp(type, PNG_SECTION_TRNS, 4))
+	else if (!memcmp(type, PNG_SECTION_TRNS, 4))
 	{
 		switch (header.colorType)
 		{
@@ -470,15 +376,131 @@ bool PNGTokenizer::onSection(char type[4], u8 data[], u32 len)
 			onTRNS_Color3(data, len);
 		}
 	}
-	else if (!strncasecmp(type, PNG_SECTION_IEND, 4))
+	else if (!memcmp(type, PNG_SECTION_IEND, 4))
 		onIEND();
 
 	return true;
 }
 
+#include "charls/interface.h"
+
 void PNGTokenizer::onImage(u32 *image, u32 newWidth, u32 newHeight)
 {
-	texture->load(image, newWidth, newHeight, header.width, header.height);
+	INFO("Test") << "Read file";
+
+	u8 *src = (u8*)image;
+	size_t srcLen = (newWidth*newHeight) * 4;
+
+	double t0, t1;
+	int result;
+
+	JLS_ERROR res;
+	JlsParamaters params;
+	CAT_OBJCLR(params);
+	params.bitspersample = 8;
+	params.bytesperline = newWidth * 4;
+	params.width = newWidth;
+	params.height = newHeight;
+	params.components = 4;
+	params.allowedlossyerror = 0;
+	params.ilv = ILV_LINE;
+	params.colorTransform = 2; // 0..3
+	params.outputBgr = 0;
+	//params.custom.T1 = 3;
+	//params.custom.T2 = 7;
+	//params.custom.T3 = 21;
+
+	u8 *dest2 = new u8[srcLen];
+	size_t dest2Len = srcLen;
+
+	t0 = Clock::usec();
+	res = JpegLsEncode(dest2, dest2Len, &dest2Len, src, srcLen, &params);
+	t1 = Clock::usec();
+
+	if (OK == res)
+	{
+		INFO("Test") << "JPEG-LS Compression: Size = " << dest2Len << " Original size = " << srcLen << " Compression ratio = " << dest2Len / (float)srcLen * 100.f << "% Took " << t1 - t0 << " usec";
+	}
+	else
+	{
+		INFO("Test") << "JPEG-LS Compression failed with error " << res;
+	}
+
+	ofstream file("jpegls.out", ios::binary);
+
+	if (!file)
+	{
+		INFO("test") << "Unable to open file";
+	}
+	else
+	{
+		file.write((char*)dest2, dest2Len);
+		file.close();
+	}
+
+	u8 *test2 = new u8[srcLen];
+	size_t test2Len = srcLen;
+
+	CAT_OBJCLR(params);
+	JpegLsReadHeader(dest2, test2Len, &params);
+
+	t0 = Clock::usec();
+	res = JpegLsDecode(test2, test2Len, dest2, dest2Len);
+	t1 = Clock::usec();
+
+	if (OK == res)
+	{
+		INFO("Test") << "JPEG-LS Decompression: Took " << t1 - t0 << " usec";
+	}
+
+	/*
+	for (int ii = 0; ii < newHeight; ++ii)
+	{
+		u32 left = 0, ul = 0;
+
+		for (int jj = 0; jj < newWidth; ++jj)
+		{
+			u32 x = image[ii * newWidth + jj];
+
+			u32 above;
+
+			if (ii > 0)
+				above = image[(ii - 1) * newWidth + jj];
+			else
+				above = 0;
+
+			image[ii * newWidth + jj] = x;
+
+			left = x;
+			ul = above;
+		}
+	}
+	*/
+
+
+	u8 *cdest = new u8[srcLen];
+	uLongf cdest_len = srcLen;
+
+	t0 = Clock::usec();
+	result = compress(cdest, &cdest_len, src, srcLen);
+	t1 = Clock::usec();
+
+	if (Z_OK == result)
+	{
+		INFO("Test") << "ZLIB Compression: Size = " << cdest_len << " Original size = " << srcLen << " Compression ratio = " << cdest_len / (float)srcLen * 100.f << "% Took " << t1 - t0 << " usec";
+	}
+
+	u8 *udest = new u8[srcLen];
+	uLongf udest_len = srcLen;
+
+	t0 = Clock::usec();
+	result = uncompress(udest, &udest_len, cdest, cdest_len);
+	t1 = Clock::usec();
+
+	if (Z_OK == result)
+	{
+		INFO("Test") << "ZLIB Decompression: Took " << t1 - t0 << " usec";
+	}
 }
 
 void PNGTokenizer::onIHDR(PNG_IHDR *infohdr)

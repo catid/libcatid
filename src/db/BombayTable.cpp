@@ -553,7 +553,7 @@ bool Table::RequestIndexRebuild(TableIndex *index)
 
 bool Table::OnIndexingRead(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes)
 {
-	u64 *data = reinterpret_cast<u64*>( buffer->GetData() );
+	u64 *data = buffer->GetData<u64>();
 	u64 offset = buffer->GetOffset();
 
 	if (!bytes)

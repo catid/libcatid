@@ -102,12 +102,20 @@ public:
 	}
 
 public:
-	CAT_INLINE u8 *GetData() { return _data; }
 	CAT_INLINE u32 GetDataBytes() { return _data_bytes; }
 
+	CAT_INLINE u8 *GetData() { return reinterpret_cast<u8*>( _data ); }
+
+	template<class T>
+	CAT_INLINE T *GetData() { return reinterpret_cast<T*>( _data ); }
+
+	template<class T>
+	CAT_INLINE T *GetData(T * &ptr) { return (ptr = reinterpret_cast<T*>( _data )); }
+
 public:
-	CAT_INLINE u8 *GetTagData() { return _tag; }
 	CAT_INLINE u32 GetTagBytes() { return _tag_bytes; }
+
+	CAT_INLINE u8 *GetTagData() { return _tag; }
 
 	template<class T>
 	CAT_INLINE T *GetTag() { return reinterpret_cast<T*>( _tag ); }
