@@ -334,8 +334,11 @@ u32 Clock::MeasureClocks(int iterations, void (*FunctionPtr)())
 
     for (int ii = 0; ii < 10; ++ii)
     {
+		CAT_FENCE_COMPILER
         u32 a = Clock::cycles();
+		CAT_FENCE_COMPILER
         u32 b = Clock::cycles();
+		CAT_FENCE_COMPILER
 
         b -= a;
 
@@ -345,8 +348,11 @@ u32 Clock::MeasureClocks(int iterations, void (*FunctionPtr)())
 
     Clock::sleep(200);
 
+	CAT_FENCE_COMPILER
     u32 d0 = Clock::cycles();
+	CAT_FENCE_COMPILER
     u32 d1 = Clock::cycles();
+	CAT_FENCE_COMPILER
 	d1 ^= d0; // prevent compiler warning
 
     Clock::sleep(200);
@@ -356,9 +362,13 @@ u32 Clock::MeasureClocks(int iterations, void (*FunctionPtr)())
         FunctionPtr();
 
         u32 a = Clock::cycles();
+		CAT_FENCE_COMPILER
         FunctionPtr();
+		CAT_FENCE_COMPILER
         FunctionPtr();
+		CAT_FENCE_COMPILER
         u32 b = Clock::cycles();
+		CAT_FENCE_COMPILER
 
         u32 dt = ((b - a) - dtMin) / 2;
 

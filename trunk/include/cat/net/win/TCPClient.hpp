@@ -89,7 +89,7 @@ private:
 protected:
     virtual void OnConnectToServer(ThreadPoolLocalStorage *tls) = 0;
     virtual bool OnReadFromServer(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes) = 0; // false = disconnect
-    virtual bool OnWriteToServer(ThreadPoolLocalStorage *tls, AsyncBuffer *buffer, u32 bytes) = 0; // true = delete AsyncBase object
+    virtual bool OnWriteToServer(ThreadPoolLocalStorage *tls, AsyncBuffer *buffer, u32 bytes) = 0; // true = delete AsyncBuffer object
     virtual void OnDisconnectFromServer() = 0;
 };
 
