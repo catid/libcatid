@@ -334,7 +334,7 @@ void HMAC_MD5::End()
     swapLE(State[3]);
 }
 
-void HMAC_MD5::Generate(void *out, int bytes, int strengthening_rounds)
+void HMAC_MD5::Generate(void *out, int bytes, int /*strengthening_rounds*/)
 {
     if (bytes > 16) bytes = 16;
 
