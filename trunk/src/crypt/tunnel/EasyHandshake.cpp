@@ -127,9 +127,7 @@ bool ServerEasyHandshake::ProcessChallenge(const void *in_challenge, void *out_a
 	if (!tun_server.KeyEncryption(&key_hash, auth_enc, "EasyHandshake"))
 		return false;
 
-	// Generate a proof that is the last quarter of the answer to the challenge,
-	// which assures the client that the server is aware of the shared key
-	return auth_enc->GenerateProof(answer + ANSWER_BYTES - PROOF_BYTES, PROOF_BYTES);
+	return true;
 }
 
 
@@ -178,11 +176,6 @@ bool ClientEasyHandshake::ProcessAnswer(const void *in_answer, AuthenticatedEncr
 	// such as one handshake being used to key and encrypt a TCP stream and UDP
 	// packets, or multiple TCP streams keyed from the same handshake, etc
 	if (!tun_client.KeyEncryption(&key_hash, auth_enc, "EasyHandshake"))
-		return false;
-
-	// Validate the proof of key from the server, which is the last quarter of the
-	// answer buffer
-	if (!auth_enc->ValidateProof(answer + ANSWER_BYTES - PROOF_BYTES, PROOF_BYTES))
 		return false;
 
 	// Erase the ephemeral private key we used for the handshake now that it is done

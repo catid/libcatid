@@ -775,7 +775,7 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			return;
 		}
 
-		// s2c 03 (answer[128]) E{ (server session port[2]) } [13]
+		// s2c 03 (server session port[2]) (answer[128])
 		const int PKT3_LEN = 1+2+ANSWER_BYTES;
 		u8 *pkt3 = AsyncBuffer::Acquire(PKT3_LEN);
 
