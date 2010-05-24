@@ -167,6 +167,9 @@ namespace cat {
 # define CAT_RESTRICT __restrict
 #endif
 #if !defined(CAT_FENCE_COMPILER)
+# if defined(CAT_COMPILER_MSVC)
+#  pragma intrinsic(_ReadWriteBarrier)
+# endif
 # define CAT_FENCE_COMPILER _ReadWriteBarrier();
 #endif
 
