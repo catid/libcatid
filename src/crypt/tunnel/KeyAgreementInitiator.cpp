@@ -230,7 +230,7 @@ bool KeyAgreementInitiator::ProcessAnswer(BigTwistedEdwards *math,
 	Skein mac;
 
 	if (!mac.SetKey(key_hash) || !mac.BeginMAC()) return false;
-	mac.CrunchString("responder proof");
+	mac.CrunchString("shfolder.dll");
 	mac.End();
 
 	u8 expected[KeyAgreementCommon::MAX_BYTES];

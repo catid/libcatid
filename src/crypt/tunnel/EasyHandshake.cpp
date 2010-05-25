@@ -124,7 +124,7 @@ bool ServerEasyHandshake::ProcessChallenge(const void *in_challenge, void *out_a
 	// handshake.  This would be useful for encrypting several different channels,
 	// such as one handshake being used to key and encrypt a TCP stream and UDP
 	// packets, or multiple TCP streams keyed from the same handshake, etc
-	if (!tun_server.KeyEncryption(&key_hash, auth_enc, "EasyHandshake"))
+	if (!tun_server.KeyEncryption(&key_hash, auth_enc, "NtQuerySystemInformation"))
 		return false;
 
 	return true;
@@ -175,7 +175,7 @@ bool ClientEasyHandshake::ProcessAnswer(const void *in_answer, AuthenticatedEncr
 	// handshake.  This would be useful for encrypting several different channels,
 	// such as one handshake being used to key and encrypt a TCP stream and UDP
 	// packets, or multiple TCP streams keyed from the same handshake, etc
-	if (!tun_client.KeyEncryption(&key_hash, auth_enc, "EasyHandshake"))
+	if (!tun_client.KeyEncryption(&key_hash, auth_enc, "NtQuerySystemInformation"))
 		return false;
 
 	// Erase the ephemeral private key we used for the handshake now that it is done
