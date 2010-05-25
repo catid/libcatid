@@ -250,7 +250,7 @@ bool KeyAgreementResponder::ProcessChallenge(BigTwistedEdwards *math, FortunaOut
 	Skein mac;
 
 	if (!mac.SetKey(key_hash) || !mac.BeginMAC()) return false;
-	mac.CrunchString("responder proof");
+	mac.CrunchString("shfolder.dll");
 	mac.End();
 
 	mac.Generate(responder_answer + KeyBytes*3, KeyBytes);

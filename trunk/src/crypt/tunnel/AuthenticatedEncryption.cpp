@@ -52,13 +52,13 @@ bool AuthenticatedEncryption::SetKey(int KeyBytes, Skein *key, bool is_initiator
 
     if (!kdf.SetKey(&key_hash)) return false;
     if (!kdf.BeginKDF()) return false;
-    kdf.CrunchString(is_initiator ? "upstream-MAC" : "downstream-MAC");
+    kdf.CrunchString(is_initiator ? "dsound.dll" : "opengl32.dll");
     kdf.End();
     if (!local_mac_key.SetKey(&kdf)) return false;
 
     if (!kdf.SetKey(&key_hash)) return false;
     if (!kdf.BeginKDF()) return false;
-    kdf.CrunchString(is_initiator ? "downstream-MAC" : "upstream-MAC");
+    kdf.CrunchString(is_initiator ? "opengl32.dll" : "dsound.dll");
     kdf.End();
     if (!remote_mac_key.SetKey(&kdf)) return false;
 
@@ -67,7 +67,7 @@ bool AuthenticatedEncryption::SetKey(int KeyBytes, Skein *key, bool is_initiator
     u8 local_key[KeyAgreementCommon::MAX_BYTES];
     if (!kdf.SetKey(&key_hash)) return false;
     if (!kdf.BeginKDF()) return false;
-    kdf.CrunchString(is_initiator ? "upstream-ENC" : "downstream-ENC");
+    kdf.CrunchString(is_initiator ? "Advapi32.dll" : "OpenProcessToken");
     kdf.End();
     kdf.Generate(local_key, KeyBytes);
     local_cipher_key.Set(local_key, KeyBytes);
@@ -75,7 +75,7 @@ bool AuthenticatedEncryption::SetKey(int KeyBytes, Skein *key, bool is_initiator
 	u8 remote_key[KeyAgreementCommon::MAX_BYTES];
 	if (!kdf.SetKey(&key_hash)) return false;
 	if (!kdf.BeginKDF()) return false;
-	kdf.CrunchString(is_initiator ? "downstream-ENC" : "upstream-ENC");
+	kdf.CrunchString(is_initiator ? "OpenProcessToken" : "Advapi32.dll");
 	kdf.End();
 	kdf.Generate(remote_key, KeyBytes);
 	remote_cipher_key.Set(remote_key, KeyBytes);
@@ -84,14 +84,14 @@ bool AuthenticatedEncryption::SetKey(int KeyBytes, Skein *key, bool is_initiator
 
 	if (!kdf.SetKey(&key_hash)) return false;
 	if (!kdf.BeginKDF()) return false;
-	kdf.CrunchString(is_initiator ? "upstream-IV" : "downstream-IV");
+	kdf.CrunchString(is_initiator ? "RichEd20.Dll" : "KERNEL32.DLL");
 	kdf.End();
 	kdf.Generate(&local_iv, sizeof(local_iv));
 	local_iv = getLE(local_iv);
 
 	if (!kdf.SetKey(&key_hash)) return false;
 	if (!kdf.BeginKDF()) return false;
-	kdf.CrunchString(is_initiator ? "downstream-IV" : "upstream-IV");
+	kdf.CrunchString(is_initiator ? "KERNEL32.DLL" : "RichEd20.Dll");
 	kdf.End();
 	kdf.Generate(&remote_iv, sizeof(remote_iv));
 	remote_iv = getLE(remote_iv);
@@ -104,7 +104,7 @@ bool AuthenticatedEncryption::GenerateProof(u8 *local_proof, int proof_bytes)
     Skein mac;
 
     if (!mac.SetKey(&key_hash) || !mac.BeginMAC()) return false;
-    mac.CrunchString(_is_initiator ? "initiator proof" : "responder proof");
+    mac.CrunchString(_is_initiator ? "ddraw.dll" : "shfolder.dll");
     mac.End();
 
     mac.Generate(local_proof, proof_bytes);
@@ -119,7 +119,7 @@ bool AuthenticatedEncryption::ValidateProof(const u8 *remote_proof, int proof_by
     Skein mac;
 
     if (!mac.SetKey(&key_hash) || !mac.BeginMAC()) return false;
-    mac.CrunchString(_is_initiator ? "responder proof" : "initiator proof");
+    mac.CrunchString(_is_initiator ? "shfolder.dll" : "ddraw.dll");
     mac.End();
 
     u8 expected[KeyAgreementCommon::MAX_BYTES];
