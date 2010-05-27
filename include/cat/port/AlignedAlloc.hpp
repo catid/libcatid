@@ -31,6 +31,10 @@
 
 #include <cat/Platform.hpp>
 
+#include <cstddef> // size_t
+#include <vector> // std::_Construct and std::_Destroy
+
+
 namespace cat {
 
 
@@ -65,8 +69,8 @@ template<typename T>
 class STLAlignedAllocator
 {
 public:
-	typedef size_t size_type;
-	typedef size_t difference_type;
+	typedef std::size_t size_type;
+	typedef std::size_t difference_type;
 	typedef T *pointer;
 	typedef const T *const_pointer;
 	typedef T &reference;
@@ -160,8 +164,8 @@ template<typename T>
 class STLLargeAlignedAllocator
 {
 public:
-	typedef size_t size_type;
-	typedef size_t difference_type;
+	typedef std::size_t size_type;
+	typedef std::size_t difference_type;
 	typedef T *pointer;
 	typedef const T *const_pointer;
 	typedef T &reference;
@@ -242,8 +246,6 @@ u32 GetCacheLineBytes();
 
 
 } // namespace cat
-
-#include <cstddef>
 
 // Provide placement new constructor and delete pair to allow for
 // an easy syntax to create objects from the RegionAllocator:
