@@ -93,6 +93,7 @@ namespace cat {
 
 		c: hY = h * Y
 		c: d = H(A,B,Y,r)
+		c: Verify d >= 1000
         c: T = AffineX(a * hB + d*a * hY)
         c: k = H(d,T)
 
