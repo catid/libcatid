@@ -272,16 +272,17 @@ bool KeyAgreementResponder::Sign(BigTwistedEdwards *math, FortunaOutput *csprng,
     Leg *e = math->Get(5);
     Leg *s = math->Get(6);
 
-    // k = ephemeral key
-	GenerateKey(math, csprng, k);
-
-	// K = k * G
-	math->PtMultiply(G_MultPrecomp, 8, k, 0, K);
-	math->SaveAffineX(K, K);
-
 	do {
 
 		do {
+
+			// k = ephemeral key
+			GenerateKey(math, csprng, k);
+
+			// K = k * G
+			math->PtMultiply(G_MultPrecomp, 8, k, 0, K);
+			math->SaveAffineX(K, K);
+
 			// e = H(M || K)
 			Skein H;
 
