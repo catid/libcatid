@@ -34,7 +34,7 @@
 #include <cat/crypt/tunnel/KeyAgreement.hpp>
 #include <cat/threads/RegionAllocator.hpp>
 #include <cat/io/AsyncBuffer.hpp>
-#include <cat/port/FastDelegate.h>
+#include <cat/threads/Thread.hpp>
 
 #if defined(CAT_OS_WINDOWS)
 # include <cat/port/WindowsInclude.hpp>
@@ -160,6 +160,21 @@ private:
 
 
 /*
+	class ThreadPoolWorker
+*/
+class ThreadPoolWorker : public Thread
+{
+public:
+	virtual bool ThreadFunction(void *port);
+};
+
+#if defined(CAT_OS_WINDOWS)
+	typedef HANDLE ThreadPoolHandle;
+#else
+	typedef int ThreadPoolHandle;
+#endif
+
+/*
     class ThreadPool
 
     Startup()  : Call to start up the thread pool
@@ -167,14 +182,14 @@ private:
 */
 class ThreadPool : public Singleton<ThreadPool>
 {
-    static unsigned int WINAPI CompletionThread(void *port);
-
     CAT_SINGLETON(ThreadPool);
 
 protected:
+#if defined(CAT_OS_WINDOWS)
     HANDLE _port;
+#endif
 	static const int MAX_THREADS = 256;
-	HANDLE _threads[MAX_THREADS];
+	ThreadPoolWorker _threads[MAX_THREADS];
 	int _processor_count;
 	int _active_thread_count;
 
@@ -195,7 +210,7 @@ protected:
 public:
     bool Startup();
     void Shutdown();
-	bool Associate(HANDLE h, ThreadRefObject *key);
+	bool Associate(ThreadPoolHandle h, ThreadRefObject *key);
 
 	int GetProcessorCount() { return _processor_count; }
 	int GetThreadCount() { return _active_thread_count; }

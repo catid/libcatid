@@ -120,7 +120,7 @@ bool FortunaFactory::InitializeEntropySources()
 void FortunaFactory::ShutdownEntropySources()
 {
 #if !defined(CAT_NO_ENTROPY_THREAD)
-    StopThread();
+    WaitForThread();
 #endif
 
     if (hCryptProv) CryptReleaseContext(hCryptProv, 0);

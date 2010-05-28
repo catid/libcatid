@@ -50,7 +50,7 @@ Client::Client()
 
 Client::~Client()
 {
-	StopThread();
+	WaitForThread();
 }
 
 void Client::OnWrite(u32 bytes)

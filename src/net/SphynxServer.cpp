@@ -395,7 +395,7 @@ ServerTimer::~ServerTimer()
 
 	Map::Slot *slot, *next;
 
-	StopThread();
+	WaitForThread();
 
 	// Free all active connection objects
 	for (slot = _active_head; slot; slot = next)
