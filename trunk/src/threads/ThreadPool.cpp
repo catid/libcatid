@@ -29,10 +29,15 @@
 #include <cat/threads/ThreadPool.hpp>
 #include <cat/io/Logging.hpp>
 #include <cat/math/BitMath.hpp>
-#include <process.h>
 #include <cat/threads/Atomic.hpp>
 using namespace std;
 using namespace cat;
+
+#if defined(CAT_OS_WINDOWS)
+# include <process.h>
+#else
+# include <unistd.h>
+#endif
 
 
 //// Thread Pool
@@ -52,29 +57,36 @@ bool ThreadPool::SpawnThread()
 		return false;
 	}
 
-    HANDLE thread = (HANDLE)_beginthreadex(0, 0, CompletionThread, _port, 0, 0);
+	if (!_threads[_active_thread_count].StartThread(_port))
+	{
+		FATAL("ThreadPool") << "CreateThread() error: " << GetLastError();
+		return false;
+	}
 
-    if (thread == (HANDLE)-1)
-    {
-        FATAL("ThreadPool") << "CreateThread() error: " << GetLastError();
-        return false;
-    }
-
-	_threads[_active_thread_count++] = thread;
+	_active_thread_count++;
     return true;
 }
 
 bool ThreadPool::SpawnThreads()
 {
 	// Get the number of processors we have been given access to
+	int processor_count;
+
+#if defined(CAT_OS_WINDOWS)
     ULONG_PTR ulpProcessAffinityMask, ulpSystemAffinityMask;
     GetProcessAffinityMask(GetCurrentProcess(), &ulpProcessAffinityMask, &ulpSystemAffinityMask);
-	int processor_count = (int)BitCount(ulpProcessAffinityMask);
+	processor_count = (int)BitCount(ulpProcessAffinityMask);
+#else
+	processor_count = (int)sysconf(_SC_NPROCESSORS_ONLN);
+	if (processor_count <= 1) WARN("ThreadPool") << "Host machine looks UP.  We are designed for SMP, so this will not be ideal.  If this is incorrect, make sure /proc fs is mounted";
+#endif
+
 	if (processor_count <= 0) processor_count = 1;
 	_processor_count = processor_count;
 
-	// Spawn two threads for each processor
-	int threads_to_spawn = processor_count * 2;
+	int threads_to_spawn = processor_count;
+	if (threads_to_spawn > MAX_THREADS) threads_to_spawn = MAX_THREADS;
+
 	int ctr = threads_to_spawn;
 	while (ctr--) SpawnThread();
 
@@ -94,7 +106,7 @@ bool ThreadPool::SpawnThreads()
     return true;
 }
 
-bool ThreadPool::Associate(HANDLE h, ThreadRefObject *key)
+bool ThreadPool::Associate(ThreadPoolHandle h, ThreadRefObject *key)
 {
 	if (!_port)
 	{
@@ -102,13 +114,17 @@ bool ThreadPool::Associate(HANDLE h, ThreadRefObject *key)
 		return false;
 	}
 
+#if defined(CAT_OS_WINDOWS)
     HANDLE result = CreateIoCompletionPort(h, _port, (ULONG_PTR)key, 0);
 
-    if (result != _port)
-    {
-        FATAL("ThreadPool") << "Unable to create completion port: " << GetLastError();
-        return false;
-    }
+	if (result != _port)
+	{
+		FATAL("ThreadPool") << "Unable to create completion port: " << GetLastError();
+		return false;
+	}
+#else
+#error TODO
+#endif
 
     return true;
 }
@@ -173,6 +189,7 @@ bool ThreadPool::Startup()
 {
 	INANE("ThreadPool") << "Initializing the thread pool...";
 
+#if defined(CAT_OS_WINDOWS)
 	HANDLE result = CreateIoCompletionPort(INVALID_HANDLE_VALUE, 0, 0, 0);
 
 	if (!result)
@@ -180,13 +197,20 @@ bool ThreadPool::Startup()
 		FATAL("ThreadPool") << "Unable to create initial completion port: " << GetLastError();
 		return false;
 	}
+#else
+#error TODO
+#endif
 
 	_port = result;
 
 	if (_active_thread_count <= 0 && !SpawnThreads())
 	{
+#if defined(CAT_OS_WINDOWS)
 		CloseHandle(_port);
 		_port = 0;
+#else
+#error TODO
+#endif
 		FATAL("ThreadPool") << "Unable to spawn threads";
 		return false;
 	}
@@ -210,6 +234,7 @@ void ThreadPool::Shutdown()
     {
         INANE("ThreadPool") << "Shutdown task (1/3): Stopping threads...";
 
+#if defined(CAT_OS_WINDOWS)
         if (_port)
         while (count--)
         {
@@ -219,35 +244,19 @@ void ThreadPool::Shutdown()
                 return;
             }
         }
+#else
+#error TODO
+#endif
 
 		const int SHUTDOWN_WAIT_TIMEOUT = 10000; // 10 seconds
 
-        if (WAIT_OBJECT_0 != WaitForMultipleObjects(_active_thread_count, _threads, TRUE, SHUTDOWN_WAIT_TIMEOUT))
-        {
-            FATAL("ThreadPool") << "Shutdown task (1/3): !!! Threads refuse to die.  Attempting lethal force.  Error: " << GetLastError();
-
-			// For each thread,
-			for (int ii = 0; ii < _active_thread_count; ++ii)
-			{
-				// If the thread is still stuck,
-				if (WAIT_OBJECT_0 != WaitForSingleObject(_threads[ii], 0))
-				{
-					FATAL("ThreadPool") << "Shutdown task (1/3): !!! Killing thread " << ii << "...";
-					// If we can get an exit code for the thread,
-					DWORD ExitCode;
-					if (GetExitCodeThread(_threads[ii], &ExitCode) != 0)
-					{
-						// Terminate it
-						TerminateThread(_threads[ii], ExitCode);
-					}
-				}
-			}
-        }
-		else
+		// For each thread,
+		for (int ii = 0; ii < _active_thread_count; ++ii)
 		{
-			for (int ii = 0; ii < _active_thread_count; ++ii)
+			if (!_threads[ii].WaitForThread(SHUTDOWN_WAIT_TIMEOUT))
 			{
-				CloseHandle(_threads[ii]);
+				FATAL("ThreadPool") << "Shutdown task (1/3): !!! Thread " << ii << "/" << _active_thread_count << " refused to die!  Attempting lethal force!";
+				_threads[ii].AbortThread();
 			}
 		}
 
@@ -353,31 +362,32 @@ ShutdownObserver::~ShutdownObserver()
 
 //// Thread
 
-unsigned int WINAPI ThreadPool::CompletionThread(void *port)
+bool ThreadPoolWorker::ThreadFunction(void *port)
 {
-    DWORD bytes;
-    void *key = 0;
-    AsyncBuffer *buffer = 0;
-    int error;
+	DWORD bytes;
+	void *key = 0;
+	AsyncBuffer *buffer = 0;
+	int error;
 
+	// Initialize ThreadPool Local Storage (CSPRNG, math library)
 	ThreadPoolLocalStorage tls;
 
 	if (!tls.Valid())
 	{
 		FATAL("ThreadPool") << "Unable to initialize thread local storage objects";
 
-		return 1;
+		return false;
 	}
 
 	for (;;)
-    {
+	{
 		error = GetQueuedCompletionStatus((HANDLE)port, &bytes,
-										  (PULONG_PTR)&key, (OVERLAPPED**)&buffer, INFINITE)
-				? 0 : GetLastError();
+			(PULONG_PTR)&key, (OVERLAPPED**)&buffer, INFINITE)
+			? 0 : GetLastError();
 
-        // Terminate thread when we receive a zeroed completion packet
-        if (!bytes && !key && !buffer)
-            return 0;
+		// Terminate thread when we receive a zeroed completion packet
+		if (!bytes && !key && !buffer)
+			return true;
 
 		// If completion object is NOT specified,
 		ThreadRefObject *obj = reinterpret_cast<ThreadRefObject*>( key );
@@ -398,7 +408,7 @@ unsigned int WINAPI ThreadPool::CompletionThread(void *port)
 			// Release reference held on completion object
 			obj->ReleaseRef();
 		}
-    }
+	}
 
-	return 0;
+	return true;
 }

@@ -447,7 +447,7 @@ bool DNSClient::ThreadFunction(void *param)
 
 DNSClient::~DNSClient()
 {
-	StopThread();
+	WaitForThread();
 }
 
 bool DNSClient::BindToRandomPort(bool ignoreUnreachable)

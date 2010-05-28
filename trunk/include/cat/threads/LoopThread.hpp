@@ -26,16 +26,11 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef LOOP_THREAD_HPP
-#define LOOP_THREAD_HPP
+#ifndef CAT_LOOP_THREAD_HPP
+#define CAT_LOOP_THREAD_HPP
 
-#include <cat/Platform.hpp>
+#include <cat/threads/Thread.hpp>
 
-#if defined(CAT_OS_WINDOWS)
-# include <cat/port/WindowsInclude.hpp>
-#else // use POSIX thread library otherwise
-# include <pthread.h>
-#endif
 
 namespace cat {
 
@@ -47,37 +42,19 @@ namespace cat {
 
 	ThreadFunction() should call WaitForQuitSignal() in the loop.
 */
-class LoopThread
+class LoopThread : public Thread
 {
-	void *caller_param;
-
 #if defined(CAT_OS_WINDOWS)
-
-	HANDLE _thread, _quit_signal;
-	static unsigned int __stdcall ThreadWrapper(void *this_object);
-
+	HANDLE _quit_signal;
 #else
-
-	pthread_t _thread;
-	bool _thread_started;
 	volatile bool _quit_signal;
-	static void *ThreadWrapper(void *this_object);
-
 #endif
+
+public:
+	bool StartThread(void *param = 0);
+	bool WaitForThread();
 
 protected:
-	bool StartThread(void *param = 0);
-	bool StopThread();
-
-	CAT_INLINE bool ThreadRunning()
-	{
-#if defined(CAT_OS_WINDOWS)
-		return _thread != 0;
-#else
-		return _thread_started;
-#endif
-	}
-
 	// Returns false if it is time to quit, pass msec=0 to poll without waiting
 	bool WaitForQuitSignal(int msec = 0);
 
@@ -91,4 +68,4 @@ public:
 
 } // namespace cat
 
-#endif // LOOP_THREAD_HPP
+#endif // CAT_LOOP_THREAD_HPP
