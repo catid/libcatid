@@ -54,14 +54,14 @@ static CAT_INLINE u32 DetermineCacheLineBytes()
 	CAT_ASM_BEGIN
 		push ebx
 		xor ecx, ecx
-next:	mov eax, 4
+next0:	mov eax, 4
 		cpuid
 		test eax, 31
-		jz done
+		jz done0
 		or [cacheline], ebx
 		lea ecx, [ecx+1]
-		jmp next
-done:	pop ebx
+		jmp next0
+done0:	pop ebx
 	CAT_ASM_END
 
 	return (cacheline & 4095) + 1;
