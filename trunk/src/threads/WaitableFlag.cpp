@@ -32,6 +32,7 @@ using namespace cat;
 
 #if !defined(CAT_OS_WINDOWS)
 #include <sys/time.h> // gettimeofday
+#include <errno.h> // ETIMEDOUT
 #endif
 
 WaitableFlag::WaitableFlag()
@@ -181,29 +182,31 @@ bool WaitableFlag::Wait(int milliseconds)
 	}
 	else
 	{
-		int interval_seconds = milliseconds / 1000; // get seconds in interval
-		long interval_microseconds = (milliseconds % 1000) * 1000; // get microseconds in interval
+		int interval_seconds = milliseconds / 1000; // get interval seconds
+		long interval_nanoseconds = (milliseconds % 1000) * 1000000; // get interval nanoseconds
 
 		struct timeval tv;
 		if (gettimeofday(&tv, 0) != 0)
 			return false;
 
-		long usec = tv.tv_usec;
-		if (usec < 0) return false;
+		long nsec = tv.tv_usec;
+		if (nsec < 0) return false;
 
-		long usec_trigger = usec + interval_microseconds;
+		long nsec_trigger = nsec + interval_nanoseconds;
 
-		if (usec_trigger < usec || usec_trigger >= 1000000)
+		static const long ONE_SECOND_IN_NANOSECONDS = 1000000000;
+
+		if (nsec_trigger < nsec || usec_trigger >= ONE_SECOND_IN_NANOSECONDS)
 		{
 			++interval_seconds;
-			usec_trigger -= 1000000; // add one second (in microseconds) to fix roll-over
+			nsec_trigger -= ONE_SECOND_IN_NANOSECONDS;
 		}
 
 		struct timespec ts;
 		ts.tv_sec = tv.tv_sec + interval_seconds;
-		ts.tv_nsec = usec_trigger * 1000;
+		ts.tv_nsec = nsec_trigger;
 
-		return pthread_cond_timedwait(&_cond, &_mutex, &ts) == 0;
+		return pthread_cond_timedwait(&_cond, &_mutex, &ts) != ETIMEDOUT;
 	}
 
 #endif // CAT_OS_WINDOWS
