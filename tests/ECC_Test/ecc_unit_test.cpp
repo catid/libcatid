@@ -901,7 +901,7 @@ void HandshakeTest()
 	BigTwistedEdwards *tls_math = KeyAgreementCommon::InstantiateMath(CAT_DEMO_BITS);
 	FortunaOutput *tls_csprng = FortunaFactory::ii->Create();
 
-	for (;;)
+	for (int ii = 0; ii < 5; ++ii)
     {
         // Offline:
 
@@ -1401,6 +1401,8 @@ int main()
 
     cout << endl << "ChaCha testing and timing:" << endl;
     TestChaCha();
+
+	FortunaFactory::ref()->Shutdown();
 
 	Clock::Shutdown();
 
