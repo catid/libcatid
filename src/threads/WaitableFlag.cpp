@@ -175,10 +175,12 @@ bool WaitableFlag::Wait(int milliseconds)
 	// Lock _mutex as required by pthread_cond_*
 	pthread_mutex_lock(&_mutex);
 
+	bool triggered = false;
+
 	// If waiting forever,
 	if (milliseconds < 0)
 	{
-		return pthread_cond_wait(&_cond, &_mutex) == 0;
+		triggered = pthread_cond_wait(&_cond, &_mutex) == 0;
 	}
 	else
 	{
@@ -206,8 +208,12 @@ bool WaitableFlag::Wait(int milliseconds)
 		ts.tv_sec = tv.tv_sec + interval_seconds;
 		ts.tv_nsec = nsec_trigger;
 
-		return pthread_cond_timedwait(&_cond, &_mutex, &ts) != ETIMEDOUT;
+		triggered = pthread_cond_timedwait(&_cond, &_mutex, &ts) != ETIMEDOUT;
 	}
+
+	pthread_mutex_unlock(&_mutex);
+
+	return triggered;
 
 #endif // CAT_OS_WINDOWS
 }
