@@ -140,7 +140,7 @@ bool WaitableFlag::Wait(int milliseconds)
 
 	if (_event == 0) return false;
 
-	return WaitForSingleObject(_event, (milliseconds >= 0) ? milliseconds : INFINITE) != WAIT_FAILED;
+	return WaitForSingleObject(_event, (milliseconds >= 0) ? milliseconds : INFINITE) != WAIT_TIMEOUT;
 
 #else // CAT_OS_WINDOWS
 
