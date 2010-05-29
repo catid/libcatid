@@ -89,7 +89,15 @@ bool ThreadPool::SpawnThreads()
 	if (processor_count <= 0) processor_count = 1;
 	_processor_count = processor_count;
 
-	int threads_to_spawn = processor_count;
+	// NOTE: While number of threads is double the number of processors,
+	// the concurrency level = number of processors so the number of threads
+	// actually concurrently executing is equal to the processor count.
+	// The reason why I create twice as many threads is so that the kernel
+	// will wake up one of these auxiliary threads if an io worker blocks.
+	// I don't expect any of my threads to block since I use asynchronous io
+	// for everything, but it's a nice safety net.
+
+	int threads_to_spawn = processor_count * 2;
 	if (threads_to_spawn > MAX_THREADS) threads_to_spawn = MAX_THREADS;
 
 	int ctr = threads_to_spawn;
