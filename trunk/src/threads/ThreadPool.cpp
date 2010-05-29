@@ -335,32 +335,16 @@ bool ThreadPoolLocalStorage::Valid()
 ShutdownWait::ShutdownWait(int priorityLevel)
 {
 	_observer = new ShutdownObserver(priorityLevel, this);
-
-#if defined(CAT_OS_WINDOWS)
-	_event = CreateEvent(0, TRUE, FALSE, 0);
-#else
-#error TODO
-#endif
 }
 
 ShutdownWait::~ShutdownWait()
 {
-#if defined(CAT_OS_WINDOWS)
-	CloseHandle(_event);
-#else
-#error TODO
-#endif
-
 	ThreadRefObject::SafeRelease(_observer);
 }
 
 void ShutdownWait::OnShutdownDone()
 {
-#if defined(CAT_OS_WINDOWS)
-	if (_event) SetEvent(_event);
-#else
-#error TODO
-#endif
+	_kill_flag.Set();
 }
 
 bool ShutdownWait::WaitForShutdown(u32 milliseconds)
@@ -370,14 +354,7 @@ bool ShutdownWait::WaitForShutdown(u32 milliseconds)
 	// Kill observer
 	ThreadRefObject::SafeRelease(_observer);
 
-#if defined(CAT_OS_WINDOWS)
-	if (!_event) return false;
-
-	// Wait for it to die
-	return WaitForSingleObject(_event, milliseconds) == WAIT_OBJECT_0;
-#else
-#error TODO
-#endif
+	_kill_flag.Wait(milliseconds);
 }
 
 ShutdownObserver::ShutdownObserver(int priorityLevel, ShutdownWait *wait)

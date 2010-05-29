@@ -29,7 +29,7 @@
 #ifndef CAT_WAITABLE_FLAG_HPP
 #define CAT_WAITABLE_FLAG_HPP
 
-#include <cat/threads/Atomic.hpp>
+#include <cat/Platform.hpp>
 
 #if defined(CAT_OS_WINDOWS)
 # include <cat/port/WindowsInclude.hpp>
@@ -62,10 +62,6 @@ class WaitableFlag
 	volatile u32 _flag;
 	pthread_cond_t _cond;
 	pthread_mutex_t _mutex;
-# if defined(CAT_NO_ATOMIC_SET)
-	bool _valid_atomic;
-	pthread_mutex_t _atomic;
-# endif
 #endif
 
 	void Cleanup();
