@@ -94,7 +94,7 @@ bool Thread::StartThread(void *param)
 #else
 
 	_thread_running = true;
-	if (pthread_create(&_thread, 0, &LoopThread::ThreadWrapper, static_cast<void*>( this )))
+	if (pthread_create(&_thread, 0, &Thread::ThreadWrapper, static_cast<void*>( this )))
 	{
 		_thread_running = false;
 		return false;
