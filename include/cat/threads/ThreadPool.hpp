@@ -132,7 +132,11 @@ class ShutdownWait
 {
 	friend class ShutdownObserver;
 
+#if defined(CAT_OS_WINDOWS)
 	HANDLE _event;
+#else
+#error TODO
+#endif
 	ShutdownObserver *_observer;
 
 	void OnShutdownDone();
@@ -182,28 +186,27 @@ public:
 */
 class ThreadPool : public Singleton<ThreadPool>
 {
+	friend class ThreadRefObject;
+
     CAT_SINGLETON(ThreadPool);
 
-protected:
 #if defined(CAT_OS_WINDOWS)
     HANDLE _port;
 #endif
+
+	int _processor_count, _active_thread_count;
+
 	static const int MAX_THREADS = 256;
 	ThreadPoolWorker _threads[MAX_THREADS];
-	int _processor_count;
-	int _active_thread_count;
-
-protected:
-    friend class ThreadRefObject;
 
 	// Track sockets for graceful termination
     Mutex _objectRefLock[REFOBJ_PRIO_COUNT];
     ThreadRefObject *_objectRefHead[REFOBJ_PRIO_COUNT];
 
+protected:
     void TrackObject(ThreadRefObject *object);
     void UntrackObject(ThreadRefObject *object);
 
-protected:
     bool SpawnThread();
     bool SpawnThreads();
 

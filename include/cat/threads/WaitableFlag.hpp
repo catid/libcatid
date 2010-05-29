@@ -26,101 +26,71 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/threads/LoopThread.hpp>
-#include <cat/time/Clock.hpp>
-using namespace cat;
+#ifndef CAT_WAITABLE_FLAG_HPP
+#define CAT_WAITABLE_FLAG_HPP
 
-
-//// LoopThread
-
-LoopThread::LoopThread()
-{
-#if defined(CAT_OS_WINDOWS)
-	_quit_signal = 0;
-#else
-	_quit_signal = false;
-#endif
-}
-
-LoopThread::~LoopThread()
-{
-	WaitForThread();
-}
-
-bool LoopThread::StartThread(void *param)
-{
-	if (_thread_running)
-		return false;
+#include <cat/threads/Atomic.hpp>
 
 #if defined(CAT_OS_WINDOWS)
-
-	// Create an event to signal when the entropy collection thread should terminate
-	_quit_signal = CreateEvent(0, FALSE, FALSE, 0);
-	if (!_quit_signal) return false;
-
-#else
-
-	_quit_signal = false;
-
+# include <cat/port/WindowsInclude.hpp>
+#else // use POSIX thread library otherwise
+# include <pthread.h>
 #endif
 
-	return Thread::StartThread(param);
-}
+namespace cat {
 
-bool LoopThread::WaitForThread()
+
+/*
+	class WaitableFlag
+
+	Can be set, reset or waited upon.
+
+	Initially unset.
+	Flag is edge-triggered.
+	Successful waiting will reset the flag.
+	Only one thread can wait at a time.
+
+	Designed to synchronize threads:
+		One thread can wait for this flag to be raised by another thread before continuing.
+*/
+class WaitableFlag
 {
-	bool success = false;
-
 #if defined(CAT_OS_WINDOWS)
-
-	// Signal termination event
-	if (_quit_signal)
-		SetEvent(_quit_signal);
-
+	HANDLE _event;
 #else
-
-	_quit_signal = true;
-
+	bool _valid, _valid_cond, _valid_mutex;
+	volatile u32 _flag;
+	pthread_cond_t _cond;
+	pthread_mutex_t _mutex;
+# if defined(CAT_NO_ATOMIC_SET)
+	bool _valid_atomic;
+	pthread_mutex_t _atomic;
+# endif
 #endif
 
-	success = Thread::WaitForThread();
+	void Cleanup();
 
-#if defined(CAT_OS_WINDOWS)
-
-	if (_quit_signal)
+public:
+	WaitableFlag();
+	CAT_INLINE virtual ~WaitableFlag()
 	{
-		if (!CloseHandle(_quit_signal))
-			success = false;
-		_quit_signal = 0;
+		Cleanup();
 	}
 
-#endif
-
-	return success;
-}
-
-// Returns false if it is time to quit
-bool LoopThread::WaitForQuitSignal(int msec)
-{
-#if defined(CAT_OS_WINDOWS)
-
-	switch (WaitForSingleObject(_quit_signal, msec))
+	CAT_INLINE bool Valid()
 	{
-	case WAIT_FAILED:		// Signal object has been destroyed unexpectedly
-	case WAIT_ABANDONED:	// LoopThread creator has quit unexpectedly
-	case WAIT_OBJECT_0:		// Signaled
-	default:				// Unexpected error
-		return false;
-	case WAIT_TIMEOUT:		// Not signaled
-		return true;
+#if defined(CAT_OS_WINDOWS)
+		return _event != 0;
+#else
+		return _valid;
+#endif
 	}
 
-#else
+	bool Set();
+	bool Wait(int milliseconds = -1); // < 0 = wait forever
+};
 
-	// I would prefer something like WaitForSingleObject()
-	if (_quit_signal) return false;
-	Clock::sleep(msec);
-	return !_quit_signal;
 
-#endif
-}
+} // namespace cat
+
+#endif // CAT_WAITABLE_FLAG_HPP

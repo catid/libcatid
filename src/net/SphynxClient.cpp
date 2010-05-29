@@ -33,6 +33,8 @@
 #include <cat/net/DNSClient.hpp>
 #include <cat/io/Settings.hpp>
 #include <cat/parse/BufferStream.hpp>
+#include <cat/time/Clock.hpp>
+#include <cat/crypt/SecureCompare.hpp>
 #include <fstream>
 using namespace std;
 using namespace cat;
@@ -50,7 +52,10 @@ Client::Client()
 
 Client::~Client()
 {
-	WaitForThread();
+	_kill_flag.Set();
+
+	if (!WaitForThread(CLIENT_THREAD_KILL_TIMEOUT))
+		AbortThread();
 }
 
 void Client::OnWrite(u32 bytes)
@@ -353,10 +358,6 @@ bool Client::ThreadFunction(void *)
 		return false;
 	}
 
-	const int HANDSHAKE_TICK_RATE = 100; // milliseconds
-	const int INITIAL_HELLO_POST_INTERVAL = 200; // milliseconds
-	const int CONNECT_TIMEOUT = 6000; // milliseconds
-
 	u32 start_time = Clock::msec_fast();
 	u32 first_hello_post = start_time;
 	u32 last_hello_post = start_time;
@@ -366,7 +367,7 @@ bool Client::ThreadFunction(void *)
 	while (!_connected)
 	{
 		// Wait for quit signal
-		if (!WaitForQuitSignal(HANDSHAKE_TICK_RATE))
+		if (_kill_flag.Wait(HANDSHAKE_TICK_RATE))
 			return false;
 
 		// If now connected, break out
@@ -402,7 +403,6 @@ bool Client::ThreadFunction(void *)
 	}
 
 	// Begin MTU probing after connection completes
-	const u32 MTU_PROBE_INTERVAL = 8000; // 8 seconds
 	u32 overhead = (Is6() ? IPV6_HEADER_BYTES : IPV4_HEADER_BYTES) + UDP_HEADER_BYTES + AuthenticatedEncryption::OVERHEAD_BYTES;
 	u32 mtu_discovery_time = Clock::msec();
 	int mtu_discovery_attempts = 2;
@@ -426,7 +426,7 @@ bool Client::ThreadFunction(void *)
 	_last_recv_tsc = next_sync_time;
 
 	// While waiting for quit signal,
-	while (WaitForQuitSignal(Transport::TICK_RATE))
+	while (!_kill_flag.Wait(Transport::TICK_RATE))
 	{
 		u32 now = Clock::msec();
 

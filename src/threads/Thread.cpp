@@ -135,7 +135,7 @@ void Thread::AbortThread()
 	_thread_running = false;
 }
 
-bool Thread::WaitForThread(u32 ms)
+bool Thread::WaitForThread(int ms)
 {
 	if (!_thread_running)
 		return true;
@@ -147,7 +147,7 @@ bool Thread::WaitForThread(u32 ms)
 	if (_thread)
 	{
 		// Signal termination event and block waiting for thread to signal termination
-		if (WaitForSingleObject(_thread, ms ? ms : INFINITE) != WAIT_FAILED)
+		if (WaitForSingleObject(_thread, (ms >= 0) ? ms : INFINITE) != WAIT_FAILED)
 		{
 			success = true;
 

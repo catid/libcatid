@@ -73,12 +73,17 @@ bool ThreadPool::SpawnThreads()
 	int processor_count;
 
 #if defined(CAT_OS_WINDOWS)
+
     ULONG_PTR ulpProcessAffinityMask, ulpSystemAffinityMask;
     GetProcessAffinityMask(GetCurrentProcess(), &ulpProcessAffinityMask, &ulpSystemAffinityMask);
 	processor_count = (int)BitCount(ulpProcessAffinityMask);
+
 #else
+
 	processor_count = (int)sysconf(_SC_NPROCESSORS_ONLN);
-	if (processor_count <= 1) WARN("ThreadPool") << "Host machine looks UP.  We are designed for SMP, so this will not be ideal.  If this is incorrect, make sure /proc fs is mounted";
+	if (processor_count <= 1)
+		WARN("ThreadPool") << "Host machine looks UP.  We are designed for SMP, so this will not be ideal.  If this is incorrect, make sure /proc fs is mounted";
+
 #endif
 
 	if (processor_count <= 0) processor_count = 1;
@@ -235,6 +240,7 @@ void ThreadPool::Shutdown()
         INANE("ThreadPool") << "Shutdown task (1/3): Stopping threads...";
 
 #if defined(CAT_OS_WINDOWS)
+
         if (_port)
         while (count--)
         {
@@ -244,6 +250,7 @@ void ThreadPool::Shutdown()
                 return;
             }
         }
+
 #else
 #error TODO
 #endif
@@ -276,6 +283,8 @@ void ThreadPool::Shutdown()
 		}
 	}
 
+#if defined(CAT_OS_WINDOWS)
+
     if (!_port)
 	{
 		WARN("ThreadPool") << "Shutdown task (3/3): IOCP port not created";
@@ -287,6 +296,10 @@ void ThreadPool::Shutdown()
 		CloseHandle(_port);
         _port = 0;
     }
+
+#else
+#error TODO
+#endif
 
     INANE("ThreadPool") << "...Termination complete.";
 
@@ -322,29 +335,49 @@ bool ThreadPoolLocalStorage::Valid()
 ShutdownWait::ShutdownWait(int priorityLevel)
 {
 	_observer = new ShutdownObserver(priorityLevel, this);
+
+#if defined(CAT_OS_WINDOWS)
 	_event = CreateEvent(0, TRUE, FALSE, 0);
+#else
+#error TODO
+#endif
 }
 
 ShutdownWait::~ShutdownWait()
 {
+#if defined(CAT_OS_WINDOWS)
 	CloseHandle(_event);
+#else
+#error TODO
+#endif
+
 	ThreadRefObject::SafeRelease(_observer);
 }
 
 void ShutdownWait::OnShutdownDone()
 {
+#if defined(CAT_OS_WINDOWS)
 	if (_event) SetEvent(_event);
+#else
+#error TODO
+#endif
 }
 
 bool ShutdownWait::WaitForShutdown(u32 milliseconds)
 {
-	if (!_event || !_observer) return false;
+	if (!_observer) return false;
 
 	// Kill observer
 	ThreadRefObject::SafeRelease(_observer);
 
+#if defined(CAT_OS_WINDOWS)
+	if (!_event) return false;
+
 	// Wait for it to die
 	return WaitForSingleObject(_event, milliseconds) == WAIT_OBJECT_0;
+#else
+#error TODO
+#endif
 }
 
 ShutdownObserver::ShutdownObserver(int priorityLevel, ShutdownWait *wait)
@@ -364,6 +397,8 @@ ShutdownObserver::~ShutdownObserver()
 
 bool ThreadPoolWorker::ThreadFunction(void *port)
 {
+#if defined(CAT_OS_WINDOWS)
+
 	DWORD bytes;
 	void *key = 0;
 	AsyncBuffer *buffer = 0;
@@ -409,6 +444,10 @@ bool ThreadPoolWorker::ThreadFunction(void *port)
 			obj->ReleaseRef();
 		}
 	}
+
+#else // CAT_OS_WINDOWS
+#error TODO
+#endif // CAT_OS_WINDOWS
 
 	return true;
 }

@@ -53,7 +53,7 @@ bool FortunaFactory::ThreadFunction(void *)
     int fast_pool = 0, slow_pool = 0, pool0_entropy = 0;
 
     // Loop while the flag is set
-    while (WaitForQuitSignal(COLLECTION_PERIOD))
+    while (!_kill_flag.Wait(COLLECTION_PERIOD))
     {
         // Poll fast entropy sources once every COLLECTION_PERIOD
         PollFastEntropySources(fast_pool);
@@ -100,7 +100,10 @@ bool FortunaFactory::InitializeEntropySources()
 void FortunaFactory::ShutdownEntropySources()
 {
 #if !defined(CAT_NO_ENTROPY_THREAD)
-	StopThread();
+	_kill_flag.Set();
+
+	if (!WaitForThread(ENTROPY_THREAD_KILL_TIMEOUT))
+		AbortThread();
 #endif
 
     if (urandom_fd >= 0)
