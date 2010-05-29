@@ -35,6 +35,7 @@
 #include <cat/threads/RegionAllocator.hpp>
 #include <cat/io/AsyncBuffer.hpp>
 #include <cat/threads/Thread.hpp>
+#include <cat/threads/WaitableFlag.hpp>
 
 #if defined(CAT_OS_WINDOWS)
 # include <cat/port/WindowsInclude.hpp>
@@ -43,8 +44,7 @@
 namespace cat {
 
 
-//// Reference Object priorities
-
+// Reference Object priorities
 enum RefObjectPriorities
 {
 	REFOBJ_PRIO_0,
@@ -86,6 +86,7 @@ public:
 		}
 	}
 };
+
 
 // Auto release for ThreadRefObject references
 template<class T>
@@ -132,11 +133,7 @@ class ShutdownWait
 {
 	friend class ShutdownObserver;
 
-#if defined(CAT_OS_WINDOWS)
-	HANDLE _event;
-#else
-#error TODO
-#endif
+	WaitableFlag _kill_flag;
 	ShutdownObserver *_observer;
 
 	void OnShutdownDone();
@@ -163,9 +160,8 @@ private:
 };
 
 
-/*
-	class ThreadPoolWorker
-*/
+//// ThreadPoolWorker
+
 class ThreadPoolWorker : public Thread
 {
 public:
