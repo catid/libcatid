@@ -196,7 +196,7 @@ bool WaitableFlag::Wait(int milliseconds)
 
 		static const long ONE_SECOND_IN_NANOSECONDS = 1000000000;
 
-		if (nsec_trigger < nsec || usec_trigger >= ONE_SECOND_IN_NANOSECONDS)
+		if (nsec_trigger < nsec || nsec_trigger >= ONE_SECOND_IN_NANOSECONDS)
 		{
 			++interval_seconds;
 			nsec_trigger -= ONE_SECOND_IN_NANOSECONDS;
