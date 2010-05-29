@@ -68,8 +68,7 @@ void SecureServerDemo::OnChallenge(BigTwistedEdwards *math, FortunaOutput *csprn
 	Skein key_hash;
 
 	if (!tun_server.ProcessChallenge(math, csprng, buffer, CAT_C2S_CHALLENGE_BYTES, answer, CAT_S2C_ANSWER_BYTES, &key_hash) ||
-		!tun_server.KeyEncryption(&key_hash, &client->auth_enc, "SecureDemoStream1") ||
-		!client->auth_enc.GenerateProof(answer + CAT_DEMO_BYTES*3, CAT_DEMO_BYTES))
+		!tun_server.KeyEncryption(&key_hash, &client->auth_enc, "SecureDemoStream1"))
     {
         cout << "Server: Ignoring invalid challenge message" << endl;
         delete client;
