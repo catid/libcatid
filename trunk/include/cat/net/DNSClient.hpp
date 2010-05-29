@@ -37,9 +37,10 @@
 #define CAT_DNS_CLIENT_HPP
 
 #include <cat/net/ThreadPoolSockets.hpp>
-#include <cat/threads/LoopThread.hpp>
-#include <cat/port/FastDelegate.h>
+#include <cat/threads/Thread.hpp>
+#include <cat/threads/WaitableFlag.hpp>
 #include <cat/crypt/rand/Fortuna.hpp>
+#include <cat/port/FastDelegate.h>
 
 namespace cat {
 
@@ -86,8 +87,11 @@ struct DNSRequest
 
 //// DNSClient
 
-class DNSClient : LoopThread, public UDPEndpoint, public Singleton<DNSClient>
+class DNSClient : Thread, public UDPEndpoint, public Singleton<DNSClient>
 {
+	static const int TICK_RATE = 200; // milliseconds
+	static const int DNS_THREAD_KILL_TIMEOUT = 10000; // 10 seconds
+
 	CAT_SINGLETON(DNSClient)
 		: UDPEndpoint(REFOBJ_PRIO_0+5)
 	{
@@ -166,9 +170,6 @@ private:
 	bool PostDNSPacket(DNSRequest *req, u32 now);
 	bool PerformLookup(DNSRequest *req); // not thread-safe, caller must lock
 
-private:
-	bool ThreadFunction(void *param);
-
 protected:
 	virtual void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes);
 	virtual void OnClose();
@@ -177,6 +178,11 @@ protected:
 protected:
 	void ProcessDNSResponse(DNSRequest *req, int qdcount, int ancount, u8 *data, u32 bytes);
 	void NotifyRequesters(DNSRequest *req);
+
+private:
+	WaitableFlag _kill_flag;
+
+	bool ThreadFunction(void *param);
 };
 
 

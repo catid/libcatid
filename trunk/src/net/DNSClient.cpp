@@ -409,10 +409,8 @@ void DNSClient::CacheKill(DNSRequest *req)
 
 bool DNSClient::ThreadFunction(void *param)
 {
-	const int TICK_RATE = 200; // milliseconds
-
 	// Check for timeouts
-	while (WaitForQuitSignal(TICK_RATE))
+	while (!_kill_flag.Wait(TICK_RATE))
 	{
 		AutoMutex lock(_request_lock);
 
@@ -447,7 +445,10 @@ bool DNSClient::ThreadFunction(void *param)
 
 DNSClient::~DNSClient()
 {
-	WaitForThread();
+	_kill_flag.Set();
+
+	if (!WaitForThread(DNS_THREAD_KILL_TIMEOUT))
+		AbortThread();
 }
 
 bool DNSClient::BindToRandomPort(bool ignoreUnreachable)
@@ -516,6 +517,7 @@ bool DNSClient::Initialize()
 
 	return true;
 }
+
 void DNSClient::Shutdown()
 {
 	// NOTE: Does not remove artificial reference added on Initialize(), so

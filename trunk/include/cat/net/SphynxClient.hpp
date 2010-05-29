@@ -30,7 +30,9 @@
 #define CAT_SPHYNX_CLIENT_HPP
 
 #include <cat/net/SphynxTransport.hpp>
-#include <cat/AllTunnel.hpp>
+#include <cat/crypt/tunnel/KeyAgreementInitiator.hpp>
+#include <cat/threads/Thread.hpp>
+#include <cat/threads/WaitableFlag.hpp>
 
 namespace cat {
 
@@ -40,9 +42,14 @@ namespace sphynx {
 
 //// sphynx::Client
 
-class Client : LoopThread, public UDPEndpoint, public Transport
+class Client : Thread, public UDPEndpoint, public Transport
 {
-private:
+	static const int HANDSHAKE_TICK_RATE = 100; // milliseconds
+	static const int INITIAL_HELLO_POST_INTERVAL = 200; // milliseconds
+	static const int CONNECT_TIMEOUT = 6000; // milliseconds
+	static const u32 MTU_PROBE_INTERVAL = 8000; // 8 seconds
+	static const int CLIENT_THREAD_KILL_TIMEOUT = 10000; // 10 seconds
+
 	static const int SESSION_KEY_BYTES = 32;
 	char _session_key[SESSION_KEY_BYTES];
 
@@ -50,7 +57,7 @@ private:
 	u8 _server_public_key[PUBLIC_KEY_BYTES];
 	u8 _cached_challenge[CHALLENGE_BYTES];
 
-	bool ThreadFunction(void *param);
+	WaitableFlag _kill_flag;
 
 protected:
 	u32 _last_send_mstsc;
@@ -95,6 +102,9 @@ private:
 	bool OnResolve(const char *hostname, const NetAddr *array, int array_length);
 
 	virtual bool PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes, u32 skip_bytes);
+
+private:
+	bool ThreadFunction(void *param);
 };
 
 

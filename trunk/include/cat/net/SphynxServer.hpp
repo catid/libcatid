@@ -30,9 +30,12 @@
 #define CAT_SPHYNX_SERVER_HPP
 
 #include <cat/net/SphynxTransport.hpp>
-#include <cat/AllTunnel.hpp>
 #include <cat/threads/RWLock.hpp>
+#include <cat/threads/Thread.hpp>
+#include <cat/threads/WaitableFlag.hpp>
 #include <cat/net/SphynxCollexion.hpp>
+#include <cat/crypt/cookie/CookieJar.hpp>
+#include <cat/crypt/tunnel/KeyAgreementResponder.hpp>
 
 namespace cat {
 
@@ -200,7 +203,7 @@ protected:
 
 //// sphynx::ServerTimer
 
-class ServerTimer : LoopThread
+class ServerTimer : Thread
 {
 protected:
 	Map *_conn_map;
@@ -228,6 +231,11 @@ public:
 protected:
 	CAT_INLINE void Tick(ThreadPoolLocalStorage *tls);
 	bool ThreadFunction(void *param);
+
+protected:
+	static const int TIMER_THREAD_KILL_TIMEOUT = 10000;
+
+	WaitableFlag _kill_flag;
 };
 
 

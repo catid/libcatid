@@ -63,7 +63,7 @@ bool FortunaFactory::ThreadFunction(void *)
     int fast_pool = 0, slow_pool = 0, pool0_entropy = 0;
 
     // Loop while the wait is timing out; will break on error or signaled termination
-    while (WaitForQuitSignal(COLLECTION_PERIOD))
+    while (!_kill_flag.Wait(COLLECTION_PERIOD))
     {
         // Poll fast entropy sources once every COLLECTION_PERIOD
         PollFastEntropySources(fast_pool);
@@ -120,7 +120,10 @@ bool FortunaFactory::InitializeEntropySources()
 void FortunaFactory::ShutdownEntropySources()
 {
 #if !defined(CAT_NO_ENTROPY_THREAD)
-    WaitForThread();
+	_kill_flag.Set();
+
+	if (!WaitForThread(ENTROPY_THREAD_KILL_TIMEOUT))
+		AbortThread();
 #endif
 
     if (hCryptProv) CryptReleaseContext(hCryptProv, 0);

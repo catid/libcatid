@@ -32,6 +32,10 @@
 #include <cat/io/MMapFile.hpp>
 #include <cat/io/Settings.hpp>
 #include <cat/io/Base64.hpp>
+#include <cat/time/Clock.hpp>
+#include <cat/hash/MurmurHash2.hpp>
+#include <cat/crypt/SecureCompare.hpp>
+#include <cat/crypt/tunnel/KeyMaker.hpp>
 #include <fstream>
 using namespace std;
 using namespace cat;
@@ -393,9 +397,12 @@ ServerTimer::~ServerTimer()
 {
 	//WARN("Destroy") << "Killing Timer";
 
-	Map::Slot *slot, *next;
+	_kill_flag.Set();
 
-	WaitForThread();
+	if (!WaitForThread(TIMER_THREAD_KILL_TIMEOUT))
+		AbortThread();
+
+	Map::Slot *slot, *next;
 
 	// Free all active connection objects
 	for (slot = _active_head; slot; slot = next)
@@ -496,7 +503,7 @@ bool ServerTimer::ThreadFunction(void *)
 	}
 
 	// While quit signal is not flagged,
-	while (WaitForQuitSignal(Transport::TICK_RATE))
+	while (!_kill_flag.Wait(Transport::TICK_RATE))
 	{
 		Tick(&tls);
 	}

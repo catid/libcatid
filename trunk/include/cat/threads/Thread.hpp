@@ -61,7 +61,7 @@ protected:
 
 public:
 	bool StartThread(void *param = 0);
-	bool WaitForThread(u32 ms = 0); // 0 = infinite wait
+	bool WaitForThread(int milliseconds = -1); // < 0 = infinite wait
 	void AbortThread();
 
 	CAT_INLINE bool ThreadRunning() { return _thread_running; }

@@ -238,6 +238,8 @@ u32 Atomic::Add(volatile u32 *x, s32 y)
 
 	u32 old_x = *x;
 	*x = old_x + y;
+
+	CAT_FENCE_COMPILER
 	return old_x;
 
 #endif
@@ -291,6 +293,8 @@ u32 Atomic::Set(volatile u32 *x, u32 new_value)
 
 	u32 old_x = *x;
 	*x = new_value;
+
+	CAT_FENCE_COMPILER
 	return old_x;
 
 #endif
@@ -345,9 +349,12 @@ bool Atomic::BTS(volatile u32 *x, int bit)
 
 #define CAT_NO_ATOMIC_BTS /* Platform/compiler does not support atomic bts */
 
-	u32 old_x = *x;
 	u32 mask = 1 << bit;
+
+	u32 old_x = *x;
 	*x = old_x | mask;
+
+	CAT_FENCE_COMPILER
 	return (old_x & mask) ? true : false;
 
 #endif
@@ -402,9 +409,12 @@ bool Atomic::BTR(volatile u32 *x, int bit)
 
 #define CAT_NO_ATOMIC_BTR /* Platform/compiler does not support atomic btr */
 
-	u32 old_x = *x;
 	u32 mask = 1 << bit;
+
+	u32 old_x = *x;
 	*x = old_x & ~mask;
+
+	CAT_FENCE_COMPILER
 	return (old_x & mask) ? true : false;
 
 #endif

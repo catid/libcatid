@@ -81,12 +81,11 @@
 #include <cat/crypt/hash/Skein.hpp>
 #include <cat/Singleton.hpp>
 #include <cat/threads/Mutex.hpp>
-#include <cat/threads/LoopThread.hpp>
 
 
 // Defining CAT_NO_ENTROPY_THREAD will remove dependencies on pthreads and not
 // run a thread to collect more entropy.  This is recommended for low-power targets
-// and where pthreads is not available
+// and other systems where no thread library is available
 #if defined(CAT_OS_WINDOWS_CE)
 # define CAT_NO_ENTROPY_THREAD
 #endif
@@ -95,6 +94,11 @@
 #if defined(CAT_OS_WINDOWS)
 # include <cat/port/WindowsInclude.hpp>
 # include <wincrypt.h>
+#endif
+
+#if !defined(CAT_NO_ENTROPY_THREAD)
+# include <cat/threads/Thread.hpp>
+# include <cat/threads/WaitableFlag.hpp>
 #endif
 
 
@@ -107,7 +111,7 @@ class FortunaFactory;
 // Factory for constructing FortunaOutput objects
 class FortunaFactory : public Singleton<FortunaFactory>
 #if !defined(CAT_NO_ENTROPY_THREAD)
-	, public LoopThread
+	, public Thread
 #endif
 {
     CAT_SINGLETON(FortunaFactory)
@@ -144,7 +148,11 @@ class FortunaFactory : public Singleton<FortunaFactory>
 #endif
 
 #if !defined(CAT_NO_ENTROPY_THREAD)
-    bool ThreadFunction(void *param);
+	static const int ENTROPY_THREAD_KILL_TIMEOUT = 10000; // 10 seconds
+
+	WaitableFlag _kill_flag;
+
+	bool ThreadFunction(void *param);
 #endif
 
 protected:
