@@ -37,6 +37,8 @@ using namespace cat;
 # include <process.h>
 #else
 # include <unistd.h>
+# include <errno.h>
+# include <sys/epoll.h>
 #endif
 
 
@@ -44,7 +46,12 @@ using namespace cat;
 
 ThreadPool::ThreadPool()
 {
+#if defined(CAT_OS_WINDOWS)
     _port = 0;
+#else
+	_port = -1;
+#endif
+
     CAT_OBJCLR(_objectRefHead);
 	_active_thread_count = 0;
 }
@@ -136,7 +143,19 @@ bool ThreadPool::Associate(ThreadPoolHandle h, ThreadRefObject *key)
 		return false;
 	}
 #else
-#error TODO
+
+	struct epoll_event ev;
+	ev.events = EPOLLIN | EPOLLPRI | EPOLLERR | EPOLLHUP;
+	ev.data.fd = h;
+
+	int result = epoll_ctl(_port, EPOLL_CTL_ADD, h, &ev);
+
+	if (result == -1)
+	{
+		FATAL("ThreadPool") << "Unable to associate handle with epoll fd: " << errno;
+		return false;
+	}
+
 #endif
 
     return true;
@@ -203,6 +222,7 @@ bool ThreadPool::Startup()
 	INANE("ThreadPool") << "Initializing the thread pool...";
 
 #if defined(CAT_OS_WINDOWS)
+
 	HANDLE result = CreateIoCompletionPort(INVALID_HANDLE_VALUE, 0, 0, 0);
 
 	if (!result)
@@ -210,8 +230,17 @@ bool ThreadPool::Startup()
 		FATAL("ThreadPool") << "Unable to create initial completion port: " << GetLastError();
 		return false;
 	}
+
 #else
-#error TODO
+
+	int epfd = epoll_create(EPOLL_QUEUE_LEN);
+
+	if (epfd == -1)
+	{
+		FATAL("ThreadPool") << "Unable to create epoll fd: " << errno;
+		return false;
+	}
+
 #endif
 
 	_port = result;
@@ -222,8 +251,10 @@ bool ThreadPool::Startup()
 		CloseHandle(_port);
 		_port = 0;
 #else
-#error TODO
+		close(_poll);
+		_port = -1;
 #endif
+
 		FATAL("ThreadPool") << "Unable to spawn threads";
 		return false;
 	}
@@ -362,7 +393,7 @@ bool ShutdownWait::WaitForShutdown(u32 milliseconds)
 	// Kill observer
 	ThreadRefObject::SafeRelease(_observer);
 
-	_kill_flag.Wait(milliseconds);
+	return _kill_flag.Wait(milliseconds);
 }
 
 ShutdownObserver::ShutdownObserver(int priorityLevel, ShutdownWait *wait)
@@ -430,9 +461,9 @@ bool ThreadPoolWorker::ThreadFunction(void *port)
 		}
 	}
 
-#else // CAT_OS_WINDOWS
+#else
 #error TODO
-#endif // CAT_OS_WINDOWS
+#endif
 
 	return true;
 }

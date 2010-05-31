@@ -186,14 +186,14 @@ class ThreadPool : public Singleton<ThreadPool>
 
     CAT_SINGLETON(ThreadPool);
 
-#if defined(CAT_OS_WINDOWS)
-    HANDLE _port;
-#endif
+    ThreadPoolHandle _port;
 
 	int _processor_count, _active_thread_count;
 
 	static const int MAX_THREADS = 256;
 	ThreadPoolWorker _threads[MAX_THREADS];
+
+	static const int EPOLL_QUEUE_LEN = MAX_THREADS;
 
 	// Track sockets for graceful termination
     Mutex _objectRefLock[REFOBJ_PRIO_COUNT];

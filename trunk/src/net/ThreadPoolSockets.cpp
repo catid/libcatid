@@ -67,7 +67,7 @@ void cat::ReportUnexpectedSocketError(int error)
 #include "win/UDPEndpoint.cpp"
 
 
-//// Linux-style eventfd
+//// Linux-style epoll
 
 #elif defined(CAT_OS_LINUX)
 
@@ -77,7 +77,7 @@ void cat::ReportUnexpectedSocketError(int error)
 #include "linux/UDPEndpoint.cpp"
 
 
-//// BSD-style kevent
+//// BSD-style kqueue
 
 #elif defined(CAT_OS_OSX) || defined(CAT_OS_BSD)
 

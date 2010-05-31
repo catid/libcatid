@@ -111,6 +111,9 @@ public:
 	// Promote an IPv4 address to an IPv6 address if needed
 	bool PromoteTo6();
 
+	// Check if an IPv6 address can be demoted to IPv4 address
+	bool CanDemoteTo4() const;
+
 	// Demote an IPv6 address to an IPv4 address if possible,
 	// otherwise marks address as invalid and returns false
 	bool DemoteTo4();

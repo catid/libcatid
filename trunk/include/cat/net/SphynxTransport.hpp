@@ -34,6 +34,10 @@
 #include <cat/crypt/tunnel/AuthenticatedEncryption.hpp>
 #include <cat/parse/BufferStream.hpp>
 
+// TODO: vulnerable to resource starvation attacks (out of sequence packets, etc)
+// TODO: flow control
+// TODO: bandwidth detection
+
 namespace cat {
 
 
@@ -216,18 +220,39 @@ static const u32 COLLISION_INCRINVERSE = 0 - COLLISION_INCREMENTER;
 // Handshake types
 enum HandshakeType
 {
-	C2S_HELLO,
-	S2C_COOKIE,
-	C2S_CHALLENGE,
-	S2C_ANSWER,
-	S2C_ERROR
+	C2S_HELLO = 85,		// c2s 55 (magic[4]) (server public key[64])
+	S2C_COOKIE = 24,	// s2c 18 (cookie[4])
+	C2S_CHALLENGE = 9,	// c2s 09 (magic[4]) (cookie[4]) (challenge[64])
+	S2C_ANSWER = 108,	// s2c 6c (data port[2]) (answer[128])
+	S2C_ERROR = 162		// s2c a2 (error code[1])
 };
+
+// Handshake type lengths
+static const u32 C2S_HELLO_LEN = 1 + 4 + PUBLIC_KEY_BYTES;
+static const u32 S2C_COOKIE_LEN = 1 + 4;
+static const u32 C2S_CHALLENGE_LEN = 1 + 4 + 4 + CHALLENGE_BYTES;
+static const u32 S2C_ANSWER_LEN = 1 + sizeof(Port) + ANSWER_BYTES;
+static const u32 S2C_ERROR_LEN = 1 + 1;
 
 // Handshake errors
 enum HandshakeError
 {
-	ERR_SERVER_FULL
+	ERR_CLIENT_OUT_OF_MEMORY,
+	ERR_CLIENT_BROKEN_PIPE,
+	ERR_CLIENT_TIMEOUT,
+	ERR_CLIENT_ICMP,
+	ERR_NUM_CLIENT_ERRORS,
+
+	ERR_WRONG_KEY = 0x7f,
+	ERR_SERVER_FULL = 0xa6,
+	ERR_FLOOD_DETECTED = 0x40,
+	ERR_TAMPERING = 0xcc,
+	ERR_SERVER_ERROR = 0x1f
 };
+
+// Convert handshake error string to user-readable error message
+const char *GetHandshakeErrorString(HandshakeError err);
+
 
 // Stream modes
 enum StreamMode
@@ -325,11 +350,11 @@ protected:
 	static const u32 MIN_RTT = 50; // Minimum milliseconds for RTT
 
 	static const int TIMEOUT_DISCONNECT = 15000; // 15 seconds
-	static const int SILENCE_LIMIT = 9333; // 9.333 seconds: Time silent before sending a keep-alive (0-length unordered reliable message)
+	static const int SILENCE_LIMIT = 9357; // 9.333 seconds: Time silent before sending a keep-alive (0-length unordered reliable message)
 
 	static const int TICK_RATE = 20; // 20 milliseconds
 
-	static const u32 MINIMUM_MTU = 576; // Dialup
+	static const u32 MINIMUM_MTU = 576; // Dial-up
 	static const u32 MEDIUM_MTU = 1400; // Highspeed with unexpected overhead, maybe VPN
 	static const u32 MAXIMUM_MTU = 1500; // Highspeed
 

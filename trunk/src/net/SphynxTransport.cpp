@@ -35,6 +35,26 @@
 using namespace cat;
 using namespace sphynx;
 
+// Convert handshake error string to user-readable error message
+const char *cat::sphynx::GetHandshakeErrorString(HandshakeError err)
+{
+	switch (err)
+	{
+	case ERR_CLIENT_OUT_OF_MEMORY:	return "Out of memory";
+	case ERR_CLIENT_BROKEN_PIPE:	return "Broken pipe";
+	case ERR_CLIENT_TIMEOUT:		return "Connect timeout";
+	case ERR_CLIENT_ICMP:			return "Server unreachable";
+
+	case ERR_WRONG_KEY:			return "Wrong key";
+	case ERR_SERVER_FULL:		return "Server full";
+	case ERR_FLOOD_DETECTED:	return "Flood detected";
+	case ERR_TAMPERING:			return "Tampering detected";
+	case ERR_SERVER_ERROR:		return "Server error";
+
+	default:					return "Unknown error";
+	}
+}
+
 #if defined(CAT_TRANSPORT_DEBUG_LOGGING)
 # define CAT_TDBG(x) x
 #else

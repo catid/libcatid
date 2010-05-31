@@ -52,9 +52,9 @@ namespace cat
 
     std::string SocketGetErrorString(int code)
     {
+		switch (code)
+		{
 #if defined(CAT_OS_WINDOWS)
-        switch (code)
-        {
         case WSAEADDRNOTAVAIL:         return "[Address not available]";
         case WSAEADDRINUSE:            return "[Address is in use]";
         case WSANOTINITIALISED:        return "[Winsock not initialized]";
@@ -85,18 +85,34 @@ namespace cat
         case ERROR_NETNAME_DELETED:    return "[Socket was already closed]";
         case ERROR_PORT_UNREACHABLE:   return "[Destination port is unreachable]";
         case ERROR_MORE_DATA:          return "[More data is available]";
-        };
+#else
+		case EPERM:		return "[Operation not permitted]";
+		case ENOENT:	return "[No such file or directory]";
+		case ESRCH:		return "[No such process]";
+		case EINTR:		return "[Interrupted system call]";
+		case EIO:		return "[I/O error]";
+		case ENXIO:		return "[No such device or address]";
+		case E2BIG:		return "[Arg list too long]";
+		case ENOEXEC:	return "[Exec format error]";
+		case EBADF:		return "[Bad file number]";
+		case ECHILD:	return "[No child processes]";
+		case EAGAIN:	return "[Try again]";
+		case ENOMEM:	return "[Out of memory]";
 #endif
+        };
 
         ostringstream oss;
         oss << "[Error code: " << code << " (0x" << hex << code << ")]";
         return oss.str();
     }
 
-#if defined(CAT_OS_WINDOWS)
-	static bool IsWindowsVistaOrNewer()
+	static CAT_INLINE bool IsIP6ContactableByIP4()
 	{
-		DWORD dwVersion = 0; 
+		// Under Windows 2003 or earlier, when a server binds to an IPv6 address it
+		// cannot be contacted by IPv4 clients, which is currently a very bad thing,
+		// so just do IPv4 under Windows 2003 or earlier.
+#if defined(CAT_OS_WINDOWS)
+		DWORD dwVersion = 0;
 		DWORD dwMajorVersion = 0;
 
 		dwVersion = GetVersion();
@@ -105,8 +121,10 @@ namespace cat
 		// 5: 2000(.0), XP(.1), 2003(.2)
 		// 6: Vista(.0), 7(.1)
 		return (dwMajorVersion >= 6);
-	}
+#else
+		return true; // For other OS this is not a problem, just return true
 #endif
+	}
 
 	// Returns true on success
 	static bool DisableV6ONLY(Socket s)
@@ -119,13 +137,14 @@ namespace cat
 
 	bool CreateSocket(int type, int protocol, bool SupportIPv4, Socket &out_s, bool &inout_OnlyIPv4)
 	{
-		// Under Windows 2003 or earlier, when a server binds to an IPv6 address it
-		// cannot be contacted by IPv4 clients, which is currently a very bad thing,
-		// so just do IPv4 under Windows 2003 or earlier.
-		if (!inout_OnlyIPv4 && IsWindowsVistaOrNewer())
+		if (!inout_OnlyIPv4 && IsIP6ContactableByIP4())
 		{
 			// Attempt to create an IPv6 socket
+#if defined(CAT_OS_WINDOWS)
 			Socket s = WSASocket(AF_INET6, type, protocol, 0, 0, WSA_FLAG_OVERLAPPED);
+#else
+			Socket s = socket(AF_INET6, type, protocol);
+#endif
 
 			// If the socket was created,
 			while (s != INVALID_SOCKET)
@@ -144,7 +163,11 @@ namespace cat
 		}
 
 		// Attempt to create an IPv4 socket
+#if defined(CAT_OS_WINDOWS)
 		Socket s = WSASocket(AF_INET, type, protocol, 0, 0, WSA_FLAG_OVERLAPPED);
+#else
+		Socket s = socket(AF_INET, type, protocol);
+#endif
 
 		// If the socket was created,
 		if (s != INVALID_SOCKET)
@@ -685,6 +708,43 @@ bool NetAddr::PromoteTo6()
 		}
 
 		return true;
+	}
+	else
+	{
+		// Already invalid
+		return false;
+	}
+}
+
+// Check if an IPv6 address can be demoted to IPv4 address
+bool NetAddr::CanDemoteTo4() const
+{
+	if (_family == AF_INET)
+	{
+		// Already IPv4
+		return true;
+	}
+	else if (_family == AF_INET6)
+	{
+		if (_ip.v6[0] != 0 || _ip.v6_words[4] != 0)
+		{
+			return false;
+		}
+		else if (_ip.v6_words[5] == 0 && _ip.v6_words[6] == 0 &&
+			_ip.v6_bytes[14] == 0 && _ip.v6_bytes[15] == 1)
+		{
+			// Loopback
+			return true;
+		}
+		else if (_ip.v6_words[5] == 0xFFFF)
+		{
+			// Embedded IPv4 address
+			return true;
+		}
+		else
+		{
+			return false;
+		}
 	}
 	else
 	{

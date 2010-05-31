@@ -42,6 +42,67 @@ using namespace cat;
 using namespace sphynx;
 
 
+static CAT_INLINE u32 hash_addr_iponly(const NetAddr &addr, u32 salt)
+{
+	u32 key;
+
+	// If address is IPv6,
+	if (addr.Is6())
+	{
+		// Hash first 64 bits of 128-bit address to 32 bits
+		// Right now the last 64 is easy to change if you actually have an IPv6 address
+		key = MurmurHash32(addr.GetIP6(), (addr.CanDemoteTo4() ? NetAddr::IP6_BYTES : NetAddr::IP6_BYTES/2), salt);
+	}
+	else // assuming IPv4 and address is not invalid
+	{
+		key = addr.GetIP4();
+
+		// Thomas Wang's integer hash function
+		// http://www.cris.com/~Ttwang/tech/inthash.htm
+		key = (key ^ 61) ^ (key >> 16);
+		key = key + (key << 3);
+		key = key ^ (key >> 4) ^ salt;
+		key = key * 0x27d4eb2d;
+		key = key ^ (key >> 15);
+	}
+
+	return key & HASH_TABLE_MASK;
+}
+
+static CAT_INLINE u32 hash_addr(const NetAddr &addr, u32 salt)
+{
+	u32 key;
+
+	// If address is IPv6,
+	if (addr.Is6())
+	{
+		// Hash 128-bit address to 32 bits
+		key = MurmurHash32(addr.GetIP6(), NetAddr::IP6_BYTES, salt);
+	}
+	else // assuming IPv4 and address is not invalid
+	{
+		key = addr.GetIP4();
+
+		// Thomas Wang's integer hash function
+		// http://www.cris.com/~Ttwang/tech/inthash.htm
+		key = (key ^ 61) ^ (key >> 16);
+		key = key + (key << 3);
+		key = key ^ (key >> 4) ^ salt;
+		key = key * 0x27d4eb2d;
+		key = key ^ (key >> 15);
+	}
+
+	// Hide this from the client-side to prevent users from generating
+	// hash table collisions by changing their port number.
+	const u32 SECRET_CONSTANT = 104729; // 1,000th prime number
+
+	// Map 16-bit port 1:1 to a random-looking number
+	key += (u32)addr.GetPort() * (SECRET_CONSTANT*4 + 1);
+
+	return key & HASH_TABLE_MASK;
+}
+
+
 //// Connexion
 
 Connexion::Connexion()
@@ -117,11 +178,6 @@ bool Connexion::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes, u32 skip_by
 
 Map::Map()
 {
-	// Initialize the hash salt to something that will
-	// discourage hash-based DoS attacks against servers
-	// running the protocol.
-	_hash_salt = (u32)s32(Clock::usec() * 1000.0);
-
 	CAT_OBJCLR(_table);
 }
 
@@ -130,37 +186,9 @@ Map::~Map()
 	//WARN("Destroy") << "Killing Map";
 }
 
-u32 Map::hash_addr(const NetAddr &addr, u32 salt)
+void Map::Initialize(FortunaOutput *csprng)
 {
-	u32 key;
-
-	// If address is IPv6,
-	if (addr.Is6())
-	{
-		// Hash 128-bit address to 32 bits
-		key = MurmurHash32(addr.GetIP6(), NetAddr::IP6_BYTES, salt);
-	}
-	else // assuming IPv4 and address is not invalid
-	{
-		key = addr.GetIP4();
-
-		// Thomas Wang's integer hash function
-		// http://www.cris.com/~Ttwang/tech/inthash.htm
-		key = (key ^ 61) ^ (key >> 16);
-		key = key + (key << 3);
-		key = key ^ (key >> 4);
-		key = key * 0x27d4eb2d;
-		key = key ^ (key >> 15);
-	}
-
-	// Hide this from the client-side to prevent users from generating
-	// hash table collisions by changing their port number.
-	const u32 SECRET_CONSTANT = 104729; // 1,000th prime number
-
-	// Map 16-bit port 1:1 to a random-looking number
-	key += (u32)addr.GetPort() * (SECRET_CONSTANT*4 + 1);
-
-	return key & HASH_TABLE_MASK;
+	_hash_salt = csprng->Generate();
 }
 
 Connexion *Map::Lookup(u32 key)
@@ -326,6 +354,62 @@ void Map::DestroyList(Map::Slot *kill_list)
 }
 
 
+//// FloodGuard
+
+FloodGuard::FloodGuard()
+{
+	CAT_OBJCLR(_bins);
+}
+
+FloodGuard::~FloodGuard()
+{
+	//WARN("Destroy") << "Killing FloodGuard";
+}
+
+void FloodGuard::Initialize(FortunaOutput *csprng)
+{
+	_hash_salt = csprng->Generate();
+}
+
+u32 FloodGuard::TryNewConnexion(const NetAddr &addr)
+{
+	u32 key = hash_addr_iponly(addr, _hash_salt);
+
+	AutoMutex lock(_lock);
+
+	if (_bins[key] >= 10)
+		return FLOOD_DETECTED;
+
+	_bins[key]++;
+
+	return key;
+}
+
+void FloodGuard::DeleteConnexion(u32 flood_key)
+{
+	AutoMutex lock(_lock);
+
+	_bins[flood_key]--;
+}
+
+void FloodGuard::DestroyList(Map::Slot *kill_list)
+{
+	AutoMutex lock(_lock);
+
+	// For each slot to kill,
+	for (Map::Slot *slot = kill_list; slot; slot = slot->next)
+	{
+		Connexion *conn = slot->connection;
+
+		if (conn)
+		{
+			u32 key = conn->GetFloodKey();
+			if (key < HASH_TABLE_SIZE) _bins[key]--;
+		}
+	}
+}
+
+
 //// ServerWorker
 
 ServerWorker::ServerWorker(Map *conn_map, ServerTimer *server_timer)
@@ -357,12 +441,9 @@ void ServerWorker::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *d
 	// Look up an existing connection for this source address
 	AutoRef<Connexion> conn = _conn_map->Lookup(src);
 
-	if (conn)
+	if (conn && conn->IsValid() && conn->_server_worker == this)
 	{
-		if (conn->IsValid() && conn->_server_worker == this)
-		{
-			conn->OnRawData(tls, data, bytes);
-		}
+		conn->OnRawData(tls, data, bytes);
 	}
 }
 
@@ -374,9 +455,11 @@ void ServerWorker::OnClose()
 
 //// ServerTimer
 
-ServerTimer::ServerTimer(Map *conn_map, ServerWorker **workers, int worker_count)
+ServerTimer::ServerTimer(Map *conn_map, FloodGuard *flood_guard, ServerWorker **workers, int worker_count)
 {
 	_conn_map = conn_map;
+	_flood_guard = flood_guard;
+
 	_workers = workers;
 	_worker_count = worker_count;
 
@@ -486,6 +569,7 @@ void ServerTimer::Tick(ThreadPoolLocalStorage *tls)
 	// If some of the slots need to be killed,
 	if (kill_list)
 	{
+		_flood_guard->DestroyList(kill_list);
 		_conn_map->DestroyList(kill_list);
 	}
 
@@ -598,8 +682,10 @@ bool Server::StartServer(ThreadPoolLocalStorage *tls, Port port, u8 *public_key,
 	for (int ii = 0; ii < _timer_count; ++ii)
 		_timers[ii] = 0;
 
-	// Initialize cookie jar
+	// Seed components
 	_cookie_jar.Initialize(tls->csprng);
+	_conn_map.Initialize(tls->csprng);
+	_flood_guard.Initialize(tls->csprng);
 
 	// Initialize key agreement responder
 	if (!_key_agreement_responder.Initialize(tls->math, tls->csprng,
@@ -646,7 +732,7 @@ bool Server::StartServer(ThreadPoolLocalStorage *tls, Port port, u8 *public_key,
 			range = _worker_count - first;
 		}
 
-		ServerTimer *timer = new ServerTimer(&_conn_map, &_workers[first], range);
+		ServerTimer *timer = new ServerTimer(&_conn_map, &_flood_guard, &_workers[first], range);
 
 		_timers[ii] = timer;
 
@@ -730,48 +816,84 @@ u32 Server::GetTotalPopulation()
 	return population;
 }
 
+void Server::PostConnectionCookie(const NetAddr &dest)
+{
+	u8 *pkt = AsyncBuffer::Acquire(S2C_COOKIE_LEN);
+
+	// Verify that post buffer could be allocated
+	if (!pkt)
+	{
+		WARN("Server") << "Unable to post connection cookie: Unable to allocate post buffer";
+		return;
+	}
+
+	// Construct packet
+	pkt[0] = S2C_COOKIE;
+
+	// Endianness does not matter since we will read it back the same way
+	u32 *pkt_cookie = reinterpret_cast<u32*>( pkt + 1 );
+	*pkt_cookie = dest.Is6() ? _cookie_jar.Generate(&dest, sizeof(dest))
+							 : _cookie_jar.Generate(dest.GetIP4(), dest.GetPort());
+
+	// Attempt to post the packet, ignoring failures
+	Post(dest, pkt, S2C_COOKIE_LEN);
+}
+
+void Server::PostConnectionError(const NetAddr &dest, HandshakeError err)
+{
+	u8 *pkt = AsyncBuffer::Acquire(S2C_ERROR_LEN);
+
+	// Verify that post buffer could be allocated
+	if (!pkt)
+	{
+		WARN("Server") << "Unable to post connection error: Unable to allocate post buffer";
+		return;
+	}
+
+	// Construct packet
+	pkt[0] = S2C_ERROR;
+	pkt[1] = (u8)(err);
+
+	// Post packet without checking for errors
+	Post(dest, pkt, S2C_ERROR_LEN);
+}
+
 void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes)
 {
-	// c2s 00 (protocol magic[4])
-	if (bytes == 1+4 && data[0] == C2S_HELLO)
+	if (bytes == C2S_HELLO_LEN && data[0] == C2S_HELLO)
 	{
+		// If magic does not match,
 		u32 *protocol_magic = reinterpret_cast<u32*>( data + 1 );
-
-		// If magic matches,
-		if (*protocol_magic == getLE(PROTOCOL_MAGIC))
+		if (*protocol_magic != getLE(PROTOCOL_MAGIC))
 		{
-			// s2c 01 (cookie[4]) (public key[64])
-			const u32 PKT1_LEN = 1+4+PUBLIC_KEY_BYTES;
-			u8 *pkt1 = AsyncBuffer::Acquire(PKT1_LEN);
-
-			// If packet buffer could be allocated,
-			if (pkt1)
-			{
-				u32 *pkt1_cookie = reinterpret_cast<u32*>( pkt1 + 1 );
-				u8 *pkt1_public_key = pkt1 + 1+4;
-
-				// Construct packet 1
-				pkt1[0] = S2C_COOKIE;
-				if (src.Is6())
-					*pkt1_cookie = _cookie_jar.Generate(&src, sizeof(src));
-				else
-					*pkt1_cookie = _cookie_jar.Generate(src.GetIP4(), src.GetPort());
-				memcpy(pkt1_public_key, _public_key, PUBLIC_KEY_BYTES);
-
-				// Attempt to post the packet, ignoring failures
-				Post(src, pkt1, PKT1_LEN);
-
-				INANE("Server") << "Accepted hello and posted cookie";
-			}
+			WARN("Server") << "Ignoring hello: Bad magic";
+			return;
 		}
+
+		// Verify public key
+		if (!SecureEqual(data + 1 + 4, _public_key, PUBLIC_KEY_BYTES))
+		{
+			WARN("Server") << "Failing hello: Client public key does not match";
+			PostConnectionError(src, ERR_WRONG_KEY);
+			return;
+		}
+
+		WARN("Server") << "Accepted hello and posted cookie";
+
+		PostConnectionCookie(src);
 	}
-	// c2s 02 (cookie[4]) (challenge[64])
-	else if (bytes == 1+4+CHALLENGE_BYTES && data[0] == C2S_CHALLENGE)
+	else if (bytes == C2S_CHALLENGE_LEN && data[0] == C2S_CHALLENGE)
 	{
-		u32 *cookie = reinterpret_cast<u32*>( data + 1 );
-		u8 *challenge = data + 1+4;
+		// If magic does not match,
+		u32 *protocol_magic = reinterpret_cast<u32*>( data + 1 );
+		if (*protocol_magic != getLE(PROTOCOL_MAGIC))
+		{
+			WARN("Server") << "Ignoring challenge: Bad magic";
+			return;
+		}
 
 		// If cookie is invalid, ignore packet
+		u32 *cookie = reinterpret_cast<u32*>( data + 1 + 4 );
 		bool good_cookie = src.Is6() ?
 			_cookie_jar.Verify(&src, sizeof(src), *cookie) :
 			_cookie_jar.Verify(src.GetIP4(), src.GetPort(), *cookie);
@@ -782,19 +904,7 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			return;
 		}
 
-		// s2c 03 (server session port[2]) (answer[128])
-		const int PKT3_LEN = 1+2+ANSWER_BYTES;
-		u8 *pkt3 = AsyncBuffer::Acquire(PKT3_LEN);
-
-		// Verify that post buffer could be allocated
-		if (!pkt3)
-		{
-			WARN("Server") << "Ignoring challenge: Unable to allocate post buffer";
-			return;
-		}
-
-		Port *pkt3_port = reinterpret_cast<Port*>( pkt3 + 1 );
-		u8 *pkt3_answer = pkt3 + 1+2;
+		u8 *challenge = data + 1 + 4 + 4;
 
 		// They took the time to get the cookie right, might as well check if we know them
 		AutoRef<Connexion> conn = _conn_map.Lookup(src);
@@ -803,122 +913,138 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 		if (conn)
 		{
 			// If the connection exists but has recently been deleted,
-			if (!conn->IsValid())
-			{
-				INANE("Server") << "Ignoring challenge: Connection recently deleted";
-				AsyncBuffer::Release(pkt3);
-				return;
-			}
-
 			// If we have seen the first encrypted packet already,
-			if (conn->_seen_encrypted)
-			{
-				WARN("Server") << "Ignoring challenge: Already in session";
-				AsyncBuffer::Release(pkt3);
-				return;
-			}
-
 			// If we the challenge does not match the previous one,
-			if (!SecureEqual(conn->_first_challenge, challenge, CHALLENGE_BYTES))
+			if (!conn->IsValid() || conn->_seen_encrypted ||
+				!SecureEqual(conn->_first_challenge, challenge, CHALLENGE_BYTES))
 			{
-				INANE("Server") << "Ignoring challenge: Challenge not replayed";
-				AsyncBuffer::Release(pkt3);
+				WARN("Server") << "Ignoring challenge: Replay challenge in bad state";
 				return;
 			}
 
-			// Construct packet 3
-			pkt3[0] = S2C_ANSWER;
-			*pkt3_port = getLE(conn->_server_worker->GetPort());
-			memcpy(pkt3_answer, conn->_cached_answer, ANSWER_BYTES);
+			u8 *pkt = AsyncBuffer::Acquire(S2C_ANSWER_LEN);
+
+			// Verify that post buffer could be allocated
+			if (!pkt)
+			{
+				WARN("Server") << "Ignoring challenge: Unable to allocate post buffer";
+				return;
+			}
+
+			// Construct packet
+			pkt[0] = S2C_ANSWER;
+
+			Port *pkt_port = reinterpret_cast<Port*>( pkt + 1 );
+			*pkt_port = getLE(conn->_server_worker->GetPort());
+
+			u8 *pkt_answer = pkt + 1 + sizeof(Port);
+			memcpy(pkt_answer, conn->_cached_answer, ANSWER_BYTES);
 
 			// Post packet without checking for errors
-			Post(src, pkt3, PKT3_LEN);
+			Post(src, pkt, S2C_ANSWER_LEN);
 
 			INANE("Server") << "Replayed lost answer to client challenge";
 		}
-		else
+		else // Connexion did not exist yet:
 		{
-			Skein key_hash;
-
 			// If server is overpopulated,
 			if (GetTotalPopulation() >= MAX_POPULATION)
 			{
 				WARN("Server") << "Ignoring challenge: Server is full";
-
-				// Construct packet 4
-				const u32 PKT4_LEN = 1+2;
-				u16 *error_field = reinterpret_cast<u16*>( pkt3 + 1 );
-				pkt3[0] = S2C_ERROR;
-				*error_field = getLE16(ERR_SERVER_FULL);
-
-				// Post packet without checking for errors
-				Post(src, pkt3, PKT4_LEN);
-
+				PostConnectionError(src, ERR_SERVER_FULL);
 				return;
 			}
 
+			// If flood is detected,
+			u32 flood_key = _flood_guard.TryNewConnexion(src);
+			if (flood_key == FloodGuard::FLOOD_DETECTED)
+			{
+				WARN("Server") << "Ignoring challenge: Flood detected";
+				PostConnectionError(src, ERR_FLOOD_DETECTED);
+				return;
+			}
+
+			Skein key_hash;
+
+			u8 *pkt = AsyncBuffer::Acquire(S2C_ANSWER_LEN);
+
+			// Verify that post buffer could be allocated
+			if (!pkt)
+			{
+				WARN("Server") << "Ignoring challenge: Unable to allocate post buffer";
+			}
 			// If challenge is invalid,
-			if (!_key_agreement_responder.ProcessChallenge(tls->math, tls->csprng,
+			else if (!_key_agreement_responder.ProcessChallenge(tls->math, tls->csprng,
 														   challenge, CHALLENGE_BYTES,
-														   pkt3_answer, ANSWER_BYTES, &key_hash))
+														   pkt + 1 + 2, ANSWER_BYTES, &key_hash))
 			{
 				WARN("Server") << "Ignoring challenge: Invalid";
-				AsyncBuffer::Release(pkt3);
-				return;
-			}
 
-			conn = NewConnexion();
-			if (!conn)
+				pkt[0] = S2C_ERROR;
+				pkt[1] = (u8)(ERR_TAMPERING);
+				Post(src, pkt, S2C_ERROR_LEN);
+			}
+			// If out of memory for Connexion objects,
+			else if (!(conn = NewConnexion()))
 			{
 				WARN("Server") << "Out of memory: Unable to allocate new Connexion";
-				AsyncBuffer::Release(pkt3);
-				return;
+
+				pkt[0] = S2C_ERROR;
+				pkt[1] = (u8)(ERR_SERVER_ERROR);
+				Post(src, pkt, S2C_ERROR_LEN);
 			}
-
-			conn->_client_addr = src;
-
 			// If unable to key encryption from session key,
-			if (!_key_agreement_responder.KeyEncryption(&key_hash, &conn->_auth_enc, _session_key))
+			else if (!_key_agreement_responder.KeyEncryption(&key_hash, &conn->_auth_enc, _session_key))
 			{
 				WARN("Server") << "Ignoring challenge: Unable to key encryption";
-				AsyncBuffer::Release(pkt3);
-				return;
+
+				pkt[0] = S2C_ERROR;
+				pkt[1] = (u8)(ERR_SERVER_ERROR);
+				Post(src, pkt, S2C_ERROR_LEN);
 			}
-
-			// Find the least populated port
-			ServerWorker *server_worker = FindLeastPopulatedPort();
-			Port server_port = server_worker->GetPort();
-
-			// Construct packet 3
-			pkt3[0] = S2C_ANSWER;
-			*pkt3_port = getLE(server_port);
-
-			// Initialize Connexion object
-			memcpy(conn->_first_challenge, challenge, CHALLENGE_BYTES);
-			memcpy(conn->_cached_answer, pkt3_answer, ANSWER_BYTES);
-			conn->_server_worker = server_worker;
-			conn->_last_recv_tsc = Clock::msec_fast();
-			conn->InitializePayloadBytes(Is6());
-
-			// If packet 3 post fails,
-			if (!Post(src, pkt3, PKT3_LEN))
+			else // Good so far:
 			{
-				WARN("Server") << "Ignoring challenge: Unable to post packet";
-			}
-			else
-			{
-				INANE("Server") << "Accepted challenge and posted answer.  Client connected";
+				// Find the least populated port
+				ServerWorker *server_worker = FindLeastPopulatedPort();
+				Port server_port = server_worker->GetPort();
 
-				// If hash key could be inserted,
-				if (_conn_map.Insert(conn))
+				// Construct packet 3
+				pkt[0] = S2C_ANSWER;
+
+				Port *pkt_port = reinterpret_cast<Port*>( pkt + 1 );
+				*pkt_port = getLE(server_port);
+
+				// Initialize Connexion object
+				memcpy(conn->_first_challenge, challenge, CHALLENGE_BYTES);
+				memcpy(conn->_cached_answer, pkt + 1 + 2, ANSWER_BYTES);
+				conn->_client_addr = src;
+				conn->_server_worker = server_worker;
+				conn->_last_recv_tsc = Clock::msec_fast();
+				conn->InitializePayloadBytes(Is6());
+
+				// If packet post fails,
+				if (!Post(src, pkt, S2C_ANSWER_LEN))
 				{
+					WARN("Server") << "Ignoring challenge: Unable to post packet";
+				}
+				// If hash key could not be inserted,
+				else if (!_conn_map.Insert(conn))
+				{
+					WARN("Server") << "Ignoring challenge: Same client already connected (race condition)";
+				}
+				else
+				{
+					WARN("Server") << "Accepted challenge and posted answer.  Client connected";
+
 					conn->OnConnect(tls);
 
 					conn.Forget();
-				}
 
-				// otherwise connexion will be released
+					return;
+				}
 			}
+
+			_flood_guard.DeleteConnexion(flood_key);
 		}
 	}
 }
