@@ -94,6 +94,7 @@ public:
 private:
 	volatile u32 _destroyed;
 
+	u32 _flood_key;
 	u32 _key; // Map hash table index, unique for each active connection
 	Connexion *_next_delete;
 	ServerWorker *_server_worker;
@@ -112,6 +113,7 @@ private:
 public:
 	CAT_INLINE bool IsValid() { return _destroyed == 0; }
 	CAT_INLINE u32 GetKey() { return _key; }
+	CAT_INLINE u32 GetFloodKey() { return _key; }
 
 	void Destroy();
 
@@ -135,9 +137,6 @@ protected:
 
 class Map
 {
-protected:
-	CAT_INLINE u32 hash_addr(const NetAddr &addr, u32 salt);
-
 public:
 	struct Slot
 	{
@@ -155,6 +154,9 @@ public:
 	Map();
 	virtual ~Map();
 
+	// Initialize the hash salt
+	void Initialize(FortunaOutput *csprng);
+
 	// Lookup client by address
 	Connexion *Lookup(const NetAddr &addr);
 
@@ -168,8 +170,32 @@ public:
 
 	// Destroy a list described by the 'next' member of Slot
 	void DestroyList(Map::Slot *kill_list);
+};
 
-	void Tick(ThreadPoolLocalStorage *tls);
+
+//// sphynx::FloodGuard
+
+class FloodGuard
+{
+	u32 _hash_salt;
+	CAT_ALIGNED(16) u8 _bins[HASH_TABLE_SIZE];
+	Mutex _lock;
+
+public:
+	static const u32 FLOOD_DETECTED = ~(u32)0;
+	static const u32 FLOOD_THRESHOLD = 10; // 10 collisions = flood
+
+	FloodGuard();
+	virtual ~FloodGuard();
+
+	// Initialize the hash salt
+	void Initialize(FortunaOutput *csprng);
+
+	u32 TryNewConnexion(const NetAddr &addr);
+	void DeleteConnexion(u32 flood_key);
+
+	// Destroy a list described by the 'next' member of Slot
+	void DestroyList(Map::Slot *kill_list);
 };
 
 
@@ -207,6 +233,7 @@ class ServerTimer : Thread
 {
 protected:
 	Map *_conn_map;
+	FloodGuard *_flood_guard;
 
 protected:
 	ServerWorker **_workers;
@@ -220,7 +247,7 @@ protected:
 	Map::Slot *_active_head;
 
 public:
-	ServerTimer(Map *conn_map, ServerWorker **workers, int worker_count);
+	ServerTimer(Map *conn_map, FloodGuard *flood_guard, ServerWorker **workers, int worker_count);
 	virtual ~ServerTimer();
 
 	CAT_INLINE bool Valid() { return _worker_count > 0; }
@@ -261,6 +288,7 @@ private:
 
 	Port _server_port;
 	Map _conn_map;
+	FloodGuard _flood_guard;
 
 	CookieJar _cookie_jar;
 	KeyAgreementResponder _key_agreement_responder;
@@ -279,6 +307,9 @@ private:
 	void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes);
 	void OnWrite(u32 bytes);
 	void OnClose();
+
+	void PostConnectionCookie(const NetAddr &dest);
+	void PostConnectionError(const NetAddr &dest, HandshakeError err);
 
 protected:
 	// Must return a new instance of your Connexion derivation

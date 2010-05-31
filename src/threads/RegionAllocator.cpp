@@ -35,6 +35,11 @@
 using namespace cat;
 
 
+#if defined(CAT_NO_ATOMIC_ADD) || defined(CAT_NO_ATOMIC_SET) || defined(CAT_NO_ATOMIC_BTS) || defined(CAT_NO_ATOMIC_BTR)
+#error "Atomic operations are required for this framework, and your platform does not support them yet"
+#endif
+
+
 const u32 RegionAllocator::BLOCK_SIZE[REGION_COUNT] = {
     64,
     128,

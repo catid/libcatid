@@ -199,8 +199,7 @@ void Client::OnUnreachable(const NetAddr &src)
 	if (!_connected && _server_addr.EqualsIPOnly(src))
 	{
 		WARN("Client") << "Failed to connect: ICMP error received from server address";
-
-		// ICMP error from server means it is down
+		OnConnectFail(ERR_CLIENT_ICMP);
 		Close();
 	}
 }
@@ -229,49 +228,42 @@ void Client::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			WARN("Client") << "Ignored invalid encrypted data";
 		}
 	}
-	// s2c 01 (cookie[4]) (public key[64])
-	else if (bytes == 1+4+PUBLIC_KEY_BYTES && data[0] == S2C_COOKIE)
+	else if (bytes == S2C_COOKIE_LEN && data[0] == S2C_COOKIE)
 	{
-		u32 *in_cookie = reinterpret_cast<u32*>( data + 1 );
-		u8 *in_public_key = data + 1+4;
-
-		// Verify public key
-		if (!SecureEqual(in_public_key, _server_public_key, PUBLIC_KEY_BYTES))
-		{
-			WARN("Client") << "Unable to connect: Server public key does not match expected key";
-			Close();
-			return;
-		}
-
 		// Allocate a post buffer
-		static const int response_len = 1+4+CHALLENGE_BYTES;
-		u8 *response = AsyncBuffer::Acquire(response_len);
+		u8 *pkt = AsyncBuffer::Acquire(C2S_CHALLENGE_LEN);
 
-		if (!response)
+		if (!pkt)
 		{
 			WARN("Client") << "Unable to connect: Cannot allocate buffer for challenge message";
+			OnConnectFail(ERR_CLIENT_OUT_OF_MEMORY);
 			Close();
 			return;
 		}
 
-		// Construct challenge packet
-		u32 *out_cookie = reinterpret_cast<u32*>( response + 1 );
-		u8 *out_challenge = response + 1+4;
-
-		response[0] = C2S_CHALLENGE;
-		*out_cookie = *in_cookie;
-		memcpy(out_challenge, _cached_challenge, CHALLENGE_BYTES);
-
-		// Start ignoring ICMP unreachable messages now that we've seen a response from the server
+		// Start ignoring ICMP unreachable messages now that we've seen a pkt from the server
 		if (!IgnoreUnreachable())
 		{
 			WARN("Client") << "ICMP ignore unreachable failed";
 		}
 
-		// Attempt to post a response
-		if (!Post(_server_addr, response, response_len))
+		// Construct challenge
+		pkt[0] = C2S_CHALLENGE;
+
+		u32 *magic = reinterpret_cast<u32*>( pkt + 1 );
+		*magic = getLE32(PROTOCOL_MAGIC);
+
+		u32 *in_cookie = reinterpret_cast<u32*>( data + 1 );
+		u32 *out_cookie = reinterpret_cast<u32*>( pkt + 1 + 4 );
+		*out_cookie = *in_cookie;
+
+		memcpy(pkt + 1 + 4 + 4, _cached_challenge, CHALLENGE_BYTES);
+
+		// Attempt to post a pkt
+		if (!Post(_server_addr, pkt, C2S_CHALLENGE_LEN))
 		{
-			WARN("Client") << "Unable to connect: Cannot post response to cookie";
+			WARN("Client") << "Unable to connect: Cannot post pkt to cookie";
+			OnConnectFail(ERR_CLIENT_BROKEN_PIPE);
 			Close();
 		}
 		else
@@ -279,11 +271,9 @@ void Client::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			INANE("Client") << "Accepted cookie and posted challenge";
 		}
 	}
-	// s2c 03 (server session port[2]) (answer[128])
-	else if (bytes == 1+2+ANSWER_BYTES && data[0] == S2C_ANSWER)
+	else if (bytes == S2C_ANSWER_LEN && data[0] == S2C_ANSWER)
 	{
 		Port *port = reinterpret_cast<Port*>( data + 1 );
-		u8 *answer = data + 3;
 
 		Port server_session_port = getLE(*port);
 
@@ -293,7 +283,7 @@ void Client::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			Skein key_hash;
 
 			// Process answer from server, ignore invalid
-			if (_key_agreement_initiator.ProcessAnswer(tls->math, answer, ANSWER_BYTES, &key_hash) &&
+			if (_key_agreement_initiator.ProcessAnswer(tls->math, data + 1 + 2, ANSWER_BYTES, &key_hash) &&
 				_key_agreement_initiator.KeyEncryption(&key_hash, &_auth_enc, _session_key))
 			{
 				_connected = true;
@@ -313,6 +303,21 @@ void Client::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 			INANE("Client") << "Ignored server answer with insane port";
 		}
 	}
+	else if (bytes == S2C_ERROR_LEN && data[0] == S2C_ERROR)
+	{
+		HandshakeError err = (HandshakeError)data[1];
+
+		if (err <= ERR_NUM_CLIENT_ERRORS)
+		{
+			INANE("Client") << "Ignored invalid server error";
+			return;
+		}
+
+		WARN("Client") << "Unable to connect: Server returned error " << GetHandshakeErrorString(err);
+
+		OnConnectFail(err);
+		Close();
+	}
 }
 
 bool Client::PostHello()
@@ -324,20 +329,26 @@ bool Client::PostHello()
 	}
 
 	// Allocate space for a post buffer
-	static const int hello_len = 1+4;
-	u8 *hello = AsyncBuffer::Acquire(hello_len);
+	u8 *pkt = AsyncBuffer::Acquire(C2S_HELLO_LEN);
 
 	// If unable to allocate,
-	if (!hello)
+	if (!pkt)
 	{
 		WARN("Client") << "Cannot allocate a post buffer for hello packet";
 		return false;
 	}
 
-	BufferStream(hello) << (u8)C2S_HELLO << PROTOCOL_MAGIC;
+	// Construct packet
+	pkt[0] = C2S_HELLO;
+
+	u32 *magic = reinterpret_cast<u32*>( pkt + 1 );
+	*magic = getLE32(PROTOCOL_MAGIC);
+
+	u8 *public_key = pkt + 1 + 4;
+	memcpy(public_key, _server_public_key, PUBLIC_KEY_BYTES);
 
 	// Attempt to post packet
-	if (!Post(_server_addr, hello, hello_len))
+	if (!Post(_server_addr, pkt, C2S_HELLO_LEN))
 	{
 		WARN("Client") << "Unable to post hello packet";
 		return false;
@@ -381,6 +392,7 @@ bool Client::ThreadFunction(void *)
 		{
 			// NOTE: Connection can complete before or after OnConnectFail()
 			WARN("Client") << "Unable to connect: Timeout";
+			OnConnectFail(ERR_CLIENT_TIMEOUT);
 			Close();
 			return false;
 		}
@@ -391,6 +403,7 @@ bool Client::ThreadFunction(void *)
 			if (!PostHello())
 			{
 				WARN("Client") << "Unable to connect: Post failure";
+				OnConnectFail(ERR_CLIENT_BROKEN_PIPE);
 				Close();
 				return false;
 			}
