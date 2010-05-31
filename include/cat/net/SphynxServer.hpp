@@ -113,7 +113,7 @@ private:
 public:
 	CAT_INLINE bool IsValid() { return _destroyed == 0; }
 	CAT_INLINE u32 GetKey() { return _key; }
-	CAT_INLINE u32 GetFloodKey() { return _key; }
+	CAT_INLINE u32 GetFloodKey() { return _flood_key; }
 
 	void Destroy();
 
