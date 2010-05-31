@@ -373,16 +373,16 @@ void FloodGuard::Initialize(FortunaOutput *csprng)
 
 u32 FloodGuard::TryNewConnexion(const NetAddr &addr)
 {
-	u32 key = hash_addr_iponly(addr, _hash_salt);
+	u32 flood_key = hash_addr_iponly(addr, _hash_salt);
 
 	AutoMutex lock(_lock);
 
-	if (_bins[key] >= 10)
+	if (_bins[flood_key] >= CONNECTION_FLOOD_THRESHOLD)
 		return FLOOD_DETECTED;
 
-	_bins[key]++;
+	_bins[flood_key]++;
 
-	return key;
+	return flood_key;
 }
 
 void FloodGuard::DeleteConnexion(u32 flood_key)
@@ -403,8 +403,9 @@ void FloodGuard::DestroyList(Map::Slot *kill_list)
 
 		if (conn)
 		{
-			u32 key = conn->GetFloodKey();
-			if (key < HASH_TABLE_SIZE) _bins[key]--;
+			u32 flood_key = conn->GetFloodKey();
+
+			if (flood_key < HASH_TABLE_SIZE) _bins[flood_key]--;
 		}
 	}
 }
@@ -1020,6 +1021,8 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 				conn->_client_addr = src;
 				conn->_server_worker = server_worker;
 				conn->_last_recv_tsc = Clock::msec_fast();
+				conn->_flood_key = flood_key;
+				WARN("Flood Key") << flood_key;
 				conn->InitializePayloadBytes(Is6());
 
 				// If packet post fails,
