@@ -36,13 +36,13 @@
 #include <xstring>
 #include <sstream>
 
-namespace cat {
-
-
 #if defined(CAT_NO_ATOMIC_ADD) || defined(CAT_NO_ATOMIC_SET) || \
 	defined(CAT_NO_ATOMIC_BTS) || defined(CAT_NO_ATOMIC_BTR)
 #define CAT_NO_ATOMIC_ALLOCATOR
 #endif
+
+namespace cat {
+
 
 // A region-based allocator that is lock-free, supporting
 // a range of allocation block sizes that are pre-allocated
