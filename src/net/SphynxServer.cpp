@@ -1022,7 +1022,6 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 				conn->_server_worker = server_worker;
 				conn->_last_recv_tsc = Clock::msec_fast();
 				conn->_flood_key = flood_key;
-				WARN("Flood Key") << flood_key;
 				conn->InitializePayloadBytes(Is6());
 
 				// If packet post fails,
