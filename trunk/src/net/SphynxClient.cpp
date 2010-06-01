@@ -546,8 +546,11 @@ bool Client::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes, u32 skip_bytes
 
 void Client::Disconnect()
 {
-	PostDisconnect();
-	TransportDisconnected();
+	if (_connected)
+	{
+		PostDisconnect();
+		TransportDisconnected();
+	}
 
 	Close();
 }
