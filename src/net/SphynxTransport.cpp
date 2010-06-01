@@ -256,6 +256,8 @@ void Transport::OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 		}
 		else if (hdr & R_MASK)
 		{
+			// Could check for uninitialized ACK-ID here but I do not think that sending
+			// that type of malformed packet can hurt the server.
 			++ack_id;
 		}
 

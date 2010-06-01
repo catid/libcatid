@@ -86,8 +86,8 @@ template<typename T> CAT_INLINE T BitCount(T v)
 // given a truncated sample of its low bits, and the last accepted value of the counter.
 template<int BITS, typename T> CAT_INLINE T ReconstructCounter(T last_accepted_count, u32 partial_low_bits)
 {
-	const u32 IV_MSB = (1 << BITS); // BITS < 32
-	const u32 IV_MASK = (IV_MSB - 1);
+	static const u32 IV_MSB = (1 << BITS); // BITS < 32
+	static const u32 IV_MASK = (IV_MSB - 1);
 
 	s32 diff = partial_low_bits - (u32)(last_accepted_count & IV_MASK);
 	return ((last_accepted_count & ~(T)IV_MASK) | partial_low_bits)

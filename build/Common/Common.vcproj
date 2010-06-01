@@ -176,6 +176,7 @@
 				EnableFiberSafeOptimizations="true"
 				AdditionalIncludeDirectories="../../include/"
 				StringPooling="true"
+				ExceptionHandling="1"
 				SmallerTypeCheck="false"
 				RuntimeLibrary="2"
 				BufferSecurityCheck="false"
@@ -307,10 +308,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\src\threads\LoopThread.cpp"
-				>
-			</File>
-			<File
 				RelativePath="..\..\src\rand\MersenneTwister.cpp"
 				>
 			</File>
@@ -332,6 +329,14 @@
 			</File>
 			<File
 				RelativePath="..\..\src\lang\Strings.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\threads\Thread.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\threads\WaitableFlag.cpp"
 				>
 			</File>
 		</Filter>
@@ -396,15 +401,19 @@
 					>
 				</File>
 				<File
-					RelativePath="..\..\include\cat\threads\LoopThread.hpp"
-					>
-				</File>
-				<File
 					RelativePath="..\..\include\cat\threads\Mutex.hpp"
 					>
 				</File>
 				<File
 					RelativePath="..\..\include\cat\threads\RWLock.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\threads\Thread.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\threads\WaitableFlag.hpp"
 					>
 				</File>
 			</Filter>
