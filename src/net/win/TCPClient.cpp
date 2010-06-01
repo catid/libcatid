@@ -162,7 +162,7 @@ bool TCPClient::ConnectEx(const NetAddr &remoteServerAddress)
     return true;
 }
 
-bool TCPClient::Post(u8 *data, u32 data_bytes, u32 skip_bytes)
+bool TCPClient::Post(u8 *data, u32 data_bytes)
 {
 	AsyncBuffer *buffer = AsyncBuffer::Promote(data);
 
@@ -179,7 +179,7 @@ bool TCPClient::Post(u8 *data, u32 data_bytes, u32 skip_bytes)
 #endif
 
 	WSABUF wsabuf;
-	wsabuf.buf = reinterpret_cast<CHAR*>( data + skip_bytes );
+	wsabuf.buf = reinterpret_cast<CHAR*>( data );
 	wsabuf.len = data_bytes;
 
 	AddRef();
@@ -386,10 +386,10 @@ TCPClientQueued::~TCPClientQueued()
     if (_queueBuffer) _queueBuffer->Release();
 }
 
-bool TCPClientQueued::Post(u8 *data, u32 data_bytes, u32 skip_bytes)
+bool TCPClientQueued::Post(u8 *data, u32 data_bytes)
 {
     // Try not to hold a lock if we can help it
-    if (!_queuing) return TCPClient::Post(data, data_bytes, skip_bytes);
+    if (!_queuing) return TCPClient::Post(data, data_bytes);
 
     AutoMutex lock(_queueLock);
 
@@ -398,7 +398,7 @@ bool TCPClientQueued::Post(u8 *data, u32 data_bytes, u32 skip_bytes)
     {
         lock.Release();
 
-		return TCPClient::Post(data, data_bytes, skip_bytes);
+		return TCPClient::Post(data, data_bytes);
     }
 
 	AsyncBuffer *buffer = AsyncBuffer::Promote(data);

@@ -83,8 +83,7 @@ public:
 
 	// If Is6() == true, the address must be promoted to IPv6
 	// before calling PostWrite() with addr.PromoteTo6()
-	// skip_bytes: Number of bytes to skip at the start of the post buffer
-	bool Post(const NetAddr &addr, u8 *data, u32 data_bytes, u32 skip_bytes = 0);
+	bool Post(const NetAddr &addr, u8 *data, u32 data_bytes);
 
 private:
 	bool Read(AsyncBuffer *buffer = 0);

@@ -108,7 +108,8 @@ private:
 
 	void OnRawData(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes);
 
-	virtual bool PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes, u32 skip_bytes);
+	virtual bool PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes);
+	virtual void OnInternal(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes);
 
 public:
 	CAT_INLINE bool IsValid() { return _destroyed == 0; }

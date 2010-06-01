@@ -135,19 +135,21 @@ void Connexion::OnRawData(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 	}
 }
 
-bool Connexion::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes, u32 skip_bytes)
+bool Connexion::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes)
 {
-	buf_bytes -= skip_bytes;
-	msg_bytes -= skip_bytes;
-
-	if (!_auth_enc.Encrypt(buffer + skip_bytes, buf_bytes, msg_bytes))
+	if (!_auth_enc.Encrypt(buffer, buf_bytes, msg_bytes))
 	{
 		WARN("Server") << "Encryption failure while sending packet";
 		AsyncBuffer::Release(buffer);
 		return false;
 	}
 
-	return _server_worker->Post(_client_addr, buffer, msg_bytes, skip_bytes);
+	return _server_worker->Post(_client_addr, buffer, msg_bytes);
+}
+
+void Connexion::OnInternal(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
+{
+	// TODO
 }
 
 

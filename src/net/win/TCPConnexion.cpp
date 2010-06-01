@@ -117,7 +117,7 @@ void TCPConnexion::Disconnect()
 
 //// Begin Event
 
-bool TCPConnexion::Post(u8 *data, u32 data_bytes, u32 skip_bytes)
+bool TCPConnexion::Post(u8 *data, u32 data_bytes)
 {
 	AsyncBuffer *buffer = AsyncBuffer::Promote(data);
 
@@ -135,7 +135,7 @@ bool TCPConnexion::Post(u8 *data, u32 data_bytes, u32 skip_bytes)
 #endif
 
 	WSABUF wsabuf;
-	wsabuf.buf = reinterpret_cast<CHAR*>( data + skip_bytes );
+	wsabuf.buf = reinterpret_cast<CHAR*>( data );
 	wsabuf.len = data_bytes;
 
 	AddRef();

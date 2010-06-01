@@ -188,7 +188,7 @@ Port UDPEndpoint::GetPort()
 
 //// Begin Event
 
-bool UDPEndpoint::Post(const NetAddr &addr, u8 *data, u32 data_bytes, u32 skip_bytes)
+bool UDPEndpoint::Post(const NetAddr &addr, u8 *data, u32 data_bytes)
 {
 	AsyncBuffer *buffer = AsyncBuffer::Promote(data);
 
@@ -208,7 +208,7 @@ bool UDPEndpoint::Post(const NetAddr &addr, u8 *data, u32 data_bytes, u32 skip_b
 	}
 
 	WSABUF wsabuf;
-	wsabuf.buf = reinterpret_cast<CHAR*>( data + skip_bytes );
+	wsabuf.buf = reinterpret_cast<CHAR*>( data );
 	wsabuf.len = data_bytes;
 
 #if defined(CAT_WANT_WRITE_COMPLETION)

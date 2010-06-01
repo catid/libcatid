@@ -73,7 +73,7 @@ public:
 	bool Connect(bool onlySupportIPv4, const NetAddr &remoteServerAddress);
 
 public:
-	bool Post(u8 *data, u32 data_bytes, u32 skip_bytes = 0);
+	bool Post(u8 *data, u32 data_bytes);
 
 private:
 	bool ConnectEx(const NetAddr &remoteServerAddress);
@@ -121,7 +121,7 @@ public:
     TCPClientQueued(int priorityLevel);
     virtual ~TCPClientQueued();
 
-    bool Post(u8 *data, u32 data_bytes, u32 skip_bytes = 0);
+    bool Post(u8 *data, u32 data_bytes);
 };
 
 

@@ -55,18 +55,6 @@ const char *cat::sphynx::GetHandshakeErrorString(HandshakeError err)
 	}
 }
 
-#if defined(CAT_TRANSPORT_DEBUG_LOGGING)
-# define CAT_TDBG(x) x
-#else
-# define CAT_TDBG(x) /* logging disabled */
-#endif // CAT_TRANSPORT_DEBUG_LOGGING
-
-#if defined(CAT_VERBOSE_VALIDATION)
-# define CAT_TVV(x) x
-#else
-# define CAT_TVV(x) /* logging disabled */
-#endif // CAT_VERBOSE_VALIDATION
-
 Transport::Transport()
 {
 	static const u32 INITIAL_ACK_IDS[NUM_STREAMS] = {
@@ -183,23 +171,21 @@ void Transport::OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 
 	while (bytes >= 1)
 	{
-		u8 hdr = data[0];
-		u8 bhi = hdr & BHI_MASK;
-
 		// Decode data_bytes
-		u32 data_bytes;
+		u8 hdr = data[0];
+		u32 data_bytes = hdr & BLO_MASK;
 
-		if (bhi == BHI_SINGLE_MESSAGE)
+		// If message length requires another byte to represent,
+		if (hdr & C_MASK)
 		{
-			// Needs to check if ACK-ID is attached to determine data_bytes
-			++data;
-			--bytes;
+			data_bytes |= (u16)data[1] << BHI_SHIFT;
+			data += 2;
+			bytes -= 2;
 		}
 		else
 		{
-			data_bytes = (u32)(bhi << 8) | data[1];
-			data += 2;
-			bytes -= 2;
+			++data;
+			--bytes;
 		}
 
 		// If this message has an ACK-ID attached,
@@ -207,7 +193,7 @@ void Transport::OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 		{
 			if (bytes < 1)
 			{
-				CAT_TVV(WARN("Transport") << "Truncated message ignored (1)");
+				//WARN("Transport") << "Truncated message ignored (1)";
 				break;
 			}
 
@@ -222,7 +208,7 @@ void Transport::OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 			{
 				if (bytes < 1)
 				{
-					CAT_TVV(WARN("Transport") << "Truncated message ignored (2)");
+					//WARN("Transport") << "Truncated message ignored (2)";
 					break;
 				}
 
@@ -234,7 +220,7 @@ void Transport::OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 				{
 					if (bytes < 1)
 					{
-						CAT_TVV(WARN("Transport") << "Truncated message ignored (3)");
+						//WARN("Transport") << "Truncated message ignored (3)";
 						break;
 					}
 
@@ -261,21 +247,16 @@ void Transport::OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 			++ack_id;
 		}
 
-		// After ACK-ID field has been processed, set data_bytes
-		if (bhi == BHI_SINGLE_MESSAGE)
+		if (bytes < data_bytes)
 		{
-			data_bytes = bytes;
-		}
-		else if (bytes < data_bytes)
-		{
-			CAT_TVV(WARN("Transport") << "Truncated transport message ignored");
+			//WARN("Transport") << "Truncated transport message ignored";
 			break;
 		}
 
 		// If reliable message,
 		if (hdr & R_MASK)
 		{
-			CAT_TDBG(WARN("Transport") << "Got # " << stream << ":" << ack_id);
+			//WARN("Transport") << "Got # " << stream << ":" << ack_id;
 
 			s32 diff = (s32)(ack_id - _next_recv_expected_id[stream]);
 
@@ -285,23 +266,19 @@ void Transport::OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 				// Process it immediately
 				if (data_bytes > 0)
 				{
-					u32 super_opcode = hdr >> SOP_SHIFT;
+					u32 super_opcode = (hdr >> SOP_SHIFT) & SOP_MASK;
 
 					if (super_opcode == SOP_DATA)
 						OnMessage(tls, data, data_bytes);
 					else if (super_opcode == SOP_FRAG)
 						OnFragment(tls, data, data_bytes, stream);
-					else if (super_opcode == SOP_MTU_SET)
-						OnMTUSet(data, data_bytes);
-					else
-						CAT_TVV(WARN("Transport") << "Invalid reliable super opcode ignored");
+					else if (super_opcode == SOP_INTERNAL)
+						OnInternal(tls, data, data_bytes);
+					//else WARN("Transport") << "Invalid reliable super opcode ignored";
 
 					if (_disconnected) return; // React to message handler
 				}
-				else
-				{
-					CAT_TVV(WARN("Transport") << "Zero-length reliable message ignored");
-				}
+				//else WARN("Transport") << "Zero-length reliable message ignored";
 
 				RunQueue(tls, ack_id + 1, stream);
 
@@ -317,7 +294,7 @@ void Transport::OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 			}
 			else
 			{
-				CAT_TDBG(WARN("Transport") << "Ignored duplicate rolled reliable message " << stream << ":" << ack_id);
+				//WARN("Transport") << "Ignored duplicate rolled reliable message " << stream << ":" << ack_id;
 
 				//INANE("Transport") << "Rel dump " << bytes << ":" << HexDumpString(data, bytes);
 
@@ -327,12 +304,12 @@ void Transport::OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 		}
 		else // Unreliable message:
 		{
-			u32 super_opcode = hdr >> SOP_SHIFT;
+			u32 super_opcode = (hdr >> SOP_SHIFT) & SOP_MASK;
 
 			switch (super_opcode)
 			{
 			default:
-				CAT_TVV(WARN("Transport") << "Invalid unreliable super opcode ignored");
+				//WARN("Transport") << "Invalid unreliable super opcode ignored";
 				break;
 
 			case SOP_DATA:
@@ -343,17 +320,14 @@ void Transport::OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 
 					if (_disconnected) return; // React to message handler
 				}
-				else
-				{
-					CAT_TVV(WARN("Transport") << "Zero-length unreliable message ignored");
-				}
+				//else WARN("Transport") << "Zero-length unreliable message ignored";
 				break;
 
 			case SOP_ACK:
 				//INFO("Transport") << "Got ACK";
 				OnACK(data, data_bytes);
 				break;
-
+/*
 			case SOP_MTU_PROBE:
 				CAT_TDBG(INFO("Transport") << "Got MTU Probe.  Max payload bytes = " << 2 + data_bytes);
 				if (2 + data_bytes > _max_payload_bytes)
@@ -400,7 +374,7 @@ void Transport::OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 
 			case SOP_DISCO:
 				OnDisconnect();
-				break;
+				break;*/
 			}
 		}
 
@@ -441,7 +415,7 @@ void Transport::RunQueue(ThreadPoolLocalStorage *tls, u32 ack_id, u32 stream)
 		// Process fragment now
 		if (old_data_bytes > 0)
 		{
-			CAT_TDBG(INFO("Transport") << "Running queued message # " << stream << ":" << ack_id);
+			//INFO("Transport") << "Running queued message # " << stream << ":" << ack_id;
 
 			if (node->bytes & RecvQueue::FRAG_FLAG)
 				OnFragment(tls, old_data, old_data_bytes, stream);
@@ -497,7 +471,7 @@ void Transport::QueueRecv(ThreadPoolLocalStorage *tls, u8 *data, u32 data_bytes,
 		if (diff == 0)
 		{
 			// Ignore duplicate message
-			CAT_TDBG(WARN("Transport") << "Ignored duplicate queued reliable message");
+			//WARN("Transport") << "Ignored duplicate queued reliable message";
 			return;
 		}
 		else if (diff > 0)
@@ -511,7 +485,7 @@ void Transport::QueueRecv(ThreadPoolLocalStorage *tls, u8 *data, u32 data_bytes,
 		node = node->prev;
 	}
 
-	CAT_TDBG(INFO("Transport") << "Queued out-of-order message # " << stream << ":" << ack_id);
+	//INFO("Transport") << "Queued out-of-order message # " << stream << ":" << ack_id;
 
 	//INANE("Transport") << "Out-of-order message " << data_bytes << ":" << HexDumpString(data, data_bytes);
 
@@ -526,14 +500,14 @@ void Transport::QueueRecv(ThreadPoolLocalStorage *tls, u8 *data, u32 data_bytes,
 				OnMessage(tls, data, data_bytes);
 			else if (super_opcode == SOP_FRAG)
 				OnFragment(tls, data, data_bytes, stream);
-			else if (super_opcode == SOP_MTU_SET)
-				OnMTUSet(data, data_bytes);
+			else if (super_opcode == SOP_INTERNAL)
+				OnInternal(tls, data, data_bytes);
 
 			if (_disconnected) return; // React to message handler
 		}
 		else
 		{
-			CAT_TVV(WARN("Transport") << "Zero-length reliable message ignored");
+			//WARN("Transport") << "Zero-length reliable message ignored";
 		}
 
 		stored_bytes = 0;
@@ -547,7 +521,7 @@ void Transport::QueueRecv(ThreadPoolLocalStorage *tls, u8 *data, u32 data_bytes,
 		RegionAllocator::ii->Acquire(sizeof(RecvQueue) + stored_bytes) );
 	if (!new_node)
 	{
-		CAT_TVV(WARN("Transport") << "Out of memory for incoming packet queue");
+		//WARN("Transport") << "Out of memory for incoming packet queue";
 	}
 	else
 	{
@@ -582,7 +556,7 @@ void Transport::OnFragment(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes, u32
 	{
 		if (bytes < 2)
 		{
-			CAT_TVV(WARN("Transport") << "Truncated message fragment head ignored");
+			//WARN("Transport") << "Truncated message fragment head ignored";
 			return;
 		}
 		else
@@ -591,7 +565,7 @@ void Transport::OnFragment(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes, u32
 
 			if (frag_length == 0)
 			{
-				CAT_TVV(WARN("Transport") << "Zero-length fragmented message ignored");
+				//WARN("Transport") << "Zero-length fragmented message ignored";
 				return;
 			}
 
@@ -602,7 +576,7 @@ void Transport::OnFragment(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes, u32
 			_fragment_buffer[stream] = new u8[frag_length];
 			if (!_fragment_buffer[stream])
 			{
-				CAT_TVV(WARN("Transport") << "Out of memory: Unable to allocate fragment buffer");
+				//WARN("Transport") << "Out of memory: Unable to allocate fragment buffer";
 				return;
 			}
 			else
@@ -620,10 +594,10 @@ void Transport::OnFragment(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes, u32
 	// If the fragment is now complete,
 	if (bytes >= fragment_remaining)
 	{
-CAT_TVV(if (bytes > fragment_remaining)
+		/*if (bytes > fragment_remaining)
 		{
 			WARN("Transport") << "Message fragment overflow truncated";
-		});
+		}*/
 
 		memcpy(_fragment_buffer[stream] + _fragment_offset[stream], data, fragment_remaining);
 
@@ -649,7 +623,7 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 	// Fail on invalid input
 	if (msg_bytes > max_payload_bytes)
 	{
-		CAT_TVV(WARN("Transport") << "Invalid input: Unreliable buffer size request too large");
+		//WARN("Transport") << "Invalid input: Unreliable buffer size request too large";
 		return false;
 	}
 
@@ -666,7 +640,7 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 		u8 *msg_buffer = AsyncBuffer::Acquire(msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
 		if (!msg_buffer)
 		{
-			CAT_TVV(WARN("Transport") << "Out of memory: Unable to allocate unreliable post buffer");
+			//WARN("Transport") << "Out of memory: Unable to allocate unreliable post buffer";
 			return false;
 		}
 
@@ -684,13 +658,9 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 
 		lock.Release();
 
-		// If a single message is being sent, strip the extra BLO byte
-		u32 skip_bytes = (old_msg_count == 1) ? 1 : 0;
-		if (skip_bytes) old_send_buffer[1] = old_send_buffer[0] | BHI_SINGLE_MESSAGE;
-
-		if (!PostPacket(old_send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes, skip_bytes))
+		if (!PostPacket(old_send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes))
 		{
-			CAT_TVV(WARN("Transport") << "Packet post failure during unreliable overflow");
+			//WARN("Transport") << "Packet post failure during unreliable overflow";
 		}
 	}
 	else
@@ -699,7 +669,7 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 		_send_buffer = AsyncBuffer::Resize(_send_buffer, send_buffer_bytes + msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
 		if (!_send_buffer)
 		{
-			CAT_TVV(WARN("Transport") << "Out of memory: Unable to resize unreliable post buffer");
+			//WARN("Transport") << "Out of memory: Unable to resize unreliable post buffer";
 			_send_buffer_bytes = 0;
 			_send_buffer_stream = NUM_STREAMS;
 			_send_buffer_msg_count = 0;
@@ -756,13 +726,9 @@ void Transport::FlushWrite()
 		// Release lock for actual posting
 		lock.Release();
 
-		// If a single message is being sent, strip the extra BLO byte
-		u32 skip_bytes = (old_msg_count == 1) ? 1 : 0;
-		if (skip_bytes) send_buffer[1] = send_buffer[0] | BHI_SINGLE_MESSAGE;
-
-		if (!PostPacket(send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes, skip_bytes))
+		if (!PostPacket(send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes))
 		{
-			CAT_TVV(WARN("Transport") << "Packet post failure during flush write");
+			//WARN("Transport") << "Packet post failure during flush write";
 		}
 	}
 }
@@ -827,7 +793,7 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 	// Fail on invalid input
 	if (msg_bytes > max_payload_bytes)
 	{
-		CAT_TVV(WARN("Transport") << "Retransmit failure: Reliable message too large");
+		//WARN("Transport") << "Retransmit failure: Reliable message too large";
 		return;
 	}
 
@@ -837,15 +803,11 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 	// If the growing send buffer cannot contain the new message,
 	if (send_buffer_bytes + msg_bytes > max_payload_bytes)
 	{
-		// If a single message is being sent, strip the extra BLO byte
-		u32 skip_bytes = (_send_buffer_msg_count == 1) ? 1 : 0;
-		if (skip_bytes) send_buffer[1] = send_buffer[0] | BHI_SINGLE_MESSAGE;
-
 		// TODO: Eventually I should move this PostPacket() outside of the caller's send lock
 
-		if (!PostPacket(send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes, skip_bytes))
+		if (!PostPacket(send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes))
 		{
-			CAT_TVV(WARN("Transport") << "Packet post failure during retransmit overflow");
+			//WARN("Transport") << "Packet post failure during retransmit overflow";
 		}
 
 		send_buffer = 0;
@@ -864,7 +826,7 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 	_send_buffer = AsyncBuffer::Resize(send_buffer, send_buffer_bytes + msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
 	if (!_send_buffer)
 	{
-		CAT_TVV(WARN("Transport") << "Out of memory: Unable to resize post buffer");
+		//WARN("Transport") << "Out of memory: Unable to resize post buffer";
 		_send_buffer_bytes = 0;
 		_send_buffer_stream = NUM_STREAMS;
 		_send_buffer_msg_count = 0;
@@ -906,7 +868,7 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 
 	node->ts_lastsend = now;
 
-	CAT_TDBG(WARN("Transport") << "Retransmitted # " << stream << ":" << ack_id);
+	//WARN("Transport") << "Retransmitted # " << stream << ":" << ack_id;
 }
 
 void Transport::WriteACK()
@@ -928,7 +890,7 @@ void Transport::WriteACK()
 			// next tick perhaps the rest of the ACK list can be sent.
 			if (remaining < 3)
 			{
-				CAT_TVV(WARN("Transport") << "ACK packet truncated due to lack of space(1)");
+				//WARN("Transport") << "ACK packet truncated due to lack of space(1)";
 				break;
 			}
 
@@ -941,7 +903,7 @@ void Transport::WriteACK()
 			offset += 3;
 			remaining -= 3;
 
-			CAT_TDBG(INFO("Transport") << "Acknowledging rollup # " << stream << ":" << rollup_ack_id);
+			//INFO("Transport") << "Acknowledging rollup # " << stream << ":" << rollup_ack_id;
 
 			RecvQueue *node = _recv_queue_head[stream];
 
@@ -965,7 +927,7 @@ void Transport::WriteACK()
 						// Encode RANGE: START(3) || END(3)
 						if (remaining < 6)
 						{
-							CAT_TVV(WARN("Transport") << "ACK packet truncated due to lack of space(2)");
+							//WARN("Transport") << "ACK packet truncated due to lack of space(2)";
 							break;
 						}
 
@@ -974,7 +936,7 @@ void Transport::WriteACK()
 						u32 end_offset = end_id - start_id;
 						last_id = end_id;
 
-						CAT_TDBG(INFO("Transport") << "Acknowledging range # " << stream << ":" << start_id << " - " << end_id);
+						//INFO("Transport") << "Acknowledging range # " << stream << ":" << start_id << " - " << end_id;
 
 						// Write START
 						if (start_offset & ~0x1f)
@@ -1070,7 +1032,7 @@ void Transport::WriteACK()
 		u8 *msg_buffer = AsyncBuffer::Acquire(msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
 		if (!msg_buffer)
 		{
-			CAT_TVV(WARN("Transport") << "Out of memory: Unable to allocate ACK post buffer");
+			//WARN("Transport") << "Out of memory: Unable to allocate ACK post buffer";
 		}
 		else
 		{
@@ -1084,13 +1046,9 @@ void Transport::WriteACK()
 
 			lock.Release();
 
-			// If a single message is being sent, strip the extra BLO byte
-			u32 skip_bytes = (msg_count == 1) ? 1 : 0;
-			if (skip_bytes) old_send_buffer[1] = old_send_buffer[0] | BHI_SINGLE_MESSAGE;
-
-			if (!PostPacket(old_send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes, skip_bytes))
+			if (!PostPacket(old_send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes))
 			{
-				CAT_TVV(WARN("Transport") << "Packet post failure during ACK send buffer overflow");
+				//WARN("Transport") << "Packet post failure during ACK send buffer overflow";
 			}
 		}
 	}
@@ -1100,7 +1058,7 @@ void Transport::WriteACK()
 		_send_buffer = AsyncBuffer::Resize(_send_buffer, send_buffer_bytes + msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
 		if (!_send_buffer)
 		{
-			CAT_TVV(WARN("Transport") << "Out of memory: Unable to resize ACK post buffer");
+			//WARN("Transport") << "Out of memory: Unable to resize ACK post buffer";
 			_send_buffer_bytes = 0;
 			_send_buffer_stream = NUM_STREAMS;
 			_send_buffer_msg_count = 0;
@@ -1155,7 +1113,7 @@ void Transport::TickTransport(ThreadPoolLocalStorage *tls, u32 now)
 	// This allows writers to be lazy about transmission!
 	FlushWrite();
 }
-
+/*
 void Transport::OnMTUSet(u8 *data, u32 data_bytes)
 {
 	//INFO("Transport") << "Got MTU Set";
@@ -1253,14 +1211,14 @@ bool Transport::PostDisconnect()
 	// Encrypt and send buffer
 	return PostPacket(buffer, BUFFER_BYTES, PAYLOAD_BYTES, 0);
 }
-
+*/
 void Transport::OnACK(u8 *data, u32 data_bytes)
 {
 	u32 stream = NUM_STREAMS, last_ack_id = 0;
 	SendQueue *node = 0, *kill_list = 0;
 	u32 now = Clock::msec();
 
-	CAT_TDBG(INFO("Transport") << "Got ACK with " << data_bytes << " bytes of data to decode ----");
+	//INFO("Transport") << "Got ACK with " << data_bytes << " bytes of data to decode ----";
 
 	AutoMutex lock(_send_lock);
 
@@ -1319,7 +1277,7 @@ void Transport::OnACK(u8 *data, u32 data_bytes)
 
 					last_ack_id = ack_id;
 
-					CAT_TDBG(INFO("Transport") << "Got acknowledgment for rollup # " << stream << ":" << ack_id);
+					//INFO("Transport") << "Got acknowledgment for rollup # " << stream << ":" << ack_id;
 
 					// If the id got rolled,
 					if ((s32)(ack_id - node->id) > 0)
@@ -1362,7 +1320,7 @@ void Transport::OnACK(u8 *data, u32 data_bytes)
 			}
 			else
 			{
-				CAT_TVV(WARN("Transport") << "Truncated ACK ignored(1)");
+				//WARN("Transport") << "Truncated ACK ignored(1)";
 				break;
 			}
 		}
@@ -1392,14 +1350,14 @@ void Transport::OnACK(u8 *data, u32 data_bytes)
 						}
 						else
 						{
-							CAT_TVV(WARN("Transport") << "Truncated ACK ignored(2)");
+							//WARN("Transport") << "Truncated ACK ignored(2)";
 							break;
 						}
 					}
 				}
 				else
 				{
-					CAT_TVV(WARN("Transport") << "Truncated ACK ignored(3)");
+					//WARN("Transport") << "Truncated ACK ignored(3)";
 					break;
 				}
 			}
@@ -1436,26 +1394,26 @@ void Transport::OnACK(u8 *data, u32 data_bytes)
 								}
 								else
 								{
-									CAT_TVV(WARN("Transport") << "Truncated ACK ignored(4)");
+									//WARN("Transport") << "Truncated ACK ignored(4)";
 									break;
 								}
 							}
 						}
 						else
 						{
-							CAT_TVV(WARN("Transport") << "Truncated ACK ignored(5)");
+							//WARN("Transport") << "Truncated ACK ignored(5)";
 							break;
 						}
 					}
 				}
 				else
 				{
-					CAT_TVV(WARN("Transport") << "Truncated ACK ignored(6)");
+					//WARN("Transport") << "Truncated ACK ignored(6)";
 					break;
 				}
 			}
 
-			CAT_TDBG(INFO("Transport") << "Got acknowledgment for range # " << stream << ":" << start_ack_id << " - " << end_ack_id);
+			//INFO("Transport") << "Got acknowledgment for range # " << stream << ":" << start_ack_id << " - " << end_ack_id;
 
 			// Handle range:
 			if (node)
@@ -1555,7 +1513,7 @@ void Transport::OnACK(u8 *data, u32 data_bytes)
 
 	_rtt = rtt;
 
-	CAT_TDBG(WARN("Transport") << "RTT estimate: " << _rtt);
+	//WARN("Transport") << "RTT estimate: " << _rtt;
 }
 
 bool Transport::WriteReliable(StreamMode stream, u8 msg_opcode, const void *vmsg_data, u32 data_bytes, SuperOpcode super_opcode)
@@ -1567,7 +1525,7 @@ bool Transport::WriteReliable(StreamMode stream, u8 msg_opcode, const void *vmsg
 	{
 		if (2 + 3 + 1 + data_bytes > _max_payload_bytes)
 		{
-			CAT_TVV(WARN("Transport") << "Invalid input: Unordered buffer size request too large");
+			//WARN("Transport") << "Invalid input: Unordered buffer size request too large";
 			return false;
 		}
 	}
@@ -1575,7 +1533,7 @@ bool Transport::WriteReliable(StreamMode stream, u8 msg_opcode, const void *vmsg
 	{
 		if (data_bytes > MAX_MESSAGE_DATALEN)
 		{
-			CAT_TVV(WARN("Transport") << "Invalid input: Stream buffer size request too large");
+			//WARN("Transport") << "Invalid input: Stream buffer size request too large";
 			return false;
 		}
 	}
@@ -1584,7 +1542,7 @@ bool Transport::WriteReliable(StreamMode stream, u8 msg_opcode, const void *vmsg
 	SendQueue *node = RegionAllocator::ii->AcquireBuffer<SendQueue>(1 + data_bytes);
 	if (!node)
 	{
-		CAT_TVV(WARN("Transport") << "Out of memory: Unable to allocate sendqueue object");
+		//WARN("Transport") << "Out of memory: Unable to allocate sendqueue object";
 		return false;
 	}
 
@@ -1687,18 +1645,7 @@ void Transport::TransmitQueued()
 						// Prepare a temp send node for the old packet send buffer
 						TempSendNode *node = reinterpret_cast<TempSendNode*>( send_buffer + send_buffer_bytes );
 						node->next = 0;
-
-						if (_send_buffer_msg_count == 1)
-						{
-							node->negative_offset = send_buffer_bytes | TempSendNode::SINGLE_FLAG;
-
-							// Twiddle header here instead of before PostPacket()
-							send_buffer[1] = send_buffer[0] | BHI_SINGLE_MESSAGE;
-						}
-						else
-						{
-							node->negative_offset = send_buffer_bytes;
-						}
+						node->negative_offset = send_buffer_bytes;
 
 						// Insert old packet send buffer at the end of the temp send list
 						if (packet_send_tail) packet_send_tail->next = node;
@@ -1740,13 +1687,13 @@ void Transport::TransmitQueued()
 					SendFrag *frag = reinterpret_cast<SendFrag*>( 
 						RegionAllocator::ii->Acquire(sizeof(SendFrag)) );
 
-					CAT_TDBG(WARN("Transport") << "Sizes of interest:");
-					CAT_TDBG(WARN("Transport") << "SendQueue: " << sizeof(SendQueue));
-					CAT_TDBG(WARN("Transport") << "SendFrag: " << sizeof(SendFrag));
+					//WARN("Transport") << "Sizes of interest:";
+					//WARN("Transport") << "SendQueue: " << sizeof(SendQueue);
+					//WARN("Transport") << "SendFrag: " << sizeof(SendFrag);
 
 					if (!frag)
 					{
-						CAT_TVV(WARN("Transport") << "Out of memory: Unable to allocate fragment node");
+						//WARN("Transport") << "Out of memory: Unable to allocate fragment node";
 						continue; // Retry
 					}
 					else
@@ -1825,7 +1772,7 @@ void Transport::TransmitQueued()
 				send_buffer = AsyncBuffer::Resize(send_buffer, send_buffer_bytes + write_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
 				if (!send_buffer)
 				{
-					CAT_TVV(WARN("Transport") << "Out of memory: Unable to allocate send buffer");
+					//WARN("Transport") << "Out of memory: Unable to allocate send buffer";
 					send_buffer_bytes = 0;
 					continue; // Retry
 				}
@@ -1891,13 +1838,13 @@ void Transport::TransmitQueued()
 				send_buffer_bytes += write_bytes;
 				_send_buffer_msg_count++;
 
-				CAT_TDBG(WARN("Transport") << "Wrote " << stream << ":" << sent_bytes << " / " << total_bytes);
+				WARN("Transport") << "Wrote " << stream << ":" << sent_bytes << " / " << total_bytes;
 
 			} while (sent_bytes < total_bytes);
 
 			if (sent_bytes > total_bytes)
 			{
-				CAT_TVV(WARN("Transport") << "Node offset somehow escaped");
+				WARN("Transport") << "Node offset somehow escaped";
 			}
 
 			node = next;
@@ -1928,23 +1875,13 @@ void Transport::TransmitQueued()
 		TempSendNode *next = packet_send_head->next;
 
 		u32 bytes = packet_send_head->negative_offset;
-		u32 skip_bytes = 0;
-
-		// If a single message is being sent, strip the extra BLO byte
-		if (bytes & TempSendNode::SINGLE_FLAG)
-		{
-			skip_bytes = 1;
-			bytes &= TempSendNode::BYTE_MASK;
-			// First two data bytes are already twiddled
-		}
-
 		u8 *data = reinterpret_cast<u8*>( packet_send_head ) - bytes;
 
-		CAT_TDBG(WARN("Transport") << "Sending packet with " << bytes);
+		//WARN("Transport") << "Sending packet with " << bytes;
 
-		if (!PostPacket(data, bytes + AuthenticatedEncryption::OVERHEAD_BYTES, bytes, skip_bytes))
+		if (!PostPacket(data, bytes + AuthenticatedEncryption::OVERHEAD_BYTES, bytes))
 		{
-			CAT_TVV(WARN("Transport") << "Unable to post send buffer");
+			//WARN("Transport") << "Unable to post send buffer";
 			break;
 		}
 
