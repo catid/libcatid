@@ -918,13 +918,13 @@ void Transport::WriteACK()
 
 	_recv_lock.Enter();
 
-	// Prioritizes ACKs for unreliable stream, then 1, 2 and 3 in that order.
+	// Prioritizes ACKs for unordered stream, then 1, 2 and 3 in that order.
 	for (int stream = 0; stream < NUM_STREAMS; ++stream)
 	{
 		if (_got_reliable[stream])
 		{
 			// Truncates ACK message if needed.
-			// This is mitigated by not unsetting _got_reliable, so
+			// This is mitigated by not resetting _got_reliable, so
 			// next tick perhaps the rest of the ACK list can be sent.
 			if (remaining < 3)
 			{
