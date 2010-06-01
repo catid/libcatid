@@ -133,7 +133,7 @@ bool TCPClient::ConnectEx(const NetAddr &remoteServerAddress)
 		return false;
 	}
 
-	// If unable to get an AsyncServerAccept object,
+	// If unable to get an AsyncBuffer object,
 	AsyncBuffer *buffer;
 	if (!AsyncBuffer::Acquire(buffer))
 	{
@@ -172,7 +172,11 @@ bool TCPClient::Post(u8 *data, u32 data_bytes, u32 skip_bytes)
 		return false;
 	}
 
+#if defined(CAT_WANT_WRITE_COMPLETION)
 	buffer->Reset(fastdelegate::MakeDelegate(this, &TCPClient::OnWrite));
+#else
+	buffer->Reset(AsyncCallback());
+#endif
 
 	WSABUF wsabuf;
 	wsabuf.buf = reinterpret_cast<CHAR*>( data + skip_bytes );
@@ -338,6 +342,8 @@ bool TCPClient::OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buff
 	return true;
 }
 
+#if defined(CAT_WANT_WRITE_COMPLETION)
+
 bool TCPClient::OnWrite(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes)
 {
 	if (_disconnecting)
@@ -352,6 +358,8 @@ bool TCPClient::OnWrite(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buf
 
 	return OnWriteToServer(tls, buffer, bytes);
 }
+
+#endif // CAT_WANT_WRITE_COMPLETION
 
 bool TCPClient::OnDisco(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes)
 {

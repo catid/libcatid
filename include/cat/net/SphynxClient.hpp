@@ -92,7 +92,6 @@ protected:
 
 private:
 	virtual void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes);
-	virtual void OnWrite(u32 bytes);
 
 private:
 	bool PostHello();

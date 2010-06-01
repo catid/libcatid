@@ -58,11 +58,6 @@ Client::~Client()
 		AbortThread();
 }
 
-void Client::OnWrite(u32 bytes)
-{
-
-}
-
 bool Client::SetServerKey(ThreadPoolLocalStorage *tls, const void *server_key, int key_bytes, const char *session_key)
 {
 	// Verify the key bytes are correct

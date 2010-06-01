@@ -45,6 +45,9 @@ namespace cat {
 // Adjust if your architecture uses larger than 128-bit cache line
 #define CAT_DEFAULT_CACHE_LINE_SIZE 16
 
+// If you want to receive write completion notification from the network code,
+// define this flag:
+//#define CAT_WANT_WRITE_COMPLETION
 
 } // namespace cat
 

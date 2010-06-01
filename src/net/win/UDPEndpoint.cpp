@@ -211,7 +211,11 @@ bool UDPEndpoint::Post(const NetAddr &addr, u8 *data, u32 data_bytes, u32 skip_b
 	wsabuf.buf = reinterpret_cast<CHAR*>( data + skip_bytes );
 	wsabuf.len = data_bytes;
 
+#if defined(CAT_WANT_WRITE_COMPLETION)
 	buffer->Reset(fastdelegate::MakeDelegate(this, &UDPEndpoint::OnWriteComplete));
+#else
+	buffer->Reset(AsyncCallback());
+#endif
 
 	AddRef();
 
@@ -241,10 +245,10 @@ bool UDPEndpoint::Read(AsyncBuffer *buffer)
 		return false;
 	}
 
-	// If unable to get an AsyncServerAccept object,
+	// If unable to get an AsyncBuffer object,
 	if (!buffer && !AsyncBuffer::Acquire(buffer, 2048 - AsyncBuffer::OVERHEAD() - 8, sizeof(RecvFromTag)))
 	{
-		WARN("TCPClient") << "Out of memory: Unable to allocate AcceptEx overlapped structure";
+		WARN("TCPClient") << "Out of memory: Unable to allocate RecvFrom overlapped structure";
 		return false;
 	}
 
@@ -309,8 +313,10 @@ bool UDPEndpoint::OnReadComplete(ThreadPoolLocalStorage *tls, int error, AsyncBu
 		Close();
 	}
 
-	return false; // Do not delete AsyncBase object
+	return false; // Do not delete AsyncBuffer object
 }
+
+#if defined(CAT_WANT_WRITE_COMPLETION)
 
 bool UDPEndpoint::OnWriteComplete(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes)
 {
@@ -325,3 +331,5 @@ bool UDPEndpoint::OnWriteComplete(ThreadPoolLocalStorage *tls, int error, AsyncB
 
 	return OnWrite(tls, buffer, bytes);
 }
+
+#endif // CAT_WANT_WRITE_COMPLETION

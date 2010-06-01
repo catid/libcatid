@@ -83,14 +83,18 @@ private:
 private:
 	bool OnConnectEx(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes);
 	bool OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes);
+#if defined(CAT_WANT_WRITE_COMPLETION)
 	bool OnWrite(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes);
+#endif
 	bool OnDisco(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes);
 
 protected:
     virtual void OnConnectToServer(ThreadPoolLocalStorage *tls) = 0;
     virtual bool OnReadFromServer(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes) = 0; // false = disconnect
-    virtual bool OnWriteToServer(ThreadPoolLocalStorage *tls, AsyncBuffer *buffer, u32 bytes) = 0; // true = delete AsyncBuffer object
-    virtual void OnDisconnectFromServer() = 0;
+#if defined(CAT_WANT_WRITE_COMPLETION)
+	virtual bool OnWriteToServer(ThreadPoolLocalStorage *tls, AsyncBuffer *buffer, u32 bytes) = 0; // true = delete AsyncBuffer object
+#endif
+	virtual void OnDisconnectFromServer() = 0;
 };
 
 

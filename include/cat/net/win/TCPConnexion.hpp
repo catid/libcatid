@@ -82,13 +82,17 @@ private:
 
 private:
 	bool OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes);
+#if defined(CAT_WANT_WRITE_COMPLETION)
 	bool OnWrite(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes);
+#endif
 	bool OnDisco(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes);
 
 protected:
     virtual bool OnConnectFromClient(ThreadPoolLocalStorage *tls, const NetAddr &remoteClientAddress) = 0; // false = disconnect
     virtual bool OnReadFromClient(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes) = 0; // false = disconnect
-    virtual bool OnWriteToClient(ThreadPoolLocalStorage *tls, AsyncBuffer *buffer, u32 bytes) = 0; // true = delete AsyncBuffer
+#if defined(CAT_WANT_WRITE_COMPLETION)
+	virtual bool OnWriteToClient(ThreadPoolLocalStorage *tls, AsyncBuffer *buffer, u32 bytes) = 0; // true = delete AsyncBuffer
+#endif
     virtual void OnDisconnectFromClient() = 0;
 };
 
