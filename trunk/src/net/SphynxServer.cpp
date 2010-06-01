@@ -1051,11 +1051,6 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 	}
 }
 
-void Server::OnWrite(u32 bytes)
-{
-
-}
-
 void Server::OnClose()
 {
 	WARN("Server") << "CLOSED";

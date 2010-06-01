@@ -90,11 +90,15 @@ private:
 	bool Read(AsyncBuffer *buffer = 0);
 
 	bool OnReadComplete(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes);
+#if defined(CAT_WANT_WRITE_COMPLETION)
 	bool OnWriteComplete(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes);
+#endif
 
 protected:
 	virtual void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &addr, u8 *data, u32 bytes) = 0; // false = close
-	virtual bool OnWrite(ThreadPoolLocalStorage *tls, AsyncBuffer *buffer, u32 bytes) { return true; } // false = do not delete AsyncBase object
+#if defined(CAT_WANT_WRITE_COMPLETION)
+	virtual bool OnWrite(ThreadPoolLocalStorage *tls, AsyncBuffer *buffer, u32 bytes) { return true; } // false = do not delete AsyncBuffer object
+#endif
 	virtual void OnClose() = 0;
     virtual void OnUnreachable(const NetAddr &addr) {} // Only IP is valid
 };

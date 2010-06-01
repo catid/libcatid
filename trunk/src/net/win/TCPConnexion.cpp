@@ -127,7 +127,12 @@ bool TCPConnexion::Post(u8 *data, u32 data_bytes, u32 skip_bytes)
 		return false;
 	}
 
+
+#if defined(CAT_WANT_WRITE_COMPLETION)
 	buffer->Reset(fastdelegate::MakeDelegate(this, &TCPConnexion::OnWrite));
+#else
+	buffer->Reset(AsyncCallback());
+#endif
 
 	WSABUF wsabuf;
 	wsabuf.buf = reinterpret_cast<CHAR*>( data + skip_bytes );
@@ -249,6 +254,8 @@ bool TCPConnexion::OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *b
 	return true; // Delete overlapped object
 }
 
+#if defined(CAT_WANT_WRITE_COMPLETION)
+
 bool TCPConnexion::OnWrite(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes)
 {
 	if (_disconnecting)
@@ -263,6 +270,8 @@ bool TCPConnexion::OnWrite(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *
 
 	return OnWriteToClient(tls, buffer, bytes);
 }
+
+#endif // CAT_WANT_WRITE_COMPLETION
 
 bool TCPConnexion::OnDisco(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes)
 {

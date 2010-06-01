@@ -222,7 +222,6 @@ public:
 
 protected:
 	void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes);
-	void OnWrite(u32 bytes) {}
 	void OnClose();
 };
 
@@ -305,7 +304,6 @@ private:
 	ServerWorker *FindLeastPopulatedPort();
 
 	void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes);
-	void OnWrite(u32 bytes);
 	void OnClose();
 
 	void PostConnectionCookie(const NetAddr &dest);
