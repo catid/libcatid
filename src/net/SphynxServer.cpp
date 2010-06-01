@@ -69,35 +69,12 @@ static CAT_INLINE u32 hash_addr_iponly(const NetAddr &addr, u32 salt)
 	return key & HASH_TABLE_MASK;
 }
 
-static CAT_INLINE u32 hash_addr(const NetAddr &addr, u32 salt)
+static CAT_INLINE u32 hash_addr(const NetAddr &addr, u32 ip_salt, u32 port_salt)
 {
-	u32 key;
-
-	// If address is IPv6,
-	if (addr.Is6())
-	{
-		// Hash 128-bit address to 32 bits
-		key = MurmurHash32(addr.GetIP6(), NetAddr::IP6_BYTES, salt);
-	}
-	else // assuming IPv4 and address is not invalid
-	{
-		key = addr.GetIP4();
-
-		// Thomas Wang's integer hash function
-		// http://www.cris.com/~Ttwang/tech/inthash.htm
-		key = (key ^ 61) ^ (key >> 16);
-		key = key + (key << 3);
-		key = key ^ (key >> 4) ^ salt;
-		key = key * 0x27d4eb2d;
-		key = key ^ (key >> 15);
-	}
-
-	// Hide this from the client-side to prevent users from generating
-	// hash table collisions by changing their port number.
-	const u32 SECRET_CONSTANT = 104729; // 1,000th prime number
+	u32 key = hash_addr_iponly(addr, ip_salt);
 
 	// Map 16-bit port 1:1 to a random-looking number
-	key += (u32)addr.GetPort() * (SECRET_CONSTANT*4 + 1);
+	key += (u32)addr.GetPort() * (port_salt*4 + 1);
 
 	return key & HASH_TABLE_MASK;
 }
@@ -188,7 +165,8 @@ Map::~Map()
 
 void Map::Initialize(FortunaOutput *csprng)
 {
-	_hash_salt = csprng->Generate();
+	_ip_salt = csprng->Generate();
+	_port_salt = csprng->Generate();
 }
 
 Connexion *Map::Lookup(u32 key)
@@ -212,7 +190,7 @@ Connexion *Map::Lookup(u32 key)
 Connexion *Map::Lookup(const NetAddr &addr)
 {
 	// Hash IP:port:salt to get the hash table key
-	u32 key = hash_addr(addr, _hash_salt);
+	u32 key = hash_addr(addr, _ip_salt, _port_salt);
 
 	AutoReadLock lock(_table_lock);
 
@@ -260,7 +238,7 @@ Connexion *Map::Lookup(const NetAddr &addr)
 bool Map::Insert(Connexion *conn)
 {
 	// Hash IP:port:salt to get the hash table key
-	u32 key = hash_addr(conn->_client_addr, _hash_salt);
+	u32 key = hash_addr(conn->_client_addr, _ip_salt, _port_salt);
 
 	// Grab the slot
 	Slot *slot = &_table[key];

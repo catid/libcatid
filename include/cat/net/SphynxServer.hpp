@@ -146,7 +146,7 @@ public:
 	};
 
 protected:
-	u32 _hash_salt;
+	u32 _ip_salt, _port_salt;
 	CAT_ALIGNED(16) Slot _table[HASH_TABLE_SIZE];
 	RWLock _table_lock;
 
