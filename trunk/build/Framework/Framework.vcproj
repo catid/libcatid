@@ -177,12 +177,14 @@
 				Optimization="3"
 				InlineFunctionExpansion="2"
 				EnableIntrinsicFunctions="true"
-				FavorSizeOrSpeed="1"
 				OmitFramePointers="true"
 				EnableFiberSafeOptimizations="true"
 				AdditionalIncludeDirectories="../../include/"
+				ExceptionHandling="1"
 				RuntimeLibrary="2"
 				BufferSecurityCheck="false"
+				EnableEnhancedInstructionSet="2"
+				RuntimeTypeInfo="false"
 				WarningLevel="3"
 				DebugInformationFormat="3"
 			/>
@@ -340,10 +342,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\src\io\PackageManager.cpp"
-				>
-			</File>
-			<File
 				RelativePath="..\..\src\threads\RegionAllocator.cpp"
 				>
 			</File>
@@ -406,10 +404,6 @@
 				</File>
 				<File
 					RelativePath="..\..\include\cat\io\MMapFile.hpp"
-					>
-				</File>
-				<File
-					RelativePath="..\..\include\cat\io\PackageManager.hpp"
 					>
 				</File>
 				<File

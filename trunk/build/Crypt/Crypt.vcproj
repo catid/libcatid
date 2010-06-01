@@ -182,6 +182,7 @@
 				EnableFiberSafeOptimizations="true"
 				AdditionalIncludeDirectories="../../include/"
 				StringPooling="true"
+				ExceptionHandling="1"
 				RuntimeLibrary="2"
 				BufferSecurityCheck="false"
 				EnableFunctionLevelLinking="false"
