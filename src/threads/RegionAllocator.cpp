@@ -27,18 +27,28 @@
 */
 
 #include <cat/threads/RegionAllocator.hpp>
-#include <cat/threads/Atomic.hpp>
 #include <cat/math/BitMath.hpp>
 #include <cat/io/Settings.hpp>
 #include <cat/io/Logging.hpp>
-#include <cat/port/AlignedAlloc.hpp>
 using namespace cat;
 
 
-#if defined(CAT_NO_ATOMIC_ADD) || defined(CAT_NO_ATOMIC_SET) || defined(CAT_NO_ATOMIC_BTS) || defined(CAT_NO_ATOMIC_BTR)
-#error "Atomic operations are required for this framework, and your platform does not support them yet"
-#endif
+#if defined(CAT_NO_ATOMIC_ALLOCATOR)
 
+RegionAllocator::RegionAllocator()
+{
+}
+
+void RegionAllocator::Shutdown()
+{
+}
+
+bool RegionAllocator::Valid()
+{
+	return true;
+}
+
+#else // CAT_NO_ATOMIC_ALLOCATOR
 
 const u32 RegionAllocator::BLOCK_SIZE[REGION_COUNT] = {
     64,
@@ -229,3 +239,5 @@ void *RegionAllocator::Resize(void *ptr, u32 bytes)
 
     return Aligned::Resize(ptr, bytes);
 }
+
+#endif // CAT_NO_ATOMIC_ALLOCATOR

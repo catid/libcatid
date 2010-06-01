@@ -30,12 +30,19 @@
 #define CAT_REGION_ALLOCATOR_HPP
 
 #include <cat/Singleton.hpp>
+#include <cat/threads/Atomic.hpp>
+#include <cat/port/AlignedAlloc.hpp>
 #include <memory>
 #include <xstring>
 #include <sstream>
 
 namespace cat {
 
+
+#if defined(CAT_NO_ATOMIC_ADD) || defined(CAT_NO_ATOMIC_SET) || \
+	defined(CAT_NO_ATOMIC_BTS) || defined(CAT_NO_ATOMIC_BTR)
+#define CAT_NO_ATOMIC_ALLOCATOR
+#endif
 
 // A region-based allocator that is lock-free, supporting
 // a range of allocation block sizes that are pre-allocated
@@ -44,7 +51,7 @@ class RegionAllocator : public Singleton<RegionAllocator>
 {
     CAT_SINGLETON(RegionAllocator);
 
-protected:
+#if !defined(CAT_NO_ATOMIC_ALLOCATOR)
     struct RegionInfoHead
     {
         u32 next_bitmap_entry;
@@ -66,6 +73,7 @@ protected:
     RegionInfo *region_info[REGION_COUNT];
 
     //u32 errors;
+#endif
 
 public:
     bool Valid();
@@ -73,9 +81,15 @@ public:
     void Shutdown();
 
 public:
-    void *Acquire(u32 bytes);
-    void *Resize(void *ptr, u32 bytes);
-    void Release(void *ptr);
+#if defined(CAT_NO_ATOMIC_ALLOCATOR)
+	CAT_INLINE void *Acquire(u32 bytes) { return Aligned::Acquire(bytes); }
+	CAT_INLINE void *Resize(void *ptr, u32 bytes) { return Aligned::Resize(ptr, bytes); }
+	CAT_INLINE void Release(void *ptr) { Aligned::Release(ptr); }
+#else
+	void *Acquire(u32 bytes);
+	void *Resize(void *ptr, u32 bytes);
+	void Release(void *ptr);
+#endif
 
     template<class T>
     CAT_INLINE void Delete(T *ptr)
