@@ -45,9 +45,7 @@ namespace sphynx {
 
 
 /*
-	Based on what I have envisioned needing for my game, the following protocol is being
-	used after spending weeks looking at alternatives and false-starts.  It provides signaled
-	disconnects, fragmentation, MTU discovery, time synchronization, three reliable ordered
+	This transport layer provides fragmentation, three reliable ordered
 	streams, one unordered reliable stream, and unreliable delivery.
 
 	The Transport object that implements a sender/receiver in the protocol requires 276 bytes
@@ -71,23 +69,18 @@ namespace sphynx {
 		--- Message Header  (16 bits) ---
 		 0 1 2 3 4 5 6 7 8 9 a b c d e f
 		<-- LSB ----------------- MSB -->
-		| BHI |I|R| SOP |      BLO      |
+		| BLO |I|R|SOP|C|      BHI      |
 		---------------------------------
 
 		DATA_BYTES: BHI | BLO = Number of bytes in data part of message.
-			If BHI = "111"b, the BLO byte is omitted and the receiver can
-			assume that the rest of the packet contains just one message.
 		I: 1=Followed by ACK-ID field. 0=ACK-ID is one higher than the last.
 		R: 1=Reliable. 0=Unreliable.
 		SOP: Super opcodes:
-			0=Data (reliable or unreliable)
-			1=Fragment (reliable)
-			2=ACK (unreliable)
-			3=MTU Probe (unreliable)
-			4=MTU Set (unordered reliable)
-			5=Time Ping (unreliable)
-			6=Time Pong (unreliable)
-			7=Disconnect (unreliable)
+				0=Data (reliable or unreliable)
+				1=Fragment (reliable)
+				2=ACK (unreliable)
+				3=Internal (any)
+		C: 1=BHI byte is sent. 0=BHI byte is not sent and is assumed to be 0.
 
 			When the I bit is set, the data part is preceded by an ACK-ID,
 			which is then applied to all following reliable messages.
@@ -97,14 +90,8 @@ namespace sphynx {
 			the data part begins with a 16-bit Fragment Header.
 			This additional size IS accounted for in the DATA_BYTES field.
 
-			Often times there is just one message in a datagram.  To compress
-			the header in this case, when BHI = 7 the receiver assumes that
-			only one message is in the packet and uses the payload length to
-			determine the length of the single message.  BLO byte is omitted.
-
-				This *could* also be used on the final message in a cluster,
-				but it cannot be done without a memcpy to cover up the extra
-				header byte, which I don't consider worthwhile...
+			When DATA_BYTES is between 0 and 7, C can be set to 0 to avoid
+			sending the BHI byte.
 
 		------------- ACK-ID Field (24 bits) ------------
 		 0 1 2 3 4 5 6 7 8 9 a b c d e f 0 1 2 3 4 5 6 7 
@@ -217,7 +204,6 @@ static const u32 COLLISION_INCREMENTER = 1013904223;
 static const u32 COLLISION_MULTINVERSE = 4276115653;
 static const u32 COLLISION_INCRINVERSE = 0 - COLLISION_INCREMENTER;
 
-
 // Handshake types
 enum HandshakeType
 {
@@ -254,36 +240,59 @@ enum HandshakeError
 // Convert handshake error string to user-readable error message
 const char *GetHandshakeErrorString(HandshakeError err);
 
-
-// Stream modes
+// Stream Modes
 enum StreamMode
 {
 	STREAM_UNORDERED = 0,	// Reliable, unordered stream 0
-	STREAM_1 = 1,			// Reliable, ordered stream 1
+	STREAM_1 = 1,			// Reliable, ordered stream 1 (highest priority)
 	STREAM_2 = 2,			// Reliable, ordered stream 2
-	STREAM_3 = 3			// Reliable, ordered stream 3
+	STREAM_3 = 3			// Reliable, ordered stream 3 (lowest priority)
 };
 
 // Super Opcodes
 enum SuperOpcode
 {
-	SOP_DATA,			// 0=Data (reliable or unreliable)
-	SOP_FRAG,			// 1=Fragment (reliable)
-	SOP_ACK,			// 2=ACK (unreliable)
-	SOP_MTU_PROBE,		// 3=MTU Probe (unreliable)
-	SOP_MTU_SET,		// 4=MTU Set (unordered reliable)
-	SOP_TIME_PING,		// 5=Time Ping (unreliable)
-	SOP_TIME_PONG,		// 6=Time Pong (unreliable)
-	SOP_DISCO,			// 7=Disconnect (unreliable)
+	SOP_DATA,		// 0=Data (reliable or unreliable)
+	SOP_FRAG,		// 1=Fragment (reliable)
+	SOP_ACK,		// 2=ACK (unreliable)
+	SOP_INTERNAL,	// 3=Internal
 };
+
+// Internal Opcodes
+enum InternalOpcode
+{
+	IOP_C2S_MTU_TEST = 187,		// c2s bb (random padding[MTU]) Large MTU test message
+	IOP_S2C_MTU_SET = 244,		// s2c f4 (mtu[2]) MTU set message
+
+	IOP_C2S_TIME_PING = 16,		// c2s 10 (client timestamp[4]) Time synchronization ping
+	IOP_S2C_TIME_PONG = 138,	// c2s 8a (client timestamp[4]) (server timestamp[4]) Time synchronization pong
+
+	IOP_FILE_HEAD = 178,		// s2c b2 (size[8]) (file name[variable]) File transfer header
+	IOP_FILE_GO = 24,			// c2s 18 (go[1]) File transfer go ahead 1=go ahead
+	IOP_FILE_DATA = 192,		// s2c c0 (file offset[4]) (file data[variable]) File transfer data
+	IOP_FILE_DONE = 117,		// s2c 75 (file checksum[8]) File transfer checksum
+
+	IOP_DISCO = 84				// c2s 54 00 ff fe 00 fe ff 00 00 Disconnection notification
+};
+
+// Internal Opcode lengths
+static const u32 IOP_C2S_MTU_TEST_MINLEN = 1 + 200;
+static const u32 IOP_S2C_MTU_SET_LEN = 1 + 2;
+static const u32 IOP_C2S_TIME_PING_LEN = 1 + 4;
+static const u32 IOP_S2C_TIME_PONG_LEN = 1 + 4 + 4;
+static const u32 IOP_FILE_HEAD_MINLEN = 1 + 8 + 1;
+static const u32 IOP_FILE_GO_LEN = 1 + 1;
+static const u32 IOP_FILE_DATA_MINLEN = 1 + 4 + 1;
+static const u32 IOP_FILE_DONE_LEN = 1 + 8;
+static const u32 IOP_DISCO_LEN = 1 + 8;
 
 
 //// sphynx::Transport
 
 #if defined(CAT_PACK_TRANSPORT_STATE_STRUCTURES)
-#pragma pack(push)
-#pragma pack(1)
-#endif // CAT_PACK_TRANSPORT_STATE_STRUCTURES
+# pragma pack(push)
+# pragma pack(1)
+#endif
 
 // Receive state: Receive queue
 struct RecvQueue
@@ -327,31 +336,32 @@ struct SendFrag : public SendQueue
 // Temporary send node structure, nestled in the encryption overhead of outgoing packets
 struct TempSendNode // Size <= 11 bytes = AuthenticatedEncryption::OVERHEAD_BYTES
 {
-	static const u32 SINGLE_FLAG = 0x8000;
-	static const u32 BYTE_MASK = 0x7fff;
+	static const u32 BYTE_MASK = 0xffff;
 
 	TempSendNode *next;
 	u16 negative_offset; // Number of bytes before this structure, and single flag
 };
 
 #if defined(CAT_PACK_TRANSPORT_STATE_STRUCTURES)
-#pragma pack(pop)
-#endif // CAT_PACK_TRANSPORT_STATE_STRUCTURES
+# pragma pack(pop)
+#endif
 
 class Transport
 {
 protected:
-	static const u8 BHI_MASK = 7;
-	static const u8 BHI_SINGLE_MESSAGE = 7;
+	static const u8 BLO_MASK = 7;
+	static const u32 BHI_SHIFT = 3; 
 	static const u8 I_MASK = 1 << 3;
 	static const u8 R_MASK = 1 << 4;
+	static const u8 C_MASK = 1 << 7;
 	static const u32 SOP_SHIFT = 5;
+	static const u32 SOP_MASK = 3;
 
 	static const u32 NUM_STREAMS = 4; // Number of reliable streams
 	static const u32 MIN_RTT = 50; // Minimum milliseconds for RTT
 
 	static const int TIMEOUT_DISCONNECT = 15000; // 15 seconds
-	static const int SILENCE_LIMIT = 9357; // 9.333 seconds: Time silent before sending a keep-alive (0-length unordered reliable message)
+	static const int SILENCE_LIMIT = 9357; // 9.357 seconds: Time silent before sending a keep-alive (0-length unordered reliable message)
 
 	static const int TICK_RATE = 20; // 20 milliseconds
 
@@ -433,7 +443,7 @@ private:
 	void Retransmit(u32 stream, SendQueue *node, u32 now); // Does not hold the send lock!
 	void WriteACK();
 	void OnACK(u8 *data, u32 data_bytes);
-	void OnMTUSet(u8 *data, u32 data_bytes);
+	//void OnMTUSet(u8 *data, u32 data_bytes);
 
 public:
 	Transport();
@@ -458,18 +468,15 @@ private:
 	void CombineNextWrite();
 
 protected:
-	// skip_bytes: Number of bytes to skip at the start of the buffer
-	// buf_bytes and msg_bytes contain the skipped bytes
-	virtual bool PostPacket(u8 *data, u32 buf_bytes, u32 msg_bytes, u32 skip_bytes) = 0;
-	virtual void OnTimestampDeltaUpdate(u32 rtt, s32 delta) {}
+	virtual bool PostPacket(u8 *data, u32 buf_bytes, u32 msg_bytes) = 0;
 	virtual void OnMessage(ThreadPoolLocalStorage *tls, BufferStream msg, u32 bytes) = 0;
-	virtual void OnDisconnect() = 0;
+	virtual void OnInternal(ThreadPoolLocalStorage *tls, BufferStream msg, u32 bytes) = 0;
 
 protected:
-	bool PostMTUProbe(ThreadPoolLocalStorage *tls, u16 payload_bytes);
-	bool PostTimePing();
-	bool PostTimePong(u32 client_ts);
-	bool PostDisconnect();
+	//bool PostMTUProbe(ThreadPoolLocalStorage *tls, u16 payload_bytes);
+	//bool PostTimePing();
+	//bool PostTimePong(u32 client_ts);
+	//bool PostDisconnect();
 };
 
 

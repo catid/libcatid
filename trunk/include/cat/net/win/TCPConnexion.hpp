@@ -74,7 +74,7 @@ public:
 	CAT_INLINE bool Valid() { return _socket != SOCKET_ERROR; }
 
     void Disconnect();
-    bool Post(u8 *data, u32 data_bytes, u32 skip_bytes = 0);
+    bool Post(u8 *data, u32 data_bytes);
 
 private:
 	bool Read(AsyncBuffer *buffer = 0);
