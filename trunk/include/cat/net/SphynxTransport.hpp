@@ -240,7 +240,18 @@ enum HandshakeError
 // Convert handshake error string to user-readable error message
 const char *GetHandshakeErrorString(HandshakeError err);
 
-// Stream Modes
+// Disconnect reasons
+enum DisconnectReasons
+{
+	DISCO_TIMEOUT = 0xff,		// Remote host has not received data from us
+	DISCO_TAMPERING = 0xfe,		// Remote host received a tampered packet
+	DISCO_BROKEN_PIPE = 0xfd,	// Our socket got closed
+	DISCO_USER_EXIT = 0xfc		// User closed the remote application
+
+	// Feel free to define your own disconnect reasons.  Here is probably not the best place.
+};
+
+// Stream modes
 enum StreamMode
 {
 	STREAM_UNORDERED = 0,	// Reliable, unordered stream 0
@@ -249,7 +260,7 @@ enum StreamMode
 	STREAM_3 = 3			// Reliable, ordered stream 3 (lowest priority)
 };
 
-// Super Opcodes
+// Super opcodes
 enum SuperOpcode
 {
 	SOP_DATA,		// 0=Data (reliable or unreliable)
@@ -258,33 +269,26 @@ enum SuperOpcode
 	SOP_INTERNAL,	// 3=Internal
 };
 
-// Internal Opcodes
+static const u32 TRANSPORT_HEADER_BYTES = 2; // Or 1 if data bytes < 8
+
+// Internal opcodes
 enum InternalOpcode
 {
-	IOP_C2S_MTU_TEST = 187,		// c2s bb (random padding[MTU]) Large MTU test message
+	IOP_C2S_MTU_PROBE = 187,	// c2s bb (random padding[MTU]) Large MTU test message
 	IOP_S2C_MTU_SET = 244,		// s2c f4 (mtu[2]) MTU set message
 
-	IOP_C2S_TIME_PING = 16,		// c2s 10 (client timestamp[4]) Time synchronization ping
+	IOP_C2S_TIME_PING = 17,		// c2s 11 (client timestamp[4]) Time synchronization ping
 	IOP_S2C_TIME_PONG = 138,	// c2s 8a (client timestamp[4]) (server timestamp[4]) Time synchronization pong
 
-	IOP_FILE_HEAD = 178,		// s2c b2 (size[8]) (file name[variable]) File transfer header
-	IOP_FILE_GO = 24,			// c2s 18 (go[1]) File transfer go ahead 1=go ahead
-	IOP_FILE_DATA = 192,		// s2c c0 (file offset[4]) (file data[variable]) File transfer data
-	IOP_FILE_DONE = 117,		// s2c 75 (file checksum[8]) File transfer checksum
-
-	IOP_DISCO = 84				// c2s 54 00 ff fe 00 fe ff 00 00 Disconnection notification
+	IOP_DISCO = 84				// c2s 54 (reason[1]) Disconnection notification
 };
 
-// Internal Opcode lengths
+// Internal opcode lengths
 static const u32 IOP_C2S_MTU_TEST_MINLEN = 1 + 200;
 static const u32 IOP_S2C_MTU_SET_LEN = 1 + 2;
 static const u32 IOP_C2S_TIME_PING_LEN = 1 + 4;
 static const u32 IOP_S2C_TIME_PONG_LEN = 1 + 4 + 4;
-static const u32 IOP_FILE_HEAD_MINLEN = 1 + 8 + 1;
-static const u32 IOP_FILE_GO_LEN = 1 + 1;
-static const u32 IOP_FILE_DATA_MINLEN = 1 + 4 + 1;
-static const u32 IOP_FILE_DONE_LEN = 1 + 8;
-static const u32 IOP_DISCO_LEN = 1 + 8;
+static const u32 IOP_DISCO_LEN = 1 + 1;
 
 
 //// sphynx::Transport
@@ -297,13 +301,11 @@ static const u32 IOP_DISCO_LEN = 1 + 8;
 // Receive state: Receive queue
 struct RecvQueue
 {
-	static const u32 FRAG_FLAG = 0x80000000;
-	static const u32 BYTE_MASK = 0x7fffffff;
-
 	RecvQueue *next;	// Next in queue
 	RecvQueue *prev;	// Previous in queue
 	u32 id;				// Acknowledgment id
-	u32 bytes;			// High bit: Fragment?
+	u16 sop;			// Super Opcode
+	u16 bytes;			// Data Bytes
 
 	// Message contents follow
 };
@@ -322,7 +324,7 @@ struct SendQueue
 	};
 	u16 bytes;			// Data bytes
 	u16 frag_count;		// Number of fragments remaining to be delivered
-	u16 sop;			// Super opcode of message
+	u8 sop;				// Super opcode of message
 
 	// Message contents follow
 };
@@ -385,6 +387,9 @@ protected:
 	// Maximum transfer unit (MTU) in UDP payload bytes, excluding the IP and UDP headers and encryption overhead
 	u32 _max_payload_bytes;
 
+	// Overhead bytes
+	u32 _overhead_bytes;
+
 public:
 	void InitializePayloadBytes(bool ip6);
 
@@ -443,15 +448,14 @@ private:
 	void Retransmit(u32 stream, SendQueue *node, u32 now); // Does not hold the send lock!
 	void WriteACK();
 	void OnACK(u8 *data, u32 data_bytes);
-	//void OnMTUSet(u8 *data, u32 data_bytes);
 
 public:
 	Transport();
 	virtual ~Transport();
 
 public:
-	// ata_bytes: Length of msg_data
-	bool WriteUnreliable(u8 msg_opcode, const void *msg_data = 0, u32 data_bytes = 0);
+	bool WriteUnreliableOOB(u8 msg_opcode, const void *msg_data = 0, u32 data_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
+	bool WriteUnreliable(u8 msg_opcode, const void *msg_data = 0, u32 data_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
 	bool WriteReliable(StreamMode, u8 msg_opcode, const void *msg_data = 0, u32 data_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
 	void FlushWrite();
 
@@ -469,14 +473,13 @@ private:
 
 protected:
 	virtual bool PostPacket(u8 *data, u32 buf_bytes, u32 msg_bytes) = 0;
-	virtual void OnMessage(ThreadPoolLocalStorage *tls, BufferStream msg, u32 bytes) = 0;
-	virtual void OnInternal(ThreadPoolLocalStorage *tls, BufferStream msg, u32 bytes) = 0;
+	virtual void OnMessage(ThreadPoolLocalStorage *tls, BufferStream msg, u32 bytes) = 0; // precondition: bytes > 0
+	virtual void OnInternal(ThreadPoolLocalStorage *tls, BufferStream msg, u32 bytes) = 0; // precondition: bytes > 0
 
 protected:
-	//bool PostMTUProbe(ThreadPoolLocalStorage *tls, u16 payload_bytes);
-	//bool PostTimePing();
-	//bool PostTimePong(u32 client_ts);
-	//bool PostDisconnect();
+	bool PostMTUProbe(ThreadPoolLocalStorage *tls, u32 mtu);
+
+	CAT_INLINE bool PostDisconnect(u8 reason) { return WriteUnreliable(IOP_DISCO, &reason, 1, SOP_INTERNAL); FlushWrite(); }
 };
 
 

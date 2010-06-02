@@ -63,6 +63,7 @@ protected:
 	u32 _last_send_mstsc;
 	NetAddr _server_addr;
 	bool _connected;
+	u32 _destroyed;
 	AuthenticatedEncryption _auth_enc;
 
 	// Last time a packet was received from the server -- for disconnect timeouts
@@ -77,7 +78,7 @@ public:
 	bool Connect(const char *hostname, Port port);
 	bool Connect(const NetAddr &addr);
 
-	void Disconnect();
+	void Disconnect(u8 reason, bool notify);
 
 protected:
 	bool IsConnected() { return _connected; }
@@ -87,7 +88,7 @@ protected:
 	virtual void OnConnect(ThreadPoolLocalStorage *tls) = 0;
 	virtual void OnTimestampDeltaUpdate(u32 rtt, s32 delta) {}
 	virtual void OnMessage(ThreadPoolLocalStorage *tls, BufferStream msg, u32 bytes) = 0;
-	virtual void OnDisconnect() = 0;
+	virtual void OnDisconnect(u8 reason) = 0;
 	virtual void OnTick(ThreadPoolLocalStorage *tls, u32 now) = 0;
 
 private:
@@ -95,12 +96,17 @@ private:
 
 private:
 	bool PostHello();
+	bool PostTimePing();
+
 	void OnUnreachable(const NetAddr &src);
 
 	// Return false to remove resolve from cache
 	bool OnResolve(const char *hostname, const NetAddr *array, int array_length);
 
-	virtual bool PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes, u32 skip_bytes);
+	virtual bool PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes);
+	virtual void OnInternal(ThreadPoolLocalStorage *tls, BufferStream msg, u32 bytes);
+
+	void ConnectFail(HandshakeError err);
 
 private:
 	bool ThreadFunction(void *param);
