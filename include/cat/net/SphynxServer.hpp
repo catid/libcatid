@@ -109,14 +109,14 @@ private:
 	void OnRawData(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes);
 
 	virtual bool PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes);
-	virtual void OnInternal(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes);
+	virtual void OnInternal(ThreadPoolLocalStorage *tls, BufferStream msg, u32 bytes);
 
 public:
 	CAT_INLINE bool IsValid() { return _destroyed == 0; }
 	CAT_INLINE u32 GetKey() { return _key; }
 	CAT_INLINE u32 GetFloodKey() { return _flood_key; }
 
-	void Destroy();
+	void Disconnect(u8 reason, bool notify);
 
 protected:
 	NetAddr _client_addr;
@@ -129,7 +129,7 @@ protected:
 
 protected:
 	virtual void OnConnect(ThreadPoolLocalStorage *tls) = 0;
-	virtual void OnDestroy() = 0;
+	virtual void OnDisconnect(u8 reason) = 0;
 	virtual void OnTick(ThreadPoolLocalStorage *tls, u32 now) = 0;
 };
 

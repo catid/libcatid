@@ -156,9 +156,8 @@ Transport::~Transport()
 
 void Transport::InitializePayloadBytes(bool ip6)
 {
-	u32 overhead = (ip6 ? IPV6_HEADER_BYTES : IPV4_HEADER_BYTES) + UDP_HEADER_BYTES + AuthenticatedEncryption::OVERHEAD_BYTES;
-
-	_max_payload_bytes = MINIMUM_MTU - overhead;
+	_overhead_bytes = (ip6 ? IPV6_HEADER_BYTES : IPV4_HEADER_BYTES) + UDP_HEADER_BYTES + AuthenticatedEncryption::OVERHEAD_BYTES;
+	_max_payload_bytes = MINIMUM_MTU - _overhead_bytes;
 }
 
 void Transport::OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
@@ -174,6 +173,8 @@ void Transport::OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 		// Decode data_bytes
 		u8 hdr = data[0];
 		u32 data_bytes = hdr & BLO_MASK;
+
+		//INANE("Transport") << " -- Processing subheader " << (int)hdr;
 
 		// If message length requires another byte to represent,
 		if (hdr & C_MASK)
@@ -198,7 +199,6 @@ void Transport::OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 			}
 
 			// Decode variable-length ACK-ID into ack_id and stream:
-
 			u8 ida = *data++;
 			--bytes;
 			stream = ida & 3;
@@ -243,7 +243,7 @@ void Transport::OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 		else if (hdr & R_MASK)
 		{
 			// Could check for uninitialized ACK-ID here but I do not think that sending
-			// that type of malformed packet can hurt the server.
+			// this type of malformed packet can hurt the server.
 			++ack_id;
 		}
 
@@ -274,11 +274,11 @@ void Transport::OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 						OnFragment(tls, data, data_bytes, stream);
 					else if (super_opcode == SOP_INTERNAL)
 						OnInternal(tls, data, data_bytes);
-					//else WARN("Transport") << "Invalid reliable super opcode ignored";
+					//else //WARN("Transport") << "Invalid reliable super opcode ignored";
 
 					if (_disconnected) return; // React to message handler
 				}
-				//else WARN("Transport") << "Zero-length reliable message ignored";
+				//else //WARN("Transport") << "Zero-length reliable message ignored";
 
 				RunQueue(tls, ack_id + 1, stream);
 
@@ -286,9 +286,7 @@ void Transport::OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 			}
 			else if (diff > 0) // Message is due to arrive
 			{
-				u32 super_opcode = hdr >> SOP_SHIFT;
-
-				QueueRecv(tls, data, data_bytes, ack_id, stream, super_opcode);
+				QueueRecv(tls, data, data_bytes, ack_id, stream, (hdr >> SOP_SHIFT) & SOP_MASK);
 
 				if (_disconnected) return; // React to message handler (unordered)
 			}
@@ -296,86 +294,24 @@ void Transport::OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 			{
 				//WARN("Transport") << "Ignored duplicate rolled reliable message " << stream << ":" << ack_id;
 
-				//INANE("Transport") << "Rel dump " << bytes << ":" << HexDumpString(data, bytes);
+				////INANE("Transport") << "Rel dump " << bytes << ":" << HexDumpString(data, bytes);
 
 				// Don't bother locking here: It's okay if we lose a race with this.
 				_got_reliable[stream] = true;
 			}
 		}
-		else // Unreliable message:
+		else if (data_bytes > 0) // Unreliable message:
 		{
 			u32 super_opcode = (hdr >> SOP_SHIFT) & SOP_MASK;
 
-			switch (super_opcode)
-			{
-			default:
-				//WARN("Transport") << "Invalid unreliable super opcode ignored";
-				break;
-
-			case SOP_DATA:
-				// Process it immediately
-				if (data_bytes > 0)
-				{
-					OnMessage(tls, data, data_bytes);
-
-					if (_disconnected) return; // React to message handler
-				}
-				//else WARN("Transport") << "Zero-length unreliable message ignored";
-				break;
-
-			case SOP_ACK:
-				//INFO("Transport") << "Got ACK";
+			if (super_opcode == SOP_DATA)
+				OnMessage(tls, data, data_bytes);
+			else if (super_opcode == SOP_ACK)
 				OnACK(data, data_bytes);
-				break;
-/*
-			case SOP_MTU_PROBE:
-				CAT_TDBG(INFO("Transport") << "Got MTU Probe.  Max payload bytes = " << 2 + data_bytes);
-				if (2 + data_bytes > _max_payload_bytes)
-				{
-					u16 payload_bytes = 2 + data_bytes;
+			else if (super_opcode == SOP_INTERNAL)
+				OnInternal(tls, data, data_bytes);
 
-					_max_payload_bytes = payload_bytes;
-
-					u16 msg = getLE(payload_bytes);
-					WriteReliable(STREAM_UNORDERED, 0, reinterpret_cast<u8*>( &msg ), sizeof(msg), SOP_MTU_SET);
-				}
-				break;
-
-			case SOP_TIME_PING:
-				CAT_TDBG(INFO("Transport") << "Got Time Ping");
-				if (data_bytes == 4)
-				{
-					// Parameter is endian-agnostic
-					PostTimePong(*reinterpret_cast<u32*>( data ));
-				}
-				break;
-
-			case SOP_TIME_PONG:
-				CAT_TDBG(INFO("Transport") << "Got Time Pong");
-				if (data_bytes == 8)
-				{
-					u32 client_now = Clock::msec();
-
-					u32 *ts = reinterpret_cast<u32*>( data );
-					u32 client_ts = ts[0];
-					u32 server_ts = getLE(ts[1]);
-
-					u32 rtt = client_now - client_ts;
-
-					// If RTT is not impossible,
-					if (rtt < TIMEOUT_DISCONNECT)
-					{
-						s32 delta = (server_ts - (rtt >> 1)) - client_ts;
-
-						OnTimestampDeltaUpdate(rtt, delta);
-					}
-				}
-				break;
-
-			case SOP_DISCO:
-				OnDisconnect();
-				break;*/
-			}
+			if (_disconnected) return; // React to message handler
 		}
 
 		bytes -= data_bytes;
@@ -409,7 +345,7 @@ void Transport::RunQueue(ThreadPoolLocalStorage *tls, u32 ack_id, u32 stream)
 	do
 	{
 		// Grab the queued message
-		u32 old_data_bytes = node->bytes & RecvQueue::BYTE_MASK;
+		u32 old_data_bytes = node->bytes;
 		u8 *old_data = GetTrailingBytes(node);
 
 		// Process fragment now
@@ -417,10 +353,14 @@ void Transport::RunQueue(ThreadPoolLocalStorage *tls, u32 ack_id, u32 stream)
 		{
 			//INFO("Transport") << "Running queued message # " << stream << ":" << ack_id;
 
-			if (node->bytes & RecvQueue::FRAG_FLAG)
-				OnFragment(tls, old_data, old_data_bytes, stream);
-			else
+			u32 super_opcode = node->sop;
+
+			if (super_opcode == SOP_DATA)
 				OnMessage(tls, old_data, old_data_bytes);
+			else if (super_opcode == SOP_FRAG)
+				OnFragment(tls, old_data, old_data_bytes, stream);
+			else if (super_opcode == SOP_INTERNAL)
+				OnInternal(tls, old_data, old_data_bytes);
 
 			if (_disconnected) return; // React to message handler
 
@@ -487,7 +427,7 @@ void Transport::QueueRecv(ThreadPoolLocalStorage *tls, u8 *data, u32 data_bytes,
 
 	//INFO("Transport") << "Queued out-of-order message # " << stream << ":" << ack_id;
 
-	//INANE("Transport") << "Out-of-order message " << data_bytes << ":" << HexDumpString(data, data_bytes);
+	////INANE("Transport") << "Out-of-order message " << data_bytes << ":" << HexDumpString(data, data_bytes);
 
 	u32 stored_bytes;
 
@@ -505,10 +445,7 @@ void Transport::QueueRecv(ThreadPoolLocalStorage *tls, u8 *data, u32 data_bytes,
 
 			if (_disconnected) return; // React to message handler
 		}
-		else
-		{
-			//WARN("Transport") << "Zero-length reliable message ignored";
-		}
+		//else //WARN("Transport") << "Zero-length reliable message ignored";
 
 		stored_bytes = 0;
 	}
@@ -522,34 +459,34 @@ void Transport::QueueRecv(ThreadPoolLocalStorage *tls, u8 *data, u32 data_bytes,
 	if (!new_node)
 	{
 		//WARN("Transport") << "Out of memory for incoming packet queue";
+		return;
 	}
-	else
-	{
-		// Insert new data into queue
-		new_node->bytes = (super_opcode == SOP_FRAG) ? (stored_bytes | RecvQueue::FRAG_FLAG) : stored_bytes;
-		new_node->id = ack_id;
-		new_node->prev = node;
-		new_node->next = next;
 
-		// Just need to protect writes to the list linkages
-		_recv_lock.Enter();
+	// Insert new data into queue
+	new_node->bytes = stored_bytes;
+	new_node->sop = super_opcode;
+	new_node->id = ack_id;
+	new_node->prev = node;
+	new_node->next = next;
 
-		if (next) next->prev = new_node;
-		else _recv_queue_tail[stream] = new_node;
-		if (node) node->next = new_node;
-		else _recv_queue_head[stream] = new_node;
-		_got_reliable[stream] = true;
+	// Just need to protect writes to the list linkages
+	_recv_lock.Enter();
 
-		_recv_lock.Leave();
+	if (next) next->prev = new_node;
+	else _recv_queue_tail[stream] = new_node;
+	if (node) node->next = new_node;
+	else _recv_queue_head[stream] = new_node;
+	_got_reliable[stream] = true;
 
-		u8 *new_data = GetTrailingBytes(new_node);
-		memcpy(new_data, data, data_bytes);
-	}
+	_recv_lock.Leave();
+
+	u8 *new_data = GetTrailingBytes(new_node);
+	memcpy(new_data, data, data_bytes);
 }
 
 void Transport::OnFragment(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes, u32 stream)
 {
-	//INANE("Transport") << "OnFragment " << bytes << ":" << HexDumpString(data, bytes);
+	////INANE("Transport") << "OnFragment " << bytes << ":" << HexDumpString(data, bytes);
 
 	// If fragment is starting,
 	if (!_fragment_length[stream])
@@ -596,7 +533,7 @@ void Transport::OnFragment(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes, u32
 	{
 		/*if (bytes > fragment_remaining)
 		{
-			WARN("Transport") << "Message fragment overflow truncated";
+			//WARN("Transport") << "Message fragment overflow truncated";
 		}*/
 
 		memcpy(_fragment_buffer[stream] + _fragment_offset[stream], data, fragment_remaining);
@@ -613,12 +550,58 @@ void Transport::OnFragment(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes, u32
 	}
 }
 
-bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_bytes)
+bool Transport::WriteUnreliableOOB(u8 msg_opcode, const void *vmsg_data, u32 data_bytes, SuperOpcode super_opcode)
 {
 	const u8 *msg_data = reinterpret_cast<const u8*>( vmsg_data );
 
+	++data_bytes;
 	u32 max_payload_bytes = _max_payload_bytes;
-	u32 msg_bytes = 2 + 1 + data_bytes;
+	u32 header_bytes = data_bytes > BLO_MASK ? 2 : 1;
+	u32 msg_bytes = header_bytes + data_bytes;
+
+	// Fail on invalid input
+	if (msg_bytes > max_payload_bytes)
+	{
+		//WARN("Transport") << "Invalid input: Unreliable OOB buffer size request too large";
+		return false;
+	}
+
+	u8 *pkt = AsyncBuffer::Acquire(msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
+	if (!pkt)
+	{
+		//WARN("Transport") << "Out of memory: Unable to allocate unreliable OOB post buffer";
+		return false;
+	}
+
+	u8 *msg_buffer = pkt;
+
+	// Write header
+	if (data_bytes > BLO_MASK)
+	{
+		msg_buffer[0] = (u8)(data_bytes & BLO_MASK) | (super_opcode << SOP_SHIFT) | C_MASK;
+		msg_buffer[1] = (u8)(data_bytes >> BHI_SHIFT);
+	}
+	else
+	{
+		msg_buffer[0] = (u8)data_bytes | (super_opcode << SOP_SHIFT);
+	}
+	msg_buffer += header_bytes;
+
+	// Write message
+	msg_buffer[0] = msg_opcode;
+	memcpy(msg_buffer + 1, msg_data, data_bytes - 1);
+
+	return PostPacket(pkt, msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, msg_bytes);
+}
+
+bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_bytes, SuperOpcode super_opcode)
+{
+	const u8 *msg_data = reinterpret_cast<const u8*>( vmsg_data );
+
+	++data_bytes;
+	u32 max_payload_bytes = _max_payload_bytes;
+	u32 header_bytes = data_bytes > BLO_MASK ? 2 : 1;
+	u32 msg_bytes = header_bytes + data_bytes;
 
 	// Fail on invalid input
 	if (msg_bytes > max_payload_bytes)
@@ -644,17 +627,27 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 			return false;
 		}
 
-		// Write message
-		msg_buffer[0] = (u8)(data_bytes >> 8); // SOP_DATA = 0, R=0, I=0
-		msg_buffer[1] = (u8)data_bytes;
-		msg_buffer[2] = msg_opcode;
-		memcpy(msg_buffer + 3, msg_data, data_bytes);
-
 		// Update send buffer state
 		_send_buffer = msg_buffer;
 		_send_buffer_bytes = msg_bytes;
 		_send_buffer_stream = NUM_STREAMS;
 		_send_buffer_msg_count = 1;
+
+		// Write header
+		if (data_bytes > BLO_MASK)
+		{
+			msg_buffer[0] = (u8)(data_bytes & BLO_MASK) | (super_opcode << SOP_SHIFT) | C_MASK;
+			msg_buffer[1] = (u8)(data_bytes >> BHI_SHIFT);
+		}
+		else
+		{
+			msg_buffer[0] = (u8)data_bytes | (super_opcode << SOP_SHIFT);
+		}
+		msg_buffer += header_bytes;
+
+		// Write message
+		msg_buffer[0] = msg_opcode;
+		memcpy(msg_buffer + 1, msg_data, data_bytes - 1);
 
 		lock.Release();
 
@@ -678,11 +671,21 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 
 		u8 *msg_buffer = _send_buffer + send_buffer_bytes;
 
+		// Write header
+		if (data_bytes > BLO_MASK)
+		{
+			msg_buffer[0] = (u8)(data_bytes & BLO_MASK) | (super_opcode << SOP_SHIFT) | C_MASK;
+			msg_buffer[1] = (u8)(data_bytes >> BHI_SHIFT);
+		}
+		else
+		{
+			msg_buffer[0] = (u8)data_bytes | (super_opcode << SOP_SHIFT);
+		}
+		msg_buffer += header_bytes;
+
 		// Write message
-		msg_buffer[0] = (u8)(data_bytes >> 8); // SOP_DATA = 0, R=0, I=0
-		msg_buffer[1] = (u8)data_bytes;
-		msg_buffer[2] = msg_opcode;
-		memcpy(msg_buffer + 3, msg_data, data_bytes);
+		msg_buffer[0] = msg_opcode;
+		memcpy(msg_buffer + 1, msg_data, data_bytes - 1);
 
 		// Update send buffer state
 		_send_buffer_bytes = send_buffer_bytes + msg_bytes;
@@ -749,7 +752,6 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 	u8 *data;
 	u16 data_bytes = node->bytes;
 	u8 hdr = R_MASK;
-
 	u32 frag_overhead = 0;
 	u32 frag_total_bytes;
 
@@ -775,7 +777,10 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 		hdr |= node->sop << SOP_SHIFT;
 	}
 
-	u32 msg_bytes = 2 + frag_overhead + data_bytes;
+	// Include fragment header length in data bytes field
+	u32 data_bytes_with_overhead = data_bytes + frag_overhead;
+	u32 header_bytes = data_bytes_with_overhead > BLO_MASK ? 2 : 1;
+	u32 msg_bytes = header_bytes + data_bytes_with_overhead;
 	u32 ack_id = node->id;
 
 	// If ACK-ID needs to be written again,
@@ -835,11 +840,17 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 
 	u8 *msg = _send_buffer + send_buffer_bytes;
 
-	// Include fragment header length in data bytes field
-	u32 data_bytes_with_overhead = data_bytes + frag_overhead;
-	msg[0] = (u8)(data_bytes_with_overhead >> 8) | hdr;
-	msg[1] = (u8)data_bytes_with_overhead;
-	msg += 2;
+	if (data_bytes_with_overhead > BLO_MASK)
+	{
+		msg[0] = (u8)(data_bytes_with_overhead & BLO_MASK) | C_MASK | hdr;
+		msg[1] = (u8)(data_bytes_with_overhead >> BHI_SHIFT);
+		msg += 2;
+	}
+	else
+	{
+		msg[0] = (u8)data_bytes_with_overhead | hdr;
+		++msg;
+	}
 
 	// If ACK-ID needs to be written, do not use compression since we
 	// cannot predict receiver state on retransmission
@@ -1014,9 +1025,11 @@ void Transport::WriteACK()
 	u32 msg_bytes = max_payload_bytes - remaining;
 
 	// Write header
+	// Since it is hard to tell ahead of time how large the message will be,
+	// it is not worth trying to save one more byte with the C_MASK.
 	u32 data_bytes = msg_bytes - 2;
-	packet[0] = (u8)(data_bytes >> 8) | (SOP_ACK << SOP_SHIFT);
-	packet[1] = (u8)(data_bytes);
+	packet[0] = (u8)((data_bytes & BLO_MASK) | (SOP_ACK << SOP_SHIFT) | C_MASK);
+	packet[1] = (u8)(data_bytes >> BHI_SHIFT);
 
 	// Post message:
 
@@ -1113,105 +1126,39 @@ void Transport::TickTransport(ThreadPoolLocalStorage *tls, u32 now)
 	// This allows writers to be lazy about transmission!
 	FlushWrite();
 }
-/*
-void Transport::OnMTUSet(u8 *data, u32 data_bytes)
+
+bool Transport::PostMTUProbe(ThreadPoolLocalStorage *tls, u32 mtu)
 {
-	//INFO("Transport") << "Got MTU Set";
+	////INANE("Transport") << "Posting MTU Probe";
 
-	if (data_bytes == 1+2)
-	{
-		u16 max_payload_bytes = getLE(*reinterpret_cast<u16*>( data + 1 ));
-
-		// Accept the new max payload bytes if it is larger
-		if (_max_payload_bytes < max_payload_bytes)
-			_max_payload_bytes = max_payload_bytes;
-	}
-	else
-	{
-		CAT_TVV(WARN("Transport") << "Truncated MTU Set");
-	}
-}
-
-bool Transport::PostMTUProbe(ThreadPoolLocalStorage *tls, u16 payload_bytes)
-{
-	//INANE("Transport") << "Posting MTU Probe";
-
-	// Just an approximate lower bound -- not exact
-	if (payload_bytes < MINIMUM_MTU - IPV6_HEADER_BYTES - UDP_HEADER_BYTES)
+	if (mtu < MINIMUM_MTU || mtu > MAXIMUM_MTU)
 		return false;
 
+	u32 payload_bytes = mtu - _overhead_bytes;
 	u32 buffer_bytes = payload_bytes + AuthenticatedEncryption::OVERHEAD_BYTES;
+	u32 data_bytes = payload_bytes - 2;
 
-	u8 *buffer = AsyncBuffer::Acquire(buffer_bytes);
-	if (!buffer) return false;
+	u8 *pkt = AsyncBuffer::Acquire(buffer_bytes);
+	if (!pkt) return false;
 
 	// Write header
-	buffer[0] = (SOP_MTU_PROBE << SOP_SHIFT) | BHI_SINGLE_MESSAGE;
+	//	I = 0 (no ack id follows)
+	//	R = 0 (unreliable)
+	//	C = 1 (large packet size)
+	//	SOP = IOP_C2S_MTU_PROBE
+	pkt[0] = (u8)((IOP_C2S_MTU_PROBE << SOP_SHIFT) | C_MASK | (data_bytes & BLO_MASK));
+	pkt[1] = (u8)(data_bytes >> BHI_SHIFT);
 
-	// Fill contents with random data
-	tls->csprng->Generate(buffer + 2, payload_bytes - 2);
+	// Write message type
+	pkt[2] = IOP_C2S_MTU_PROBE;
 
-	// Encrypt and send buffer
-	return PostPacket(buffer, buffer_bytes, payload_bytes, 0);
-}
-
-bool Transport::PostTimePing()
-{
-	//INANE("Transport") << "Posting Time Ping";
-
-	const u32 DATA_BYTES = 4;
-	const u32 PAYLOAD_BYTES = 1 + DATA_BYTES;
-	const u32 BUFFER_BYTES = PAYLOAD_BYTES + AuthenticatedEncryption::OVERHEAD_BYTES;
-
-	u8 *buffer = AsyncBuffer::Acquire(BUFFER_BYTES);
-	if (!buffer) return false;
-
-	// Write Time Ping
-	buffer[0] = (SOP_TIME_PING << SOP_SHIFT) | BHI_SINGLE_MESSAGE;
-	*reinterpret_cast<u32*>( buffer + 1 ) = getLE32(Clock::msec());
+	// Fill message contents with random bytes
+	tls->csprng->Generate(pkt + 3, data_bytes - 1);
 
 	// Encrypt and send buffer
-	return PostPacket(buffer, BUFFER_BYTES, PAYLOAD_BYTES, 0);
+	return PostPacket(pkt, buffer_bytes, payload_bytes);
 }
 
-bool Transport::PostTimePong(u32 client_ts)
-{
-	//INANE("Transport") << "Posting Time Pong";
-
-	const u32 DATA_BYTES = 4 + 4;
-	const u32 PAYLOAD_BYTES = 1 + DATA_BYTES;
-	const u32 BUFFER_BYTES = PAYLOAD_BYTES + AuthenticatedEncryption::OVERHEAD_BYTES;
-
-	u8 *buffer = AsyncBuffer::Acquire(BUFFER_BYTES);
-	if (!buffer) return false;
-
-	// Write Time Pong
-	buffer[0] = (SOP_TIME_PONG << SOP_SHIFT) | BHI_SINGLE_MESSAGE;
-	*reinterpret_cast<u32*>( buffer + 1 ) = client_ts;
-	*reinterpret_cast<u32*>( buffer + 5 ) = getLE32(Clock::msec());
-
-	// Encrypt and send buffer
-	return PostPacket(buffer, BUFFER_BYTES, PAYLOAD_BYTES, 0);
-}
-
-bool Transport::PostDisconnect()
-{
-	//INANE("Transport") << "Posting Disconnect";
-
-	const u32 DATA_BYTES = 0;
-	const u32 PAYLOAD_BYTES = 1 + DATA_BYTES;
-	const u32 BUFFER_BYTES = PAYLOAD_BYTES + AuthenticatedEncryption::OVERHEAD_BYTES;
-
-	u8 *buffer = AsyncBuffer::Acquire(BUFFER_BYTES);
-	if (!buffer) return false;
-
-	// Write Disconnect
-	buffer[0] = (SOP_DISCO << SOP_SHIFT) | BHI_SINGLE_MESSAGE;
-
-	// Encrypt and send buffer
-	return PostPacket(buffer, BUFFER_BYTES, PAYLOAD_BYTES, 0);
-}
-*/
 void Transport::OnACK(u8 *data, u32 data_bytes)
 {
 	u32 stream = NUM_STREAMS, last_ack_id = 0;
@@ -1523,7 +1470,9 @@ bool Transport::WriteReliable(StreamMode stream, u8 msg_opcode, const void *vmsg
 	// Fail on invalid input
 	if (stream == STREAM_UNORDERED)
 	{
-		if (2 + 3 + 1 + data_bytes > _max_payload_bytes)
+		u32 header_bytes = data_bytes > BLO_MASK ? 2 : 1;
+
+		if (header_bytes + 3 + 1 + data_bytes > _max_payload_bytes)
 		{
 			//WARN("Transport") << "Invalid input: Unordered buffer size request too large";
 			return false;
@@ -1671,8 +1620,7 @@ void Transport::TransmitQueued()
 				// Calculate total bytes to write to the send buffer on this pass
 				u32 overhead = 2 + ack_id_overhead + frag_overhead;
 				u32 msg_bytes = overhead + remaining_data_bytes;
-				u32 write_bytes = remaining_send_buffer;
-				if (write_bytes > msg_bytes) write_bytes = msg_bytes;
+				u32 write_bytes = min(msg_bytes, remaining_send_buffer);
 
 				// Limit size to allow ACK-ID decompression during retransmission
 				u32 retransmit_limit = max_payload_bytes - (3 - ack_id_overhead);
@@ -1785,20 +1733,31 @@ void Transport::TransmitQueued()
 				hdr |= (fragmented ? SOP_FRAG : node->sop) << SOP_SHIFT;
 				if (ack_id_overhead) hdr |= I_MASK;
 
-				msg[0] = (u8)(data_bytes >> 8) | hdr;
-				msg[1] = (u8)data_bytes;
-				msg += 2;
+				if (data_bytes > BLO_MASK)
+				{
+					msg[0] = (u8)(data_bytes & BLO_MASK) | C_MASK | hdr;
+					msg[1] = (u8)(data_bytes >> BHI_SHIFT);
+					msg += 2;
+					send_buffer_bytes += write_bytes;
+				}
+				else
+				{
+					msg[0] = (u8)data_bytes | hdr;
+					++msg;
+					send_buffer_bytes += write_bytes - 1; // Turns out we can cut out a byte
+
+					// This could have been taken into account above but I don't think it's worth the processing time.
+					// The purpose of cutting out the second byte is to help in the case of many small messages,
+					// and this case is handled well as it is written now.
+				}
 
 				// Write optional ACK-ID
 				if (ack_id_overhead)
 				{
 					// ACK-ID compression
-					if (ack_id_bytes == 3)
+					if (ack_id_bytes == 1)
 					{
-						msg[2] = (u8)(ack_id >> 12);
-						msg[1] = (u8)((ack_id >> 5) | 0x80);
-						msg[0] = (u8)((ack_id << 2) | 0x80 | stream);
-						msg += 3;
+						*msg++ = (u8)(((ack_id & 31) << 2) | stream);
 					}
 					else if (ack_id_bytes == 2)
 					{
@@ -1806,15 +1765,18 @@ void Transport::TransmitQueued()
 						msg[0] = (u8)((ack_id << 2) | 0x80 | stream);
 						msg += 2;
 					}
-					else
+					else // if (ack_id_bytes == 3)
 					{
-						*msg++ = (u8)(((ack_id & 31) << 2) | stream);
+						msg[2] = (u8)(ack_id >> 12);
+						msg[1] = (u8)((ack_id >> 5) | 0x80);
+						msg[0] = (u8)((ack_id << 2) | 0x80 | stream);
+						msg += 3;
 					}
 
 					ack_id_overhead = 0; // Don't write ACK-ID next time around
 				}
 
-				// Increment ack id
+				// Increment ACK-ID
 				++ack_id;
 
 				// Recalculate how many bytes it would take to represent
@@ -1835,16 +1797,15 @@ void Transport::TransmitQueued()
 				memcpy(msg, GetTrailingBytes(node) + sent_bytes, data_bytes_to_copy);
 
 				sent_bytes += data_bytes_to_copy;
-				send_buffer_bytes += write_bytes;
 				_send_buffer_msg_count++;
 
-				WARN("Transport") << "Wrote " << stream << ":" << sent_bytes << " / " << total_bytes;
+				//WARN("Transport") << "Wrote " << stream << ":" << sent_bytes << " / " << total_bytes;
 
 			} while (sent_bytes < total_bytes);
 
 			if (sent_bytes > total_bytes)
 			{
-				WARN("Transport") << "Node offset somehow escaped";
+				//WARN("Transport") << "Node offset somehow escaped";
 			}
 
 			node = next;

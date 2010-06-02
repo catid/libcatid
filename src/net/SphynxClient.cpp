@@ -48,6 +48,7 @@ Client::Client()
 {
 	_connected = false;
 	_last_send_mstsc = 0;
+	_destroyed = 0;
 }
 
 Client::~Client()
@@ -194,8 +195,8 @@ void Client::OnUnreachable(const NetAddr &src)
 	if (!_connected && _server_addr.EqualsIPOnly(src))
 	{
 		WARN("Client") << "Failed to connect: ICMP error received from server address";
-		OnConnectFail(ERR_CLIENT_ICMP);
-		Close();
+
+		ConnectFail(ERR_CLIENT_ICMP);
 	}
 }
 
@@ -231,8 +232,9 @@ void Client::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 		if (!pkt)
 		{
 			WARN("Client") << "Unable to connect: Cannot allocate buffer for challenge message";
-			OnConnectFail(ERR_CLIENT_OUT_OF_MEMORY);
-			Close();
+
+			ConnectFail(ERR_CLIENT_OUT_OF_MEMORY);
+
 			return;
 		}
 
@@ -258,8 +260,8 @@ void Client::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 		if (!Post(_server_addr, pkt, C2S_CHALLENGE_LEN))
 		{
 			WARN("Client") << "Unable to connect: Cannot post pkt to cookie";
-			OnConnectFail(ERR_CLIENT_BROKEN_PIPE);
-			Close();
+
+			ConnectFail(ERR_CLIENT_BROKEN_PIPE);
 		}
 		else
 		{
@@ -310,8 +312,7 @@ void Client::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 
 		WARN("Client") << "Unable to connect: Server returned error " << GetHandshakeErrorString(err);
 
-		OnConnectFail(err);
-		Close();
+		ConnectFail(err);
 	}
 }
 
@@ -354,6 +355,14 @@ bool Client::PostHello()
 	return true;
 }
 
+bool Client::PostTimePing()
+{
+	u32 timestamp = Clock::msec();
+
+	// Write it out-of-band to avoid delays in transmission
+	return WriteUnreliableOOB(IOP_C2S_TIME_PING, &timestamp, sizeof(timestamp), SOP_INTERNAL);
+}
+
 bool Client::ThreadFunction(void *)
 {
 	ThreadPoolLocalStorage tls;
@@ -361,6 +370,7 @@ bool Client::ThreadFunction(void *)
 	if (!tls.Valid())
 	{
 		WARN("Client") << "Unable to create thread pool local storage";
+
 		return false;
 	}
 
@@ -387,8 +397,9 @@ bool Client::ThreadFunction(void *)
 		{
 			// NOTE: Connection can complete before or after OnConnectFail()
 			WARN("Client") << "Unable to connect: Timeout";
-			OnConnectFail(ERR_CLIENT_TIMEOUT);
-			Close();
+
+			ConnectFail(ERR_CLIENT_TIMEOUT);
+
 			return false;
 		}
 
@@ -398,8 +409,9 @@ bool Client::ThreadFunction(void *)
 			if (!PostHello())
 			{
 				WARN("Client") << "Unable to connect: Post failure";
-				OnConnectFail(ERR_CLIENT_BROKEN_PIPE);
-				Close();
+
+				ConnectFail(ERR_CLIENT_BROKEN_PIPE);
+
 				return false;
 			}
 
@@ -411,17 +423,17 @@ bool Client::ThreadFunction(void *)
 	}
 
 	// Begin MTU probing after connection completes
-	u32 overhead = (Is6() ? IPV6_HEADER_BYTES : IPV4_HEADER_BYTES) + UDP_HEADER_BYTES + AuthenticatedEncryption::OVERHEAD_BYTES;
 	u32 mtu_discovery_time = Clock::msec();
 	int mtu_discovery_attempts = 2;
 
 	if (!DontFragment())
 	{
 		WARN("Client") << "Unable to detect MTU: Unable to set DF bit";
+
 		mtu_discovery_attempts = 0;
 	}
-	else if (!PostMTUProbe(&tls, MAXIMUM_MTU - overhead) ||
-			 !PostMTUProbe(&tls, MEDIUM_MTU - overhead))
+	else if (!PostMTUProbe(&tls, MAXIMUM_MTU) ||
+			 !PostMTUProbe(&tls, MEDIUM_MTU))
 	{
 		WARN("Client") << "Unable to detect MTU: First probe post failure";
 	}
@@ -458,11 +470,11 @@ bool Client::ThreadFunction(void *)
 		// If MTU discovery attempts continue,
 		if (mtu_discovery_attempts > 0)
 		{
-			// If it is time to reprobe the MTU,
+			// If it is time to re-probe the MTU,
 			if (now - mtu_discovery_time >= MTU_PROBE_INTERVAL)
 			{
 				// If payload bytes already maxed out,
-				if (_max_payload_bytes >= MAXIMUM_MTU - overhead)
+				if (_max_payload_bytes >= MAXIMUM_MTU - _overhead_bytes)
 				{
 					// Stop posting probes
 					mtu_discovery_attempts = 0;
@@ -476,8 +488,8 @@ bool Client::ThreadFunction(void *)
 					if (mtu_discovery_attempts > 1)
 					{
 						// Post probes
-						if (!PostMTUProbe(&tls, MAXIMUM_MTU - overhead) ||
-							!PostMTUProbe(&tls, MEDIUM_MTU - overhead))
+						if (!PostMTUProbe(&tls, MAXIMUM_MTU - _overhead_bytes) ||
+							!PostMTUProbe(&tls, MEDIUM_MTU - _overhead_bytes))
 						{
 							WARN("Client") << "Unable to detect MTU: Probe post failure";
 						}
@@ -500,7 +512,8 @@ bool Client::ThreadFunction(void *)
 		// If no packets have been received,
 		if ((s32)(now - _last_recv_tsc) >= TIMEOUT_DISCONNECT)
 		{
-			Disconnect();
+			Disconnect(DISCO_TIMEOUT, true);
+
 			return true;
 		}
 
@@ -511,6 +524,7 @@ bool Client::ThreadFunction(void *)
 		if ((s32)(now - _last_send_mstsc) >= SILENCE_LIMIT)
 		{
 			PostTimePing();
+
 			next_sync_time = now + 20000; // 20 seconds from now
 		}
 	}
@@ -518,34 +532,106 @@ bool Client::ThreadFunction(void *)
 	return true;
 }
 
-bool Client::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes, u32 skip_bytes)
+bool Client::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes)
 {
-	buf_bytes -= skip_bytes;
-	msg_bytes -= skip_bytes;
-
-	if (!_auth_enc.Encrypt(buffer + skip_bytes, buf_bytes, msg_bytes))
+	if (!_auth_enc.Encrypt(buffer, buf_bytes, msg_bytes))
 	{
 		WARN("Client") << "Encryption failure while sending packet";
+
 		AsyncBuffer::Release(buffer);
+
 		return false;
 	}
 
-	if (Post(_server_addr, buffer, msg_bytes, skip_bytes))
+	if (Post(_server_addr, buffer, msg_bytes))
 	{
 		_last_send_mstsc = Clock::msec_fast();
+
 		return true;
 	}
 
 	return false;
 }
 
-void Client::Disconnect()
+void Client::OnInternal(ThreadPoolLocalStorage *tls, BufferStream data, u32 bytes)
 {
-	if (_connected)
+	switch (data[0])
 	{
-		PostDisconnect();
-		TransportDisconnected();
-	}
+	case IOP_S2C_MTU_SET:
+		if (bytes == IOP_S2C_MTU_SET_LEN)
+		{
+			u16 max_payload_bytes = getLE(*reinterpret_cast<u16*>( data + 1 ));
 
-	Close();
+			//WARN("Client") << "Got IOP_S2C_MTU_SET.  Max payload bytes = " << max_payload_bytes;
+
+			// If new maximum payload is greater than the previous one,
+			if (max_payload_bytes > _max_payload_bytes)
+			{
+				// Set max payload bytes
+				_max_payload_bytes = max_payload_bytes;
+			}
+		}
+		break;
+
+	case IOP_S2C_TIME_PONG:
+		if (bytes == IOP_S2C_TIME_PONG_LEN)
+		{
+			u32 client_now = Clock::msec();
+
+			u32 *timestamps = reinterpret_cast<u32*>( data + 1 );
+
+			u32 rtt = client_now - timestamps[0];
+
+			// If RTT is not impossible,
+			if (rtt < TIMEOUT_DISCONNECT)
+			{
+				s32 delta = getLE(timestamps[1]) - rtt/2 - timestamps[0];
+
+				OnTimestampDeltaUpdate(rtt, delta);
+			}
+
+			WARN("Client") << "Got IOP_S2C_TIME_PONG.  Stamp = " << timestamps[0];
+		}
+		break;
+
+	case IOP_DISCO:
+		if (bytes == IOP_DISCO_LEN)
+		{
+			//WARN("Client") << "Got IOP_DISCO reason = " << (int)data[1];
+
+			Disconnect(data[1], false);
+		}
+		break;
+	}
+}
+
+void Client::Disconnect(u8 reason, bool notify)
+{
+	if (Atomic::Set(&_destroyed, 1) == 0)
+	{
+		if (notify)
+			PostDisconnect(reason);
+
+		TransportDisconnected();
+
+		OnDisconnect(reason);
+
+		_kill_flag.Set();
+
+		Close();
+	}
+}
+
+void Client::ConnectFail(HandshakeError err)
+{
+	if (Atomic::Set(&_destroyed, 1) == 0)
+	{
+		TransportDisconnected();
+
+		OnConnectFail(err);
+
+		_kill_flag.Set();
+
+		Close();
+	}
 }
