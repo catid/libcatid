@@ -29,7 +29,7 @@
 #include <cat/math/BigPseudoMersenne.hpp>
 using namespace cat;
 
-void CAT_FASTCALL BigPseudoMersenne::MrReduceProductX(Leg overflow, Leg *inout)
+CAT_INLINE void CAT_FASTCALL BigPseudoMersenne::MrReduceProductX(Leg overflow, Leg *inout)
 {
     // Pseudo-Mersenne reduction
     Leg p_hi, p_lo;
@@ -49,7 +49,7 @@ void CAT_FASTCALL BigPseudoMersenne::MrReduceProductX(Leg overflow, Leg *inout)
 }
 
 
-void CAT_FASTCALL BigPseudoMersenne::MrReduceProduct(const Leg *in_hi, const Leg *in_lo, Leg *output)
+CAT_INLINE void CAT_FASTCALL BigPseudoMersenne::MrReduceProduct(const Leg *in_hi, const Leg *in_lo, Leg *output)
 {
 	// Pseudo-Mersenne reduction
 	Leg overflow = MultiplyXAdd(in_hi, modulus_c, in_lo, output);

@@ -53,8 +53,8 @@ protected:
     Leg *CachedModulus;
     Leg modulus_c;
 
-    void CAT_FASTCALL MrReduceProductX(Leg overflow, Leg *inout);
-    void CAT_FASTCALL MrReduceProduct(const Leg *in_hi, const Leg *in_lo, Leg *out);
+    CAT_INLINE void CAT_FASTCALL MrReduceProductX(Leg overflow, Leg *inout);
+    CAT_INLINE void CAT_FASTCALL MrReduceProduct(const Leg *in_hi, const Leg *in_lo, Leg *out);
 
 public:
     BigPseudoMersenne(int regs, int bits, int C);
