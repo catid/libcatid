@@ -61,26 +61,26 @@ void BigTwistedEdwards::PT_FN(const Leg *in_a, const Leg *in_b, Leg *out)
     // A = (Y1 - X1) * (Y2 - X2)
     MrSubtract(in_a+YOFF, in_a+XOFF, C);
     MrSubtract(in_b+YOFF, in_b+XOFF, D);
-	MrMultiply(C, D, A);
 
     // B = (Y1 + X1) * (Y2 + X2)
     MrAdd(in_a+YOFF, in_a+XOFF, G);
     MrAdd(in_b+YOFF, in_b+XOFF, H);
-	MrMultiply(G, H, B);
+	MrMultiply(C, D, A);
 
     // C = 2 * d * T1 * T2 (can remove multiplication by d if inputs are known to be different)
     MrMultiply(in_a+TOFF, in_b+TOFF, C);
+	MrMultiply(G, H, B);
 	MrMultiplyX(C, curve_d * 2, C);
 
     // D = 2 * Z1 * Z2
     MrMultiply(in_a+ZOFF, in_b+ZOFF, D);
-	MrDouble(D, D);
 
     // E = B - A, F = D - C, G = D + C, H = B + A
     MrSubtract(B, A, E);
-    MrSubtract(D, C, F);
-    MrAdd(D, C, G);
+	MrDouble(D, D);
     MrAdd(B, A, H);
+	MrSubtract(D, C, F);
+	MrAdd(D, C, G);
 
     // X3 = E * F, Y3 = G * H, T3 = E * H, Z3 = F * G
     MrMultiply(E, F, out+XOFF);
