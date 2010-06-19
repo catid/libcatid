@@ -92,46 +92,45 @@ void BigTwistedEdwards::PT_FN(const Leg *in, Leg *out)
 
 	CAT_CYCLE_COUNT(u32 t1 = Clock::cycles());
 
-	MrSquare(E, E); // Keep MrSquare() in cache
-
 	// A = X1^2, B = Y1^2, C = 2 * Z1^2
     MrSquare(in+XOFF, A);
     MrSquare(in+YOFF, B);
     MrSquare(in+ZOFF, C);
+	MrSquare(E, E); // Keep MrSquare() in cache
 
 	CAT_CYCLE_COUNT(u32 t2 = Clock::cycles());
-
-	MrDouble(C, C);
 
 	CAT_CYCLE_COUNT(u32 t2a = Clock::cycles());
 
 	// G = -A + B, F = G - C, H = -A - B
     MrNegate(A, A);
 
+	MrDouble(C, C);
+
 	CAT_CYCLE_COUNT(u32 t2b = Clock::cycles());
-
-	MrAdd(A, B, G);
-
-	CAT_CYCLE_COUNT(u32 t2c = Clock::cycles());
 
     MrSubtract(A, B, H);
 
+	CAT_CYCLE_COUNT(u32 t2c = Clock::cycles());
+
+	MrAdd(A, B, G);
+
 	CAT_CYCLE_COUNT(u32 t2d = Clock::cycles());
 
-    MrSubtract(G, C, F);
+	MrAdd(E, H, E);
 
 	CAT_CYCLE_COUNT(u32 t2e = Clock::cycles());
 
-    MrAdd(E, H, E);
+	MrSubtract(G, C, F);
 
 	CAT_CYCLE_COUNT(u32 t3 = Clock::cycles());
 
     // X3 = E * F, Y3 = G * H, T3 = E * H, Z3 = F * G
-    MrMultiply(E, F, out+XOFF);
     MrMultiply(G, H, out+YOFF);
 #if defined(EXTENDED_T)
     MrMultiply(E, H, out+TOFF);
 #endif
+	MrMultiply(E, F, out+XOFF);
     MrMultiply(F, G, out+ZOFF);
 
 	CAT_CYCLE_COUNT(u32 t4 = Clock::cycles());
