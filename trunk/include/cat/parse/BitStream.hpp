@@ -177,8 +177,6 @@ public:
 
         read_offset += bits;
     }
-    template<> void read(float &data) { read((u32&)data); }
-    template<> void read(double &data) { write(*(u64*)&data); }
     template<class T> T read() { T temp; read(temp); return temp; }
 
     u32 readBits(u32 count);
@@ -201,6 +199,9 @@ template<> CAT_INLINE void BitStream::write(s32 data) { write((u32)data); }
 template<> CAT_INLINE void BitStream::write(s64 data) { write((u64)data); }
 template<> CAT_INLINE void BitStream::write(float data) { write(*(u32*)&data); }
 template<> CAT_INLINE void BitStream::write(double data) { write(*(u64*)&data); }
+
+template<> CAT_INLINE void BitStream::read(float &data) { read((u32&)data); }
+template<> CAT_INLINE void BitStream::read(double &data) { write(*(u64*)&data); }
 
 template<> CAT_INLINE BitStream &BitStream::operator<<(const bs_bit::set<1> &n) { write1((u8)n.bits); return *this; }
 template<> CAT_INLINE BitStream &BitStream::operator<<(const bs_bit::set<8> &n) { write((u8)n.bits); return *this; }
