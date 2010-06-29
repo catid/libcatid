@@ -33,7 +33,6 @@
 #include <cat/threads/Atomic.hpp>
 #include <cat/port/AlignedAlloc.hpp>
 #include <memory>
-#include <xstring>
 #include <sstream>
 
 #if defined(CAT_NO_ATOMIC_ADD) || defined(CAT_NO_ATOMIC_SET) || \
