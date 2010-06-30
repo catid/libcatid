@@ -35,6 +35,7 @@
 #define CAT_BIT_STREAM_HPP
 
 #include <cat/Platform.hpp>
+#include <cstring>
 
 namespace cat {
 
@@ -145,13 +146,13 @@ public:
 
 public:
     // stream-mode insertion
-    BitStream &operator<<(const char *data) { writeBytes(data, (u32)strlen(data)); return *this; }
+    CAT_INLINE BitStream &operator<<(const char *data) { writeBytes(data, (u32)std::strlen(data)); return *this; }
 
-    template<class T> BitStream &operator<<(T data) { write(data); return *this; }
+    template<class T> CAT_INLINE BitStream &operator<<(T data) { write(data); return *this; }
 
-    template<u32 N_BITS> BitStream &operator<<(const bs_bit::set<N_BITS> &n) { writeBits(n.bits, N_BITS); return *this; }
+    template<u32 N_BITS> CAT_INLINE BitStream &operator<<(const bs_bit::set<N_BITS> &n) { writeBits(n.bits, N_BITS); return *this; }
 
-    BitStream &operator<<(const bs_byte::set &n) { writeBytes(n.ref, n.bytes); return *this; }
+    CAT_INLINE BitStream &operator<<(const bs_byte::set &n) { writeBytes(n.ref, n.bytes); return *this; }
 
 public:
     // extraction
@@ -177,18 +178,18 @@ public:
 
         read_offset += bits;
     }
-    template<class T> T read() { T temp; read(temp); return temp; }
+    template<class T> CAT_INLINE T read() { T temp; read(temp); return temp; }
 
     u32 readBits(u32 count);
     void readBytes(void *data, u32 byte_count);
 
 public:
     // stream-mode extraction
-    template<class T> BitStream &operator>>(T &data) { read(data); return *this; }
+    template<class T> CAT_INLINE BitStream &operator>>(T &data) { read(data); return *this; }
 
-    template<u32 N_BITS> BitStream &operator>>(const bs_bit::get<N_BITS> &n) { n.ref = readBits(N_BITS); return *this; }
+    template<u32 N_BITS> CAT_INLINE BitStream &operator>>(const bs_bit::get<N_BITS> &n) { n.ref = readBits(N_BITS); return *this; }
 
-    BitStream &operator>>(const bs_byte::get &n) { readBytes(n.ref, n.bytes); return *this; }
+    CAT_INLINE BitStream &operator>>(const bs_byte::get &n) { readBytes(n.ref, n.bytes); return *this; }
 };
 
 // helpful specializations
