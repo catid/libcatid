@@ -59,6 +59,14 @@ public:
         if (ii) return ii;
         return ii = new T;
     }
+	CAT_INLINE static void deallocate()
+	{
+		if (ii)
+		{
+			delete ii;
+			ii = 0;
+		}
+	}
 
 	virtual ~Singleton() {}
 };
