@@ -29,7 +29,7 @@
 #include <cat/math/BigRTL.hpp>
 using namespace cat;
 
-#if defined(CAT_USE_LEGS_ASM64)
+#if defined(CAT_WORD_64) && defined(CAT_NO_LEGPAIR)
 
 #include <cat/asm/big_x64_asm.hpp>
 
@@ -48,4 +48,4 @@ void CAT_FASTCALL BigRTL::DivideCore(int A_used, Leg A_overflow, Leg *A, int B_u
     divide64_core(A_used, A_overflow, A, B_used, B, Q);
 }
 
-#endif // CAT_USE_LEGS_ASM64
+#endif // CAT_WORD_64

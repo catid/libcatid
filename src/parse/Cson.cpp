@@ -26,75 +26,36 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/crypt/rand/Fortuna.hpp>
+#include <cat/parse/Cson.hpp>
+#include <cat/io/MMapFile.hpp>
+#include <cat/io/Logging.hpp>
+#include <cstring>
+#include <cat/hash/MurmurHash2.hpp>
 using namespace cat;
-
-// Used for MacOSX, iPhone, PS3, XBox, and others (for now)
-// I want to have more of these operating systems defined
-
-#if !defined(CAT_OS_WINDOWS) && !defined(CAT_OS_LINUX)
-
-#include <fcntl.h>
+using namespace std;
 
 
-#if !defined(CAT_NO_ENTROPY_THREAD)
-
-bool FortunaFactory::ThreadFunction(void *)
+bool CsonFile::Parse()
 {
-	// Generic version does not spawn a thread
-	return true;
+
 }
 
-#endif // !defined(CAT_NO_ENTROPY_THREAD)
-
-
-bool FortunaFactory::InitializeEntropySources()
+CsonFile::CsonFile()
 {
-    // Fire poll for entropy all goes into pool 0
-    PollInvariantSources(0);
 
-    return true;
 }
 
-void FortunaFactory::ShutdownEntropySources()
+CsonFile::~CsonFile()
 {
+
 }
 
-void FortunaFactory::PollInvariantSources(int pool_index)
+bool CsonFile::Read(const char *path)
 {
-    Skein &pool = Pool[pool_index];
 
-	struct {
-		u32 cycles_start;
-	    u8 system_prng[32];
-		u32 cycles_end;
-	} Sources;
-
-    // Cycles at the start
-    Sources.cycles_start = Clock::cycles();
-
-	int random_fd = open("/dev/random", O_RDONLY);
-
-	// /dev/random large request
-	if (random_fd >= 0)
-	{
-		read(random_fd, Sources.system_prng, sizeof(Sources.system_prng));
-
-		close(random_fd);
-	}
-
-    // Cycles at the end
-    Sources.cycles_end = Clock::cycles();
-
-	pool.Crunch(&Sources, sizeof(Sources));
 }
 
-void FortunaFactory::PollSlowEntropySources(int pool_index)
+bool CsonFile::Valid()
 {
-}
 
-void FortunaFactory::PollFastEntropySources(int pool_index)
-{
 }
-
-#endif

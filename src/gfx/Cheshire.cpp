@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -26,75 +26,5 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/crypt/rand/Fortuna.hpp>
+#include <cat/gfx/Cheshire.hpp>
 using namespace cat;
-
-// Used for MacOSX, iPhone, PS3, XBox, and others (for now)
-// I want to have more of these operating systems defined
-
-#if !defined(CAT_OS_WINDOWS) && !defined(CAT_OS_LINUX)
-
-#include <fcntl.h>
-
-
-#if !defined(CAT_NO_ENTROPY_THREAD)
-
-bool FortunaFactory::ThreadFunction(void *)
-{
-	// Generic version does not spawn a thread
-	return true;
-}
-
-#endif // !defined(CAT_NO_ENTROPY_THREAD)
-
-
-bool FortunaFactory::InitializeEntropySources()
-{
-    // Fire poll for entropy all goes into pool 0
-    PollInvariantSources(0);
-
-    return true;
-}
-
-void FortunaFactory::ShutdownEntropySources()
-{
-}
-
-void FortunaFactory::PollInvariantSources(int pool_index)
-{
-    Skein &pool = Pool[pool_index];
-
-	struct {
-		u32 cycles_start;
-	    u8 system_prng[32];
-		u32 cycles_end;
-	} Sources;
-
-    // Cycles at the start
-    Sources.cycles_start = Clock::cycles();
-
-	int random_fd = open("/dev/random", O_RDONLY);
-
-	// /dev/random large request
-	if (random_fd >= 0)
-	{
-		read(random_fd, Sources.system_prng, sizeof(Sources.system_prng));
-
-		close(random_fd);
-	}
-
-    // Cycles at the end
-    Sources.cycles_end = Clock::cycles();
-
-	pool.Crunch(&Sources, sizeof(Sources));
-}
-
-void FortunaFactory::PollSlowEntropySources(int pool_index)
-{
-}
-
-void FortunaFactory::PollFastEntropySources(int pool_index)
-{
-}
-
-#endif
