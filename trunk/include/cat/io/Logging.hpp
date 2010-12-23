@@ -37,9 +37,6 @@
 
 namespace cat {
 
-class Logging;
-class Recorder;
-
 
 //// Enumerations
 
