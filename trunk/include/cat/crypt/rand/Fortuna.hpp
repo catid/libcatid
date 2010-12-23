@@ -204,7 +204,7 @@ class FortunaOutput : public IRandom
 
     FortunaOutput();
     FortunaOutput(FortunaOutput&) {}
-    FortunaOutput &operator=(FortunaOutput &) {}
+    FortunaOutput &operator=(FortunaOutput &) { return *this; }
 
 public:
     ~FortunaOutput();
