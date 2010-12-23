@@ -49,6 +49,7 @@ namespace cat {
 // define this flag:
 //#define CAT_WANT_WRITE_COMPLETION
 
+
 } // namespace cat
 
 #endif // CAT_CONFIG_HPP

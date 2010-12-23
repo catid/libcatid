@@ -291,7 +291,7 @@ void ThreadPool::Shutdown()
         }
 
 #else
-#error TODO
+		FATAL("ThreadPool") << "TODO: Need to implement shutdown!";
 #endif
 
 		const int SHUTDOWN_WAIT_TIMEOUT = 10000; // 10 seconds
@@ -337,7 +337,7 @@ void ThreadPool::Shutdown()
     }
 
 #else
-#error TODO
+	FATAL("ThreadPool") << "TODO: Need to implement shutdown!";
 #endif
 
     INANE("ThreadPool") << "...Termination complete.";
@@ -462,7 +462,54 @@ bool ThreadPoolWorker::ThreadFunction(void *port)
 	}
 
 #else
-#error TODO
+
+	epoll_event ev_buf[EPOLL_QUEUE_LEN];
+
+	for (;;)
+	{
+		int n;
+
+		for (;;)
+		{
+			n = epoll_wait(_port, ev_buf, EPOLL_QUEUE_LEN, -1);
+
+			if (!n == -1 && errno == EINTR))
+			{
+				FATAL("ThreadPool") << "epoll_wait failure";
+				break;
+			}
+		}
+
+		if (!n)
+		{
+			FATAL("ThreadPool") << "epoll_wait timeout expired";
+			continue;
+		}
+
+		for (int ii = 0; ii < n; ++ii)
+		{
+			poll_entry_t *pe = (poll_entry_t*)ev_buf[ii].data.ptr;
+
+			if (pe->fd == INVALID_SOCKET)
+				continue;
+
+			if (ev_buf [i].events & (EPOLLERR | EPOLLHUP))
+				pe->events->in_event ();
+
+			if (pe->fd == INVALID_SOCKET)
+				continue;
+
+			if (ev_buf [i].events & EPOLLOUT)
+				pe->events->out_event ();
+
+			if (pe->fd == INVALID_SOCKET)
+				continue;
+
+			if (ev_buf [i].events & EPOLLIN)
+				pe->events->in_event ();
+		}
+	}
+
 #endif
 
 	return true;

@@ -328,13 +328,13 @@ void Transport::RunQueue(ThreadPoolLocalStorage *tls, u32 ack_id, u32 stream)
 	// If no queue to run or queue is not ready yet,
 	if (!node || node->id != ack_id)
 	{
-		_recv_lock.Enter();
+		CAT_ACK_LOCK.Enter();
 
 		// Just update next expected id and set flag to send acks on next tick
 		_next_recv_expected_id[stream] = ack_id;
 		_got_reliable[stream] = true;
 
-		_recv_lock.Leave();
+		CAT_ACK_LOCK.Leave();
 
 		return;
 	}
@@ -374,7 +374,7 @@ void Transport::RunQueue(ThreadPoolLocalStorage *tls, u32 ack_id, u32 stream)
 		node = node->next;
 	} while (node && node->id == ack_id);
 
-	_recv_lock.Enter();
+	CAT_ACK_LOCK.Enter();
 
 	// Update receive queue state
 	_recv_queue_head[stream] = node;
@@ -382,7 +382,7 @@ void Transport::RunQueue(ThreadPoolLocalStorage *tls, u32 ack_id, u32 stream)
 	_next_recv_expected_id[stream] = ack_id;
 	_got_reliable[stream] = true;
 
-	_recv_lock.Leave();
+	CAT_ACK_LOCK.Leave();
 
 	// Split deletion from processing to reduce lock contention
 	while (kill_node != node)
@@ -470,7 +470,7 @@ void Transport::QueueRecv(ThreadPoolLocalStorage *tls, u8 *data, u32 data_bytes,
 	new_node->next = next;
 
 	// Just need to protect writes to the list linkages
-	_recv_lock.Enter();
+	CAT_ACK_LOCK.Enter();
 
 	if (next) next->prev = new_node;
 	else _recv_queue_tail[stream] = new_node;
@@ -478,7 +478,7 @@ void Transport::QueueRecv(ThreadPoolLocalStorage *tls, u8 *data, u32 data_bytes,
 	else _recv_queue_head[stream] = new_node;
 	_got_reliable[stream] = true;
 
-	_recv_lock.Leave();
+	CAT_ACK_LOCK.Leave();
 
 	u8 *new_data = GetTrailingBytes(new_node);
 	memcpy(new_data, data, data_bytes);
@@ -610,7 +610,7 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 		return false;
 	}
 
-	AutoMutex lock(_send_lock);
+	AutoMutex lock(_big_lock);
 
 	u32 send_buffer_bytes = _send_buffer_bytes;
 
@@ -711,7 +711,7 @@ void Transport::FlushWrite()
 	// Avoid locking if we can help it
 	if (!_send_buffer) return;
 
-	AutoMutex lock(_send_lock);
+	AutoMutex lock(_big_lock);
 
 	u8 *send_buffer = _send_buffer;
 
@@ -889,7 +889,7 @@ void Transport::WriteACK()
 	u32 max_payload_bytes = _max_payload_bytes;
 	u32 remaining = max_payload_bytes - 2;
 
-	_recv_lock.Enter();
+	CAT_ACK_LOCK.Enter();
 
 	// Prioritizes ACKs for unordered stream, then 1, 2 and 3 in that order.
 	for (int stream = 0; stream < NUM_STREAMS; ++stream)
@@ -1020,7 +1020,7 @@ void Transport::WriteACK()
 		}
 	}
 
-	_recv_lock.Leave();
+	CAT_ACK_LOCK.Leave();
 
 	u32 msg_bytes = max_payload_bytes - remaining;
 
@@ -1033,7 +1033,7 @@ void Transport::WriteACK()
 
 	// Post message:
 
-	AutoMutex lock(_send_lock);
+	AutoMutex lock(_big_lock);
 
 	u32 send_buffer_bytes = _send_buffer_bytes;
 
@@ -1102,7 +1102,7 @@ void Transport::TickTransport(ThreadPoolLocalStorage *tls, u32 now)
 	// Calculate milliseconds before a retransmit occurs
 	u32 retransmit_threshold = 4 * _rtt;
 
-	_send_lock.Enter();
+	_big_lock.Enter();
 
 	// Retransmit lost packets
 	for (int stream = 0; stream < NUM_STREAMS; ++stream)
@@ -1120,7 +1120,7 @@ void Transport::TickTransport(ThreadPoolLocalStorage *tls, u32 now)
 		}
 	}
 
-	_send_lock.Leave();
+	_big_lock.Leave();
 
 	// Implies that send buffer will get flushed at least once every tick period
 	// This allows writers to be lazy about transmission!
@@ -1167,7 +1167,7 @@ void Transport::OnACK(u8 *data, u32 data_bytes)
 
 	//INFO("Transport") << "Got ACK with " << data_bytes << " bytes of data to decode ----";
 
-	AutoMutex lock(_send_lock);
+	AutoMutex lock(_big_lock);
 
 	while (data_bytes > 0)
 	{
@@ -1506,7 +1506,7 @@ bool Transport::WriteReliable(StreamMode stream, u8 msg_opcode, const void *vmsg
 	node_data[0] = msg_opcode;
 	memcpy(node_data+1, msg_data, data_bytes);
 
-	_send_lock.Enter();
+	_big_lock.Enter();
 
 	// Add to back of send queue
 	SendQueue *tail = _send_queue_tail[stream];
@@ -1515,7 +1515,7 @@ bool Transport::WriteReliable(StreamMode stream, u8 msg_opcode, const void *vmsg
 	else _send_queue_head[stream] = node;
 	_send_queue_tail[stream] = node;
 
-	_send_lock.Leave();
+	_big_lock.Leave();
 
 	return true;
 }
@@ -1533,7 +1533,7 @@ void Transport::TransmitQueued()
 	// List of packets to send after done with send lock
 	TempSendNode *packet_send_head = 0, *packet_send_tail = 0;
 
-	AutoMutex lock(_send_lock);
+	AutoMutex lock(_big_lock);
 
 	// Cache send buffer
 	u32 send_buffer_bytes = _send_buffer_bytes;

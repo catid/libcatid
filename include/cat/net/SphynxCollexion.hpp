@@ -607,6 +607,7 @@ void Collexion<T>::Next(CollexionIterator<T> &iter, bool refill)
 	AutoMutex lock(_lock);
 
 	// If hash table changed size (rare),
+	// No ABA problem here since hash table never shrinks
 	if (iter._prev_allocated != _allocated)
 	{
 		// iter._first and iter._last are invalid

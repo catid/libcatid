@@ -68,7 +68,7 @@ void ReportUnexpectedSocketError(int error);
 #include <cat/net/win/TCPClient.hpp>
 #include <cat/net/win/UDPEndpoint.hpp>
 
-#elif defined(CAT_OS_LINUX) // Linux-style eventfd
+#elif defined(CAT_OS_LINUX) // Linux-style epoll
 
 #include <cat/net/linux/TCPServer.hpp>
 #include <cat/net/linux/TCPConnexion.hpp>

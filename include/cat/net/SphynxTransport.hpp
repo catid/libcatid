@@ -37,6 +37,7 @@
 // TODO: vulnerable to resource starvation attacks (out of sequence packets, etc)
 // TODO: flow control
 // TODO: bandwidth detection
+// TODO: move all packet sending outside of locks
 
 namespace cat {
 
@@ -173,14 +174,19 @@ class ServerTimer;
 class Client;
 class Transport;
 
+//#define CAT_SEPARATE_ACK_LOCK /* Use a second mutex to serialize message acknowledgment data */
+
+#if defined(CAT_SEPARATE_ACK_LOCK)
+#define CAT_ACK_LOCK _ack_lock
+#else
+#define CAT_ACK_LOCK _big_lock
+#endif
+
 #if defined(CAT_WORD_32)
 #define CAT_PACK_TRANSPORT_STATE_STRUCTURES /* For 32-bit version, this allows fragments to fit in 32 bytes */
 #else // 64-bit version:
 //#define CAT_PACK_TRANSPORT_STATE_STRUCTURES /* No advantage for 64-bit version */
 #endif
-
-//#define CAT_TRANSPORT_DEBUG_LOGGING /* Enables info messages on console */
-#define CAT_VERBOSE_VALIDATION /* Enables input error messages on console */
 
 // Protocol constants
 static const u32 PROTOCOL_MAGIC = 0xC47D0001;
@@ -399,7 +405,10 @@ protected:
 
 	// Receive state: Synchronization objects
 	volatile bool _got_reliable[NUM_STREAMS];
-	Mutex _recv_lock; // Just needs to protect writes OnDatagram() from messing up reads on tick
+
+#if defined(CAT_SEPARATE_ACK_LOCK)
+	Mutex _ack_lock; // Just needs to protect writes OnDatagram() from messing up reads on tick
+#endif // CAT_SEPARATE_ACK_LOCK
 
 	// Receive state: Fragmentation
 	u8 *_fragment_buffer[NUM_STREAMS]; // Buffer for accumulating fragment
@@ -418,7 +427,7 @@ private:
 
 protected:
 	// Send state: Synchronization objects
-	Mutex _send_lock;
+	Mutex _big_lock;
 
 	// Send state: Next ack id to use
 	u32 _next_send_id[NUM_STREAMS];

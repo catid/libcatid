@@ -31,6 +31,11 @@
 #include <cstring>
 using namespace cat;
 
+// Automatically link with big_x64.obj in MSVC
+#if defined(CAT_USE_LEGS_ASM64) && defined(CAT_COMPILER_MSVC)
+#pragma comment(lib, "lib/cat/big_x64.lib")
+#endif
+
 BigRTL::BigRTL(int regs, int bits)
 {
     library_legs = bits / (8 * sizeof(Leg));
