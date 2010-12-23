@@ -30,7 +30,7 @@
 #include <cat/math/BitMath.hpp>
 using namespace cat;
 
-#if !defined(CAT_NO_LEGPAIR)
+#if !defined(CAT_USE_LEGS_ASM64)
 
 Leg CAT_FASTCALL BigRTL::DivideX(const Leg *in_a, Leg in_b, Leg *out)
 {
@@ -38,9 +38,9 @@ Leg CAT_FASTCALL BigRTL::DivideX(const Leg *in_a, Leg in_b, Leg *out)
 
     for (int leg = library_legs-1; leg >= 0; --leg)
     {
-        LegPair N = ((LegPair)R << CAT_LEG_BITS) | in_a[leg];
-        out[leg] = (Leg)(N / in_b);
-        R = (Leg)(N % in_b);
+		LegPair N = ((LegPair)R << CAT_LEG_BITS) | in_a[leg];
+		out[leg] = (Leg)(N / in_b);
+		R = (Leg)(N % in_b);
     }
 
     return R;
@@ -180,4 +180,5 @@ void CAT_FASTCALL BigRTL::DivideCore(int A_used, Leg A_overflow, Leg *A, int B_u
     } while (offset--);
 }
 
-#endif // CAT_ARCH_32
+
+#endif // !CAT_USE_LEGS_ASM64 and !CAT_NO_LEGPAIR

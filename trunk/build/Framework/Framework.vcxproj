@@ -183,6 +183,7 @@
     <ClCompile Include="..\..\src\net\DNSClient.cpp" />
     <ClCompile Include="..\..\src\Framework.cpp" />
     <ClCompile Include="..\..\src\io\Logging.cpp" />
+    <ClCompile Include="..\..\src\parse\Cson.cpp" />
     <ClCompile Include="..\..\src\parse\MessageRouter.cpp" />
     <ClCompile Include="..\..\src\io\MMapFile.cpp" />
     <ClCompile Include="..\..\src\threads\RegionAllocator.cpp" />
@@ -214,6 +215,7 @@
     <ClInclude Include="..\..\include\cat\net\win\TCPConnexion.hpp" />
     <ClInclude Include="..\..\include\cat\net\win\TCPServer.hpp" />
     <ClInclude Include="..\..\include\cat\net\win\UDPEndpoint.hpp" />
+    <ClInclude Include="..\..\include\cat\parse\Cson.hpp" />
     <ClInclude Include="..\..\include\cat\threads\LocklessFIFO.hpp" />
     <ClInclude Include="..\..\include\cat\threads\RegionAllocator.hpp" />
     <ClInclude Include="..\..\include\cat\threads\ThreadPool.hpp" />
