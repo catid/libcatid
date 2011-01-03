@@ -30,255 +30,135 @@
 #include <cat/port/EndianNeutral.hpp>
 using namespace cat;
 
-#define mmix(h, k) { k *= M; k ^= k >> R; k *= M; h *= M; h ^= k; }
-
-u32 cat::MurmurHash32(const void *key, int bytes, u32 seed)
+CAT_INLINE void bmix64(u64 &h1, u64 &h2, u64 &k1, u64 &k2, u64 &c1, u64 &c2)
 {
-    const u32 M = 0x5bd1e995;
-    const u32 R = 24;
+	k1 *= c1; 
+	k1  = CAT_ROL64(k1, 23); 
+	k1 *= c2;
+	h1 ^= k1;
+	h1 += h2;
 
-    // Mix 4 bytes at a time into the hash
-    const u32 *key32 = (const u32 *)key;
-    const u32 *key32_end = key32 + bytes/sizeof(u32);
-    u32 h = seed;
+	h2 = CAT_ROL64(h2, 41);
 
-    while (key32 != key32_end)
-    {
-        u32 k = getLE(*key32++);
+	k2 *= c2; 
+	k2  = CAT_ROL64(k2, 23);
+	k2 *= c1;
+	h2 ^= k2;
+	h2 += h1;
 
-		mmix(h, k);
-    }
+	h1 = h1 * 3 + 0x52dce729UL;
+	h2 = h2 * 3 + 0x38495ab5UL;
 
-    // Handle the last few bytes of the input array
-    const u8 *key8 = (const u8 *)key32;
-    u32 t = 0;
+	c1 = c1 * 5 + 0x7b7d159cUL;
+	c2 = c2 * 5 + 0x6bce6396UL;
+}
 
-    switch (bytes & 3)
-    {
-    case 3: t ^= (u32)key8[2] << 16;
-    case 2: t ^= (u32)key8[1] << 8;
-    case 1: t ^= key8[0];
-    };
+CAT_INLINE u64 fmix64(u64 k)
+{
+	k ^= k >> 33;
+	k *= 0xff51afd7ed558ccdULL;
+	k ^= k >> 33;
+	k *= 0xc4ceb9fe1a85ec53ULL;
+	k ^= k >> 33;
 
-	mmix(h, t);
+	return k;
+}
 
-	u32 k = bytes;
-	mmix(h, k);
+CAT_INLINE void MurmurHash(const void *key, const int len, const u64 seed, u64 &h1, u64 &h2)
+{
+	h1 = 0x9368e53c2f6af274ULL ^ seed;
+	h2 = 0x586dcd208f7cd3fdULL ^ seed;
 
-    h ^= h >> 13;
-    h *= M;
-    h ^= h >> 15;
+	u64 c1 = 0x87c37b91114253d5ULL, c2 = 0x4cf5ad432745937fULL;
 
-    return h;
+	// body
+
+	const u64 *blocks = (const u64 *)key;
+	const int nblocks = len / 16;
+
+	for (int ii = 0; ii < nblocks; ++ii)
+	{
+		u64 k1 = getLE(blocks[0]), k2 = getLE(blocks[1]);
+
+		bmix64(h1, h2, k1, k2, c1, c2);
+
+		blocks += 2;
+	}
+
+	// tail
+
+	const u8 * tail = (const u8 *)blocks;
+	u64 k1 = 0, k2 = 0;
+
+	switch (len & 15)
+	{
+	case 15: k2 ^= u64(tail[14]) << 48;
+	case 14: k2 ^= u64(tail[13]) << 40;
+	case 13: k2 ^= u64(tail[12]) << 32;
+	case 12: k2 ^= u64(tail[11]) << 24;
+	case 11: k2 ^= u64(tail[10]) << 16;
+	case 10: k2 ^= u64(tail[ 9]) << 8;
+	case  9: k2 ^= u64(tail[ 8]);
+
+#if defined(CAT_NEED_ALIGNED_READS)
+	case  8: k1 ^= u64(tail[ 7]) << 56;
+	case  7: k1 ^= u64(tail[ 6]) << 48;
+	case  6: k1 ^= u64(tail[ 5]) << 40;
+	case  5: k1 ^= u64(tail[ 4]) << 32;
+	case  4: k1 ^= u64(tail[ 3]) << 24;
+#else
+	case  8:
+		k1 = getLE(blocks[0]);
+		bmix64(h1, h2, k1, k2, c1, c2);
+		break;
+
+	case  7: k1 ^= u64(tail[ 6]) << 48;
+	case  6: k1 ^= u64(tail[ 5]) << 40;
+	case  5: k1 ^= u64(tail[ 4]) << 32;
+	case  4:
+		k1 ^= getLE(*(u32*)blocks);
+		bmix64(h1, h2, k1, k2, c1, c2);
+		break;
+#endif
+	case  3: k1 ^= u64(tail[ 2]) << 16;
+	case  2: k1 ^= u64(tail[ 1]) << 8;
+	case  1: k1 ^= u64(tail[ 0]);
+		bmix64(h1, h2, k1, k2, c1, c2);
+	};
+
+	// finalize
+
+	h2 ^= len;
+
+	h1 += h2;
+	h2 += h1;
+
+	h1 = fmix64(h1);
+	h2 = fmix64(h2);
+
+	h1 += h2;
+	h2 += h1;
+}
+
+u32 cat::MurmurHash32(const void *key, int bytes, u64 seed)
+{
+	u64 h1, h2;
+
+	MurmurHash(key, bytes, seed, h1, h2);
+
+	return (u32)h1;
 }
 
 u64 cat::MurmurHash64(const void *key, int bytes, u64 seed)
 {
-    const u64 M = 0xc6a4a7935bd1e995ULL;
-    const u64 R = 47;
+	u64 h1, h2;
 
-    // Mix 8 bytes at a time into the hash
-    const u64 *key64 = (const u64 *)key;
-    const u64 *key64_end = key64 + bytes/sizeof(u64);
-    u64 h = seed;
+	MurmurHash(key, bytes, seed, h1, h2);
 
-    while (key64 != key64_end)
-    {
-        u64 k = getLE(*key64++);
-
-		mmix(h, k);
-    }
-
-    // Handle the last few bytes of the input array
-    const u8 *key8 = (const u8 *)key64;
-	u64 t = 0;
-
-    switch (bytes & 7)
-    {
-    case 7: t ^= (u64)key8[6] << 48;
-    case 6: t ^= (u64)key8[5] << 40;
-    case 5: t ^= (u64)key8[4] << 32;
-    case 4: t ^= getLE(*(u32*)key8);
-            break;
-    case 3: t ^= (u64)key8[2] << 16;
-    case 2: t ^= (u64)key8[1] << 8;
-    case 1: t ^= key8[0];
-    };
-
-	mmix(h, t);
-
-	u64 k = bytes;
-	mmix(h, k);
-
-    h ^= h >> R;
-    h *= M;
-    h ^= h >> R;
-
-    return h;
+	return h1;
 }
 
-
-//// 32-bit incremental Murmur hash
-
-void IncrementalMurmurHash32::Begin(u32 seed)
+void cat::MurmurHash128(const void *key, int bytes, u64 seed, u64 &h1, u64 &h2)
 {
-	_hash = seed;
-	_tail = 0;
-	_size = 0;
-	_count = 0;
-}
-
-void IncrementalMurmurHash32::Add(const void *data, int bytes)
-{
-	// If there is no input, abort
-	if (!bytes) return;
-
-	// Accumulate size of input
-	_size += bytes;
-
-	// Prepare to walk the data one byte at a time
-	const u8 *key8 = (const u8 *)data;
-
-	// If there is any data left over from last Add(),
-	if (_count)
-	{
-		// Accumulate new data into _tail (little-endian)
-		do _tail = (_tail >> 8) | (*key8++ << 24);
-		while (++_count < 4 && --bytes > 0);
-
-		// If a full word has been accumulated,
-		if (_count == 4)
-		{
-			// Mix it in
-			u32 k = _tail;
-			mmix(_hash, k);
-
-			// Reset accumulator state
-			_tail = 0;
-			_count = 0;
-		}
-
-		// If no more data is left, abort
-		if (!bytes) return;
-	}
-
-    // Mix 4 bytes at a time into the hash
-    const u32 *key32 = (const u32 *)key8;
-    const u32 *key32_end = key32 + bytes/sizeof(u32);
-
-    while (key32 != key32_end)
-    {
-        u32 k = getLE(*key32++);
-
-		mmix(_hash, k);
-    }
-
-    // Handle the last few bytes of the input array
-	key8 = (const u8 *)key32_end;
-	bytes &= 3;
-	_count = bytes;
-
-	// If any data is left over, accumulate it into _tail (little-endian)
-	while (bytes--) _tail = (_tail >> 8) | (*key8++ << 24);
-}
-
-u32 IncrementalMurmurHash32::End()
-{
-	// Mix in any data that didn't fit
-	u32 k1 = _tail;
-	mmix(_hash, k1);
-
-	// Mix in the overall size of the data
-	u32 k2 = _size;
-	mmix(_hash, k2);
-
-	// Final mix
-    _hash ^= _hash >> 13;
-    _hash *= M;
-    _hash ^= _hash >> 15;
-
-    return _hash;
-}
-
-
-//// 64-bit incremental Murmur hash
-
-void IncrementalMurmurHash64::Begin(u64 seed)
-{
-	_hash = seed;
-	_tail = 0;
-	_size = 0;
-	_count = 0;
-}
-
-void IncrementalMurmurHash64::Add(const void *data, int bytes)
-{
-	// If there is no input, abort
-	if (!bytes) return;
-
-	// Accumulate size of input
-	_size += bytes;
-
-	// Prepare to walk the data one byte at a time
-	const u8 *key8 = (const u8 *)data;
-
-	// If there is any data left over from last Add(),
-	if (_count)
-	{
-		// Accumulate new data into _tail (little-endian)
-		do _tail = (_tail >> 8) | ((u64)*key8++ << 56);
-		while (++_count < 8 && --bytes > 0);
-
-		// If a full word has been accumulated,
-		if (_count == 8)
-		{
-			// Mix it in
-			u64 k = _tail;
-			mmix(_hash, k);
-
-			// Reset accumulator state
-			_tail = 0;
-			_count = 0;
-		}
-
-		// If no more data is left, abort
-		if (!bytes) return;
-	}
-
-    // Mix 4 bytes at a time into the hash
-    const u64 *key64 = (const u64 *)key8;
-    const u64 *key64_end = key64 + bytes/sizeof(u64);
-
-    while (key64 != key64_end)
-    {
-        u64 k = getLE(*key64++);
-
-		mmix(_hash, k);
-    }
-
-    // Handle the last few bytes of the input array
-	key8 = (const u8 *)key64_end;
-	bytes &= 7;
-	_count = bytes;
-
-	// If any data is left over, accumulate it into _tail (little-endian)
-	while (bytes--) _tail = (_tail >> 8) | ((u64)*key8++ << 56);
-}
-
-u64 IncrementalMurmurHash64::End()
-{
-	// Mix in any data that didn't fit
-	u64 k1 = _tail;
-	mmix(_hash, k1);
-
-	// Mix in the overall size of the data
-	u64 k2 = _size;
-	mmix(_hash, k2);
-
-	// Final mix
-    _hash ^= _hash >> R;
-    _hash *= M;
-    _hash ^= _hash >> R;
-
-    return _hash;
+	MurmurHash(key, bytes, seed, h1, h2);
 }

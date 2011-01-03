@@ -265,6 +265,13 @@ namespace cat {
 #endif
 
 
+//// Memory Access Alignment ////
+
+#if !defined(CAT_ISA_PPC) && !defined(CAT_ISA_X86)
+# define CAT_NEED_ALIGNED_READS
+#endif
+
+
 //// Endianness ////
 
 // Okay -- Technically IA64 and PPC can switch endianness with an MSR bit
