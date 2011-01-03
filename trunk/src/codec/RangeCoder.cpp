@@ -27,7 +27,7 @@
 */
 
 #include <cat/codec/RangeCoder.hpp>
-#include <cat/hash/MurmurHash2.hpp>
+#include <cat/hash/Murmur.hpp>
 #include <cat/port/EndianNeutral.hpp>
 #include <cmath>
 #include <cstring>

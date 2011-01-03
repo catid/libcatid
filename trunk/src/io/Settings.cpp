@@ -31,7 +31,7 @@
 #include <cat/io/MMapFile.hpp>
 #include <cat/io/Logging.hpp>
 #include <cstring>
-#include <cat/hash/MurmurHash2.hpp>
+#include <cat/hash/Murmur.hpp>
 using namespace cat;
 using namespace std;
 

@@ -33,7 +33,7 @@
 #include <cat/io/Settings.hpp>
 #include <cat/io/Base64.hpp>
 #include <cat/time/Clock.hpp>
-#include <cat/hash/MurmurHash2.hpp>
+#include <cat/hash/Murmur.hpp>
 #include <cat/crypt/SecureCompare.hpp>
 #include <cat/crypt/tunnel/KeyMaker.hpp>
 #include <fstream>
