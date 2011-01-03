@@ -29,15 +29,10 @@
 #include <cat/math/BigBinaryExtension.hpp>
 using namespace cat;
 
-void CAT_FASTCALL BigBinaryExtension::Add(int legs, const Leg *in_a, const Leg *in_b, Leg *out)
-{
-	for (int ii = 0; ii < legs; ++ii)
-	{
-		out[ii] = in_a[ii] ^ in_b[ii];
-	}
-}
 
-void CAT_FASTCALL BigBinaryExtension::Multiply(int legs, const Leg *in_a, const Leg *in_b, Leg *out)
-{
+// Strangely enough, including these all in the same source file improves performance
+// in Visual Studio by almost 50%, which is odd because MSVC was one of the first
+// compilers to support "link time optimization."
 
-}
+#include "binext/addsub/BinAdd.cpp"
+#include "binext/mul/BinMultiply.cpp"

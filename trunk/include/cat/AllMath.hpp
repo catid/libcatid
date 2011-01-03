@@ -34,3 +34,4 @@
 #include <cat/math/BigMontgomery.hpp>
 #include <cat/math/BigPseudoMersenne.hpp>
 #include <cat/math/BigTwistedEdwards.hpp>
+#include <cat/math/BigBinaryExtension.hpp>

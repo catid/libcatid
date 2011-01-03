@@ -26,14 +26,10 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/math/BigMontgomery.hpp>
+#include <cat/math/BigBinaryExtension.hpp>
 using namespace cat;
 
-void BigMontgomery::MonMultiply(const Leg *in_a, const Leg *in_b, Leg *out)
+void CAT_FASTCALL BigBinaryExtension::Multiply(int legs, const Leg *in_a, const Leg *in_b, Leg *out)
 {
-	// Perform normal multiplication
-	Multiply(in_a, in_b, TempProduct);
-
-	// Followed by Montgomery reduction
-	MonReduceProduct(TempProduct, out);
+	// TODO
 }
