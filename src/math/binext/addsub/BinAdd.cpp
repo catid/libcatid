@@ -26,19 +26,13 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/math/BigMontgomery.hpp>
+#include <cat/math/BigBinaryExtension.hpp>
 using namespace cat;
 
-void BigMontgomery::MonAdd(const Leg *in_a, const Leg *in_b, Leg *out)
+void CAT_FASTCALL BigBinaryExtension::Add(int legs, const Leg *in_a, const Leg *in_b, Leg *out)
 {
-    // If the addition overflowed, subtract modulus
-    if (Add(in_a, in_b, out))
-        while (Subtract(out, CachedModulus, out));
-}
-
-void BigMontgomery::MonDouble(const Leg *in, Leg *out)
-{
-    // If the doubling overflowed, subtract modulus
-    if (Double(in, out))
-        while (Subtract(out, CachedModulus, out));
+	for (int ii = 0; ii < legs; ++ii)
+	{
+		out[ii] = in_a[ii] ^ in_b[ii];
+	}
 }

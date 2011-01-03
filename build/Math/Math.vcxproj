@@ -243,11 +243,11 @@
     <None Include="..\..\src\math\big_x64_mscoff.asm" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\src\math\BigBinaryExtension.cpp" />
     <ClCompile Include="..\..\src\math\BigMontgomery.cpp" />
     <ClCompile Include="..\..\src\math\BigPseudoMersenne.cpp" />
     <ClCompile Include="..\..\src\math\BigRTL.cpp" />
     <ClCompile Include="..\..\src\math\BigTwistedEdwards.cpp" />
-    <ClCompile Include="..\..\src\math\binext\BigBinaryExtension.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\cat\AllMath.hpp" />
