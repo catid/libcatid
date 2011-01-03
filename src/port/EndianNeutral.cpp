@@ -33,7 +33,7 @@ using namespace cat;
 
 RuntimeEndianDetector Endianness::detector;
 
-static u8 endian_detection_array[4] = {1, 2, 3, 4};
+static u8 endian_detection_array[4] CAT_ALIGNED(4) = {1, 2, 3, 4};
 
 RuntimeEndianDetector::RuntimeEndianDetector()
 {
