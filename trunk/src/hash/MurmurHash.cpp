@@ -26,7 +26,7 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/hash/MurmurHash2.hpp>
+#include <cat/hash/MurmurHash.hpp>
 #include <cat/port/EndianNeutral.hpp>
 using namespace cat;
 
