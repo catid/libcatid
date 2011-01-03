@@ -29,7 +29,7 @@
 #include <cat/db/BombayTableIndex.hpp>
 #include <cat/port/AlignedAlloc.hpp>
 #include <cat/io/Logging.hpp>
-#include <cat/hash/MurmurHash2.hpp>
+#include <cat/hash/Murmur.hpp>
 using namespace cat;
 using namespace bombay;
 

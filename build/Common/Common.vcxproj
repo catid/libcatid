@@ -159,7 +159,7 @@
     <ClCompile Include="..\..\src\time\Clock.cpp" />
     <ClCompile Include="..\..\src\port\EndianNeutral.cpp" />
     <ClCompile Include="..\..\src\rand\MersenneTwister.cpp" />
-    <ClCompile Include="..\..\src\hash\MurmurHash.cpp" />
+    <ClCompile Include="..\..\src\hash\Murmur.cpp" />
     <ClCompile Include="..\..\src\threads\Mutex.cpp" />
     <ClCompile Include="..\..\src\threads\RWLock.cpp" />
     <ClCompile Include="..\..\src\rand\StdRand.cpp" />
@@ -176,7 +176,7 @@
     <ClInclude Include="..\..\include\cat\rand\IRandom.hpp" />
     <ClInclude Include="..\..\include\cat\rand\MersenneTwister.hpp" />
     <ClInclude Include="..\..\include\cat\rand\StdRand.hpp" />
-    <ClInclude Include="..\..\include\cat\hash\MurmurHash.hpp" />
+    <ClInclude Include="..\..\include\cat\hash\Murmur.hpp" />
     <ClInclude Include="..\..\include\cat\threads\Atomic.hpp" />
     <ClInclude Include="..\..\include\cat\threads\Mutex.hpp" />
     <ClInclude Include="..\..\include\cat\threads\RWLock.hpp" />

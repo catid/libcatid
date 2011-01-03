@@ -34,7 +34,7 @@
 #include <cat/rand/MersenneTwister.hpp>
 #include <cat/rand/StdRand.hpp>
 
-#include <cat/hash/MurmurHash2.hpp>
+#include <cat/hash/Murmur.hpp>
 
 #include <cat/threads/Atomic.hpp>
 #include <cat/threads/Mutex.hpp>
