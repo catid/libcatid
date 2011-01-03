@@ -144,8 +144,8 @@
       <LinkLibraryDependencies>true</LinkLibraryDependencies>
     </ProjectReference>
     <Lib>
-      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>big_x64.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>../../lib/cat;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -234,8 +234,8 @@
       <LinkLibraryDependencies>true</LinkLibraryDependencies>
     </ProjectReference>
     <Lib>
-      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>big_x64.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>../../lib/cat;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -247,10 +247,12 @@
     <ClCompile Include="..\..\src\math\BigPseudoMersenne.cpp" />
     <ClCompile Include="..\..\src\math\BigRTL.cpp" />
     <ClCompile Include="..\..\src\math\BigTwistedEdwards.cpp" />
+    <ClCompile Include="..\..\src\math\binext\BigBinaryExtension.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\cat\AllMath.hpp" />
     <ClInclude Include="..\..\include\cat\asm\big_x64_asm.hpp" />
+    <ClInclude Include="..\..\include\cat\math\BigBinaryExtension.hpp" />
     <ClInclude Include="..\..\include\cat\math\BigMontgomery.hpp" />
     <ClInclude Include="..\..\include\cat\math\BigPseudoMersenne.hpp" />
     <ClInclude Include="..\..\include\cat\math\BigRTL.hpp" />

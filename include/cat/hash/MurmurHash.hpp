@@ -27,10 +27,10 @@
 */
 
 /*
-    MurmurHash2 is a very fast noncryptographic 32/64-bit hash
+    MurmurHash3 is a very fast noncryptographic 32/64-bit hash
 
     Algorithm by Austin Appleby <aappleby@gmail.com>
-    http://murmurhash.googlepages.com/
+    http://code.google.com/p/smhasher/wiki/MurmurHash3
 */
 
 #ifndef CAT_MURMUR_HASH_2_HPP
