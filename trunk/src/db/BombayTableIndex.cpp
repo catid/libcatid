@@ -174,7 +174,7 @@ void TableIndex::Save()
 
 	// Write footer
 	_table[_table_elements << 1] = _used_elements;
-	_table[(_table_elements << 1) + 1] = MurmurHash64(_table, _table_raw_bytes - 8, TABLE_CHECK_HASH_SALT);
+	_table[(_table_elements << 1) + 1] = MurmurHash(_table, _table_raw_bytes - 8, TABLE_CHECK_HASH_SALT).Get64();
 
 	if (!Write(buffer, 0))
 	{
@@ -247,7 +247,7 @@ bool TableIndex::OnRead(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buf
 	// Read footer
 	_used_elements = (u32)_table[_table_elements << 1];
 
-	if (_table[(_table_elements << 1) + 1] != MurmurHash64(_table, _table_raw_bytes - 8, TABLE_CHECK_HASH_SALT))
+	if (_table[(_table_elements << 1) + 1] != MurmurHash(_table, _table_raw_bytes - 8, TABLE_CHECK_HASH_SALT).Get64())
 	{
 		WARN("TableIndex") << "Table index for " << _file_path << " was corrupted.  Regenerating index..";
 

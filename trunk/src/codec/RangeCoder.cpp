@@ -212,7 +212,7 @@ bool TextStatsCollector::GenerateMinimalStaticTable(const char *TableName, std::
     // Write header
     table->total = total;
     table->log2total = (u16)(std::log((double)total)/std::log((double)2) * 32768.0f / 8.0f);
-    table->hash = MurmurHash32(output + 4, bytes - 4, 0);
+    table->hash = MurmurHash(output + 4, bytes - 4).Get32();
 
     // Convert it to C code
     osout << "// To include this table, do something like this:" << endl;
@@ -258,7 +258,7 @@ bool TextStatsCollector::VerifyTableIntegrity(const TableFormat *table)
     u32 total = table->total;
     u32 bytes = STATIC_TABLE_BYTES(total);
 
-    if (MurmurHash32(&table->total, bytes - 4, 0) != table->hash)
+    if (MurmurHash(&table->total, bytes - 4).Get32() != table->hash)
         return false;
 
     if (table->total > 256)

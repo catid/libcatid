@@ -562,7 +562,7 @@ void Client::OnInternal(ThreadPoolLocalStorage *tls, BufferStream data, u32 byte
 		{
 			u16 max_payload_bytes = getLE(*reinterpret_cast<u16*>( data + 1 ));
 
-			//WARN("Client") << "Got IOP_S2C_MTU_SET.  Max payload bytes = " << max_payload_bytes;
+			WARN("Client") << "Got IOP_S2C_MTU_SET.  Max payload bytes = " << max_payload_bytes;
 
 			// If new maximum payload is greater than the previous one,
 			if (max_payload_bytes > _max_payload_bytes)
@@ -597,7 +597,7 @@ void Client::OnInternal(ThreadPoolLocalStorage *tls, BufferStream data, u32 byte
 	case IOP_DISCO:
 		if (bytes == IOP_DISCO_LEN)
 		{
-			//WARN("Client") << "Got IOP_DISCO reason = " << (int)data[1];
+			WARN("Client") << "Got IOP_DISCO reason = " << (int)data[1];
 
 			Disconnect(data[1], false);
 		}
