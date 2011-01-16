@@ -86,7 +86,7 @@ Settings::Settings()
 
 SettingsKey *Settings::addKey(const char *name)
 {
-	u32 treekey = MurmurHash32(name, (int)strlen(name)+1, KEY_HASH_SALT) % SETTINGS_HASH_BINS;
+	u32 treekey = MurmurHash(name, (int)strlen(name)+1, KEY_HASH_SALT).Get32() % SETTINGS_HASH_BINS;
     SettingsKey *key = hbtrees[treekey];
 
     if (!key)
@@ -116,7 +116,7 @@ SettingsKey *Settings::addKey(const char *name)
 
 SettingsKey *Settings::getKey(const char *name)
 {
-	u32 treekey = MurmurHash32(name, (int)strlen(name)+1, KEY_HASH_SALT) % SETTINGS_HASH_BINS;
+	u32 treekey = MurmurHash(name, (int)strlen(name)+1, KEY_HASH_SALT).Get32() % SETTINGS_HASH_BINS;
     SettingsKey *key = hbtrees[treekey];
 
     while (key)

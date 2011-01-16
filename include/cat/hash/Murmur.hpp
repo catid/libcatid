@@ -27,7 +27,7 @@
 */
 
 /*
-    MurmurHash3 is a very fast noncryptographic 32/64-bit hash
+    MurmurHash3 is a very fast noncryptographic 128-bit hash
 
     Algorithm by Austin Appleby <aappleby@gmail.com>
     http://code.google.com/p/smhasher/wiki/MurmurHash3
@@ -41,10 +41,43 @@
 namespace cat {
 
 
-// NOTE: Result is NOT endian-neutral.  Use getLE().
-u32 MurmurHash32(const void *key, int bytes, u64 seed);
-u64 MurmurHash64(const void *key, int bytes, u64 seed);
-void MurmurHash128(const void *key, int bytes, u64 seed, u64 &h1, u64 &h2);
+class MurmurHash
+{
+protected:
+	u64 _c1, _c2, _h1, _h2, _bytes;
+
+public:
+	// Incremental hash interface
+	MurmurHash(u64 seed = 0);
+	void Add(const void *key, u64 bytes);
+	void Finalize();
+
+public:
+	// One-shot hash interface
+	MurmurHash(const void *key, u64 bytes, u64 seed = 0);
+
+public:
+	// Generate 128-bit hash
+	CAT_INLINE void Get128(u64 &h1, u64 &h2)
+	{
+		h1 = _h1;
+		h2 = _h2;
+	}
+
+	// Generate 64-bit hash
+	CAT_INLINE u64 Get64()
+	{
+		return _h1;
+	}
+
+	// Generate 32-bit hash
+	CAT_INLINE u32 Get32()
+	{
+		return (u32)_h1;
+	}
+};
+
+
 
 
 } // namespace cat

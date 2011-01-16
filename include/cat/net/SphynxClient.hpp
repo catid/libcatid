@@ -84,7 +84,7 @@ protected:
 	bool IsConnected() { return _connected; }
 
 	virtual void OnClose() = 0;
-	virtual void OnConnectFail(HandshakeError err) = 0;
+	virtual void OnConnectFail(sphynx::HandshakeError err) = 0;
 	virtual void OnConnect(ThreadPoolLocalStorage *tls) = 0;
 	virtual void OnTimestampDeltaUpdate(u32 rtt, s32 delta) {}
 	virtual void OnMessage(ThreadPoolLocalStorage *tls, BufferStream msg, u32 bytes) = 0;

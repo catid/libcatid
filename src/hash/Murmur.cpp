@@ -30,7 +30,16 @@
 #include <cat/port/EndianNeutral.hpp>
 using namespace cat;
 
-CAT_INLINE void bmix64(u64 &h1, u64 &h2, u64 &k1, u64 &k2, u64 &c1, u64 &c2)
+static CAT_INLINE void Seed(const u64 seed, u64 &c1, u64 &c2, u64 &h1, u64 &h2)
+{
+	h1 = 0x9368e53c2f6af274ULL ^ seed;
+	h2 = 0x586dcd208f7cd3fdULL ^ seed;
+
+	c1 = 0x87c37b91114253d5ULL;
+	c2 = 0x4cf5ad432745937fULL;
+}
+
+static CAT_INLINE void bmix64(u64 &h1, u64 &h2, u64 &k1, u64 &k2, u64 &c1, u64 &c2)
 {
 	k1 *= c1; 
 	k1  = CAT_ROL64(k1, 23); 
@@ -53,7 +62,7 @@ CAT_INLINE void bmix64(u64 &h1, u64 &h2, u64 &k1, u64 &k2, u64 &c1, u64 &c2)
 	c2 = c2 * 5 + 0x6bce6396UL;
 }
 
-CAT_INLINE u64 fmix64(u64 k)
+static CAT_INLINE u64 fmix64(u64 k)
 {
 	k ^= k >> 33;
 	k *= 0xff51afd7ed558ccdULL;
@@ -64,19 +73,14 @@ CAT_INLINE u64 fmix64(u64 k)
 	return k;
 }
 
-CAT_INLINE void MurmurHash(const void *key, const int len, const u64 seed, u64 &h1, u64 &h2)
+static CAT_INLINE void Hash(const void *key, const u64 bytes, u64 &c1, u64 &c2, u64 &h1, u64 &h2)
 {
-	h1 = 0x9368e53c2f6af274ULL ^ seed;
-	h2 = 0x586dcd208f7cd3fdULL ^ seed;
-
-	u64 c1 = 0x87c37b91114253d5ULL, c2 = 0x4cf5ad432745937fULL;
-
 	// body
 
 	const u64 *blocks = (const u64 *)key;
-	const int nblocks = len / 16;
+	u64 nblocks = bytes / 16;
 
-	for (int ii = 0; ii < nblocks; ++ii)
+	while (nblocks--)
 	{
 		u64 k1 = getLE(blocks[0]), k2 = getLE(blocks[1]);
 
@@ -87,10 +91,10 @@ CAT_INLINE void MurmurHash(const void *key, const int len, const u64 seed, u64 &
 
 	// tail
 
-	const u8 * tail = (const u8 *)blocks;
+	const u8 *tail = (const u8 *)blocks;
 	u64 k1 = 0, k2 = 0;
 
-	switch (len & 15)
+	switch (bytes & 15)
 	{
 	case 15: k2 ^= u64(tail[14]) << 48;
 	case 14: k2 ^= u64(tail[13]) << 40;
@@ -125,11 +129,14 @@ CAT_INLINE void MurmurHash(const void *key, const int len, const u64 seed, u64 &
 	case  1: k1 ^= u64(tail[ 0]);
 		bmix64(h1, h2, k1, k2, c1, c2);
 	};
+}
 
-	// finalize
+static CAT_INLINE void FinalMix(const u64 bytes, u64 &h1, u64 &h2)
+{
+	// Mix in number of bytes in key
+	h2 ^= bytes;
 
-	h2 ^= len;
-
+	// Mix together h1, h2
 	h1 += h2;
 	h2 += h1;
 
@@ -140,25 +147,33 @@ CAT_INLINE void MurmurHash(const void *key, const int len, const u64 seed, u64 &
 	h2 += h1;
 }
 
-u32 cat::MurmurHash32(const void *key, int bytes, u64 seed)
+
+// Incremental hash interface
+MurmurHash::MurmurHash(u64 seed)
 {
-	u64 h1, h2;
+	Seed(seed, _c1, _c2, _h1, _h2);
 
-	MurmurHash(key, bytes, seed, h1, h2);
-
-	return (u32)h1;
+	_bytes = 0;
 }
 
-u64 cat::MurmurHash64(const void *key, int bytes, u64 seed)
+void MurmurHash::Add(const void *key, u64 bytes)
 {
-	u64 h1, h2;
+	Hash(key, bytes, _c1, _c2, _h1, _h2);
 
-	MurmurHash(key, bytes, seed, h1, h2);
-
-	return h1;
+	_bytes += bytes;
 }
 
-void cat::MurmurHash128(const void *key, int bytes, u64 seed, u64 &h1, u64 &h2)
+void MurmurHash::Finalize()
 {
-	MurmurHash(key, bytes, seed, h1, h2);
+	FinalMix(_bytes, _h1, _h2);
+}
+
+// One-shot hash interface
+MurmurHash::MurmurHash(const void *key, u64 bytes, u64 seed)
+{
+	Seed(seed, _c1, _c2, _h1, _h2);
+
+	Hash(key, bytes, _c1, _c2, _h1, _h2);
+
+	FinalMix(bytes, _h1, _h2);
 }

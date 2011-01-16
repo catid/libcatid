@@ -51,7 +51,7 @@ static CAT_INLINE u32 hash_addr_iponly(const NetAddr &addr, u32 salt)
 	{
 		// Hash first 64 bits of 128-bit address to 32 bits
 		// Right now the last 64 is easy to change if you actually have an IPv6 address
-		key = MurmurHash32(addr.GetIP6(), (addr.CanDemoteTo4() ? NetAddr::IP6_BYTES : NetAddr::IP6_BYTES/2), salt);
+		key = MurmurHash(addr.GetIP6(), (addr.CanDemoteTo4() ? NetAddr::IP6_BYTES : NetAddr::IP6_BYTES/2), salt).Get32();
 	}
 	else // assuming IPv4 and address is not invalid
 	{

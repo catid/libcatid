@@ -9,20 +9,25 @@ public:
 	{
 		WARN("Connexion") << "-- CONNECTED";
 	}
-	virtual void OnDestroy()
+
+	virtual void OnDisconnect(u8 reason)
 	{
-		WARN("Connexion") << "-- DESTROYED";
+		WARN("Connexion") << "-- DISCONNECTED REASON " << (int)reason;
 	}
-	virtual void OnDisconnect()
+
+	virtual void OnTick(ThreadPoolLocalStorage *tls, u32 now)
 	{
-		WARN("Connexion") << "-- DISCONNECTED";
+		WARN("Connexion") << "-- TICK " << now;
 	}
+
 	virtual void OnMessage(ThreadPoolLocalStorage *tls, BufferStream msg, u32 bytes)
 	{
 		WARN("Connexion") << "Got message with " << bytes << " bytes";
 	}
-	virtual void OnTick(ThreadPoolLocalStorage *tls, u32 now)
+
+	virtual void OnDestroy()
 	{
+		WARN("Connexion") << "-- DESTROYED";
 	}
 };
 

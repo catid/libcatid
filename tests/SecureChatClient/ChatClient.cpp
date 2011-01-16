@@ -8,30 +8,31 @@ class GameClient : public sphynx::Client
 public:
 	virtual void OnClose()
 	{
-		WARN("GameClient") << "-- SOCKET CLOSED";
+		WARN("Connexion") << "-- CLOSED";
 	}
-	virtual void OnConnectFail()
+
+	virtual void OnConnectFail(sphynx::HandshakeError err)
 	{
-		WARN("GameClient") << "-- CONNECT FAIL";
+		WARN("Connexion") << "-- CONNECT FAIL ERROR " << sphynx::GetHandshakeErrorString(err);
 	}
+
 	virtual void OnConnect(ThreadPoolLocalStorage *tls)
 	{
-		WARN("GameClient") << "-- CONNECTED";
+		WARN("Connexion") << "-- CONNECTED";
 	}
-	virtual void OnDisconnect()
-	{
-		WARN("GameClient") << "-- DISCONNECTED";
-	}
-	virtual void OnTimestampDeltaUpdate(u32 rtt, s32 delta)
-	{
-		WARN("GameClient") << "Got timestamp delta update rtt=" << rtt << " delta=" << delta;
-	}
+
 	virtual void OnMessage(ThreadPoolLocalStorage *tls, BufferStream msg, u32 bytes)
 	{
-		WARN("GameClient") << "Got message with " << bytes << " bytes";
+		WARN("Connexion") << "Got message with " << bytes << " bytes";
+	}
+
+	virtual void OnDisconnect(u8 reason)
+	{
+		WARN("Connexion") << "-- DISCONNECTED REASON " << (int)reason;
 	}
 	virtual void OnTick(ThreadPoolLocalStorage *tls, u32 now)
 	{
+		WARN("Connexion") << "-- TICK " << now;
 	}
 };
 
