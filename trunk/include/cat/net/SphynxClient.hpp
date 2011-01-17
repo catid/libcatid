@@ -33,6 +33,7 @@
 #include <cat/crypt/tunnel/KeyAgreementInitiator.hpp>
 #include <cat/threads/Thread.hpp>
 #include <cat/threads/WaitableFlag.hpp>
+#include <cat/time/Clock.hpp>
 
 namespace cat {
 
@@ -47,8 +48,8 @@ class Client : Thread, public UDPEndpoint, public Transport
 	static const int HANDSHAKE_TICK_RATE = 100; // milliseconds
 	static const int INITIAL_HELLO_POST_INTERVAL = 200; // milliseconds
 	static const int CONNECT_TIMEOUT = 6000; // milliseconds
-	static const u32 MTU_PROBE_INTERVAL = 8000; // 8 seconds
-	static const int CLIENT_THREAD_KILL_TIMEOUT = 10000; // 10 seconds
+	static const u32 MTU_PROBE_INTERVAL = 8000; // seconds
+	static const int CLIENT_THREAD_KILL_TIMEOUT = 10000; // seconds
 
 	static const int SESSION_KEY_BYTES = 32;
 	char _session_key[SESSION_KEY_BYTES];
@@ -58,6 +59,23 @@ class Client : Thread, public UDPEndpoint, public Transport
 	u8 _cached_challenge[CHALLENGE_BYTES];
 
 	WaitableFlag _kill_flag;
+
+private:
+	// Clock Synchronization
+
+	static const int TIME_SYNC_INTERVAL = 10000; // Normal time synch interval, milliseconds
+	static const int TIME_SYNC_FAST_COUNT = 8; // Number of fast measurements at the start, milliseconds
+	static const int TIME_SYNC_FAST = 5000; // Interval during fast measurements, milliseconds
+	static const int MAX_TS_SAMPLES = 16; // Maximum timestamp sample memory
+	static const int MIN_TS_SAMPLES = 1; // Minimum number of timestamp samples
+
+	struct TimesPingSample {
+		u32 rtt;
+		s32 delta;
+	} _ts_samples[MAX_TS_SAMPLES];
+	u32 _ts_sample_count, _ts_next_index, _ts_delta;
+
+	void UpdateTimeSynch(u32 rtt, s32 delta);
 
 protected:
 	u32 _last_send_mstsc;
@@ -80,13 +98,26 @@ public:
 
 	void Disconnect(u8 reason, bool notify);
 
+public:
+	// Current local time
+	CAT_INLINE u32 GetLocalTime() { return Clock::msec(); }
+
+	// Convert from local time to server time
+	CAT_INLINE u32 ToServerTime(u32 local_time) { return local_time + _ts_delta; }
+
+	// Convert from server time to local time
+	CAT_INLINE u32 FromServerTime(u32 server_time) { return server_time - _ts_delta; }
+
+	// Current server time
+	CAT_INLINE u32 GetServerTime() { return ToServerTime(GetLocalTime()); }
+
 protected:
 	bool IsConnected() { return _connected; }
 
 	virtual void OnClose() = 0;
 	virtual void OnConnectFail(sphynx::HandshakeError err) = 0;
 	virtual void OnConnect(ThreadPoolLocalStorage *tls) = 0;
-	virtual void OnTimestampDeltaUpdate(u32 rtt, s32 delta) {}
+	virtual void OnTimestampDeltaUpdate() {}
 	virtual void OnMessage(ThreadPoolLocalStorage *tls, BufferStream msg, u32 bytes) = 0;
 	virtual void OnDisconnect(u8 reason) = 0;
 	virtual void OnTick(ThreadPoolLocalStorage *tls, u32 now) = 0;

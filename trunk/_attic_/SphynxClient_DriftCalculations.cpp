@@ -51,7 +51,10 @@ Client::Client()
 	_destroyed = 0;
 
 	// Clock synchronization
+	_ts_base = 0;
 	_ts_next_index = 0;
+	_ts_B0 = 0.;
+	_ts_B1 = 0;
 	_ts_sample_count = 0;
 }
 
@@ -586,13 +589,30 @@ void Client::OnInternal(ThreadPoolLocalStorage *tls, BufferStream data, u32 byte
 			u32 server_ping_recv_time = getLE(timestamps[1]);
 			u32 rtt = client_now - client_ping_send_time;
 
+			u32 expected_test = ToServerTime(client_now, client_now - (rtt / 2));
+
+			WARN("Client") << "Got IOP_S2C_TIME_PONG.  server_ping_recv_time=" << server_ping_recv_time << " Expected=" << expected_test;
+
+			if (_ts_sample_count > 0)
+			{
+				ostringstream oss;
+				oss << "timedata";
+				oss << GetPort();
+				oss << ".csv";
+				ofstream file(oss.str(), ios::app);
+
+				u32 delta = ToServerTime(client_now, 0);
+
+				file << server_ping_recv_time << ", " << expected_test << ", " << rtt << ", " << delta << ", " << _ts_delta_test1 << ", " << _ts_delta_test2 << endl;
+			}
+
 			// If RTT is not impossible,
 			if (rtt < TIMEOUT_DISCONNECT)
 			{
 				// delta = (Server ping receive time) - (Client ping send time) - (RTT / 2)
 				s32 delta = server_ping_recv_time - client_ping_send_time - (rtt / 2);
 
-				UpdateTimeSynch(rtt, delta);
+				UpdateTimeSynch(client_now, rtt, delta);
 
 				OnTimestampDeltaUpdate();
 			}
@@ -656,7 +676,7 @@ void Client::ConnectFail(HandshakeError err)
 	Clients are responsible for synchronizing their clocks with the server,
 	so that the server does not need to store this state for each user.
 
-	At least every 10 seconds the client will ping the server to collect a
+	At least every 20 seconds the client will ping the server to collect a
 	timing sample (IOP_C2S_TIME_PING and IOP_S2C_TIME_PONG).
 
 	After initial connection, the first 8 measurements are performed at 5
@@ -677,6 +697,46 @@ void Client::ConnectFail(HandshakeError err)
 	T1' ~= T0 + RTT / 2
 	Clock Delta = T1 - ((T2 - T0) / 2 + T0)
 
+	--Incorporating 1st Order Drift:
+
+	Delta drifts over time since the clocks do not tick at the same rate.
+	Since the only clock available to measure the drift is on the client,
+	delta is written in terms of the client local time.
+
+	Di = Clock Delta i
+	Ti = Client Local Time i (Time when server pong is received)
+	Di = B0 * Ti + B1
+
+	Assuming for now that all clock delta measurements have
+	normally-distributed error about a true mean, and using the least
+	square method to estimate error in B0, B1:
+
+	Error E = Sum{ [ Di - (B0 * Ti + B1) ] ^ 2 }
+
+	After optimizing with respect to B0 and B1, and a lot of algebra:
+
+	T_avg = Average value of Ti
+	D_avg = Average value of Di
+
+	B0 = Sum[ (Ti - T_avg) * (Di - D_avg) ]
+	     ----------------------------------
+		       Sum[ (Ti - T_avg) ^ 2 ]
+
+	B1 = D_avg - B0 * T_avg
+
+	If only one measurement is available, then B0 = 0 and it simplifies
+	to the single measurement case without drift taken into account.
+
+	At least two samples are required to calculate relative clock drift.
+
+	The client may now convert from local time to server time and back:
+
+	Server Time = (Client Time) + (B0 * (Client Request Time) + B1)
+	Client Time = (Server Time) - (B0 * (Client Request Time) + B1)
+
+	Accounting for drift will defeat naive speed cheats since the increased
+	clock tick rate will be corrected out just like normal drift.
+
 	--Incorporating Measurement Quality:
 
 	Not all deltas are of equal quality.  When the ping and/or pong delays
@@ -688,29 +748,32 @@ void Client::ConnectFail(HandshakeError err)
 	Throwing away 75% of the measurements, keeping the lowest RTT samples,
 	should prevent bad data from affecting the clock synchronization.
 
-	Averaging the remaining 25% seems to provide good, stable values for delta.
+	--Incorporating Timestamp Rollover:
 
-	--Incorporating 1st Order Drift:
+	The timestamps are 32 bits and will roll over about once every 4 days.
+	To handle the rollover case, when including any timestamp in a formula,
+	just make it relative to a recent timestamp.  Any timestamp older than that
+	will cause rollover.
 
-	This is a bad idea.  I did take the time to try it out.  It requires a lot
-	more bandwidth to collect enough data, and if the data is ever bad the
-	drift calculations will amplify the error.
+	--Incorporating Thread Safety:
 
-	Accounting for drift will defeat naive speed cheats since the increased
-	clock tick rate will be corrected out just like normal drift.  However that
-	only fixes timestamps and not increased rate of movement or other effects.
+	Since converting a timestamp now requires multiple variables, the updating
+	of these variables needs to be synchronous with their usage.  So protect
+	them with a mutex.
 
-	The other problem is that by taking drift into account it takes a lot more
-	processing time to do the calculations, and it requires a mutex to protect
-	the calculated coefficients since they are no longer atomically updated.
+	--Incorporating Drift Uncertainty:
 
-	Furthermore, doing first order calculations end up requiring some
-	consideration of timestamp rollover, where all the timestamps in the
-	equations need to be taken relative to some base value.
+	It usually takes many seconds to see any appreciable clock drift.  But due
+	to the uncertainty in the measurements, deltas may be off by a few
+	milliseconds.  If the time period of the measurements is just a few seconds,
+	then a millisecond may appear to be a large clock drift that will actually
+	be detrimental to synchronization.
 
-	Incorporating drift is overkill and will cause more problems than it solves.
+	As a result, the drift calculations should only be employed after a
+	reasonable amount of time has passed.  This is enforced in my code by
+	requiring at least 4 samples before enabling the drift calculations.
 */
-void Client::UpdateTimeSynch(u32 rtt, s32 delta)
+void Client::UpdateTimeSynch(u32 pong_time, u32 rtt, s32 delta)
 {
 	// Increment the sample count if we haven't exhausted the array space yet
 	if (_ts_sample_count < MAX_TS_SAMPLES)
@@ -718,10 +781,23 @@ void Client::UpdateTimeSynch(u32 rtt, s32 delta)
 
 	// Insert sample
 	_ts_samples[_ts_next_index].delta = delta;
+	_ts_samples[_ts_next_index].when = pong_time;
 	_ts_samples[_ts_next_index].rtt = rtt;
 
 	// Increment write address to next oldest entry or next empty space
 	_ts_next_index = (_ts_next_index + 1) % MAX_TS_SAMPLES;
+
+	// If only one measurement we cannot calculate drift yet
+	if (_ts_sample_count <= 1)
+	{
+		_ts_lock.Enter();
+		_ts_B0 = 0.;
+		_ts_B1 = delta;
+		_ts_lock.Leave();
+
+		WARN("Client") << "SKIPPED DRIFT (ONLY ONE SAMPLE) B0 = " << _ts_B0 << " B1 = " << _ts_B1;
+		return; // Skip drift calculation
+	}
 
 	// Find the lowest 25% RTT samples >= MIN_TS_SAMPLES
 	TimesPingSample *BestSamples[MAX_TS_SAMPLES / 4 + MIN_TS_SAMPLES];
@@ -774,11 +850,91 @@ void Client::UpdateTimeSynch(u32 rtt, s32 delta)
 		}
 	}
 
-	// Calculate the average delta and assume no drift
-	s64 sum_delta = BestSamples[0]->delta;
+	// If there are not enough measurements to estimate drift,
+	//if (best_count < MIN_DRIFT_SAMPLES) (TEST1)
+	{
+		WARN("Client") << "Calculating average delta:";
+
+		// Calculate the average delta and assume no drift yet
+		s64 sum_delta = 0;
+
+		for (ii = 0; ii < best_count; ++ii)
+		{
+			WARN("Client") << ii << " - when=" << BestSamples[ii]->when << " rtt=" << BestSamples[ii]->rtt << " delta=" << BestSamples[ii]->delta;
+
+			sum_delta += BestSamples[ii]->delta;
+
+			// If the new delta is one of the best then use it (TEST2)
+			if (BestSamples[ii]->delta == delta)
+			{
+				_ts_delta_test2 = delta;
+			}
+		}
+
+		u32 avg_delta = (u32)(sum_delta / best_count);
+
+		_ts_lock.Enter();
+		_ts_B0 = 0.;
+		_ts_B1 = avg_delta;
+		_ts_lock.Leave();
+
+		WARN("Client") << "SKIPPED DRIFT (NOT ENOUGH MEASUREMENTS, USING AVERAGE) B0 = " << _ts_B0 << " B1 = " << _ts_B1;
+
+		_ts_delta_test1 = avg_delta;
+
+		//return; // Skip drift calculations
+	}
+
+	if (best_count < MIN_DRIFT_SAMPLES)
+		return;
+
+	// Choose a time in the past as a base point to fix rollover problem
+	u32 base_time = pong_time - MAX_TS_SAMPLES * TIME_SYNC_INTERVAL - TIME_SYNC_INTERVAL;
+
+	// Calculate average time and delta
+	s64 sum_when = BestSamples[0]->when - base_time, sum_delta = BestSamples[0]->delta;
 
 	for (ii = 1; ii < best_count; ++ii)
+	{
+		sum_when += (s32)(BestSamples[ii]->when - base_time);
 		sum_delta += BestSamples[ii]->delta;
+	}
 
-	_ts_delta = (u32)(sum_delta / best_count);
+	// Calculate B0 numerator and denominator
+	s64 B0_numerator = 0, B0_denominator = 0;
+
+	WARN("Client") << "Calculating drift:";
+
+	for (ii = 0; ii < best_count; ++ii)
+	{
+		WARN("Client") << ii << " - when=" << BestSamples[ii]->when << " rtt=" << BestSamples[ii]->rtt << " delta=" << BestSamples[ii]->delta;
+
+		s64 when_term = (u32)(BestSamples[ii]->when - base_time) * (s64)best_count - sum_when;
+		s64 delta_term = BestSamples[ii]->delta * (s64)best_count - sum_delta;
+
+		B0_numerator += when_term * delta_term;
+		B0_denominator += when_term * when_term;
+	}
+
+	// If the denominator indicates no drift,
+	if (B0_denominator <= 0)
+	{
+		_ts_lock.Enter();
+		_ts_B0 = 0.;
+		_ts_B1 = delta;
+		_ts_lock.Leave();
+
+		WARN("Client") << "SKIPPED DRIFT (DENOMINATOR = 0) B0 = " << _ts_B0 << " B1 = " << _ts_B1;
+
+		return; // Skip drift calculation
+	}
+
+	// Calculate B0 and B1
+	_ts_lock.Enter();
+	_ts_base = base_time;
+	_ts_B0 = B0_numerator / (double)B0_denominator;
+	_ts_B1 = (s32)((sum_delta - _ts_B0 * sum_when) / (s64)best_count);
+	_ts_lock.Leave();
+
+	WARN("Client") << "B0 = " << _ts_B0 << " B1 = " << _ts_B1;
 }
