@@ -461,7 +461,7 @@ bool Client::ThreadFunction(void *)
 		{
 			PostTimePing();
 
-			// Increase synch interval after the first 8 data points
+			// Increase synch interval after the first few data points
 			if (sync_attempts >= TIME_SYNC_FAST_COUNT)
 				next_sync_time = now + TIME_SYNC_INTERVAL;
 			else

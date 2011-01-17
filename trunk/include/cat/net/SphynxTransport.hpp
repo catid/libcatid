@@ -368,10 +368,10 @@ protected:
 	static const u32 NUM_STREAMS = 4; // Number of reliable streams
 	static const u32 MIN_RTT = 50; // Minimum milliseconds for RTT
 
-	static const int TIMEOUT_DISCONNECT = 15000; // 15 seconds
-	static const int SILENCE_LIMIT = 9357; // 9.357 seconds: Time silent before sending a keep-alive (0-length unordered reliable message)
+	static const int TIMEOUT_DISCONNECT = 15000; // milliseconds
+	static const int SILENCE_LIMIT = 4357; // Time silent before sending a keep-alive (0-length unordered reliable message), milliseconds
 
-	static const int TICK_RATE = 20; // 20 milliseconds
+	static const int TICK_RATE = 20; // milliseconds
 
 	static const u32 MINIMUM_MTU = 576; // Dial-up
 	static const u32 MEDIUM_MTU = 1400; // Highspeed with unexpected overhead, maybe VPN
