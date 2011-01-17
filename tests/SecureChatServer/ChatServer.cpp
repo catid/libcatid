@@ -17,7 +17,7 @@ public:
 
 	virtual void OnTick(ThreadPoolLocalStorage *tls, u32 now)
 	{
-		WARN("Connexion") << "-- TICK " << now;
+		//WARN("Connexion") << "-- TICK " << now;
 	}
 
 	virtual void OnMessage(ThreadPoolLocalStorage *tls, BufferStream msg, u32 bytes)
@@ -51,7 +51,7 @@ int main()
 		FatalStop("Unable to initialize framework!");
 	}
 
-	INFO("Server") << "Secure Chat Server 1.0";
+	INFO("Server") << "Secure Chat Server 1.1";
 
 	GameServer *server = new GameServer();
 	const Port SERVER_PORT = 22000;
