@@ -589,8 +589,9 @@ void Client::OnInternal(ThreadPoolLocalStorage *tls, BufferStream data, u32 byte
 			// If RTT is not impossible,
 			if (rtt < TIMEOUT_DISCONNECT)
 			{
-				// delta = (Server ping receive time) - (Client ping send time) - (RTT / 2)
 				s32 delta = server_ping_recv_time - client_ping_send_time - (rtt / 2);
+
+				//WARN("Client") << "Got IOP_S2C_TIME_PONG.  rtt=" << rtt << " unbalanced by " << (s32)(rtt/2 - (FromServerTime(server_ping_recv_time) - client_ping_send_time));
 
 				UpdateTimeSynch(rtt, delta);
 
@@ -733,11 +734,15 @@ void Client::UpdateTimeSynch(u32 rtt, s32 delta)
 	BestSamples[0] = &_ts_samples[0];
 	u32 best_count = 1;
 
+	// Calculate the average delta and assume no drift
+	s64 sum_delta = _ts_samples[0].delta;
+
 	// While still trying to fill a minimum number of samples,
 	u32 ii;
 	for (ii = 1; ii < _ts_sample_count && best_count < num_samples; ++ii)
 	{
 		u32 rtt = _ts_samples[ii].rtt;
+		sum_delta += _ts_samples[ii].delta;
 
 		if (rtt > highest_rtt)
 		{
@@ -754,31 +759,30 @@ void Client::UpdateTimeSynch(u32 rtt, s32 delta)
 		u32 sample_rtt = _ts_samples[ii].rtt;
 
 		// Replace highest RTT if the new sample has lower RTT
-		if (sample_rtt < highest_rtt)
+		if (sample_rtt >= highest_rtt)
+			continue;
+
+		// Replace it in the average calculation
+		sum_delta -= BestSamples[highest_index]->delta;
+		sum_delta += _ts_samples[ii].delta;
+
+		BestSamples[highest_index] = &_ts_samples[ii];
+
+		// Find new highest RTT entry
+		highest_rtt = sample_rtt;
+
+		for (u32 jj = 0; jj < best_count; ++jj)
 		{
-			BestSamples[highest_index] = &_ts_samples[ii];
+			u32 rtt = BestSamples[jj]->rtt;
 
-			// Find new highest RTT entry
-			highest_rtt = sample_rtt;
+			if (rtt <= highest_rtt)
+				continue;
 
-			for (u32 jj = 0; jj < best_count; ++jj)
-			{
-				u32 rtt = BestSamples[jj]->rtt;
-
-				if (rtt > highest_rtt)
-				{
-					highest_rtt = rtt;
-					highest_index = jj;
-				}
-			}
+			highest_rtt = rtt;
+			highest_index = jj;
 		}
 	}
 
-	// Calculate the average delta and assume no drift
-	s64 sum_delta = BestSamples[0]->delta;
-
-	for (ii = 1; ii < best_count; ++ii)
-		sum_delta += BestSamples[ii]->delta;
-
+	// Finalize the average, best delta
 	_ts_delta = (u32)(sum_delta / best_count);
 }
