@@ -1054,6 +1054,11 @@ void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 				conn->_flood_key = flood_key;
 				conn->InitializePayloadBytes(Is6());
 
+				if (!conn->InitializeTransportSecurity(false, conn->_auth_enc))
+				{
+					WARN("Server") << "Ignoring challenge: Unable to initialize transport security";
+				}
+
 				// If packet post fails,
 				if (!Post(src, pkt, S2C_ANSWER_LEN))
 				{

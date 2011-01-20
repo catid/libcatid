@@ -285,7 +285,8 @@ void Client::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 
 			// Process answer from server, ignore invalid
 			if (_key_agreement_initiator.ProcessAnswer(tls->math, data + 1 + 2, ANSWER_BYTES, &key_hash) &&
-				_key_agreement_initiator.KeyEncryption(&key_hash, &_auth_enc, _session_key))
+				_key_agreement_initiator.KeyEncryption(&key_hash, &_auth_enc, _session_key) &&
+				InitializeTransportSecurity(true, _auth_enc))
 			{
 				_connected = true;
 

@@ -174,7 +174,7 @@ class ServerTimer;
 class Client;
 class Transport;
 
-//#define CAT_SEPARATE_ACK_LOCK /* Use a second mutex to serialize message acknowledgment data */
+#define CAT_SEPARATE_ACK_LOCK /* Use a second mutex to serialize message acknowledgment data */
 
 #if defined(CAT_SEPARATE_ACK_LOCK)
 #define CAT_ACK_LOCK _ack_lock
@@ -368,6 +368,7 @@ protected:
 	static const u32 NUM_STREAMS = 4; // Number of reliable streams
 	static const u32 MIN_RTT = 50; // Minimum milliseconds for RTT
 
+	static const int INITIAL_RTT = 1500; // milliseconds
 	static const int TIMEOUT_DISCONNECT = 15000; // milliseconds
 	static const int SILENCE_LIMIT = 4357; // Time silent before sending a keep-alive (0-length unordered reliable message), milliseconds
 
@@ -389,6 +390,9 @@ protected:
 
 	static const u32 MAX_MESSAGE_DATALEN = 65535-1; // Maximum number of bytes in the data part of a message (-1 for the opcode)
 
+	static const u32 INITIAL_MAX_RATE = 1000; // Default maximum rate in bytes per second to send
+	static const u32 INITIAL_MAX_TICK_BYTES = INITIAL_MAX_RATE / 50; // Initial maximum number of bytes to send per tick
+
 protected:
 	// Maximum transfer unit (MTU) in UDP payload bytes, excluding the IP and UDP headers and encryption overhead
 	u32 _max_payload_bytes;
@@ -398,6 +402,7 @@ protected:
 
 public:
 	void InitializePayloadBytes(bool ip6);
+	bool InitializeTransportSecurity(bool is_initiator, AuthenticatedEncryption &auth_enc);
 
 protected:
 	// Receive state: Next expected ack id to receive
@@ -444,13 +449,18 @@ protected:
 	u32 _send_buffer_stream, _send_buffer_ack_id; // Used to compress ACK-ID by setting I=0 after the first reliable message
 	u32 _send_buffer_msg_count; // Used to compress datagrams with a single message by omitting the header's BLO field
 
+	// Send state: Number of bytes sent during the current tick, atomically synchronized
+	volatile u32 _send_tick_bytes;
+
 	// Queue of messages that are waiting to be sent
 	SendQueue *_send_queue_head[NUM_STREAMS], *_send_queue_tail[NUM_STREAMS];
 
 	// List of messages that are waiting to be acknowledged
 	SendQueue *_sent_list_head[NUM_STREAMS], *_sent_list_tail[NUM_STREAMS];
 
-	bool _disconnected;
+protected:
+	bool _disconnected; // true = no longer connected
+	s32 _max_tick_bytes; // Bytes per tick maximum (0 = none)
 
 private:
 	void TransmitQueued();
@@ -478,7 +488,9 @@ protected:
 
 private:
 	void OnFragment(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes, u32 stream);
-	void CombineNextWrite();
+
+	void PostPacketList(TempSendNode *packet_send_head);
+	void PostSendBuffer();
 
 protected:
 	virtual bool PostPacket(u8 *data, u32 buf_bytes, u32 msg_bytes) = 0;

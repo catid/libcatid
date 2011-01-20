@@ -1,41 +1,53 @@
 #include <cat/AllFramework.hpp>
 #include <conio.h> // kbhit()
 using namespace cat;
+using namespace sphynx;
 
 #include <fstream>
 using namespace std;
 
 
-class GameClient : public sphynx::Client
+class GameClient : public Client
 {
 public:
 	virtual void OnClose()
 	{
-		WARN("Connexion") << "-- CLOSED";
+		WARN("Client") << "-- CLOSED";
 	}
 
-	virtual void OnConnectFail(sphynx::HandshakeError err)
+	virtual void OnConnectFail(HandshakeError err)
 	{
-		WARN("Connexion") << "-- CONNECT FAIL ERROR " << sphynx::GetHandshakeErrorString(err);
+		WARN("Client") << "-- CONNECT FAIL ERROR " << GetHandshakeErrorString(err);
 	}
 
 	virtual void OnConnect(ThreadPoolLocalStorage *tls)
 	{
-		WARN("Connexion") << "-- CONNECTED";
+		WARN("Client") << "-- CONNECTED";
 	}
 
 	virtual void OnMessage(ThreadPoolLocalStorage *tls, BufferStream msg, u32 bytes)
 	{
-		WARN("Connexion") << "Got message with " << bytes << " bytes";
+		switch (msg[0])
+		{
+		case 0:
+			{
+				WARN("Client") << "Got request for transmit";
+				static const char STR[4000];
+				WriteReliable(STREAM_1, 0, STR, sizeof(STR));
+			}
+			break;
+		default:
+			WARN("Client") << "Got message with " << bytes << " bytes";
+		}
 	}
 
 	virtual void OnDisconnect(u8 reason)
 	{
-		WARN("Connexion") << "-- DISCONNECTED REASON " << (int)reason;
+		WARN("Client") << "-- DISCONNECTED REASON " << (int)reason;
 	}
 	virtual void OnTick(ThreadPoolLocalStorage *tls, u32 now)
 	{
-		//WARN("Connexion") << "-- TICK " << now;
+		//WARN("Client") << "-- TICK " << now;
 	}
 };
 
@@ -58,7 +70,7 @@ int main()
 			FATAL("Client") << "Unable to open public key file";
 		}
 
-		u8 server_public_key[sphynx::PUBLIC_KEY_BYTES];
+		u8 server_public_key[PUBLIC_KEY_BYTES];
 
 		string key_str;
 		keyfile >> key_str;
@@ -80,7 +92,7 @@ int main()
 			}
 
 			// 10.1.1.146
-			if (!client->Connect("68.84.166.22", 22000))
+			if (!client->Connect("127.0.0.1", 22000))
 			{
 				FATAL("Client") << "Unable to connect to server";
 			}

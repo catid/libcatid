@@ -135,6 +135,19 @@ bool AuthenticatedEncryption::SetKey(int KeyBytes, Skein *key, bool is_initiator
 	return true;
 }
 
+bool AuthenticatedEncryption::GenerateKey(const char *key_name, void *key, int bytes)
+{
+	Skein kdf;
+
+	if (!kdf.SetKey(&key_hash)) return false;
+	if (!kdf.BeginKDF()) return false;
+	kdf.CrunchString(key_name);
+	kdf.End();
+	kdf.Generate(key, bytes);
+
+	return true;
+}
+
 bool AuthenticatedEncryption::GenerateProof(u8 *local_proof, int proof_bytes)
 {
     Skein mac;
