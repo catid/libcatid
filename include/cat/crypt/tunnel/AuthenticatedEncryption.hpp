@@ -118,6 +118,10 @@ protected:
     void AcceptIV(u64 iv);
 
 public:
+	// Use a key derivation function to generate a new key from the existing key
+	bool GenerateKey(const char *key_name, void *key, int bytes);
+
+public:
     // Generate a proof that the local host has the key
     bool GenerateProof(u8 *local_proof, int proof_bytes);
 

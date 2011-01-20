@@ -1,13 +1,16 @@
 #include <cat/AllFramework.hpp>
 #include <conio.h> // kbhit()
 using namespace cat;
+using namespace sphynx;
 
-class GameConnexion : public sphynx::Connexion
+class GameConnexion : public Connexion
 {
 public:
 	virtual void OnConnect(ThreadPoolLocalStorage *tls)
 	{
 		WARN("Connexion") << "-- CONNECTED";
+
+		WriteReliable(STREAM_1, 0);
 	}
 
 	virtual void OnDisconnect(u8 reason)
@@ -22,7 +25,18 @@ public:
 
 	virtual void OnMessage(ThreadPoolLocalStorage *tls, BufferStream msg, u32 bytes)
 	{
-		WARN("Connexion") << "Got message with " << bytes << " bytes";
+		switch (msg[0])
+		{
+		case 0:
+			{
+				WARN("Connexion") << "Got request for transmit";
+				static const char STR[4000];
+				WriteReliable(STREAM_1, 0, STR, sizeof(STR));
+			}
+			break;
+		default:
+			WARN("Connexion") << "Got message with " << bytes << " bytes";
+		}
 	}
 
 	virtual void OnDestroy()
@@ -63,7 +77,7 @@ int main()
 
 		const char *SessionKey = "Chat";
 
-		if (!sphynx::Server::GenerateKeyPair(&tls, "PublicKeyFile.txt", "PrivateKeyFile.bin", public_key, sizeof(public_key), private_key, sizeof(private_key)))
+		if (!Server::GenerateKeyPair(&tls, "PublicKeyFile.txt", "PrivateKeyFile.bin", public_key, sizeof(public_key), private_key, sizeof(private_key)))
 		{
 			FATAL("Server") << "Unable to get key pair";
 		}
