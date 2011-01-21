@@ -1152,7 +1152,7 @@ void Transport::TickTransport(ThreadPoolLocalStorage *tls, u32 now)
 	}
 
 	// Calculate milliseconds before a retransmit occurs
-	u32 retransmit_threshold = 4 * _rtt;
+	u32 base_retransmit_threshold = 3 * _rtt;
 
 	_big_lock.Enter();
 
@@ -1162,10 +1162,11 @@ void Transport::TickTransport(ThreadPoolLocalStorage *tls, u32 now)
 		SendQueue *node = _sent_list_head[stream];
 
 		// For each sendqueue node that might be ready for a retransmission,
-		while (node && (now - node->ts_firstsend) >= retransmit_threshold)
+		while (node)
 		{
-			// If this node actually needs to be resent,
-			if ((now - node->ts_lastsend) >= retransmit_threshold)
+			// Exponentially decrease the rate of retransmission of each individual outstanding message,
+			// so that bandwidth isn't wasted during periods of high packetloss.
+			if (now - node->ts_lastsend >= base_retransmit_threshold + (node->ts_lastsend - node->ts_firstsend))
 				Retransmit(stream, node, now);
 
 			node = node->next;
@@ -1257,11 +1258,13 @@ void Transport::OnACK(u8 *data, u32 data_bytes)
 
 					if (rnode)
 					{
-						u32 retransmit_threshold = _rtt;
+						u32 base_retransmit_threshold = 2 * _rtt;
 
 						while ((s32)(last_ack_id - rnode->id) > 0)
 						{
-							if (now - rnode->ts_lastsend > retransmit_threshold)
+							// Exponentially decrease the rate of retransmission of each individual outstanding message,
+							// so that bandwidth isn't wasted during periods of high packetloss.
+							if (now - rnode->ts_lastsend >= base_retransmit_threshold + (rnode->ts_lastsend - rnode->ts_firstsend))
 								Retransmit(stream, rnode, now);
 
 							rnode = rnode->next;
@@ -1477,12 +1480,14 @@ void Transport::OnACK(u8 *data, u32 data_bytes)
 
 		if (rnode)
 		{
-			u32 retransmit_threshold = _rtt;
+			u32 base_retransmit_threshold = _rtt * 2;
 
 			// While node ACK-IDs are under the final END range,
 			while ((s32)(last_ack_id - rnode->id) > 0)
 			{
-				if (now - rnode->ts_lastsend > retransmit_threshold)
+				// Exponentially decrease the rate of retransmission of each individual outstanding message,
+				// so that bandwidth isn't wasted during periods of high packetloss.
+				if (now - rnode->ts_lastsend >= base_retransmit_threshold + (rnode->ts_lastsend - rnode->ts_firstsend))
 					Retransmit(stream, rnode, now);
 
 				rnode = rnode->next;
@@ -1508,17 +1513,20 @@ void Transport::OnACK(u8 *data, u32 data_bytes)
 			u32 this_rtt = now - ts_firstsend;
 			if ((s32)this_rtt > 0)
 			{
-				// If RTT is lower than before, use it
+				// If RTT is lower than before,
 				if (this_rtt < rtt)
 				{
+					// Use it
 					rtt = this_rtt;
 				}
 				else
 				{
 					// Update RTT = (RTT * 3 + NEW_RTT) / 4
 					rtt = ((rtt << 1) + rtt + this_rtt) >> 2;
-					if (rtt < MIN_RTT) rtt = MIN_RTT;
 				}
+
+				if (rtt < MIN_RTT)
+					rtt = MIN_RTT;
 			}
 		}
 
