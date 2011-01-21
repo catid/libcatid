@@ -32,6 +32,7 @@
 #include <cat/threads/RegionAllocator.hpp>
 #include <cat/io/Logging.hpp>
 #include <cat/time/Clock.hpp>
+#include <cat/rand/MersenneTwister.hpp>
 using namespace cat;
 using namespace sphynx;
 
@@ -1203,7 +1204,7 @@ bool Transport::PostMTUProbe(ThreadPoolLocalStorage *tls, u32 mtu)
 	// Write message type
 	pkt[2] = IOP_C2S_MTU_PROBE;
 
-	// Fill message contents with random bytes
+	// Fill with random data
 	tls->csprng->Generate(pkt + 3, data_bytes - 1);
 
 	// Encrypt and send buffer
@@ -1699,6 +1700,7 @@ void Transport::TransmitQueued()
 							_send_buffer = 0;
 							_send_buffer_bytes = 0;
 							_send_buffer_msg_count = 0;
+							_send_buffer_stream = NUM_STREAMS;
 
 							lock.Release();
 
