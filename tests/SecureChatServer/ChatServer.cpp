@@ -30,7 +30,9 @@ public:
 		case 0:
 			{
 				WARN("Connexion") << "Got request for transmit";
-				static const char STR[4000];
+				static char STR[4000];
+				for (int ii = 0; ii < sizeof(STR); ++ii)
+					STR[ii] = (char)ii/(4000/256);
 				WriteReliable(STREAM_1, 0, STR, sizeof(STR));
 			}
 			break;
