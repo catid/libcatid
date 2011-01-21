@@ -166,6 +166,47 @@ namespace sphynx {
 	ID: IDC | IDB | IDA (22 bits) + START.ID
 */
 
+/*
+	How Rate Limiting Works
+
+	Going to do rate limiting a little differently:
+
+	A count of bytes recently sent is kept in a volatile 32-bit number.
+
+	Whenever a PostPacket() call succeeds, it will increase the count of bytes
+	by the packet size + estimated IP4/6 and UDP header sizes.  This addition is
+	done atomically so no locking needs to be done.
+
+	A thread will wake up every 20 ms, and if it has been 500 ms since the last
+	time it has done so, and the count of bytes is positive, it will subtract
+	off the rate limit over two (10KBPS = -5,000).  This is done atomically
+	also, and may make the number go negative.  The negative allows the data
+	flow to "burst" up and maintain the same rate if the rate of data flow is
+	not constant.  I think this is good for games, since events are bursty.
+
+	I chose 500 ms with a goal in mind.  For a data rate of about 10 KBPS, that
+	would reduce by 5k every 500 ms, which allows for a burst of about 4 MSS
+	sized messages to be transmitted.  That would allow 4 acks to be combined
+	into one after the burst, which is about my target for combining acks.
+	
+	It just feels like the right amount, but I bet there would be a way to prove
+	the "correct" number is somewhere around this value.
+
+	Not all data is rate limited.  The following are not rate limited:
+	Internal messages (out of band)
+	Unreliable messages (probably contains data that cannot be delayed)
+
+	The following ARE rate limited:
+	Unordered, stream 1, 2 and 3 (these always contain less important data)
+
+	Prioritization: If data are to be held off for the next tick, then it will
+	send across unordered always before stream 1 always before stream 2 always
+	before stream 3.
+	
+	There is no fairness algorithm so if stream 1 is very noisy, you may never hear
+	what is in stream 3.
+*/
+
 class Connexion;
 class Map;
 class Server;
