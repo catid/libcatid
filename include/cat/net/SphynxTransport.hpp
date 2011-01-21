@@ -372,7 +372,7 @@ protected:
 	static const int TIMEOUT_DISCONNECT = 15000; // milliseconds
 	static const int SILENCE_LIMIT = 4357; // Time silent before sending a keep-alive (0-length unordered reliable message), milliseconds
 
-	static const int TICK_RATE = 20; // milliseconds
+	static const int TICK_RATE = 20; // Milliseconds between ticks
 
 	static const u32 MINIMUM_MTU = 576; // Dial-up
 	static const u32 MEDIUM_MTU = 1400; // Highspeed with unexpected overhead, maybe VPN
