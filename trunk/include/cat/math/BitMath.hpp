@@ -59,18 +59,6 @@ CAT_INLINE u64 NextHighestPow2(u64 n)
 	return n + 1;
 }
 
-// Bit Scan Forward (BSF)
-// Scans from bit 0 to MSB
-// Undefined when input is zero
-CAT_INLINE u32 BSF32(u32 x);
-CAT_INLINE u32 BSF64(u64 x);
-
-// Bit Scan Reverse (BSR)
-// Scans from MSB to bit 0
-// Undefined when input is zero
-CAT_INLINE u32 BSR32(u32 x);
-CAT_INLINE u32 BSR64(u64 x);
-
 // Returns the count of bits set in the input for types up to 128 bits
 template<typename T> CAT_INLINE T BitCount(T v)
 {
@@ -155,6 +143,18 @@ template<int BITS, typename T> CAT_INLINE T BiasedReconstructCounter(T now, u32 
 	return ReconstructCounter<BITS>(now - IV_OFFSET + future_tolerance, partial_low_bits);
 }
 
+
+// Bit Scan Forward (BSF)
+// Scans from bit 0 to MSB
+// Undefined when input is zero
+CAT_INLINE u32 BSF32(u32 x);
+CAT_INLINE u32 BSF64(u64 x);
+
+// Bit Scan Reverse (BSR)
+// Scans from MSB to bit 0
+// Undefined when input is zero
+CAT_INLINE u32 BSR32(u32 x);
+CAT_INLINE u32 BSR64(u64 x);
 
 u32 BSF32(u32 x)
 {
