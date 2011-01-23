@@ -26,7 +26,7 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/net/SphynxTransport.hpp>
+#include <cat/sphynx/Transport.hpp>
 #include <cat/port/EndianNeutral.hpp>
 #include <cat/threads/RegionAllocator.hpp>
 #include <cat/io/Logging.hpp>

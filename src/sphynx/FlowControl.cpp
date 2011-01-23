@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -26,54 +26,51 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-// Include all libcat Framework headers
-
-#ifndef CAT_ALL_FRAMEWORK_HPP
-#define CAT_ALL_FRAMEWORK_HPP
-
-#include <cat/AllCommon.hpp>
-#include <cat/AllMath.hpp>
-#include <cat/AllCrypt.hpp>
-#include <cat/AllCodec.hpp>
-#include <cat/AllTunnel.hpp>
-#include <cat/AllGraphics.hpp>
-
-#include <cat/threads/ThreadPool.hpp>
-#include <cat/threads/LocklessFIFO.hpp>
-#include <cat/threads/Mutex.hpp>
-#include <cat/threads/RegionAllocator.hpp>
-
+#include <cat/sphynx/FlowControl.hpp>
+#include <cat/time/Clock.hpp>
 #include <cat/io/Logging.hpp>
-#include <cat/io/MMapFile.hpp>
-#include <cat/io/Settings.hpp>
-#include <cat/io/Base64.hpp>
+#include <cat/sphynx/Transport.hpp>
+using namespace cat;
+using namespace sphynx;
 
-#include <cat/parse/BufferStream.hpp>
-#include <cat/parse/BitStream.hpp>
-#include <cat/parse/BufferTok.hpp>
-#include <cat/parse/MessageRouter.hpp>
+FlowControl::FlowControl()
+{
+	_max_epoch_bytes = MIN_RATE_LIMIT / 2;
 
-#include <cat/net/Sockets.hpp>
+	_send_epoch_bytes = 0;
 
-#include <cat/io/ThreadPoolFiles.hpp>
-#include <cat/net/ThreadPoolSockets.hpp>
+	_next_epoch_time = Clock::msec();
+}
 
-#include <cat/net/DNSClient.hpp>
+void FlowControl::OnTick(u32 now)
+{
+	// If epoch has ended,
+	if ((s32)(now - _next_epoch_time) >= 0)
+	{
+		INFO("FlowControl") << "_send_epoch_bytes = " << (s32)_send_epoch_bytes;
 
-#include <cat/sphynx/Server.hpp>
-#include <cat/sphynx/Client.hpp>
+		// If some bandwidth has been used this epoch,
+		if ((s32)_send_epoch_bytes > 0)
+		{
+			// Subtract off the amount allowed this epoch
+			Atomic::Add(&_send_epoch_bytes, -_max_epoch_bytes);
+		}
 
-#include <cat/db/BombayTable.hpp>
+		// Set next epoch time
+		_next_epoch_time += EPOCH_INTERVAL;
 
-namespace cat {
+		// If within one tick of another epoch,
+		if ((s32)(now - _next_epoch_time + sphynx::Transport::TICK_INTERVAL) > 0)
+		{
+			WARN("FlowControl") << "Slow epoch - Scheduling next epoch one interval into the future";
 
+			// Lagged too much - reset epoch interval
+			_next_epoch_time = now + EPOCH_INTERVAL;
+		}
+	}
+}
 
-// Specifying a service name will set up service mode
-bool InitializeFramework(const char *settings_file, const char *service_name = 0);
+void FlowControl::OnLosses(u32 count)
+{
 
-void ShutdownFramework(bool WriteSettings = true);
-
-
-} // namespace cat
-
-#endif // CAT_ALL_FRAMEWORK_HPP
+}

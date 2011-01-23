@@ -29,7 +29,7 @@
 #ifndef CAT_SPHYNX_CLIENT_HPP
 #define CAT_SPHYNX_CLIENT_HPP
 
-#include <cat/net/SphynxTransport.hpp>
+#include <cat/sphynx/Transport.hpp>
 #include <cat/crypt/tunnel/KeyAgreementInitiator.hpp>
 #include <cat/threads/Thread.hpp>
 #include <cat/threads/WaitableFlag.hpp>

@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2011 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -26,51 +26,40 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/net/FlowControl.hpp>
+#ifndef CAT_SPHYNX_BULK_TRANSFER_HPP
+#define CAT_SPHYNX_BULK_TRANSFER_HPP
+
+#include <cat/threads/Mutex.hpp>
+#include <cat/crypt/tunnel/AuthenticatedEncryption.hpp>
+#include <cat/parse/BufferStream.hpp>
 #include <cat/time/Clock.hpp>
-#include <cat/io/Logging.hpp>
-#include <cat/net/SphynxTransport.hpp>
-using namespace cat;
-using namespace sphynx;
+#include <cat/math/BitMath.hpp>
+#include <cat/net/SphynxCommon.hpp>
+#include <cat/net/FlowControl.hpp>
 
-FlowControl::FlowControl()
+namespace cat {
+
+
+namespace sphynx {
+
+
+/*
+	Bulk Transfer
+
+	Writes bulk data to the end of outgoing packets to fill up to MTU size when
+	the channel is being underutilized.  Also writes at each tick of the
+	transport layer.
+*/
+
+class BulkTransfer
 {
-	_max_epoch_bytes = MIN_RATE_LIMIT / 2;
+public:
+};
 
-	_send_epoch_bytes = 0;
 
-	_next_epoch_time = Clock::msec();
-}
+} // namespace sphynx
 
-void FlowControl::OnTick(u32 now)
-{
-	// If epoch has ended,
-	if ((s32)(now - _next_epoch_time) >= 0)
-	{
-		INFO("FlowControl") << "_send_epoch_bytes = " << _send_epoch_bytes;
 
-		// If some bandwidth has been used this epoch,
-		if ((s32)_send_epoch_bytes > 0)
-		{
-			// Subtract off the amount allowed this epoch
-			Atomic::Add(&_send_epoch_bytes, -_max_epoch_bytes);
-		}
+} // namespace cat
 
-		// Set next epoch time
-		_next_epoch_time += EPOCH_INTERVAL;
-
-		// If within one tick of another epoch,
-		if ((s32)(now - _next_epoch_time + sphynx::Transport::TICK_INTERVAL) > 0)
-		{
-			WARN("FlowControl") << "Slow epoch - Scheduling next epoch one interval into the future";
-
-			// Lagged too much - reset epoch interval
-			_next_epoch_time = now + EPOCH_INTERVAL;
-		}
-	}
-}
-
-void FlowControl::OnLoss(u32 bytes)
-{
-
-}
+#endif // CAT_SPHYNX_BULK_TRANSFER_HPP

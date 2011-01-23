@@ -26,7 +26,7 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/net/SphynxServer.hpp>
+#include <cat/sphynx/Server.hpp>
 #include <cat/port/AlignedAlloc.hpp>
 #include <cat/io/Logging.hpp>
 #include <cat/io/MMapFile.hpp>

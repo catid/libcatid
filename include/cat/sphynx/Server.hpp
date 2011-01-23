@@ -29,11 +29,11 @@
 #ifndef CAT_SPHYNX_SERVER_HPP
 #define CAT_SPHYNX_SERVER_HPP
 
-#include <cat/net/SphynxTransport.hpp>
+#include <cat/sphynx/Transport.hpp>
 #include <cat/threads/RWLock.hpp>
 #include <cat/threads/Thread.hpp>
 #include <cat/threads/WaitableFlag.hpp>
-#include <cat/net/SphynxCollexion.hpp>
+#include <cat/sphynx/Collexion.hpp>
 #include <cat/crypt/cookie/CookieJar.hpp>
 #include <cat/crypt/tunnel/KeyAgreementResponder.hpp>
 
