@@ -29,9 +29,13 @@
 #ifndef CAT_FLOW_CONTROL_HPP
 #define CAT_FLOW_CONTROL_HPP
 
-#include <cat/Platform.hpp>
+#include <cat/net/SphynxCommon.hpp>
+#include <cat/threads/Atomic.hpp>
 
 namespace cat {
+
+
+namespace sphynx {
 
 
 /*
@@ -81,10 +85,59 @@ namespace cat {
 			- Cuts channel capacity estimation down to a perceived safe level
 */
 
+/*
+	How Rate Limiting Works
+
+	Going to do rate limiting a little differently:
+
+	A count of bytes recently sent is kept in a volatile 32-bit number.
+
+	Whenever a PostPacket() call succeeds, it will increase the count of bytes
+	by the packet size + estimated IP4/6 and UDP header sizes.  This addition is
+	done atomically so no locking needs to be done.
+
+	A thread will wake up every 20 ms, and if it has been 500 ms since the last
+	time it has done so, and the count of bytes is positive, it will subtract
+	off the rate limit over two (10KBPS = -5,000).  This is done atomically
+	also, and may make the number go negative.  The negative allows the data
+	flow to "burst" up and maintain the same rate if the rate of data flow is
+	not constant.  I think this is good for games, since events are bursty.
+
+	I chose 500 ms with a goal in mind.  For a data rate of about 10 KBPS, that
+	would reduce by 5k every 500 ms, which allows for a burst of about 4 MSS
+	sized messages to be transmitted.  That would allow 4 acks to be combined
+	into one after the burst, which is about my target for combining acks.
+	
+	It just feels like the right amount, but I bet there would be a way to prove
+	the "correct" number is somewhere around this value.
+
+	Not all data is rate limited.  The following are not rate limited:
+	Internal messages (out of band)
+	Unreliable messages (probably contains data that cannot be delayed)
+
+	The following ARE rate limited:
+	Unordered, stream 1, 2 and 3 (these always contain less important data)
+*/
+
 class FlowControl
 {
+public:
+	static const int EPOCH_INTERVAL = 500; // Milliseconds per epoch
+
 	static const u32 MIN_RATE_LIMIT = 100000; // Smallest data rate allowed
-	s32 _max_epoch_bytes; // Bytes per epoch maximum (0 = none)
+
+protected:
+	// Bytes per epoch maximum (0 = none)
+	s32 _max_epoch_bytes;
+
+	// Milliseconds without receiving acknowledgment that a message will be considered lost
+	u32 _loss_timeout;
+
+	// Time when next epoch will start
+	u32 _next_epoch_time;
+
+	// Number of bytes sent during the current epoch, atomically synchronized
+	volatile u32 _send_epoch_bytes;
 
 public:
 	FlowControl();
@@ -92,10 +145,24 @@ public:
 	// The whole purpose of this class is to calculate this value
 	CAT_INLINE s32 GetMaxEpochBytes() { return _max_epoch_bytes; }
 
+	// Get timeout for reliable message delivery before considering it lost
+	CAT_INLINE u32 GetLossTimeout() { return _loss_timeout; }
+
+	// Get number of bytes sent in this epoch
+	CAT_INLINE s32 GetSentBytes() { return (s32)_send_epoch_bytes; }
+
+	// Report number of bytes for each successfully sent packet, including overhead bytes
+	CAT_INLINE void OnPacketSend(u32 bytes_with_overhead)
+	{
+		Atomic::Add(&_send_epoch_bytes, bytes_with_overhead);
+	}
+
+	void OnTick(u32 now);
 	void OnLoss(u32 bytes);
-	void OnAck(u32 bytes);
 };
 
+
+} // namespace sphynx
 
 
 } // namespace cat

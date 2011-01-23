@@ -28,11 +28,8 @@
 
 #include <cat/net/SphynxTransport.hpp>
 #include <cat/port/EndianNeutral.hpp>
-#include <cat/math/BitMath.hpp>
 #include <cat/threads/RegionAllocator.hpp>
 #include <cat/io/Logging.hpp>
-#include <cat/time/Clock.hpp>
-#include <cat/rand/MersenneTwister.hpp>
 using namespace cat;
 using namespace sphynx;
 
@@ -73,10 +70,6 @@ Transport::Transport()
 	_send_buffer_bytes = 0;
 	_send_buffer_stream = NUM_STREAMS;
 	_send_buffer_msg_count = 0;
-
-	_max_epoch_bytes = MIN_RATE_LIMIT / 2;
-	_send_epoch_bytes = 0;
-	_next_epoch_time = Clock::msec();
 
 	CAT_OBJCLR(_send_queue_head);
 	CAT_OBJCLR(_send_queue_tail);
@@ -608,15 +601,13 @@ bool Transport::WriteUnreliableOOB(u8 msg_opcode, const void *vmsg_data, u32 dat
 	msg_buffer[0] = msg_opcode;
 	memcpy(msg_buffer + 1, msg_data, data_bytes - 1);
 
-	bool success = PostPacket(pkt, msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD, msg_bytes);
-
-	if (success)
+	if (PostPacket(pkt, msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD, msg_bytes))
 	{
-		// Accumulate sent bytes for this epoch
-		Atomic::Add(&_send_epoch_bytes, msg_bytes + _overhead_bytes);
+		_send_flow.OnPacketSend(msg_bytes + _overhead_bytes);
+		return true;
 	}
 
-	return success;
+	return false;
 }
 
 bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_bytes, SuperOpcode super_opcode)
@@ -677,10 +668,7 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 		lock.Release();
 
 		if (PostPacket(old_send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD, send_buffer_bytes))
-		{
-			// Accumulate sent bytes for this epoch
-			Atomic::Add(&_send_epoch_bytes, send_buffer_bytes + _overhead_bytes);
-		}
+			_send_flow.OnPacketSend(send_buffer_bytes + _overhead_bytes);
 		else WARN("Transport") << "Packet post failure during unreliable overflow";
 	}
 	else
@@ -763,10 +751,7 @@ void Transport::PostSendBuffer()
 		lock.Release();
 
 		if (PostPacket(send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD, send_buffer_bytes))
-		{
-			// Accumulate sent bytes for this epoch
-			Atomic::Add(&_send_epoch_bytes, send_buffer_bytes + _overhead_bytes);
-		}
+			_send_flow.OnPacketSend(send_buffer_bytes + _overhead_bytes);
 		else WARN("Transport") << "Packet post failure during flush write";
 	}
 }
@@ -846,10 +831,7 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 		// TODO: Eventually I should move this PostPacket() outside of the caller's send lock
 
 		if (PostPacket(send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD, send_buffer_bytes))
-		{
-			// Accumulate sent bytes for this epoch
-			Atomic::Add(&_send_epoch_bytes, send_buffer_bytes + _overhead_bytes);
-		}
+			_send_flow.OnPacketSend(send_buffer_bytes + _overhead_bytes);
 		else WARN("Transport") << "Packet post failure during retransmit overflow";
 
 		send_buffer = 0;
@@ -1106,10 +1088,7 @@ void Transport::WriteACK()
 			lock.Release();
 
 			if (PostPacket(old_send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD, send_buffer_bytes))
-			{
-				// Accumulate sent bytes for this epoch
-				Atomic::Add(&_send_epoch_bytes, send_buffer_bytes + _overhead_bytes);
-			}
+				_send_flow.OnPacketSend(send_buffer_bytes + _overhead_bytes);
 			else WARN("Transport") << "Packet post failure during ACK send buffer overflow";
 		}
 	}
@@ -1137,27 +1116,7 @@ void Transport::TickTransport(ThreadPoolLocalStorage *tls, u32 now)
 {
 	if (_disconnected) return;
 
-	// If epoch has ended,
-	if ((s32)(now - _next_epoch_time) >= 0)
-	{
-		// If some bandwidth has been used this epoch,
-		if ((s32)_send_epoch_bytes > 0)
-		{
-			// Subtract off the amount allowed this epoch
-			Atomic::Add(&_send_epoch_bytes, -_max_epoch_bytes);
-		}
-
-		// Set next epoch time
-		_next_epoch_time += EPOCH_INTERVAL;
-
-		// If within one tick of another epoch,
-		if ((s32)(now - _next_epoch_time + TICK_INTERVAL) > 0)
-		{
-			WARN("Transport") << "Slow epoch - Scheduling next epoch one interval into the future";
-			// Lagged too much - reset epoch interval
-			_next_epoch_time = now + EPOCH_INTERVAL;
-		}
-	}
+	_send_flow.OnTick(now);
 
 	// Acknowledge recent reliable packets
 	for (int stream = 0; stream < NUM_STREAMS; ++stream)
@@ -1227,15 +1186,13 @@ bool Transport::PostMTUProbe(ThreadPoolLocalStorage *tls, u32 mtu)
 	tls->csprng->Generate(pkt + 3, data_bytes - 1);
 
 	// Encrypt and send buffer
-	bool success = PostPacket(pkt, buffer_bytes, payload_bytes);
-
-	if (success)
+	if (PostPacket(pkt, buffer_bytes, payload_bytes))
 	{
-		// Accumulate sent bytes for this epoch
-		Atomic::Add(&_send_epoch_bytes, mtu);
+		_send_flow.OnPacketSend(mtu);
+		return true;
 	}
 
-	return success;
+	return false;
 }
 
 void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
@@ -1516,47 +1473,13 @@ void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 
 	lock.Release();
 
-	// Update loss timeout based on acknowledged data
-	u32 loss_timeout = _loss_timeout;
-
 	// Release kill list after lock is released
 	while (kill_list)
 	{
 		SendQueue *next = kill_list->next;
-		u32 ts_firstsend = kill_list->ts_firstsend;
-
-		// If the message was only sent once,
-		if (ts_firstsend == kill_list->ts_lastsend)
-		{
-			u32 rtt = now - ts_firstsend;
-
-			// If this RTT makes sense,
-			if ((s32)rtt > 0)
-			{
-				// If RTT is lower than before,
-				if (rtt < loss_timeout)
-				{
-					// Use it
-					loss_timeout = rtt;
-				}
-				else
-				{
-					// Update RTT = (RTT * 3 + NEW_RTT) / 4
-					loss_timeout = ((loss_timeout << 1) + loss_timeout + rtt) >> 2;
-				}
-
-				if (loss_timeout < MIN_RTT)
-					loss_timeout = MIN_RTT;
-			}
-		}
-
 		RegionAllocator::ii->Release(kill_list);
 		kill_list = next;
 	}
-
-	_loss_timeout = loss_timeout;
-
-	WARN("Transport") << "RTT estimate: " << _rtt;
 }
 
 bool Transport::WriteReliable(StreamMode stream, u8 msg_opcode, const void *vmsg_data, u32 data_bytes, SuperOpcode super_opcode)
@@ -1592,7 +1515,7 @@ bool Transport::WriteReliable(StreamMode stream, u8 msg_opcode, const void *vmsg
 	}
 
 	// Fill the object
-	node->bytes = 1+data_bytes;
+	node->bytes = 1 + data_bytes;
 	node->frag_count = 0;
 	node->sop = super_opcode;
 	node->sent_bytes = 0;
@@ -1623,8 +1546,8 @@ void Transport::TransmitQueued()
 	const u32 ACK_ID_2_THRESH = 1024;
 
 	// If there is no more room in the channel,
-	s32 send_epoch_bytes = _send_epoch_bytes;
-	if (send_epoch_bytes >= _max_epoch_bytes)
+	s32 send_epoch_bytes = _send_flow.GetSentBytes();
+	if (send_epoch_bytes >= _send_flow.GetMaxEpochBytes())
 	{
 		// Stop sending here
 		return;
@@ -1722,7 +1645,7 @@ void Transport::TransmitQueued()
 							send_epoch_bytes += send_buffer_bytes + _overhead_bytes;
 
 							// If there is no more room in the channel,
-							if (send_epoch_bytes >= _max_epoch_bytes)
+							if (send_epoch_bytes >= _send_flow.GetMaxEpochBytes())
 							{
 								// Does not need to update _send_buffer_ack_id and _send_buffer_stream
 								// since those members are updated whenever the send buffer is appended
@@ -2015,10 +1938,7 @@ void Transport::PostPacketList(TempSendNode *packet_send_head)
 		WARN("Transport") << "Sending packet with " << bytes;
 
 		if (PostPacket(data, bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD, bytes))
-		{
-			// Accumulate sent bytes for this epoch
-			Atomic::Add(&_send_epoch_bytes, bytes + _overhead_bytes);
-		}
+			_send_flow.OnPacketSend(bytes);
 		else
 		{
 			WARN("Transport") << "Unable to post send buffer";
