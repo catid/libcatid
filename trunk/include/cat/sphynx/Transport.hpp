@@ -34,8 +34,16 @@
 #include <cat/parse/BufferStream.hpp>
 #include <cat/time/Clock.hpp>
 #include <cat/math/BitMath.hpp>
-#include <cat/net/SphynxCommon.hpp>
-#include <cat/net/FlowControl.hpp>
+#include <cat/sphynx/Common.hpp>
+#include <cat/sphynx/FlowControl.hpp>
+
+#define CAT_SEPARATE_ACK_LOCK /* Use a second mutex to serialize message acknowledgment data */
+
+#if defined(CAT_SEPARATE_ACK_LOCK)
+#define CAT_ACK_LOCK _ack_lock
+#else
+#define CAT_ACK_LOCK _big_lock
+#endif
 
 namespace cat {
 
@@ -164,14 +172,6 @@ namespace sphynx {
 	C: 1=Continues to next byte.
 	ID: IDC | IDB | IDA (22 bits) + START.ID
 */
-
-#define CAT_SEPARATE_ACK_LOCK /* Use a second mutex to serialize message acknowledgment data */
-
-#if defined(CAT_SEPARATE_ACK_LOCK)
-#define CAT_ACK_LOCK _ack_lock
-#else
-#define CAT_ACK_LOCK _big_lock
-#endif
 
 class Transport
 {

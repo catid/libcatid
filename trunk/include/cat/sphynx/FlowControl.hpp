@@ -29,7 +29,7 @@
 #ifndef CAT_FLOW_CONTROL_HPP
 #define CAT_FLOW_CONTROL_HPP
 
-#include <cat/net/SphynxCommon.hpp>
+#include <cat/sphynx/Common.hpp>
 #include <cat/threads/Atomic.hpp>
 
 namespace cat {
@@ -158,7 +158,7 @@ public:
 	}
 
 	void OnTick(u32 now);
-	void OnLoss(u32 bytes);
+	void OnLosses(u32 count);
 };
 
 
