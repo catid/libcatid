@@ -23,7 +23,7 @@ public:
 		//WARN("Connexion") << "-- TICK " << now;
 	}
 
-	virtual void OnMessage(ThreadPoolLocalStorage *tls, BufferStream msg, u32 bytes)
+	virtual void OnMessage(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes)
 	{
 		switch (msg[0])
 		{

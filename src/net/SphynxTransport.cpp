@@ -61,7 +61,7 @@ Transport::Transport()
 	// Receive state
 	CAT_OBJCLR(_got_reliable);
 
-	CAT_OBJCLR(_fragment_length);
+	CAT_OBJCLR(_fragments);
 
 	CAT_OBJCLR(_recv_queue_head);
 	CAT_OBJCLR(_recv_queue_tail);
@@ -112,10 +112,8 @@ Transport::~Transport()
 		}
 
 		// Release memory for fragment buffer
-		if (_fragment_length[stream])
-		{
-			delete []_fragment_buffer[stream];
-		}
+		if (_fragments[stream].length)
+			delete []_fragments[stream].buffer;
 
 		// Release memory for sent list
 		SendQueue *sent_node = _sent_list_head[stream];
@@ -152,7 +150,7 @@ Transport::~Transport()
 
 void Transport::InitializePayloadBytes(bool ip6)
 {
-	_overhead_bytes = (ip6 ? IPV6_HEADER_BYTES : IPV4_HEADER_BYTES) + UDP_HEADER_BYTES + AuthenticatedEncryption::OVERHEAD_BYTES;
+	_overhead_bytes = (ip6 ? IPV6_HEADER_BYTES : IPV4_HEADER_BYTES) + UDP_HEADER_BYTES + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD;
 	_max_payload_bytes = MINIMUM_MTU - _overhead_bytes;
 }
 
@@ -177,11 +175,10 @@ bool Transport::InitializeTransportSecurity(bool is_initiator, AuthenticatedEncr
 	return auth_enc.GenerateKey(!is_initiator ? "ws2_32.dll" : "winsock.ocx", _next_recv_expected_id, sizeof(_next_recv_expected_id));
 }
 
-void Transport::OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
+void Transport::OnDatagram(ThreadPoolLocalStorage *tls,  u32 send_time, u32 recv_time, u8 *data, u32 bytes)
 {
 	if (_disconnected) return;
 
-	u32 now = Clock::msec();
 	u32 ack_id = 0, stream = 0;
 
 	INANE("Transport") << "Datagram dump " << bytes << ":" << HexDumpString(data, bytes);
@@ -287,24 +284,24 @@ void Transport::OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 					u32 super_opcode = (hdr >> SOP_SHIFT) & SOP_MASK;
 
 					if (super_opcode == SOP_DATA)
-						OnMessage(tls, data, data_bytes);
+						OnMessage(tls, send_time, recv_time, data, data_bytes);
 					else if (super_opcode == SOP_FRAG)
-						OnFragment(tls, data, data_bytes, stream);
+						OnFragment(tls, send_time, recv_time, data, data_bytes, stream);
 					else if (super_opcode == SOP_INTERNAL)
-						OnInternal(tls, data, data_bytes);
+						OnInternal(tls, send_time, recv_time, data, data_bytes);
 					else WARN("Transport") << "Invalid reliable super opcode ignored";
 
 					if (_disconnected) return; // React to message handler
 				}
 				else WARN("Transport") << "Zero-length reliable message ignored";
 
-				RunQueue(tls, ack_id + 1, stream);
+				RunQueue(tls, recv_time, ack_id + 1, stream);
 
 				if (_disconnected) return; // React to message handler
 			}
 			else if (diff > 0) // Message is due to arrive
 			{
-				QueueRecv(tls, data, data_bytes, ack_id, stream, (hdr >> SOP_SHIFT) & SOP_MASK);
+				QueueRecv(tls, send_time, recv_time, data, data_bytes, ack_id, stream, (hdr >> SOP_SHIFT) & SOP_MASK);
 
 				if (_disconnected) return; // React to message handler (unordered)
 			}
@@ -323,11 +320,11 @@ void Transport::OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 			u32 super_opcode = (hdr >> SOP_SHIFT) & SOP_MASK;
 
 			if (super_opcode == SOP_DATA)
-				OnMessage(tls, data, data_bytes);
+				OnMessage(tls, send_time, recv_time, data, data_bytes);
 			else if (super_opcode == SOP_ACK)
-				OnACK(data, data_bytes);
+				OnACK(send_time, recv_time, data, data_bytes);
 			else if (super_opcode == SOP_INTERNAL)
-				OnInternal(tls, data, data_bytes);
+				OnInternal(tls, send_time, recv_time, data, data_bytes);
 
 			if (_disconnected) return; // React to message handler
 		}
@@ -339,7 +336,7 @@ void Transport::OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 	FlushWrite();
 }
 
-void Transport::RunQueue(ThreadPoolLocalStorage *tls, u32 ack_id, u32 stream)
+void Transport::RunQueue(ThreadPoolLocalStorage *tls, u32 recv_time, u32 ack_id, u32 stream)
 {
 	RecvQueue *node = _recv_queue_head[stream];
 
@@ -374,11 +371,11 @@ void Transport::RunQueue(ThreadPoolLocalStorage *tls, u32 ack_id, u32 stream)
 			u32 super_opcode = node->sop;
 
 			if (super_opcode == SOP_DATA)
-				OnMessage(tls, old_data, old_data_bytes);
+				OnMessage(tls, node->send_time, recv_time, old_data, old_data_bytes);
 			else if (super_opcode == SOP_FRAG)
-				OnFragment(tls, old_data, old_data_bytes, stream);
+				OnFragment(tls, node->send_time, recv_time, old_data, old_data_bytes, stream);
 			else if (super_opcode == SOP_INTERNAL)
-				OnInternal(tls, old_data, old_data_bytes);
+				OnInternal(tls, node->send_time, recv_time, old_data, old_data_bytes);
 
 			if (_disconnected) return; // React to message handler
 
@@ -414,7 +411,7 @@ void Transport::RunQueue(ThreadPoolLocalStorage *tls, u32 ack_id, u32 stream)
 	}
 }
 
-void Transport::QueueRecv(ThreadPoolLocalStorage *tls, u8 *data, u32 data_bytes, u32 ack_id, u32 stream, u32 super_opcode)
+void Transport::QueueRecv(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, u8 *data, u32 data_bytes, u32 ack_id, u32 stream, u32 super_opcode)
 {
 	// Walk backwards from the end because we're probably receiving
 	// a blast of messages after a drop.
@@ -455,11 +452,11 @@ void Transport::QueueRecv(ThreadPoolLocalStorage *tls, u8 *data, u32 data_bytes,
 		if (data_bytes > 0)
 		{
 			if (super_opcode == SOP_DATA)
-				OnMessage(tls, data, data_bytes);
+				OnMessage(tls, send_time, recv_time, data, data_bytes);
 			else if (super_opcode == SOP_FRAG)
-				OnFragment(tls, data, data_bytes, stream);
+				OnFragment(tls, send_time, recv_time, data, data_bytes, stream);
 			else if (super_opcode == SOP_INTERNAL)
-				OnInternal(tls, data, data_bytes);
+				OnInternal(tls, send_time, recv_time, data, data_bytes);
 
 			if (_disconnected) return; // React to message handler
 		}
@@ -486,6 +483,7 @@ void Transport::QueueRecv(ThreadPoolLocalStorage *tls, u8 *data, u32 data_bytes,
 	new_node->id = ack_id;
 	new_node->prev = node;
 	new_node->next = next;
+	new_node->send_time = send_time;
 
 	// Just need to protect writes to the list linkages
 	CAT_ACK_LOCK.Enter();
@@ -502,12 +500,12 @@ void Transport::QueueRecv(ThreadPoolLocalStorage *tls, u8 *data, u32 data_bytes,
 	memcpy(new_data, data, data_bytes);
 }
 
-void Transport::OnFragment(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes, u32 stream)
+void Transport::OnFragment(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, u8 *data, u32 bytes, u32 stream)
 {
 	INANE("Transport") << "OnFragment " << bytes << ":" << HexDumpString(data, bytes);
 
 	// If fragment is starting,
-	if (!_fragment_length[stream])
+	if (!_fragments[stream].length)
 	{
 		if (bytes < 2)
 		{
@@ -528,43 +526,44 @@ void Transport::OnFragment(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes, u32
 			bytes -= 2;
 
 			// Allocate fragment buffer
-			_fragment_buffer[stream] = new u8[frag_length];
-			if (!_fragment_buffer[stream])
+			_fragments[stream].buffer = new u8[frag_length];
+			if (!_fragments[stream].buffer)
 			{
 				WARN("Transport") << "Out of memory: Unable to allocate fragment buffer";
 				return;
 			}
 			else
 			{
-				_fragment_length[stream] = frag_length;
-				_fragment_offset[stream] = 0;
+				_fragments[stream].length = frag_length;
+				_fragments[stream].offset = 0;
+				_fragments[stream].send_time = send_time;
 			}
 		}
 
 		// Fall-thru to processing data part of fragment message:
 	}
 
-	u32 fragment_remaining = _fragment_length[stream] - _fragment_offset[stream];
+	u32 fragment_remaining = _fragments[stream].length - _fragments[stream].offset;
 
 	// If the fragment is now complete,
 	if (bytes >= fragment_remaining)
 	{
-		/*if (bytes > fragment_remaining)
+		if (bytes > fragment_remaining)
 		{
 			WARN("Transport") << "Message fragment overflow truncated";
-		}*/
+		}
 
-		memcpy(_fragment_buffer[stream] + _fragment_offset[stream], data, fragment_remaining);
+		memcpy(_fragments[stream].buffer + _fragments[stream].offset, data, fragment_remaining);
 
-		OnMessage(tls, _fragment_buffer[stream], _fragment_length[stream]);
+		OnMessage(tls, send_time, recv_time, _fragments[stream].buffer, _fragments[stream].length);
 
-		delete []_fragment_buffer[stream];
-		_fragment_length[stream] = 0;
+		delete []_fragments[stream].buffer;
+		_fragments[stream].length = 0;
 	}
 	else
 	{
-		memcpy(_fragment_buffer[stream] + _fragment_offset[stream], data, bytes);
-		_fragment_offset[stream] += bytes;
+		memcpy(_fragments[stream].buffer + _fragments[stream].offset, data, bytes);
+		_fragments[stream].offset += bytes;
 	}
 }
 
@@ -609,7 +608,7 @@ bool Transport::WriteUnreliableOOB(u8 msg_opcode, const void *vmsg_data, u32 dat
 	msg_buffer[0] = msg_opcode;
 	memcpy(msg_buffer + 1, msg_data, data_bytes - 1);
 
-	bool success = PostPacket(pkt, msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, msg_bytes);
+	bool success = PostPacket(pkt, msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD, msg_bytes);
 
 	if (success)
 	{
@@ -677,7 +676,7 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 
 		lock.Release();
 
-		if (PostPacket(old_send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes))
+		if (PostPacket(old_send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD, send_buffer_bytes))
 		{
 			// Accumulate sent bytes for this epoch
 			Atomic::Add(&_send_epoch_bytes, send_buffer_bytes + _overhead_bytes);
@@ -763,7 +762,7 @@ void Transport::PostSendBuffer()
 		// Release lock for actual posting
 		lock.Release();
 
-		if (PostPacket(send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes))
+		if (PostPacket(send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD, send_buffer_bytes))
 		{
 			// Accumulate sent bytes for this epoch
 			Atomic::Add(&_send_epoch_bytes, send_buffer_bytes + _overhead_bytes);
@@ -846,7 +845,7 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 	{
 		// TODO: Eventually I should move this PostPacket() outside of the caller's send lock
 
-		if (PostPacket(send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes))
+		if (PostPacket(send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD, send_buffer_bytes))
 		{
 			// Accumulate sent bytes for this epoch
 			Atomic::Add(&_send_epoch_bytes, send_buffer_bytes + _overhead_bytes);
@@ -1106,7 +1105,7 @@ void Transport::WriteACK()
 
 			lock.Release();
 
-			if (PostPacket(old_send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes))
+			if (PostPacket(old_send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD, send_buffer_bytes))
 			{
 				// Accumulate sent bytes for this epoch
 				Atomic::Add(&_send_epoch_bytes, send_buffer_bytes + _overhead_bytes);
@@ -1149,14 +1148,14 @@ void Transport::TickTransport(ThreadPoolLocalStorage *tls, u32 now)
 		}
 
 		// Set next epoch time
-		_next_epoch_time += epoch_INTERVAL;
+		_next_epoch_time += EPOCH_INTERVAL;
 
 		// If within one tick of another epoch,
 		if ((s32)(now - _next_epoch_time + TICK_INTERVAL) > 0)
 		{
 			WARN("Transport") << "Slow epoch - Scheduling next epoch one interval into the future";
 			// Lagged too much - reset epoch interval
-			_next_epoch_time = now + epoch_INTERVAL;
+			_next_epoch_time = now + EPOCH_INTERVAL;
 		}
 	}
 
@@ -1207,7 +1206,7 @@ bool Transport::PostMTUProbe(ThreadPoolLocalStorage *tls, u32 mtu)
 		return false;
 
 	u32 payload_bytes = mtu - _overhead_bytes;
-	u32 buffer_bytes = payload_bytes + AuthenticatedEncryption::OVERHEAD_BYTES;
+	u32 buffer_bytes = payload_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD;
 	u32 data_bytes = payload_bytes - 2;
 
 	u8 *pkt = AsyncBuffer::Acquire(buffer_bytes);
@@ -1239,7 +1238,7 @@ bool Transport::PostMTUProbe(ThreadPoolLocalStorage *tls, u32 mtu)
 	return success;
 }
 
-void Transport::OnACK(u8 *data, u32 data_bytes)
+void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 {
 	u32 stream = NUM_STREAMS, last_ack_id = 0;
 	SendQueue *node = 0, *kill_list = 0;
@@ -1986,7 +1985,7 @@ void Transport::PostPacketList(TempSendNode *packet_send_head)
 
 		WARN("Transport") << "Sending packet with " << bytes;
 
-		if (PostPacket(data, bytes + AuthenticatedEncryption::OVERHEAD_BYTES, bytes))
+		if (PostPacket(data, bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD, bytes))
 		{
 			// Accumulate sent bytes for this epoch
 			Atomic::Add(&_send_epoch_bytes, bytes + _overhead_bytes);

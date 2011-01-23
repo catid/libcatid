@@ -104,7 +104,7 @@ protected:
 	virtual void OnConnectFail(sphynx::HandshakeError err) = 0;
 	virtual void OnConnect(ThreadPoolLocalStorage *tls) = 0;
 	virtual void OnTimestampDeltaUpdate() {}
-	virtual void OnMessage(ThreadPoolLocalStorage *tls, BufferStream msg, u32 bytes) = 0;
+	virtual void OnMessage(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes) = 0;
 	virtual void OnDisconnect(u8 reason) = 0;
 	virtual void OnTick(ThreadPoolLocalStorage *tls, u32 now) = 0;
 
@@ -121,7 +121,7 @@ private:
 	bool OnResolve(const char *hostname, const NetAddr *array, int array_length);
 
 	virtual bool PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes);
-	virtual void OnInternal(ThreadPoolLocalStorage *tls, BufferStream msg, u32 bytes);
+	virtual void OnInternal(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes);
 
 	void ConnectFail(HandshakeError err);
 

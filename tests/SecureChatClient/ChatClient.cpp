@@ -25,7 +25,7 @@ public:
 		WARN("Client") << "-- CONNECTED";
 	}
 
-	virtual void OnMessage(ThreadPoolLocalStorage *tls, BufferStream msg, u32 bytes)
+	virtual void OnMessage(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes)
 	{
 		switch (msg[0])
 		{
@@ -99,10 +99,11 @@ int main()
 				FATAL("Client") << "Provided server key invalid";
 			}
 
+			// loopback: 127.0.0.1
 			// linux: 10.1.1.146
 			// netbook: 10.1.1.110
 			// coldfront: 68.84.166.22
-			if (!client->Connect("68.84.166.22", 22000))
+			if (!client->Connect("127.0.0.1", 22000))
 			{
 				FATAL("Client") << "Unable to connect to server";
 			}
