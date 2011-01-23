@@ -33,7 +33,6 @@
 #include <cat/crypt/tunnel/KeyAgreementInitiator.hpp>
 #include <cat/threads/Thread.hpp>
 #include <cat/threads/WaitableFlag.hpp>
-#include <cat/time/Clock.hpp>
 
 namespace cat {
 
@@ -73,7 +72,7 @@ private:
 		u32 rtt;
 		s32 delta;
 	} _ts_samples[MAX_TS_SAMPLES];
-	u32 _ts_sample_count, _ts_next_index, _ts_delta;
+	u32 _ts_sample_count, _ts_next_index;
 
 	void UpdateTimeSynch(u32 rtt, s32 delta);
 
@@ -97,19 +96,6 @@ public:
 	bool Connect(const NetAddr &addr);
 
 	void Disconnect(u8 reason, bool notify);
-
-public:
-	// Current local time
-	CAT_INLINE u32 GetLocalTime() { return Clock::msec(); }
-
-	// Convert from local time to server time
-	CAT_INLINE u32 ToServerTime(u32 local_time) { return local_time + _ts_delta; }
-
-	// Convert from server time to local time
-	CAT_INLINE u32 FromServerTime(u32 server_time) { return server_time - _ts_delta; }
-
-	// Current server time
-	CAT_INLINE u32 GetServerTime() { return ToServerTime(GetLocalTime()); }
 
 protected:
 	bool IsConnected() { return _connected; }

@@ -67,7 +67,6 @@ Transport::Transport()
 	CAT_OBJCLR(_recv_queue_tail);
 
 	// Send state
-
 	_rtt = INITIAL_RTT;
 
 	_send_buffer = 0;
@@ -75,8 +74,9 @@ Transport::Transport()
 	_send_buffer_stream = NUM_STREAMS;
 	_send_buffer_msg_count = 0;
 
-	_max_tick_bytes = INITIAL_MAX_TICK_BYTES;
-	_send_tick_bytes = 0;
+	_max_epoch_bytes = MIN_RATE_LIMIT / 2;
+	_send_epoch_bytes = 0;
+	_next_epoch_time = Clock::msec();
 
 	CAT_OBJCLR(_send_queue_head);
 	CAT_OBJCLR(_send_queue_tail);
@@ -159,10 +159,13 @@ void Transport::InitializePayloadBytes(bool ip6)
 bool Transport::InitializeTransportSecurity(bool is_initiator, AuthenticatedEncryption &auth_enc)
 {
 	/*
-		Most protocols just initialize the ACK IDs to zeroes at the start.  The problem is that this gives attackers known plaintext
-		bytes inside an encrypted channel.  I used this to break the WoW encryption without knowing the key, for example.  Sure, if a
-		cryptosystem can be broken with known plaintext there is a problem ANYWAY but I mean why make it easier than it needs to be?
-		So we derive the initial ACK IDs with a key derivation function based on the session key.
+		Most protocols just initialize the ACK IDs to zeroes at the start.
+		The problem is that this gives attackers known plaintext bytes inside
+		an encrypted channel.  I used this to break the WoW encryption without
+		knowing the key, for example.  Sure, if a cryptosystem can be broken
+		with known plaintext there is a problem ANYWAY but I mean why make it
+		easier than it needs to be?  So we derive the initial ACK IDs using a
+		key derivation function (KDF) based on the session key.
 	*/
 
 	// Randomize next send ack id
@@ -178,6 +181,7 @@ void Transport::OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 {
 	if (_disconnected) return;
 
+	u32 now = Clock::msec();
 	u32 ack_id = 0, stream = 0;
 
 	INANE("Transport") << "Datagram dump " << bytes << ":" << HexDumpString(data, bytes);
@@ -609,8 +613,8 @@ bool Transport::WriteUnreliableOOB(u8 msg_opcode, const void *vmsg_data, u32 dat
 
 	if (success)
 	{
-		// Accumulate sent bytes for this tick
-		Atomic::Add(&_send_tick_bytes, msg_bytes + _overhead_bytes);
+		// Accumulate sent bytes for this epoch
+		Atomic::Add(&_send_epoch_bytes, msg_bytes + _overhead_bytes);
 	}
 
 	return success;
@@ -675,8 +679,8 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 
 		if (PostPacket(old_send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes))
 		{
-			// Accumulate sent bytes for this tick
-			Atomic::Add(&_send_tick_bytes, send_buffer_bytes + _overhead_bytes);
+			// Accumulate sent bytes for this epoch
+			Atomic::Add(&_send_epoch_bytes, send_buffer_bytes + _overhead_bytes);
 		}
 		else WARN("Transport") << "Packet post failure during unreliable overflow";
 	}
@@ -761,8 +765,8 @@ void Transport::PostSendBuffer()
 
 		if (PostPacket(send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes))
 		{
-			// Accumulate sent bytes for this tick
-			Atomic::Add(&_send_tick_bytes, send_buffer_bytes + _overhead_bytes);
+			// Accumulate sent bytes for this epoch
+			Atomic::Add(&_send_epoch_bytes, send_buffer_bytes + _overhead_bytes);
 		}
 		else WARN("Transport") << "Packet post failure during flush write";
 	}
@@ -844,8 +848,8 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 
 		if (PostPacket(send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes))
 		{
-			// Accumulate sent bytes for this tick
-			Atomic::Add(&_send_tick_bytes, send_buffer_bytes + _overhead_bytes);
+			// Accumulate sent bytes for this epoch
+			Atomic::Add(&_send_epoch_bytes, send_buffer_bytes + _overhead_bytes);
 		}
 		else WARN("Transport") << "Packet post failure during retransmit overflow";
 
@@ -1104,8 +1108,8 @@ void Transport::WriteACK()
 
 			if (PostPacket(old_send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES, send_buffer_bytes))
 			{
-				// Accumulate sent bytes for this tick
-				Atomic::Add(&_send_tick_bytes, send_buffer_bytes + _overhead_bytes);
+				// Accumulate sent bytes for this epoch
+				Atomic::Add(&_send_epoch_bytes, send_buffer_bytes + _overhead_bytes);
 			}
 			else WARN("Transport") << "Packet post failure during ACK send buffer overflow";
 		}
@@ -1134,11 +1138,26 @@ void Transport::TickTransport(ThreadPoolLocalStorage *tls, u32 now)
 {
 	if (_disconnected) return;
 
-	// If some bandwidth has been used this tick,
-	if ((s32)_send_tick_bytes > 0)
+	// If epoch has ended,
+	if ((s32)(now - _next_epoch_time) >= 0)
 	{
-		// Subtract off the amount allowed this tick
-		Atomic::Add(&_send_tick_bytes, -_max_tick_bytes);
+		// If some bandwidth has been used this epoch,
+		if ((s32)_send_epoch_bytes > 0)
+		{
+			// Subtract off the amount allowed this epoch
+			Atomic::Add(&_send_epoch_bytes, -_max_epoch_bytes);
+		}
+
+		// Set next epoch time
+		_next_epoch_time += epoch_INTERVAL;
+
+		// If within one tick of another epoch,
+		if ((s32)(now - _next_epoch_time + TICK_INTERVAL) > 0)
+		{
+			WARN("Transport") << "Slow epoch - Scheduling next epoch one interval into the future";
+			// Lagged too much - reset epoch interval
+			_next_epoch_time = now + epoch_INTERVAL;
+		}
 	}
 
 	// Acknowledge recent reliable packets
@@ -1213,8 +1232,8 @@ bool Transport::PostMTUProbe(ThreadPoolLocalStorage *tls, u32 mtu)
 
 	if (success)
 	{
-		// Accumulate sent bytes for this tick
-		Atomic::Add(&_send_tick_bytes, mtu);
+		// Accumulate sent bytes for this epoch
+		Atomic::Add(&_send_epoch_bytes, mtu);
 	}
 
 	return success;
@@ -1498,7 +1517,8 @@ void Transport::OnACK(u8 *data, u32 data_bytes)
 
 	lock.Release();
 
-	u32 rtt = _rtt;
+	// Update loss timeout based on acknowledged data
+	u32 loss_timeout = _loss_timeout;
 
 	// Release kill list after lock is released
 	while (kill_list)
@@ -1509,24 +1529,25 @@ void Transport::OnACK(u8 *data, u32 data_bytes)
 		// If the message was only sent once,
 		if (ts_firstsend == kill_list->ts_lastsend)
 		{
-			// Validate the new RTT
-			u32 this_rtt = now - ts_firstsend;
-			if ((s32)this_rtt > 0)
+			u32 rtt = now - ts_firstsend;
+
+			// If this RTT makes sense,
+			if ((s32)rtt > 0)
 			{
 				// If RTT is lower than before,
-				if (this_rtt < rtt)
+				if (rtt < loss_timeout)
 				{
 					// Use it
-					rtt = this_rtt;
+					loss_timeout = rtt;
 				}
 				else
 				{
 					// Update RTT = (RTT * 3 + NEW_RTT) / 4
-					rtt = ((rtt << 1) + rtt + this_rtt) >> 2;
+					loss_timeout = ((loss_timeout << 1) + loss_timeout + rtt) >> 2;
 				}
 
-				if (rtt < MIN_RTT)
-					rtt = MIN_RTT;
+				if (loss_timeout < MIN_RTT)
+					loss_timeout = MIN_RTT;
 			}
 		}
 
@@ -1534,7 +1555,7 @@ void Transport::OnACK(u8 *data, u32 data_bytes)
 		kill_list = next;
 	}
 
-	_rtt = rtt;
+	_loss_timeout = loss_timeout;
 
 	WARN("Transport") << "RTT estimate: " << _rtt;
 }
@@ -1603,8 +1624,8 @@ void Transport::TransmitQueued()
 	const u32 ACK_ID_2_THRESH = 1024;
 
 	// If there is no more room in the channel,
-	s32 send_tick_bytes = _send_tick_bytes;
-	if (send_tick_bytes >= _max_tick_bytes)
+	s32 send_epoch_bytes = _send_epoch_bytes;
+	if (send_epoch_bytes >= _max_epoch_bytes)
 	{
 		// Stop sending here
 		return;
@@ -1663,9 +1684,16 @@ void Transport::TransmitQueued()
 				// If message would be fragmented,
 				if (2 + ack_id_overhead + remaining_data_bytes > remaining_send_buffer)
 				{
+					/*
+						When to Fragment?
+
+						The goal of the transport protocol is to deliver data as quickly and reliably as possible.
+						Fragmentation has additional processing overhead that should be avoided at the expense of
+						about FRAG_THRESHOLD bytes of lost bandwidth per packet.  If more bytes than that can fit
+						in a packet then it is time to fragment.
+					*/
 					// If it is worth fragmentation,
-					if (remaining_send_buffer >= FRAG_THRESHOLD &&
-						2 + ack_id_bytes + remaining_data_bytes - remaining_send_buffer >= FRAG_THRESHOLD)
+					if (remaining_send_buffer >= FRAG_THRESHOLD)
 					{
 						if (!fragmented)
 						{
@@ -1673,7 +1701,7 @@ void Transport::TransmitQueued()
 							fragmented = true;
 						}
 					}
-					else // Not worth fragmentation
+					else if (send_buffer_bytes > 0) // Not worth fragmentation, dump current send buffer
 					{
 						// Prepare a temp send node for the old packet send buffer
 						TempSendNode *old_node = reinterpret_cast<TempSendNode*>( send_buffer + send_buffer_bytes );
@@ -1685,11 +1713,11 @@ void Transport::TransmitQueued()
 						else packet_send_head = old_node;
 						packet_send_tail = old_node;
 
-						// Update send tick bytes
-						send_tick_bytes += send_buffer_bytes + _overhead_bytes;
+						// Update send epoch bytes
+						send_epoch_bytes += send_buffer_bytes + _overhead_bytes;
 
 						// If there is no more room in the channel,
-						if (send_tick_bytes >= _max_tick_bytes)
+						if (send_epoch_bytes >= _max_epoch_bytes)
 						{
 							// Does not need to update _send_buffer_ack_id and _send_buffer_stream
 							// since those members are updated whenever the send buffer is appended
@@ -1960,8 +1988,8 @@ void Transport::PostPacketList(TempSendNode *packet_send_head)
 
 		if (PostPacket(data, bytes + AuthenticatedEncryption::OVERHEAD_BYTES, bytes))
 		{
-			// Accumulate sent bytes for this tick
-			Atomic::Add(&_send_tick_bytes, bytes + _overhead_bytes);
+			// Accumulate sent bytes for this epoch
+			Atomic::Add(&_send_epoch_bytes, bytes + _overhead_bytes);
 		}
 		else
 		{

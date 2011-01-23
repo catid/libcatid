@@ -618,7 +618,7 @@ bool ServerTimer::ThreadFunction(void *)
 	}
 
 	// While quit signal is not flagged,
-	while (!_kill_flag.Wait(Transport::TICK_RATE))
+	while (!_kill_flag.Wait(Transport::TICK_INTERVAL))
 	{
 		Tick(&tls);
 	}

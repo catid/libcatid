@@ -163,7 +163,7 @@ void MurmurHash::Add(const void *key, u64 bytes)
 	_bytes += bytes;
 }
 
-void MurmurHash::Finalize()
+void MurmurHash::End()
 {
 	FinalMix(_bytes, _h1, _h2);
 }

@@ -451,7 +451,7 @@ bool Client::ThreadFunction(void *)
 	_last_recv_tsc = next_sync_time;
 
 	// While waiting for quit signal,
-	while (!_kill_flag.Wait(Transport::TICK_RATE))
+	while (!_kill_flag.Wait(Transport::TICK_INTERVAL))
 	{
 		u32 now = Clock::msec();
 
