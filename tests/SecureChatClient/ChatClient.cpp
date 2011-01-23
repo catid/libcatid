@@ -38,8 +38,12 @@ public:
 				for (int ii = 0; ii < sizeof(STR); ++ii)
 					STR[ii] = (char)ii;
 
-				for (int jj = 0; jj < 1000; ++jj)
+				for (int jj = 0; jj < 10; ++jj)
+					WriteReliable(STREAM_UNORDERED, 1, STR, sizeof(STR)/4);
+				for (int jj = 0; jj < 10; ++jj)
 					WriteReliable(STREAM_1, 1, STR, sizeof(STR));
+				for (int jj = 0; jj < 10; ++jj)
+					WriteReliable(STREAM_2, 1, STR, sizeof(STR));
 
 				WriteReliable(STREAM_3, 0, STR, sizeof(STR));
 			}

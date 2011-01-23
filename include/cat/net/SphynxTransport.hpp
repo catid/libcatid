@@ -36,8 +36,9 @@
 #include <cat/time/Clock.hpp>
 #include <cat/math/BitMath.hpp>
 
-// TODO: do something with the extra two bits in the new timestamp field
 // TODO: congestion control
+// TODO: add random bytes to length of each packet under MTU to mask function
+// TODO: do something with the extra two bits in the new timestamp field
 // TODO: vulnerable to resource starvation attacks (out of sequence packets, etc)
 // TODO: move all packet sending outside of locks
 
@@ -448,8 +449,6 @@ protected:
 
 	static const u32 MAX_MESSAGE_DATALEN = 65535-1; // Maximum number of bytes in the data part of a message (-1 for the opcode)
 
-	static const u32 MIN_RATE_LIMIT = 100000; // Smallest data rate allowed
-
 public:
 	static const u32 TRANSPORT_OVERHEAD = 2; // Number of bytes added to each packet for the transport layer
 
@@ -519,7 +518,6 @@ protected:
 protected:
 	bool _disconnected; // true = no longer connected
 
-	s32 _max_epoch_bytes; // Bytes per epoch maximum (0 = none)
 	u32 _next_epoch_time; // Time when next epoch will start
 
 	u32 _loss_timeout; // Milliseconds without receiving acknowledgment that a message will be considered lost
