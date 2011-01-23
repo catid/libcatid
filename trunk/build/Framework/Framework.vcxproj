@@ -176,7 +176,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\io\Base64.cpp" />
-    <ClCompile Include="..\..\src\net\SiameseFlowControl.cpp" />
+    <ClCompile Include="..\..\src\net\FlowControl.cpp" />
     <ClCompile Include="..\..\src\parse\BitStream.cpp" />
     <ClCompile Include="..\..\src\db\BombayTable.cpp" />
     <ClCompile Include="..\..\src\db\BombayTableIndex.cpp" />
@@ -204,11 +204,12 @@
     <ClInclude Include="..\..\include\cat\io\MMapFile.hpp" />
     <ClInclude Include="..\..\include\cat\io\Settings.hpp" />
     <ClInclude Include="..\..\include\cat\io\ThreadPoolFiles.hpp" />
-    <ClInclude Include="..\..\include\cat\net\SiameseFlowControl.hpp" />
+    <ClInclude Include="..\..\include\cat\net\FlowControl.hpp" />
     <ClInclude Include="..\..\include\cat\net\DNSClient.hpp" />
     <ClInclude Include="..\..\include\cat\net\Sockets.hpp" />
     <ClInclude Include="..\..\include\cat\net\SphynxClient.hpp" />
     <ClInclude Include="..\..\include\cat\net\SphynxCollexion.hpp" />
+    <ClInclude Include="..\..\include\cat\net\SphynxCommon.hpp" />
     <ClInclude Include="..\..\include\cat\net\SphynxServer.hpp" />
     <ClInclude Include="..\..\include\cat\net\SphynxTransport.hpp" />
     <ClInclude Include="..\..\include\cat\net\ThreadPoolSockets.hpp" />
