@@ -218,10 +218,19 @@ void Client::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 		// If the data could not be decrypted, ignore this packet
 		if (_auth_enc.Decrypt(data, buf_bytes))
 		{
-			_last_recv_tsc = Clock::msec_fast();
+			u32 recv_time = Clock::msec();
 
-			// Pass the packet to the transport layer
-			OnDatagram(tls, data, buf_bytes);
+			_last_recv_tsc = recv_time;
+
+			if (buf_bytes >= 2)
+			{
+				// Read timestamp for transmission
+				buf_bytes -= 2;
+				u32 send_time = DecodeServerTimestamp(recv_time, getLE(*(u16 *)(data + buf_bytes)));
+
+				// Pass it to the transport layer
+				OnDatagram(tls, send_time, recv_time, data, buf_bytes);
+			}
 		}
 		else
 		{
@@ -539,6 +548,10 @@ bool Client::ThreadFunction(void *)
 
 bool Client::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes)
 {
+	// Write timestamp for transmission
+	*(u16 *)(buffer + msg_bytes) = getLE(EncodeClientTimestamp(GetLocalTime()));
+	msg_bytes += 2;
+
 	if (!_auth_enc.Encrypt(buffer, buf_bytes, msg_bytes))
 	{
 		WARN("Client") << "Encryption failure while sending packet";
@@ -558,7 +571,7 @@ bool Client::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes)
 	return false;
 }
 
-void Client::OnInternal(ThreadPoolLocalStorage *tls, BufferStream data, u32 bytes)
+void Client::OnInternal(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, BufferStream data, u32 bytes)
 {
 	switch (data[0])
 	{

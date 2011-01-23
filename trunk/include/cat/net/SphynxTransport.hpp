@@ -36,9 +36,9 @@
 #include <cat/time/Clock.hpp>
 #include <cat/math/BitMath.hpp>
 
+// TODO: do something with the extra two bits in the new timestamp field
+// TODO: congestion control
 // TODO: vulnerable to resource starvation attacks (out of sequence packets, etc)
-// TODO: flow control
-// TODO: bandwidth detection
 // TODO: move all packet sending outside of locks
 
 namespace cat {
@@ -348,6 +348,15 @@ static const u32 IOP_DISCO_LEN = 1 + 1;
 # pragma pack(1)
 #endif
 
+// Receive state: Fragmentation
+struct RecvFrag
+{
+	u8 *buffer; // Buffer for accumulating fragment
+	u32 length; // Number of bytes in fragment buffer
+	u32 offset; // Current write offset in buffer
+	u32 send_time; // Timestamp on first fragment piece
+};
+
 // Receive state: Receive queue
 struct RecvQueue
 {
@@ -356,6 +365,7 @@ struct RecvQueue
 	u32 id;				// Acknowledgment id
 	u16 sop;			// Super Opcode
 	u16 bytes;			// Data Bytes
+	u32 send_time;		// Timestamp attached to packet
 
 	// Message contents follow
 };
@@ -420,7 +430,7 @@ protected:
 
 	static const int TICK_INTERVAL = 20; // Milliseconds between ticks
 
-	static const int epoch_INTERVAL = 500; // Milliseconds per epoch
+	static const int EPOCH_INTERVAL = 500; // Milliseconds per epoch
 
 	static const u32 MINIMUM_MTU = 576; // Dial-up
 	static const u32 MEDIUM_MTU = 1400; // Highspeed with unexpected overhead, maybe VPN
@@ -439,6 +449,9 @@ protected:
 	static const u32 MAX_MESSAGE_DATALEN = 65535-1; // Maximum number of bytes in the data part of a message (-1 for the opcode)
 
 	static const u32 MIN_RATE_LIMIT = 100000; // Smallest data rate allowed
+
+public:
+	static const u32 TRANSPORT_OVERHEAD = 2; // Number of bytes added to each packet for the transport layer
 
 protected:
 	// Maximum transfer unit (MTU) in UDP payload bytes, excluding the IP and UDP headers and encryption overhead
@@ -463,9 +476,7 @@ protected:
 #endif // CAT_SEPARATE_ACK_LOCK
 
 	// Receive state: Fragmentation
-	u8 *_fragment_buffer[NUM_STREAMS]; // Buffer for accumulating fragment
-	u32 _fragment_length[NUM_STREAMS]; // Number of bytes in fragment buffer
-	u32 _fragment_offset[NUM_STREAMS]; // Current write offset in buffer
+	RecvFrag _fragments[NUM_STREAMS]; // Fragments for each stream
 
 	static const u32 FRAG_MIN = 0;		// Min bytes for a fragmented message
 	static const u32 FRAG_MAX = 65535;	// Max bytes for a fragmented message
@@ -474,8 +485,8 @@ protected:
 	RecvQueue *_recv_queue_head[NUM_STREAMS], *_recv_queue_tail[NUM_STREAMS];
 
 private:
-	void RunQueue(ThreadPoolLocalStorage *tls, u32 ack_id, u32 stream);
-	void QueueRecv(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes, u32 ack_id, u32 stream, u32 super_opcode);
+	void RunQueue(ThreadPoolLocalStorage *tls, u32 recv_time, u32 ack_id, u32 stream);
+	void QueueRecv(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, u8 *data, u32 bytes, u32 ack_id, u32 stream, u32 super_opcode);
 
 protected:
 	// Send state: Synchronization objects
@@ -520,7 +531,7 @@ private:
 	void TransmitQueued();
 	void Retransmit(u32 stream, SendQueue *node, u32 now); // Does not hold the send lock!
 	void WriteACK();
-	void OnACK(u8 *data, u32 data_bytes);
+	void OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes);
 
 public:
 	Transport();
@@ -549,13 +560,13 @@ public:
 	CAT_INLINE u16 EncodeClientTimestamp(u32 local_time) { return (u16)(ToServerTime(local_time) & 0x3fff); }
 
 	// Decompress a timestamp on server from client; high two bits are unused; byte order must be fixed before decoding
-	CAT_INLINE u32 DecodeClientTimestamp(u32 local_time, u16 timestamp) { BiasedReconstructCounter<14>(local_time, TS_COMPRESS_FUTURE_TOLERANCE, timestamp & 0x3fff); }
+	CAT_INLINE u32 DecodeClientTimestamp(u32 local_time, u16 timestamp) { return BiasedReconstructCounter<14>(local_time, TS_COMPRESS_FUTURE_TOLERANCE, timestamp & 0x3fff); }
 
 	// Compress timestamp on server for delivery to client; high two bits are unused; byte order must be fixed before writing to message
 	CAT_INLINE u16 EncodeServerTimestamp(u32 local_time) { return (u16)(local_time & 0x3fff); }
 
 	// Decompress a timestamp on client from server; high two bits are unused; byte order must be fixed before decoding
-	CAT_INLINE u32 DecodeServerTimestamp(u32 local_time, u16 timestamp) { FromServerTime(BiasedReconstructCounter<14>(ToServerTime(local_time), TS_COMPRESS_FUTURE_TOLERANCE, timestamp & 0x3fff)); }
+	CAT_INLINE u32 DecodeServerTimestamp(u32 local_time, u16 timestamp) { return FromServerTime(BiasedReconstructCounter<14>(ToServerTime(local_time), TS_COMPRESS_FUTURE_TOLERANCE, timestamp & 0x3fff)); }
 
 protected:
 	// Notify transport layer of disconnect to halt message processing
@@ -563,18 +574,18 @@ protected:
 	CAT_INLINE bool IsDisconnected() { return _disconnected; }
 
 	void TickTransport(ThreadPoolLocalStorage *tls, u32 now);
-	void OnDatagram(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes);
+	void OnDatagram(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, u8 *data, u32 bytes);
 
 private:
-	void OnFragment(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes, u32 stream);
+	void OnFragment(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, u8 *data, u32 bytes, u32 stream);
 
 	void PostPacketList(TempSendNode *packet_send_head);
 	void PostSendBuffer();
 
 protected:
 	virtual bool PostPacket(u8 *data, u32 buf_bytes, u32 msg_bytes) = 0;
-	virtual void OnMessage(ThreadPoolLocalStorage *tls, BufferStream msg, u32 bytes) = 0; // precondition: bytes > 0
-	virtual void OnInternal(ThreadPoolLocalStorage *tls, BufferStream msg, u32 bytes) = 0; // precondition: bytes > 0
+	virtual void OnMessage(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes) = 0; // precondition: bytes > 0
+	virtual void OnInternal(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes) = 0; // precondition: bytes > 0
 
 protected:
 	bool PostMTUProbe(ThreadPoolLocalStorage *tls, u32 mtu);

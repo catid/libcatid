@@ -126,19 +126,31 @@ void Connexion::OnRawData(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 	// If packet is valid,
 	if (_auth_enc.Decrypt(data, buf_bytes))
 	{
-		_last_recv_tsc = Clock::msec_fast();
+		u32 recv_time = Clock::msec();
 
-		// Pass it to the transport layer
-		OnDatagram(tls, data, buf_bytes);
+		_last_recv_tsc = recv_time;
+
+		if (buf_bytes >= 2)
+		{
+			// Read timestamp for transmission
+			buf_bytes -= 2;
+			u32 send_time = DecodeClientTimestamp(recv_time, getLE(*(u16 *)(data + buf_bytes)));
+
+			// Pass it to the transport layer
+			OnDatagram(tls, send_time, recv_time, data, buf_bytes);
+			return;
+		}
 	}
-	else
-	{
-		WARN("Server") << "Ignoring invalid encrypted data";
-	}
+
+	WARN("Server") << "Ignoring invalid encrypted data";
 }
 
 bool Connexion::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes)
 {
+	// Write timestamp for transmission
+	*(u16 *)(buffer + msg_bytes) = getLE(EncodeServerTimestamp(GetLocalTime()));
+	msg_bytes += 2;
+
 	if (!_auth_enc.Encrypt(buffer, buf_bytes, msg_bytes))
 	{
 		WARN("Server") << "Encryption failure while sending packet";
@@ -151,7 +163,7 @@ bool Connexion::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes)
 	return _server_worker->Post(_client_addr, buffer, msg_bytes);
 }
 
-void Connexion::OnInternal(ThreadPoolLocalStorage *tls, BufferStream data, u32 bytes)
+void Connexion::OnInternal(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, BufferStream data, u32 bytes)
 {
 	switch (data[0])
 	{
