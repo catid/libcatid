@@ -412,8 +412,10 @@ protected:
 	static const u32 NUM_STREAMS = 4; // Number of reliable streams
 	static const u32 MIN_RTT = 2; // Minimum milliseconds for RTT
 
-	static const int INITIAL_RTT = 1500; // milliseconds
 	static const int TIMEOUT_DISCONNECT = 15000; // milliseconds; NOTE: If this changes, the timestamp compression will stop working
+	static const int TS_COMPRESS_FUTURE_TOLERANCE = 1000; // Milliseconds of time synch error before errors may occur in timestamp compression
+
+	static const int INITIAL_RTT = 1500; // milliseconds
 	static const int SILENCE_LIMIT = 4357; // Time silent before sending a keep-alive (0-length unordered reliable message), milliseconds
 
 	static const int TICK_INTERVAL = 20; // Milliseconds between ticks
@@ -547,13 +549,13 @@ public:
 	CAT_INLINE u16 EncodeClientTimestamp(u32 local_time) { return (u16)(ToServerTime(local_time) & 0x3fff); }
 
 	// Decompress a timestamp on server from client; high two bits are unused; byte order must be fixed before decoding
-	CAT_INLINE u32 DecodeClientTimestamp(u32 local_time, u16 timestamp) { ReconstructCounter<14>(local_time - (15000 + 384 - 1000) / 2, timestamp & 0x3fff); }
+	CAT_INLINE u32 DecodeClientTimestamp(u32 local_time, u16 timestamp) { BiasedReconstructCounter<14>(local_time, TS_COMPRESS_FUTURE_TOLERANCE, timestamp & 0x3fff); }
 
 	// Compress timestamp on server for delivery to client; high two bits are unused; byte order must be fixed before writing to message
 	CAT_INLINE u16 EncodeServerTimestamp(u32 local_time) { return (u16)(local_time & 0x3fff); }
 
 	// Decompress a timestamp on client from server; high two bits are unused; byte order must be fixed before decoding
-	CAT_INLINE u32 DecodeServerTimestamp(u32 local_time, u16 timestamp) { FromServerTime(ReconstructCounter<14>(ToServerTime(local_time) - (15000 + 384 - 1000) / 2, timestamp & 0x3fff)); }
+	CAT_INLINE u32 DecodeServerTimestamp(u32 local_time, u16 timestamp) { FromServerTime(BiasedReconstructCounter<14>(ToServerTime(local_time), TS_COMPRESS_FUTURE_TOLERANCE, timestamp & 0x3fff)); }
 
 protected:
 	// Notify transport layer of disconnect to halt message processing
