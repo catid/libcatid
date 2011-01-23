@@ -50,7 +50,7 @@ public:
 	// Incremental hash interface
 	MurmurHash(u64 seed = 0);
 	void Add(const void *key, u64 bytes);
-	void Finalize();
+	void End();
 
 public:
 	// One-shot hash interface

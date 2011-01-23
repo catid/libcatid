@@ -33,6 +33,8 @@
 #include <cat/threads/Mutex.hpp>
 #include <cat/crypt/tunnel/AuthenticatedEncryption.hpp>
 #include <cat/parse/BufferStream.hpp>
+#include <cat/time/Clock.hpp>
+#include <cat/math/BitMath.hpp>
 
 // TODO: vulnerable to resource starvation attacks (out of sequence packets, etc)
 // TODO: flow control
@@ -49,10 +51,11 @@ namespace sphynx {
 	This transport layer provides fragmentation, three reliable ordered
 	streams, one unordered reliable stream, and unreliable delivery.
 
-	The Transport object that implements a sender/receiver in the protocol requires 276 bytes
-	of memory per server connection, plus 32 bytes per message fragment in flight, plus buffers
-	for queued send/recv packets, and it keeps two mutexes for thread-safety.  A lockless memory
-	allocator is used to allocate all buffers except the fragmented message reassembly buffer.
+	The Transport object that implements a sender/receiver in the protocol
+	requires 276 bytes of memory per server connection, plus 32 bytes per
+	message fragment in flight, plus buffers for queued send/recv packets, and
+	it keeps two mutexes for thread-safety.  A lockless memory allocator is used
+	to allocate all buffers except the fragmented message reassembly buffer.
 
 	Packet format on top of UDP header:
 
@@ -62,8 +65,8 @@ namespace sphynx {
 		IV: Initialization vector used by security layer (Randomly initialized).
 		MAC: Message authentication code used by security layer (HMAC-MD5).
 
-		HDR|ACK-ID|DATA: A message block inside the datagram.  The HDR and ACK-ID
-		fields employ compression to use as little as 1 byte together.
+		HDR|ACK-ID|DATA: A message block inside the datagram.  The HDR and
+		ACK-ID fields employ compression to use as little as 1 byte together.
 
 	Each message follows the same format.  A two-byte header followed by data:
 
@@ -199,12 +202,12 @@ namespace sphynx {
 	The following ARE rate limited:
 	Unordered, stream 1, 2 and 3 (these always contain less important data)
 
-	Prioritization: If data are to be held off for the next tick, then it will
+	Prioritization: If data are to be held off for the next epoch, then it will
 	send across unordered always before stream 1 always before stream 2 always
 	before stream 3.
 	
-	There is no fairness algorithm so if stream 1 is very noisy, you may never hear
-	what is in stream 3.
+	There is no fairness algorithm so if stream 1 is very noisy, you may never
+	hear what is in stream 3.
 */
 
 class Connexion;
@@ -407,13 +410,15 @@ protected:
 	static const u32 SOP_MASK = 3;
 
 	static const u32 NUM_STREAMS = 4; // Number of reliable streams
-	static const u32 MIN_RTT = 50; // Minimum milliseconds for RTT
+	static const u32 MIN_RTT = 2; // Minimum milliseconds for RTT
 
 	static const int INITIAL_RTT = 1500; // milliseconds
-	static const int TIMEOUT_DISCONNECT = 15000; // milliseconds
+	static const int TIMEOUT_DISCONNECT = 15000; // milliseconds; NOTE: If this changes, the timestamp compression will stop working
 	static const int SILENCE_LIMIT = 4357; // Time silent before sending a keep-alive (0-length unordered reliable message), milliseconds
 
-	static const int TICK_RATE = 20; // Milliseconds between ticks
+	static const int TICK_INTERVAL = 20; // Milliseconds between ticks
+
+	static const int epoch_INTERVAL = 500; // Milliseconds per epoch
 
 	static const u32 MINIMUM_MTU = 576; // Dial-up
 	static const u32 MEDIUM_MTU = 1400; // Highspeed with unexpected overhead, maybe VPN
@@ -431,8 +436,7 @@ protected:
 
 	static const u32 MAX_MESSAGE_DATALEN = 65535-1; // Maximum number of bytes in the data part of a message (-1 for the opcode)
 
-	static const u32 INITIAL_MAX_RATE = 1000; // Default maximum rate in bytes per second to send
-	static const u32 INITIAL_MAX_TICK_BYTES = INITIAL_MAX_RATE / 50; // Initial maximum number of bytes to send per tick
+	static const u32 MIN_RATE_LIMIT = 100000; // Smallest data rate allowed
 
 protected:
 	// Maximum transfer unit (MTU) in UDP payload bytes, excluding the IP and UDP headers and encryption overhead
@@ -490,8 +494,8 @@ protected:
 	u32 _send_buffer_stream, _send_buffer_ack_id; // Used to compress ACK-ID by setting I=0 after the first reliable message
 	u32 _send_buffer_msg_count; // Used to compress datagrams with a single message by omitting the header's BLO field
 
-	// Send state: Number of bytes sent during the current tick, atomically synchronized
-	volatile u32 _send_tick_bytes;
+	// Send state: Number of bytes sent during the current epoch, atomically synchronized
+	volatile u32 _send_epoch_bytes;
 
 	// Queue of messages that are waiting to be sent
 	SendQueue *_send_queue_head[NUM_STREAMS], *_send_queue_tail[NUM_STREAMS];
@@ -501,7 +505,14 @@ protected:
 
 protected:
 	bool _disconnected; // true = no longer connected
-	s32 _max_tick_bytes; // Bytes per tick maximum (0 = none)
+
+	s32 _max_epoch_bytes; // Bytes per epoch maximum (0 = none)
+	u32 _next_epoch_time; // Time when next epoch will start
+
+	u32 _loss_timeout; // Milliseconds without receiving acknowledgment that a message will be considered lost
+
+	// TODO: Does not need to be on the server side, can we find a way to move it out of this base class?
+	u32 _ts_delta; // Milliseconds clock difference between server and client: server_time = client_time + _ts_delta
 
 private:
 	void TransmitQueued();
@@ -518,6 +529,31 @@ public:
 	bool WriteUnreliable(u8 msg_opcode, const void *msg_data = 0, u32 data_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
 	bool WriteReliable(StreamMode, u8 msg_opcode, const void *msg_data = 0, u32 data_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
 	void FlushWrite();
+
+public:
+	// Current local time
+	CAT_INLINE u32 GetLocalTime() { return Clock::msec(); }
+
+	// Convert from local time to server time
+	CAT_INLINE u32 ToServerTime(u32 local_time) { return local_time + _ts_delta; }
+
+	// Convert from server time to local time
+	CAT_INLINE u32 FromServerTime(u32 server_time) { return server_time - _ts_delta; }
+
+	// Current server time
+	CAT_INLINE u32 GetServerTime() { return ToServerTime(GetLocalTime()); }
+
+	// Compress timestamp on client for delivery to server; high two bits are unused; byte order must be fixed before writing to message
+	CAT_INLINE u16 EncodeClientTimestamp(u32 local_time) { return (u16)(ToServerTime(local_time) & 0x3fff); }
+
+	// Decompress a timestamp on server from client; high two bits are unused; byte order must be fixed before decoding
+	CAT_INLINE u32 DecodeClientTimestamp(u32 local_time, u16 timestamp) { ReconstructCounter<14>(local_time - (15000 + 1000 - 384) / 2, timestamp & 0x3fff); }
+
+	// Compress timestamp on server for delivery to client; high two bits are unused; byte order must be fixed before writing to message
+	CAT_INLINE u16 EncodeServerTimestamp(u32 local_time) { return (u16)(local_time & 0x3fff); }
+
+	// Decompress a timestamp on client from server; high two bits are unused; byte order must be fixed before decoding
+	CAT_INLINE u32 DecodeServerTimestamp(u32 local_time, u16 timestamp) { FromServerTime(ReconstructCounter<14>(ToServerTime(local_time) - (15000 + 1000 - 384) / 2, timestamp & 0x3fff)); }
 
 protected:
 	// Notify transport layer of disconnect to halt message processing

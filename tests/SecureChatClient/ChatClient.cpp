@@ -32,10 +32,16 @@ public:
 		case 0:
 			{
 				WARN("Client") << "Got request for transmit";
+
 				static char STR[4000];
+
 				for (int ii = 0; ii < sizeof(STR); ++ii)
 					STR[ii] = (char)ii;
-				WriteReliable(STREAM_1, 0, STR, sizeof(STR));
+
+				for (int jj = 0; jj < 1000; ++jj)
+					WriteReliable(STREAM_1, 1, STR, sizeof(STR));
+
+				WriteReliable(STREAM_3, 0, STR, sizeof(STR));
 			}
 			break;
 		default:
@@ -93,8 +99,10 @@ int main()
 				FATAL("Client") << "Provided server key invalid";
 			}
 
-			// 10.1.1.146
-			if (!client->Connect("127.0.0.1", 22000))
+			// linux: 10.1.1.146
+			// netbook: 10.1.1.110
+			// coldfront: 68.84.166.22
+			if (!client->Connect("68.84.166.22", 22000))
 			{
 				FATAL("Client") << "Unable to connect to server";
 			}
