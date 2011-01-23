@@ -89,8 +89,20 @@ template<typename T> CAT_INLINE T BitCount(T v)
 
 	Normally this function centers allowable distance from the last accepted
 	value of the counter, so that it has equal ability to decode counter values
-	ahead and behind the last accepted value.
+	ahead and behind the last accepted value.  Read on for how to bias it.
+*/
+template<int BITS, typename T> CAT_INLINE T ReconstructCounter(T center_count, u32 partial_low_bits)
+{
+	const u32 IV_MSB = (1 << BITS); // BITS < 32
+	const u32 IV_MASK = (IV_MSB - 1);
 
+	s32 diff = partial_low_bits - (u32)(center_count & IV_MASK);
+	return ((center_count & ~(T)IV_MASK) | partial_low_bits)
+		- (((IV_MSB >> 1) - (diff & IV_MASK)) & IV_MSB)
+		+ (diff & IV_MSB);
+}
+
+/*
 	There are some other practical ways to center the allowable distance.
 
 	In the case of synchronized timestamps between two hosts on a network, the
@@ -120,7 +132,7 @@ template<typename T> CAT_INLINE T BitCount(T v)
 		          ^ place center point around here
 		|<--------|--------->|  to catch timestamps in this area.
 		              ^ This is now.
-		          ^ So subtract off 15000/2 + (1000 - 384)/2 to get to the offset point.
+		          ^ So subtract off 15000/2 + (384 - 1000)/2 to get to the offset point.
 
 		The reconstruction supports counter roll-over so this can go negative and
 		there will be no trouble.
@@ -130,17 +142,17 @@ template<typename T> CAT_INLINE T BitCount(T v)
 		// Remote host has transmitted a partial_timestamp, which attempts to be
 		// synchronized with local time.  We will now reconstruct the full_timestamp:
 		u32 time_now = Clock::msec();
-		u32 full_timestamp = ReconstructCounter<14>(time_now - (15000 + 1000 - 384) / 2, partial_timestamp);
-*/
-template<int BITS, typename T> CAT_INLINE T ReconstructCounter(T center_count, u32 partial_low_bits)
-{
-	const u32 IV_MSB = (1 << BITS); // BITS < 32
-	const u32 IV_MASK = (IV_MSB - 1);
+		u32 full_timestamp = BiasedReconstructCounter<14>(time_now, 1000, partial_timestamp);
 
-	s32 diff = partial_low_bits - (u32)(center_count & IV_MASK);
-	return ((center_count & ~(T)IV_MASK) | partial_low_bits)
-		- (((IV_MSB >> 1) - (diff & IV_MASK)) & IV_MSB)
-		+ (diff & IV_MSB);
+	In general, you can use the provided BiasedReconstructCounter() function.
+	This allows you to specify the amount of future counter tolerance before it
+	will wrap around and return the wrong value.
+*/
+template<int BITS, typename T> CAT_INLINE T BiasedReconstructCounter(T now, u32 future_tolerance, u32 partial_low_bits)
+{
+	u32 IV_OFFSET = 1 << (BITS - 1); // BITS < 32
+
+	return ReconstructCounter<BITS>(now - IV_OFFSET + future_tolerance, partial_low_bits);
 }
 
 
