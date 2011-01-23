@@ -547,13 +547,13 @@ public:
 	CAT_INLINE u16 EncodeClientTimestamp(u32 local_time) { return (u16)(ToServerTime(local_time) & 0x3fff); }
 
 	// Decompress a timestamp on server from client; high two bits are unused; byte order must be fixed before decoding
-	CAT_INLINE u32 DecodeClientTimestamp(u32 local_time, u16 timestamp) { ReconstructCounter<14>(local_time - (15000 + 1000 - 384) / 2, timestamp & 0x3fff); }
+	CAT_INLINE u32 DecodeClientTimestamp(u32 local_time, u16 timestamp) { ReconstructCounter<14>(local_time - (15000 + 384 - 1000) / 2, timestamp & 0x3fff); }
 
 	// Compress timestamp on server for delivery to client; high two bits are unused; byte order must be fixed before writing to message
 	CAT_INLINE u16 EncodeServerTimestamp(u32 local_time) { return (u16)(local_time & 0x3fff); }
 
 	// Decompress a timestamp on client from server; high two bits are unused; byte order must be fixed before decoding
-	CAT_INLINE u32 DecodeServerTimestamp(u32 local_time, u16 timestamp) { FromServerTime(ReconstructCounter<14>(ToServerTime(local_time) - (15000 + 1000 - 384) / 2, timestamp & 0x3fff)); }
+	CAT_INLINE u32 DecodeServerTimestamp(u32 local_time, u16 timestamp) { FromServerTime(ReconstructCounter<14>(ToServerTime(local_time) - (15000 + 384 - 1000) / 2, timestamp & 0x3fff)); }
 
 protected:
 	// Notify transport layer of disconnect to halt message processing
