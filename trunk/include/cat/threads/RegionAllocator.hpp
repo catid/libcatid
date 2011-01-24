@@ -39,7 +39,6 @@
 	defined(CAT_NO_ATOMIC_BTS) || defined(CAT_NO_ATOMIC_BTR)
 #define CAT_NO_ATOMIC_ALLOCATOR
 #endif
-#define CAT_NO_ATOMIC_ALLOCATOR
 
 namespace cat {
 
