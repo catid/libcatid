@@ -31,11 +31,21 @@
 
 #include <cat/net/ThreadPoolSockets.hpp>
 
+// TODO: periodically reset the average trip time to avoid skewing statistics
+// TODO: make debug output optional with preprocessor flag
+// TODO: evaluate all places that allocate memory to see if retry would help
+// TODO: add 20ms x 2 fuzz factor in retransmits
 // TODO: flow control
 // TODO: add random bytes to length of each packet under MTU to mask function
 // TODO: do something with the extra two bits in the new timestamp field
 // TODO: vulnerable to resource starvation attacks (out of sequence packets, etc)
 // TODO: move all packet sending outside of locks
+
+#if defined(CAT_WORD_32)
+#define CAT_PACK_TRANSPORT_STATE_STRUCTURES /* For 32-bit version, this allows fragments to fit in 32 bytes */
+#else // 64-bit version:
+//#define CAT_PACK_TRANSPORT_STATE_STRUCTURES /* No advantage for 64-bit version */
+#endif
 
 namespace cat {
 
@@ -51,13 +61,7 @@ class ServerTimer;
 class Client;
 class Transport;
 class FlowControl;
-class BulkTransfer;
 
-#if defined(CAT_WORD_32)
-#define CAT_PACK_TRANSPORT_STATE_STRUCTURES /* For 32-bit version, this allows fragments to fit in 32 bytes */
-#else // 64-bit version:
-//#define CAT_PACK_TRANSPORT_STATE_STRUCTURES /* No advantage for 64-bit version */
-#endif
 
 // Protocol constants
 static const u32 PROTOCOL_MAGIC = 0xC47D0001;
