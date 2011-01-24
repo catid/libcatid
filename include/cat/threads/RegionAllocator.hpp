@@ -39,6 +39,7 @@
 	defined(CAT_NO_ATOMIC_BTS) || defined(CAT_NO_ATOMIC_BTR)
 #define CAT_NO_ATOMIC_ALLOCATOR
 #endif
+#define CAT_NO_ATOMIC_ALLOCATOR
 
 namespace cat {
 
@@ -82,11 +83,11 @@ public:
 public:
 #if defined(CAT_NO_ATOMIC_ALLOCATOR)
 	CAT_INLINE void *Acquire(u32 bytes) { return Aligned::Acquire(bytes); }
-	CAT_INLINE void *Resize(void *ptr, u32 bytes) { return Aligned::Resize(ptr, bytes); }
+	CAT_INLINE void *Resize(void *ptr, u32 old_bytes, u32 new_bytes) { return Aligned::Resize(ptr, old_bytes, new_bytes); }
 	CAT_INLINE void Release(void *ptr) { Aligned::Release(ptr); }
 #else
 	void *Acquire(u32 bytes);
-	void *Resize(void *ptr, u32 bytes);
+	void *Resize(void *ptr, u32 old_bytes, u32 new_bytes);
 	void Release(void *ptr);
 #endif
 

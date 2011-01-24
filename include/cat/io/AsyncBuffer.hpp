@@ -148,7 +148,7 @@ public:
 		const u32 OVERHEAD_BYTES = (u32)(offsetof(AsyncBuffer, _tag));
 
 		AsyncBuffer *buffer = reinterpret_cast<AsyncBuffer*>(
-			RegionAllocator::ii->Resize( this,
+			RegionAllocator::ii->Resize( this, OVERHEAD_BYTES + _tag_bytes + _data_bytes,
 			OVERHEAD_BYTES + _tag_bytes + data_bytes) );
 
 		if (!buffer) return 0;
@@ -193,7 +193,7 @@ public:
 		AsyncBuffer *buffer = reinterpret_cast<AsyncBuffer*>( data - OVERHEAD_BYTES );
 
 		buffer = reinterpret_cast<AsyncBuffer*>(
-			RegionAllocator::ii->Resize(buffer,
+			RegionAllocator::ii->Resize(buffer, OVERHEAD_BYTES + buffer->_tag_bytes + buffer->_data_bytes,
 			OVERHEAD_BYTES + buffer->_tag_bytes + data_bytes) );
 
 		if (!buffer) return 0;

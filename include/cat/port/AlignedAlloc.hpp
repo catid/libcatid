@@ -48,7 +48,7 @@ public:
     static void *Acquire(u32 bytes);
 
 	// Resizes an aligned pointer
-	static void *Resize(void *ptr, u32 bytes);
+	static void *Resize(void *ptr, u32 old_bytes, u32 new_bytes);
 
     // Release an aligned pointer
     static void Release(void *ptr);
