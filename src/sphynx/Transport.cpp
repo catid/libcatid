@@ -267,7 +267,7 @@ void Transport::OnDatagram(ThreadPoolLocalStorage *tls,  u32 send_time, u32 recv
 		// If reliable message,
 		if (hdr & R_MASK)
 		{
-			WARN("Transport") << "Got # " << stream << ":" << ack_id;
+			INFO("Transport") << "Got # " << stream << ":" << ack_id;
 
 			s32 diff = (s32)(ack_id - _next_recv_expected_id[stream]);
 
@@ -1298,7 +1298,7 @@ void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 	u32 loss_count = 0, last_mia_time = 0;
 	u32 timeout = _send_flow.GetLossTimeout();
 
-	INFO("Transport") << "Got ACK with " << data_bytes << " bytes of data to decode ----";
+	INANE("Transport") << "Got ACK with " << data_bytes << " bytes of data to decode ----";
 
 	AutoMutex lock(_big_lock);
 
@@ -1977,7 +1977,7 @@ void Transport::TransmitQueued()
 					_send_buffer_ack_id = ack_id;
 					_send_buffer_stream = stream;
 
-					WARN("Transport") << "Wrote " << stream << ":" << sent_bytes << " / " << total_bytes;
+					INFO("Transport") << "Wrote " << stream << ":" << sent_bytes << " / " << total_bytes;
 
 					// If it is time to stripe the next stream,
 					if (stream_sent >= max_payload_bytes)
@@ -2039,7 +2039,7 @@ void Transport::PostPacketList(TempSendNode *packet_send_head)
 		u32 bytes = packet_send_head->negative_offset;
 		u8 *data = reinterpret_cast<u8*>( packet_send_head ) - bytes;
 
-		WARN("Transport") << "Sending packet with " << bytes;
+		INANE("Transport") << "Sending packet with " << bytes;
 
 		if (PostPacket(data, bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD, bytes))
 			_send_flow.OnPacketSend(bytes);
