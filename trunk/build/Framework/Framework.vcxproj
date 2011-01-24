@@ -185,7 +185,6 @@
     <ClCompile Include="..\..\src\io\Logging.cpp" />
     <ClCompile Include="..\..\src\parse\MessageRouter.cpp" />
     <ClCompile Include="..\..\src\io\MMapFile.cpp" />
-    <ClCompile Include="..\..\src\sphynx\BulkTransfer.cpp" />
     <ClCompile Include="..\..\src\sphynx\Client.cpp" />
     <ClCompile Include="..\..\src\sphynx\FlowControl.cpp" />
     <ClCompile Include="..\..\src\sphynx\Server.cpp" />
@@ -214,7 +213,6 @@
     <ClInclude Include="..\..\include\cat\net\win\TCPServer.hpp" />
     <ClInclude Include="..\..\include\cat\net\win\UDPEndpoint.hpp" />
     <ClInclude Include="..\..\include\cat\parse\Cson.hpp" />
-    <ClInclude Include="..\..\include\cat\sphynx\BulkTransfer.hpp" />
     <ClInclude Include="..\..\include\cat\sphynx\Client.hpp" />
     <ClInclude Include="..\..\include\cat\sphynx\Collexion.hpp" />
     <ClInclude Include="..\..\include\cat\sphynx\Common.hpp" />

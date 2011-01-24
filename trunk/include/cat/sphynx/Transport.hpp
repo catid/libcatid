@@ -36,7 +36,6 @@
 #include <cat/math/BitMath.hpp>
 #include <cat/sphynx/Common.hpp>
 #include <cat/sphynx/FlowControl.hpp>
-#include <cat/sphynx/BulkTransfer.hpp>
 
 #define CAT_SEPARATE_ACK_LOCK /* Use a second mutex to serialize message acknowledgment data */
 
@@ -174,6 +173,13 @@ namespace sphynx {
 	ID: IDC | IDB | IDA (22 bits) + START.ID
 */
 
+/*
+	Bulk Transfer
+
+	Writes bulk data to the end of outgoing packets to fill up to MTU size and
+	writes at each tick of the transport layer if channel is underutilized.
+*/
+
 class Transport
 {
 public:
@@ -215,10 +221,10 @@ public:
 	static const u32 TRANSPORT_OVERHEAD = 2; // Number of bytes added to each packet for the transport layer
 
 protected:
-	// Maximum transfer unit (MTU) in UDP payload bytes, excluding the IP and UDP headers and encryption overhead
+	// Maximum transfer unit (MTU) in UDP payload bytes, excluding anything included in _overhead_bytes
 	u32 _max_payload_bytes;
 
-	// Overhead bytes
+	// Overhead bytes: UDP/IP headers, encryption and transport overhead
 	u32 _overhead_bytes;
 
 public:
@@ -270,9 +276,6 @@ protected:
 
 	// Send state: Flow control
 	FlowControl _send_flow;
-
-	// Send state: Bulk transfer
-	BulkTransfer _send_bulk;
 
 	// Send state: Queue of messages that are waiting to be sent
 	SendQueue *_send_queue_head[NUM_STREAMS], *_send_queue_tail[NUM_STREAMS];
