@@ -158,7 +158,7 @@ public:
 	}
 
 	void OnTick(u32 now);
-	void OnLosses(u32 count);
+	void OnLosses(u32 now, u32 count);
 };
 
 

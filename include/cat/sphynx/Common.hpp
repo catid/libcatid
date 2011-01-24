@@ -50,6 +50,8 @@ class ServerWorker;
 class ServerTimer;
 class Client;
 class Transport;
+class FlowControl;
+class BulkTransfer;
 
 #if defined(CAT_WORD_32)
 #define CAT_PACK_TRANSPORT_STATE_STRUCTURES /* For 32-bit version, this allows fragments to fit in 32 bytes */

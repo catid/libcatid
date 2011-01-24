@@ -70,7 +70,7 @@ void FlowControl::OnTick(u32 now)
 	}
 }
 
-void FlowControl::OnLosses(u32 count)
+void FlowControl::OnLosses(u32 now, u32 count)
 {
 
 }
