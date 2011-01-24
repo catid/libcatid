@@ -89,6 +89,9 @@
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>$(ProjectDir)Precompiled.hpp</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>$(ProjectDir)Precompiled.hpp</ForcedIncludeFiles>
     </ClCompile>
     <ProjectReference>
       <LinkLibraryDependencies>true</LinkLibraryDependencies>
@@ -107,6 +110,9 @@
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>$(ProjectDir)Precompiled.hpp</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>$(ProjectDir)Precompiled.hpp</ForcedIncludeFiles>
     </ClCompile>
     <ProjectReference>
       <LinkLibraryDependencies>true</LinkLibraryDependencies>
@@ -128,6 +134,9 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>$(ProjectDir)Precompiled.hpp</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>$(ProjectDir)Precompiled.hpp</ForcedIncludeFiles>
     </ClCompile>
     <ProjectReference>
       <LinkLibraryDependencies>true</LinkLibraryDependencies>
@@ -151,6 +160,9 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>$(ProjectDir)Precompiled.hpp</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>$(ProjectDir)Precompiled.hpp</ForcedIncludeFiles>
     </ClCompile>
     <ProjectReference>
       <LinkLibraryDependencies>true</LinkLibraryDependencies>
@@ -158,11 +170,16 @@
     <Lib />
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\src\gfx\Cheshire.cpp" />
     <ClCompile Include="..\..\src\gfx\Matrix.cpp" />
     <ClCompile Include="..\..\src\gfx\Quaternion.cpp" />
     <ClCompile Include="..\..\src\gfx\Scalar.cpp" />
     <ClCompile Include="..\..\src\gfx\Vector.cpp" />
+    <ClCompile Include="Precompiled.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\cat\AllGraphics.hpp" />
@@ -171,6 +188,7 @@
     <ClInclude Include="..\..\include\cat\gfx\Quaternion.hpp" />
     <ClInclude Include="..\..\include\cat\gfx\Scalar.hpp" />
     <ClInclude Include="..\..\include\cat\gfx\Vector.hpp" />
+    <ClInclude Include="Precompiled.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Common\Common.vcxproj">

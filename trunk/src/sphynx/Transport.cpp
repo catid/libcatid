@@ -419,6 +419,7 @@ void Transport::RunQueue(ThreadPoolLocalStorage *tls, u32 recv_time, u32 ack_id,
 	// Update receive queue state
 	_recv_queue_head[stream] = node;
 	if (!node) _recv_queue_tail[stream] = 0;
+	else node->prev = 0;
 	_next_recv_expected_id[stream] = ack_id;
 	_got_reliable[stream] = true;
 

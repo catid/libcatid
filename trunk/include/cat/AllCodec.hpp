@@ -29,3 +29,4 @@
 // Include all libcat Codec headers
 
 #include <cat/codec/RangeCoder.hpp>
+#include <cat/codec/ReedSolomon.hpp>

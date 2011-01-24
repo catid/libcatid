@@ -89,6 +89,9 @@
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>$(ProjectDir)Precompiled.hpp</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>$(ProjectDir)Precompiled.hpp</ForcedIncludeFiles>
     </ClCompile>
     <ProjectReference>
       <LinkLibraryDependencies>true</LinkLibraryDependencies>
@@ -150,6 +153,9 @@
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>$(ProjectDir)Precompiled.hpp</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>$(ProjectDir)Precompiled.hpp</ForcedIncludeFiles>
     </ClCompile>
     <ProjectReference>
       <LinkLibraryDependencies>true</LinkLibraryDependencies>
@@ -178,6 +184,9 @@
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>$(ProjectDir)Precompiled.hpp</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>$(ProjectDir)Precompiled.hpp</ForcedIncludeFiles>
     </ClCompile>
     <ProjectReference>
       <LinkLibraryDependencies>true</LinkLibraryDependencies>
@@ -263,6 +272,9 @@
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>$(ProjectDir)Precompiled.hpp</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>$(ProjectDir)Precompiled.hpp</ForcedIncludeFiles>
     </ClCompile>
     <ProjectReference>
       <LinkLibraryDependencies>true</LinkLibraryDependencies>
@@ -287,6 +299,12 @@
     <ClCompile Include="..\..\src\crypt\hash\Skein.cpp" />
     <ClCompile Include="..\..\src\crypt\hash\Skein256.cpp" />
     <ClCompile Include="..\..\src\crypt\hash\Skein512.cpp" />
+    <ClCompile Include="Precompiled.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\cat\AllCrypt.hpp" />
@@ -297,6 +315,7 @@
     <ClInclude Include="..\..\include\cat\crypt\hash\Skein.hpp" />
     <ClInclude Include="..\..\include\cat\crypt\symmetric\ChaCha.hpp" />
     <ClInclude Include="..\..\include\cat\crypt\rand\Fortuna.hpp" />
+    <ClInclude Include="Precompiled.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Common\Common.vcxproj">

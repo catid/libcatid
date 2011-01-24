@@ -89,6 +89,9 @@
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>$(ProjectDir)Precompiled.hpp</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>$(ProjectDir)Precompiled.hpp</ForcedIncludeFiles>
     </ClCompile>
     <Lib />
   </ItemDefinitionGroup>
@@ -104,6 +107,9 @@
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>$(ProjectDir)Precompiled.hpp</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>$(ProjectDir)Precompiled.hpp</ForcedIncludeFiles>
     </ClCompile>
     <Lib />
     <Lib />
@@ -123,12 +129,11 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
-      <PrecompiledHeader>
-      </PrecompiledHeader>
-      <PrecompiledHeaderFile>
-      </PrecompiledHeaderFile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>$(ProjectDir)Precompiled.hpp</PrecompiledHeaderFile>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ForcedIncludeFiles>$(ProjectDir)Precompiled.hpp</ForcedIncludeFiles>
     </ClCompile>
     <Lib />
   </ItemDefinitionGroup>
@@ -149,6 +154,9 @@
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>$(ProjectDir)Precompiled.hpp</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>$(ProjectDir)Precompiled.hpp</ForcedIncludeFiles>
     </ClCompile>
     <Lib />
   </ItemDefinitionGroup>
@@ -164,6 +172,12 @@
     <ClCompile Include="..\..\src\threads\RWLock.cpp" />
     <ClCompile Include="..\..\src\rand\StdRand.cpp" />
     <ClCompile Include="..\..\src\lang\Strings.cpp" />
+    <ClCompile Include="Precompiled.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\cat\AllCommon.hpp" />
@@ -185,6 +199,7 @@
     <ClInclude Include="..\..\include\cat\port\EndianNeutral.hpp" />
     <ClInclude Include="..\..\include\cat\port\FastDelegate.h" />
     <ClInclude Include="..\..\include\cat\lang\Strings.hpp" />
+    <ClInclude Include="Precompiled.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
