@@ -128,7 +128,27 @@ namespace sphynx {
 	ACK message format:
 
 	Header: I=0, R=0, SOP=SOP_ACK
-	Data: ROLLUP(3) || RANGE1 || RANGE2 || ... ROLLUP(3) || RANGE1 || RANGE2 || ...
+	Data: AVGTRIP(2) || ROLLUP(3) || RANGE1 || RANGE2 || ... ROLLUP(3) || RANGE1 || RANGE2 || ...
+
+	AVGTRIP:
+		Average one-way transmit time based on the timestamps written at the end
+		of the encrypted data within each outgoing datagram.  On receipt the
+		timestamps are converted to local time and trip time is calculated.
+
+		Trip time is accumulated between ACK responses and the average trip time
+		is reported to the sender in the next ACK response.  The sender uses the
+		trip time statistics to do congestion avoidance flow control.
+
+	---- AVGTRIP Field (16 bits) ----
+	 0 1 2 3 4 5 6 7 8 9 a b c d e f
+	<-- LSB --------------- MSB ---->
+	|     TLO     |C|      THI      |
+	---------------------------------
+
+	C: 0=Omit the high byte (field is just one byte), 1=Followed by high byte
+	T: THI | TLO (15 bits)
+
+	T is the average one-way transmit time since the last ACK.
 
 	ROLLUP = Next expected ACK-ID.  Acknowledges every ID before this one.
 
@@ -214,6 +234,9 @@ public:
 
 	static const u32 UDP_HEADER_BYTES = 8;
 
+	static const u32 FRAG_MIN = 0;		// Min bytes for a fragmented message
+	static const u32 FRAG_MAX = 65535;	// Max bytes for a fragmented message
+
 	static const u32 FRAG_THRESHOLD = 32; // Fragment if FRAG_THRESHOLD bytes would be in each fragment
 
 	static const u32 MAX_MESSAGE_DATALEN = 65535-1; // Maximum number of bytes in the data part of a message (-1 for the opcode)
@@ -245,11 +268,12 @@ protected:
 	// Receive state: Fragmentation
 	RecvFrag _fragments[NUM_STREAMS]; // Fragments for each stream
 
-	static const u32 FRAG_MIN = 0;		// Min bytes for a fragmented message
-	static const u32 FRAG_MAX = 65535;	// Max bytes for a fragmented message
-
 	// Receive state: Receive queue head
 	RecvQueue *_recv_queue_head[NUM_STREAMS], *_recv_queue_tail[NUM_STREAMS];
+
+	// Receive state: Statistics for flow control report in ACK response
+	u32 _recv_trip_time_sum, _recv_trip_count;
+	volatile u32 _recv_trip_time_avg; // Average trip time shared with timer thread
 
 private:
 	void RunQueue(ThreadPoolLocalStorage *tls, u32 recv_time, u32 ack_id, u32 stream);
@@ -272,7 +296,6 @@ protected:
 	u8 *_send_buffer;
 	u32 _send_buffer_bytes;
 	u32 _send_buffer_stream, _send_buffer_ack_id; // Used to compress ACK-ID by setting I=0 after the first reliable message
-	u32 _send_buffer_msg_count; // Used to compress datagrams with a single message by omitting the header's BLO field
 
 	// Send state: Flow control
 	FlowControl _send_flow;
@@ -350,7 +373,7 @@ private:
 
 	void PostPacketList(TempSendNode *packet_send_head);
 	void PostSendBuffer();
-	void RetransmitLost(u32 now);
+	u32 RetransmitLost(u32 now); // Returns estimated number of lost packets (granularity is 1 ms)
 
 protected:
 	virtual bool PostPacket(u8 *data, u32 buf_bytes, u32 msg_bytes) = 0;

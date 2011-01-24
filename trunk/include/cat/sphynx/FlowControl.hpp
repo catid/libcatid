@@ -60,7 +60,7 @@ namespace sphynx {
 	wakes up on the following events:
 		+ On message send request from another thread : Asynchronous sending
 		+ On datagram arrival : Processing incoming data and may transmit
-		+ 20 millisecond timer : Retransmission and Message Blobbing
+		+ 20 millisecond timer : Retransmission and message blobbing
 
 	Sphynx supports reliable messaging with selective acknowledgments (SACK).
 	This implies support for negative acknowledgment (NACK) as well.  So, it is
@@ -85,40 +85,6 @@ namespace sphynx {
 			- Cuts channel capacity estimation down to a perceived safe level
 */
 
-/*
-	How Rate Limiting Works
-
-	Going to do rate limiting a little differently:
-
-	A count of bytes recently sent is kept in a volatile 32-bit number.
-
-	Whenever a PostPacket() call succeeds, it will increase the count of bytes
-	by the packet size + estimated IP4/6 and UDP header sizes.  This addition is
-	done atomically so no locking needs to be done.
-
-	A thread will wake up every 20 ms, and if it has been 500 ms since the last
-	time it has done so, and the count of bytes is positive, it will subtract
-	off the rate limit over two (10KBPS = -5,000).  This is done atomically
-	also, and may make the number go negative.  The negative allows the data
-	flow to "burst" up and maintain the same rate if the rate of data flow is
-	not constant.  I think this is good for games, since events are bursty.
-
-	I chose 500 ms with a goal in mind.  For a data rate of about 10 KBPS, that
-	would reduce by 5k every 500 ms, which allows for a burst of about 4 MSS
-	sized messages to be transmitted.  That would allow 4 acks to be combined
-	into one after the burst, which is about my target for combining acks.
-	
-	It just feels like the right amount, but I bet there would be a way to prove
-	the "correct" number is somewhere around this value.
-
-	Not all data is rate limited.  The following are not rate limited:
-	Internal messages (out of band)
-	Unreliable messages (probably contains data that cannot be delayed)
-
-	The following ARE rate limited:
-	Unordered, stream 1, 2 and 3 (these always contain less important data)
-*/
-
 // TODO: Check for thread safety
 
 class FlowControl
@@ -141,6 +107,9 @@ protected:
 	// Number of bytes sent during the current epoch, atomically synchronized
 	volatile u32 _send_epoch_bytes;
 
+	// In slow start
+	bool _slow_start;
+
 public:
 	FlowControl();
 
@@ -159,8 +128,11 @@ public:
 		Atomic::Add(&_send_epoch_bytes, bytes_with_overhead);
 	}
 
-	void OnTick(u32 now);
-	void OnLosses(u32 now, u32 count);
+	// Called when a transport layer tick occurs
+	void OnTick(u32 now, u32 timeout_loss_count);
+
+	// Called when an acknowledgment is received
+	void OnACK(u32 now, u32 avg_one_way_time, u32 nack_loss_count);
 };
 
 

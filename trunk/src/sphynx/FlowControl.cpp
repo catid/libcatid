@@ -42,7 +42,7 @@ FlowControl::FlowControl()
 	_next_epoch_time = Clock::msec();
 }
 
-void FlowControl::OnTick(u32 now)
+void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 {
 	// If epoch has ended,
 	if ((s32)(now - _next_epoch_time) >= 0)
@@ -70,7 +70,7 @@ void FlowControl::OnTick(u32 now)
 	}
 }
 
-void FlowControl::OnLosses(u32 now, u32 count)
+void FlowControl::OnACK(u32 now, u32 avg_one_way_time, u32 nack_loss_count)
 {
 
 }

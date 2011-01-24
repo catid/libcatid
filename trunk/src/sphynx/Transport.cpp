@@ -63,11 +63,14 @@ Transport::Transport()
 	CAT_OBJCLR(_recv_queue_head);
 	CAT_OBJCLR(_recv_queue_tail);
 
+	_recv_trip_time_sum = 0;
+	_recv_trip_count = 0;
+	_recv_trip_time_avg = 0;
+
 	// Send state
 	_send_buffer = 0;
 	_send_buffer_bytes = 0;
 	_send_buffer_stream = NUM_STREAMS;
-	_send_buffer_msg_count = 0;
 	_send_flush_after_processing = false;
 
 	CAT_OBJCLR(_send_queue_head);
@@ -319,6 +322,33 @@ void Transport::OnDatagram(ThreadPoolLocalStorage *tls,  u32 send_time, u32 recv
 
 		bytes -= data_bytes;
 		data += data_bytes;
+	}
+
+	// Calculate and accumulate transit time into statistics for flow control
+	u32 transit_time = recv_time - send_time;
+
+	// If transit time is in the future, clamp it into sanity
+	if ((s32)transit_time < 1) transit_time = 1;
+
+	// If transit time makes sense,
+	if (transit_time < TIMEOUT_DISCONNECT)
+	{
+		// Accumulate latest transit time
+		_recv_trip_time_sum += transit_time;
+
+		// Calculate cumulative average
+		u32 avg = _recv_trip_time_sum / ++_recv_trip_count;
+
+		// Write it for timer thread
+		u32 old = Atomic::Set(&_recv_trip_time_avg, avg);
+
+		// If average was cleared,
+		if (!old)
+		{
+			// Timer thread wants us to reset the accumulator
+			_recv_trip_time_sum = 0;
+			_recv_trip_count = 0;
+		}
 	}
 
 	// If flush was requested,
@@ -635,7 +665,6 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 	if (send_buffer_bytes + msg_bytes > max_payload_bytes)
 	{
 		u8 *old_send_buffer = _send_buffer;
-		u32 old_msg_count = _send_buffer_msg_count;
 
 		u8 *msg_buffer = AsyncBuffer::Acquire(msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
 		if (!msg_buffer)
@@ -648,7 +677,6 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 		_send_buffer = msg_buffer;
 		_send_buffer_bytes = msg_bytes;
 		_send_buffer_stream = NUM_STREAMS;
-		_send_buffer_msg_count = 1;
 
 		// Write header
 		if (data_bytes > BLO_MASK)
@@ -681,7 +709,6 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 			WARN("Transport") << "Out of memory: Unable to resize unreliable post buffer";
 			_send_buffer_bytes = 0;
 			_send_buffer_stream = NUM_STREAMS;
-			_send_buffer_msg_count = 0;
 			return false;
 		}
 
@@ -705,7 +732,6 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 
 		// Update send buffer state
 		_send_buffer_bytes = send_buffer_bytes + msg_bytes;
-		_send_buffer_msg_count++;
 	}
 
 	return true;
@@ -739,13 +765,11 @@ void Transport::PostSendBuffer()
 	if (send_buffer)
 	{
 		u32 send_buffer_bytes = _send_buffer_bytes;
-		u32 old_msg_count = _send_buffer_msg_count;
 
 		// Reset send buffer state
 		_send_buffer = 0;
 		_send_buffer_bytes = 0;
 		_send_buffer_stream = NUM_STREAMS;
-		_send_buffer_msg_count = 0;
 
 		// Release lock for actual posting
 		lock.Release();
@@ -836,7 +860,6 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 
 		send_buffer = 0;
 		send_buffer_bytes = 0;
-		_send_buffer_msg_count = 0;
 
 		// Set ACK-ID bit if it would now need to be sent
 		if (!(hdr & I_MASK))
@@ -853,7 +876,6 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 		WARN("Transport") << "Out of memory: Unable to resize post buffer";
 		_send_buffer_bytes = 0;
 		_send_buffer_stream = NUM_STREAMS;
-		_send_buffer_msg_count = 0;
 		return;
 	}
 
@@ -894,7 +916,6 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 	memcpy(msg, data, data_bytes);
 
 	_send_buffer_bytes = send_buffer_bytes + msg_bytes;
-	_send_buffer_msg_count++;
 
 	node->ts_lastsend = now;
 
@@ -904,9 +925,25 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 void Transport::WriteACK()
 {
 	u8 packet[MAXIMUM_MTU];
-	u8 *offset = packet + 2;
+	u8 *offset = packet + 2 + 2; // 2 for header field
 	u32 max_payload_bytes = _max_payload_bytes;
-	u32 remaining = max_payload_bytes - 2;
+	u32 remaining = max_payload_bytes - 2 - 2;
+
+	// Set the average trip time to zero to indicate statistics reset
+	u32 trip_time_avg = Atomic::Set(&_recv_trip_time_avg, 0);
+
+	// Write average trip time
+	if (trip_time_avg > 0x7f)
+	{
+		packet[2] = (u8)(trip_time_avg | C_MASK);
+		packet[3] = (u8)(trip_time_avg >> 7);
+	}
+	else
+	{
+		packet[2] = (u8)trip_time_avg;
+		--offset;
+		++remaining;
+	}
 
 	CAT_ACK_LOCK.Enter();
 
@@ -1077,13 +1114,10 @@ void Transport::WriteACK()
 		}
 		else
 		{
-			u32 msg_count = _send_buffer_msg_count;
-
 			memcpy(msg_buffer, packet_copy_source, msg_bytes);
 			_send_buffer = msg_buffer;
 			_send_buffer_bytes = msg_bytes;
 			_send_buffer_stream = NUM_STREAMS;
-			_send_buffer_msg_count = 1;
 
 			lock.Release();
 
@@ -1101,13 +1135,11 @@ void Transport::WriteACK()
 			WARN("Transport") << "Out of memory: Unable to resize ACK post buffer";
 			_send_buffer_bytes = 0;
 			_send_buffer_stream = NUM_STREAMS;
-			_send_buffer_msg_count = 0;
 		}
 		else
 		{
 			memcpy(_send_buffer + send_buffer_bytes, packet_copy_source, msg_bytes);
 			_send_buffer_bytes = send_buffer_bytes + msg_bytes;
-			_send_buffer_msg_count++;
 		}
 	}
 }
@@ -1126,17 +1158,19 @@ void Transport::TickTransport(ThreadPoolLocalStorage *tls, u32 now)
 		}
 	}
 
+	u32 loss_count = 0;
+
 	// Retransmit lost messages
 	for (int stream = 0; stream < NUM_STREAMS; ++stream)
 	{
 		if (_sent_list_head[stream])
 		{
-			RetransmitLost(now);
+			loss_count = RetransmitLost(now);
 			break;
 		}
 	}
 
-	_send_flow.OnTick(now);
+	_send_flow.OnTick(now, loss_count);
 
 	// Avoid locking to transmit queued if no queued exist
 	for (int stream = 0; stream < NUM_STREAMS; ++stream)
@@ -1152,7 +1186,7 @@ void Transport::TickTransport(ThreadPoolLocalStorage *tls, u32 now)
 	PostSendBuffer();
 }
 
-void Transport::RetransmitLost(u32 now)
+u32 Transport::RetransmitLost(u32 now)
 {
 	u32 timeout = _send_flow.GetLossTimeout();
 	u32 loss_count = 0, last_mia_time = 0;
@@ -1188,8 +1222,7 @@ void Transport::RetransmitLost(u32 now)
 		}
 	}
 
-	// If packets were lost, inform the flow control algorithm
-	if (loss_count) _send_flow.OnLosses(now, loss_count);
+	return loss_count;
 }
 
 bool Transport::PostMTUProbe(ThreadPoolLocalStorage *tls, u32 mtu)
@@ -1232,6 +1265,25 @@ bool Transport::PostMTUProbe(ThreadPoolLocalStorage *tls, u32 mtu)
 
 void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 {
+	if (data_bytes < 2) return;
+
+	u32 avg_trip_time = data[0] & 0x7f;
+
+	// If trip time is two bytes,
+	if (data[0] & C_MASK)
+	{
+		// Bring in the high byte
+		avg_trip_time |= (u32)data[1] << 7;
+
+		data += 2;
+		data_bytes -= 2;
+	}
+	else
+	{
+		++data;
+		--data_bytes;
+	}
+
 	u32 stream = NUM_STREAMS, last_ack_id = 0;
 	SendQueue *node = 0, *kill_list = 0;
 	u32 now = Clock::msec();
@@ -1515,10 +1567,10 @@ void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 		}
 	}
 
-	lock.Release();
+	// Inform the flow control algorithm
+	_send_flow.OnACK(now, avg_trip_time, loss_count);
 
-	// If packets were lost, inform the flow control algorithm
-	if (loss_count) _send_flow.OnLosses(now, loss_count);
+	lock.Release();
 
 	// Release kill list after lock is released
 	while (kill_list)
@@ -1710,7 +1762,6 @@ void Transport::TransmitQueued()
 								// Clear send buffer state since the send buffer is now being emptied out
 								_send_buffer = 0;
 								_send_buffer_bytes = 0;
-								_send_buffer_msg_count = 0;
 								_send_buffer_stream = NUM_STREAMS;
 
 								lock.Release();
@@ -1724,7 +1775,6 @@ void Transport::TransmitQueued()
 							// Reset state for empty send buffer
 							send_buffer = 0;
 							send_buffer_bytes = 0;
-							_send_buffer_msg_count = 0;
 							remaining_send_buffer = max_payload_bytes;
 							ack_id_overhead = ack_id_bytes;
 
@@ -1914,7 +1964,6 @@ void Transport::TransmitQueued()
 
 					stream_sent += data_bytes_to_copy;
 					sent_bytes += data_bytes_to_copy;
-					_send_buffer_msg_count++;
 
 					// Update send buffer ack id and stream to minimize overhead
 					_send_buffer_ack_id = ack_id;
