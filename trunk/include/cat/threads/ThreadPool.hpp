@@ -67,6 +67,11 @@ class ThreadRefObject
 	int _priorityLevel;
     volatile u32 _refCount;
 
+protected:
+	// Can react to destruction through this overload if the dtor is too late
+	// Useful if derived class runs a thread
+	CAT_INLINE virtual void Finalize() {}
+
 public:
     ThreadRefObject(int priorityLevel);
     CAT_INLINE virtual ~ThreadRefObject() {}
