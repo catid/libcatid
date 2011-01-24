@@ -29,7 +29,7 @@ public:
 		{
 		case 0:
 			{
-				WARN("Connexion") << "Got request for transmit";
+				INFO("Connexion") << "Got request for transmit";
 				static char STR[4000];
 				for (int ii = 0; ii < sizeof(STR); ++ii)
 					STR[ii] = (char)ii/(4000/256);
@@ -37,7 +37,7 @@ public:
 			}
 			break;
 		default:
-			WARN("Connexion") << "Got message with " << bytes << " bytes";
+			INFO("Connexion") << "Got message with " << bytes << " bytes";
 		}
 	}
 
