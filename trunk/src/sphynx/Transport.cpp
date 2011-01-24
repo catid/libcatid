@@ -174,11 +174,11 @@ bool Transport::InitializeTransportSecurity(bool is_initiator, AuthenticatedEncr
 void Transport::OnDatagram(ThreadPoolLocalStorage *tls,  u32 send_time, u32 recv_time, u8 *data, u32 bytes)
 {
 	if (_disconnected) return;
-
+/*
 	// TODO: Remove this packetloss simulator
 	if ((tls->csprng->Generate() & 0x3) == 3)
 		return;
-
+*/
 	u32 ack_id = 0, stream = 0;
 
 	INANE("Transport") << "Datagram dump " << bytes << ":" << HexDumpString(data, bytes);
