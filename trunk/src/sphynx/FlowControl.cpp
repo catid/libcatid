@@ -47,7 +47,7 @@ FlowControl::FlowControl()
 
 	_max_epoch_bytes = _bandwidth_low_limit / 2;
 
-	_loss_timeout = 10;
+	_loss_timeout = 100;
 }
 
 void FlowControl::OnTick(u32 now, u32 timeout_loss_count)

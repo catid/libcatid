@@ -49,7 +49,7 @@ public:
 			}
 			break;
 		default:
-			WARN("Client") << "Got message with " << bytes << " bytes";
+			INFO("Client") << "Got message with " << bytes << " bytes";
 		}
 	}
 
