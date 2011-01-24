@@ -175,6 +175,10 @@ void Transport::OnDatagram(ThreadPoolLocalStorage *tls,  u32 send_time, u32 recv
 {
 	if (_disconnected) return;
 
+	// TODO: Remove this packetloss simulator
+	if ((tls->csprng->Generate() & 0x3) == 3)
+		return;
+
 	u32 ack_id = 0, stream = 0;
 
 	INANE("Transport") << "Datagram dump " << bytes << ":" << HexDumpString(data, bytes);
@@ -523,8 +527,7 @@ void Transport::QueueRecv(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_t
 
 	CAT_ACK_LOCK.Leave();
 
-	u8 *new_data = GetTrailingBytes(new_node);
-	memcpy(new_data, data, data_bytes);
+	if (stored_bytes) memcpy(GetTrailingBytes(new_node), data, stored_bytes);
 }
 
 void Transport::OnFragment(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, u8 *data, u32 bytes, u32 stream)
@@ -610,7 +613,7 @@ bool Transport::WriteUnreliableOOB(u8 msg_opcode, const void *vmsg_data, u32 dat
 		return false;
 	}
 
-	u8 *pkt = AsyncBuffer::Acquire(msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
+	u8 *pkt = AsyncBuffer::Acquire(msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD);
 	if (!pkt)
 	{
 		WARN("Transport") << "Out of memory: Unable to allocate unreliable OOB post buffer";
@@ -669,7 +672,7 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 	{
 		u8 *old_send_buffer = _send_buffer;
 
-		u8 *msg_buffer = AsyncBuffer::Acquire(msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
+		u8 *msg_buffer = AsyncBuffer::Acquire(msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD);
 		if (!msg_buffer)
 		{
 			WARN("Transport") << "Out of memory: Unable to allocate unreliable post buffer";
@@ -706,7 +709,7 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 	else
 	{
 		// Create or grow buffer and write into it
-		_send_buffer = AsyncBuffer::Resize(_send_buffer, send_buffer_bytes + msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
+		_send_buffer = AsyncBuffer::Resize(_send_buffer, send_buffer_bytes + msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD);
 		if (!_send_buffer)
 		{
 			WARN("Transport") << "Out of memory: Unable to resize unreliable post buffer";
@@ -873,7 +876,7 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 	}
 
 	// Create or grow buffer and write into it
-	_send_buffer = AsyncBuffer::Resize(send_buffer, send_buffer_bytes + msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
+	_send_buffer = AsyncBuffer::Resize(send_buffer, send_buffer_bytes + msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD);
 	if (!_send_buffer)
 	{
 		WARN("Transport") << "Out of memory: Unable to resize post buffer";
@@ -1110,7 +1113,7 @@ void Transport::WriteACK()
 	{
 		u8 *old_send_buffer = _send_buffer;
 
-		u8 *msg_buffer = AsyncBuffer::Acquire(msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
+		u8 *msg_buffer = AsyncBuffer::Acquire(msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD);
 		if (!msg_buffer)
 		{
 			WARN("Transport") << "Out of memory: Unable to allocate ACK post buffer";
@@ -1132,7 +1135,7 @@ void Transport::WriteACK()
 	else
 	{
 		// Create or grow buffer and write into it
-		_send_buffer = AsyncBuffer::Resize(_send_buffer, send_buffer_bytes + msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
+		_send_buffer = AsyncBuffer::Resize(_send_buffer, send_buffer_bytes + msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD);
 		if (!_send_buffer)
 		{
 			WARN("Transport") << "Out of memory: Unable to resize ACK post buffer";
@@ -1888,7 +1891,7 @@ void Transport::TransmitQueued()
 					}
 
 					// Resize post buffer to contain the bytes that will be written
-					send_buffer = AsyncBuffer::Resize(send_buffer, send_buffer_bytes + write_bytes + AuthenticatedEncryption::OVERHEAD_BYTES);
+					send_buffer = AsyncBuffer::Resize(send_buffer, send_buffer_bytes + write_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD);
 					if (!send_buffer)
 					{
 						WARN("Transport") << "Out of memory: Unable to allocate send buffer";

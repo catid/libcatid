@@ -43,9 +43,11 @@ FlowControl::FlowControl()
 	_stats_ack_ii = 0;
 
 	_bandwidth_low_limit = 10000;
-	_bandwidth_high_limit = 100000;
+	_bandwidth_high_limit = 10000000;
 
 	_max_epoch_bytes = _bandwidth_low_limit / 2;
+
+	_loss_timeout = 10;
 }
 
 void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
