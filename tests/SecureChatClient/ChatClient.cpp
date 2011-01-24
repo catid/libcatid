@@ -44,6 +44,7 @@ public:
 					WriteReliable(STREAM_1, 1, STR, sizeof(STR));
 				for (int jj = 0; jj < 1000; ++jj)
 					WriteReliable(STREAM_2, 1, STR, sizeof(STR));
+				WriteReliable(STREAM_2, 2, STR, sizeof(STR));
 
 				WriteReliable(STREAM_3, 0, STR, sizeof(STR));
 			}
