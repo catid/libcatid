@@ -119,6 +119,8 @@ namespace sphynx {
 	Unordered, stream 1, 2 and 3 (these always contain less important data)
 */
 
+// TODO: Check for thread safety
+
 class FlowControl
 {
 public:

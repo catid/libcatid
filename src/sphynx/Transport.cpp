@@ -238,14 +238,10 @@ void Transport::OnDatagram(ThreadPoolLocalStorage *tls,  u32 send_time, u32 recv
 					ack_id = ReconstructCounter<20>(_next_recv_expected_id[stream], ack_id);
 				}
 				else
-				{
 					ack_id = ReconstructCounter<12>(_next_recv_expected_id[stream], ack_id);
-				}
 			}
 			else
-			{
 				ack_id = ReconstructCounter<5>(_next_recv_expected_id[stream], ack_id);
-			}
 		}
 		else if (hdr & R_MASK)
 		{
@@ -1151,8 +1147,6 @@ void Transport::TickTransport(ThreadPoolLocalStorage *tls, u32 now)
 			break;
 		}
 	}
-
-	_send_bulk.OnTick(now);
 
 	// Post whatever is left in the send buffer
 	PostSendBuffer();
