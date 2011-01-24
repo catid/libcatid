@@ -36,6 +36,7 @@
 #include <cat/math/BitMath.hpp>
 #include <cat/sphynx/Common.hpp>
 #include <cat/sphynx/FlowControl.hpp>
+#include <cat/sphynx/BulkTransfer.hpp>
 
 #define CAT_SEPARATE_ACK_LOCK /* Use a second mutex to serialize message acknowledgment data */
 
@@ -255,8 +256,8 @@ protected:
 	// Send state: Next ack id to use
 	u32 _next_send_id[NUM_STREAMS];
 
-	// Send state: Estimated round-trip time
-	u32 _rtt; // milliseconds
+	// Send statE: Flush after processing incoming data
+	volatile bool _send_flush_after_processing;
 
 	// Send state: Last rollup ack id from remote receiver
 	u32 _send_next_remote_expected[NUM_STREAMS];
@@ -269,6 +270,9 @@ protected:
 
 	// Send state: Flow control
 	FlowControl _send_flow;
+
+	// Send state: Bulk transfer
+	BulkTransfer _send_bulk;
 
 	// Send state: Queue of messages that are waiting to be sent
 	SendQueue *_send_queue_head[NUM_STREAMS], *_send_queue_tail[NUM_STREAMS];
@@ -293,10 +297,17 @@ public:
 	virtual ~Transport();
 
 public:
+	// Message sending commands
 	bool WriteUnreliableOOB(u8 msg_opcode, const void *msg_data = 0, u32 data_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
 	bool WriteUnreliable(u8 msg_opcode, const void *msg_data = 0, u32 data_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
 	bool WriteReliable(StreamMode, u8 msg_opcode, const void *msg_data = 0, u32 data_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
-	void FlushWrite();
+
+	// Flush send buffer after processing the current message from the remote host
+	CAT_INLINE void FlushAfter() { _send_flush_after_processing = true; }
+
+	// Flush send buffer immediately, don't try to blob.
+	// Try to use FlushAfter() unless you really see benefit from this!
+	void FlushImmediately();
 
 public:
 	// Current local time
@@ -336,6 +347,7 @@ private:
 
 	void PostPacketList(TempSendNode *packet_send_head);
 	void PostSendBuffer();
+	void RetransmitLost(u32 now);
 
 protected:
 	virtual bool PostPacket(u8 *data, u32 buf_bytes, u32 msg_bytes) = 0;
@@ -345,7 +357,7 @@ protected:
 protected:
 	bool PostMTUProbe(ThreadPoolLocalStorage *tls, u32 mtu);
 
-	CAT_INLINE bool PostDisconnect(u8 reason) { return WriteUnreliable(IOP_DISCO, &reason, 1, SOP_INTERNAL); FlushWrite(); }
+	CAT_INLINE bool PostDisconnect(u8 reason) { return WriteUnreliableOOB(IOP_DISCO, &reason, 1, SOP_INTERNAL); }
 };
 
 

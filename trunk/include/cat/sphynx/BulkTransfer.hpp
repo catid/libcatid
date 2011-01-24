@@ -29,13 +29,7 @@
 #ifndef CAT_SPHYNX_BULK_TRANSFER_HPP
 #define CAT_SPHYNX_BULK_TRANSFER_HPP
 
-#include <cat/threads/Mutex.hpp>
-#include <cat/crypt/tunnel/AuthenticatedEncryption.hpp>
-#include <cat/parse/BufferStream.hpp>
-#include <cat/time/Clock.hpp>
-#include <cat/math/BitMath.hpp>
-#include <cat/net/SphynxCommon.hpp>
-#include <cat/net/FlowControl.hpp>
+#include <cat/sphynx/Common.hpp>
 
 namespace cat {
 
@@ -46,14 +40,21 @@ namespace sphynx {
 /*
 	Bulk Transfer
 
-	Writes bulk data to the end of outgoing packets to fill up to MTU size when
-	the channel is being underutilized.  Also writes at each tick of the
-	transport layer.
+	Writes bulk data to the end of outgoing packets to fill up to MTU size and
+	writes at each tick of the transport layer if channel is underutilized.
 */
 
 class BulkTransfer
 {
 public:
+	BulkTransfer();
+	~BulkTransfer();
+
+	// Before any packet goes out, gives the bulk transfer code a chance to append data
+	void OnPacketFinalize(u32 now, u8 * &send_buffer, u32 &send_buffer_bytes, u32 mtu);
+
+	// On transport layer tick
+	void OnTick(u32 now);
 };
 
 

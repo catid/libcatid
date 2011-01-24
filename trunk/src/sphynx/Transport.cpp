@@ -64,12 +64,11 @@ Transport::Transport()
 	CAT_OBJCLR(_recv_queue_tail);
 
 	// Send state
-	_rtt = INITIAL_RTT;
-
 	_send_buffer = 0;
 	_send_buffer_bytes = 0;
 	_send_buffer_stream = NUM_STREAMS;
 	_send_buffer_msg_count = 0;
+	_send_flush_after_processing = false;
 
 	CAT_OBJCLR(_send_queue_head);
 	CAT_OBJCLR(_send_queue_tail);
@@ -326,7 +325,13 @@ void Transport::OnDatagram(ThreadPoolLocalStorage *tls,  u32 send_time, u32 recv
 		data += data_bytes;
 	}
 
-	FlushWrite();
+	// If flush was requested,
+	if (_send_flush_after_processing)
+	{
+		FlushImmediately();
+
+		_send_flush_after_processing = false;
+	}
 }
 
 void Transport::RunQueue(ThreadPoolLocalStorage *tls, u32 recv_time, u32 ack_id, u32 stream)
@@ -710,13 +715,12 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 	return true;
 }
 
-void Transport::FlushWrite()
+void Transport::FlushImmediately()
 {
 	// Avoid locking to transmit queued if no queued exist
 	for (int stream = 0; stream < NUM_STREAMS; ++stream)
 	{
-		SendQueue *node = _send_queue_head[stream];
-		if (node)
+		if (_send_queue_head[stream])
 		{
 			TransmitQueued();
 			break;
@@ -1116,9 +1120,7 @@ void Transport::TickTransport(ThreadPoolLocalStorage *tls, u32 now)
 {
 	if (_disconnected) return;
 
-	_send_flow.OnTick(now);
-
-	// Acknowledge recent reliable packets
+	// Acknowledge recent reliable messages
 	for (int stream = 0; stream < NUM_STREAMS; ++stream)
 	{
 		if (_got_reliable[stream])
@@ -1128,33 +1130,72 @@ void Transport::TickTransport(ThreadPoolLocalStorage *tls, u32 now)
 		}
 	}
 
-	// Calculate milliseconds before a retransmit occurs
-	u32 base_retransmit_threshold = 3 * _rtt;
+	// Retransmit lost messages
+	for (int stream = 0; stream < NUM_STREAMS; ++stream)
+	{
+		if (_sent_list_head[stream])
+		{
+			RetransmitLost(now);
+			break;
+		}
+	}
 
-	_big_lock.Enter();
+	_send_flow.OnTick(now);
+
+	// Avoid locking to transmit queued if no queued exist
+	for (int stream = 0; stream < NUM_STREAMS; ++stream)
+	{
+		if (_send_queue_head[stream])
+		{
+			TransmitQueued();
+			break;
+		}
+	}
+
+	_send_bulk.OnTick(now);
+
+	// Post whatever is left in the send buffer
+	PostSendBuffer();
+}
+
+void Transport::RetransmitLost(u32 now)
+{
+	u32 timeout = _send_flow.GetLossTimeout();
+	u32 loss_count = 0, last_mia_time = 0;
+
+	AutoMutex lock(_big_lock);
 
 	// Retransmit lost packets
 	for (int stream = 0; stream < NUM_STREAMS; ++stream)
 	{
 		SendQueue *node = _sent_list_head[stream];
 
-		// For each sendqueue node that might be ready for a retransmission,
+		// For each node that might be ready for a retransmission,
 		while (node)
 		{
-			// Exponentially decrease the rate of retransmission of each individual outstanding message,
-			// so that bandwidth isn't wasted during periods of high packetloss.
-			if (now - node->ts_lastsend >= base_retransmit_threshold + (node->ts_lastsend - node->ts_firstsend))
+			u32 mia_time = now - node->ts_lastsend;
+
+			if (mia_time >= timeout)
+			{
 				Retransmit(stream, node, now);
+
+				// Only record one loss per millisecond
+				if (mia_time != last_mia_time) ++loss_count;
+				last_mia_time = mia_time;
+			}
+			else if (now - node->ts_firstsend < timeout)
+			{
+				// Nodes are added to the end of the sent list, so as soon as it
+				// finds one that cannot possibly be retransmitted it is done
+				break;
+			}
 
 			node = node->next;
 		}
 	}
 
-	_big_lock.Leave();
-
-	// Implies that send buffer will get flushed at least once every tick period
-	// This allows writers to be lazy about transmission!
-	FlushWrite();
+	// If packets were lost, inform the flow control algorithm
+	if (loss_count) _send_flow.OnLosses(now, loss_count);
 }
 
 bool Transport::PostMTUProbe(ThreadPoolLocalStorage *tls, u32 mtu)
@@ -1200,6 +1241,8 @@ void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 	u32 stream = NUM_STREAMS, last_ack_id = 0;
 	SendQueue *node = 0, *kill_list = 0;
 	u32 now = Clock::msec();
+	u32 loss_count = 0, last_mia_time = 0;
+	u32 timeout = _send_flow.GetLossTimeout();
 
 	INFO("Transport") << "Got ACK with " << data_bytes << " bytes of data to decode ----";
 
@@ -1227,20 +1270,23 @@ void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 					// We can now detect losses: Any node that is under
 					// last_ack_id that still remains in the sent list
 					// is probably lost.
-					// TODO: Check if it causes too many retransmissions
 
 					SendQueue *rnode = _sent_list_head[stream];
 
 					if (rnode)
 					{
-						u32 base_retransmit_threshold = 2 * _rtt;
-
 						while ((s32)(last_ack_id - rnode->id) > 0)
 						{
-							// Exponentially decrease the rate of retransmission of each individual outstanding message,
-							// so that bandwidth isn't wasted during periods of high packetloss.
-							if (now - rnode->ts_lastsend >= base_retransmit_threshold + (rnode->ts_lastsend - rnode->ts_firstsend))
+							u32 mia_time = now - rnode->ts_lastsend;
+
+							if (mia_time >= timeout)
+							{
 								Retransmit(stream, rnode, now);
+
+								// Only record one loss per millisecond
+								if (mia_time != last_mia_time) ++loss_count;
+								last_mia_time = mia_time;
+							}
 
 							rnode = rnode->next;
 							if (!rnode) break;
@@ -1455,15 +1501,19 @@ void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 
 		if (rnode)
 		{
-			u32 base_retransmit_threshold = _rtt * 2;
-
 			// While node ACK-IDs are under the final END range,
 			while ((s32)(last_ack_id - rnode->id) > 0)
 			{
-				// Exponentially decrease the rate of retransmission of each individual outstanding message,
-				// so that bandwidth isn't wasted during periods of high packetloss.
-				if (now - rnode->ts_lastsend >= base_retransmit_threshold + (rnode->ts_lastsend - rnode->ts_firstsend))
+				u32 mia_time = now - rnode->ts_lastsend;
+
+				if (mia_time >= timeout)
+				{
 					Retransmit(stream, rnode, now);
+
+					// Only record one loss per millisecond
+					if (mia_time != last_mia_time) ++loss_count;
+					last_mia_time = mia_time;
+				}
 
 				rnode = rnode->next;
 				if (!rnode) break;
@@ -1472,6 +1522,9 @@ void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 	}
 
 	lock.Release();
+
+	// If packets were lost, inform the flow control algorithm
+	if (loss_count) _send_flow.OnLosses(now, loss_count);
 
 	// Release kill list after lock is released
 	while (kill_list)
