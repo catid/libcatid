@@ -81,8 +81,8 @@ void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 	}
 
 	_max_epoch_bytes += 1000;
-	if (_max_epoch_bytes > (s32)_bandwidth_high_limit)
-		_max_epoch_bytes = (s32)_bandwidth_high_limit;
+	if (_max_epoch_bytes > (s32)_bandwidth_high_limit / 2)
+		_max_epoch_bytes = (s32)_bandwidth_high_limit / 2;
 }
 
 void FlowControl::OnACK(u32 now, u32 avg_one_way_time, u32 nack_loss_count)
