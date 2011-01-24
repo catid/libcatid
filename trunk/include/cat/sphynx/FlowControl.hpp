@@ -44,19 +44,19 @@ namespace sphynx {
 */
 
 /*
-    "Siamese" Flow Control algorithm:
+    "Tampon" Flow Control algorithm:
 
-	Siamese is a TCP-Reno Friendly approach to flow control.  It throttles the
+	Tampon is a TCP-Reno Friendly approach to flow control.  It throttles the
 	rate of a flow to attempt to maximize throughput and friendliness with other
 	network flows.
 
-	Siamese is designed for online game flows.  Features of these flows:
+	Tampon is designed for online game flows.  Features of these flows:
 		+ Many types of message delivery and multiple streams
 		+ Most messages are not part of bulk file transfers
 		+ Low tolerance for packetloss
 		+ Bandwidth requirements burst and wane unexpectedly
 
-	Siamese is built to be integrated with the Sphynx transport layer, which
+	Tampon is built to be integrated with the Sphynx transport layer, which
 	wakes up on the following events:
 		+ On message send request from another thread : Asynchronous sending
 		+ On datagram arrival : Processing incoming data and may transmit
@@ -70,13 +70,13 @@ namespace sphynx {
 	between each endpoint.  So, it is possible to measure the one-way trip time
 	of each message (TT).
 
-	Siamese attempts to correlate bandwidth-used to PL and TT.  Within a sample
+	Tampon attempts to correlate bandwidth-used to PL and TT.  Within a sample
 	window, it will gather statistics and make predictions about the channel
 	capacity.  In periods of nominal loss, it will rely on past data.  When loss
 	events occur more often than expected, it will adjust its channel capacity
 	estimates to react swiftly to loss events.
 
-	Siamese has three phases:
+	Tampon has three phases:
 		+ Slow Start
 			- Collecting ambient PL and TT of network until first loss event
 		+ Steady State
