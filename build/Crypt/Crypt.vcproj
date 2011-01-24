@@ -46,9 +46,12 @@
 				AdditionalIncludeDirectories="../../include/"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
+				RuntimeLibrary="1"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="$(ProjectDir)Precompiled.hpp"
 				WarningLevel="3"
 				DebugInformationFormat="4"
+				ForcedIncludeFiles="$(ProjectDir)Precompiled.hpp"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -112,9 +115,12 @@
 				AdditionalIncludeDirectories="../../include/"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
+				RuntimeLibrary="1"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="$(ProjectDir)Precompiled.hpp"
 				WarningLevel="3"
 				DebugInformationFormat="3"
+				ForcedIncludeFiles="$(ProjectDir)Precompiled.hpp"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -183,13 +189,16 @@
 				AdditionalIncludeDirectories="../../include/"
 				StringPooling="true"
 				ExceptionHandling="1"
-				RuntimeLibrary="2"
+				RuntimeLibrary="0"
 				BufferSecurityCheck="false"
 				EnableFunctionLevelLinking="false"
 				EnableEnhancedInstructionSet="2"
 				RuntimeTypeInfo="false"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="$(ProjectDir)Precompiled.hpp"
 				WarningLevel="3"
 				DebugInformationFormat="3"
+				ForcedIncludeFiles="$(ProjectDir)Precompiled.hpp"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -257,12 +266,15 @@
 				OmitFramePointers="true"
 				EnableFiberSafeOptimizations="true"
 				AdditionalIncludeDirectories="../../include/"
-				RuntimeLibrary="2"
+				RuntimeLibrary="0"
 				BufferSecurityCheck="false"
 				EnableFunctionLevelLinking="false"
 				EnableEnhancedInstructionSet="0"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="$(ProjectDir)Precompiled.hpp"
 				WarningLevel="3"
 				DebugInformationFormat="3"
+				ForcedIncludeFiles="$(ProjectDir)Precompiled.hpp"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -339,6 +351,42 @@
 				>
 			</File>
 			<File
+				RelativePath=".\Precompiled.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
 				RelativePath="..\..\src\crypt\SecureCompare.cpp"
 				>
 			</File>
@@ -362,6 +410,10 @@
 			>
 			<File
 				RelativePath="..\..\include\cat\AllCrypt.hpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Precompiled.hpp"
 				>
 			</File>
 			<File

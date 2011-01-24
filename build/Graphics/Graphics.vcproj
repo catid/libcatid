@@ -46,9 +46,12 @@
 				AdditionalIncludeDirectories="../../include"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
+				RuntimeLibrary="1"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="$(ProjectDir)Precompiled.hpp"
 				WarningLevel="3"
 				DebugInformationFormat="4"
+				ForcedIncludeFiles="$(ProjectDir)Precompiled.hpp"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -109,9 +112,12 @@
 				AdditionalIncludeDirectories="../../include"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
+				RuntimeLibrary="1"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="$(ProjectDir)Precompiled.hpp"
 				WarningLevel="3"
 				DebugInformationFormat="3"
+				ForcedIncludeFiles="$(ProjectDir)Precompiled.hpp"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -176,11 +182,14 @@
 				EnableFiberSafeOptimizations="true"
 				AdditionalIncludeDirectories="../../include"
 				BasicRuntimeChecks="0"
-				RuntimeLibrary="2"
+				RuntimeLibrary="0"
 				BufferSecurityCheck="false"
 				EnableFunctionLevelLinking="true"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="$(ProjectDir)Precompiled.hpp"
 				WarningLevel="3"
 				DebugInformationFormat="3"
+				ForcedIncludeFiles="$(ProjectDir)Precompiled.hpp"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -245,11 +254,14 @@
 				OmitFramePointers="true"
 				EnableFiberSafeOptimizations="true"
 				AdditionalIncludeDirectories="../../include"
-				RuntimeLibrary="2"
+				RuntimeLibrary="0"
 				BufferSecurityCheck="false"
 				EnableFunctionLevelLinking="true"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="$(ProjectDir)Precompiled.hpp"
 				WarningLevel="3"
 				DebugInformationFormat="3"
+				ForcedIncludeFiles="$(ProjectDir)Precompiled.hpp"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -291,12 +303,44 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
-				RelativePath="..\..\src\gfx\LoadPNG.cpp"
+				RelativePath="..\..\src\gfx\Matrix.cpp"
 				>
 			</File>
 			<File
-				RelativePath="..\..\src\gfx\Matrix.cpp"
+				RelativePath=".\Precompiled.cpp"
 				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\..\src\gfx\Quaternion.cpp"
@@ -320,13 +364,13 @@
 				RelativePath="..\..\include\cat\AllGraphics.hpp"
 				>
 			</File>
+			<File
+				RelativePath=".\Precompiled.hpp"
+				>
+			</File>
 			<Filter
 				Name="gfx"
 				>
-				<File
-					RelativePath="..\..\include\cat\gfx\LoadPNG.hpp"
-					>
-				</File>
 				<File
 					RelativePath="..\..\include\cat\gfx\Matrix.hpp"
 					>

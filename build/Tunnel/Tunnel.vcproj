@@ -46,9 +46,12 @@
 				AdditionalIncludeDirectories="../../include"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
+				RuntimeLibrary="1"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="$(ProjectDir)Precompiled.hpp"
 				WarningLevel="3"
 				DebugInformationFormat="4"
+				ForcedIncludeFiles="$(ProjectDir)Precompiled.hpp"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -111,9 +114,12 @@
 				AdditionalIncludeDirectories="../../include"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
+				RuntimeLibrary="1"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="$(ProjectDir)Precompiled.hpp"
 				WarningLevel="3"
 				DebugInformationFormat="3"
+				ForcedIncludeFiles="$(ProjectDir)Precompiled.hpp"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -182,11 +188,14 @@
 				StringPooling="true"
 				ExceptionHandling="1"
 				BasicRuntimeChecks="0"
-				RuntimeLibrary="2"
+				RuntimeLibrary="0"
 				BufferSecurityCheck="false"
 				EnableFunctionLevelLinking="false"
 				EnableEnhancedInstructionSet="2"
 				RuntimeTypeInfo="false"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="$(ProjectDir)Precompiled.hpp"
+				ForcedIncludeFiles="$(ProjectDir)Precompiled.hpp"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -253,12 +262,15 @@
 				AdditionalIncludeDirectories="../../include"
 				StringPooling="false"
 				BasicRuntimeChecks="0"
-				RuntimeLibrary="2"
+				RuntimeLibrary="0"
 				BufferSecurityCheck="false"
 				EnableFunctionLevelLinking="false"
 				EnableEnhancedInstructionSet="0"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="$(ProjectDir)Precompiled.hpp"
 				WarningLevel="3"
 				DebugInformationFormat="3"
+				ForcedIncludeFiles="$(ProjectDir)Precompiled.hpp"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -325,6 +337,42 @@
 				RelativePath="..\..\src\crypt\tunnel\KeyMaker.cpp"
 				>
 			</File>
+			<File
+				RelativePath=".\Precompiled.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
+			</File>
 		</Filter>
 		<Filter
 			Name="Header Files"
@@ -333,6 +381,10 @@
 			>
 			<File
 				RelativePath="..\..\include\cat\AllTunnel.hpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Precompiled.hpp"
 				>
 			</File>
 			<Filter

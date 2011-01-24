@@ -46,9 +46,12 @@
 				AdditionalIncludeDirectories="../../include/"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
+				RuntimeLibrary="1"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="$(ProjectDir)Precompiled.hpp"
 				WarningLevel="3"
 				DebugInformationFormat="4"
+				ForcedIncludeFiles="$(ProjectDir)Precompiled.hpp"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -112,9 +115,12 @@
 				AdditionalIncludeDirectories="../../include/"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
+				RuntimeLibrary="1"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="$(ProjectDir)Precompiled.hpp"
 				WarningLevel="3"
 				DebugInformationFormat="3"
+				ForcedIncludeFiles="$(ProjectDir)Precompiled.hpp"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -181,12 +187,15 @@
 				EnableFiberSafeOptimizations="true"
 				AdditionalIncludeDirectories="../../include/"
 				ExceptionHandling="1"
-				RuntimeLibrary="2"
+				RuntimeLibrary="0"
 				BufferSecurityCheck="false"
 				EnableEnhancedInstructionSet="2"
 				RuntimeTypeInfo="false"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="$(ProjectDir)Precompiled.hpp"
 				WarningLevel="3"
 				DebugInformationFormat="3"
+				ForcedIncludeFiles="$(ProjectDir)Precompiled.hpp"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -254,10 +263,13 @@
 				OmitFramePointers="true"
 				EnableFiberSafeOptimizations="true"
 				AdditionalIncludeDirectories="../../include/"
-				RuntimeLibrary="2"
+				RuntimeLibrary="0"
 				BufferSecurityCheck="false"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="$(ProjectDir)Precompiled.hpp"
 				WarningLevel="3"
 				DebugInformationFormat="3"
+				ForcedIncludeFiles="$(ProjectDir)Precompiled.hpp"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -322,7 +334,15 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\src\sphynx\Client.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\src\net\DNSClient.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\sphynx\FlowControl.cpp"
 				>
 			</File>
 			<File
@@ -342,7 +362,51 @@
 				>
 			</File>
 			<File
+				RelativePath=".\Precompiled.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+						ForcedIncludeFiles="$(ProjectDir)Precompiled.hpp"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+						ForcedIncludeFiles="$(ProjectDir)Precompiled.hpp"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+						ForcedIncludeFiles="$(ProjectDir)Precompiled.hpp"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+						ForcedIncludeFiles="$(ProjectDir)Precompiled.hpp"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
 				RelativePath="..\..\src\threads\RegionAllocator.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\sphynx\Server.cpp"
 				>
 			</File>
 			<File
@@ -351,18 +415,6 @@
 			</File>
 			<File
 				RelativePath="..\..\src\net\Sockets.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\src\net\SphynxClient.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\src\net\SphynxServer.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\src\net\SphynxTransport.cpp"
 				>
 			</File>
 			<File
@@ -377,6 +429,10 @@
 				RelativePath="..\..\src\net\ThreadPoolSockets.cpp"
 				>
 			</File>
+			<File
+				RelativePath="..\..\src\sphynx\Transport.cpp"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Header Files"
@@ -385,6 +441,10 @@
 			>
 			<File
 				RelativePath="..\..\include\cat\AllFramework.hpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Precompiled.hpp"
 				>
 			</File>
 			<Filter
@@ -424,22 +484,6 @@
 				</File>
 				<File
 					RelativePath="..\..\include\cat\net\Sockets.hpp"
-					>
-				</File>
-				<File
-					RelativePath="..\..\include\cat\net\SphynxClient.hpp"
-					>
-				</File>
-				<File
-					RelativePath="..\..\include\cat\net\SphynxCollexion.hpp"
-					>
-				</File>
-				<File
-					RelativePath="..\..\include\cat\net\SphynxServer.hpp"
-					>
-				</File>
-				<File
-					RelativePath="..\..\include\cat\net\SphynxTransport.hpp"
 					>
 				</File>
 				<File
@@ -512,6 +556,34 @@
 				</File>
 				<File
 					RelativePath="..\..\include\cat\db\BombayTableIndex.hpp"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="sphynx"
+				>
+				<File
+					RelativePath="..\..\include\cat\sphynx\Client.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\sphynx\Collexion.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\sphynx\Common.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\sphynx\FlowControl.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\sphynx\Server.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\sphynx\Transport.hpp"
 					>
 				</File>
 			</Filter>
