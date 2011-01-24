@@ -106,7 +106,8 @@ class DNSClient : Thread, public UDPEndpoint, public Singleton<DNSClient>
 	}
 
 public:
-	virtual ~DNSClient();
+	CAT_INLINE virtual ~DNSClient() {}
+	virtual void Finalize();
 
 	/*
 		In your startup code, call Initialize() and check the return value.

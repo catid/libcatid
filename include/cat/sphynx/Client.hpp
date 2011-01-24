@@ -59,9 +59,35 @@ class Client : Thread, public UDPEndpoint, public Transport
 
 	WaitableFlag _kill_flag;
 
-private:
-	// Clock Synchronization
+	u32 _last_send_mstsc;
+	NetAddr _server_addr;
+	bool _connected;
+	u32 _destroyed;
+	AuthenticatedEncryption _auth_enc;
 
+	// Last time a packet was received from the server -- for disconnect timeouts
+	u32 _last_recv_tsc;
+
+private:
+	virtual void Finalize();
+	virtual void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes);
+
+	bool PostHello();
+	bool PostTimePing();
+
+	void OnUnreachable(const NetAddr &src);
+
+	// Return false to remove resolve from cache
+	bool OnResolve(const char *hostname, const NetAddr *array, int array_length);
+
+	virtual bool PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes);
+	virtual void OnInternal(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes);
+
+	void ConnectFail(HandshakeError err);
+
+	bool ThreadFunction(void *param);
+
+	// Clock Synchronization
 	static const int TIME_SYNC_INTERVAL = 10000; // Normal time synch interval, milliseconds
 	static const int TIME_SYNC_FAST_COUNT = 8; // Number of fast measurements at the start, milliseconds
 	static const int TIME_SYNC_FAST = 5000; // Interval during fast measurements, milliseconds
@@ -77,27 +103,6 @@ private:
 	void UpdateTimeSynch(u32 rtt, s32 delta);
 
 protected:
-	u32 _last_send_mstsc;
-	NetAddr _server_addr;
-	bool _connected;
-	u32 _destroyed;
-	AuthenticatedEncryption _auth_enc;
-
-	// Last time a packet was received from the server -- for disconnect timeouts
-	u32 _last_recv_tsc;
-
-public:
-	Client();
-	virtual ~Client();
-
-	bool SetServerKey(ThreadPoolLocalStorage *tls, const void *server_key, int key_bytes, const char *session_key);
-
-	bool Connect(const char *hostname, Port port);
-	bool Connect(const NetAddr &addr);
-
-	void Disconnect(u8 reason, bool notify);
-
-protected:
 	bool IsConnected() { return _connected; }
 
 	virtual void OnClose() = 0;
@@ -108,25 +113,16 @@ protected:
 	virtual void OnDisconnect(u8 reason) = 0;
 	virtual void OnTick(ThreadPoolLocalStorage *tls, u32 now) = 0;
 
-private:
-	virtual void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes);
+public:
+	Client();
+	CAT_INLINE virtual ~Client() {}
 
-private:
-	bool PostHello();
-	bool PostTimePing();
+	bool SetServerKey(ThreadPoolLocalStorage *tls, const void *server_key, int key_bytes, const char *session_key);
 
-	void OnUnreachable(const NetAddr &src);
+	bool Connect(const char *hostname, Port port);
+	bool Connect(const NetAddr &addr);
 
-	// Return false to remove resolve from cache
-	bool OnResolve(const char *hostname, const NetAddr *array, int array_length);
-
-	virtual bool PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes);
-	virtual void OnInternal(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes);
-
-	void ConnectFail(HandshakeError err);
-
-private:
-	bool ThreadFunction(void *param);
+	void Disconnect(u8 reason, bool notify);
 };
 
 

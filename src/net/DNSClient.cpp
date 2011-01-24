@@ -443,7 +443,7 @@ bool DNSClient::ThreadFunction(void *param)
 	return true;
 }
 
-DNSClient::~DNSClient()
+void DNSClient::Finalize()
 {
 	_kill_flag.Set();
 

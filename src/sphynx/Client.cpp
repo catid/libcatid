@@ -55,7 +55,7 @@ Client::Client()
 	_ts_sample_count = 0;
 }
 
-Client::~Client()
+void Client::Finalize()
 {
 	_kill_flag.Set();
 

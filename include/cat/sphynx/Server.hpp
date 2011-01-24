@@ -89,7 +89,7 @@ class Connexion : public Transport, public ThreadRefObject
 
 public:
 	Connexion();
-	virtual ~Connexion() {}
+	CAT_INLINE virtual ~Connexion() {}
 
 private:
 	volatile u32 _destroyed;

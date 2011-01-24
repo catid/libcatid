@@ -182,6 +182,7 @@ void ThreadRefObject::ReleaseRef()
 	if (Atomic::Add(&_refCount, -1) == 1)
 	{
 		ThreadPool::ref()->UntrackObject(this);
+		Finalize();
 		delete this;
 	}
 }
@@ -318,6 +319,7 @@ void ThreadPool::Shutdown()
 		{
 			kill = object;
 			object = object->next;
+			kill->Finalize();
 			delete kill;
 		}
 	}
