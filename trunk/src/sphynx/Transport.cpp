@@ -368,6 +368,7 @@ void Transport::RunQueue(ThreadPoolLocalStorage *tls, u32 recv_time, u32 ack_id,
 	// If no queue to run or queue is not ready yet,
 	if (!node || node->id != ack_id)
 	{
+		// TODO: Is locking necessary here?
 		CAT_ACK_LOCK.Enter();
 
 		// Just update next expected id and set flag to send acks on next tick

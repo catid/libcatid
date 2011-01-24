@@ -269,6 +269,20 @@ protected:
 	RecvFrag _fragments[NUM_STREAMS]; // Fragments for each stream
 
 	// Receive state: Receive queue head
+	/*
+		These are protected by the ack lock, which may be the same as the big
+		lock if CAT_SEPARATE_ACK_LOCK is unset.
+
+		OnDatagram() is serialized in Sphynx, so the locking is simplified.
+		This thread is arbitrator for queue contents.
+		So, when it is walking the queue it does not need to hold a lock.
+		It calls RunQueue() and QueueRecv() that work on this queue.
+		When making changes, it needs to hold the ack lock to synchronize
+		with the timer thread.
+
+		The transport timer is the only other thread to access the queue.
+		It calls WriteACK(), which locks the queue and then walks it.
+	*/
 	RecvQueue *_recv_queue_head[NUM_STREAMS], *_recv_queue_tail[NUM_STREAMS];
 
 	// Receive state: Statistics for flow control report in ACK response

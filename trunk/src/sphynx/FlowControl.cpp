@@ -61,7 +61,7 @@ void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 		// If some bandwidth has been used this epoch,
 		if ((s32)_send_epoch_bytes > 0)
 		{
-			FATAL("FlowControl") << "_send_epoch_bytes = " << (s32)_send_epoch_bytes - _last_epoch_bytes;
+			FATAL("FlowControl") << "_send_epoch_bytes = " << (s32)_send_epoch_bytes - _last_epoch_bytes + _max_epoch_bytes;
 
 			// Subtract off the amount allowed this epoch
 			_last_epoch_bytes = Atomic::Add(&_send_epoch_bytes, -_max_epoch_bytes);
