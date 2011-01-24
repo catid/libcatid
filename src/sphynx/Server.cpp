@@ -180,6 +180,7 @@ void Connexion::OnInternal(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_
 			{
 				// Set max payload bytes
 				_max_payload_bytes = payload_bytes;
+				_send_flow.SetMTU(payload_bytes);
 
 				// Notify client that the packet made it through
 				u16 mtu = getLE((u16)payload_bytes);

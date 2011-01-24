@@ -587,6 +587,7 @@ void Client::OnInternal(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_tim
 			{
 				// Set max payload bytes
 				_max_payload_bytes = max_payload_bytes;
+				_send_flow.SetMTU(max_payload_bytes);
 			}
 		}
 		break;

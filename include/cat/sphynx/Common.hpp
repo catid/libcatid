@@ -31,6 +31,7 @@
 
 #include <cat/net/ThreadPoolSockets.hpp>
 
+// TODO: coalesce locks in TickTransport()
 // TODO: periodically reset the average trip time to avoid skewing statistics
 // TODO: make debug output optional with preprocessor flag
 // TODO: evaluate all places that allocate memory to see if retry would help
