@@ -31,6 +31,7 @@
 
 #include <cat/net/ThreadPoolSockets.hpp>
 
+// TODO: reinstate the region allocator once i have fixed the memory corruption bug
 // TODO: coalesce locks in TickTransport()
 // TODO: periodically reset the average trip time to avoid skewing statistics
 // TODO: make debug output optional with preprocessor flag
