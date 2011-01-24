@@ -40,6 +40,13 @@ using namespace cat;
 #else
 #endif
 
+// Add your compiler here if it supports aligned malloc
+#if defined(CAT_COMPILER_MSVC)
+#define CAT_HAS_ALIGNED_ALLOC
+#define aligned_malloc _aligned_malloc
+#define aligned_realloc _aligned_realloc
+#define aligned_free _aligned_free
+#endif
 
 // Object for placement new
 Aligned Aligned::ii;
@@ -145,9 +152,13 @@ static CAT_INLINE u8 DetermineOffset(void *ptr)
 void *Aligned::Acquire(u32 bytes)
 {
 	if (!_cacheline_bytes)
-	{
 		_cacheline_bytes = DetermineCacheLineBytes();
-	}
+
+#if defined(CAT_HAS_ALIGNED_ALLOC)
+
+	return aligned_malloc(bytes, _cacheline_bytes);
+
+#else
 
     u8 *buffer = (u8*)malloc(_cacheline_bytes + bytes);
     if (!buffer) return 0;
@@ -157,42 +168,69 @@ void *Aligned::Acquire(u32 bytes)
     buffer += offset;
     buffer[-1] = offset;
 
-    return buffer;
+	return buffer;
+
+#endif
 }
 
 // Resizes an aligned pointer
-void *Aligned::Resize(void *ptr, u32 bytes)
+void *Aligned::Resize(void *ptr, u32 old_bytes, u32 new_bytes)
 {
-	if (!ptr) return Acquire(bytes);
+#if defined(CAT_HAS_ALIGNED_ALLOC)
+
+	return aligned_realloc(ptr, new_bytes, _cacheline_bytes);
+
+#else
+
+	if (!ptr) return Acquire(new_bytes);
 
 	// Can assume here that cacheline bytes has been determined
 
 	// Get buffer base address
 	u8 *buffer = reinterpret_cast<u8*>( ptr );
-	buffer -= buffer[-1];
+	u8 old_offset = buffer[-1];
+	buffer -= old_offset;
 
-	buffer = (u8*)realloc(buffer, _cacheline_bytes + bytes);
+	buffer = (u8*)realloc(buffer, _cacheline_bytes + new_bytes);
 	if (!buffer) return 0;
 
 	// Get buffer aligned address
 	u8 offset = DetermineOffset(buffer);
+
+	if (offset != old_offset)
+	{
+		// Need to shift the buffer around if alignment changed
+		// This sort of inefficiency is why I wrote my own allocator
+		memmove(buffer + offset, buffer + old_offset, min(new_bytes, old_bytes));
+	}
+
 	buffer += offset;
 	buffer[-1] = offset;
 
 	return buffer;
+
+#endif
 }
 
 // Frees an aligned pointer
 void Aligned::Release(void *ptr)
 {
-    if (ptr)
-    {
-		// Get buffer base address
-        u8 *buffer = reinterpret_cast<u8*>( ptr );
-        buffer -= buffer[-1];
+#if defined(CAT_HAS_ALIGNED_ALLOC)
 
-        free(buffer);
-    }
+	aligned_free(ptr);
+
+#else
+
+	if (ptr)
+	{
+		// Get buffer base address
+		u8 *buffer = reinterpret_cast<u8*>( ptr );
+		buffer -= buffer[-1];
+
+		free(buffer);
+	}
+
+#endif
 }
 
 

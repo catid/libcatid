@@ -203,28 +203,27 @@ void RegionAllocator::Release(void *ptr)
     Aligned::Release(ptr);
 }
 
-void *RegionAllocator::Resize(void *ptr, u32 bytes)
+void *RegionAllocator::Resize(void *ptr, u32 old_bytes, u32 new_bytes)
 {
     if (!ptr)
-        return Acquire(bytes);
+        return Acquire(new_bytes);
 
     if (ptr >= region_info[0])
-        return Aligned::Resize(ptr, bytes);
+        return Aligned::Resize(ptr, old_bytes, new_bytes);
 
     for (int ii = REGION_COUNT-1; ii >= 0; --ii)
     {
         if (ptr >= regions[ii])
         {
             // Check if we don't need to allocate anything larger
-            if (BLOCK_SIZE[ii] >= bytes)
+            if (BLOCK_SIZE[ii] >= new_bytes)
                 return ptr;
 
             // Allocate larger storage
-            void *new_region = Acquire(bytes);
+            void *new_region = Acquire(new_bytes);
 
             // Copy the old data over
-            if (new_region)
-                memcpy(new_region, ptr, BLOCK_SIZE[ii]);
+            if (new_region) memcpy(new_region, ptr, min(old_bytes, new_bytes));
 
             // Find block index
             size_t offset = (u8*)ptr - regions[ii];
@@ -237,7 +236,7 @@ void *RegionAllocator::Resize(void *ptr, u32 bytes)
         }
     }
 
-    return Aligned::Resize(ptr, bytes);
+    return Aligned::Resize(ptr, old_bytes, new_bytes);
 }
 
 #endif // CAT_NO_ATOMIC_ALLOCATOR
