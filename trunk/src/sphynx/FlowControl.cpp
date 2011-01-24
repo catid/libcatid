@@ -35,42 +35,77 @@ using namespace sphynx;
 
 FlowControl::FlowControl()
 {
-	_max_epoch_bytes = MIN_RATE_LIMIT / 2;
-
+	_last_epoch_bytes = 0;
 	_send_epoch_bytes = 0;
 
 	_next_epoch_time = Clock::msec();
+
+	_stats_ack_ii = 0;
+
+	_bandwidth_low_limit = 10000;
+	_bandwidth_high_limit = 100000;
+
+	_max_epoch_bytes = _bandwidth_low_limit / 2;
 }
 
 void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 {
+	if (timeout_loss_count)
+	{
+		FATAL("FlowControl") << "Timeout loss count: " << timeout_loss_count;
+	}
+
 	// If epoch has ended,
 	if ((s32)(now - _next_epoch_time) >= 0)
 	{
-		INFO("FlowControl") << "_send_epoch_bytes = " << (s32)_send_epoch_bytes;
-
 		// If some bandwidth has been used this epoch,
 		if ((s32)_send_epoch_bytes > 0)
 		{
+			FATAL("FlowControl") << "_send_epoch_bytes = " << (s32)_send_epoch_bytes - _last_epoch_bytes;
+
 			// Subtract off the amount allowed this epoch
-			Atomic::Add(&_send_epoch_bytes, -_max_epoch_bytes);
+			_last_epoch_bytes = Atomic::Add(&_send_epoch_bytes, -_max_epoch_bytes);
 		}
 
 		// Set next epoch time
 		_next_epoch_time += EPOCH_INTERVAL;
 
 		// If within one tick of another epoch,
-		if ((s32)(now - _next_epoch_time + sphynx::Transport::TICK_INTERVAL) > 0)
+		if ((s32)(now - _next_epoch_time + Transport::TICK_INTERVAL) > 0)
 		{
-			WARN("FlowControl") << "Slow epoch - Scheduling next epoch one interval into the future";
+			FATAL("FlowControl") << "Slow epoch - Scheduling next epoch one interval into the future";
 
 			// Lagged too much - reset epoch interval
 			_next_epoch_time = now + EPOCH_INTERVAL;
 		}
 	}
+
+	_max_epoch_bytes += 1000;
+	if (_max_epoch_bytes > (s32)_bandwidth_high_limit)
+		_max_epoch_bytes = (s32)_bandwidth_high_limit;
 }
 
 void FlowControl::OnACK(u32 now, u32 avg_one_way_time, u32 nack_loss_count)
 {
+	/*
+	_stats_trip[_stats_ack_ii] = avg_one_way_time;
+	_stats_nack[_stats_ack_ii] = nack_loss_count;
+	_stats_ack_ii++;
 
+	if (_stats_ack_ii == IIMAX)
+	{
+		for (int ii = 0; ii < IIMAX; ++ii)
+		{
+			FATAL("FlowControl") << "AvgTrip=" << _stats_trip[ii] << " NACK=" << _stats_nack[ii];
+		}
+		_stats_ack_ii = 0;
+	}*/
+
+	if (avg_one_way_time > 300)
+	{
+		FATAL("FlowControl") << "Halving transmit rate since one way time shot up to " << avg_one_way_time;
+		_max_epoch_bytes /= 2;
+		if (_max_epoch_bytes < (s32)_bandwidth_low_limit / 2)
+			_max_epoch_bytes = (s32)_bandwidth_low_limit / 2;
+	}
 }

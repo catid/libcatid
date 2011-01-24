@@ -147,6 +147,7 @@ void Transport::InitializePayloadBytes(bool ip6)
 {
 	_overhead_bytes = (ip6 ? IPV6_HEADER_BYTES : IPV4_HEADER_BYTES) + UDP_HEADER_BYTES + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD;
 	_max_payload_bytes = MINIMUM_MTU - _overhead_bytes;
+	_send_flow.SetMTU(_max_payload_bytes);
 }
 
 bool Transport::InitializeTransportSecurity(bool is_initiator, AuthenticatedEncryption &auth_enc)
@@ -1170,7 +1171,9 @@ void Transport::TickTransport(ThreadPoolLocalStorage *tls, u32 now)
 		}
 	}
 
+	_big_lock.Enter();
 	_send_flow.OnTick(now, loss_count);
+	_big_lock.Leave();
 
 	// Avoid locking to transmit queued if no queued exist
 	for (int stream = 0; stream < NUM_STREAMS; ++stream)
@@ -1203,7 +1206,7 @@ u32 Transport::RetransmitLost(u32 now)
 		{
 			u32 mia_time = now - node->ts_lastsend;
 
-			if (mia_time >= timeout)
+			if (mia_time >= timeout + (node->ts_lastsend - node->ts_firstsend))
 			{
 				Retransmit(stream, node, now);
 
@@ -1234,7 +1237,7 @@ bool Transport::PostMTUProbe(ThreadPoolLocalStorage *tls, u32 mtu)
 
 	u32 payload_bytes = mtu - _overhead_bytes;
 	u32 buffer_bytes = payload_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD;
-	u32 data_bytes = payload_bytes - 2;
+	u32 data_bytes = payload_bytes - TRANSPORT_HEADER_BYTES;
 
 	u8 *pkt = AsyncBuffer::Acquire(buffer_bytes);
 	if (!pkt) return false;
@@ -1325,7 +1328,7 @@ void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 						{
 							u32 mia_time = now - rnode->ts_lastsend;
 
-							if (mia_time >= timeout)
+							if (mia_time >= timeout + (rnode->ts_lastsend - rnode->ts_firstsend))
 							{
 								Retransmit(stream, rnode, now);
 
@@ -1552,7 +1555,7 @@ void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 			{
 				u32 mia_time = now - rnode->ts_lastsend;
 
-				if (mia_time >= timeout)
+				if (mia_time >= timeout + (rnode->ts_lastsend - rnode->ts_firstsend))
 				{
 					Retransmit(stream, rnode, now);
 
@@ -1646,7 +1649,7 @@ void Transport::TransmitQueued()
 
 	// If there is no more room in the channel,
 	s32 send_epoch_bytes = _send_flow.GetSentBytes();
-	if (send_epoch_bytes >= _send_flow.GetMaxEpochBytes())
+	if (send_epoch_bytes >= _send_flow.GetMaxSentBytes())
 	{
 		// Stop sending here
 		return;
@@ -1744,7 +1747,7 @@ void Transport::TransmitQueued()
 							send_epoch_bytes += send_buffer_bytes + _overhead_bytes;
 
 							// If there is no more room in the channel,
-							if (send_epoch_bytes >= _send_flow.GetMaxEpochBytes())
+							if (send_epoch_bytes >= _send_flow.GetMaxSentBytes())
 							{
 								// Does not need to update _send_buffer_ack_id and _send_buffer_stream
 								// since those members are updated whenever the send buffer is appended

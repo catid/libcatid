@@ -92,9 +92,12 @@ class FlowControl
 public:
 	static const int EPOCH_INTERVAL = 500; // Milliseconds per epoch
 
-	static const u32 MIN_RATE_LIMIT = 100000; // Smallest data rate allowed
-
 protected:
+	u32 _bandwidth_low_limit, _bandwidth_high_limit;
+
+	// Maximum transfer unit
+	u32 _mtu;
+
 	// Bytes per epoch maximum (0 = none)
 	s32 _max_epoch_bytes;
 
@@ -107,14 +110,29 @@ protected:
 	// Number of bytes sent during the current epoch, atomically synchronized
 	volatile u32 _send_epoch_bytes;
 
+	u32 _last_epoch_bytes;
+
 	// In slow start
 	bool _slow_start;
+
+	static const int IIMAX = 20;
+	u32 _stats_trip[IIMAX];
+	u32 _stats_nack[IIMAX];
+	u32 _stats_ack_ii;
 
 public:
 	FlowControl();
 
+	CAT_INLINE u32 GetMTU() { return _mtu; }
+	CAT_INLINE void SetMTU(u32 mtu) { _mtu = mtu; }
+
+	CAT_INLINE u32 GetBandwidthLowLimit() { return _bandwidth_low_limit; }
+	CAT_INLINE void SetBandwidthLowLimit(u32 limit) { _bandwidth_low_limit = limit; }
+	CAT_INLINE u32 GetBandwidthHighLimit() { return _bandwidth_high_limit; }
+	CAT_INLINE void SetBandwidthHighLimit(u32 limit) { _bandwidth_high_limit = limit; }
+
 	// The whole purpose of this class is to calculate this value
-	CAT_INLINE s32 GetMaxEpochBytes() { return _max_epoch_bytes; }
+	CAT_INLINE s32 GetMaxSentBytes() { return _max_epoch_bytes; }
 
 	// Get timeout for reliable message delivery before considering it lost
 	CAT_INLINE u32 GetLossTimeout() { return _loss_timeout; }
