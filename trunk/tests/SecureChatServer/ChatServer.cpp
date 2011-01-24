@@ -33,9 +33,10 @@ public:
 				static char STR[4000];
 				for (int ii = 0; ii < sizeof(STR); ++ii)
 					STR[ii] = (char)ii/(4000/256);
-				//WriteReliable(STREAM_1, 0, STR, sizeof(STR));
 			}
 			break;
+		case 2:
+			WriteReliable(STREAM_1, 0);
 		default:
 			INFO("Connexion") << "Got message with " << bytes << " bytes";
 		}
