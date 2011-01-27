@@ -26,8 +26,8 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_ALIGNED_ALLOC_HPP
-#define CAT_ALIGNED_ALLOC_HPP
+#ifndef CAT_ALIGNED_ALLOCATOR_HPP
+#define CAT_ALIGNED_ALLOCATOR_HPP
 
 #include <cat/Platform.hpp>
 
@@ -39,10 +39,10 @@ namespace cat {
 
 
 // Small to medium -size aligned heap allocator
-class Aligned
+class AlignedAllocator
 {
 public:
-	CAT_INLINE Aligned() {}
+	CAT_INLINE AlignedAllocator() {}
 
 	// Acquires memory aligned to a CPU cache-line byte boundary from the heap
     static void *Acquire(u32 bytes);
@@ -54,17 +54,17 @@ public:
     static void Release(void *ptr);
 
     template<class T>
-    static inline void Delete(T *ptr)
+    static CAT_INLINE void Delete(T *ptr)
     {
         ptr->~T();
         Release(ptr);
     }
 
-	static Aligned ii;
+	static AlignedAllocator ii;
 };
 
 // Use STLAlignedAllocator in place of the standard STL allocator
-// to make use of the Aligned in STL types.
+// to make use of the AlignedAllocator in STL types.
 template<typename T>
 class STLAlignedAllocator
 {
@@ -110,12 +110,12 @@ public:
 
 	pointer allocate(size_type Count, const void *Hint = 0)
 	{
-		return (pointer)Aligned::Acquire((u32)Count * sizeof(T));
+		return (pointer)AlignedAllocator::Acquire((u32)Count * sizeof(T));
 	}
 
 	void deallocate(pointer Ptr, size_type Count)
 	{
-		Aligned::Release(Ptr);
+		AlignedAllocator::Release(Ptr);
 	}
 
 	void construct(pointer Ptr, const T &Val)
@@ -147,121 +147,23 @@ public:
 };
 
 
-// Large-size aligned heap allocator
-class LargeAligned
-{
-public:
-	// Acquires memory aligned to a CPU cache-line byte boundary from the heap
-    static void *Acquire(u32 bytes);
-
-    // Release an aligned pointer
-    static void Release(void *ptr);
-};
-
-// Use STLAlignedAllocator in place of the standard STL allocator
-// to make use of the Aligned in STL types.
-template<typename T>
-class STLLargeAlignedAllocator
-{
-public:
-	typedef std::size_t size_type;
-	typedef std::size_t difference_type;
-	typedef T *pointer;
-	typedef const T *const_pointer;
-	typedef T &reference;
-	typedef const T &const_reference;
-	typedef T value_type;
-
-	template<typename S>
-	struct rebind
-	{
-		typedef STLLargeAlignedAllocator<S> other;
-	};
-
-	pointer address(reference X) const
-	{
-		return &X;
-	}
-
-	const_pointer address(const_reference X) const
-	{
-		return &X;
-	}
-
-	STLLargeAlignedAllocator() throw ()
-	{
-	}
-
-	template<typename S>
-	STLLargeAlignedAllocator(const STLLargeAlignedAllocator<S> &cp) throw ()
-	{
-	}
-
-	template<typename S>
-	STLLargeAlignedAllocator<T> &operator=(const STLLargeAlignedAllocator<S> &cp) throw ()
-	{
-		return *this;
-	}
-
-	pointer allocate(size_type Count, const void *Hint = 0)
-	{
-		return (pointer)LargeAligned::Acquire((u32)Count * sizeof(T));
-	}
-
-	void deallocate(pointer Ptr, size_type Count)
-	{
-		LargeAligned::Release(Ptr);
-	}
-
-	void construct(pointer Ptr, const T &Val)
-	{
-		std::_Construct(Ptr, Val);
-	}
-
-	void destroy(pointer Ptr)
-	{
-		std::_Destroy(Ptr);
-	}
-
-	size_type max_size() const
-	{
-		return 0x00FFFFFF;
-	}
-
-	template<typename S>
-	bool operator==(STLLargeAlignedAllocator <S> const &) const throw()
-	{
-		return true;
-	}
-
-	template<typename S>
-	bool operator!=(STLLargeAlignedAllocator <S> const &) const throw()
-	{
-		return false;
-	}
-};
-
-
-u32 GetCacheLineBytes();
-
-
 } // namespace cat
 
 // Provide placement new constructor and delete pair to allow for
-// an easy syntax to create objects from the RegionAllocator:
-//   T *a = new (Aligned()) T();
+// an easy syntax to create objects:
+//   T *a = new (AlignedAllocator()) T();
 // The object can be freed with:
-//   Aligned::Delete(a);
+//   AlignedAllocator::Delete(a);
 // Which insures that the destructor is called before freeing memory
-CAT_INLINE void *operator new[](std::size_t bytes, cat::Aligned &) throw()
+CAT_INLINE void *operator new[](std::size_t bytes, cat::AlignedAllocator &) throw()
 {
-	return cat::Aligned::Acquire((int)bytes);
+	return cat::AlignedAllocator::Acquire((int)bytes);
 }
 
 // Placement "delete": Does not call destructor
-CAT_INLINE void operator delete(void *ptr, cat::Aligned &) throw()
+CAT_INLINE void operator delete(void *ptr, cat::AlignedAllocator &) throw()
 {
-	cat::Aligned::Release(ptr);
+	cat::AlignedAllocator::Release(ptr);
 }
 
-#endif // CAT_ENDIAN_NEUTRAL_HPP
+#endif // CAT_ALIGNED_ALLOCATOR_HPP

@@ -27,7 +27,7 @@
 */
 
 #include <cat/sphynx/Client.hpp>
-#include <cat/port/AlignedAlloc.hpp>
+#include <cat/mem/AlignedAllocator.hpp>
 #include <cat/io/Logging.hpp>
 #include <cat/io/MMapFile.hpp>
 #include <cat/net/DNSClient.hpp>

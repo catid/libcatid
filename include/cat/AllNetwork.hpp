@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -26,39 +26,19 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-// Include all libcat Common headers
+// Include all libcat Network headers
 
-#include <cat/time/Clock.hpp>
+#ifndef CAT_ALL_NETWORK_HPP
+#define CAT_ALL_NETWORK_HPP
 
-#include <cat/rand/IRandom.hpp>
-#include <cat/rand/MersenneTwister.hpp>
-#include <cat/rand/StdRand.hpp>
+#include <cat/AllCommon.hpp>
+#include <cat/AllMath.hpp>
+#include <cat/AllCrypt.hpp>
+#include <cat/AllTunnel.hpp>
 
-#include <cat/hash/Murmur.hpp>
+#include <cat/net/Sockets.hpp>
 
-#include <cat/threads/Atomic.hpp>
-#include <cat/threads/Mutex.hpp>
-#include <cat/threads/RWLock.hpp>
-#include <cat/threads/Thread.hpp>
-#include <cat/threads/WaitableFlag.hpp>
+#include <cat/net/DNSClient.hpp>
 
-#include <cat/math/BitMath.hpp>
 
-#include <cat/port/EndianNeutral.hpp>
-#include <cat/port/FastDelegate.h>
-
-#include <cat/lang/Strings.hpp>
-
-#include <cat/io/Logging.hpp>
-#include <cat/io/Base64.hpp>
-#include <cat/io/MMapFile.hpp>
-#include <cat/io/Settings.hpp>
-
-#include <cat/parse/BitStream.hpp>
-#include <cat/parse/BufferTok.hpp>
-#include <cat/parse/BufferStream.hpp>
-
-#include <cat/mem/CacheLineBytes.hpp>
-#include <cat/mem/AlignedAllocator.hpp>
-#include <cat/mem/LargeAllocator.hpp>
-#include <cat/mem/BufferAllocator.hpp>
+#endif // CAT_ALL_NETWORK_HPP
