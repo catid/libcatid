@@ -261,7 +261,8 @@ template<class T> class Queue;
         {
             head = Head;
             tail = Tail;
-            firstNodePrev = head.ptr->prev;
+
+			firstNodePrev = head.ptr->prev;
             val = head.ptr->value;
 
             if (head == Head)

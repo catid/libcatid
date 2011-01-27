@@ -306,7 +306,19 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
-				RelativePath="..\..\src\port\AlignedAlloc.cpp"
+				RelativePath="..\..\src\io\Base64.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\parse\BitStream.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\mem\BufferAllocator.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\parse\BufferTok.cpp"
 				>
 			</File>
 			<File
@@ -318,7 +330,15 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\src\io\Logging.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\src\rand\MersenneTwister.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\io\MMapFile.cpp"
 				>
 			</File>
 			<File
@@ -367,6 +387,10 @@
 			</File>
 			<File
 				RelativePath="..\..\src\threads\RWLock.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\io\Settings.cpp"
 				>
 			</File>
 			<File
@@ -479,10 +503,6 @@
 				Name="port"
 				>
 				<File
-					RelativePath="..\..\include\cat\port\AlignedAlloc.hpp"
-					>
-				</File>
-				<File
 					RelativePath="..\..\include\cat\port\EndianNeutral.hpp"
 					>
 				</File>
@@ -496,6 +516,54 @@
 				>
 				<File
 					RelativePath="..\..\include\cat\lang\Strings.hpp"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="mem"
+				>
+				<File
+					RelativePath="..\..\include\cat\mem\AlignedAlloc.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\mem\BufferAllocator.hpp"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="io"
+				>
+				<File
+					RelativePath="..\..\include\cat\io\Base64.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\io\Logging.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\io\MMapFile.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\io\Settings.hpp"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="parse"
+				>
+				<File
+					RelativePath="..\..\include\cat\parse\BitStream.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\parse\BufferStream.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\parse\BufferTok.hpp"
 					>
 				</File>
 			</Filter>

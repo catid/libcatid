@@ -63,7 +63,7 @@ static const char *const SHORT_EVENT_NAME[5] = { ".", "I", "W", "!", "F" };
 
 //// Free functions
 
-region_string cat::HexDumpString(const void *vdata, u32 bytes)
+std::string cat::HexDumpString(const void *vdata, u32 bytes)
 {
     /* xxxx  xx xx xx xx xx xx xx xx  xx xx xx xx xx xx xx xx   aaaaaaaaaaaaaaaa*/
 
@@ -73,7 +73,7 @@ region_string cat::HexDumpString(const void *vdata, u32 bytes)
     char ascii[17];
     ascii[16] = 0;
 
-    region_ostringstream oss;
+    std::ostringstream oss;
 
     for (offset = 0; offset < bytes; offset += 16)
     {
@@ -124,23 +124,23 @@ void cat::FatalStop(const char *message)
 	std::exit(EXIT_FAILURE);
 }
 
-void cat::DefaultLogCallback(EventSeverity severity, const char *source, region_ostringstream &msg)
+void cat::DefaultLogCallback(EventSeverity severity, const char *source, std::ostringstream &msg)
 {
 	if (Logging::ii->IsService())
 	{
-		region_ostringstream oss;
+		std::ostringstream oss;
 		oss << "<" << source << "> " << msg.str() << endl;
 
-		region_string result = oss.str();
+		std::string result = oss.str();
 
 		Logging::ii->WriteServiceLog(severity, result.c_str());
 	}
 	else
 	{
-		region_ostringstream oss;
+		std::ostringstream oss;
 		oss << "[" << Clock::format("%b %d %H:%M") << "] <" << source << "> " << msg.str() << endl;
 
-		region_string result = oss.str();
+		std::string result = oss.str();
 
 		cout << result.c_str();
 

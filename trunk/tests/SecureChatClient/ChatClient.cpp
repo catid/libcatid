@@ -109,7 +109,7 @@ int main()
 			// linux: 10.1.1.146
 			// netbook: 10.1.1.110
 			// coldfront: 68.84.166.22
-			if (!client->Connect("127.0.0.1", 22000))
+			if (!client->Connect("68.84.166.22", 22000))
 			{
 				FATAL("Client") << "Unable to connect to server";
 			}

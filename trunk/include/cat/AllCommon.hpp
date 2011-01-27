@@ -49,3 +49,12 @@
 #include <cat/port/FastDelegate.h>
 
 #include <cat/lang/Strings.hpp>
+
+#include <cat/io/Logging.hpp>
+#include <cat/io/Base64.hpp>
+#include <cat/io/MMapFile.hpp>
+#include <cat/io/Settings.hpp>
+
+#include <cat/parse/BitStream.hpp>
+#include <cat/parse/BufferTok.hpp>
+#include <cat/parse/BufferStream.hpp>
