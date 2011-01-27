@@ -136,7 +136,7 @@ public:
 
 // Provide placement new constructor and delete pair to allow for
 // an easy syntax to create objects:
-//   T *a = new (LargeAllocator()) T();
+//   T *a = new (LargeAllocator::ii) T();
 // The object can be freed with:
 //   LargeAllocator::Delete(a);
 // Which insures that the destructor is called before freeing memory

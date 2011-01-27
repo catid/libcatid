@@ -21,7 +21,7 @@
     Unit test for lockless FIFO
 */
 
-#include <cat/AllFramework.hpp>
+#include <cat/AllCommon.hpp>
 #include <iostream>
 #include <conio.h> // getch()
 using namespace std;

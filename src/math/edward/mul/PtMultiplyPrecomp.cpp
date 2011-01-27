@@ -27,7 +27,7 @@
 */
 
 #include <cat/math/BigTwistedEdwards.hpp>
-#include <cat/port/AlignedAlloc.hpp>
+#include <cat/mem/AlignedAllocator.hpp>
 using namespace cat;
 
 // Allocate a precomputed table of odd multiples of input point
@@ -36,7 +36,7 @@ Leg *BigTwistedEdwards::PtMultiplyPrecompAlloc(int w)
 {
     int points = 1 + (1 << (w - 1));
 
-    Leg *out = new (Aligned::ii) Leg[points * POINT_STRIDE];
+	Leg *out = new (AlignedAllocator::ii) Leg[points * POINT_STRIDE];
 
     return out;
 }
