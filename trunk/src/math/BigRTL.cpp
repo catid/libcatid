@@ -27,7 +27,7 @@
 */
 
 #include <cat/math/BigRTL.hpp>
-#include <cat/port/AlignedAlloc.hpp>
+#include <cat/mem/AlignedAllocator.hpp>
 #include <cstring>
 using namespace cat;
 
@@ -37,7 +37,7 @@ BigRTL::BigRTL(int regs, int bits)
     library_regs = regs + BIG_OVERHEAD;
 
     // Align library memory accesses to a 16-byte boundary
-	library_memory = new (Aligned::ii) Leg[library_legs * library_regs];
+	library_memory = new (AlignedAllocator::ii) Leg[library_legs * library_regs];
 }
 
 BigRTL::~BigRTL()
@@ -46,7 +46,7 @@ BigRTL::~BigRTL()
     {
         // Clear and free memory for registers
         CAT_CLR(library_memory, library_legs * library_regs * sizeof(Leg));
-        Aligned::Delete(library_memory);
+        AlignedAllocator::Delete(library_memory);
     }
 }
 

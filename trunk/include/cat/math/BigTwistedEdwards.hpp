@@ -161,7 +161,7 @@ public:
 
 public:
     // Allocate a table for use with PtMultiplyPrecomp()
-    // Free the table with Aligned::Delete()
+    // Free the table with AlignedAllocator::Delete()
     Leg *PtMultiplyPrecompAlloc(int w);
 
     // Precompute odd multiples of input point

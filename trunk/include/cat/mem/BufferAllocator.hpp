@@ -34,234 +34,51 @@
 #include <cstddef> // size_t
 #include <vector> // std::_Construct and std::_Destroy
 
-
 namespace cat {
 
 
-// Small to medium -size aligned heap allocator
-class Aligned
+// Aligned buffer array heap allocator
+class BufferAllocator
 {
+	u32 _buffer_bytes;
+
 public:
-	CAT_INLINE Aligned() {}
+	// Specify the number of bytes needed per buffer, minimum
+	// This will be bumped up to the next CPU cache line size
+	BufferAllocator(u32 buffer_min_size);
 
-	// Acquires memory aligned to a CPU cache-line byte boundary from the heap
-    static void *Acquire(u32 bytes);
+	// Acquires buffer aligned to a CPU cache-line byte boundary from the heap
+    void *Acquire();
 
-	// Resizes an aligned pointer
-	static void *Resize(void *ptr, u32 old_bytes, u32 new_bytes);
-
-    // Release an aligned pointer
-    static void Release(void *ptr);
+    // Release a buffer pointer
+    void Release(void *ptr);
 
     template<class T>
-    static inline void Delete(T *ptr)
+    CAT_INLINE void Delete(T *ptr)
     {
         ptr->~T();
         Release(ptr);
     }
-
-	static Aligned ii;
 };
-
-// Use STLAlignedAllocator in place of the standard STL allocator
-// to make use of the Aligned in STL types.
-template<typename T>
-class STLAlignedAllocator
-{
-public:
-	typedef std::size_t size_type;
-	typedef std::size_t difference_type;
-	typedef T *pointer;
-	typedef const T *const_pointer;
-	typedef T &reference;
-	typedef const T &const_reference;
-	typedef T value_type;
-
-	template<typename S>
-	struct rebind
-	{
-		typedef STLAlignedAllocator<S> other;
-	};
-
-	pointer address(reference X) const
-	{
-		return &X;
-	}
-
-	const_pointer address(const_reference X) const
-	{
-		return &X;
-	}
-
-	STLAlignedAllocator() throw ()
-	{
-	}
-
-	template<typename S>
-	STLAlignedAllocator(const STLAlignedAllocator<S> &cp) throw ()
-	{
-	}
-
-	template<typename S>
-	STLAlignedAllocator<T> &operator=(const STLAlignedAllocator<S> &cp) throw ()
-	{
-		return *this;
-	}
-
-	pointer allocate(size_type Count, const void *Hint = 0)
-	{
-		return (pointer)Aligned::Acquire((u32)Count * sizeof(T));
-	}
-
-	void deallocate(pointer Ptr, size_type Count)
-	{
-		Aligned::Release(Ptr);
-	}
-
-	void construct(pointer Ptr, const T &Val)
-	{
-		std::_Construct(Ptr, Val);
-	}
-
-	void destroy(pointer Ptr)
-	{
-		std::_Destroy(Ptr);
-	}
-
-	size_type max_size() const
-	{
-		return 0x00FFFFFF;
-	}
-
-	template<typename S>
-	bool operator==(STLAlignedAllocator <S> const &) const throw()
-	{
-		return true;
-	}
-
-	template<typename S>
-	bool operator!=(STLAlignedAllocator <S> const &) const throw()
-	{
-		return false;
-	}
-};
-
-
-// Large-size aligned heap allocator
-class LargeAligned
-{
-public:
-	// Acquires memory aligned to a CPU cache-line byte boundary from the heap
-    static void *Acquire(u32 bytes);
-
-    // Release an aligned pointer
-    static void Release(void *ptr);
-};
-
-// Use STLAlignedAllocator in place of the standard STL allocator
-// to make use of the Aligned in STL types.
-template<typename T>
-class STLLargeAlignedAllocator
-{
-public:
-	typedef std::size_t size_type;
-	typedef std::size_t difference_type;
-	typedef T *pointer;
-	typedef const T *const_pointer;
-	typedef T &reference;
-	typedef const T &const_reference;
-	typedef T value_type;
-
-	template<typename S>
-	struct rebind
-	{
-		typedef STLLargeAlignedAllocator<S> other;
-	};
-
-	pointer address(reference X) const
-	{
-		return &X;
-	}
-
-	const_pointer address(const_reference X) const
-	{
-		return &X;
-	}
-
-	STLLargeAlignedAllocator() throw ()
-	{
-	}
-
-	template<typename S>
-	STLLargeAlignedAllocator(const STLLargeAlignedAllocator<S> &cp) throw ()
-	{
-	}
-
-	template<typename S>
-	STLLargeAlignedAllocator<T> &operator=(const STLLargeAlignedAllocator<S> &cp) throw ()
-	{
-		return *this;
-	}
-
-	pointer allocate(size_type Count, const void *Hint = 0)
-	{
-		return (pointer)LargeAligned::Acquire((u32)Count * sizeof(T));
-	}
-
-	void deallocate(pointer Ptr, size_type Count)
-	{
-		LargeAligned::Release(Ptr);
-	}
-
-	void construct(pointer Ptr, const T &Val)
-	{
-		std::_Construct(Ptr, Val);
-	}
-
-	void destroy(pointer Ptr)
-	{
-		std::_Destroy(Ptr);
-	}
-
-	size_type max_size() const
-	{
-		return 0x00FFFFFF;
-	}
-
-	template<typename S>
-	bool operator==(STLLargeAlignedAllocator <S> const &) const throw()
-	{
-		return true;
-	}
-
-	template<typename S>
-	bool operator!=(STLLargeAlignedAllocator <S> const &) const throw()
-	{
-		return false;
-	}
-};
-
-
-u32 GetCacheLineBytes();
 
 
 } // namespace cat
 
 // Provide placement new constructor and delete pair to allow for
-// an easy syntax to create objects from the RegionAllocator:
-//   T *a = new (Aligned()) T();
+// an easy syntax to create objects:
+//   T *a = new (buffer_allocator) T();
 // The object can be freed with:
-//   Aligned::Delete(a);
+//   buffer_allocator->Delete(a);
 // Which insures that the destructor is called before freeing memory
-CAT_INLINE void *operator new[](std::size_t bytes, cat::Aligned &) throw()
+CAT_INLINE void *operator new[](std::size_t bytes, cat::BufferAllocator *alloc) throw()
 {
-	return cat::Aligned::Acquire((int)bytes);
+	return alloc->Acquire();
 }
 
 // Placement "delete": Does not call destructor
-CAT_INLINE void operator delete(void *ptr, cat::Aligned &) throw()
+CAT_INLINE void operator delete(void *ptr, cat::BufferAllocator *alloc) throw()
 {
-	cat::Aligned::Release(ptr);
+	alloc->Release(ptr);
 }
 
 #endif // CAT_BUFFER_ALLOCATOR_HPP

@@ -26,39 +26,20 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-// Include all libcat Common headers
+#ifndef CAT_CACHE_LINE_BYTES_HPP
+#define CAT_CACHE_LINE_BYTES_HPP
 
-#include <cat/time/Clock.hpp>
+#include <cat/Platform.hpp>
 
-#include <cat/rand/IRandom.hpp>
-#include <cat/rand/MersenneTwister.hpp>
-#include <cat/rand/StdRand.hpp>
+namespace cat {
 
-#include <cat/hash/Murmur.hpp>
 
-#include <cat/threads/Atomic.hpp>
-#include <cat/threads/Mutex.hpp>
-#include <cat/threads/RWLock.hpp>
-#include <cat/threads/Thread.hpp>
-#include <cat/threads/WaitableFlag.hpp>
+// Call this before grabbing the cache line bytes
+u32 DetermineCacheLineBytes();
 
-#include <cat/math/BitMath.hpp>
+extern u32 CacheLineBytes;
 
-#include <cat/port/EndianNeutral.hpp>
-#include <cat/port/FastDelegate.h>
 
-#include <cat/lang/Strings.hpp>
+} // namespace cat
 
-#include <cat/io/Logging.hpp>
-#include <cat/io/Base64.hpp>
-#include <cat/io/MMapFile.hpp>
-#include <cat/io/Settings.hpp>
-
-#include <cat/parse/BitStream.hpp>
-#include <cat/parse/BufferTok.hpp>
-#include <cat/parse/BufferStream.hpp>
-
-#include <cat/mem/CacheLineBytes.hpp>
-#include <cat/mem/AlignedAllocator.hpp>
-#include <cat/mem/LargeAllocator.hpp>
-#include <cat/mem/BufferAllocator.hpp>
+#endif // CAT_CACHE_LINE_BYTES_HPP

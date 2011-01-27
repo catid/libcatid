@@ -85,7 +85,7 @@ RegionAllocator::RegionAllocator()
     }
 
     // Pre-allocate all the memory required
-	u8 *base = (u8*)LargeAligned::Acquire(bytes_overall);
+	u8 *base = (u8*)LargeAllocator::Acquire(bytes_overall);
     if (!base) return;
 
     // Set the region pointers
@@ -114,7 +114,7 @@ void RegionAllocator::Shutdown()
 {
     if (regions[0])
     {
-        LargeAligned::Release(regions[0]);
+        LargeAllocator::Release(regions[0]);
         regions[0] = 0;
     }
 }
@@ -172,7 +172,7 @@ void *RegionAllocator::Acquire(u32 bytes)
     }
 
     // Fall back to malloc if the request is too large.
-	return Aligned::Acquire(bytes);
+	return AlignedAllocator::Acquire(bytes);
 }
 
 void RegionAllocator::Release(void *ptr)
@@ -181,7 +181,7 @@ void RegionAllocator::Release(void *ptr)
 
     if (ptr >= region_info[0])
     {
-		Aligned::Release(ptr);
+		AlignedAllocator::Release(ptr);
         return;
     }
 
@@ -200,7 +200,7 @@ void RegionAllocator::Release(void *ptr)
         }
     }
 
-    Aligned::Release(ptr);
+    AlignedAllocator::Release(ptr);
 }
 
 void *RegionAllocator::Resize(void *ptr, u32 old_bytes, u32 new_bytes)
@@ -209,7 +209,7 @@ void *RegionAllocator::Resize(void *ptr, u32 old_bytes, u32 new_bytes)
         return Acquire(new_bytes);
 
     if (ptr >= region_info[0])
-        return Aligned::Resize(ptr, old_bytes, new_bytes);
+        return AlignedAllocator::Resize(ptr, old_bytes, new_bytes);
 
     for (int ii = REGION_COUNT-1; ii >= 0; --ii)
     {
@@ -236,7 +236,7 @@ void *RegionAllocator::Resize(void *ptr, u32 old_bytes, u32 new_bytes)
         }
     }
 
-    return Aligned::Resize(ptr, old_bytes, new_bytes);
+    return AlignedAllocator::Resize(ptr, old_bytes, new_bytes);
 }
 
 #endif // CAT_NO_ATOMIC_ALLOCATOR

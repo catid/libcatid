@@ -28,14 +28,14 @@
 
 #include <cat/crypt/tunnel/KeyAgreementInitiator.hpp>
 #include <cat/crypt/SecureCompare.hpp>
-#include <cat/port/AlignedAlloc.hpp>
+#include <cat/mem/AlignedAllocator.hpp>
 using namespace cat;
 
 bool KeyAgreementInitiator::AllocateMemory()
 {
     FreeMemory();
 
-    B = new (Aligned::ii) Leg[KeyLegs * 17];
+    B = new (AlignedAllocator::ii) Leg[KeyLegs * 17];
     a = B + KeyLegs*4;
     A = a + KeyLegs;
     hB = A + KeyLegs*4;
@@ -50,37 +50,37 @@ void KeyAgreementInitiator::FreeMemory()
     if (B)
     {
         CAT_CLR(a, KeyBytes);
-        Aligned::Delete(B);
+        AlignedAllocator::Delete(B);
         B = 0;
     }
 
 	if (G_MultPrecomp)
 	{
-		Aligned::Delete(G_MultPrecomp);
+		AlignedAllocator::Delete(G_MultPrecomp);
 		G_MultPrecomp = 0;
  	}
 
 	if (B_MultPrecomp)
 	{
-		Aligned::Delete(B_MultPrecomp);
+		AlignedAllocator::Delete(B_MultPrecomp);
 		B_MultPrecomp = 0;
 	}
 
 	if (Y_MultPrecomp)
 	{
-		Aligned::Delete(Y_MultPrecomp);
+		AlignedAllocator::Delete(Y_MultPrecomp);
 		Y_MultPrecomp = 0;
 	}
 
 	if (I_private)
 	{
-		Aligned::Delete(I_private);
+		AlignedAllocator::Delete(I_private);
 		I_private = 0;
 	}
 
 	if (I_public)
 	{
-		Aligned::Delete(I_public);
+		AlignedAllocator::Delete(I_public);
 		I_public = 0;
 	}
 }
@@ -173,14 +173,14 @@ bool KeyAgreementInitiator::SetIdentity(BigTwistedEdwards *math,
 	// Allocate space for private key if needed
 	if (!I_private)
 	{
-		I_private = (Leg*)Aligned::Acquire(KeyBytes);
+		I_private = (Leg*)AlignedAllocator::Acquire(KeyBytes);
 		if (!I_private) return false;
 	}
 
 	// Allocate space for public key if needed
 	if (!I_public)
 	{
-		I_public = (Leg*)Aligned::Acquire(KeyBytes*2);
+		I_public = (Leg*)AlignedAllocator::Acquire(KeyBytes*2);
 		if (!I_public) return false;
 	}
 

@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -26,18 +26,16 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/port/AlignedAlloc.hpp>
+#include <cat/mem/CacheLineBytes.hpp>
 #include <cstdlib>
 #include <cstdio>
 using namespace std;
 using namespace cat;
 
-
 #if defined(CAT_OS_WINDOWS)
 #include <cat/port/WindowsInclude.hpp>
 #elif defined(CAT_OS_APPLE)
 #include <sys/sysctl.h>
-#else
 #endif
 
 // Add your compiler here if it supports aligned malloc
@@ -48,15 +46,9 @@ using namespace cat;
 #define aligned_free _aligned_free
 #endif
 
-// Object for placement new
-Aligned Aligned::ii;
+u32 cat::CacheLineBytes = CAT_DEFAULT_CACHE_LINE_SIZE;
 
-
-//// Cache line size determination
-
-static u32 _cacheline_bytes = 0;
-
-static CAT_INLINE u32 DetermineCacheLineBytes()
+u32 cat::DetermineCacheLineBytes()
 {
 	// Based on work by Nick Strupat (http://strupat.ca/)
 
@@ -125,136 +117,8 @@ static CAT_INLINE u32 DetermineCacheLineBytes()
 		discovered_cache_line_size = CAT_DEFAULT_CACHE_LINE_SIZE; // From Config.hpp
 	}
 
+	// Set cache line bytes
+	CacheLineBytes = discovered_cache_line_size;
+
 	return discovered_cache_line_size;
-}
-
-u32 cat::GetCacheLineBytes()
-{
-	if (!_cacheline_bytes)
-		_cacheline_bytes = DetermineCacheLineBytes();
-
-	return _cacheline_bytes;
-}
-
-
-//// Small to medium -size aligned heap allocator
-
-static CAT_INLINE u8 DetermineOffset(void *ptr)
-{
-#if defined(CAT_WORD_64)
-	return (u8)( _cacheline_bytes - ((u32)*(u64*)&ptr & (_cacheline_bytes-1)) );
-#else
-	return (u8)( _cacheline_bytes - (*(u32*)&ptr & (_cacheline_bytes-1)) );
-#endif
-}
-
-// Allocates memory aligned to a CPU cache-line byte boundary from the heap
-void *Aligned::Acquire(u32 bytes)
-{
-	if (!_cacheline_bytes)
-		_cacheline_bytes = DetermineCacheLineBytes();
-
-#if defined(CAT_HAS_ALIGNED_ALLOC)
-
-	return aligned_malloc(bytes, _cacheline_bytes);
-
-#else
-
-    u8 *buffer = (u8*)malloc(_cacheline_bytes + bytes);
-    if (!buffer) return 0;
-
-	// Get buffer aligned address
-	u8 offset = DetermineOffset(buffer);
-    buffer += offset;
-    buffer[-1] = offset;
-
-	return buffer;
-
-#endif
-}
-
-// Resizes an aligned pointer
-void *Aligned::Resize(void *ptr, u32 old_bytes, u32 new_bytes)
-{
-#if defined(CAT_HAS_ALIGNED_ALLOC)
-
-	return aligned_realloc(ptr, new_bytes, _cacheline_bytes);
-
-#else
-
-	if (!ptr) return Acquire(new_bytes);
-
-	// Can assume here that cacheline bytes has been determined
-
-	// Get buffer base address
-	u8 *buffer = reinterpret_cast<u8*>( ptr );
-	u8 old_offset = buffer[-1];
-	buffer -= old_offset;
-
-	buffer = (u8*)realloc(buffer, _cacheline_bytes + new_bytes);
-	if (!buffer) return 0;
-
-	// Get buffer aligned address
-	u8 offset = DetermineOffset(buffer);
-
-	if (offset != old_offset)
-	{
-		// Need to shift the buffer around if alignment changed
-		// This sort of inefficiency is why I wrote my own allocator
-		memmove(buffer + offset, buffer + old_offset, min(new_bytes, old_bytes));
-	}
-
-	buffer += offset;
-	buffer[-1] = offset;
-
-	return buffer;
-
-#endif
-}
-
-// Frees an aligned pointer
-void Aligned::Release(void *ptr)
-{
-#if defined(CAT_HAS_ALIGNED_ALLOC)
-
-	aligned_free(ptr);
-
-#else
-
-	if (ptr)
-	{
-		// Get buffer base address
-		u8 *buffer = reinterpret_cast<u8*>( ptr );
-		buffer -= buffer[-1];
-
-		free(buffer);
-	}
-
-#endif
-}
-
-
-//// Large-size aligned heap allocator
-
-// Allocates memory aligned to a CPU cache-line byte boundary from the heap
-void *LargeAligned::Acquire(u32 bytes)
-{
-#if defined(CAT_OS_WINDOWS)
-	return VirtualAlloc(0, bytes, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-#else
-	return Aligned::Acquire(bytes);
-#endif
-}
-
-// Frees an aligned pointer
-void LargeAligned::Release(void *ptr)
-{
-	if (ptr)
-	{
-#if defined(CAT_OS_WINDOWS)
-		VirtualFree(ptr, 0, MEM_RELEASE);
-#else
-		Aligned::Release(ptr);
-#endif
-	}
 }

@@ -306,6 +306,10 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
+				RelativePath="..\..\src\mem\AlignedAllocator.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\src\io\Base64.cpp"
 				>
 			</File>
@@ -322,11 +326,19 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\src\mem\CacheLineBytes.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\src\time\Clock.cpp"
 				>
 			</File>
 			<File
 				RelativePath="..\..\src\port\EndianNeutral.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\mem\LargeAllocator.cpp"
 				>
 			</File>
 			<File
@@ -523,11 +535,19 @@
 				Name="mem"
 				>
 				<File
-					RelativePath="..\..\include\cat\mem\AlignedAlloc.hpp"
+					RelativePath="..\..\include\cat\mem\AlignedAllocator.hpp"
 					>
 				</File>
 				<File
 					RelativePath="..\..\include\cat\mem\BufferAllocator.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\mem\CacheLineBytes.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\mem\LargeAllocator.hpp"
 					>
 				</File>
 			</Filter>

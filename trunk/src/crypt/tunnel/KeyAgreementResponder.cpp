@@ -29,7 +29,7 @@
 #include <cat/crypt/tunnel/KeyAgreementResponder.hpp>
 #include <cat/crypt/tunnel/AuthenticatedEncryption.hpp>
 #include <cat/crypt/SecureCompare.hpp>
-#include <cat/port/AlignedAlloc.hpp>
+#include <cat/mem/AlignedAllocator.hpp>
 #include <cat/time/Clock.hpp>
 using namespace cat;
 
@@ -37,7 +37,7 @@ bool KeyAgreementResponder::AllocateMemory()
 {
     FreeMemory();
 
-    b = new (Aligned::ii) Leg[KeyLegs * 15];
+    b = new (AlignedAllocator::ii) Leg[KeyLegs * 15];
     B = b + KeyLegs;
 	B_neutral = B + KeyLegs*2;
 	y[0] = B_neutral + KeyLegs*2;
@@ -55,13 +55,13 @@ void KeyAgreementResponder::FreeMemory()
         CAT_CLR(b, KeyBytes);
         CAT_CLR(y[0], KeyBytes);
         CAT_CLR(y[1], KeyBytes);
-        Aligned::Delete(b);
+        AlignedAllocator::Delete(b);
         b = 0;
     }
 
 	if (G_MultPrecomp)
 	{
-		Aligned::Delete(G_MultPrecomp);
+		AlignedAllocator::Delete(G_MultPrecomp);
 		G_MultPrecomp = 0;
 	}
 }
@@ -316,7 +316,7 @@ bool KeyAgreementResponder::VerifyInitiatorIdentity(BigTwistedEdwards *math,
 	math->PtSiMultiply(G_MultPrecomp, I_MultPrecomp, 8, s, 0, e, 0, Kp);
 	math->SaveAffineX(Kp, Kp);
 
-	Aligned::Delete(I_MultPrecomp);
+	AlignedAllocator::Delete(I_MultPrecomp);
 
 	// e' = H(IRN || RRN || K')
 	Skein H;
