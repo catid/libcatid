@@ -29,7 +29,7 @@
 #ifndef CAT_BUFFER_ALLOCATOR_HPP
 #define CAT_BUFFER_ALLOCATOR_HPP
 
-#include <cat/Platform.hpp>
+#include <cat/threads/Mutex.hpp>
 
 #include <cstddef> // size_t
 #include <vector> // std::_Construct and std::_Destroy
@@ -37,15 +37,45 @@
 namespace cat {
 
 
+/*
+	The buffer allocator is optimized for allocating memory space of a
+	prescribed size that need to be aligned to the cache line size.
+
+	It preallocates a number of buffers and tries to allocate from this
+	set.  If it runs out of space, it will return zero.
+
+	Allocation and deallocation are thread-safe.  It is optimized to
+	be used for allocating in one thread and deallocating in another,
+	since it uses two locks and only causes contention if the allocator
+	runs out of space and needs to lazily move all the freed buffers
+	into the acquire list.  In any case, the lock time is minimized. 
+*/
+
 // Aligned buffer array heap allocator
 class BufferAllocator
 {
-	u32 _buffer_bytes;
+	struct BufferTail
+	{
+		BufferTail *next;
+	};
+
+	u32 _buffer_bytes, _buffer_count;
+	u8 *_buffers;
+
+	Mutex _acquire_lock;
+	BufferTail *_acquire_head;
+
+	Mutex _release_lock;
+	BufferTail *_release_head;
 
 public:
-	// Specify the number of bytes needed per buffer, minimum
-	// This will be bumped up to the next CPU cache line size
-	BufferAllocator(u32 buffer_min_size);
+	// Specify the number of bytes needed per buffer, which
+	// will be bumped up to the next CPU cache line size, and
+	// the number of buffers to preallocate
+	BufferAllocator(u32 buffer_min_size, u32 buffer_count);
+	~BufferAllocator();
+
+	CAT_INLINE bool Valid() { return _buffers != 0; }
 
 	// Acquires buffer aligned to a CPU cache-line byte boundary from the heap
     void *Acquire();

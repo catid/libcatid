@@ -48,9 +48,13 @@ using namespace cat;
 
 u32 cat::CacheLineBytes = CAT_DEFAULT_CACHE_LINE_SIZE;
 
+static bool cache_line_determined = false;
+
 u32 cat::DetermineCacheLineBytes()
 {
 	// Based on work by Nick Strupat (http://strupat.ca/)
+
+	if (cache_line_determined) return CacheLineBytes;
 
 	u32 discovered_cache_line_size = 0;
 
@@ -119,6 +123,10 @@ u32 cat::DetermineCacheLineBytes()
 
 	// Set cache line bytes
 	CacheLineBytes = discovered_cache_line_size;
+
+	CAT_FENCE_COMPILER
+
+	cache_line_determined = true;
 
 	return discovered_cache_line_size;
 }

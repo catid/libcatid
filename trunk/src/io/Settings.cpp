@@ -28,6 +28,7 @@
 
 #include <cat/io/Settings.hpp>
 #include <cat/parse/BufferTok.hpp>
+#include <cat/threads/AutoMutex.hpp>
 #include <cat/io/MMapFile.hpp>
 #include <cat/io/Logging.hpp>
 #include <cstring>

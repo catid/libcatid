@@ -56,21 +56,64 @@ public:
 
 	bool Valid();
 
-    bool Enter();
-    bool Leave();
+    CAT_INLINE bool Enter();
+    CAT_INLINE bool Leave();
 };
 
 
-class AutoMutex
+CAT_INLINE bool Mutex::Enter()
 {
-    Mutex *_mutex;
+#if defined(CAT_OS_WINDOWS)
 
-public:
-    AutoMutex(Mutex &mutex);
-    ~AutoMutex();
+	CAT_FENCE_COMPILER
 
-    bool Release();
-};
+	EnterCriticalSection(&cs);
+
+	CAT_FENCE_COMPILER
+
+	return true;
+
+#else
+
+	if (init_failure) return false;
+
+	CAT_FENCE_COMPILER
+
+	bool result = pthread_mutex_lock(&mx) == 0;
+
+	CAT_FENCE_COMPILER
+
+	return result;
+
+#endif
+}
+
+CAT_INLINE bool Mutex::Leave()
+{
+#if defined(CAT_OS_WINDOWS)
+
+	CAT_FENCE_COMPILER
+
+	LeaveCriticalSection(&cs);
+
+	CAT_FENCE_COMPILER
+
+	return true;
+
+#else
+
+	if (init_failure) return false;
+
+	CAT_FENCE_COMPILER
+
+	bool result = pthread_mutex_unlock(&mx) == 0;
+
+	CAT_FENCE_COMPILER
+
+	return result;
+
+#endif
+}
 
 
 } // namespace cat

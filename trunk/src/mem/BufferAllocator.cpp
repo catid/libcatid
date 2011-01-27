@@ -27,7 +27,96 @@
 */
 
 #include <cat/mem/BufferAllocator.hpp>
+#include <cat/mem/LargeAllocator.hpp>
 #include <cstdlib>
 #include <cstdio>
 using namespace std;
 using namespace cat;
+
+BufferAllocator::BufferAllocator(u32 buffer_min_size, u32 buffer_count)
+{
+	if (buffer_count < 4) buffer_count = 4;
+
+	u32 cache_line_bytes = DetermineCacheLineBytes();
+	u32 buffer_bytes = CAT_CEIL_UNIT(buffer_min_size + sizeof(BufferTail), cache_line_bytes);
+	u32 total_bytes = buffer_count * buffer_bytes;
+	u8 *buffers = (u8*)LargeAllocator::Acquire(total_bytes);
+
+	_buffer_bytes = buffer_bytes;
+	_buffer_count = buffer_count;
+	_buffers = buffers;
+
+	if (!buffers) return;
+
+	// Construct linked list of free nodes
+	buffers += buffer_bytes - sizeof(BufferTail);
+
+	for (u32 ii = 0; ii < buffer_count - 1; ++ii)
+	{
+		BufferTail *tail = (BufferTail*)(buffers + ii * buffer_bytes);
+		BufferTail *next = (BufferTail*)((u8*)tail + buffer_bytes);
+
+		tail->next = next;
+	}
+
+	BufferTail *first = (BufferTail*)buffers;
+	BufferTail *last = (BufferTail*)(buffers + (buffer_count-1) * buffer_bytes);
+
+	_acquire_head = first;
+	last->next = 0;
+}
+
+BufferAllocator::~BufferAllocator()
+{
+	LargeAllocator::Release(_buffers);
+}
+
+void *BufferAllocator::Acquire()
+{
+	_acquire_lock.Enter();
+
+	BufferTail *head = _acquire_head;
+
+	// If the acquire list is empty,
+	if (!head)
+	{
+		// Grab the release list and re-use it
+		_release_lock.Enter();
+
+		head = _release_head;
+		_release_head = 0;
+
+		_release_lock.Leave();
+
+		if (!head)
+		{
+			_acquire_lock.Leave();
+			return 0;
+		}
+	}
+
+	_acquire_head = head->next;
+
+	_acquire_lock.Leave();
+
+	u8 *ptr = (u8*)head - (_buffer_bytes - sizeof(BufferTail));
+
+	return ptr;
+}
+
+void BufferAllocator::Release(void *ptr)
+{
+	if (!ptr) return;
+
+	BufferTail *tail = (BufferTail*)((u8*)ptr + (_buffer_bytes - sizeof(BufferTail)));
+
+	// Insert new released node at the head of the list
+	_release_lock.Enter();
+
+	BufferTail *head = _release_head;
+
+	_release_head = tail;
+	tail->next = head;
+
+	_release_lock.Leave();
+}
