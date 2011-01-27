@@ -2,10 +2,10 @@
 <VisualStudioProject
 	ProjectType="Visual C++"
 	Version="9.00"
-	Name="Framework"
-	ProjectGUID="{0C763797-B0EE-4AD5-AD7A-4544FC16B7A7}"
-	RootNamespace="Framework"
-	TargetFrameworkVersion="131072"
+	Name="Network"
+	ProjectGUID="{1A0860CD-3878-4B23-9B75-9F95B5555797}"
+	RootNamespace="Network"
+	TargetFrameworkVersion="196613"
 	>
 	<Platforms>
 		<Platform
@@ -22,7 +22,7 @@
 			Name="Debug|Win32"
 			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
 			IntermediateDirectory="$(ConfigurationName)"
-			ConfigurationType="4"
+			ConfigurationType="1"
 			CharacterSet="2"
 			>
 			<Tool
@@ -43,10 +43,9 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="../../include/"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
-				RuntimeLibrary="1"
+				RuntimeLibrary="3"
 				UsePrecompiledHeader="2"
 				PrecompiledHeaderThrough="$(ProjectDir)Precompiled.hpp"
 				WarningLevel="3"
@@ -63,15 +62,15 @@
 				Name="VCPreLinkEventTool"
 			/>
 			<Tool
-				Name="VCLibrarianTool"
-				LinkLibraryDependencies="true"
-				AdditionalOptions="/IGNORE:4006&#x0D;&#x0A;/IGNORE:4221"
-				AdditionalDependencies=" "
-				OutputFile="$(SolutionDir)\..\lib\cat\libcatframework-d32-1.0.lib"
-				AdditionalLibraryDirectories=" "
+				Name="VCLinkerTool"
+				GenerateDebugInformation="true"
+				TargetMachine="1"
 			/>
 			<Tool
 				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCManifestTool"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -83,6 +82,82 @@
 				Name="VCFxCopTool"
 			/>
 			<Tool
+				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+			/>
+		</Configuration>
+		<Configuration
+			Name="Release|Win32"
+			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
+			IntermediateDirectory="$(ConfigurationName)"
+			ConfigurationType="1"
+			CharacterSet="2"
+			WholeProgramOptimization="1"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				Optimization="2"
+				EnableIntrinsicFunctions="true"
+				RuntimeLibrary="2"
+				EnableFunctionLevelLinking="true"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="$(ProjectDir)Precompiled.hpp"
+				WarningLevel="3"
+				DebugInformationFormat="3"
+				ForcedIncludeFiles="$(ProjectDir)Precompiled.hpp"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLinkerTool"
+				GenerateDebugInformation="true"
+				OptimizeReferences="2"
+				EnableCOMDATFolding="2"
+				TargetMachine="1"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCManifestTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCAppVerifierTool"
+			/>
+			<Tool
 				Name="VCPostBuildEventTool"
 			/>
 		</Configuration>
@@ -90,7 +165,7 @@
 			Name="Debug|x64"
 			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
 			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
-			ConfigurationType="4"
+			ConfigurationType="1"
 			CharacterSet="2"
 			>
 			<Tool
@@ -112,10 +187,9 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="../../include/"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
-				RuntimeLibrary="1"
+				RuntimeLibrary="3"
 				UsePrecompiledHeader="2"
 				PrecompiledHeaderThrough="$(ProjectDir)Precompiled.hpp"
 				WarningLevel="3"
@@ -132,15 +206,15 @@
 				Name="VCPreLinkEventTool"
 			/>
 			<Tool
-				Name="VCLibrarianTool"
-				LinkLibraryDependencies="true"
-				AdditionalOptions="/IGNORE:4006&#x0D;&#x0A;/IGNORE:4221"
-				AdditionalDependencies=" "
-				OutputFile="$(SolutionDir)\..\lib\cat\libcatframework-d64-1.0.lib"
-				AdditionalLibraryDirectories=" "
+				Name="VCLinkerTool"
+				GenerateDebugInformation="true"
+				TargetMachine="17"
 			/>
 			<Tool
 				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCManifestTool"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -152,79 +226,7 @@
 				Name="VCFxCopTool"
 			/>
 			<Tool
-				Name="VCPostBuildEventTool"
-			/>
-		</Configuration>
-		<Configuration
-			Name="Release|Win32"
-			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
-			ConfigurationType="4"
-			CharacterSet="2"
-			WholeProgramOptimization="1"
-			>
-			<Tool
-				Name="VCPreBuildEventTool"
-			/>
-			<Tool
-				Name="VCCustomBuildTool"
-			/>
-			<Tool
-				Name="VCXMLDataGeneratorTool"
-			/>
-			<Tool
-				Name="VCWebServiceProxyGeneratorTool"
-			/>
-			<Tool
-				Name="VCMIDLTool"
-			/>
-			<Tool
-				Name="VCCLCompilerTool"
-				Optimization="3"
-				InlineFunctionExpansion="2"
-				EnableIntrinsicFunctions="true"
-				OmitFramePointers="true"
-				EnableFiberSafeOptimizations="true"
-				AdditionalIncludeDirectories="../../include/"
-				ExceptionHandling="1"
-				RuntimeLibrary="0"
-				BufferSecurityCheck="false"
-				EnableEnhancedInstructionSet="2"
-				RuntimeTypeInfo="false"
-				UsePrecompiledHeader="2"
-				PrecompiledHeaderThrough="$(ProjectDir)Precompiled.hpp"
-				WarningLevel="3"
-				DebugInformationFormat="3"
-				ForcedIncludeFiles="$(ProjectDir)Precompiled.hpp"
-			/>
-			<Tool
-				Name="VCManagedResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCPreLinkEventTool"
-			/>
-			<Tool
-				Name="VCLibrarianTool"
-				LinkLibraryDependencies="true"
-				AdditionalOptions="/IGNORE:4006&#x0D;&#x0A;/IGNORE:4221"
-				AdditionalDependencies=" "
-				OutputFile="$(SolutionDir)\..\lib\cat\libcatframework-r32-1.0.lib"
-				AdditionalLibraryDirectories=" "
-			/>
-			<Tool
-				Name="VCALinkTool"
-			/>
-			<Tool
-				Name="VCXDCMakeTool"
-			/>
-			<Tool
-				Name="VCBscMakeTool"
-			/>
-			<Tool
-				Name="VCFxCopTool"
+				Name="VCAppVerifierTool"
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
@@ -234,7 +236,7 @@
 			Name="Release|x64"
 			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
 			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
-			ConfigurationType="4"
+			ConfigurationType="1"
 			CharacterSet="2"
 			WholeProgramOptimization="1"
 			>
@@ -256,15 +258,10 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				Optimization="3"
-				InlineFunctionExpansion="2"
+				Optimization="2"
 				EnableIntrinsicFunctions="true"
-				FavorSizeOrSpeed="1"
-				OmitFramePointers="true"
-				EnableFiberSafeOptimizations="true"
-				AdditionalIncludeDirectories="../../include/"
-				RuntimeLibrary="0"
-				BufferSecurityCheck="false"
+				RuntimeLibrary="2"
+				EnableFunctionLevelLinking="true"
 				UsePrecompiledHeader="2"
 				PrecompiledHeaderThrough="$(ProjectDir)Precompiled.hpp"
 				WarningLevel="3"
@@ -281,15 +278,17 @@
 				Name="VCPreLinkEventTool"
 			/>
 			<Tool
-				Name="VCLibrarianTool"
-				LinkLibraryDependencies="true"
-				AdditionalOptions="/IGNORE:4006&#x0D;&#x0A;/IGNORE:4221"
-				AdditionalDependencies=" "
-				OutputFile="$(SolutionDir)\..\lib\cat\libcatframework-r64-1.0.lib"
-				AdditionalLibraryDirectories=" "
+				Name="VCLinkerTool"
+				GenerateDebugInformation="true"
+				OptimizeReferences="2"
+				EnableCOMDATFolding="2"
+				TargetMachine="17"
 			/>
 			<Tool
 				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCManifestTool"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -299,6 +298,9 @@
 			/>
 			<Tool
 				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCAppVerifierTool"
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
@@ -314,19 +316,7 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
-				RelativePath="..\..\src\sphynx\Client.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\src\sphynx\FlowControl.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\src\Framework.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\src\parse\MessageRouter.cpp"
+				RelativePath="..\..\src\net\DNSClient.cpp"
 				>
 			</File>
 			<File
@@ -338,16 +328,6 @@
 					<Tool
 						Name="VCCLCompilerTool"
 						UsePrecompiledHeader="1"
-						ForcedIncludeFiles="$(ProjectDir)Precompiled.hpp"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug|x64"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="1"
-						ForcedIncludeFiles="$(ProjectDir)Precompiled.hpp"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -356,7 +336,14 @@
 					<Tool
 						Name="VCCLCompilerTool"
 						UsePrecompiledHeader="1"
-						ForcedIncludeFiles="$(ProjectDir)Precompiled.hpp"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -365,20 +352,15 @@
 					<Tool
 						Name="VCCLCompilerTool"
 						UsePrecompiledHeader="1"
-						ForcedIncludeFiles="$(ProjectDir)Precompiled.hpp"
 					/>
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="..\..\src\threads\RegionAllocator.cpp"
+				RelativePath="..\..\src\net\Sockets.cpp"
 				>
 			</File>
 			<File
-				RelativePath="..\..\src\sphynx\Server.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\src\threads\ThreadPool.cpp"
+				RelativePath="..\..\src\sphynx\Transport.cpp"
 				>
 			</File>
 		</Filter>
@@ -388,7 +370,7 @@
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
 			<File
-				RelativePath="..\..\include\cat\AllFramework.hpp"
+				RelativePath="..\..\include\cat\AllNetwork.hpp"
 				>
 			</File>
 			<File
@@ -396,94 +378,14 @@
 				>
 			</File>
 			<Filter
-				Name="io"
-				>
-				<File
-					RelativePath="..\..\include\cat\io\AsyncBuffer.hpp"
-					>
-				</File>
-			</Filter>
-			<Filter
 				Name="net"
 				>
 				<File
-					RelativePath="..\..\include\cat\net\ThreadPoolSockets.hpp"
-					>
-				</File>
-				<Filter
-					Name="win"
-					>
-					<File
-						RelativePath="..\..\include\cat\net\win\TCPClient.hpp"
-						>
-					</File>
-					<File
-						RelativePath="..\..\include\cat\net\win\TCPConnexion.hpp"
-						>
-					</File>
-					<File
-						RelativePath="..\..\include\cat\net\win\TCPServer.hpp"
-						>
-					</File>
-					<File
-						RelativePath="..\..\include\cat\net\win\UDPEndpoint.hpp"
-						>
-					</File>
-				</Filter>
-			</Filter>
-			<Filter
-				Name="threads"
-				>
-				<File
-					RelativePath="..\..\include\cat\threads\RegionAllocator.hpp"
+					RelativePath="..\..\include\cat\net\DNSClient.hpp"
 					>
 				</File>
 				<File
-					RelativePath="..\..\include\cat\threads\SPSCQueue.hpp"
-					>
-				</File>
-				<File
-					RelativePath="..\..\include\cat\threads\ThreadPool.hpp"
-					>
-				</File>
-			</Filter>
-			<Filter
-				Name="parse"
-				>
-				<File
-					RelativePath="..\..\include\cat\parse\MessageRouter.hpp"
-					>
-				</File>
-			</Filter>
-			<Filter
-				Name="db"
-				>
-			</Filter>
-			<Filter
-				Name="sphynx"
-				>
-				<File
-					RelativePath="..\..\include\cat\sphynx\Client.hpp"
-					>
-				</File>
-				<File
-					RelativePath="..\..\include\cat\sphynx\Collexion.hpp"
-					>
-				</File>
-				<File
-					RelativePath="..\..\include\cat\sphynx\Common.hpp"
-					>
-				</File>
-				<File
-					RelativePath="..\..\include\cat\sphynx\FlowControl.hpp"
-					>
-				</File>
-				<File
-					RelativePath="..\..\include\cat\sphynx\Server.hpp"
-					>
-				</File>
-				<File
-					RelativePath="..\..\include\cat\sphynx\Transport.hpp"
+					RelativePath="..\..\include\cat\net\Sockets.hpp"
 					>
 				</File>
 			</Filter>

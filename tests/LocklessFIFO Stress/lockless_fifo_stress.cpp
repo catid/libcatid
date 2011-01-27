@@ -36,31 +36,33 @@ u32 read_ctr;
 u32 write_ts;
 u32 write_ctr;
 
-class ReadJob : public LoopThread
+struct TestData
+{
+	u8 data[1500];
+};
+
+FIFO::Queue<TestData> *q;
+
+class ReadJob : public Thread
 {
 public:
 	bool ThreadFunction(void *)
 	{
 		for (;;)
 		{
-			AutoReadLock lock(data_lock);
+			TestData *data = q->DequeueWait();
 
-			u32 copy[64];
-
-			memcpy(copy, data, sizeof(data));
-
-			int x = 1;
-			for (int ii = 0; ii < 1000; ++ii)
+			if (!data)
 			{
-				x *= copy[ii % 64];
+				WARN("Test") << "DequeueWait returned null";
+				break;
 			}
 
-			if (memcmp(copy, data, sizeof(data)))
-			{
-				FATAL("Read") << "Write detected during read lock";
-			}
+			// Process data here
 
-			if (Atomic::Add(&read_ctr, 1) == 10000000)
+			RegionAllocator::ii->Delete(data);
+
+			if (Atomic::Add(&read_ctr, 1) == 100000)
 			{
 				u32 now = Clock::msec_fast();
 
@@ -71,6 +73,7 @@ public:
 			}
 		}
 
+		WARN("Test") << "ReadJob terminated";
 		return true;
 	}
 
@@ -84,28 +87,29 @@ public:
 
 	~ReadJob()
 	{
-		if (!StopThread())
-		{
-			FATAL("Job") << "Unable to stop thread!";
-		}
+		q->Enqueue(0);
+
+		if (!WaitForThread(1000))
+			AbortThread();
 	}
 };
 
-class WriteJob : public LoopThread
+class WriteJob : public Thread
 {
+	WaitableFlag _kill_flag;
+
 public:
 	bool ThreadFunction(void *)
 	{
-		for (;;)
+		while (!_kill_flag.Wait(0))
 		{
-			AutoWriteLock lock(data_lock);
+			TestData *data = RegionAllocator::ii->AcquireBuffer<TestData>();
 
-			for (int ii = 0; ii < 64; ++ii)
-			{
-				data[ii]++;
-			}
+			// Fill data here
 
-			if (Atomic::Add(&write_ctr, 1) == 1000000)
+			q->Enqueue(data);
+
+			if (Atomic::Add(&write_ctr, 1) == 100000)
 			{
 				u32 now = Clock::msec_fast();
 
@@ -116,6 +120,7 @@ public:
 			}
 		}
 
+		WARN("Test") << "WriteJob terminated";
 		return true;
 	}
 
@@ -129,10 +134,10 @@ public:
 
 	~WriteJob()
 	{
-		if (!StopThread())
-		{
-			FATAL("Job") << "Unable to stop thread!";
-		}
+		_kill_flag.Set();
+
+		if (!WaitForThread(1000))
+			AbortThread();
 	}
 };
 
@@ -142,6 +147,8 @@ int main(int argc, const char **argv)
 	{
 		FatalStop("Unable to initialize framework!");
 	}
+
+	q = new FIFO::Queue<TestData>;
 
     INFO("Test") << "** Press any key to begin.";
 
@@ -155,7 +162,7 @@ int main(int argc, const char **argv)
 	write_ts = ts;
 
 	{
-		const int READER_COUNT = 4;
+		const int READER_COUNT = 2;
 		ReadJob read_jobs[READER_COUNT];
 
 		const int WRITER_COUNT = 1;
@@ -173,6 +180,11 @@ int main(int argc, const char **argv)
 		Sleep(100);
 
 	ShutdownFramework(true);
+
+    INFO("Test") << "** Shutdown complete.  Press any key to terminate.";
+
+	while (!getch())
+		Sleep(100);
 
     return 0;
 }

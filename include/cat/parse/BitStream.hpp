@@ -26,8 +26,6 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-// Not currently being maintained.
-
 // FIXME: Big-endian code is untested
 // FIXME: Not suitable for storing large buffers > 500 MB in size
 

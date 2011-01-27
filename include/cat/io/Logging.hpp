@@ -29,7 +29,9 @@
 #ifndef CAT_LOGGING_HPP
 #define CAT_LOGGING_HPP
 
-#include <cat/threads/RegionAllocator.hpp>
+#include <cat/Singleton.hpp>
+#include <string>
+#include <sstream>
 
 #if defined(CAT_OS_WINDOWS)
 #include <cat/port/WindowsInclude.hpp>
@@ -54,17 +56,17 @@ enum EventSeverity
 
 //// Utility
 
-region_string HexDumpString(const void *vdata, u32 bytes);
+std::string HexDumpString(const void *vdata, u32 bytes);
 
 // Write to console (and debug log in windows) then trigger a breakpoint and exit
 void FatalStop(const char *message);
 
-void DefaultLogCallback(EventSeverity severity, const char *source, region_ostringstream &msg);
+void DefaultLogCallback(EventSeverity severity, const char *source, std::ostringstream &msg);
 
 
 //// Logging
 
-typedef void (*LogCallback)(EventSeverity severity, const char *source, region_ostringstream &msg);
+typedef void (*LogCallback)(EventSeverity severity, const char *source, std::ostringstream &msg);
 
 class Logging : public Singleton<Logging>
 {
@@ -108,7 +110,7 @@ class Recorder
 	friend class Logging;
 	EventSeverity _severity;
 	const char *_subsystem;
-	region_ostringstream _msg;
+	std::ostringstream _msg;
 
 public:
     Recorder(const char *subsystem, EventSeverity severity);
