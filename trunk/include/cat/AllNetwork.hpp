@@ -31,13 +31,7 @@
 #ifndef CAT_ALL_NETWORK_HPP
 #define CAT_ALL_NETWORK_HPP
 
-#include <cat/AllCommon.hpp>
-#include <cat/AllMath.hpp>
-#include <cat/AllCrypt.hpp>
-#include <cat/AllTunnel.hpp>
-
 #include <cat/net/Sockets.hpp>
-
 #include <cat/net/DNSClient.hpp>
 
 

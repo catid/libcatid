@@ -151,7 +151,7 @@ public:
 
 // Provide placement new constructor and delete pair to allow for
 // an easy syntax to create objects:
-//   T *a = new (AlignedAllocator()) T();
+//   T *a = new (AlignedAllocator::ii) T();
 // The object can be freed with:
 //   AlignedAllocator::Delete(a);
 // Which insures that the destructor is called before freeing memory

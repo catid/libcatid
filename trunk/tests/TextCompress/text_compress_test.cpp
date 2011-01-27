@@ -21,7 +21,7 @@
     Unit test for text compression
 */
 
-#include <cat/AllFramework.hpp>
+#include <cat/AllCodec.hpp>
 #include <iostream>
 #include <conio.h> // getch()
 using namespace std;
