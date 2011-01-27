@@ -45,6 +45,7 @@ public:
 	CAT_INLINE AlignedAllocator() {}
 
 	// Acquires memory aligned to a CPU cache-line byte boundary from the heap
+	// NOTE: Call DetermineCacheLineBytes() before using
     static void *Acquire(u32 bytes);
 
 	// Resizes an aligned pointer

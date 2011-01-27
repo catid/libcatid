@@ -26,47 +26,51 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
+#ifndef CAT_AUTO_MUTEX_HPP
+#define CAT_AUTO_MUTEX_HPP
+
 #include <cat/threads/Mutex.hpp>
-using namespace cat;
+
+namespace cat {
 
 
-//// Mutex
-
-Mutex::Mutex()
+class AutoMutex
 {
-#if defined(CAT_OS_WINDOWS)
+	Mutex *_mutex;
 
-	InitializeCriticalSection(&cs);
+public:
+	CAT_INLINE AutoMutex(Mutex &mutex);
+	CAT_INLINE ~AutoMutex();
 
-#else
+	CAT_INLINE bool Release();
+};
 
-	init_failure = pthread_mutex_init(&mx, 0);
 
-#endif
+CAT_INLINE AutoMutex::AutoMutex(Mutex &mutex)
+{
+    _mutex = &mutex;
+    mutex.Enter();
 }
 
-Mutex::~Mutex()
+CAT_INLINE AutoMutex::~AutoMutex()
 {
-#if defined(CAT_OS_WINDOWS)
-
-	DeleteCriticalSection(&cs);
-
-#else
-
-	if (!init_failure) pthread_mutex_destroy(&mx);
-
-#endif
+    Release();
 }
 
-bool Mutex::Valid()
+CAT_INLINE bool AutoMutex::Release()
 {
-#if defined(CAT_OS_WINDOWS)
+	bool success = false;
 
-	return true; // No failure state for critical sections
+    if (_mutex)
+    {
+        success = _mutex->Leave();
+        _mutex = 0;
+    }
 
-#else
-
-	return init_failure == 0;
-
-#endif
+	return success;
 }
+
+
+} // namespace cat
+
+#endif // CAT_AUTO_MUTEX_HPP
