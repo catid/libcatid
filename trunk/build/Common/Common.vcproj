@@ -398,6 +398,10 @@
 				</FileConfiguration>
 			</File>
 			<File
+				RelativePath="..\..\src\threads\RefObject.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\src\threads\RWLock.cpp"
 				>
 			</File>
@@ -492,6 +496,10 @@
 				</File>
 				<File
 					RelativePath="..\..\include\cat\threads\Mutex.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\threads\RefObject.hpp"
 					>
 				</File>
 				<File
