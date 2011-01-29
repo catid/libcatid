@@ -46,7 +46,7 @@ BigRTL::~BigRTL()
     {
         // Clear and free memory for registers
         CAT_CLR(library_memory, library_legs * library_regs * sizeof(Leg));
-        AlignedAllocator::Delete(library_memory);
+        AlignedAllocator::ii->Delete(library_memory);
     }
 }
 

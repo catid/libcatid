@@ -50,37 +50,37 @@ void KeyAgreementInitiator::FreeMemory()
     if (B)
     {
         CAT_CLR(a, KeyBytes);
-        AlignedAllocator::Delete(B);
+        AlignedAllocator::ii->Delete(B);
         B = 0;
     }
 
 	if (G_MultPrecomp)
 	{
-		AlignedAllocator::Delete(G_MultPrecomp);
+		AlignedAllocator::ii->Delete(G_MultPrecomp);
 		G_MultPrecomp = 0;
  	}
 
 	if (B_MultPrecomp)
 	{
-		AlignedAllocator::Delete(B_MultPrecomp);
+		AlignedAllocator::ii->Delete(B_MultPrecomp);
 		B_MultPrecomp = 0;
 	}
 
 	if (Y_MultPrecomp)
 	{
-		AlignedAllocator::Delete(Y_MultPrecomp);
+		AlignedAllocator::ii->Delete(Y_MultPrecomp);
 		Y_MultPrecomp = 0;
 	}
 
 	if (I_private)
 	{
-		AlignedAllocator::Delete(I_private);
+		AlignedAllocator::ii->Delete(I_private);
 		I_private = 0;
 	}
 
 	if (I_public)
 	{
-		AlignedAllocator::Delete(I_public);
+		AlignedAllocator::ii->Delete(I_public);
 		I_public = 0;
 	}
 }
@@ -173,14 +173,14 @@ bool KeyAgreementInitiator::SetIdentity(BigTwistedEdwards *math,
 	// Allocate space for private key if needed
 	if (!I_private)
 	{
-		I_private = (Leg*)AlignedAllocator::Acquire(KeyBytes);
+		I_private = (Leg*)AlignedAllocator::ii->Acquire(KeyBytes);
 		if (!I_private) return false;
 	}
 
 	// Allocate space for public key if needed
 	if (!I_public)
 	{
-		I_public = (Leg*)AlignedAllocator::Acquire(KeyBytes*2);
+		I_public = (Leg*)AlignedAllocator::ii->Acquire(KeyBytes*2);
 		if (!I_public) return false;
 	}
 

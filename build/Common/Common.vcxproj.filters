@@ -1,0 +1,219 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Header Files\time">
+      <UniqueIdentifier>{94d79665-7dd0-48a1-9496-590b688164cc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\rand">
+      <UniqueIdentifier>{d44234f4-f1d8-4cce-ad34-a40362c41722}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\hash">
+      <UniqueIdentifier>{3660323f-de14-4303-9b08-6b07a5a861d0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\threads">
+      <UniqueIdentifier>{86505fbd-4850-4044-a079-8b3683a6db8d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\math">
+      <UniqueIdentifier>{808eb9b2-a428-4512-9414-be24d673e45e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\port">
+      <UniqueIdentifier>{71a1043b-7dcf-44b6-a2c0-5b8386a3ec6e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\lang">
+      <UniqueIdentifier>{ac5bae74-e484-4500-a227-9930de9fbeba}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
+    </Filter>
+    <Filter Include="Header Files\io">
+      <UniqueIdentifier>{3f567505-cf9c-47f0-8cc0-90ff99d9e216}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\mem">
+      <UniqueIdentifier>{619dfa1a-4415-44ac-a706-1c173172a06d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\parse">
+      <UniqueIdentifier>{7856b8fc-5136-40b6-95e0-0f7fe03d7053}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\src\time\Clock.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\port\EndianNeutral.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\rand\MersenneTwister.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\threads\Mutex.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\threads\RWLock.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\rand\StdRand.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\lang\Strings.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\threads\Thread.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\threads\WaitableFlag.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\hash\Murmur.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Precompiled.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\io\Settings.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\io\Base64.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\io\Logging.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\io\MMapFile.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\mem\AlignedAllocator.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\mem\BufferAllocator.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\mem\LargeAllocator.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\parse\BufferTok.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\parse\BitStream.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\parse\MessageRouter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\port\SystemInfo.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\include\cat\AllCommon.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\Config.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\Platform.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\Singleton.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\time\Clock.hpp">
+      <Filter>Header Files\time</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\rand\IRandom.hpp">
+      <Filter>Header Files\rand</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\rand\MersenneTwister.hpp">
+      <Filter>Header Files\rand</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\rand\StdRand.hpp">
+      <Filter>Header Files\rand</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\threads\Atomic.hpp">
+      <Filter>Header Files\threads</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\threads\Mutex.hpp">
+      <Filter>Header Files\threads</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\threads\RWLock.hpp">
+      <Filter>Header Files\threads</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\math\BitMath.hpp">
+      <Filter>Header Files\math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\port\EndianNeutral.hpp">
+      <Filter>Header Files\port</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\port\FastDelegate.h">
+      <Filter>Header Files\port</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\lang\Strings.hpp">
+      <Filter>Header Files\lang</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\threads\Thread.hpp">
+      <Filter>Header Files\threads</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\threads\WaitableFlag.hpp">
+      <Filter>Header Files\threads</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\hash\Murmur.hpp">
+      <Filter>Header Files\hash</Filter>
+    </ClInclude>
+    <ClInclude Include="Precompiled.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\io\Settings.hpp">
+      <Filter>Header Files\io</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\io\Base64.hpp">
+      <Filter>Header Files\io</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\io\Logging.hpp">
+      <Filter>Header Files\io</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\io\MMapFile.hpp">
+      <Filter>Header Files\io</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\mem\BufferAllocator.hpp">
+      <Filter>Header Files\mem</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\mem\LargeAllocator.hpp">
+      <Filter>Header Files\mem</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\mem\AlignedAllocator.hpp">
+      <Filter>Header Files\mem</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\parse\BufferStream.hpp">
+      <Filter>Header Files\parse</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\parse\BufferTok.hpp">
+      <Filter>Header Files\parse</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\parse\BitStream.hpp">
+      <Filter>Header Files\parse</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\threads\AutoMutex.hpp">
+      <Filter>Header Files\threads</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\parse\MessageRouter.hpp">
+      <Filter>Header Files\parse</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\threads\RefObject.hpp">
+      <Filter>Header Files\threads</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\port\SystemInfo.hpp">
+      <Filter>Header Files\port</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\mem\IAllocator.hpp">
+      <Filter>Header Files\mem</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

@@ -32,11 +32,12 @@
 using namespace std;
 using namespace cat;
 
-
 #if defined(CAT_OS_WINDOWS)
 #include <cat/port/WindowsInclude.hpp>
 #endif
 
+static LargeAllocator large_allocator;
+LargeAllocator *cat::LargeAllocator::ii = &large_allocator;
 
 // Allocates memory aligned to a CPU cache-line byte boundary from the heap
 void *LargeAllocator::Acquire(u32 bytes)

@@ -34,35 +34,28 @@
 #include <cstddef> // size_t
 #include <vector> // std::_Construct and std::_Destroy
 
-
 namespace cat {
 
 
 // Small to medium -size aligned heap allocator
-class AlignedAllocator
+class AlignedAllocator : public IAllocator
 {
 public:
-	CAT_INLINE AlignedAllocator() {}
+	CAT_INLINE virtual ~AlignedAllocator() {}
 
 	// Acquires memory aligned to a CPU cache-line byte boundary from the heap
 	// NOTE: Call DetermineCacheLineBytes() before using
-    static void *Acquire(u32 bytes);
+    void *Acquire(u32 bytes);
 
 	// Resizes an aligned pointer
-	static void *Resize(void *ptr, u32 old_bytes, u32 new_bytes);
+	void *Resize(void *ptr, u32 bytes);
 
     // Release an aligned pointer
-    static void Release(void *ptr);
+    void Release(void *ptr);
 
-    template<class T>
-    static CAT_INLINE void Delete(T *ptr)
-    {
-        ptr->~T();
-        Release(ptr);
-    }
-
-	static AlignedAllocator ii;
+	static AlignedAllocator *ii;
 };
+
 
 // Use STLAlignedAllocator in place of the standard STL allocator
 // to make use of the AlignedAllocator in STL types.
@@ -111,12 +104,12 @@ public:
 
 	pointer allocate(size_type Count, const void *Hint = 0)
 	{
-		return (pointer)AlignedAllocator::Acquire((u32)Count * sizeof(T));
+		return (pointer)AlignedAllocator::ii->Acquire((u32)Count * sizeof(T));
 	}
 
 	void deallocate(pointer Ptr, size_type Count)
 	{
-		AlignedAllocator::Release(Ptr);
+		AlignedAllocator::ii->Release(Ptr);
 	}
 
 	void construct(pointer Ptr, const T &Val)
@@ -158,13 +151,13 @@ public:
 // Which insures that the destructor is called before freeing memory
 CAT_INLINE void *operator new[](std::size_t bytes, cat::AlignedAllocator &) throw()
 {
-	return cat::AlignedAllocator::Acquire((int)bytes);
+	return cat::AlignedAllocator::ii->Acquire((int)bytes);
 }
 
 // Placement "delete": Does not call destructor
 CAT_INLINE void operator delete(void *ptr, cat::AlignedAllocator &) throw()
 {
-	cat::AlignedAllocator::Release(ptr);
+	cat::AlignedAllocator::ii->Release(ptr);
 }
 
 #endif // CAT_ALIGNED_ALLOCATOR_HPP

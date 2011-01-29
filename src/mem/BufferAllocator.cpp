@@ -40,7 +40,7 @@ BufferAllocator::BufferAllocator(u32 buffer_min_size, u32 buffer_count)
 	u32 cache_line_bytes = system_info.CacheLineBytes;
 	u32 buffer_bytes = CAT_CEIL_UNIT(buffer_min_size + sizeof(BufferTail), cache_line_bytes);
 	u32 total_bytes = buffer_count * buffer_bytes;
-	u8 *buffers = (u8*)LargeAllocator::Acquire(total_bytes);
+	u8 *buffers = (u8*)LargeAllocator::ii->Acquire(total_bytes);
 
 	_buffer_bytes = buffer_bytes;
 	_buffer_count = buffer_count;
@@ -68,10 +68,10 @@ BufferAllocator::BufferAllocator(u32 buffer_min_size, u32 buffer_count)
 
 BufferAllocator::~BufferAllocator()
 {
-	LargeAllocator::Release(_buffers);
+	LargeAllocator::ii->Release(_buffers);
 }
 
-void *BufferAllocator::Acquire()
+void *BufferAllocator::Acquire(u32 bytes)
 {
 	_acquire_lock.Enter();
 
@@ -103,7 +103,7 @@ void *BufferAllocator::Acquire()
 	return (u8*)head - (_buffer_bytes - sizeof(BufferTail));
 }
 
-u32 BufferAllocator::AcquireMultiple(void **buffers, u32 count)
+u32 BufferAllocator::AcquireMultiple(void **buffers, u32 count, u32 bytes)
 {
 	u32 buffer_index = 0;
 	BufferTail *head;

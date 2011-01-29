@@ -38,14 +38,21 @@ namespace cat {
 
 
 // Large-size aligned heap allocator
-class LargeAllocator
+class LargeAllocator : public IAllocator
 {
 public:
+	CAT_INLINE virtual ~LargeAllocator() {}
+
 	// Acquires memory aligned to a CPU cache-line byte boundary from the heap
-    static void *Acquire(u32 bytes);
+    void *Acquire(u32 bytes);
+
+	// Unable to resize
+	void *Resize(void *ptr, u32 bytes) { return 0; }
 
     // Release an aligned pointer
-    static void Release(void *ptr);
+    void Release(void *ptr);
+
+	static LargeAllocator *ii;
 };
 
 // Use STLAlignedAllocator in place of the standard STL allocator
@@ -133,22 +140,5 @@ public:
 
 
 } // namespace cat
-
-// Provide placement new constructor and delete pair to allow for
-// an easy syntax to create objects:
-//   T *a = new (LargeAllocator::ii) T();
-// The object can be freed with:
-//   LargeAllocator::Delete(a);
-// Which insures that the destructor is called before freeing memory
-CAT_INLINE void *operator new[](std::size_t bytes, cat::LargeAllocator &) throw()
-{
-	return cat::LargeAllocator::Acquire((int)bytes);
-}
-
-// Placement "delete": Does not call destructor
-CAT_INLINE void operator delete(void *ptr, cat::LargeAllocator &) throw()
-{
-	cat::LargeAllocator::Release(ptr);
-}
 
 #endif // CAT_LARGE_ALLOCATOR_HPP
