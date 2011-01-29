@@ -27,7 +27,7 @@
 */
 
 #include <cat/mem/AlignedAllocator.hpp>
-#include <cat/mem/CacheLineBytes.hpp>
+#include <cat/port/SystemInfo.hpp>
 #include <cstdlib>
 #include <cstdio>
 using namespace std;
@@ -63,7 +63,7 @@ static CAT_INLINE u8 DetermineOffset(u32 cacheline_bytes, void *ptr)
 // Allocates memory aligned to a CPU cache-line byte boundary from the heap
 void *AlignedAllocator::Acquire(u32 bytes)
 {
-	u32 cacheline_bytes = CacheLineBytes;
+	u32 cacheline_bytes = system_info.CacheLineBytes;
 
 #if defined(CAT_HAS_ALIGNED_ALLOC)
 
@@ -87,7 +87,7 @@ void *AlignedAllocator::Acquire(u32 bytes)
 // Resizes an aligned pointer
 void *AlignedAllocator::Resize(void *ptr, u32 old_bytes, u32 new_bytes)
 {
-	u32 cacheline_bytes = CacheLineBytes;
+	u32 cacheline_bytes = system_info.CacheLineBytes;
 
 #if defined(CAT_HAS_ALIGNED_ALLOC)
 

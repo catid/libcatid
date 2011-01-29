@@ -52,9 +52,9 @@ using namespace cat;
 
 static bool system_info_initialized = false;
 
-SystemInfo system_info = {
-	.CacheLineBytes = CAT_DEFAULT_CACHE_LINE_SIZE, // From Config.hpp
-	.ProcessorCount = 1
+SystemInfo cat::system_info = {
+	CAT_DEFAULT_CACHE_LINE_SIZE, // From Config.hpp
+	1
 };
 
 static u32 GetCacheLineBytes()
