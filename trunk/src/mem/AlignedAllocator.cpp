@@ -33,7 +33,6 @@
 using namespace std;
 using namespace cat;
 
-
 #if defined(CAT_OS_WINDOWS)
 #include <cat/port/WindowsInclude.hpp>
 #elif defined(CAT_OS_APPLE)
@@ -42,14 +41,15 @@ using namespace cat;
 
 // Add your compiler here if it supports aligned malloc
 #if defined(CAT_COMPILER_MSVC)
-#define CAT_HAS_ALIGNED_ALLOC
-#define aligned_malloc _aligned_malloc
-#define aligned_realloc _aligned_realloc
-#define aligned_free _aligned_free
+// TODO: Test this and then uncomment the following line
+//# define CAT_HAS_ALIGNED_ALLOC
+# define aligned_malloc _aligned_malloc
+# define aligned_realloc _aligned_realloc
+# define aligned_free _aligned_free
 #endif
 
-// Object for placement new
-AlignedAllocator AlignedAllocator::ii;
+static AlignedAllocator aligned_allocator;
+AlignedAllocator *AlignedAllocator::ii = &aligned_allocator;
 
 static CAT_INLINE u8 DetermineOffset(u32 cacheline_bytes, void *ptr)
 {
@@ -59,6 +59,8 @@ static CAT_INLINE u8 DetermineOffset(u32 cacheline_bytes, void *ptr)
 	return (u8)( cacheline_bytes - (*(u32*)&ptr & (cacheline_bytes-1)) );
 #endif
 }
+
+static const u32 OLD_BYTES_OVERHEAD = sizeof(u32);
 
 // Allocates memory aligned to a CPU cache-line byte boundary from the heap
 void *AlignedAllocator::Acquire(u32 bytes)
@@ -71,11 +73,16 @@ void *AlignedAllocator::Acquire(u32 bytes)
 
 #else
 
-    u8 *buffer = (u8*)malloc(cacheline_bytes + bytes);
+    u8 *buffer = (u8*)malloc(OLD_BYTES_OVERHEAD + cacheline_bytes + bytes);
     if (!buffer) return 0;
 
+	// Store number of allocated bytes
+	*(u32*)buffer = bytes;
+
 	// Get buffer aligned address
-	u8 offset = DetermineOffset(cacheline_bytes, buffer);
+	u8 offset = OLD_BYTES_OVERHEAD + DetermineOffset(cacheline_bytes, buffer + OLD_BYTES_OVERHEAD);
+
+	// Write offset to number of allocated bytes
     buffer += offset;
     buffer[-1] = offset;
 
@@ -85,17 +92,17 @@ void *AlignedAllocator::Acquire(u32 bytes)
 }
 
 // Resizes an aligned pointer
-void *AlignedAllocator::Resize(void *ptr, u32 old_bytes, u32 new_bytes)
+void *AlignedAllocator::Resize(void *ptr, u32 bytes)
 {
 	u32 cacheline_bytes = system_info.CacheLineBytes;
 
 #if defined(CAT_HAS_ALIGNED_ALLOC)
 
-	return aligned_realloc(ptr, new_bytes, cacheline_bytes);
+	return aligned_realloc(ptr, bytes, cacheline_bytes);
 
 #else
 
-	if (!ptr) return Acquire(new_bytes);
+	if (!ptr) return Acquire(bytes);
 
 	// Can assume here that cacheline bytes has been determined
 
@@ -104,17 +111,20 @@ void *AlignedAllocator::Resize(void *ptr, u32 old_bytes, u32 new_bytes)
 	u8 old_offset = buffer[-1];
 	buffer -= old_offset;
 
-	buffer = (u8*)realloc(buffer, cacheline_bytes + new_bytes);
+	// Read number of old bytes
+	u32 old_bytes = *(u32*)buffer;
+
+	buffer = (u8*)realloc(buffer, OLD_BYTES_OVERHEAD + cacheline_bytes + bytes);
 	if (!buffer) return 0;
 
 	// Get buffer aligned address
-	u8 offset = DetermineOffset(cacheline_bytes, buffer);
+	u8 offset = OLD_BYTES_OVERHEAD + DetermineOffset(cacheline_bytes, buffer + OLD_BYTES_OVERHEAD);
 
 	if (offset != old_offset)
 	{
 		// Need to shift the buffer around if alignment changed
 		// This sort of inefficiency is why I wrote my own allocator
-		memmove(buffer + offset, buffer + old_offset, min(new_bytes, old_bytes));
+		memmove(buffer + offset, buffer + old_offset, min(bytes, old_bytes));
 	}
 
 	buffer += offset;

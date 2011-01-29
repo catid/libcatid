@@ -55,13 +55,13 @@ void KeyAgreementResponder::FreeMemory()
         CAT_CLR(b, KeyBytes);
         CAT_CLR(y[0], KeyBytes);
         CAT_CLR(y[1], KeyBytes);
-        AlignedAllocator::Delete(b);
+        AlignedAllocator::ii->Delete(b);
         b = 0;
     }
 
 	if (G_MultPrecomp)
 	{
-		AlignedAllocator::Delete(G_MultPrecomp);
+		AlignedAllocator::ii->Delete(G_MultPrecomp);
 		G_MultPrecomp = 0;
 	}
 }
@@ -316,7 +316,7 @@ bool KeyAgreementResponder::VerifyInitiatorIdentity(BigTwistedEdwards *math,
 	math->PtSiMultiply(G_MultPrecomp, I_MultPrecomp, 8, s, 0, e, 0, Kp);
 	math->SaveAffineX(Kp, Kp);
 
-	AlignedAllocator::Delete(I_MultPrecomp);
+	AlignedAllocator::ii->Delete(I_MultPrecomp);
 
 	// e' = H(IRN || RRN || K')
 	Skein H;

@@ -52,7 +52,7 @@ namespace cat {
 */
 
 // Aligned buffer array heap allocator
-class BufferAllocator
+class BufferAllocator : public IAllocator
 {
 	struct BufferTail
 	{
@@ -73,50 +73,30 @@ public:
 	// will be bumped up to the next CPU cache line size, and
 	// the number of buffers to preallocate
 	BufferAllocator(u32 buffer_min_size, u32 buffer_count);
-	~BufferAllocator();
+	virtual ~BufferAllocator();
 
 	CAT_INLINE bool Valid() { return _buffers != 0; }
 
 	// Acquires buffer aligned to a CPU cache-line byte boundary from the heap
 	// Returns 0 if out of memory
-    void *Acquire();
+    void *Acquire(u32 bytes);
+
+	// Unable to resize
+	void *Resize(void *ptr, u32 bytes) { return 0; }
+
+	// Release a buffer pointer
+	void Release(void *buffer);
 
 	// Attempt to acquire a number of buffers
 	// Returns the number of valid buffers it was able to allocate
-	u32 AcquireMultiple(void **buffers, u32 count);
-
-    // Release a buffer pointer
-    void Release(void *buffer);
+	u32 AcquireMultiple(void **buffers, u32 count, u32 bytes);
 
 	// Release a number of buffers simultaneously
 	void ReleaseMultiple(void **buffers, u32 count);
-
-    template<class T>
-    CAT_INLINE void Delete(T *buffer)
-    {
-        buffer->~T();
-        Release(buffer);
-    }
 };
 
 
 } // namespace cat
 
-// Provide placement new constructor and delete pair to allow for
-// an easy syntax to create objects:
-//   T *a = new (buffer_allocator) T();
-// The object can be freed with:
-//   buffer_allocator->Delete(a);
-// Which insures that the destructor is called before freeing memory
-CAT_INLINE void *operator new[](std::size_t bytes, cat::BufferAllocator *alloc) throw()
-{
-	return alloc->Acquire();
-}
-
-// Placement "delete": Does not call destructor
-CAT_INLINE void operator delete(void *ptr, cat::BufferAllocator *alloc) throw()
-{
-	alloc->Release(ptr);
-}
 
 #endif // CAT_BUFFER_ALLOCATOR_HPP

@@ -491,8 +491,8 @@ bool NetAddr::SetFromString(const char *ip_str, Port port)
 	sockaddr_in6 addr6;
 	int out_addr_len6 = sizeof(addr6);
 
-	if (!WSAStringToAddress((char*)ip_str, AF_INET6, 0,
-							(sockaddr*)&addr6, &out_addr_len6))
+	if (!WSAStringToAddressA((char*)ip_str, AF_INET6, 0,
+							 (sockaddr*)&addr6, &out_addr_len6))
 	{
 		// Copy address from temporary object
 		_family = AF_INET6;
@@ -506,8 +506,8 @@ bool NetAddr::SetFromString(const char *ip_str, Port port)
 		sockaddr_in addr4;
 		int out_addr_len4 = sizeof(addr4);
 
-		if (!WSAStringToAddress((char*)ip_str, AF_INET, 0,
-								(sockaddr*)&addr4, &out_addr_len4))
+		if (!WSAStringToAddressA((char*)ip_str, AF_INET, 0,
+								 (sockaddr*)&addr4, &out_addr_len4))
 		{
 			// Copy address from temporary object
 			_family = AF_INET;
@@ -579,8 +579,8 @@ std::string NetAddr::IPToString() const
 		DWORD str_len6 = sizeof(addr_str6);
 
 		// Because inet_ntop() is not supported in Windows XP, only Vista+
-		if (SOCKET_ERROR == WSAAddressToString((sockaddr*)&addr6, sizeof(addr6),
-											   0, addr_str6, &str_len6))
+		if (SOCKET_ERROR == WSAAddressToStringA((sockaddr*)&addr6, sizeof(addr6),
+												0, addr_str6, &str_len6))
 			return SocketGetLastErrorString();
 
 		return addr_str6;
@@ -598,8 +598,8 @@ std::string NetAddr::IPToString() const
 		DWORD str_len4 = sizeof(addr_str4);
 
 		// Because inet_ntop() is not supported in Windows XP, only Vista+
-		if (SOCKET_ERROR == WSAAddressToString((sockaddr*)&addr4, sizeof(addr4),
-											   0, addr_str4, &str_len4))
+		if (SOCKET_ERROR == WSAAddressToStringA((sockaddr*)&addr4, sizeof(addr4),
+												0, addr_str4, &str_len4))
 			return SocketGetLastErrorString();
 
 		return addr_str4;

@@ -198,6 +198,7 @@
     <ClInclude Include="..\..\include\cat\io\Settings.hpp" />
     <ClInclude Include="..\..\include\cat\mem\AlignedAllocator.hpp" />
     <ClInclude Include="..\..\include\cat\mem\BufferAllocator.hpp" />
+    <ClInclude Include="..\..\include\cat\mem\IAllocator.hpp" />
     <ClInclude Include="..\..\include\cat\mem\LargeAllocator.hpp" />
     <ClInclude Include="..\..\include\cat\parse\BitStream.hpp" />
     <ClInclude Include="..\..\include\cat\parse\BufferStream.hpp" />
