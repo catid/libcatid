@@ -321,7 +321,10 @@ namespace cat {
 
 //// Operating System ////
 
-#if defined(__APPLE__) && defined(TARGET_OS_IPHONE)
+#if defined(__SVR4) && defined(__sun)
+# define CAT_OS_SOLARIS
+
+#elif defined(__APPLE__) && defined(TARGET_OS_IPHONE)
 # define CAT_OS_IPHONE
 # define CAT_OS_APPLE
 
@@ -353,6 +356,15 @@ namespace cat {
 
 #elif defined(__APPLE__)
 # define CAT_OS_APPLE
+
+#elif defined(_aix) || defined(aix)
+# define CAT_OS_AIX
+
+#elif defined(HPUX)
+# define CAT_OS_HPUX
+
+#elif defined(IRIX)
+# define CAT_OS_IRIX
 
 #else
 # define CAT_OS_UNKNOWN

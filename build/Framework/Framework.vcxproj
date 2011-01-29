@@ -187,26 +187,7 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\src\io\Base64.cpp" />
-    <ClCompile Include="..\..\src\parse\BitStream.cpp" />
-    <ClCompile Include="..\..\src\db\BombayTable.cpp" />
-    <ClCompile Include="..\..\src\db\BombayTableIndex.cpp" />
-    <ClCompile Include="..\..\src\parse\BufferTok.cpp" />
-    <ClCompile Include="..\..\src\net\DNSClient.cpp" />
     <ClCompile Include="..\..\src\Framework.cpp" />
-    <ClCompile Include="..\..\src\io\Logging.cpp" />
-    <ClCompile Include="..\..\src\parse\MessageRouter.cpp" />
-    <ClCompile Include="..\..\src\io\MMapFile.cpp" />
-    <ClCompile Include="..\..\src\sphynx\Client.cpp" />
-    <ClCompile Include="..\..\src\sphynx\FlowControl.cpp" />
-    <ClCompile Include="..\..\src\sphynx\Server.cpp" />
-    <ClCompile Include="..\..\src\sphynx\Transport.cpp" />
-    <ClCompile Include="..\..\src\threads\RegionAllocator.cpp" />
-    <ClCompile Include="..\..\src\io\Settings.cpp" />
-    <ClCompile Include="..\..\src\net\Sockets.cpp" />
-    <ClCompile Include="..\..\src\threads\ThreadPool.cpp" />
-    <ClCompile Include="..\..\src\io\ThreadPoolFiles.cpp" />
-    <ClCompile Include="..\..\src\net\ThreadPoolSockets.cpp" />
     <ClCompile Include="Precompiled.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
@@ -236,15 +217,12 @@
     <ClInclude Include="..\..\include\cat\sphynx\FlowControl.hpp" />
     <ClInclude Include="..\..\include\cat\sphynx\Server.hpp" />
     <ClInclude Include="..\..\include\cat\sphynx\Transport.hpp" />
-    <ClInclude Include="..\..\include\cat\threads\LocklessFIFO.hpp" />
     <ClInclude Include="..\..\include\cat\threads\RegionAllocator.hpp" />
     <ClInclude Include="..\..\include\cat\threads\ThreadPool.hpp" />
     <ClInclude Include="..\..\include\cat\parse\BitStream.hpp" />
     <ClInclude Include="..\..\include\cat\parse\BufferStream.hpp" />
     <ClInclude Include="..\..\include\cat\parse\BufferTok.hpp" />
     <ClInclude Include="..\..\include\cat\parse\MessageRouter.hpp" />
-    <ClInclude Include="..\..\include\cat\db\BombayTable.hpp" />
-    <ClInclude Include="..\..\include\cat\db\BombayTableIndex.hpp" />
     <ClInclude Include="Precompiled.hpp" />
   </ItemGroup>
   <ItemGroup>

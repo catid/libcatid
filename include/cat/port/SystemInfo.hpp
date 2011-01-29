@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -26,5 +26,27 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/threads/RefObject.hpp>
-using namespace cat;
+#ifndef CAT_CACHE_LINE_BYTES_HPP
+#define CAT_CACHE_LINE_BYTES_HPP
+
+#include <cat/Platform.hpp>
+
+namespace cat {
+
+
+// Call InitializeSystemInfo() before using system_info global
+void InitializeSystemInfo();
+
+struct SystemInfo
+{
+	// Number of bytes in each CPU cache line
+	u32 CacheLineBytes;
+
+	// Number of processors
+	u32 ProcessorCount;
+} extern system_info;
+
+
+} // namespace cat
+
+#endif // CAT_CACHE_LINE_BYTES_HPP
