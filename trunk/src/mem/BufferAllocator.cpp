@@ -88,6 +88,7 @@ void *BufferAllocator::Acquire()
 
 		_release_lock.Leave();
 
+		// If we ran out of room,
 		if (!head)
 		{
 			_acquire_lock.Leave();
@@ -99,16 +100,49 @@ void *BufferAllocator::Acquire()
 
 	_acquire_lock.Leave();
 
-	u8 *ptr = (u8*)head - (_buffer_bytes - sizeof(BufferTail));
-
-	return ptr;
+	return (u8*)head - (_buffer_bytes - sizeof(BufferTail));
 }
 
-void BufferAllocator::Release(void *ptr)
+u32 BufferAllocator::AcquireMultiple(void **buffers, u32 count)
 {
-	if (!ptr) return;
+	u32 buffer_index = 0;
+	BufferTail *head;
+	u32 buffer_offset = _buffer_bytes - sizeof(BufferTail);
 
-	BufferTail *tail = (BufferTail*)((u8*)ptr + (_buffer_bytes - sizeof(BufferTail)));
+	_acquire_lock.Enter();
+
+	// For each requested buffer,
+	for (head = _acquire_head; head && buffer_index < count; head = head->next)
+		buffers[buffer_index++] = (u8*)head - buffer_offset;
+
+	// If there are still requests to fill,
+	if (buffer_index < count)
+	{
+		// Grab the release list and re-use it
+		_release_lock.Enter();
+
+		head = _release_head;
+		_release_head = 0;
+
+		_release_lock.Leave();
+
+		// For each remaining requested buffer,
+		for (; buffer_index < count && head; head = head->next)
+			buffers[buffer_index++] = (u8*)head - buffer_offset;
+	}
+
+	_acquire_head = head;
+
+	_acquire_lock.Leave();
+
+	return buffer_index;
+}
+
+void BufferAllocator::Release(void *buffer)
+{
+	if (!buffer) return;
+
+	BufferTail *tail = (BufferTail*)((u8*)buffer + (_buffer_bytes - sizeof(BufferTail)));
 
 	// Insert new released node at the head of the list
 	_release_lock.Enter();
@@ -117,6 +151,33 @@ void BufferAllocator::Release(void *ptr)
 
 	_release_head = tail;
 	tail->next = head;
+
+	_release_lock.Leave();
+}
+
+void BufferAllocator::ReleaseMultiple(void **buffers, u32 count)
+{
+	if (!count) return;
+
+	u32 buffer_offset = _buffer_bytes - sizeof(BufferTail);
+
+	BufferTail *head, *tail;
+
+	tail = head = (BufferTail*)((u8*)buffers[0] + buffer_offset);
+
+	for (u32 ii = 1; ii < count; ++ii)
+	{
+		BufferTail *node = (BufferTail*)((u8*)buffers[ii] + buffer_offset);
+
+		tail->next = node;
+		tail = node;
+	}
+
+	// Insert new released node at the head of the list
+	_release_lock.Enter();
+
+	tail->next = _release_head;
+	_release_head = head;
 
 	_release_lock.Leave();
 }

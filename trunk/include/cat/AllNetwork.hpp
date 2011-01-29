@@ -32,7 +32,7 @@
 #define CAT_ALL_NETWORK_HPP
 
 #include <cat/net/Sockets.hpp>
-#include <cat/net/DNSClient.hpp>
+#include <cat/net/NetThreads.hpp>
 
 
 #endif // CAT_ALL_NETWORK_HPP

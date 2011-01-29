@@ -46,6 +46,7 @@
 
 #include <cat/math/BitMath.hpp>
 
+#include <cat/port/SystemInfo.hpp>
 #include <cat/port/EndianNeutral.hpp>
 #include <cat/port/FastDelegate.h>
 
@@ -60,7 +61,6 @@
 #include <cat/parse/BufferTok.hpp>
 #include <cat/parse/BufferStream.hpp>
 
-#include <cat/mem/CacheLineBytes.hpp>
 #include <cat/mem/AlignedAllocator.hpp>
 #include <cat/mem/LargeAllocator.hpp>
 #include <cat/mem/BufferAllocator.hpp>

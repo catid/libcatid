@@ -26,7 +26,7 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/mem/CacheLineBytes.hpp>
+#include <cat/port/SystemInfo.hpp>
 #include <cstdlib>
 #include <cstdio>
 using namespace std;
@@ -34,8 +34,12 @@ using namespace cat;
 
 #if defined(CAT_OS_WINDOWS)
 #include <cat/port/WindowsInclude.hpp>
-#elif defined(CAT_OS_APPLE)
+#elif defined(CAT_OS_LINUX) || defined(CAT_OS_AIX) || defined(CAT_OS_SOLARIS) || defined(CAT_OS_IRIX)
+#include <unistd.h>
+#elif defined(CAT_OS_OSX) || defined(CAT_OS_BSD)
 #include <sys/sysctl.h>
+#elif defined(CAT_OS_HPUX)
+#include <sys/mpctl.h>
 #endif
 
 // Add your compiler here if it supports aligned malloc
@@ -46,19 +50,20 @@ using namespace cat;
 #define aligned_free _aligned_free
 #endif
 
-u32 cat::CacheLineBytes = CAT_DEFAULT_CACHE_LINE_SIZE;
+static bool system_info_initialized = false;
 
-static bool cache_line_determined = false;
+SystemInfo system_info = {
+	.CacheLineBytes = CAT_DEFAULT_CACHE_LINE_SIZE, // From Config.hpp
+	.ProcessorCount = 1
+};
 
-u32 cat::DetermineCacheLineBytes()
+static u32 GetCacheLineBytes()
 {
 	// Based on work by Nick Strupat (http://strupat.ca/)
 
-	if (cache_line_determined) return CacheLineBytes;
-
 	u32 discovered_cache_line_size = 0;
 
-#if defined(CAT_OS_APPLE)
+#if defined(CAT_OS_OSX) || defined(CAT_OS_BSD)
 
 	u64 line_size;
 	size_t size = sizeof(line_size);
@@ -121,12 +126,60 @@ u32 cat::DetermineCacheLineBytes()
 		discovered_cache_line_size = CAT_DEFAULT_CACHE_LINE_SIZE; // From Config.hpp
 	}
 
-	// Set cache line bytes
-	CacheLineBytes = discovered_cache_line_size;
+	return discovered_cache_line_size;
+}
+
+static u32 GetProcessorCount()
+{
+	u32 processor_count = 0;
+
+#if defined(CAT_OS_WINDOWS)
+
+	ULONG_PTR ulpProcessAffinityMask, ulpSystemAffinityMask;
+	GetProcessAffinityMask(GetCurrentProcess(), &ulpProcessAffinityMask, &ulpSystemAffinityMask);
+	processor_count = (u32)BitCount(ulpProcessAffinityMask);
+
+#elif defined(CAT_OS_LINUX) || defined(CAT_OS_AIX) || defined(CAT_OS_SOLARIS)
+
+	processor_count = (u32)sysconf(_SC_NPROCESSORS_ONLN);
+
+#elif defined(CAT_OS_OSX) || defined(CAT_OS_BSD)
+
+	int mib[4];
+	mib[0] = CTL_HW;
+	mib[1] = HW_AVAILCPU;
+
+	size_t len = sizeof(processor_count);
+	sysctl(mib, 2, &processor_count, &len, 0, 0);
+
+	if (processor_count < 1)
+	{
+		mib[1] = HW_NCPU;
+
+		len = sizeof(processor_count);
+		sysctl(mib, 2, &processor_count, &len, 0, 0);
+	}
+
+#elif defined(CAT_OS_HPUX)
+
+	processor_count = (u32)mpctl(MPC_GETNUMSPUS, 0, 0);
+
+#elif defined(CAT_OS_IRIX)
+
+	processor_count = (u32)sysconf(_SC_NPROC_ONLN);
+
+#endif
+
+	return processor_count > 1 ? processor_count : 1;
+}
+
+void InitializeSystemInfo()
+{
+	if (system_info_initialized) return;
+
+	system_info.CacheLineBytes = GetCacheLineBytes();
+	system_info.ProcessorCount = GetProcessorCount();
 
 	CAT_FENCE_COMPILER
-
-	cache_line_determined = true;
-
-	return discovered_cache_line_size;
+	system_info_initialized = true;
 }

@@ -161,7 +161,17 @@
     <Lib />
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\src\port\AlignedAlloc.cpp" />
+    <ClCompile Include="..\..\src\io\Base64.cpp" />
+    <ClCompile Include="..\..\src\io\Logging.cpp" />
+    <ClCompile Include="..\..\src\io\MMapFile.cpp" />
+    <ClCompile Include="..\..\src\io\Settings.cpp" />
+    <ClCompile Include="..\..\src\mem\AlignedAllocator.cpp" />
+    <ClCompile Include="..\..\src\mem\BufferAllocator.cpp" />
+    <ClCompile Include="..\..\src\mem\LargeAllocator.cpp" />
+    <ClCompile Include="..\..\src\parse\BitStream.cpp" />
+    <ClCompile Include="..\..\src\parse\BufferTok.cpp" />
+    <ClCompile Include="..\..\src\parse\MessageRouter.cpp" />
+    <ClCompile Include="..\..\src\port\SystemInfo.cpp" />
     <ClCompile Include="..\..\src\threads\Thread.cpp" />
     <ClCompile Include="..\..\src\threads\WaitableFlag.cpp" />
     <ClCompile Include="..\..\src\time\Clock.cpp" />
@@ -182,8 +192,22 @@
   <ItemGroup>
     <ClInclude Include="..\..\include\cat\AllCommon.hpp" />
     <ClInclude Include="..\..\include\cat\Config.hpp" />
+    <ClInclude Include="..\..\include\cat\io\Base64.hpp" />
+    <ClInclude Include="..\..\include\cat\io\Logging.hpp" />
+    <ClInclude Include="..\..\include\cat\io\MMapFile.hpp" />
+    <ClInclude Include="..\..\include\cat\io\Settings.hpp" />
+    <ClInclude Include="..\..\include\cat\mem\AlignedAllocator.hpp" />
+    <ClInclude Include="..\..\include\cat\mem\BufferAllocator.hpp" />
+    <ClInclude Include="..\..\include\cat\mem\LargeAllocator.hpp" />
+    <ClInclude Include="..\..\include\cat\parse\BitStream.hpp" />
+    <ClInclude Include="..\..\include\cat\parse\BufferStream.hpp" />
+    <ClInclude Include="..\..\include\cat\parse\BufferTok.hpp" />
+    <ClInclude Include="..\..\include\cat\parse\MessageRouter.hpp" />
     <ClInclude Include="..\..\include\cat\Platform.hpp" />
+    <ClInclude Include="..\..\include\cat\port\SystemInfo.hpp" />
     <ClInclude Include="..\..\include\cat\Singleton.hpp" />
+    <ClInclude Include="..\..\include\cat\threads\AutoMutex.hpp" />
+    <ClInclude Include="..\..\include\cat\threads\RefObject.hpp" />
     <ClInclude Include="..\..\include\cat\threads\Thread.hpp" />
     <ClInclude Include="..\..\include\cat\threads\WaitableFlag.hpp" />
     <ClInclude Include="..\..\include\cat\time\Clock.hpp" />
@@ -195,7 +219,6 @@
     <ClInclude Include="..\..\include\cat\threads\Mutex.hpp" />
     <ClInclude Include="..\..\include\cat\threads\RWLock.hpp" />
     <ClInclude Include="..\..\include\cat\math\BitMath.hpp" />
-    <ClInclude Include="..\..\include\cat\port\AlignedAlloc.hpp" />
     <ClInclude Include="..\..\include\cat\port\EndianNeutral.hpp" />
     <ClInclude Include="..\..\include\cat\port\FastDelegate.h" />
     <ClInclude Include="..\..\include\cat\lang\Strings.hpp" />

@@ -78,16 +78,24 @@ public:
 	CAT_INLINE bool Valid() { return _buffers != 0; }
 
 	// Acquires buffer aligned to a CPU cache-line byte boundary from the heap
+	// Returns 0 if out of memory
     void *Acquire();
 
+	// Attempt to acquire a number of buffers
+	// Returns the number of valid buffers it was able to allocate
+	u32 AcquireMultiple(void **buffers, u32 count);
+
     // Release a buffer pointer
-    void Release(void *ptr);
+    void Release(void *buffer);
+
+	// Release a number of buffers simultaneously
+	void ReleaseMultiple(void **buffers, u32 count);
 
     template<class T>
-    CAT_INLINE void Delete(T *ptr)
+    CAT_INLINE void Delete(T *buffer)
     {
-        ptr->~T();
-        Release(ptr);
+        buffer->~T();
+        Release(buffer);
     }
 };
 
