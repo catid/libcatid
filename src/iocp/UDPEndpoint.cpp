@@ -26,22 +26,37 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/net/ThreadPoolSockets.hpp>
+#include <cat/iocp/UDPEndpoint.hpp>
 #include <cat/io/Logging.hpp>
 #include <cat/io/Settings.hpp>
-#include <cat/threads/RegionAllocator.hpp>
 #include <cat/threads/Atomic.hpp>
+#include <cat/iocp/SendBuffer.hpp>
 using namespace std;
 using namespace cat;
 
 
 //// UDP Endpoint
 
-UDPEndpoint::UDPEndpoint(int priorityLevel)
-	: ThreadRefObject(priorityLevel)
+void UDPEndpoint::OnShutdownRequest()
+{
+	if (_socket != SOCKET_ERROR)
+	{
+		CloseSocket(_socket);
+		_socket = SOCKET_ERROR;
+	}
+
+	// Allow the library user to react to closure sooner than the destructor.
+	OnClose();
+}
+
+void UDPEndpoint::OnZeroReferences()
+{
+	delete this;
+}
+
+UDPEndpoint::UDPEndpoint()
 {
     _port = 0;
-    _closing = 0;
     _socket = SOCKET_ERROR;
 }
 
@@ -49,26 +64,6 @@ UDPEndpoint::~UDPEndpoint()
 {
     if (_socket != SOCKET_ERROR)
         CloseSocket(_socket);
-}
-
-void UDPEndpoint::Close()
-{
-    // Only allow close to run once
-    if (Atomic::Add(&_closing, 1) == 0)
-    {
-        if (_socket != SOCKET_ERROR)
-        {
-            CloseSocket(_socket);
-            _socket = SOCKET_ERROR;
-        }
-
-		// Allow the library user to react to closure sooner than the destructor.
-        OnClose();
-
-		// Starts with reference count equal 1; so this puts the object in a state
-		// where as soon as all of the references are extinguished it is deleted.
-        ReleaseRef();
-    }
 }
 
 bool UDPEndpoint::IgnoreUnreachable()
@@ -109,7 +104,7 @@ bool UDPEndpoint::DontFragment(bool df)
 	return true;
 }
 
-bool UDPEndpoint::Bind(bool onlySupportIPv4, Port port, bool ignoreUnreachable, int rcv_buffsize)
+bool UDPEndpoint::Bind(IOThreads *iothreads, bool onlySupportIPv4, Port port, bool ignoreUnreachable, int rcv_buffsize)
 {
 	// Create an unbound, overlapped UDP socket for the endpoint
     Socket s;
@@ -124,7 +119,7 @@ bool UDPEndpoint::Bind(bool onlySupportIPv4, Port port, bool ignoreUnreachable, 
 	int snd_buffsize = 0;
 	if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, (char*)&snd_buffsize, sizeof(snd_buffsize)))
 	{
-		FATAL("UDPEndpoint") << "Unable to zero the send buffer: " << SocketGetLastErrorString();
+		WARN("UDPEndpoint") << "Unable to zero the send buffer: " << SocketGetLastErrorString();
 		CloseSocket(s);
 		return false;
 	}
@@ -133,7 +128,7 @@ bool UDPEndpoint::Bind(bool onlySupportIPv4, Port port, bool ignoreUnreachable, 
 	if (rcv_buffsize < 64000) rcv_buffsize = 64000;
 	if (setsockopt(s, SOL_SOCKET, SO_RCVBUF, (char*)&rcv_buffsize, sizeof(rcv_buffsize)))
 	{
-		FATAL("UDPEndpoint") << "Unable to zero the send buffer: " << SocketGetLastErrorString();
+		WARN("UDPEndpoint") << "Unable to setsockopt SO_RCVBUF " << rcv_buffsize << ": " << SocketGetLastErrorString();
 		CloseSocket(s);
 		return false;
 	}
@@ -146,24 +141,24 @@ bool UDPEndpoint::Bind(bool onlySupportIPv4, Port port, bool ignoreUnreachable, 
     // Bind the socket to a given port
     if (!NetBind(s, port, onlySupportIPv4))
     {
-        INANE("UDPEndpoint") << "Unable to bind to port: " << SocketGetLastErrorString();
+        FATAL("UDPEndpoint") << "Unable to bind to port: " << SocketGetLastErrorString();
         CloseSocket(s);
         _socket = SOCKET_ERROR;
         return false;
     }
 
-    // Prepare to receive completions in the worker threads
-    if (!ThreadPool::ref()->Associate((HANDLE)s, this) ||
-        !Read())
-    {
-        CloseSocket(s);
-        _socket = SOCKET_ERROR;
-        return false;
-    }
+	// Associate with IOThreads
+	if (!iothreads->Associate((HANDLE)s, this))
+	{
+		FATAL("UDPEndpoint") << "Unable to associate with IO threads";
+		CloseSocket(s);
+		_socket = SOCKET_ERROR;
+		return false;
+	}
 
     _port = port;
 
-    INANE("UDPEndpoint") << "Open on port " << GetPort();
+    INFO("UDPEndpoint") << "Open on port " << GetPort();
 
     return true;
 }
@@ -177,7 +172,7 @@ Port UDPEndpoint::GetPort()
 
 		if (!_port)
         {
-            FATAL("UDPEndpoint") << "Unable to get own address: " << SocketGetLastErrorString();
+            WARN("UDPEndpoint") << "Unable to get own address: " << SocketGetLastErrorString();
             return 0;
         }
     }
@@ -188,11 +183,11 @@ Port UDPEndpoint::GetPort()
 
 //// Begin Event
 
-bool UDPEndpoint::Post(const NetAddr &addr, u8 *data, u32 data_bytes)
+bool UDPEndpoint::Write(const NetAddr &addr, u8 *data, u32 data_bytes)
 {
-	AsyncBuffer *buffer = AsyncBuffer::Promote(data);
+	SendBuffer *buffer = SendBuffer::Promote(data);
 
-	if (_closing)
+	if (IsShutdown())
 	{
 		buffer->Release();
 		return false;
@@ -207,28 +202,25 @@ bool UDPEndpoint::Post(const NetAddr &addr, u8 *data, u32 data_bytes)
 		return false;
 	}
 
+	// Add a reference to this object until the write completes
+	AddRef();
+
 	WSABUF wsabuf;
 	wsabuf.buf = reinterpret_cast<CHAR*>( data );
 	wsabuf.len = data_bytes;
 
-#if defined(CAT_WANT_WRITE_COMPLETION)
-	buffer->Reset(fastdelegate::MakeDelegate(this, &UDPEndpoint::OnWriteComplete));
-#else
-	buffer->Reset(AsyncCallback());
-#endif
-
-	AddRef();
+	buffer->Reset();
 
 	// Fire off a WSASendTo() and forget about it
 	int result = WSASendTo(_socket, &wsabuf, 1, 0, 0,
 						   reinterpret_cast<const sockaddr*>( &out_addr ),
-						   addr_len, buffer->GetOv(), 0);
+						   addr_len, &buffer->ov, 0);
 
 	// This overlapped operation will always complete unless
 	// we get an error code other than ERROR_IO_PENDING.
 	if (result && WSAGetLastError() != ERROR_IO_PENDING)
 	{
-		FATAL("UDPEndpoint") << "WSASendTo error: " << SocketGetLastErrorString();
+		WARN("UDPEndpoint") << "WSASendTo error: " << SocketGetLastErrorString();
 		buffer->Release();
 		ReleaseRef();
 		return false;
@@ -237,45 +229,43 @@ bool UDPEndpoint::Post(const NetAddr &addr, u8 *data, u32 data_bytes)
 	return true;
 }
 
-bool UDPEndpoint::Read(AsyncBuffer *buffer)
+bool UDPEndpoint::Read(IOTLS *tls)
 {
-	if (_closing)
+	if (IsShutdown())
+		return false;
+
+	IOCPOverlappedRecvFrom *buffer = reinterpret_cast<IOCPOverlappedRecvFrom*>( tls->allocator->Acquire(IOTLS_BUFFER_TOTAL_BYTES) );
+
+	// If unable to allocate a buffer,
+	if (!buffer)
 	{
-		if (buffer) buffer->Release();
+		WARN("UDPEndpoint") << "Out of memory: Unable to allocate RecvFrom overlapped structure";
 		return false;
 	}
 
-	// If unable to get an AsyncBuffer object,
-	if (!buffer && !AsyncBuffer::Acquire(buffer, 2048 - AsyncBuffer::OVERHEAD() - 8, sizeof(RecvFromTag)))
-	{
-		WARN("TCPClient") << "Out of memory: Unable to allocate RecvFrom overlapped structure";
-		return false;
-	}
-
-	buffer->Reset(fastdelegate::MakeDelegate(this, &UDPEndpoint::OnReadComplete));
-
-	RecvFromTag *tag;
-	buffer->GetTag(tag);
-	tag->addrLen = sizeof(tag->addr);
+	CAT_OBJCLR(buffer->ov);
+	buffer->allocator = tls->allocator;
+	buffer->callback = fastdelegate::MakeDelegate(this, &UDPEndpoint::OnReadComplete);
+	buffer->addr_len = sizeof(buffer->addr);
 
 	WSABUF wsabuf;
-	wsabuf.buf = reinterpret_cast<CHAR*>( buffer->GetData() );
-	wsabuf.len = buffer->GetDataBytes();
+	wsabuf.buf = reinterpret_cast<CHAR*>( GetTrailingBytes(buffer) );
+	wsabuf.len = IOTLS_BUFFER_DATA_BYTES;
 
 	AddRef();
 
 	// Queue up a WSARecvFrom()
 	DWORD flags = 0, bytes;
 	int result = WSARecvFrom(_socket, &wsabuf, 1, &bytes, &flags,
-							 reinterpret_cast<sockaddr*>( &tag->addr ),
-							 &tag->addrLen, buffer->GetOv(), 0); 
+							 reinterpret_cast<sockaddr*>( &buffer->addr ),
+							 &buffer->addr_len, &buffer->ov, 0); 
 
 	// This overlapped operation will always complete unless
 	// we get an error code other than ERROR_IO_PENDING.
 	if (result && WSAGetLastError() != ERROR_IO_PENDING)
 	{
 		FATAL("UDPEndpoint") << "WSARecvFrom error: " << SocketGetLastErrorString();
-		buffer->Release();
+		tls->allocator->Release(buffer);
 		ReleaseRef();
 		return false;
 	}
@@ -315,21 +305,3 @@ bool UDPEndpoint::OnReadComplete(ThreadPoolLocalStorage *tls, int error, AsyncBu
 
 	return false; // Do not delete AsyncBuffer object
 }
-
-#if defined(CAT_WANT_WRITE_COMPLETION)
-
-bool UDPEndpoint::OnWriteComplete(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes)
-{
-	if (_closing)
-		return true;
-
-	if (error)
-	{
-		Close();
-		return true;
-	}
-
-	return OnWrite(tls, buffer, bytes);
-}
-
-#endif // CAT_WANT_WRITE_COMPLETION

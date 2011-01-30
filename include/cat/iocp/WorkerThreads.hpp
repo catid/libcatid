@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -26,72 +26,77 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_TCP_SERVER_HPP
-#define CAT_TCP_SERVER_HPP
+#ifndef CAT_WORKER_THREADS_HPP
+#define CAT_WORKER_THREADS_HPP
 
-/*
-	Windows version of thread pool sockets with IO Completion Ports
-
-	Included from <cat/net/ThreadPoolSockets.hpp>
-	Do not include directly
-*/
+#include <cat/threads/Thread.hpp>
+#include <cat/threads/RefObject.hpp>
+#include <cat/threads/WaitableFlag.hpp>
+#include <cat/threads/Mutex.hpp>
 
 namespace cat {
 
 
-/*
-    class TCPServer
+class WorkerThread;
+class WorkerThreads;
 
-    Object that represents a TCP server bound to a single port
-
-    Overload InstantiateServerConnexion() to subclass connections with the server
-*/
-class TCPServer : public ThreadRefObject
+// Base class for sessions
+class WorkerSession : public RefObject
 {
-    friend class TCPConnexion;
+	friend class WorkerThread;
 
-	Socket _socket;
-	LPFN_ACCEPTEX _lpfnAcceptEx;
-	LPFN_GETACCEPTEXSOCKADDRS _lpfnGetAcceptExSockAddrs;
-	LPFN_DISCONNECTEX _lpfnDisconnectEx;
-	Port _port;
-
-	struct AcceptTag
-	{
-		Socket acceptSocket;
-
-		// Space pre-allocated to receive addresses
-		// NOTE: This is not necessarily how the addresses are organized in memory
-		struct
-		{
-			// Not necessarily an IPv6 address
-			sockaddr_in6 addr[2];
-			u8 padding[2*16];
-		} addresses;
-	};
-
-	bool PostAccept(AsyncBuffer *buffer = 0);
-	bool QueueAccepts();
+	WorkerSession *_next_worker;
 
 public:
-    TCPServer(int priorityLevel);
-    virtual ~TCPServer();
+	CAT_INLINE virtual ~WorkerSession() {}
 
-    bool ValidServer();
-    Port GetPort();
+	virtual void OnTick(u32 now) = 0;
+};
 
-	bool Bind(bool onlySupportIPv4, Port port = 0);
-    void Close();
 
-protected:
-	// Return true to release overlapped object memory, or return false to keep it
-	virtual bool OnAccept(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes);
+// Worker thread
+class WorkerThread : public Thread
+{
+	virtual bool ThreadFunction(void *master);
 
-protected:
-	virtual TCPConnexion *InstantiateServerConnexion() = 0;
+	u32 _session_count;
+
+	WaitableFlag _event_flag;
+	volatile bool _kill_flag;
+
+	// Protected list of new workers to add to the running list
+	volatile bool _new_workers_flag;
+	Mutex _new_workers_lock;
+	WorkerSession *_new_head;
+
+public:
+	WorkerThread();
+	virtual ~WorkerThread();
+
+	CAT_INLINE u32 GetSessionCount() { return _session_count; }
+	CAT_INLINE void FlagEvent() { _event_flag.Set(); }
+	CAT_INLINE void SetKillFlag() { _kill_flag = true; }
+
+	void Add(WorkerSession *session);
+};
+
+
+// Worker threads
+class WorkerThreads
+{
+	u32 _worker_count;
+	WorkerThread *_workers;
+
+public:
+	WorkerThreads();
+	virtual ~WorkerThreads();
+
+	bool Startup();
+	bool Shutdown();
+	bool Associate(WorkerSession *session);
 };
 
 
 } // namespace cat
 
-#endif // CAT_TCP_SERVER_HPP
+#endif // CAT_WORKER_THREADS_HPP

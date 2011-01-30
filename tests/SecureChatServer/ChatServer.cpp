@@ -1,4 +1,4 @@
-#include <cat/AllFramework.hpp>
+#include <cat/AllSphynx.hpp>
 #include <conio.h> // kbhit()
 using namespace cat;
 using namespace sphynx;
@@ -63,14 +63,56 @@ public:
 
 int main()
 {
-	if (!InitializeFramework("ChatServer.txt"))
+	// Initialize system info
+	InitializeSystemInfo();
+
+	// Initialize clock subsystem
+	if (!Clock::Initialize())
 	{
-		FatalStop("Unable to initialize framework!");
+		FatalStop("Clock subsystem failed to initialize");
+	}
+
+	// Initialize logging subsystem with INFO reporting level
+	Logging::ref()->Initialize(LVL_INFO);
+	//Logging::ii->EnableServiceMode("ChatServerService");
+
+	// Initialize disk settings subsystem
+	Settings::ref()->readSettingsFromFile("ChatServer.cfg");
+
+	// Read logging subsystem settings
+	Logging::ref()->ReadSettings();
+
+	// Start the CSPRNG subsystem
+	if (!FortunaFactory::ref()->Initialize())
+	{
+		FatalStop("CSPRNG subsystem failed to initialize");
+	}
+
+	// Start the socket subsystem
+	if (!StartupSockets())
+	{
+		FatalStop("Socket subsystem failed to initialize");
+	}
+
+	// Start the IO threads
+	IOThreads io_threads;
+
+	if (!io_threads.Startup())
+	{
+		FatalStop("IOThreads subsystem failed to initialize");
+	}
+
+	// Start the Worker threads
+	WorkerThreads worker_threads;
+
+	if (!worker_threads.Startup())
+	{
+		FatalStop("WorkerThreads subsystem failed to initialize");
 	}
 
 	INFO("Server") << "Secure Chat Server 1.1";
 
-	GameServer *server = new GameServer();
+	GameServer *server = new GameServer;
 	const Port SERVER_PORT = 22000;
 
 	{
@@ -97,7 +139,25 @@ int main()
 		}
 	}
 
-	ShutdownFramework(true);
+	// TODO: Need to do some kind of shutdown code here
+
+	// Terminate Worker threads
+	worker_threads.Shutdown();
+
+	// Terminate IO threads
+	io_threads.Shutdown();
+
+	// Terminate sockets
+	CleanupSockets();
+
+	// Terminate the entropy collection thread in the CSPRNG
+	FortunaFactory::ref()->Shutdown();
+
+	// Write settings to disk
+	Settings::ref()->write();
+
+	// Cleanup clock subsystem
+	Clock::Shutdown();
 
 	return 0;
 }

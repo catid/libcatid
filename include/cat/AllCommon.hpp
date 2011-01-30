@@ -62,6 +62,7 @@
 #include <cat/parse/BufferStream.hpp>
 
 #include <cat/mem/IAllocator.hpp>
+#include <cat/mem/StdAllocator.hpp>
 #include <cat/mem/AlignedAllocator.hpp>
 #include <cat/mem/LargeAllocator.hpp>
 #include <cat/mem/BufferAllocator.hpp>

@@ -29,7 +29,7 @@
 #ifndef CAT_LARGE_ALLOCATOR_HPP
 #define CAT_LARGE_ALLOCATOR_HPP
 
-#include <cat/Platform.hpp>
+#include <cat/mem/IAllocator.hpp>
 
 #include <cstddef> // size_t
 #include <vector> // std::_Construct and std::_Destroy

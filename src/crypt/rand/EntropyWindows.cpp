@@ -101,7 +101,7 @@ bool FortunaFactory::InitializeEntropySources()
     if (!CryptAcquireContext(&hCryptProv, 0, 0, PROV_RSA_AES, CRYPT_VERIFYCONTEXT))
         return false;
 
-	NTDLL = LoadLibrary("NtDll.dll");
+	NTDLL = LoadLibraryA("NtDll.dll");
 	if (NTDLL)
 		NtQuerySystemInformation = (PtNtQuerySystemInformation)GetProcAddress(NTDLL, "NtQuerySystemInformation");
 

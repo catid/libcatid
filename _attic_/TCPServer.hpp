@@ -39,6 +39,20 @@
 namespace cat {
 
 
+
+	struct IOCPOverlappedAccept : IOCPOverlapped
+	{
+		Socket accept_socket;
+
+		// NOTE: This is not necessarily how the addresses are organized in memory
+		struct
+		{
+			// Not necessarily an IPv6 address
+			sockaddr_in6 addr[2];
+			u8 padding[2*16];
+		} addresses;
+	};
+
 /*
     class TCPServer
 

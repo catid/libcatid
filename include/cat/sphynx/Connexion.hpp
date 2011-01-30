@@ -26,8 +26,8 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_SPHYNX_SERVER_HPP
-#define CAT_SPHYNX_SERVER_HPP
+#ifndef CAT_SPHYNX_CONNEXION_HPP
+#define CAT_SPHYNX_CONNEXION_HPP
 
 #include <cat/sphynx/Transport.hpp>
 #include <cat/threads/RWLock.hpp>
@@ -44,55 +44,59 @@ namespace cat {
 namespace sphynx {
 
 
-// Server port
-class Server : public UDPEndpoint
+//// sphynx::Connexion
+
+// Derive from sphynx::Connexion and sphynx::Server to define server behavior
+class Connexion : public Transport, public RefObject
 {
+	friend class Server;
+	friend class ConnexionMap;
+
 	virtual void OnShutdownRequest();
 	virtual void OnZeroReferences();
 
 public:
-	Server();
-	virtual ~Server();
-
-	bool StartServer(ThreadPoolLocalStorage *tls, Port port, u8 *public_key, int public_bytes, u8 *private_key, int private_bytes, const char *session_key);
-
-	u32 GetTotalPopulation();
-
-	static bool GenerateKeyPair(ThreadPoolLocalStorage *tls, const char *public_key_file,
-								const char *private_key_file, u8 *public_key,
-								int public_bytes, u8 *private_key, int private_bytes);
+	Connexion();
+	CAT_INLINE virtual ~Connexion() {}
 
 private:
-	static const int SESSION_KEY_BYTES = 32;
-	char _session_key[SESSION_KEY_BYTES];
+	u32 _flood_key;
+	u32 _key; // Map hash table index, unique for each active connection
+	Connexion *_next_delete;
+	ServerWorker *_server_worker;
 
-	Port _server_port;
-
-	ConnexionMap _conn_map;
-
-	CookieJar _cookie_jar;
-
-	KeyAgreementResponder _key_agreement_responder;
-	u8 _public_key[PUBLIC_KEY_BYTES];
+	u8 _first_challenge[64]; // First challenge seen from this client address
+	u8 _cached_answer[128]; // Cached answer to this first challenge, to avoid eating server CPU time
 
 private:
-	ServerWorker *FindLeastPopulatedPort();
+	// Return false to destroy this object
+	bool Tick(ThreadPoolLocalStorage *tls, u32 now);
 
-	void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes);
-	void OnClose();
+	void OnRawData(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes);
 
-	void PostConnectionCookie(const NetAddr &dest);
-	void PostConnectionError(const NetAddr &dest, HandshakeError err);
+	virtual bool PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes);
+	virtual void OnInternal(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes);
+
+public:
+	CAT_INLINE bool IsValid() { return _destroyed == 0; }
+	CAT_INLINE u32 GetKey() { return _key; }
+	CAT_INLINE u32 GetFloodKey() { return _flood_key; }
+
+	void Disconnect(u8 reason, bool notify);
 
 protected:
-	// Must return a new instance of your Connexion derivation
-	virtual Connexion *NewConnexion() = 0;
+	NetAddr _client_addr;
 
-	// IP address filter: Return true to allow the connection to be made
-	virtual bool AcceptNewConnexion(const NetAddr &src) = 0;
+	// Last time a packet was received from this user -- for disconnect timeouts
+	u32 _last_recv_tsc;
 
-	// Lookup client by key
-	Connexion *Lookup(u32 key);
+	bool _seen_encrypted;
+	AuthenticatedEncryption _auth_enc;
+
+protected:
+	virtual void OnConnect(ThreadPoolLocalStorage *tls) = 0;
+	virtual void OnDisconnect(u8 reason) = 0;
+	virtual void OnTick(ThreadPoolLocalStorage *tls, u32 now) = 0;
 };
 
 
@@ -101,4 +105,4 @@ protected:
 
 } // namespace cat
 
-#endif // CAT_SPHYNX_SERVER_HPP
+#endif // CAT_SPHYNX_CONNEXION_HPP

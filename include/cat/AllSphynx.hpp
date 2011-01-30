@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -26,34 +26,25 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_CONFIG_HPP
-#define CAT_CONFIG_HPP
+// Include all libcat Sphynx headers
 
-namespace cat {
+#include <cat/AllCommon.hpp>
+#include <cat/AllCrypt.hpp>
+#include <cat/AllMath.hpp>
+#include <cat/AllTunnel.hpp>
 
+#include <cat/net/Sockets.hpp>
 
-// This definition overrides CAT_BUILD_DLL below.  Neuters CAT_EXPORT macro so symbols are
-// neither exported or imported.
-#define CAT_NEUTER_EXPORT
+#include <cat/iocp/SendBuffer.hpp>
+#include <cat/iocp/IOThreads.hpp>
+#include <cat/iocp/UDPEndpoint.hpp>
 
-// This definition changes the meaning of the CAT_EXPORT macro on Windows.  When defined,
-// the CAT_EXPORT macro will export the associated symbol.  When undefined, it will import it.
-//#define CAT_BUILD_DLL
-
-// If you want to remove server-side code from a binary distribution of a client program:
-//#define CAT_OMIT_SERVER_CODE
-
-// If you know the endianness of your target, uncomment one of these for better performance.
-//#define __LITTLE_ENDIAN__
-//#define __BIG_ENDIAN__
-
-// If you want to use faster 384-bit or 512-bit math, define this:
-//#define CAT_UNROLL_OVER_256_BITS
-
-// Adjust if your architecture uses larger than 128-byte cache line
-#define CAT_DEFAULT_CACHE_LINE_SIZE 128
-
-
-} // namespace cat
-
-#endif // CAT_CONFIG_HPP
+#include <cat/sphynx/Common.hpp>
+#include <cat/sphynx/Connexion.hpp>
+#include <cat/sphynx/ConnexionMap.hpp>
+#include <cat/sphynx/Collexion.hpp>
+#include <cat/sphynx/Client.hpp>
+#include <cat/sphynx/FlowControl.hpp>
+#include <cat/sphynx/Server.hpp>
+#include <cat/sphynx/Transport.hpp>
+#include <cat/sphynx/WorkerThreads.hpp>

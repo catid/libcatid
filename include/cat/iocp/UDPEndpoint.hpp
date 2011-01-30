@@ -29,11 +29,13 @@
 #ifndef CAT_UDP_ENDPOINT_HPP
 #define CAT_UDP_ENDPOINT_HPP
 
+#include <cat/threads/RefObject.hpp>
+#include <cat/sphynx/WorkerThreads.hpp>
+
+#include <MSWSock.h>
+
 /*
 	Windows version of thread pool sockets with IO Completion Ports
-
-	Included from <cat/net/ThreadPoolSockets.hpp>
-	Do not include directly
 */
 
 namespace cat {
@@ -44,22 +46,17 @@ namespace cat {
 
     Object that represents a UDP endpoint bound to a single port
 */
-class UDPEndpoint : public ThreadRefObject
+class UDPEndpoint : public WorkerSession
 {
 	Socket _socket;
 	Port _port;
-	volatile u32 _closing;
 	bool _ipv6;
 
-	struct RecvFromTag
-	{
-		// Not necessarily an IPv6 address, but we allocate enough space for one
-		int addrLen;
-		sockaddr_in6 addr;
-	};
+	virtual void OnShutdownRequest();
+	virtual void OnZeroReferences();
 
 public:
-    UDPEndpoint(int priorityLevel);
+    UDPEndpoint();
     virtual ~UDPEndpoint();
 
 	CAT_INLINE bool Valid() { return _socket != SOCKET_ERROR; }
@@ -67,7 +64,6 @@ public:
 
 	// Is6() result is only valid AFTER Bind()
 	CAT_INLINE bool Is6() { return _ipv6; }
-	CAT_INLINE bool IsClosed() { return _closing != 0; }
 
     // For servers: Bind() with ignoreUnreachable = true ((default))
     // For clients: Bind() with ignoreUnreachable = false and call this
@@ -78,26 +74,20 @@ public:
 	bool DontFragment(bool df = true);
 
     void Close(); // Invalidates this object
-    bool Bind(bool onlySupportIPv4, Port port = 0, bool ignoreUnreachable = true, int kernelReceiveBufferBytes = 0);
+    bool Bind(IOThreads *iothreads, bool onlySupportIPv4, Port port = 0, bool ignoreUnreachable = true, int kernelReceiveBufferBytes = 0);
     bool QueueWSARecvFrom();
 
 	// If Is6() == true, the address must be promoted to IPv6
-	// before calling PostWrite() with addr.PromoteTo6()
-	bool Post(const NetAddr &addr, u8 *data, u32 data_bytes);
+	// before calling using addr.PromoteTo6()
+	bool Write(const NetAddr &addr, u8 *data, u32 data_bytes);
 
 private:
-	bool Read(AsyncBuffer *buffer = 0);
+	bool Read(IOTLS *tls);
 
-	bool OnReadComplete(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes);
-#if defined(CAT_WANT_WRITE_COMPLETION)
-	bool OnWriteComplete(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes);
-#endif
+	bool OnReadComplete(IOTLS *tls, u32 error, IOCPOverlapped *ov, u32 bytes, u32 event_time);
 
 protected:
-	virtual void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &addr, u8 *data, u32 bytes) = 0; // false = close
-#if defined(CAT_WANT_WRITE_COMPLETION)
-	virtual bool OnWrite(ThreadPoolLocalStorage *tls, AsyncBuffer *buffer, u32 bytes) { return true; } // false = do not delete AsyncBuffer object
-#endif
+	virtual void OnRead(const NetAddr &addr, u8 *data, u32 bytes) = 0; // false = close
 	virtual void OnClose() = 0;
     virtual void OnUnreachable(const NetAddr &addr) {} // Only IP is valid
 };
