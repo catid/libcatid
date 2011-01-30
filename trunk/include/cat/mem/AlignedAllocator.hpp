@@ -29,7 +29,7 @@
 #ifndef CAT_ALIGNED_ALLOCATOR_HPP
 #define CAT_ALIGNED_ALLOCATOR_HPP
 
-#include <cat/Platform.hpp>
+#include <cat/mem/IAllocator.hpp>
 
 #include <cstddef> // size_t
 #include <vector> // std::_Construct and std::_Destroy
@@ -142,22 +142,5 @@ public:
 
 
 } // namespace cat
-
-// Provide placement new constructor and delete pair to allow for
-// an easy syntax to create objects:
-//   T *a = new (AlignedAllocator::ii) T();
-// The object can be freed with:
-//   AlignedAllocator::Delete(a);
-// Which insures that the destructor is called before freeing memory
-CAT_INLINE void *operator new[](std::size_t bytes, cat::AlignedAllocator &) throw()
-{
-	return cat::AlignedAllocator::ii->Acquire((int)bytes);
-}
-
-// Placement "delete": Does not call destructor
-CAT_INLINE void operator delete(void *ptr, cat::AlignedAllocator &) throw()
-{
-	cat::AlignedAllocator::ii->Release(ptr);
-}
 
 #endif // CAT_ALIGNED_ALLOCATOR_HPP

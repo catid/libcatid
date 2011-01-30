@@ -111,6 +111,9 @@
     <ClCompile Include="..\..\src\port\SystemInfo.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\mem\StdAllocator.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\cat\AllCommon.hpp">
@@ -213,6 +216,9 @@
       <Filter>Header Files\port</Filter>
     </ClInclude>
     <ClInclude Include="..\..\include\cat\mem\IAllocator.hpp">
+      <Filter>Header Files\mem</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\mem\StdAllocator.hpp">
       <Filter>Header Files\mem</Filter>
     </ClInclude>
   </ItemGroup>

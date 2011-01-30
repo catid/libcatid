@@ -29,6 +29,7 @@
 #ifndef CAT_BUFFER_ALLOCATOR_HPP
 #define CAT_BUFFER_ALLOCATOR_HPP
 
+#include <cat/mem/IAllocator.hpp>
 #include <cat/threads/Mutex.hpp>
 
 #include <cstddef> // size_t
@@ -97,6 +98,5 @@ public:
 
 
 } // namespace cat
-
 
 #endif // CAT_BUFFER_ALLOCATOR_HPP

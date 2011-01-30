@@ -38,9 +38,8 @@ namespace cat {
 class RefObject
 {
 private:
-	volatile u32 _ref_count;
-	u8 _cache_line_padding[CAT_DEFAULT_CACHE_LINE_SIZE];
-	volatile u32 _shutdown;
+	volatile CAT_ALIGNED(CAT_DEFAULT_CACHE_LINE_SIZE) u32 _ref_count;
+	volatile CAT_ALIGNED(CAT_DEFAULT_CACHE_LINE_SIZE) u32 _shutdown;
 
 protected:
 	// Called when a shutdown is in progress
