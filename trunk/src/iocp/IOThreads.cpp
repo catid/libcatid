@@ -32,6 +32,10 @@
 #include <cat/io/Logging.hpp>
 using namespace cat;
 
+static const u32 IOTLS_BUFFER_DATA_BYTES = 1450;
+static const u32 IOTLS_BUFFER_TOTAL_BYTES = sizeof(IOCPOverlappedRecvFrom) + IOTLS_BUFFER_DATA_BYTES;
+static const u32 IOTLS_BUFFER_COUNT = 3000;
+
 static const u32 MAX_ENTRIES = 32;
 
 CAT_INLINE bool IOThread::HandleCompletion(IOTLS *tls, u32 event_time, OVERLAPPED_ENTRY entries[], u32 errors[], u32 count)
@@ -121,7 +125,7 @@ bool IOThread::ThreadFunction(void *vmaster)
 
 	IOThreads *master = reinterpret_cast<IOThreads*>( vmaster );
 
-	tls.allocator = new BufferAllocator(IOTLS_BUFFER_MIN_BYTES, IOTLS_BUFFER_COUNT);
+	tls.allocator = new BufferAllocator(IOTLS_BUFFER_TOTAL_BYTES, IOTLS_BUFFER_COUNT);
 
 	if (!tls.allocator || !tls.allocator->Valid())
 	{
