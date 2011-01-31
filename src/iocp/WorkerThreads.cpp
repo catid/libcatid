@@ -32,9 +32,41 @@
 #include <cat/io/Logging.hpp>
 using namespace cat;
 
+
+//// WorkerTLS
+
+WorkerTLS::WorkerTLS()
+{
+	// Create 256-bit math library instance
+	math = KeyAgreementCommon::InstantiateMath(256);
+
+	// Create CSPRNG instance
+	csprng = FortunaFactory::ref()->Create();
+}
+
+WorkerTLS::~WorkerTLS()
+{
+	if (math) delete math;
+	if (csprng) delete csprng;
+}
+
+bool WorkerTLS::Valid()
+{
+	return math && csprng;
+}
+
+
+//// WorkerThread
+
 WorkerThread::WorkerThread()
 {
 	_kill_flag = false;
+	_rpc_head = _rpc_tail = 0;
+
+	_new_workers_flag = false;
+	_new_head = 0;
+
+	_session_count = 0;
 }
 
 WorkerThread::~WorkerThread()
@@ -143,6 +175,23 @@ void WorkerThread::Add(WorkerSession *session)
 	session->AddRef();
 }
 
+void WorkerThread::QueueRecvFrom(OverlappedRecvFrom *ov)
+{
+	ov->next = 0;
+
+	_rpc_lock.Enter();
+
+	OverlappedRecvFrom *tail = _rpc_tail;
+	if (tail) tail->next = ov;
+	else _rpc_head = ov;
+
+	_rpc_tail = ov;
+
+	_rpc_lock.Leave();
+}
+
+
+//// WorkerThreads
 
 WorkerThreads::WorkerThreads()
 {
