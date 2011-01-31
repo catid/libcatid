@@ -85,8 +85,6 @@ private:
 
 	void ConnectFail(HandshakeError err);
 
-	bool ThreadFunction(void *param);
-
 	// Clock Synchronization
 	static const int TIME_SYNC_INTERVAL = 10000; // Normal time synch interval, milliseconds
 	static const int TIME_SYNC_FAST_COUNT = 8; // Number of fast measurements at the start, milliseconds

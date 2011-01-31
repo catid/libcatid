@@ -60,15 +60,11 @@ struct IOCPOverlapped
 	IOThreadCallback callback;
 };
 
-struct IOCPOverlappedRecvFrom : IOCPOverlapped
+struct IOCPOverlappedRecvFrom : public IOCPOverlapped
 {
 	int addr_len;
 	sockaddr_in6 addr;
 };
-
-static const u32 IOTLS_BUFFER_DATA_BYTES = 1450;
-static const u32 IOTLS_BUFFER_TOTAL_BYTES = sizeof(IOCPOverlappedRecvFrom) + IOTLS_BUFFER_DATA_BYTES;
-static const u32 IOTLS_BUFFER_COUNT = 3000;
 
 typedef BOOL (WINAPI *PtGetQueuedCompletionStatusEx)(
 	__in   HANDLE CompletionPort,

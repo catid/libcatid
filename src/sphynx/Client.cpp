@@ -44,7 +44,6 @@ using namespace sphynx;
 //// Client
 
 Client::Client()
-	: UDPEndpoint(REFOBJ_PRIO_0+4)
 {
 	_connected = false;
 	_last_send_mstsc = 0;
@@ -377,17 +376,8 @@ bool Client::PostTimePing()
 	return WriteUnreliableOOB(IOP_C2S_TIME_PING, &timestamp, sizeof(timestamp), SOP_INTERNAL);
 }
 
-bool Client::ThreadFunction(void *)
+void Client::OnTick(u32 now) 
 {
-	ThreadPoolLocalStorage tls;
-
-	if (!tls.Valid())
-	{
-		WARN("Client") << "Unable to create thread pool local storage";
-
-		return false;
-	}
-
 	u32 start_time = Clock::msec_fast();
 	u32 first_hello_post = start_time;
 	u32 last_hello_post = start_time;
@@ -447,7 +437,7 @@ bool Client::ThreadFunction(void *)
 		mtu_discovery_attempts = 0;
 	}
 	else if (!PostMTUProbe(&tls, MAXIMUM_MTU) ||
-			 !PostMTUProbe(&tls, MEDIUM_MTU))
+		!PostMTUProbe(&tls, MEDIUM_MTU))
 	{
 		WARN("Client") << "Unable to detect MTU: First probe post failure";
 	}
@@ -542,8 +532,6 @@ bool Client::ThreadFunction(void *)
 			next_sync_time = now + TIME_SYNC_INTERVAL;
 		}
 	}
-
-	return true;
 }
 
 bool Client::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes)
