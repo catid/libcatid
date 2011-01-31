@@ -33,12 +33,44 @@
 #include <cat/threads/RefObject.hpp>
 #include <cat/threads/WaitableFlag.hpp>
 #include <cat/threads/Mutex.hpp>
+#include <cat/iocp/IOThreads.hpp>
 
 namespace cat {
 
 
+class WorkerTLS;
 class WorkerThread;
 class WorkerThreads;
+union OverlappedRecvFrom;
+
+// bool WorkerThreadCallback(WorkerTLS *tls, OverlappedRecvFrom *ov)
+typedef fastdelegate::FastDelegate2<WorkerTLS *, OverlappedRecvFrom *, bool> WorkerThreadCallback;
+
+union OverlappedRecvFrom
+{
+	IOCPOverlappedRecvFrom io;
+
+	struct {
+		IAllocator *allocator;
+		WorkerThreadCallback callback;
+		u32 error;
+		u32 bytes;
+		u32 event_time;
+		OverlappedRecvFrom *next;
+	};
+};
+
+class WorkerTLS
+{
+public:
+	BigTwistedEdwards *math;
+	FortunaOutput *csprng;
+
+	WorkerTLS();
+	~WorkerTLS();
+
+	bool Valid();
+};
 
 // Base class for sessions
 class WorkerSession : public RefObject
@@ -69,6 +101,9 @@ class WorkerThread : public Thread
 	Mutex _new_workers_lock;
 	WorkerSession *_new_head;
 
+	Mutex _rpc_lock;
+	OverlappedRecvFrom *_rpc_head, *_rpc_tail;
+
 public:
 	WorkerThread();
 	virtual ~WorkerThread();
@@ -78,6 +113,7 @@ public:
 	CAT_INLINE void SetKillFlag() { _kill_flag = true; }
 
 	void Add(WorkerSession *session);
+	void QueueRecvFrom(OverlappedRecvFrom *ov);
 };
 
 
