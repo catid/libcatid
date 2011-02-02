@@ -53,7 +53,6 @@ union OverlappedRecvFrom
 	struct {
 		IAllocator *allocator;
 		WorkerThreadCallback callback;
-		u32 error;
 		u32 bytes;
 		u32 event_time;
 		OverlappedRecvFrom *next;
@@ -77,10 +76,13 @@ class WorkerSession : public RefObject
 {
 	friend class WorkerThread;
 
+	WorkerThread *_worker_thread;
 	WorkerSession *_next_worker;
 
 public:
 	CAT_INLINE virtual ~WorkerSession() {}
+
+	CAT_INLINE WorkerThreads *GetWorkerThread() { return _worker_thread; }
 
 	virtual void OnTick(u32 now) = 0;
 };

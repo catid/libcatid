@@ -78,8 +78,7 @@ private:
 private:
 	ServerWorker *FindLeastPopulatedPort();
 
-	void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes);
-	void OnClose();
+	virtual void OnRead(OverlappedRecvFrom *ov_rf, u32 bytes, u32 event_time);
 
 	void PostConnectionCookie(const NetAddr &dest);
 	void PostConnectionError(const NetAddr &dest, HandshakeError err);

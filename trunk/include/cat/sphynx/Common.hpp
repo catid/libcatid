@@ -31,6 +31,9 @@
 
 #include <cat/net/ThreadPoolSockets.hpp>
 
+// TODO: SendQueue needs callback for file transfer and support for large external data array
+// TODO: when sending a reliable message, pre-allocate the send queue node for zero-copy
+// TODO: when reading data from a set of datagrams, produce a single callback for the user also with an array of data
 // TODO: coalesce locks in TickTransport()
 // TODO: periodically reset the average trip time to avoid skewing statistics
 // TODO: make debug output optional with preprocessor flag
@@ -121,10 +124,10 @@ enum DisconnectReasons
 // Stream modes
 enum StreamMode
 {
-	STREAM_UNORDERED = 0,	// Reliable, unordered stream 0
-	STREAM_1 = 1,			// Reliable, ordered stream 1 (highest priority)
-	STREAM_2 = 2,			// Reliable, ordered stream 2
-	STREAM_3 = 3			// Reliable, ordered stream 3 (lowest priority)
+	STREAM_UNORDERED = 0,	// Reliable, unordered stream 0 (highest transmit priority)
+	STREAM_1 = 1,			// Reliable, ordered stream 1 (slightly lower priority)
+	STREAM_2 = 2,			// Reliable, ordered stream 2 (slightly lower priority)
+	STREAM_BULK = 3			// Reliable, ordered stream 3 (lowest priority data sent after all others)
 };
 
 // Super opcodes
@@ -145,7 +148,7 @@ enum InternalOpcode
 	IOP_S2C_MTU_SET = 244,		// s2c f4 (mtu[2]) MTU set message
 
 	IOP_C2S_TIME_PING = 17,		// c2s 11 (client timestamp[4]) Time synchronization ping
-	IOP_S2C_TIME_PONG = 138,	// c2s 8a (client timestamp[4]) (server timestamp[4]) Time synchronization pong
+	IOP_S2C_TIME_PONG = 138,	// s2c 8a (client timestamp[4]) (server timestamp[4]) Time synchronization pong
 
 	IOP_DISCO = 84				// c2s 54 (reason[1]) Disconnection notification
 };

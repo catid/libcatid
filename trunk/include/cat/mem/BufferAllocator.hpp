@@ -76,7 +76,7 @@ public:
 	BufferAllocator(u32 buffer_min_size, u32 buffer_count);
 	virtual ~BufferAllocator();
 
-	CAT_INLINE bool Valid() { return _buffers != 0; }
+	bool Valid() { return _buffers != 0; }
 
 	// Acquires buffer aligned to a CPU cache-line byte boundary from the heap
 	// Returns 0 if out of memory
@@ -90,10 +90,10 @@ public:
 
 	// Attempt to acquire a number of buffers
 	// Returns the number of valid buffers it was able to allocate
-	u32 AcquireMultiple(void **buffers, u32 count, u32 bytes);
+	u32 AcquireBatch(void *buffers[], u32 count, u32 bytes);
 
 	// Release a number of buffers simultaneously
-	void ReleaseMultiple(void **buffers, u32 count);
+	void ReleaseBatch(void *buffers[], u32 count);
 };
 
 

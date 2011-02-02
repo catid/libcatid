@@ -30,7 +30,6 @@
 #define CAT_SPHYNX_COLLEXION_HPP
 
 #include <cat/threads/Mutex.hpp>
-#include <cat/threads/RegionAllocator.hpp>
 #include <cat/sphynx/Common.hpp>
 
 namespace cat {

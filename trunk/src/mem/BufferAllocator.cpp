@@ -80,6 +80,7 @@ void *BufferAllocator::Acquire(u32 bytes)
 	// If the acquire list is empty,
 	if (!head)
 	{
+		// Time to escalate the lock
 		// Grab the release list and re-use it
 		_release_lock.Enter();
 
@@ -103,7 +104,7 @@ void *BufferAllocator::Acquire(u32 bytes)
 	return (u8*)head - (_buffer_bytes - sizeof(BufferTail));
 }
 
-u32 BufferAllocator::AcquireMultiple(void **buffers, u32 count, u32 bytes)
+u32 BufferAllocator::AcquireBatch(void *buffers[], u32 count, u32 bytes)
 {
 	u32 buffer_index = 0;
 	BufferTail *head;
@@ -118,6 +119,7 @@ u32 BufferAllocator::AcquireMultiple(void **buffers, u32 count, u32 bytes)
 	// If there are still requests to fill,
 	if (buffer_index < count)
 	{
+		// Time to escalate the lock
 		// Grab the release list and re-use it
 		_release_lock.Enter();
 
@@ -155,7 +157,7 @@ void BufferAllocator::Release(void *buffer)
 	_release_lock.Leave();
 }
 
-void BufferAllocator::ReleaseMultiple(void **buffers, u32 count)
+void BufferAllocator::ReleaseBatch(void *buffers[], u32 count)
 {
 	if (!count) return;
 
