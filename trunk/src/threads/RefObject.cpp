@@ -42,18 +42,21 @@ RefObjectWatch::~RefObjectWatch()
 	WaitForShutdown();
 }
 
-bool RefObjectWatch::WaitForShutdown(s32 milliseconds)
+bool RefObjectWatch::WaitForShutdown(bool request_shutdown, s32 milliseconds)
 {
 	AutoMutex lock(_lock);
 
 	if (_wait_count == 0) return true;
 
-	// For each object we haven't seen shutdown start yet,
-	for (std::list<RefObject*>::iterator ii = _watched_list.begin(); ii != _watched_list.end(); ++ii)
+	if (request_shutdown)
 	{
-		RefObject *obj = *ii;
+		// For each object we haven't seen shutdown start yet,
+		for (std::list<RefObject*>::iterator ii = _watched_list.begin(); ii != _watched_list.end(); ++ii)
+		{
+			RefObject *obj = *ii;
 
-		obj->RequestShutdown();
+			obj->RequestShutdown();
+		}
 	}
 
 	lock.Release();
