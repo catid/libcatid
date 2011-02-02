@@ -401,6 +401,10 @@
 					>
 				</File>
 				<File
+					RelativePath="..\..\include\cat\iocp\RecvBuffer.hpp"
+					>
+				</File>
+				<File
 					RelativePath="..\..\include\cat\iocp\SendBuffer.hpp"
 					>
 				</File>

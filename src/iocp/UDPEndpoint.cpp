@@ -34,9 +34,6 @@
 using namespace std;
 using namespace cat;
 
-
-//// UDP Endpoint
-
 void UDPEndpoint::OnShutdownRequest()
 {
 	if (_socket != SOCKET_ERROR)
@@ -170,6 +167,9 @@ bool UDPEndpoint::Bind(IOThreads *iothreads, bool onlySupportIPv4, Port port, bo
 		return false;
 	}
 
+	// Add references for all the reads assuming it will work out
+	AddRef(SIMULTANEOUS_READS);
+
 	// Put together a list of allocators to try
 	IAllocator *allocators[2];
 	allocators[0] = iothreads->GetAllocator();
@@ -181,6 +181,8 @@ bool UDPEndpoint::Bind(IOThreads *iothreads, bool onlySupportIPv4, Port port, bo
 	// If no reads could be posted,
 	if (read_count == 0)
 	{
+		ReleaseRef(SIMULTANEOUS_READS);
+
 		FATAL("UDPEndpoint") << "No reads could be launched";
 		CloseSocket(s);
 		_socket = SOCKET_ERROR;
@@ -188,6 +190,9 @@ bool UDPEndpoint::Bind(IOThreads *iothreads, bool onlySupportIPv4, Port port, bo
 	}
 	else if (read_count < SIMULTANEOUS_READS)
 	{
+		// Release references that were held for them
+		ReleaseRef(total_request_count - read_count);
+
 		WARN("UDPEndpoint") << "Only able to launch " << read_count << " reads out of " << SIMULTANEOUS_READS;
 	}
 
@@ -239,9 +244,6 @@ u32 UDPEndpoint::PostReads(u32 total_request_count, IAllocator *allocators[], u3
 	if (IsShutdown())
 		return 0;
 
-	// Add references for all the reads assuming it will work out
-	AddRef(total_request_count);
-
 	u32 read_count = 0;
 
 	IAllocator *allocator = allocators[0];
@@ -289,13 +291,6 @@ u32 UDPEndpoint::PostReads(u32 total_request_count, IAllocator *allocators[], u3
 			// Select next allocator
 			allocator = allocators[allocator_index];
 		}
-	}
-
-	// If not all buffer requests could be filled,
-	if (read_count < total_request_count)
-	{
-		// Release references that were held for them
-		ReleaseRef(total_request_count - read_count);
 	}
 
 	// Return number of reads that succeeded
@@ -369,6 +364,41 @@ u32 UDPEndpoint::Write(SendBuffer *buffers[], u32 total_count, const NetAddr &ad
 	// Release refs for failed writes
 	if (failed_writes) ReleaseRef(failed_writes);
 
+	// If there are no read buffers posted on the socket,
+	if (_buffers_posted == 0)
+	{
+		// Put together a list of allocators to try
+		IAllocator *allocators[2];
+		allocators[0] = iothreads->GetAllocator();
+
+#if defined(CAT_ALLOW_UNBOUNDED_RECV_BUFFERS)
+		allocators[1] = StdAllocator::ii;
+		static const u32 ALLOCATOR_COUNT = 2;
+#else
+		static const u32 ALLOCATOR_COUNT = 1;
+#endif
+
+		AddRef();
+
+		// Post just one buffer to keep at least one request out there
+		// Posting reads is expensive so only do this if we are desperate
+		u32 read_count = PostReads(1, allocators, ALLOCATOR_COUNT);
+
+		if (read_count)
+		{
+			// Increment the number of buffers posted
+			Atomic::Add(&_buffers_posted, 1);
+
+			WARN("UDPEndpoint") << "Write noticed reads were dry and posted one";
+		}
+		else
+		{
+			ReleaseRef();
+
+			WARN("UDPEndpoint") << "Write noticed reads were dry but could not help";
+		}
+	}
+
 	return failed_writes; // Return number of failed writes
 }
 
@@ -391,6 +421,12 @@ void UDPEndpoint::ReleaseReadBuffers(IOCPOverlappedRecvFrom *ov_recvfrom[], u32 
 			// Increment the number of buffers posted and pull it out of the count
 			Atomic::Add(&_buffers_posted, 1);
 			--count;
+
+			WARN("UDPEndpoint") << "Release noticed reads were dry and reposted one";
+		}
+		else
+		{
+			WARN("UDPEndpoint") << "Release noticed reads were dry but could not help";
 		}
 	}
 
@@ -433,13 +469,44 @@ void UDPEndpoint::OnRead(IOTLS *tls, IOCPOverlappedRecvFrom *ov_recvfrom[], u32 
 
 	// TODO: WorkerThreads interface here
 
-	// Post enough reads to fill in for the number that just completed
-	u32 posted_reads = PostReads(count, tls->allocators, IOTLS_NUM_ALLOCATORS);
+	// Check if new posts need to be made
+	u32 perceived_deficiency = SIMULTANEOUS_READS - _buffers_posted;
+	if ((s32)perceived_deficiency > 0)
+	{
+		// Race to replentish the buffers
+		u32 race_posted = Atomic::Add(&_buffers_posted, perceived_deficiency);
+ 
+		// If we lost the race to replentish,
+		if (race_posted >= SIMULTANEOUS_READS)
+		{
+			// Take it back
+			Atomic::Add(&_buffers_posted, 0 - perceived_deficiency);
+		}
+		else
+		{
+			// Set new post count to the perceived deficiency
+			count += perceived_deficiency;
 
-	// If there was a shortfall,
+			AddRef(perceived_deficiency);
+		}
+	}
+
+#if defined(CAT_ALLOW_UNBOUNDED_RECV_BUFFERS)
+	static const u32 ALLOCATOR_COUNT = 3;
+#else
+	static const u32 ALLOCATOR_COUNT = 2;
+#endif
+
+	// Post enough reads to fill in
+	u32 posted_reads = PostReads(count, tls->allocators, ALLOCATOR_COUNT);
+
+	// If not all posts succeeded,
 	if (posted_reads < count)
 	{
-		// Subtract the deficiency
-		Atomic::Add(&_buffers_posted, count - posted_reads);
+		// Subtract the number that failed
+		Atomic::Add(&_buffers_posted, posted_reads - count);
+
+		// Release references for the number that failed
+		ReleaseRef(count - posted_reads);
 	}
 }
