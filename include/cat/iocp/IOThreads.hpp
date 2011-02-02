@@ -34,6 +34,7 @@
 #include <cat/port/FastDelegate.h>
 #include <cat/threads/RefObject.hpp>
 #include <cat/mem/BufferAllocator.hpp>
+#include <cat/iocp/UDPEndpoint.hpp>
 
 #if defined(CAT_OS_WINDOWS)
 # include <cat/port/WindowsInclude.hpp>
@@ -45,19 +46,48 @@ namespace cat {
 struct IOCPOverlapped;
 struct IOTLS;
 
+static const u32 IOTHREADS_BUFFER_DATA_BYTES = 1450;
+static const u32 IOTHREADS_BUFFER_TOTAL_BYTES = sizeof(IOCPOverlappedRecvFrom) + IOTHREADS_BUFFER_DATA_BYTES;
+
+static const u32 IOTLS_BUFFER_COUNT = 3000;
+static const u32 IOTHREADS_BUFFER_COUNT = 10000;
+
 // bool IOThreadCallback(IOTLS *tls, u32 error, IOCPOverlapped *ov, u32 bytes, u32 event_time)
 typedef fastdelegate::FastDelegate5<IOTLS *, u32, IOCPOverlapped *, u32, u32, bool> IOThreadCallback;
 
+static const u32 IOTLS_NUM_ALLOCATORS = 2; // Only use buffer allocators, set to 3 for unbounded receive buffer
+
 struct IOTLS
 {
-	BufferAllocator *allocator;
+	// Allocators in order of preference:
+	// 1. Private buffer allocator
+	// 2. Shared buffer allocator
+	// 3. Runtime malloc
+	IAllocator *allocators[3];
+};
+
+enum IOType
+{
+	IOTYPE_UDP_SEND,
+	IOTYPE_UDP_RECV
 };
 
 struct IOCPOverlapped
 {
 	OVERLAPPED ov;
+
 	IAllocator *allocator;
-	IOThreadCallback callback;
+
+	// A value from enum IOType
+	u32 io_type;
+};
+
+struct IOCPOverlappedSendTo : public IOCPOverlapped
+{
+	// Next overlapped sendto in a set of buffers that were delivered.
+	// The IOThreads are responsible for walking this linked list and freeing
+	// all of them
+	IOCPOverlappedSendTo *next;
 };
 
 struct IOCPOverlappedRecvFrom : public IOCPOverlapped
@@ -77,16 +107,18 @@ typedef BOOL (WINAPI *PtGetQueuedCompletionStatusEx)(
 
 class IOThreads;
 
+
 // IOCP thread
 class IOThread : public Thread
 {
-	CAT_INLINE bool HandleCompletion(IOTLS *tls, u32 event_time, OVERLAPPED_ENTRY entries[], u32 errors[], u32 count);
+	CAT_INLINE bool HandleCompletion(IOTLS *tls, OVERLAPPED_ENTRY entries[], u32 count, u32 event_time);
 
-	void UseVistaAPI(IOThreads *master, IOTLS *tls);
-	void UsePreVistaAPI(IOThreads *master, IOTLS *tls);
+	void UseVistaAPI(IOTLS *tls, IOThreads *master);
+	void UsePreVistaAPI(IOTLS *tls, IOThreads *master);
 
-	virtual bool ThreadFunction(void *port);
+	virtual bool ThreadFunction(void *vmaster);
 };
+
 
 // IOCP threads
 class IOThreads
@@ -99,13 +131,17 @@ class IOThreads
 	PtGetQueuedCompletionStatusEx pGetQueuedCompletionStatusEx;
 	HANDLE _io_port;
 
+	BufferAllocator *_iothreads_allocator;
+
 public:
 	IOThreads();
 	virtual ~IOThreads();
 
+	CAT_INLINE BufferAllocator *GetAllocator() { return _iothreads_allocator; }
+
 	bool Startup();
 	bool Shutdown();
-	bool Associate(HANDLE h, RefObject *key);
+	bool Associate(UDPEndpoint *udp_endpoint);
 };
 
 

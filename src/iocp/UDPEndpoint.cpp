@@ -44,9 +44,6 @@ void UDPEndpoint::OnShutdownRequest()
 		CloseSocket(_socket);
 		_socket = SOCKET_ERROR;
 	}
-
-	// Allow the library user to react to closure sooner than the destructor.
-	OnClose();
 }
 
 void UDPEndpoint::OnZeroReferences()
@@ -64,6 +61,23 @@ UDPEndpoint::~UDPEndpoint()
 {
     if (_socket != SOCKET_ERROR)
         CloseSocket(_socket);
+}
+
+Port UDPEndpoint::GetPort()
+{
+	// Get bound port if it was random
+	if (_port == 0)
+	{
+		_port = GetBoundPort(_socket);
+
+		if (!_port)
+		{
+			WARN("UDPEndpoint") << "Unable to get own address: " << SocketGetLastErrorString();
+			return 0;
+		}
+	}
+
+	return _port;
 }
 
 bool UDPEndpoint::IgnoreUnreachable()
@@ -148,12 +162,33 @@ bool UDPEndpoint::Bind(IOThreads *iothreads, bool onlySupportIPv4, Port port, bo
     }
 
 	// Associate with IOThreads
-	if (!iothreads->Associate((HANDLE)s, this))
+	if (!iothreads->Associate(this))
 	{
-		FATAL("UDPEndpoint") << "Unable to associate with IO threads";
+		FATAL("UDPEndpoint") << "Unable to associate with IOThreads";
 		CloseSocket(s);
 		_socket = SOCKET_ERROR;
 		return false;
+	}
+
+	// Put together a list of allocators to try
+	IAllocator *allocators[2];
+	allocators[0] = iothreads->GetAllocator();
+	allocators[1] = StdAllocator::ii;
+
+	// Post reads for this socket
+	u32 read_count = PostReads(SIMULTANEOUS_READS, allocators, 2);
+
+	// If no reads could be posted,
+	if (read_count == 0)
+	{
+		FATAL("UDPEndpoint") << "No reads could be launched";
+		CloseSocket(s);
+		_socket = SOCKET_ERROR;
+		return false;
+	}
+	else if (read_count < SIMULTANEOUS_READS)
+	{
+		WARN("UDPEndpoint") << "Only able to launch " << read_count << " reads out of " << SIMULTANEOUS_READS;
 	}
 
     _port = port;
@@ -163,25 +198,101 @@ bool UDPEndpoint::Bind(IOThreads *iothreads, bool onlySupportIPv4, Port port, bo
     return true;
 }
 
-Port UDPEndpoint::GetPort()
-{
-    // Get bound port if it was random
-    if (_port == 0)
-    {
-		_port = GetBoundPort(_socket);
-
-		if (!_port)
-        {
-            WARN("UDPEndpoint") << "Unable to get own address: " << SocketGetLastErrorString();
-            return 0;
-        }
-    }
-
-    return _port;
-}
-
 
 //// Begin Event
+
+bool UDPEndpoint::PostRead(IOCPOverlappedRecvFrom *ov_recvfrom, IAllocator *allocator)
+{
+	CAT_OBJCLR(ov_recvfrom->ov);
+	ov_recvfrom->allocator = allocator;
+	ov_recvfrom->io_type = IOTYPE_UDP_RECV;
+	ov_recvfrom->addr_len = sizeof(ov_recvfrom->addr);
+
+	WSABUF wsabuf;
+	wsabuf.buf = reinterpret_cast<CHAR*>( GetTrailingBytes(ov_recvfrom) );
+	wsabuf.len = IOTHREADS_BUFFER_DATA_BYTES;
+
+	// Queue up a WSARecvFrom()
+	DWORD flags = 0, bytes;
+	int result = WSARecvFrom(_socket, &wsabuf, 1, &bytes, &flags,
+		reinterpret_cast<sockaddr*>( &buffer->addr ),
+		&buffer->addr_len, &buffer->ov, 0); 
+
+	// This overlapped operation will always complete unless
+	// we get an error code other than ERROR_IO_PENDING.
+	if (result && WSAGetLastError() != ERROR_IO_PENDING)
+	{
+		FATAL("UDPEndpoint") << "WSARecvFrom error: " << SocketGetLastErrorString();
+		return false;
+	}
+
+	return true;
+}
+
+u32 UDPEndpoint::PostReads(u32 total_request_count, IAllocator *allocators[], u32 allocator_count)
+{
+	if (IsShutdown())
+		return 0;
+
+	// Add references for all the reads assuming it will work out
+	AddRef(total_request_count);
+
+	u32 read_count = 0;
+
+	IAllocator *allocator = allocators[0];
+	u32 allocator_index = 0;
+
+	IOCPOverlappedRecvFrom *buffers[SIMULTANEOUS_READS];
+
+	// Loop while more buffers are needed
+	do 
+	{
+		u32 request_count = total_request_count;
+		if (request_count > SIMULTANEOUS_READS) request_count = SIMULTANEOUS_READS;
+
+		u32 buffer_count = allocator->AcquireBatch((void**)buffers, request_count, IOTHREADS_BUFFER_TOTAL_BYTES);
+
+		// For each allocated buffer,
+		for (u32 ii = 0; ii < buffer_count; ++ii)
+		{
+			// If unable to post a read,
+			if (!PostRead(allocator, buffers[ii]))
+			{
+				// Give up and release this buffer and the remaining ones
+				allocator->ReleaseBatch(buffers + ii, buffer_count - ii);
+
+				break;
+			}
+
+			// Another successful read
+			++read_count;
+		}
+
+		// If this allocator did not return all the requested buffers,
+		if (buffer_count < request_count)
+		{
+			// Try the next allocator
+			allocator_index++;
+
+			// If no additional allocators exist,
+			if (allocator_index >= allocator_count)
+				break;
+
+			// Select next allocator
+			allocator = allocators[allocator_index];
+		}
+	} while (read_count < total_request_count);
+
+	// If not all buffer requests could be filled,
+	if (read_count < total_request_count)
+	{
+		// Release references that were held for them
+		ReleaseRef(total_request_count - read_count);
+	}
+
+	// Return number of reads that succeeded
+	return read_count;
+}
 
 bool UDPEndpoint::Write(const NetAddr &addr, u8 *data, u32 data_bytes)
 {
@@ -213,8 +324,8 @@ bool UDPEndpoint::Write(const NetAddr &addr, u8 *data, u32 data_bytes)
 
 	// Fire off a WSASendTo() and forget about it
 	int result = WSASendTo(_socket, &wsabuf, 1, 0, 0,
-						   reinterpret_cast<const sockaddr*>( &out_addr ),
-						   addr_len, &buffer->ov, 0);
+		reinterpret_cast<const sockaddr*>( &out_addr ),
+		addr_len, &buffer->ov, 0);
 
 	// This overlapped operation will always complete unless
 	// we get an error code other than ERROR_IO_PENDING.
@@ -229,63 +340,24 @@ bool UDPEndpoint::Write(const NetAddr &addr, u8 *data, u32 data_bytes)
 	return true;
 }
 
-bool UDPEndpoint::Read(IOTLS *tls)
-{
-	if (IsShutdown())
-		return false;
-
-	IOCPOverlappedRecvFrom *buffer = reinterpret_cast<IOCPOverlappedRecvFrom*>( tls->allocator->Acquire(IOTLS_BUFFER_TOTAL_BYTES) );
-
-	// If unable to allocate a buffer,
-	if (!buffer)
-	{
-		WARN("UDPEndpoint") << "Out of memory: Unable to allocate RecvFrom overlapped structure";
-		return false;
-	}
-
-	CAT_OBJCLR(buffer->ov);
-	buffer->allocator = tls->allocator;
-	buffer->callback = fastdelegate::MakeDelegate(this, &UDPEndpoint::OnReadComplete);
-	buffer->addr_len = sizeof(buffer->addr);
-
-	WSABUF wsabuf;
-	wsabuf.buf = reinterpret_cast<CHAR*>( GetTrailingBytes(buffer) );
-	wsabuf.len = IOTLS_BUFFER_DATA_BYTES;
-
-	AddRef();
-
-	// Queue up a WSARecvFrom()
-	DWORD flags = 0, bytes;
-	int result = WSARecvFrom(_socket, &wsabuf, 1, &bytes, &flags,
-							 reinterpret_cast<sockaddr*>( &buffer->addr ),
-							 &buffer->addr_len, &buffer->ov, 0); 
-
-	// This overlapped operation will always complete unless
-	// we get an error code other than ERROR_IO_PENDING.
-	if (result && WSAGetLastError() != ERROR_IO_PENDING)
-	{
-		FATAL("UDPEndpoint") << "WSARecvFrom error: " << SocketGetLastErrorString();
-		tls->allocator->Release(buffer);
-		ReleaseRef();
-		return false;
-	}
-
-	return true;
-}
-
 
 //// Event Completion
 
-bool UDPEndpoint::OnReadComplete(ThreadPoolLocalStorage *tls, int error, AsyncBuffer *buffer, u32 bytes)
+void UDPEndpoint::OnRead(IOTLS *tls, IOCPOverlappedRecvFrom *ov_recvfrom[], u32 bytes[], u32 count, u32 event_time)
 {
-	RecvFromTag *tag;
-	buffer->GetTag(tag);
+	if (IsShutdown())
+		return true; // Delete buffer
 
+	u32 posted_reads = PostReads(count, tls->allocators, IOTLS_NUM_ALLOCATORS);
+
+	// TODO: Handle errors here
+
+/*
 	switch (error)
 	{
 	case 0:
 	case ERROR_MORE_DATA: // Truncated packet
-		OnRead(tls, tag->addr, buffer->GetData(), bytes);
+		OnRead(ov_rf, bytes, event_time);
 		break;
 
 	case ERROR_NETWORK_UNREACHABLE:
@@ -295,13 +367,9 @@ bool UDPEndpoint::OnReadComplete(ThreadPoolLocalStorage *tls, int error, AsyncBu
 		// ICMP Errors:
 		// These can be easily spoofed and should never be used to terminate a protocol.
 		// This callback should be ignored after the first packet is received from the remote host.
-		OnUnreachable(tag->addr);
+		OnUnreachable(ov_rf->addr);
 	}
+*/
 
-	if (!Read(buffer))
-	{
-		Close();
-	}
-
-	return false; // Do not delete AsyncBuffer object
+	return false; // Do not delete buffer
 }

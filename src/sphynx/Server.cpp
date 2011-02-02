@@ -303,8 +303,24 @@ void Server::PostConnectionError(const NetAddr &dest, HandshakeError err)
 	Post(dest, pkt, S2C_ERROR_LEN);
 }
 
-void Server::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes)
+void Server::OnRead(OverlappedRecvFrom *ov_rf, u32 bytes, u32 event_time)
 {
+	// They took the time to get the cookie right, might as well check if we know them
+	Connexion *existing_conn = _conn_map.Lookup(ov_rf->ov.addr);
+
+	if (existing_conn)
+	{
+		ov_rf->allocator = ov_rf->ov.allocator;
+		ov_rf->bytes = bytes;
+		ov_rf->callback = fastdelegate::MakeDelegate(existing_conn, &Connexion::OnRecvFrom);
+		ov_rf->event_time = event_time;
+
+		existing_conn->GetWorkerThread()->QueueRecvFrom(ov_rf);
+	}
+	else
+	{
+	}
+
 	if (bytes == C2S_HELLO_LEN && data[0] == C2S_HELLO)
 	{
 		// If magic does not match,

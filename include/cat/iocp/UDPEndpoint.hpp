@@ -30,22 +30,16 @@
 #define CAT_UDP_ENDPOINT_HPP
 
 #include <cat/threads/RefObject.hpp>
-#include <cat/sphynx/WorkerThreads.hpp>
-
-#include <MSWSock.h>
-
-/*
-	Windows version of thread pool sockets with IO Completion Ports
-*/
+#include <cat/iocp/IOThreads.hpp>
+#include <cat/iocp/WorkerThreads.hpp>
 
 namespace cat {
 
 
-/*
-    class UDPEndpoint
+// Number of reads outstanding on a UDP endpoint
+static const u32 SIMULTANEOUS_READS = 128;
 
-    Object that represents a UDP endpoint bound to a single port
-*/
+// Object that represents a UDP endpoint bound to a single port
 class UDPEndpoint : public WorkerSession
 {
 	Socket _socket;
@@ -60,6 +54,7 @@ public:
     virtual ~UDPEndpoint();
 
 	CAT_INLINE bool Valid() { return _socket != SOCKET_ERROR; }
+	CAT_INLINE Socket GetSocket() { return _socket; }
     Port GetPort();
 
 	// Is6() result is only valid AFTER Bind()
@@ -73,21 +68,23 @@ public:
 	// Disabled by default; useful for MTU discovery
 	bool DontFragment(bool df = true);
 
-    void Close(); // Invalidates this object
-    bool Bind(IOThreads *iothreads, bool onlySupportIPv4, Port port = 0, bool ignoreUnreachable = true, int kernelReceiveBufferBytes = 0);
-    bool QueueWSARecvFrom();
+public:
+	bool Bind(IOThreads *iothreads, bool onlySupportIPv4, Port port = 0, bool ignoreUnreachable = true, int kernelReceiveBufferBytes = 0);
 
 	// If Is6() == true, the address must be promoted to IPv6
 	// before calling using addr.PromoteTo6()
-	bool Write(const NetAddr &addr, u8 *data, u32 data_bytes);
+	bool Write(const NetAddr &addr, SendBuffer *buffers, u32 data_bytes);
 
 private:
-	bool Read(IOTLS *tls);
+	bool PostRead(IOCPOverlappedRecvFrom *ov_recvfrom, IAllocator *allocator);
 
-	bool OnReadComplete(IOTLS *tls, u32 error, IOCPOverlapped *ov, u32 bytes, u32 event_time);
+	// Returns the number of reads posted
+	u32 PostReads(u32 count, IAllocator *allocators[], u32 allocator_count);
+
+	void OnRead(IOTLS *tls, IOCPOverlappedRecvFrom *ov_recvfrom[], u32 bytes[], u32 count, u32 event_time);
 
 protected:
-	virtual void OnRead(const NetAddr &addr, u8 *data, u32 bytes) = 0; // false = close
+	virtual void OnRead(OverlappedRecvFrom *ov_rf, u32 bytes, u32 event_time) = 0;
 	virtual void OnClose() = 0;
     virtual void OnUnreachable(const NetAddr &addr) {} // Only IP is valid
 };

@@ -72,7 +72,7 @@ private:
 	// Return false to destroy this object
 	bool Tick(ThreadPoolLocalStorage *tls, u32 now);
 
-	void OnRawData(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes);
+	bool OnRecvFrom(WorkerTLS *tls, OverlappedRecvFrom *ov);
 
 	virtual bool PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes);
 	virtual void OnInternal(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes);

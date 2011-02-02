@@ -46,6 +46,7 @@ protected:
 	// The object should release any internally held references
 	// such as private threads that are working on the object
 	// Always called and before OnZeroReferences()
+	// Proper implementation of derived classes should call the parent version
 	virtual void OnShutdownRequest() = 0;
 
 	// Called when object has no more references
@@ -82,17 +83,17 @@ public:
 	CAT_INLINE bool IsShutdown() { return _shutdown != 0; }
 
 public:
-	CAT_INLINE void AddRef()
+	CAT_INLINE void AddRef(s32 times = 1)
 	{
-		// Increment reference count by 1
-		Atomic::Add(&_ref_count, 1);
+		// Increment reference count by # of times
+		Atomic::Add(&_ref_count, times);
 	}
 
-	CAT_INLINE void ReleaseRef()
+	CAT_INLINE void ReleaseRef(s32 times = 1)
 	{
-		// Decrement reference count by 1
+		// Decrement reference count by # of times
 		// If all references are gone,
-		if (Atomic::Add(&_ref_count, -1) == 1)
+		if (Atomic::Add(&_ref_count, -times) == times)
 		{
 			// Request shutdown to make sure shutdown callback is used
 			RequestShutdown();
