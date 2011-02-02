@@ -2,9 +2,9 @@
 <VisualStudioProject
 	ProjectType="Visual C++"
 	Version="9.00"
-	Name="Sphynx"
-	ProjectGUID="{513FAE82-B3D2-4804-AAA4-1B30B3CA350E}"
-	RootNamespace="Sphynx"
+	Name="Network"
+	ProjectGUID="{1A0860CD-3878-4B23-9B75-9F95B5555797}"
+	RootNamespace="Network"
 	TargetFrameworkVersion="196613"
 	>
 	<Platforms>
@@ -43,12 +43,15 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="../../include"
+				AdditionalIncludeDirectories="../../include/"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="$(ProjectDir)Precompiled.hpp"
 				WarningLevel="3"
 				DebugInformationFormat="4"
+				ForcedIncludeFiles="$(ProjectDir)Precompiled.hpp"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -113,11 +116,14 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
-				AdditionalIncludeDirectories="../../include"
+				AdditionalIncludeDirectories="../../include/"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="$(ProjectDir)Precompiled.hpp"
 				WarningLevel="3"
 				DebugInformationFormat="3"
+				ForcedIncludeFiles="$(ProjectDir)Precompiled.hpp"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -183,12 +189,15 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="../../include"
+				AdditionalIncludeDirectories="../../include/"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="$(ProjectDir)Precompiled.hpp"
 				WarningLevel="3"
 				DebugInformationFormat="3"
+				ForcedIncludeFiles="$(ProjectDir)Precompiled.hpp"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -254,11 +263,14 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
-				AdditionalIncludeDirectories="../../include"
+				AdditionalIncludeDirectories="../../include/"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="$(ProjectDir)Precompiled.hpp"
 				WarningLevel="3"
 				DebugInformationFormat="3"
+				ForcedIncludeFiles="$(ProjectDir)Precompiled.hpp"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -308,39 +320,51 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
-				RelativePath="..\..\src\sphynx\Client.cpp"
+				RelativePath="..\..\src\net\DNSClient.cpp"
 				>
 			</File>
 			<File
-				RelativePath="..\..\src\sphynx\Connexion.cpp"
+				RelativePath=".\Precompiled.cpp"
 				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="..\..\src\sphynx\ConnexionMap.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\src\sphynx\FlowControl.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\src\iocp\IOThreads.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\src\sphynx\Server.cpp"
+				RelativePath="..\..\src\net\Sockets.cpp"
 				>
 			</File>
 			<File
 				RelativePath="..\..\src\sphynx\Transport.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\src\iocp\UDPEndpoint.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\src\sphynx\WorkerThreads.cpp"
 				>
 			</File>
 		</Filter>
@@ -350,66 +374,22 @@
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
 			<File
-				RelativePath="..\..\include\cat\AllSphynx.hpp"
+				RelativePath="..\..\include\cat\AllNetwork.hpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Precompiled.hpp"
 				>
 			</File>
 			<Filter
-				Name="sphynx"
+				Name="net"
 				>
 				<File
-					RelativePath="..\..\include\cat\sphynx\Client.hpp"
+					RelativePath="..\..\include\cat\net\DNSClient.hpp"
 					>
 				</File>
 				<File
-					RelativePath="..\..\include\cat\sphynx\Collexion.hpp"
-					>
-				</File>
-				<File
-					RelativePath="..\..\include\cat\sphynx\Common.hpp"
-					>
-				</File>
-				<File
-					RelativePath="..\..\include\cat\sphynx\Connexion.hpp"
-					>
-				</File>
-				<File
-					RelativePath="..\..\include\cat\sphynx\ConnexionMap.hpp"
-					>
-				</File>
-				<File
-					RelativePath="..\..\include\cat\sphynx\FlowControl.hpp"
-					>
-				</File>
-				<File
-					RelativePath="..\..\include\cat\sphynx\Server.hpp"
-					>
-				</File>
-				<File
-					RelativePath="..\..\include\cat\sphynx\Transport.hpp"
-					>
-				</File>
-				<File
-					RelativePath="..\..\include\cat\sphynx\WorkerThreads.hpp"
-					>
-				</File>
-			</Filter>
-			<Filter
-				Name="iocp"
-				>
-				<File
-					RelativePath="..\..\include\cat\iocp\IOThreads.hpp"
-					>
-				</File>
-				<File
-					RelativePath="..\..\include\cat\iocp\RecvBuffer.hpp"
-					>
-				</File>
-				<File
-					RelativePath="..\..\include\cat\iocp\SendBuffer.hpp"
-					>
-				</File>
-				<File
-					RelativePath="..\..\include\cat\iocp\UDPEndpoint.hpp"
+					RelativePath="..\..\include\cat\net\Sockets.hpp"
 					>
 				</File>
 			</Filter>
