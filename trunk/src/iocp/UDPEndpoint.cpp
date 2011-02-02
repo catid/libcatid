@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -250,7 +250,7 @@ u32 UDPEndpoint::PostReads(u32 total_request_count, IAllocator *allocators[], u3
 	IOCPOverlappedRecvFrom *buffers[SIMULTANEOUS_READS];
 
 	// Loop while more buffers are needed
-	do 
+	while (read_count < total_request_count) 
 	{
 		u32 request_count = total_request_count;
 		if (request_count > SIMULTANEOUS_READS) request_count = SIMULTANEOUS_READS;
@@ -289,7 +289,7 @@ u32 UDPEndpoint::PostReads(u32 total_request_count, IAllocator *allocators[], u3
 			// Select next allocator
 			allocator = allocators[allocator_index];
 		}
-	} while (read_count < total_request_count);
+	}
 
 	// If not all buffer requests could be filled,
 	if (read_count < total_request_count)
@@ -302,132 +302,144 @@ u32 UDPEndpoint::PostReads(u32 total_request_count, IAllocator *allocators[], u3
 	return read_count;
 }
 
-bool UDPEndpoint::Write(const NetAddr &addr, u8 *data, u32 data_bytes)
+u32 UDPEndpoint::Write(SendBuffer *buffers[], u32 total_count, const NetAddr &addr);
 {
-	SendBuffer *buffer = SendBuffer::Promote(data);
-
-	if (IsShutdown())
-	{
-		buffer->Release();
-		return false;
-	}
-
-	// Unwrap NetAddr object to something sockaddr-compatible
 	NetAddr::SockAddr out_addr;
 	int addr_len;
-	if (!addr.Unwrap(out_addr, addr_len))
+
+	// If in the process of shutdown,
+	if (IsShutdown() || !addr.Unwrap(out_addr, addr_len))
 	{
-		buffer->Release();
-		return false;
+		// Release all the buffers as a batch, since their allocators are all the same
+		StdAllocator::ii->ReleaseBatch(buffers, total_count);
+		return total_count; // Return total failure
 	}
 
-	// Add a reference to this object until the write completes
-	AddRef();
+	// Add prospective references assuming no writes immediately fail
+	u32 expected_writes = CAT_CEIL_UNIT(total_count, SIMULTANEOUS_SENDS);
+	u32 failed_writes = 0;
+	AddRef(expected_writes);
 
-	WSABUF wsabuf;
-	wsabuf.buf = reinterpret_cast<CHAR*>( data );
-	wsabuf.len = data_bytes;
+	WSABUF wsabufs[SIMULTANEOUS_SENDS];
 
-	buffer->Reset();
-
-	// Fire off a WSASendTo() and forget about it
-	int result = WSASendTo(_socket, &wsabuf, 1, 0, 0,
-		reinterpret_cast<const sockaddr*>( &out_addr ),
-		addr_len, &buffer->ov, 0);
-
-	// This overlapped operation will always complete unless
-	// we get an error code other than ERROR_IO_PENDING.
-	if (result && WSAGetLastError() != ERROR_IO_PENDING)
+	// While there are more buffers to send,
+	while (total_count > 0)
 	{
-		WARN("UDPEndpoint") << "WSASendTo error: " << SocketGetLastErrorString();
-		buffer->Release();
-		ReleaseRef();
-		return false;
+		// Write up to SIMULTANEOUS_SENDS at a time
+		u32 request_count = total_count;
+		if (request_count > SIMULTANEOUS_SENDS) request_count = SIMULTANEOUS_SENDS;
+
+		// For each request,
+		for (u32 ii = 0; ii < request_count; ++ii)
+		{
+			wsabufs[ii].len = buffers[ii]->GetDataBytes();
+			wsabufs[ii].buf = (CHAR*)buffers[ii]->GetData();
+
+			buffers[ii]->Reset();
+
+			buffers[ii]->_next_buffer = &buffers[ii + 1];
+		}
+
+		// Set the final next buffer pointer to zero
+		buffers[request_count - 1]->_next_buffer = 0;
+
+		// Fire off a WSASendTo() and forget about it
+		int result = WSASendTo(_socket, wsabufs, request_count, 0, 0,
+			reinterpret_cast<const sockaddr*>( &out_addr ),
+			addr_len, &buffers[0]->ov, 0);
+
+		// This overlapped operation will always complete unless
+		// we get an error code other than ERROR_IO_PENDING.
+		if (result && WSAGetLastError() != ERROR_IO_PENDING)
+		{
+			WARN("UDPEndpoint") << "WSASendTo error: " << SocketGetLastErrorString();
+
+			// Release the whole batch of failed buffers
+			StdAllocator::ii->ReleaseBatch(buffers, request_count);
+
+			// Increment the fail count for later
+			failed_writes++;
+		}
+
+		// Add the request count to the number written so far
+		buffers += request_count;
+		total_count -= request_count;
 	}
 
-	return true;
+	// Release refs for failed writes
+	if (failed_writes) ReleaseRef(failed_writes);
+
+	return failed_writes; // Return number of failed writes
 }
 
 
 //// Event Completion
 
-void UDPEndpoint::ReturnReadBuffers(IOCPOverlappedRecvFrom *ov_recvfrom[], u32 count)
+void UDPEndpoint::ReleaseReadBuffers(IOCPOverlappedRecvFrom *ov_recvfrom[], u32 count)
 {
+	if (count <= 0) return;
+
 	u32 buffers_posted = 0;
 
-	if (_buffers_posted < SIMULTANEOUS_READS)
+	// If there are no buffers posted on the socket,
+	if (_buffers_posted == 0 && !IsShutdown())
 	{
-		s32 buffers_to_post;
-
-		// Calculate number of buffers to fill in
-		_buffer_deficiency_lock.Enter();
-		buffers_to_post = SIMULTANEOUS_READS - _buffers_posted;
-		if (buffers_to_post > 0)
+		// Re-use just one buffer to keep at least one request out there
+		// Posting reads is expensive so only do this if we are desperate
+		if (PostRead(ov_recvfrom[count-1]))
 		{
-			if (buffers_to_post > count) buffers_to_post = count;
-			_buffers_posted += buffers_to_post;
-		}
-		_buffer_deficiency_lock.Leave();
-
-		// For each buffer to post,
-		for (u32 ii = 0; ii < buffers_to_post; ++ii)
-		{
-			// If post fails,
-			if (!PostRead(ov_recvfrom[ii]))
-			{
-				break;
-			}
-
-			++buffers_posted;
+			// Increment the number of buffers posted and pull it out of the count
+			Atomic::Add(&_buffers_posted, 1);
+			--count;
 		}
 	}
 
-	// TODO: Release refs
+	if (count <= 0) return;
+
+	// For each buffer to deallocate,
+	IAllocator *allocator = ov_recvfrom[0]->allocator;
+	u32 ii, last_ii;
+	for (last_ii = 0, ii = 1; ii < count; ++ii)
+	{
+		IAllocator *new_allocator = ov_recvfrom[ii]->allocator;
+
+		// If allocator has changed,
+		if (allocator != new_allocator)
+		{
+			// Release the batch so far
+			allocator->ReleaseBatch((void**)ov_recvfrom, ii - last_ii);
+
+			last_ii = ii;
+			allocator = new_allocator;
+		}
+	}
+
+	// Release the remaining batch
+	allocator->ReleaseBatch((void**)ov_recvfrom, ii - last_ii);
 
 	// Release one reference for each buffer
 	ReleaseRef(count);
-
-	// TODO: Release buffers here
 }
 
 void UDPEndpoint::OnRead(IOTLS *tls, IOCPOverlappedRecvFrom *ov_recvfrom[], u32 bytes[], u32 count, u32 event_time)
 {
-	// Subtract the number of completed buffers from the post count
-	_buffer_deficiency_lock.Enter();
-	_buffers_posted -= count;
-	_buffer_deficiency_lock.Leave();
-
+	// If reads completed during shutdown,
 	if (IsShutdown())
-		return true; // Delete buffer
+	{
+		// Just release the read buffers
+		ReleaseReadBuffers(ov_recvfrom, count);
+		return;
+	}
 
 	// TODO: WorkerThreads interface here
-
-	// TODO: Handle errors here
-
-/*
-	switch (error)
-	{
-	case 0:
-	case ERROR_MORE_DATA: // Truncated packet
-		OnRead(ov_rf, bytes, event_time);
-		break;
-
-	case ERROR_NETWORK_UNREACHABLE:
-	case ERROR_HOST_UNREACHABLE:
-	case ERROR_PROTOCOL_UNREACHABLE:
-	case ERROR_PORT_UNREACHABLE:
-		// ICMP Errors:
-		// These can be easily spoofed and should never be used to terminate a protocol.
-		// This callback should be ignored after the first packet is received from the remote host.
-		OnUnreachable(ov_rf->addr);
-	}
-*/
 
 	// Post enough reads to fill in for the number that just completed
 	u32 posted_reads = PostReads(count, tls->allocators, IOTLS_NUM_ALLOCATORS);
 
-	// Replace missing reads with the posted ones
-	_buffer_deficiency_lock.Enter();
-	_buffers_posted += posted_reads;
-	_buffer_deficiency_lock.Leave();
+	// If there was a shortfall,
+	if (posted_reads < count)
+	{
+		// Subtract the deficiency
+		Atomic::Add(&_buffers_posted, count - posted_reads);
+	}
 }

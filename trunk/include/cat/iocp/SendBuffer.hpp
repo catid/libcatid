@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -35,15 +35,23 @@
 namespace cat {
 
 
-// A growing, aligned buffer specialized for writing to a socket
+// A buffer specialized for writing to a socket
 class SendBuffer : public IOCPOverlapped
 {
+	friend class UDPEndpoint;
+
+	SendBuffer *_next_buffer;
+	u32 _data_bytes;
+
 	u8 _data[1];
 
 public:
+	CAT_INLINE u8 *GetData() { return _data; }
+	CAT_INLINE u32 GetDataBytes() { return _data_bytes; }
+
 	CAT_INLINE void Reset(u64 offset = 0)
 	{
-		allocator = AlignedAllocator::ii;
+		allocator = StdAllocator::ii;
 
 		ov.hEvent = 0;
 		ov.Internal = 0;
@@ -51,7 +59,7 @@ public:
 		ov.OffsetHigh = (u32)(offset >> 32);
 		ov.Offset = (u32)offset;
 
-		callback.clear();
+		io_type = IOTYPE_UDP_SEND;
 	}
 
 public:
@@ -61,9 +69,10 @@ public:
 		const u32 OVERHEAD_BYTES = (u32)(offsetof(SendBuffer, _data));
 
 		SendBuffer *buffer = reinterpret_cast<SendBuffer*>(
-			AlignedAllocator::ii->Acquire(OVERHEAD_BYTES + data_bytes) );
+			StdAllocator::ii->Acquire(OVERHEAD_BYTES + data_bytes) );
 
 		if (!buffer) return 0;
+		buffer->_data_bytes = data_bytes;
 		return (ptr = buffer);
 	}
 
@@ -74,6 +83,7 @@ public:
 
 		if (!Acquire(buffer, data_bytes)) return 0;
 
+		buffer->_data_bytes = data_bytes;
 		return buffer->_data;
 	}
 
@@ -85,6 +95,7 @@ public:
 
 		if (!Acquire(buffer, sizeof(T))) return 0;
 
+		buffer->_data_bytes = sizeof(T);
 		return (data = reinterpret_cast<T*>( buffer->_data ));
 	}
 
@@ -96,9 +107,10 @@ public:
 		const u32 OVERHEAD_BYTES = (u32)(offsetof(SendBuffer, _data));
 
 		SendBuffer *buffer = reinterpret_cast<SendBuffer*>(
-			AlignedAllocator::ii->Resize(this, OVERHEAD_BYTES + data_bytes) );
+			StdAllocator::ii->Resize(this, OVERHEAD_BYTES + data_bytes) );
 
 		if (!buffer) return 0;
+		buffer->_data_bytes = data_bytes;
 		return buffer;
 	}
 
@@ -116,6 +128,7 @@ public:
 		buffer = buffer->Resize(data_bytes);
 
 		if (!buffer) return 0;
+		buffer->_data_bytes = data_bytes;
 		return buffer->_data;
 	}
 
@@ -134,18 +147,18 @@ public:
 	// Release memory
 	CAT_INLINE void Release()
 	{
-		AlignedAllocator::ii->Release(this);
+		StdAllocator::ii->Release(this);
 	}
 
 	static CAT_INLINE void Release(SendBuffer *buffer)
 	{
-		AlignedAllocator::ii->Release(buffer);
+		StdAllocator::ii->Release(buffer);
 	}
 
 	static CAT_INLINE void Release(void *vdata)
 	{
 		SendBuffer *buffer = Promote(vdata);
-		if (buffer) AlignedAllocator::ii->Release(buffer);
+		if (buffer) StdAllocator::ii->Release(buffer);
 	}
 };
 
