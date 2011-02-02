@@ -1,0 +1,104 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Header Files\net">
+      <UniqueIdentifier>{ca38d642-904c-46f4-8986-89b87ad8ecc2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\iocp">
+      <UniqueIdentifier>{21625147-6bf3-4a2a-8556-2bc06b3bb5a2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\sphynx">
+      <UniqueIdentifier>{b117f85b-aee3-4223-bdad-5dd210752cda}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\src\net\Sockets.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Precompiled.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\iocp\UDPEndpoint.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\iocp\IOThreads.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\sphynx\FlowControl.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\sphynx\Server.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\sphynx\Transport.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\sphynx\Client.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\sphynx\ConnexionMap.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\sphynx\Connexion.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\iocp\WorkerThreads.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Precompiled.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\net\Sockets.hpp">
+      <Filter>Header Files\net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\iocp\UDPEndpoint.hpp">
+      <Filter>Header Files\iocp</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\iocp\IOThreads.hpp">
+      <Filter>Header Files\iocp</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\sphynx\Collexion.hpp">
+      <Filter>Header Files\sphynx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\sphynx\Common.hpp">
+      <Filter>Header Files\sphynx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\sphynx\FlowControl.hpp">
+      <Filter>Header Files\sphynx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\sphynx\Server.hpp">
+      <Filter>Header Files\sphynx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\sphynx\Transport.hpp">
+      <Filter>Header Files\sphynx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\sphynx\Client.hpp">
+      <Filter>Header Files\sphynx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\sphynx\Connexion.hpp">
+      <Filter>Header Files\sphynx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\sphynx\ConnexionMap.hpp">
+      <Filter>Header Files\sphynx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\AllSphynx.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\iocp\SendBuffer.hpp">
+      <Filter>Header Files\iocp</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\iocp\WorkerThreads.hpp">
+      <Filter>Header Files\iocp</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
