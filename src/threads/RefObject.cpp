@@ -42,12 +42,13 @@ RefObjectWatch::~RefObjectWatch()
 	WaitForShutdown();
 }
 
-bool RefObjectWatch::WaitForShutdown(bool request_shutdown, s32 milliseconds)
+bool RefObjectWatch::WaitForShutdown(s32 milliseconds, bool request_shutdown)
 {
 	AutoMutex lock(_lock);
 
 	if (_wait_count == 0) return true;
 
+	// If user wants to shutdown watched objects,
 	if (request_shutdown)
 	{
 		// For each object we haven't seen shutdown start yet,
