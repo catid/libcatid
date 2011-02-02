@@ -76,13 +76,13 @@ class WorkerSession : public RefObject
 {
 	friend class WorkerThread;
 
-	WorkerThread *_worker_thread;
+	u32 _worker_id;
 	WorkerSession *_next_worker;
 
 public:
 	CAT_INLINE virtual ~WorkerSession() {}
 
-	CAT_INLINE WorkerThreads *GetWorkerThread() { return _worker_thread; }
+	CAT_INLINE u32 GetWorkerID() { return _worker_id; }
 
 	virtual void OnTick(u32 now) = 0;
 };

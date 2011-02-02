@@ -173,6 +173,7 @@
     <ClCompile Include="..\..\src\parse\BufferTok.cpp" />
     <ClCompile Include="..\..\src\parse\MessageRouter.cpp" />
     <ClCompile Include="..\..\src\port\SystemInfo.cpp" />
+    <ClCompile Include="..\..\src\threads\RefObject.cpp" />
     <ClCompile Include="..\..\src\threads\Thread.cpp" />
     <ClCompile Include="..\..\src\threads\WaitableFlag.cpp" />
     <ClCompile Include="..\..\src\time\Clock.cpp" />
