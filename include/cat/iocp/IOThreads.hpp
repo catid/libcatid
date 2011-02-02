@@ -82,14 +82,6 @@ struct IOCPOverlapped
 	u32 io_type;
 };
 
-struct IOCPOverlappedSendTo : public IOCPOverlapped
-{
-	// Next overlapped sendto in a set of buffers that were delivered.
-	// The IOThreads are responsible for walking this linked list and freeing
-	// all of them
-	IOCPOverlappedSendTo *next;
-};
-
 struct IOCPOverlappedRecvFrom : public IOCPOverlapped
 {
 	int addr_len;

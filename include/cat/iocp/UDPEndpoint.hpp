@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -36,14 +36,14 @@
 namespace cat {
 
 
-// Number of reads outstanding on a UDP endpoint
+// Number of IO outstanding on a UDP endpoint
 static const u32 SIMULTANEOUS_READS = 128;
+static const u32 SIMULTANEOUS_SENDS = 128;
 
 // Object that represents a UDP endpoint bound to a single port
 class UDPEndpoint : public WorkerSession
 {
-	Mutex _buffer_deficiency_lock;
-	volatile u32 _buffers_posted; // Number of buffers we couldn't allocate
+	volatile u32 _buffers_posted; // Number of buffers posted to the socket waiting for data
 
 	Socket _socket;
 	Port _port;
@@ -76,10 +76,10 @@ public:
 
 	// If Is6() == true, the address must be promoted to IPv6
 	// before calling using addr.PromoteTo6()
-	bool Write(const NetAddr &addr, SendBuffer *buffers, u32 data_bytes);
+	u32 Write(SendBuffer *buffers[], u32 count, const NetAddr &addr);
 
 	// When done with read buffers, call this function to add them back to the available pool
-	void ReturnReadBuffers(IOCPOverlappedRecvFrom *ov_recvfrom[], u32 count);
+	void ReleaseReadBuffers(IOCPOverlappedRecvFrom *ov_recvfrom[], u32 count);
 
 private:
 	bool PostRead(IOCPOverlappedRecvFrom *ov_recvfrom);

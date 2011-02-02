@@ -38,7 +38,7 @@ BufferAllocator::BufferAllocator(u32 buffer_min_size, u32 buffer_count)
 	if (buffer_count < 4) buffer_count = 4;
 
 	u32 cache_line_bytes = system_info.CacheLineBytes;
-	u32 buffer_bytes = CAT_CEIL_UNIT(buffer_min_size + sizeof(BufferTail), cache_line_bytes);
+	u32 buffer_bytes = CAT_CEIL(buffer_min_size + sizeof(BufferTail), cache_line_bytes);
 	u32 total_bytes = buffer_count * buffer_bytes;
 	u8 *buffers = (u8*)LargeAllocator::ii->Acquire(total_bytes);
 
