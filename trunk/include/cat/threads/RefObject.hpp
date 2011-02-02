@@ -162,7 +162,7 @@ public:
 
 public:
 	// Wait for watched objects to finish shutdown, returns false on timeout
-	bool WaitForShutdown(bool request_shutdown = true, s32 milliseconds = -1); // < 0 = wait forever
+	bool WaitForShutdown(s32 milliseconds = -1, bool request_shutdown = true); // < 0 = wait forever
 
 public:
 	void Watch(RefObject *obj);
