@@ -55,14 +55,14 @@ static const u32 IOTHREADS_BUFFER_COUNT = 10000;
 // bool IOThreadCallback(IOTLS *tls, u32 error, IOCPOverlapped *ov, u32 bytes, u32 event_time)
 typedef fastdelegate::FastDelegate5<IOTLS *, u32, IOCPOverlapped *, u32, u32, bool> IOThreadCallback;
 
-static const u32 IOTLS_NUM_ALLOCATORS = 2; // Only use buffer allocators, set to 3 for unbounded receive buffer
+//#define CAT_ALLOW_UNBOUNDED_RECV_BUFFERS
 
 struct IOTLS
 {
 	// Allocators in order of preference:
 	// 1. Private buffer allocator
 	// 2. Shared buffer allocator
-	// 3. Runtime malloc
+	// 3. Runtime malloc (only used if CAT_ALLOW_UNBOUNDED_RECV_BUFFERS)
 	IAllocator *allocators[3];
 };
 
