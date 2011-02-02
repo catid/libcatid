@@ -113,7 +113,12 @@ int main()
 		FatalStop("WorkerThreads subsystem failed to initialize");
 	}
 
-	INFO("Client") << "Secure Chat Client 1.1";
+	// Watcher for shutdown events
+	RefObjectWatch watcher;
+
+	INFO("Client") << "Secure Chat Client 2.0";
+
+	GameClient *client;
 
 	{
 		ThreadPoolLocalStorage tls;
@@ -135,26 +140,24 @@ int main()
 			FATAL("Client") << "Public key from file is wrong length";
 		}
 
-		for (int ii = 0; ii < 1; ++ii)
+		client = new GameClient;
+		watcher.Watch(client);
+
+		const char *SessionKey = "Chat";
+
+		if (!client->SetServerKey(&tls, server_public_key, sizeof(server_public_key), SessionKey))
 		{
-			GameClient *client = new GameClient;
+			FATAL("Client") << "Provided server key invalid";
+		}
 
-			const char *SessionKey = "Chat";
-
-			if (!client->SetServerKey(&tls, server_public_key, sizeof(server_public_key), SessionKey))
-			{
-				FATAL("Client") << "Provided server key invalid";
-			}
-
-			// loopback: 127.0.0.1
-			// desktop: 10.1.1.142
-			// linux: 10.1.1.146
-			// netbook: 10.1.1.110
-			// coldfront: 68.84.166.22
-			if (!client->Connect("68.84.166.22", 22000))
-			{
-				FATAL("Client") << "Unable to connect to server";
-			}
+		// loopback: 127.0.0.1
+		// desktop: 10.1.1.142
+		// linux: 10.1.1.146
+		// netbook: 10.1.1.110
+		// coldfront: 68.84.166.22
+		if (!client->Connect("68.84.166.22", 22000))
+		{
+			FATAL("Client") << "Unable to connect to server";
 		}
 
 		while (!kbhit())
@@ -163,7 +166,10 @@ int main()
 		}
 	}
 
-	// TODO: Need to do some kind of shutdown code here
+	if (!watcher.WaitForShutdown())
+	{
+		WARN("ChatClient") << "Wait for shutdown expired";
+	}
 
 	// Terminate Worker threads
 	worker_threads.Shutdown();

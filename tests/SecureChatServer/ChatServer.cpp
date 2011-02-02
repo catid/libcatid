@@ -110,7 +110,7 @@ int main()
 		FatalStop("WorkerThreads subsystem failed to initialize");
 	}
 
-	INFO("Server") << "Secure Chat Server 1.1";
+	INFO("Server") << "Secure Chat Server 2.0";
 
 	GameServer *server = new GameServer;
 	const Port SERVER_PORT = 22000;

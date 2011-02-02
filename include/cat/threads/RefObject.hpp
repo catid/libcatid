@@ -30,26 +30,36 @@
 #define CAT_REF_OBJECT_HPP
 
 #include <cat/threads/Atomic.hpp>
+#include <cat/threads/WaitableFlag.hpp>
 
 #if defined(CAT_NO_ATOMIC_ADD) || defined(CAT_NO_ATOMIC_SET)
 #include <cat/threads/Mutex.hpp>
 #define CAT_NO_ATOMIC_REF_OBJECT
 #endif
 
+#include <vector>
+#include <list>
+
 namespace cat {
 
 
-// Classes that derive from RefObject have asynchonously managed lifetimes
+class RefObject;
+class RefObjectWatch;
+
+
+// Classes that derive from RefObject have asynchronously managed lifetimes
 class RefObject
 {
-private:
-#if defined(CAT_NO_ATOMIC_REF_OBJECT)
+	friend class RefObjectWatch;
+
 	Mutex _lock;
-#endif
+	std::vector<RefObjectWatch*> _watchers;
 
 	volatile u32 _ref_count;
 	u8 _packing[CAT_DEFAULT_CACHE_LINE_SIZE];
 	volatile u32 _shutdown;
+
+	void ShutdownComplete(bool delete_this);
 
 protected:
 	// Called when a shutdown is in progress
@@ -60,9 +70,9 @@ protected:
 	virtual void OnShutdownRequest() = 0;
 
 	// Called when object has no more references
-	// The object should delete itself in response
+	// Return true to delete the object
 	// Always called and after OnShutdownRequest()
-	virtual void OnZeroReferences() = 0;
+	virtual bool OnZeroReferences() = 0;
 
 public:
 	CAT_INLINE RefObject()
@@ -77,29 +87,7 @@ public:
 	CAT_INLINE virtual ~RefObject() {}
 
 public:
-	CAT_INLINE void RequestShutdown()
-	{
-		// Raise shutdown flag
-#if defined(CAT_NO_ATOMIC_REF_OBJECT)
-		u32 shutdown;
-
-		_lock.Enter();
-		shutdown = _shutdown;
-		_shutdown = 1;
-		_lock.Leave();
-
-		if (shutdown == 0)
-#else
-		if (Atomic::Set(&_shutdown, 1) == 0)
-#endif
-		{
-			// Notify the derived class on the first shutdown request
-			OnShutdownRequest();
-
-			// Release the initial reference to allow OnZeroReference()
-			ReleaseRef();
-		}
-	}
+	void RequestShutdown();
 
 	CAT_INLINE bool IsShutdown() { return _shutdown != 0; }
 
@@ -125,7 +113,7 @@ public:
 
 		_lock.Enter();
 		ref_count = _ref_count;
-		_ref_count += times;
+		_ref_count -= times;
 		_lock.Leave();
 
 		if (ref_count == times)
@@ -137,7 +125,7 @@ public:
 			RequestShutdown();
 
 			// Then proceed to call zero references callback
-			OnZeroReferences();
+			ShutdownComplete(OnZeroReferences());
 		}
 	}
 
@@ -151,6 +139,33 @@ public:
 			object = 0;
 		}
 	}
+};
+
+
+// Mechanism to wait for reference-counted objects to finish shutting down
+class RefObjectWatch
+{
+	friend class RefObject;
+
+	Mutex _lock;
+	std::list<RefObject*> _watched_list;
+	u32 _wait_count;
+
+	WaitableFlag _shutdown_flag;
+
+	bool OnObjectShutdownStart(RefObject *obj);
+	void OnObjectShutdownEnd(RefObject *obj);
+
+public:
+	RefObjectWatch();
+	virtual ~RefObjectWatch();
+
+public:
+	// Wait for watched objects to finish shutdown, returns false on timeout
+	bool WaitForShutdown(s32 milliseconds = -1); // < 0 = wait forever
+
+public:
+	void Watch(RefObject *obj);
 };
 
 

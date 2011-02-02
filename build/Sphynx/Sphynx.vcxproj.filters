@@ -50,7 +50,7 @@
     <ClCompile Include="..\..\src\sphynx\Connexion.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\iocp\WorkerThreads.cpp">
+    <ClCompile Include="..\..\src\sphynx\WorkerThreads.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -97,8 +97,11 @@
     <ClInclude Include="..\..\include\cat\iocp\SendBuffer.hpp">
       <Filter>Header Files\iocp</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\cat\iocp\WorkerThreads.hpp">
+    <ClInclude Include="..\..\include\cat\iocp\RecvBuffer.hpp">
       <Filter>Header Files\iocp</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\sphynx\WorkerThreads.hpp">
+      <Filter>Header Files\sphynx</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
