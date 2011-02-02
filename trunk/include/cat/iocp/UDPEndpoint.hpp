@@ -42,6 +42,9 @@ static const u32 SIMULTANEOUS_READS = 128;
 // Object that represents a UDP endpoint bound to a single port
 class UDPEndpoint : public WorkerSession
 {
+	Mutex _buffer_deficiency_lock;
+	volatile u32 _buffers_posted; // Number of buffers we couldn't allocate
+
 	Socket _socket;
 	Port _port;
 	bool _ipv6;
@@ -75,8 +78,11 @@ public:
 	// before calling using addr.PromoteTo6()
 	bool Write(const NetAddr &addr, SendBuffer *buffers, u32 data_bytes);
 
+	// When done with read buffers, call this function to add them back to the available pool
+	void ReturnReadBuffers(IOCPOverlappedRecvFrom *ov_recvfrom[], u32 count);
+
 private:
-	bool PostRead(IOCPOverlappedRecvFrom *ov_recvfrom, IAllocator *allocator);
+	bool PostRead(IOCPOverlappedRecvFrom *ov_recvfrom);
 
 	// Returns the number of reads posted
 	u32 PostReads(u32 count, IAllocator *allocators[], u32 allocator_count);
