@@ -51,9 +51,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOTLS *tls, OVERLAPPED_ENTRY entries[
 	u32 recv_list_size = 0;
 	UDPEndpoint *prev_recv_endpoint = 0;
 
-	// Batch release references
-	UDPEndpoint *prev_endpoint = 0;
-	s32 batched_refs = 0;
+	bool exit_flag = false;
 
 	for (u32 ii = 0; ii < count; ++ii)
 	{
@@ -62,7 +60,11 @@ CAT_INLINE bool IOThread::HandleCompletion(IOTLS *tls, OVERLAPPED_ENTRY entries[
 		u32 bytes = entries[ii].dwNumberOfBytesTransferred;
 
 		// Terminate thread on zero completion
-		if (!ov_iocp) return true;
+		if (!ov_iocp)
+		{
+			exit_flag = true;
+			continue;
+		}
 
 		// Based on type of IO,
 		switch (ov_iocp->io_type)
@@ -125,25 +127,6 @@ CAT_INLINE bool IOThread::HandleCompletion(IOTLS *tls, OVERLAPPED_ENTRY entries[
 			}
 			break;
 		}
-
-		// If the same endpoint received another event,
-		if (udp_endpoint == prev_endpoint)
-		{
-			// Incremented the batched refs
-			++batched_refs;
-		}
-		else
-		{
-			// If refs exist,
-			if (batched_refs)
-			{
-				// Release the batch
-				udp_endpoint->ReleaseRef(batched_refs);
-			}
-
-			// Set the endpoint reference
-			prev_endpoint = udp_endpoint;
-		}
 	}
 
 	// Deliver remaining received
@@ -154,11 +137,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOTLS *tls, OVERLAPPED_ENTRY entries[
 	if (send_list_size > 0)
 		prev_allocator->ReleaseBatch((void**)send_list, send_list_size);
 
-	// Release remaining refs
-	if (batched_refs > 0)
-		prev_endpoint->ReleaseRef(batched_refs);
-
-	return false;
+	return exit_flag;
 }
 
 void IOThread::UseVistaAPI(IOTLS *tls, IOThreads *master)

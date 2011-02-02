@@ -191,6 +191,11 @@ bool UDPEndpoint::Bind(IOThreads *iothreads, bool onlySupportIPv4, Port port, bo
 		WARN("UDPEndpoint") << "Only able to launch " << read_count << " reads out of " << SIMULTANEOUS_READS;
 	}
 
+	// Record the buffer deficiency (if any)
+	_buffer_deficiency_lock.Enter();
+	_buffers_posted = read_count;
+	_buffer_deficiency_lock.Leave();
+
     _port = port;
 
     INFO("UDPEndpoint") << "Open on port " << GetPort();
@@ -201,7 +206,7 @@ bool UDPEndpoint::Bind(IOThreads *iothreads, bool onlySupportIPv4, Port port, bo
 
 //// Begin Event
 
-bool UDPEndpoint::PostRead(IOCPOverlappedRecvFrom *ov_recvfrom, IAllocator *allocator)
+bool UDPEndpoint::PostRead(IOCPOverlappedRecvFrom *ov_recvfrom)
 {
 	CAT_OBJCLR(ov_recvfrom->ov);
 	ov_recvfrom->allocator = allocator;
@@ -255,6 +260,9 @@ u32 UDPEndpoint::PostReads(u32 total_request_count, IAllocator *allocators[], u3
 		// For each allocated buffer,
 		for (u32 ii = 0; ii < buffer_count; ++ii)
 		{
+			// Fill buffer
+			ov_recvfrom->allocator = allocator;
+
 			// If unable to post a read,
 			if (!PostRead(allocator, buffers[ii]))
 			{
@@ -343,12 +351,56 @@ bool UDPEndpoint::Write(const NetAddr &addr, u8 *data, u32 data_bytes)
 
 //// Event Completion
 
+void UDPEndpoint::ReturnReadBuffers(IOCPOverlappedRecvFrom *ov_recvfrom[], u32 count)
+{
+	u32 buffers_posted = 0;
+
+	if (_buffers_posted < SIMULTANEOUS_READS)
+	{
+		s32 buffers_to_post;
+
+		// Calculate number of buffers to fill in
+		_buffer_deficiency_lock.Enter();
+		buffers_to_post = SIMULTANEOUS_READS - _buffers_posted;
+		if (buffers_to_post > 0)
+		{
+			if (buffers_to_post > count) buffers_to_post = count;
+			_buffers_posted += buffers_to_post;
+		}
+		_buffer_deficiency_lock.Leave();
+
+		// For each buffer to post,
+		for (u32 ii = 0; ii < buffers_to_post; ++ii)
+		{
+			// If post fails,
+			if (!PostRead(ov_recvfrom[ii]))
+			{
+				break;
+			}
+
+			++buffers_posted;
+		}
+	}
+
+	// TODO: Release refs
+
+	// Release one reference for each buffer
+	ReleaseRef(count);
+
+	// TODO: Release buffers here
+}
+
 void UDPEndpoint::OnRead(IOTLS *tls, IOCPOverlappedRecvFrom *ov_recvfrom[], u32 bytes[], u32 count, u32 event_time)
 {
+	// Subtract the number of completed buffers from the post count
+	_buffer_deficiency_lock.Enter();
+	_buffers_posted -= count;
+	_buffer_deficiency_lock.Leave();
+
 	if (IsShutdown())
 		return true; // Delete buffer
 
-	u32 posted_reads = PostReads(count, tls->allocators, IOTLS_NUM_ALLOCATORS);
+	// TODO: WorkerThreads interface here
 
 	// TODO: Handle errors here
 
@@ -371,5 +423,11 @@ void UDPEndpoint::OnRead(IOTLS *tls, IOCPOverlappedRecvFrom *ov_recvfrom[], u32 
 	}
 */
 
-	return false; // Do not delete buffer
+	// Post enough reads to fill in for the number that just completed
+	u32 posted_reads = PostReads(count, tls->allocators, IOTLS_NUM_ALLOCATORS);
+
+	// Replace missing reads with the posted ones
+	_buffer_deficiency_lock.Enter();
+	_buffers_posted += posted_reads;
+	_buffer_deficiency_lock.Leave();
 }

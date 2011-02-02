@@ -31,6 +31,11 @@
 
 #include <cat/threads/Atomic.hpp>
 
+#if defined(CAT_NO_ATOMIC_ADD) || defined(CAT_NO_ATOMIC_SET)
+#include <cat/threads/Mutex.hpp>
+#define CAT_NO_ATOMIC_REF_OBJECT
+#endif
+
 namespace cat {
 
 
@@ -38,8 +43,13 @@ namespace cat {
 class RefObject
 {
 private:
-	volatile CAT_ALIGNED(CAT_DEFAULT_CACHE_LINE_SIZE) u32 _ref_count;
-	volatile CAT_ALIGNED(CAT_DEFAULT_CACHE_LINE_SIZE) u32 _shutdown;
+#if defined(CAT_NO_ATOMIC_REF_OBJECT)
+	Mutex _lock;
+#endif
+
+	volatile u32 _ref_count;
+	u8 _packing[CAT_DEFAULT_CACHE_LINE_SIZE];
+	volatile u32 _shutdown;
 
 protected:
 	// Called when a shutdown is in progress
@@ -70,7 +80,18 @@ public:
 	CAT_INLINE void RequestShutdown()
 	{
 		// Raise shutdown flag
+#if defined(CAT_NO_ATOMIC_REF_OBJECT)
+		u32 shutdown;
+
+		_lock.Enter();
+		shutdown = _shutdown;
+		_shutdown = 1;
+		_lock.Leave();
+
+		if (shutdown == 0)
+#else
 		if (Atomic::Set(&_shutdown, 1) == 0)
+#endif
 		{
 			// Notify the derived class on the first shutdown request
 			OnShutdownRequest();
@@ -85,15 +106,32 @@ public:
 public:
 	CAT_INLINE void AddRef(s32 times = 1)
 	{
+#if defined(CAT_NO_ATOMIC_REF_OBJECT)
+		_lock.Enter();
+		_ref_count += times;
+		_lock.Leave();
+#else
 		// Increment reference count by # of times
 		Atomic::Add(&_ref_count, times);
+#endif
 	}
 
 	CAT_INLINE void ReleaseRef(s32 times = 1)
 	{
 		// Decrement reference count by # of times
 		// If all references are gone,
+#if defined(CAT_NO_ATOMIC_REF_OBJECT)
+		u32 ref_count;
+
+		_lock.Enter();
+		ref_count = _ref_count;
+		_ref_count += times;
+		_lock.Leave();
+
+		if (ref_count == times)
+#else
 		if (Atomic::Add(&_ref_count, -times) == times)
+#endif
 		{
 			// Request shutdown to make sure shutdown callback is used
 			RequestShutdown();
