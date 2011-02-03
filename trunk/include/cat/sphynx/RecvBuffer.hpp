@@ -26,13 +26,16 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_RECV_BUFFER_HPP
-#define CAT_RECV_BUFFER_HPP
+#ifndef CAT_SPHYNX_RECV_BUFFER_HPP
+#define CAT_SPHYNX_RECV_BUFFER_HPP
 
 #include <cat/sphynx/WorkerThreads.hpp>
 #include <cat/sphynx/Connexion.hpp>
 
 namespace cat {
+
+
+namespace sphynx {
 
 
 class RecvBuffer
@@ -50,6 +53,9 @@ public:
 };
 
 
+} // namespace sphynx
+
+
 } // namespace cat
 
-#endif // CAT_RECV_BUFFER_HPP
+#endif // CAT_SPHYNX_RECV_BUFFER_HPP

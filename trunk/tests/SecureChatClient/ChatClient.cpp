@@ -75,6 +75,7 @@ int main()
 	GameClient *client;
 
 	{
+		// TODO: Make the crypto stuff easier to use in this context
 		ThreadPoolLocalStorage tls;
 
 		ifstream keyfile("PublicKeyFile.txt");
@@ -95,7 +96,7 @@ int main()
 		}
 
 		client = new GameClient;
-		watcher.Watch(client);
+		iolayer.Watch(client);
 
 		const char *SessionKey = "Chat";
 
