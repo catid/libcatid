@@ -97,10 +97,10 @@
     <ClInclude Include="..\..\include\cat\iocp\SendBuffer.hpp">
       <Filter>Header Files\iocp</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\cat\iocp\RecvBuffer.hpp">
-      <Filter>Header Files\iocp</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\include\cat\sphynx\WorkerThreads.hpp">
+      <Filter>Header Files\sphynx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\sphynx\RecvBuffer.hpp">
       <Filter>Header Files\sphynx</Filter>
     </ClInclude>
   </ItemGroup>

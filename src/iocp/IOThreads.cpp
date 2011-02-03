@@ -41,12 +41,12 @@ static const u32 MAX_IO_GATHER = 32;
 CAT_INLINE bool IOThread::HandleCompletion(IOTLS *tls, OVERLAPPED_ENTRY entries[], u32 count, u32 event_time)
 {
 	// Batch release sends
-	IOCPOverlappedSendTo *send_list[MAX_IO_GATHER];
+	SendBuffer *send_list[MAX_IO_GATHER];
 	u32 send_list_size = 0;
 	IAllocator *prev_allocator = 0;
 
 	// Batch process receives
-	IOCPOverlappedRecvFrom *recv_list[MAX_IO_GATHER];
+	RecvBuffer *recv_list[MAX_IO_GATHER];
 	u32 recv_bytes_list[MAX_IO_GATHER];
 	u32 recv_list_size = 0;
 	UDPEndpoint *prev_recv_endpoint = 0;
@@ -71,7 +71,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOTLS *tls, OVERLAPPED_ENTRY entries[
 		{
 		case IOTYPE_UDP_SEND:
 			// For each send buffer that was batched with this one,
-			for (IOCPOverlappedSendTo *ov_send = reinterpret_cast<IOCPOverlappedSendTo*>( ov_iocp ); ov_send ; ov_send = ov_send->next)
+			for (SendBuffer *ov_send = reinterpret_cast<SendBuffer*>( ov_iocp ); ov_send ; ov_send = ov_send->_next_buffer)
 			{
 				IAllocator *allocator = ov_send->allocator;
 
@@ -100,7 +100,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOTLS *tls, OVERLAPPED_ENTRY entries[
 
 		case IOTYPE_UDP_RECV:
 			{
-				IOCPOverlappedRecvFrom *ov_recv = reinterpret_cast<IOCPOverlappedSendTo*>( ov_iocp );
+				RecvBuffer *ov_recv = reinterpret_cast<RecvBuffer*>( ov_iocp );
 
 				// If the same allocator was used twice in a row and there is space,
 				if (prev_recv_endpoint == udp_endpoint && recv_list_size < MAX_IO_GATHER)

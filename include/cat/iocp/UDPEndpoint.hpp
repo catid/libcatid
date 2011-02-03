@@ -29,9 +29,9 @@
 #ifndef CAT_UDP_ENDPOINT_HPP
 #define CAT_UDP_ENDPOINT_HPP
 
-#include <cat/threads/RefObject.hpp>
 #include <cat/iocp/IOThreads.hpp>
-#include <cat/iocp/WorkerThreads.hpp>
+#include <cat/iocp/SendBuffer.hpp>
+#include <cat/sphynx/RecvBuffer.hpp>
 
 namespace cat {
 
@@ -41,7 +41,7 @@ static const u32 SIMULTANEOUS_READS = 128;
 static const u32 SIMULTANEOUS_SENDS = 128;
 
 // Object that represents a UDP endpoint bound to a single port
-class UDPEndpoint : public WorkerSession
+class UDPEndpoint : public RefObject
 {
 	volatile u32 _buffers_posted; // Number of buffers posted to the socket waiting for data
 
@@ -50,7 +50,7 @@ class UDPEndpoint : public WorkerSession
 	bool _ipv6;
 
 	virtual void OnShutdownRequest();
-	virtual void OnZeroReferences();
+	virtual bool OnZeroReferences();
 
 public:
     UDPEndpoint();
@@ -79,15 +79,15 @@ public:
 	u32 Write(SendBuffer *buffers[], u32 count, const NetAddr &addr);
 
 	// When done with read buffers, call this function to add them back to the available pool
-	void ReleaseReadBuffers(IOCPOverlappedRecvFrom *ov_recvfrom[], u32 count);
+	void ReleaseReadBuffers(RecvBuffer *ov_recvfrom[], u32 count);
 
 private:
-	bool PostRead(IOCPOverlappedRecvFrom *ov_recvfrom);
+	bool PostRead(RecvBuffer *ov_recvfrom);
 
 	// Returns the number of reads posted
 	u32 PostReads(u32 count, IAllocator *allocators[], u32 allocator_count);
 
-	void OnRead(IOTLS *tls, IOCPOverlappedRecvFrom *ov_recvfrom[], u32 bytes[], u32 count, u32 event_time);
+	void OnRead(IOTLS *tls, RecvBuffer *ov_recvfrom[], u32 bytes[], u32 count, u32 event_time);
 
 protected:
 	virtual void OnRead(OverlappedRecvFrom *ov_rf, u32 bytes, u32 event_time) = 0;

@@ -30,7 +30,7 @@
 #define CAT_SEND_BUFFER_HPP
 
 #include <cat/iocp/IOThreads.hpp>
-#include <cat/mem/AlignedAllocator.hpp>
+#include <cat/mem/StdAllocator.hpp>
 
 namespace cat {
 
@@ -38,6 +38,7 @@ namespace cat {
 // A buffer specialized for writing to a socket
 class SendBuffer : public IOCPOverlapped
 {
+	friend class IOThread;
 	friend class UDPEndpoint;
 
 	SendBuffer *_next_buffer;
