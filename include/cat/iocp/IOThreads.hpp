@@ -45,6 +45,8 @@ namespace cat {
 
 struct IOCPOverlapped;
 struct IOTLS;
+class IOThread;
+class IOThreads;
 
 static const u32 IOTHREADS_BUFFER_DATA_BYTES = 1450;
 static const u32 IOTHREADS_BUFFER_TOTAL_BYTES = sizeof(IOCPOverlappedRecvFrom) + IOTHREADS_BUFFER_DATA_BYTES;
@@ -72,21 +74,29 @@ enum IOType
 	IOTYPE_UDP_RECV
 };
 
-struct IOCPOverlapped
+struct IOCPBufferHeader
+{
+	IAllocator *allocator;
+};
+
+struct IOCPOverlapped : IOCPBufferHeader
 {
 	OVERLAPPED ov;
-
-	IAllocator *allocator;
 
 	// A value from enum IOType
 	u32 io_type;
 };
 
-struct IOCPOverlappedRecvFrom : public IOCPOverlapped
+struct IOCPOverlappedRecvFrom : IOCPOverlapped
 {
 	int addr_len;
 	sockaddr_in6 addr;
 };
+
+
+/*
+	
+*/
 
 typedef BOOL (WINAPI *PtGetQueuedCompletionStatusEx)(
 	__in   HANDLE CompletionPort,
@@ -96,8 +106,6 @@ typedef BOOL (WINAPI *PtGetQueuedCompletionStatusEx)(
 	__in   DWORD dwMilliseconds,
 	__in   BOOL fAlertable
 	);
-
-class IOThreads;
 
 
 // IOCP thread

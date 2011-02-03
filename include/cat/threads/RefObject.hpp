@@ -44,16 +44,15 @@ namespace cat {
 
 
 class RefObject;
-class RefObjectWatch;
+class RefObjectWatcher;
 
 
 // Classes that derive from RefObject have asynchronously managed lifetimes
 class RefObject
 {
-	friend class RefObjectWatch;
-
+#if defined(CAT_NO_ATOMIC_REF_OBJECT)
 	Mutex _lock;
-	std::vector<RefObjectWatch*> _watchers;
+#endif
 
 	volatile u32 _ref_count;
 	u8 _packing[CAT_DEFAULT_CACHE_LINE_SIZE];
@@ -142,10 +141,28 @@ public:
 };
 
 
-// Mechanism to wait for reference-counted objects to finish shutting down
-class RefObjectWatch
+// This is a RefObject that can be watched using a RefObjectWatcher
+// I separated these out so that the basic RefObject can be very lightweight
+class WatchedRefObject : public RefObject
 {
-	friend class RefObject;
+	friend class RefObjectWatcher;
+
+#if !defined(CAT_NO_ATOMIC_REF_OBJECT)
+	Mutex _lock;
+#endif
+	std::vector<RefObjectWatcher*> _watchers;
+
+	void ShutdownComplete(bool delete_this);
+
+public:
+	CAT_INLINE virtual ~WatchedRefObject() {}
+};
+
+
+// Mechanism to wait for reference-counted objects to finish shutting down
+class RefObjectWatcher
+{
+	friend class WatchedRefObject;
 
 	Mutex _lock;
 	std::list<RefObject*> _watched_list;
@@ -157,8 +174,8 @@ class RefObjectWatch
 	void OnObjectShutdownEnd(RefObject *obj);
 
 public:
-	RefObjectWatch();
-	virtual ~RefObjectWatch();
+	RefObjectWatcher();
+	virtual ~RefObjectWatcher();
 
 public:
 	// Wait for watched objects to finish shutdown, returns false on timeout

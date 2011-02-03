@@ -45,7 +45,7 @@ void Server::OnShutdownRequest()
 {
 }
 
-void Server::OnZeroReferences()
+bool Server::OnZeroReferences()
 {
 }
 
@@ -303,8 +303,31 @@ void Server::PostConnectionError(const NetAddr &dest, HandshakeError err)
 	Post(dest, pkt, S2C_ERROR_LEN);
 }
 
-void Server::OnRead(OverlappedRecvFrom *ov_rf, u32 bytes, u32 event_time)
+void Server::OnRead(RecvBuffer *buffers[], u32 count, u32 event_msec)
 {
+	u32 worker_count = _worker_threads->GetWorkerCount();
+
+	RecvBuffer *bins[MAX_WORKERS];
+	for (u32 ii = 0; ii < worker_count; ++ii) bins[ii] = 0;
+
+	Connexion *conn = 0;
+	NetAddr prev_addr;
+
+	// For each buffer in the batch,
+	for (u32 ii = 0; ii < count; ++ii)
+	{
+		NetAddr addr;
+		buffers[ii]->GetAddr(addr);
+
+		if (addr != prev_addr)
+		{
+			// Queue a set of buffers
+			conn = _conn_map.Lookup(prev_addr);
+
+			u32 worker_id = conn->GetWorkerID();
+		}
+	}
+
 	// They took the time to get the cookie right, might as well check if we know them
 	Connexion *existing_conn = _conn_map.Lookup(ov_rf->ov.addr);
 

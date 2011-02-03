@@ -48,21 +48,8 @@ namespace sphynx {
 class Server : public UDPEndpoint
 {
 	virtual void OnShutdownRequest();
-	virtual void OnZeroReferences();
+	virtual bool OnZeroReferences();
 
-public:
-	Server();
-	virtual ~Server();
-
-	bool StartServer(ThreadPoolLocalStorage *tls, Port port, u8 *public_key, int public_bytes, u8 *private_key, int private_bytes, const char *session_key);
-
-	u32 GetTotalPopulation();
-
-	static bool GenerateKeyPair(ThreadPoolLocalStorage *tls, const char *public_key_file,
-								const char *private_key_file, u8 *public_key,
-								int public_bytes, u8 *private_key, int private_bytes);
-
-private:
 	static const int SESSION_KEY_BYTES = 32;
 	char _session_key[SESSION_KEY_BYTES];
 
@@ -75,10 +62,11 @@ private:
 	KeyAgreementResponder _key_agreement_responder;
 	u8 _public_key[PUBLIC_KEY_BYTES];
 
-private:
+	WorkerThreads *_worker_threads;
+
 	ServerWorker *FindLeastPopulatedPort();
 
-	virtual void OnRead(OverlappedRecvFrom *ov_rf, u32 bytes, u32 event_time);
+	virtual void OnRead(RecvBuffer *buffers[], u32 count, u32 event_msec);
 
 	void PostConnectionCookie(const NetAddr &dest);
 	void PostConnectionError(const NetAddr &dest, HandshakeError err);
@@ -92,6 +80,18 @@ protected:
 
 	// Lookup client by key
 	Connexion *Lookup(u32 key);
+
+public:
+	Server();
+	virtual ~Server();
+
+	bool StartServer(ThreadPoolLocalStorage *tls, Port port, u8 *public_key, int public_bytes, u8 *private_key, int private_bytes, const char *session_key);
+
+	u32 GetTotalPopulation();
+
+	static bool GenerateKeyPair(ThreadPoolLocalStorage *tls, const char *public_key_file,
+								const char *private_key_file, u8 *public_key,
+								int public_bytes, u8 *private_key, int private_bytes);
 };
 
 
