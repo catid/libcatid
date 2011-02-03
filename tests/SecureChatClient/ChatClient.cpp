@@ -66,55 +66,9 @@ public:
 
 int main()
 {
-	// Initialize system info
-	InitializeSystemInfo();
+	sphynx::IOLayer iolayer;
 
-	// Initialize clock subsystem
-	if (!Clock::Initialize())
-	{
-		FatalStop("Clock subsystem failed to initialize");
-	}
-
-	// Initialize logging subsystem with INFO reporting level
-	Logging::ref()->Initialize(LVL_INFO);
-	//Logging::ii->EnableServiceMode("ChatClientService");
-
-	// Initialize disk settings subsystem
-	Settings::ref()->readSettingsFromFile("ChatClient.cfg");
-
-	// Read logging subsystem settings
-	Logging::ref()->ReadSettings();
-
-	// Start the CSPRNG subsystem
-	if (!FortunaFactory::ref()->Initialize())
-	{
-		FatalStop("CSPRNG subsystem failed to initialize");
-	}
-
-	// Start the socket subsystem
-	if (!StartupSockets())
-	{
-		FatalStop("Socket subsystem failed to initialize");
-	}
-
-	// Start the IO threads
-	IOThreads io_threads;
-
-	if (!io_threads.Startup())
-	{
-		FatalStop("IOThreads subsystem failed to initialize");
-	}
-
-	// Start the Worker threads
-	WorkerThreads worker_threads;
-
-	if (!worker_threads.Startup())
-	{
-		FatalStop("WorkerThreads subsystem failed to initialize");
-	}
-
-	// Watcher for shutdown events
-	RefObjectWatcher watcher;
+	iolayer.Startup("ChatClient.cfg");
 
 	INFO("Client") << "Secure Chat Client 2.0";
 
@@ -166,28 +120,7 @@ int main()
 		}
 	}
 
-	if (!watcher.WaitForShutdown())
-	{
-		WARN("ChatClient") << "Wait for shutdown expired";
-	}
-
-	// Terminate Worker threads
-	worker_threads.Shutdown();
-
-	// Terminate IO threads
-	io_threads.Shutdown();
-
-	// Terminate sockets
-	CleanupSockets();
-
-	// Terminate the entropy collection thread in the CSPRNG
-	FortunaFactory::ref()->Shutdown();
-
-	// Write settings to disk
-	Settings::ref()->write();
-
-	// Cleanup clock subsystem
-	Clock::Shutdown();
+	iolayer.Shutdown();
 
 	return 0;
 }

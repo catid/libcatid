@@ -48,6 +48,7 @@
     <ClInclude Include="..\..\include\cat\sphynx\Connexion.hpp" />
     <ClInclude Include="..\..\include\cat\sphynx\ConnexionMap.hpp" />
     <ClInclude Include="..\..\include\cat\sphynx\FlowControl.hpp" />
+    <ClInclude Include="..\..\include\cat\sphynx\IOLayer.hpp" />
     <ClInclude Include="..\..\include\cat\sphynx\RecvBuffer.hpp" />
     <ClInclude Include="..\..\include\cat\sphynx\Server.hpp" />
     <ClInclude Include="..\..\include\cat\sphynx\Transport.hpp" />

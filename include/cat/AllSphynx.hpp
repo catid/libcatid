@@ -35,9 +35,7 @@
 
 #include <cat/net/Sockets.hpp>
 
-#include <cat/iocp/SendBuffer.hpp>
-#include <cat/iocp/IOThreads.hpp>
-#include <cat/iocp/UDPEndpoint.hpp>
+#include <cat/sphynx/IOLayer.hpp>
 
 #include <cat/sphynx/Common.hpp>
 #include <cat/sphynx/Connexion.hpp>
@@ -47,4 +45,5 @@
 #include <cat/sphynx/FlowControl.hpp>
 #include <cat/sphynx/Server.hpp>
 #include <cat/sphynx/Transport.hpp>
+#include <cat/sphynx/RecvBuffer.hpp>
 #include <cat/sphynx/WorkerThreads.hpp>

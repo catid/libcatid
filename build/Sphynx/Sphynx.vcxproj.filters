@@ -103,5 +103,8 @@
     <ClInclude Include="..\..\include\cat\sphynx\RecvBuffer.hpp">
       <Filter>Header Files\sphynx</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\include\cat\sphynx\IOLayer.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

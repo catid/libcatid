@@ -70,18 +70,45 @@ void WatchedRefObject::ShutdownComplete(bool delete_this)
 {
 	_lock.Enter();
 
-	for (std::vector<RefObjectWatcher*>::iterator ii = _watchers.begin(); ii != _watchers.end(); ++ii)
-	{
-		RefObjectWatcher *watcher = *ii;
-
-		watcher->OnObjectShutdownEnd(this);
-	}
+	for (VectorIterator ii = _watchers.begin(); ii != _watchers.end(); ++ii)
+		(*ii)->OnObjectShutdownEnd(this);
 
 	_watchers.clear();
 
 	_lock.Leave();
 
 	if (delete_this) delete this;
+}
+
+void WatchedRefObject::RequestShutdown()
+{
+	// Raise shutdown flag
+#if defined(CAT_NO_ATOMIC_REF_OBJECT)
+	u32 shutdown;
+
+	_lock.Enter();
+	shutdown = _shutdown;
+	_shutdown = 1;
+	_lock.Leave();
+
+	if (shutdown == 0)
+#else
+	if (Atomic::Set(&_shutdown, 1) == 0)
+#endif
+	{
+		// Notify the derived class on the first shutdown request
+		OnShutdownRequest();
+
+		_lock.Enter();
+
+		for (VectorIterator ii = _watchers.begin(); ii != _watchers.end(); ++ii)
+			(*ii)->OnObjectShutdownStart(this);
+
+		_lock.Leave();
+
+		// Release the initial reference to allow OnZeroReference()
+		ReleaseRef();
+	}
 }
 
 
@@ -107,7 +134,7 @@ bool RefObjectWatcher::WaitForShutdown(s32 milliseconds, bool request_shutdown)
 	if (request_shutdown)
 	{
 		// For each object we haven't seen shutdown start yet,
-		for (std::list<RefObject*>::iterator ii = _watched_list.begin(); ii != _watched_list.end(); ++ii)
+		for (ListIterator ii = _watched_list.begin(); ii != _watched_list.end(); ++ii)
 		{
 			RefObject *obj = *ii;
 
@@ -120,9 +147,12 @@ bool RefObjectWatcher::WaitForShutdown(s32 milliseconds, bool request_shutdown)
 	return _shutdown_flag.Wait(milliseconds);
 }
 
-void RefObjectWatcher::Watch(RefObject *obj)
+void RefObjectWatcher::Watch(WatchedRefObject *obj)
 {
 	AutoMutex lock(_lock);
+
+	// Abort if object is shutdown already
+	if (obj->IsShutdown()) return;
 
 	// If object is already watched, abort
 	if (find(_watched_list.begin(), _watched_list.end(), obj) != _watched_list.end()) return;
@@ -135,12 +165,12 @@ void RefObjectWatcher::Watch(RefObject *obj)
 	obj->AddRef();
 }
 
-bool RefObjectWatcher::OnObjectShutdownStart(RefObject *obj)
+bool RefObjectWatcher::OnObjectShutdownStart(WatchedRefObject *obj)
 {
 	AutoMutex lock(_lock);
 
 	// Try to find the object in the watched list
-	std::list<RefObject*>::iterator ii = find(_watched_list.begin(), _watched_list.end(), obj);
+	ListIterator ii = find(_watched_list.begin(), _watched_list.end(), obj);
 
 	// If it was found in the list,
 	if (ii != _watched_list.end())
@@ -160,7 +190,7 @@ bool RefObjectWatcher::OnObjectShutdownStart(RefObject *obj)
 	return false;
 }
 
-void RefObjectWatcher::OnObjectShutdownEnd(RefObject *obj)
+void RefObjectWatcher::OnObjectShutdownEnd(WatchedRefObject *obj)
 {
 	_lock.Enter();
 	u32 wait_count = --_wait_count;

@@ -31,7 +31,6 @@
 
 #include <cat/threads/Thread.hpp>
 #include <cat/net/Sockets.hpp>
-#include <cat/port/FastDelegate.h>
 #include <cat/threads/RefObject.hpp>
 #include <cat/mem/BufferAllocator.hpp>
 #include <cat/iocp/UDPEndpoint.hpp>
@@ -53,9 +52,6 @@ static const u32 IOTHREADS_BUFFER_TOTAL_BYTES = sizeof(IOCPOverlappedRecvFrom) +
 
 static const u32 IOTLS_BUFFER_COUNT = 3000;
 static const u32 IOTHREADS_BUFFER_COUNT = 10000;
-
-// bool IOThreadCallback(IOTLS *tls, u32 error, IOCPOverlapped *ov, u32 bytes, u32 event_time)
-typedef fastdelegate::FastDelegate5<IOTLS *, u32, IOCPOverlapped *, u32, u32, bool> IOThreadCallback;
 
 //#define CAT_ALLOW_UNBOUNDED_RECV_BUFFERS
 
