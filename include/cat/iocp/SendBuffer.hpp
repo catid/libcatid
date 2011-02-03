@@ -63,7 +63,6 @@ public:
 		io_type = IOTYPE_UDP_SEND;
 	}
 
-public:
 	// Acquire memory for a send buffer
 	static CAT_INLINE SendBuffer *Acquire(SendBuffer * &ptr, u32 data_bytes = 0)
 	{
@@ -100,7 +99,6 @@ public:
 		return (data = reinterpret_cast<T*>( buffer->_data ));
 	}
 
-public:
 	// Change number of data bytes allocated to the buffer
 	// Returns a new data pointer that may be different from the old data pointer
 	CAT_INLINE SendBuffer *Resize(u32 data_bytes)
@@ -133,7 +131,6 @@ public:
 		return buffer->_data;
 	}
 
-public:
 	// Promote a data pointer to the full send buffer
 	static CAT_INLINE SendBuffer *Promote(void *vdata)
 	{
@@ -144,7 +141,6 @@ public:
 		return reinterpret_cast<SendBuffer*>( data - OVERHEAD_BYTES );
 	}
 
-public:
 	// Release memory
 	CAT_INLINE void Release()
 	{

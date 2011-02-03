@@ -75,7 +75,6 @@ public:
 	// Disabled by default; useful for MTU discovery
 	bool DontFragment(bool df = true);
 
-public:
 	bool Bind(IOThreads *iothreads, bool onlySupportIPv4, Port port = 0, bool ignoreUnreachable = true, int kernelReceiveBufferBytes = 0);
 
 	// If Is6() == true, the address must be promoted to IPv6
