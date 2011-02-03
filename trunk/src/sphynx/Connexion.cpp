@@ -66,24 +66,7 @@ void Connexion::Disconnect(u8 reason, bool notify)
 	}
 }
 
-bool Connexion::Tick(ThreadPoolLocalStorage *tls, u32 now)
-{
-	// If no packets have been received,
-	if ((s32)(now - _last_recv_tsc) >= TIMEOUT_DISCONNECT)
-	{
-		Disconnect(DISCO_TIMEOUT, true);
-
-		return false;
-	}
-
-	TickTransport(tls, now);
-
-	OnTick(tls, now);
-
-	return true;
-}
-
-void Connexion::OnRawData(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
+void Connexion::OnWorkerRead(RecvBuffer *buffer_list_head)
 {
 	u32 buf_bytes = bytes;
 
@@ -107,6 +90,21 @@ void Connexion::OnRawData(ThreadPoolLocalStorage *tls, u8 *data, u32 bytes)
 	}
 
 	WARN("Server") << "Ignoring invalid encrypted data";
+}
+
+void Connexion::OnWorkerTick(u32 now)
+{
+	// If no packets have been received,
+	if ((s32)(now - _last_recv_tsc) >= TIMEOUT_DISCONNECT)
+	{
+		Disconnect(DISCO_TIMEOUT, true);
+
+		RequestShutdown();
+	}
+
+	TickTransport(tls, now);
+
+	OnTick(tls, now);
 }
 
 bool Connexion::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes)

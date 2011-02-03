@@ -63,6 +63,7 @@ public:
 	CAT_INLINE bool Valid() { return _socket != SOCKET_ERROR; }
 	CAT_INLINE Socket GetSocket() { return _socket; }
     Port GetPort();
+	CAT_INLINE Port GetCachedPort() { return _port; }
 
 	// Is6() result is only valid AFTER Bind()
 	CAT_INLINE bool Is6() { return _ipv6; }

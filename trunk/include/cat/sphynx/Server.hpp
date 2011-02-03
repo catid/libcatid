@@ -40,15 +40,13 @@ namespace sphynx {
 
 
 // Server port
-class Server : public UDPEndpoint
+class Server : public UDPEndpoint, public WorkerCallbacks
 {
 	virtual void OnShutdownRequest();
 	virtual bool OnZeroReferences();
 
 	static const int SESSION_KEY_BYTES = 32;
 	char _session_key[SESSION_KEY_BYTES];
-
-	Port _server_port;
 
 	ConnexionMap _conn_map;
 
@@ -59,9 +57,18 @@ class Server : public UDPEndpoint
 
 	WorkerThreads *_worker_threads;
 
+	// Yes to really insure fairness this should be synchronized,
+	// but I am trying hard to eliminate locks everywhere and this
+	// should still round-robin spin pretty well without locks.
+	// TODO: Revisit this
+	u32 _next_connect_worker;
+
 	ServerWorker *FindLeastPopulatedPort();
 
 	virtual void OnRead(RecvBuffer *buffers[], u32 count, u32 event_msec);
+
+	virtual void OnWorkerRead(RecvBuffer *buffer_list_head);
+	virtual void OnWorkerTick(u32 now);
 
 	void PostConnectionCookie(const NetAddr &dest);
 	void PostConnectionError(const NetAddr &dest, HandshakeError err);

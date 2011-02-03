@@ -156,6 +156,8 @@ CAT_INLINE u32 BSF64(u64 x);
 CAT_INLINE u32 BSR32(u32 x);
 CAT_INLINE u32 BSR64(u64 x);
 
+extern const int MultiplyDeBruijnBitPosition2[32];
+
 u32 BSF32(u32 x)
 {
 #if defined(CAT_COMPILER_MSVC) && defined(CAT_WORD_64) && !defined(CAT_DEBUG)
@@ -185,7 +187,10 @@ u32 BSF32(u32 x)
 
 #else
 
-	return BSR32(x ^ (x - 1));
+	u32 lsb = CAT_LEAST_SIGNIFICANT_BIT32(x);
+
+	// Adapted from the Stanford Bit Twiddling Hacks collection
+	return MultiplyDeBruijnBitPosition2[(u32)(lsb * 0x077CB531) >> 27];
 
 #endif
 }
@@ -221,7 +226,7 @@ u32 BSR32(u32 x)
 #else
 
 	// Adapted from the Stanford Bit Twiddling Hacks collection
-    register u32 shift, r;
+    u32 shift, r;
 
     r = (x > 0xFFFF) << 4; x >>= r;
     shift = (x > 0xFF) << 3; x >>= shift; r |= shift;
@@ -257,7 +262,16 @@ u32 BSF64(u64 x)
 
 #else
 
-	return BSR64(x ^ (x - 1));
+	u64 lsb = CAT_LEAST_SIGNIFICANT_BIT64(x);
+
+	// Adapted from the Stanford Bit Twiddling Hacks collection
+	u32 r = (lsb & 0xAAAAAAAAAAAAAAAAULL) != 0;
+	r |= ((lsb & 0xFFFFFFFF00000000ULL) != 0) << 5;
+	r |= ((lsb & 0xFFFF0000FFFF0000ULL) != 0) << 4;
+	r |= ((lsb & 0xFF00FF00FF00FF00ULL) != 0) << 3;
+	r |= ((lsb & 0xF0F0F0F0F0F0F0F0ULL) != 0) << 2;
+	r |= ((lsb & 0xCCCCCCCCCCCCCCCCULL) != 0) << 1;
+	return r;
 
 #endif
 }
