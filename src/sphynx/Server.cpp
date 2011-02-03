@@ -305,34 +305,83 @@ void Server::PostConnectionError(const NetAddr &dest, HandshakeError err)
 
 void Server::OnRead(RecvBuffer *buffers[], u32 count, u32 event_msec)
 {
+	// If there is only one buffer to process,
+	if (count == 1)
+	{
+		NetAddr addr;
+		buffers[0]->GetAddr(addr);
+
+		buffers[0]->_next_buffer = 0;
+
+		Connexion *conn = _conn_map.Lookup(addr);
+		u32 worker_id;
+
+		buffers[0]->_conn = conn;
+
+		// If Connexion object was found,
+		if (conn)
+			worker_id = conn->GetServerWorkerID();
+		else
+		{
+			// Yes this should be synchronized, and it will cause some unfairness
+			// but I think it will not be too bad.  Right?
+			worker_id = _next_connect_worker + 1;
+			if (worker_id >= _worker_threads->GetWorkerCount())
+				worker_id = 0;
+			_next_connect_worker = worker_id;
+		}
+
+		_worker_threads->DeliverBuffers(worker_id, buffers[0], buffers[0]);
+
+		return;
+	}
+
 	u32 worker_count = _worker_threads->GetWorkerCount();
 
-	RecvBuffer *bins[MAX_WORKERS];
-	for (u32 ii = 0; ii < worker_count; ++ii) bins[ii] = 0;
+	struct 
+	{
+		RecvBuffer *head, *tail;
+	} *bins[MAX_WORKERS];
+
+	static const u32 MAX_VALID_WORDS = CAT_CEIL_UNIT(MAX_WORKERS, 32);
+	u32 valid[MAX_VALID_WORDS];
+	CAT_OBJCLR(valid);
 
 	Connexion *conn = 0;
 	NetAddr prev_addr;
+	u32 ii, prev_bin;
+
+	// Hunt for first buffer from a Connexion
+	for (ii = 0; ii < count; ++ii)
+	{
+		buffers[ii]->GetAddr(prev_addr);
+		conn = _conn_map.Lookup(prev_addr);
+
+		if (conn)
+		{
+			prev_bin = conn->GetServerWorkerID();
+			break;
+		}
+
+		// Handle leading non-conn here
+	}
 
 	// For each buffer in the batch,
-	for (u32 ii = 0; ii < count; ++ii)
+	for (; ii < count; ++ii)
 	{
 		NetAddr addr;
 		buffers[ii]->GetAddr(addr);
 
-		if (addr != prev_addr)
+		// If source connexion has not changed,
+		if (addr == prev_addr)
 		{
-			// Queue a set of buffers
-			conn = _conn_map.Lookup(prev_addr);
-
-			if (conn)
-			{
-				u32 worker_id = conn->GetWorkerID();
-			}
-			else
-			{
-
-			}
+			continue;
 		}
+
+		// Queue a set of buffers
+		conn = _conn_map.Lookup(addr);
+		prev_addr = addr;
+		prev_bin = conn->GetServerWorkerID();
 	}
 
 	// They took the time to get the cookie right, might as well check if we know them
@@ -350,7 +399,10 @@ void Server::OnRead(RecvBuffer *buffers[], u32 count, u32 event_msec)
 	else
 	{
 	}
+}
 
+void Server::OnWorkerRead(RecvBuffer *buffer_list_head)
+{
 	if (bytes == C2S_HELLO_LEN && data[0] == C2S_HELLO)
 	{
 		// If magic does not match,
@@ -387,7 +439,7 @@ void Server::OnRead(RecvBuffer *buffers[], u32 count, u32 event_msec)
 		u32 *cookie = reinterpret_cast<u32*>( data + 1 + 4 );
 		bool good_cookie = src.Is6() ?
 			_cookie_jar.Verify(&src, sizeof(src), *cookie) :
-			_cookie_jar.Verify(src.GetIP4(), src.GetPort(), *cookie);
+		_cookie_jar.Verify(src.GetIP4(), src.GetPort(), *cookie);
 
 		if (!good_cookie)
 		{
@@ -466,8 +518,8 @@ void Server::OnRead(RecvBuffer *buffers[], u32 count, u32 event_msec)
 			}
 			// If challenge is invalid,
 			else if (!_key_agreement_responder.ProcessChallenge(tls->math, tls->csprng,
-														   challenge, CHALLENGE_BYTES,
-														   pkt + 1 + 2, ANSWER_BYTES, &key_hash))
+				challenge, CHALLENGE_BYTES,
+				pkt + 1 + 2, ANSWER_BYTES, &key_hash))
 			{
 				WARN("Server") << "Ignoring challenge: Invalid";
 
@@ -546,11 +598,10 @@ void Server::OnRead(RecvBuffer *buffers[], u32 count, u32 event_msec)
 	}
 }
 
-void Server::OnClose()
+void Server::OnWorkerTick(u32 now)
 {
-	WARN("Server") << "CLOSED";
+	// Can't think of anything for the server to do here yet
 }
-
 
 bool Server::GenerateKeyPair(ThreadPoolLocalStorage *tls, const char *public_key_file,
 							 const char *private_key_file, u8 *public_key,

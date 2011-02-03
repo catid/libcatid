@@ -47,7 +47,7 @@ namespace sphynx {
 //// sphynx::Connexion
 
 // Derive from sphynx::Connexion and sphynx::Server to define server behavior
-class Connexion : public Transport, public RefObject
+class Connexion : public Transport, public RefObject, public WorkerCallbacks
 {
 	friend class Server;
 	friend class ConnexionMap;
@@ -69,10 +69,8 @@ private:
 	u8 _cached_answer[128]; // Cached answer to this first challenge, to avoid eating server CPU time
 
 private:
-	// Return false to destroy this object
-	bool Tick(ThreadPoolLocalStorage *tls, u32 now);
-
-	bool OnRecvFrom(WorkerTLS *tls, OverlappedRecvFrom *ov);
+	virtual void OnWorkerRead(RecvBuffer *buffer_list_head);
+	virtual void OnWorkerTick(u32 now);
 
 	virtual bool PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes);
 	virtual void OnInternal(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes);

@@ -30,10 +30,9 @@
 #define CAT_SPHYNX_WORKER_THREADS_HPP
 
 #include <cat/threads/Thread.hpp>
-#include <cat/threads/RefObject.hpp>
 #include <cat/threads/WaitableFlag.hpp>
 #include <cat/threads/Mutex.hpp>
-#include <cat/iocp/IOThreads.hpp>
+#include <cat/sphynx/IOLayer.hpp>
 
 namespace cat {
 
@@ -60,6 +59,19 @@ public:
 	bool Valid();
 };
 
+// Worker callbacks
+class WorkerCallbacks
+{
+	RefObject *_parent;
+	WorkerCallbacks *_worker_prev, *_worker_next;
+
+protected:
+	CAT_INLINE void InitializeWorkerCallbacks(RefObject *obj) { _parent = obj; }
+
+	virtual void OnWorkerRead(RecvBuffer *buffer_list_head) = 0;
+	virtual void OnWorkerTick(u32 now) = 0;
+};
+
 // Worker thread
 class WorkerThread : public Thread
 {
@@ -73,10 +85,11 @@ class WorkerThread : public Thread
 	// Protected list of new workers to add to the running list
 	volatile bool _new_workers_flag;
 	Mutex _new_workers_lock;
-	WorkerSession *_new_head;
+	WorkerCallbacks *_new_head;
 
-	Mutex _rpc_lock;
-	OverlappedRecvFrom *_rpc_head, *_rpc_tail;
+	// Queue of buffers waiting to be processed
+	Mutex _workqueue_lock;
+	RecvBuffer *_workqueue_head, *_workqueue_tail;
 
 public:
 	WorkerThread();
@@ -86,8 +99,7 @@ public:
 	CAT_INLINE void FlagEvent() { _event_flag.Set(); }
 	CAT_INLINE void SetKillFlag() { _kill_flag = true; }
 
-	void Add(WorkerSession *session);
-	void QueueRecvFrom(OverlappedRecvFrom *ov);
+	void DeliverBuffers(RecvBuffer *list_head, RecvBuffer *list_tail);
 };
 
 
@@ -102,6 +114,11 @@ public:
 	virtual ~WorkerThreads();
 
 	CAT_INLINE u32 GetWorkerCount() { return _worker_count; }
+
+	CAT_INLINE void DeliverBuffers(u32 worker_id, RecvBuffer *list_head, RecvBuffer *list_tail)
+	{
+		_workers[worker_id]->DeliverBuffers(list_head, list_tail);
+	}
 
 	bool Startup();
 	bool Shutdown();

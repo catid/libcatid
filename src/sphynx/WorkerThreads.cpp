@@ -61,7 +61,7 @@ bool WorkerTLS::Valid()
 WorkerThread::WorkerThread()
 {
 	_kill_flag = false;
-	_rpc_head = _rpc_tail = 0;
+	_workqueue_head = _workqueue_tail = 0;
 
 	_new_workers_flag = false;
 	_new_head = 0;
@@ -71,6 +71,20 @@ WorkerThread::WorkerThread()
 
 WorkerThread::~WorkerThread()
 {
+}
+
+void WorkerThread::DeliverBuffers(RecvBuffer *list_head, RecvBuffer *list_tail);
+{
+	_workqueue_lock.Enter();
+
+	RecvBuffer *tail = _workqueue_tail;
+
+	if (tail) tail->_next_buffer = list_head;
+	else _workqueue_head = list_head;
+
+	_workqueue_tail = list_tail;
+
+	_workqueue_lock.Leave();
 }
 
 bool WorkerThread::ThreadFunction(void *vmaster)
@@ -179,15 +193,15 @@ void WorkerThread::QueueRecvFrom(OverlappedRecvFrom *ov)
 {
 	ov->next = 0;
 
-	_rpc_lock.Enter();
+	_workqueue_lock.Enter();
 
-	OverlappedRecvFrom *tail = _rpc_tail;
+	OverlappedRecvFrom *tail = _workqueue_tail;
 	if (tail) tail->next = ov;
-	else _rpc_head = ov;
+	else _workqueue_head = ov;
 
-	_rpc_tail = ov;
+	_workqueue_tail = ov;
 
-	_rpc_lock.Leave();
+	_workqueue_lock.Leave();
 }
 
 
