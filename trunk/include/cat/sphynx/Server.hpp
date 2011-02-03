@@ -67,8 +67,8 @@ class Server : public UDPEndpoint, public WorkerCallbacks
 
 	virtual void OnRead(RecvBuffer *buffers[], u32 count, u32 event_msec);
 
-	virtual void OnWorkerRead(RecvBuffer *buffer_list_head);
-	virtual void OnWorkerTick(u32 now);
+	virtual void OnWorkerRead(WorkerTLS *tls, RecvBuffer *buffer_list_head);
+	virtual void OnWorkerTick(WorkerTLS *tls, u32 now);
 
 	void PostConnectionCookie(const NetAddr &dest);
 	void PostConnectionError(const NetAddr &dest, HandshakeError err);

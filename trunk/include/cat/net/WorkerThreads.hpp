@@ -64,8 +64,8 @@ class WorkerCallbacks
 protected:
 	CAT_INLINE void InitializeWorkerCallbacks(RefObject *obj) { _parent = obj; }
 
-	virtual void OnWorkerRead(RecvBuffer *buffer_list_head) = 0;
-	virtual void OnWorkerTick(u32 now) = 0;
+	virtual void OnWorkerRead(WorkerTLS *tls, RecvBuffer *buffer_list_head) = 0;
+	virtual void OnWorkerTick(WorkerTLS *tls, u32 now) = 0;
 };
 
 // Worker thread

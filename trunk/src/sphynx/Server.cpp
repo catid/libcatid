@@ -360,22 +360,9 @@ void Server::OnRead(RecvBuffer *buffers[], u32 count, u32 event_msec)
 
 		if (conn)
 		{
+			buffers[ii]->_callback = conn;
 			prev_bin = conn->GetServerWorkerID();
-			prev_buffer = buffer[ii];
-
-			// If bin is already valid,
-			if (BTS32(&valid[prev_bin >> 5], prev_bin & 31))
-			{
-				// Insert at the end of the bin
-				bins[prev_bin].tail->_next_buffer = buffers[ii];
-				bins[prev_bin].tail = buffers[ii];
-			}
-			else
-			{
-				// Start bin
-				bins[prev_bin].head = bins[prev_bin].tail = buffers[ii];
-			}
-
+			prev_buffer = buffers[ii];
 			break;
 		}
 
@@ -456,7 +443,7 @@ void Server::OnRead(RecvBuffer *buffers[], u32 count, u32 event_msec)
 	}
 }
 
-void Server::OnWorkerRead(RecvBuffer *buffer_list_head)
+void Server::OnWorkerRead(WorkerTLS *tls, RecvBuffer *buffer_list_head)
 {
 	if (bytes == C2S_HELLO_LEN && data[0] == C2S_HELLO)
 	{
@@ -653,7 +640,7 @@ void Server::OnWorkerRead(RecvBuffer *buffer_list_head)
 	}
 }
 
-void Server::OnWorkerTick(u32 now)
+void Server::OnWorkerTick(WorkerTLS *tls, u32 now)
 {
 	// Can't think of anything for the server to do here yet
 }
