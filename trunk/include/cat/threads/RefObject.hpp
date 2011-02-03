@@ -44,12 +44,15 @@ namespace cat {
 
 
 class RefObject;
+class WatchedRefObject;
 class RefObjectWatcher;
 
 
 // Classes that derive from RefObject have asynchronously managed lifetimes
 class RefObject
 {
+	friend class WatchedRefObject;
+
 #if defined(CAT_NO_ATOMIC_REF_OBJECT)
 	Mutex _lock;
 #endif
@@ -58,7 +61,7 @@ class RefObject
 	u8 _packing[CAT_DEFAULT_CACHE_LINE_SIZE];
 	volatile u32 _shutdown;
 
-	void ShutdownComplete(bool delete_this);
+	virtual void ShutdownComplete(bool delete_this);
 
 protected:
 	// Called when a shutdown is in progress
@@ -86,7 +89,7 @@ public:
 	CAT_INLINE virtual ~RefObject() {}
 
 public:
-	void RequestShutdown();
+	virtual void RequestShutdown();
 
 	CAT_INLINE bool IsShutdown() { return _shutdown != 0; }
 
@@ -151,11 +154,15 @@ class WatchedRefObject : public RefObject
 	Mutex _lock;
 #endif
 	std::vector<RefObjectWatcher*> _watchers;
+	typedef std::vector<RefObjectWatcher*>::iterator VectorIterator;
 
-	void ShutdownComplete(bool delete_this);
+	virtual void ShutdownComplete(bool delete_this);
 
 public:
 	CAT_INLINE virtual ~WatchedRefObject() {}
+
+public:
+	virtual void RequestShutdown();
 };
 
 
@@ -165,13 +172,14 @@ class RefObjectWatcher
 	friend class WatchedRefObject;
 
 	Mutex _lock;
-	std::list<RefObject*> _watched_list;
+	std::list<WatchedRefObject*> _watched_list;
+	typedef std::list<WatchedRefObject*>::iterator ListIterator;
 	u32 _wait_count;
 
 	WaitableFlag _shutdown_flag;
 
-	bool OnObjectShutdownStart(RefObject *obj);
-	void OnObjectShutdownEnd(RefObject *obj);
+	bool OnObjectShutdownStart(WatchedRefObject *obj);
+	void OnObjectShutdownEnd(WatchedRefObject *obj);
 
 public:
 	RefObjectWatcher();
@@ -182,7 +190,7 @@ public:
 	bool WaitForShutdown(s32 milliseconds = -1, bool request_shutdown = true); // < 0 = wait forever
 
 public:
-	void Watch(RefObject *obj);
+	void Watch(WatchedRefObject *obj);
 };
 
 

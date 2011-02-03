@@ -26,12 +26,19 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_SPHYNX_SERVER_HPP
-#define CAT_SPHYNX_SERVER_HPP
+#ifndef CAT_SPHYNX_IOLAYER_HPP
+#define CAT_SPHYNX_IOLAYER_HPP
 
-#include <cat/sphynx/>
 #include <cat/crypt/cookie/CookieJar.hpp>
 #include <cat/crypt/tunnel/KeyAgreementResponder.hpp>
+
+#if defined(CAT_OS_WINDOWS)
+#include <cat/iocp/SendBuffer.hpp>
+#include <cat/iocp/IOThreads.hpp>
+#include <cat/iocp/UDPEndpoint.hpp>
+#else
+TODO
+#endif
 
 namespace cat {
 
@@ -39,54 +46,18 @@ namespace cat {
 namespace sphynx {
 
 
-// Server port
-class Server : public UDPEndpoint
+class IOLayer
 {
-	virtual void OnShutdownRequest();
-	virtual bool OnZeroReferences();
-
-	static const int SESSION_KEY_BYTES = 32;
-	char _session_key[SESSION_KEY_BYTES];
-
-	Port _server_port;
-
-	ConnexionMap _conn_map;
-
-	CookieJar _cookie_jar;
-
-	KeyAgreementResponder _key_agreement_responder;
-	u8 _public_key[PUBLIC_KEY_BYTES];
-
-	WorkerThreads *_worker_threads;
-
-	ServerWorker *FindLeastPopulatedPort();
-
-	virtual void OnRead(RecvBuffer *buffers[], u32 count, u32 event_msec);
-
-	void PostConnectionCookie(const NetAddr &dest);
-	void PostConnectionError(const NetAddr &dest, HandshakeError err);
-
-protected:
-	// Must return a new instance of your Connexion derivation
-	virtual Connexion *NewConnexion() = 0;
-
-	// IP address filter: Return true to allow the connection to be made
-	virtual bool AcceptNewConnexion(const NetAddr &src) = 0;
-
-	// Lookup client by key
-	Connexion *Lookup(u32 key);
+	IOThreads _io_threads;
+	WorkerThreads _worker_threads;
+	RefObjectWatcher _watcher;
 
 public:
-	Server();
-	virtual ~Server();
+	bool Startup(const char *settings_file_name = "Settings.cfg", bool service = false, const char *service_name = "MyService");
 
-	bool StartServer(ThreadPoolLocalStorage *tls, Port port, u8 *public_key, int public_bytes, u8 *private_key, int private_bytes, const char *session_key);
+	CAT_INLINE void Watch(WatchedRefObject *obj) { _watcher.Watch(obj); }
 
-	u32 GetTotalPopulation();
-
-	static bool GenerateKeyPair(ThreadPoolLocalStorage *tls, const char *public_key_file,
-								const char *private_key_file, u8 *public_key,
-								int public_bytes, u8 *private_key, int private_bytes);
+	void Shutdown();
 };
 
 
@@ -95,4 +66,4 @@ public:
 
 } // namespace cat
 
-#endif // CAT_SPHYNX_SERVER_HPP
+#endif // CAT_SPHYNX_IOLAYER_HPP

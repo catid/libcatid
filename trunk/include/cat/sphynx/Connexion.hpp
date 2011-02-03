@@ -63,7 +63,7 @@ private:
 	u32 _flood_key;
 	u32 _key; // Map hash table index, unique for each active connection
 	Connexion *_next_delete;
-	ServerWorker *_server_worker;
+	u32 _server_worker_id;
 
 	u8 _first_challenge[64]; // First challenge seen from this client address
 	u8 _cached_answer[128]; // Cached answer to this first challenge, to avoid eating server CPU time
@@ -81,6 +81,7 @@ public:
 	CAT_INLINE bool IsValid() { return _destroyed == 0; }
 	CAT_INLINE u32 GetKey() { return _key; }
 	CAT_INLINE u32 GetFloodKey() { return _flood_key; }
+	CAT_INLINE u32 GetServerWorkerID() { return _server_worker_id; }
 
 	void Disconnect(u8 reason, bool notify);
 

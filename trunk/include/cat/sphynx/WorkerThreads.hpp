@@ -43,9 +43,6 @@ class WorkerThread;
 class WorkerThreads;
 union OverlappedRecvFrom;
 
-// bool WorkerThreadCallback(WorkerTLS *tls, OverlappedRecvFrom *ov)
-typedef fastdelegate::FastDelegate2<WorkerTLS *, RecvBuffer *, bool> WorkerThreadCallback;
-
 static const u32 MAX_WORKERS = 16;
 
 class WorkerTLS
@@ -60,21 +57,8 @@ public:
 	bool Valid();
 };
 
-// Base class for sessions
-class WorkerSession : public RefObject
-{
-	friend class WorkerThread;
 
-	u32 _worker_id;
-	WorkerSession *_next_worker;
-
-public:
-	CAT_INLINE virtual ~WorkerSession() {}
-
-	CAT_INLINE u32 GetWorkerID() { return _worker_id; }
-
-	virtual void OnTick(u32 now) = 0;
-};
+class 
 
 
 // Worker thread
