@@ -332,15 +332,15 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\src\net\DNSClient.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\src\sphynx\FlowControl.cpp"
 				>
 			</File>
 			<File
-				RelativePath="..\..\src\sphynx\IOLayer.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\src\iocp\IOThreads.cpp"
+				RelativePath="..\..\src\net\IOLayer.cpp"
 				>
 			</File>
 			<File
@@ -396,7 +396,7 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\src\sphynx\WorkerThreads.cpp"
+				RelativePath="..\..\src\net\WorkerThreads.cpp"
 				>
 			</File>
 		</Filter>
@@ -417,7 +417,23 @@
 				Name="net"
 				>
 				<File
+					RelativePath="..\..\include\cat\net\DNSClient.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\net\IOLayer.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\net\RecvBuffer.hpp"
+					>
+				</File>
+				<File
 					RelativePath="..\..\include\cat\net\Sockets.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\net\WorkerThreads.hpp"
 					>
 				</File>
 			</Filter>
@@ -449,23 +465,11 @@
 					>
 				</File>
 				<File
-					RelativePath="..\..\include\cat\sphynx\IOLayer.hpp"
-					>
-				</File>
-				<File
-					RelativePath="..\..\include\cat\sphynx\RecvBuffer.hpp"
-					>
-				</File>
-				<File
 					RelativePath="..\..\include\cat\sphynx\Server.hpp"
 					>
 				</File>
 				<File
 					RelativePath="..\..\include\cat\sphynx\Transport.hpp"
-					>
-				</File>
-				<File
-					RelativePath="..\..\include\cat\sphynx\WorkerThreads.hpp"
 					>
 				</File>
 			</Filter>
