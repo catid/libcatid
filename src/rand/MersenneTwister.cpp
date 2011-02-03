@@ -75,7 +75,7 @@ void MersenneTwister::enforcePeriod()
     {
         if (PARITY[ii])
         {
-            state32[ii] ^= CAT_LEAST_SIGNIFICANT_BIT(PARITY[ii]);
+            state32[ii] ^= CAT_LEAST_SIGNIFICANT_BIT32(PARITY[ii]);
             break;
         }
     }

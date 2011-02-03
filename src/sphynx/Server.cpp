@@ -325,10 +325,10 @@ void Server::OnRead(RecvBuffer *buffers[], u32 count, u32 event_msec)
 		{
 			// Yes this should be synchronized, and it will cause some unfairness
 			// but I think it will not be too bad.  Right?
-			worker_id = _next_connect_worker + 1;
+			worker_id = _connect_worker + 1;
 			if (worker_id >= _worker_threads->GetWorkerCount())
 				worker_id = 0;
-			_next_connect_worker = worker_id;
+			_connect_worker = worker_id;
 		}
 
 		_worker_threads->DeliverBuffers(worker_id, buffers[0], buffers[0]);
@@ -336,16 +336,16 @@ void Server::OnRead(RecvBuffer *buffers[], u32 count, u32 event_msec)
 		return;
 	}
 
+	u32 connect_worker = _connect_worker;
 	u32 worker_count = _worker_threads->GetWorkerCount();
 
 	struct 
 	{
 		RecvBuffer *head, *tail;
-	} *bins[MAX_WORKERS];
+	} bins[MAX_WORKER_THREADS];
 
-	static const u32 MAX_VALID_WORDS = CAT_CEIL_UNIT(MAX_WORKERS, 32);
-	u32 valid[MAX_VALID_WORDS];
-	CAT_OBJCLR(valid);
+	static const u32 MAX_VALID_WORDS = CAT_CEIL_UNIT(MAX_WORKER_THREADS, 32);
+	u32 valid[MAX_VALID_WORDS] = { 0 };
 
 	Connexion *conn = 0;
 	NetAddr prev_addr;
@@ -363,7 +363,24 @@ void Server::OnRead(RecvBuffer *buffers[], u32 count, u32 event_msec)
 			break;
 		}
 
-		// Handle leading non-conn here
+		// Pick the next connect worker
+		if (++connect_worker >= worker_count)
+			connect_worker = 0;
+
+		buffers[ii]->_next_buffer = 0;
+
+		// If bin is already valid,
+		if (valid[connect_worker >> 5] & (1 << (connect_worker & 31)))
+		{
+			// Insert at the end of the bin
+			bins[connect_worker].tail->_next_buffer = buffers[ii];
+			bins[connect_worker].tail = buffers[ii];
+		}
+		else
+		{
+			// Start bin
+			bins[connect_worker].head = bins[connect_worker].tail = buffers[ii];
+		}
 	}
 
 	// For each buffer in the batch,
@@ -384,20 +401,25 @@ void Server::OnRead(RecvBuffer *buffers[], u32 count, u32 event_msec)
 		prev_bin = conn->GetServerWorkerID();
 	}
 
-	// They took the time to get the cookie right, might as well check if we know them
-	Connexion *existing_conn = _conn_map.Lookup(ov_rf->ov.addr);
+	// Store the final connect worker
+	_connect_worker = connect_worker;
 
-	if (existing_conn)
+	// For each valid word,
+	for (u32 jj = 0, offset = 0; jj < MAX_VALID_WORDS; ++jj, offset += 32)
 	{
-		ov_rf->allocator = ov_rf->ov.allocator;
-		ov_rf->bytes = bytes;
-		ov_rf->callback = fastdelegate::MakeDelegate(existing_conn, &Connexion::OnRecvFrom);
-		ov_rf->event_time = event_time;
+		u32 v = valid[jj];
 
-		existing_conn->GetWorkerThread()->QueueRecvFrom(ov_rf);
-	}
-	else
-	{
+		while (v)
+		{
+			// Find next LSB index
+			u32 bin = offset + BSF32(v);
+
+			// Deliver all buffers for this worker at once
+			_worker_threads->DeliverBuffers(bin, bins[bin].head, bins[bin].tail);
+
+			// Clear LSB
+			v ^= CAT_LEAST_SIGNIFICANT_BIT32(v);
+		}
 	}
 }
 

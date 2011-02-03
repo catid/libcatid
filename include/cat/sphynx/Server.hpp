@@ -61,7 +61,7 @@ class Server : public UDPEndpoint, public WorkerCallbacks
 	// but I am trying hard to eliminate locks everywhere and this
 	// should still round-robin spin pretty well without locks.
 	// TODO: Revisit this
-	u32 _next_connect_worker;
+	u32 _connect_worker;
 
 	ServerWorker *FindLeastPopulatedPort();
 
