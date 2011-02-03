@@ -324,8 +324,7 @@ bool Atomic::BTS(volatile u32 *x, int bit)
         mov edx,x
         mov ecx,bit
         lock BTS [edx],ecx
-        mov eax,0
-        setc al
+        sbb eax,eax
     CAT_ASM_END
 
 	CAT_FENCE_COMPILER
@@ -336,7 +335,7 @@ bool Atomic::BTS(volatile u32 *x, int bit)
 
     CAT_ASM_BEGIN
 		"lock; BTSl %2, %0\n\t"
-		"setc %%al"
+		"sbbl %%eax, %%eax"
 		: "=m" (*x), "=a" (retval)
 		: "Ir" (bit)
 		: "memory", "cc"
@@ -384,8 +383,7 @@ bool Atomic::BTR(volatile u32 *x, int bit)
         mov edx,x
         mov ecx,bit
         lock BTR [edx],ecx
-        mov eax,0
-        setc al
+        sbb eax,eax
     CAT_ASM_END
 
 	CAT_FENCE_COMPILER
@@ -396,7 +394,7 @@ bool Atomic::BTR(volatile u32 *x, int bit)
 
     CAT_ASM_BEGIN
 		"lock; BTRl %2, %0\n\t"
-		"setc %%al"
+		"sbbl %%eax, %%eax"
 		: "=m" (*x), "=a" (retval)
 		: "Ir" (bit)
 		: "memory", "cc"

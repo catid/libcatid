@@ -29,6 +29,7 @@
 #include <cat/math/BitMath.hpp>
 using namespace cat;
 
+// Used by BSF32 if BitScanForward opcode is not available
 const int cat::MultiplyDeBruijnBitPosition2[32] = 
 {
 	0, 1, 28, 2, 29, 14, 24, 3, 30, 22, 20, 15, 25, 17, 4, 8, 

@@ -45,7 +45,7 @@ class WorkerThread;
 class WorkerThreads;
 union OverlappedRecvFrom;
 
-static const u32 MAX_WORKERS = 16;
+static const u32 MAX_WORKER_THREADS = 32;
 
 class WorkerTLS
 {

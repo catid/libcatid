@@ -145,22 +145,29 @@ template<int BITS, typename T> CAT_INLINE T BiasedReconstructCounter(T now, u32 
 
 
 // Bit Scan Forward (BSF)
-// Scans from bit 0 to MSB
+// Scans from bit 0 to MSB, returns index 0-31 of the first set bit found
 // Undefined when input is zero
 CAT_INLINE u32 BSF32(u32 x);
 CAT_INLINE u32 BSF64(u64 x);
 
 // Bit Scan Reverse (BSR)
-// Scans from MSB to bit 0
+// Scans from MSB to bit 0, returns index 0-31 of the first set bit found
 // Undefined when input is zero
 CAT_INLINE u32 BSR32(u32 x);
 CAT_INLINE u32 BSR64(u64 x);
 
+// Bit Test and Set (BTS)
+// Tests if specified bit 0-31 is set, and returns non-zero if it was set
+// Bit will be set after call
+CAT_INLINE bool BTS32(u32 *x, u32 bit);
+CAT_INLINE bool BTS64(u64 *x, u32 bit);
+
+
 extern const int MultiplyDeBruijnBitPosition2[32];
 
-u32 BSF32(u32 x)
+CAT_INLINE u32 BSF32(u32 x)
 {
-#if defined(CAT_COMPILER_MSVC) && defined(CAT_WORD_64) && !defined(CAT_DEBUG)
+#if defined(CAT_COMPILER_MSVC) && !defined(CAT_DEBUG)
 
 	u32 index;
     _BitScanForward((unsigned long*)&index, x);
@@ -196,9 +203,9 @@ u32 BSF32(u32 x)
 }
 
 
-u32 BSR32(u32 x)
+CAT_INLINE u32 BSR32(u32 x)
 {
-#if defined(CAT_COMPILER_MSVC) && defined(CAT_WORD_64) && !defined(CAT_DEBUG)
+#if defined(CAT_COMPILER_MSVC) && !defined(CAT_DEBUG)
 
 	u32 index;
     _BitScanReverse((unsigned long*)&index, x);
@@ -239,7 +246,7 @@ u32 BSR32(u32 x)
 }
 
 
-u32 BSF64(u64 x)
+CAT_INLINE u32 BSF64(u64 x)
 {
 #if defined(CAT_COMPILER_MSVC) && !defined(CAT_DEBUG) && defined(CAT_WORD_64)
 
@@ -277,7 +284,7 @@ u32 BSF64(u64 x)
 }
 
 
-u32 BSR64(u64 x)
+CAT_INLINE u32 BSR64(u64 x)
 {
 #if defined(CAT_COMPILER_MSVC) && !defined(CAT_DEBUG) && defined(CAT_WORD_64)
 
@@ -310,6 +317,78 @@ u32 BSR64(u64 x)
     shift = (x > 0x3) << 1; x >>= shift; r |= shift;
     r |= (u32)(x >> 1);
     return r;
+
+#endif
+}
+
+
+CAT_INLINE bool BTS32(u32 *x, u32 bit)
+{
+#if defined(CAT_COMPILER_MSVC) && !defined(CAT_DEBUG)
+
+	return !!_bittestandset((LONG*)x, bit);
+
+#elif defined(CAT_ASM_INTEL) && defined(CAT_WORD_32) && defined(CAT_ISA_X86)
+
+	CAT_ASM_BEGIN
+		mov edx,x
+		mov ecx,bit
+		mov eax,0
+		bts [edx],ecx
+        sbb eax,eax
+	CAT_ASM_END
+
+#elif defined(CAT_ASM_ATT) && defined(CAT_ISA_X86)
+
+	bool retval;
+
+	CAT_ASM_BEGIN
+		"btsl %2, %0\n\t"
+		"sbbl %%eax, %%eax"
+		: "=m" (*x), "=a" (retval)
+		: "Ir" (bit)
+		: "memory", "cc"
+	CAT_ASM_END
+
+	return retval;
+
+#else
+
+	u32 mask = 1 << bit;
+	if (x & mask) return 1;
+	x |= mask;
+	return 0;
+
+#endif
+}
+
+
+CAT_INLINE bool BTS64(u64 *x, u32 bit)
+{
+#if defined(CAT_COMPILER_MSVC) && !defined(CAT_DEBUG)
+
+	return !!_bittestandset64((LONG64*)x, bit);
+
+#elif defined(CAT_ASM_ATT) && defined(CAT_ISA_X86)
+
+	bool retval;
+
+	CAT_ASM_BEGIN
+		"btsq %2, %0\n\t"
+		"sbbq %%rax, %%rax"
+		: "=m" (*x), "=a" (retval)
+		: "Ir" (bit)
+		: "memory", "cc"
+	CAT_ASM_END
+
+	return retval;
+
+#else
+
+	u64 mask = (u64)1 << bit;
+	if (*x & mask) return 1;
+	*x |= mask;
+	return 0;
 
 #endif
 }

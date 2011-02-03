@@ -554,15 +554,9 @@ template<typename T> CAT_INLINE T Bound(const T &minimum, const T &maximum, cons
 
 #elif defined(CAT_COMPILER_MSVC)
 
-#pragma intrinsic(_rotl)
-#pragma intrinsic(_rotr)
-#pragma intrinsic(_rotl64)
-#pragma intrinsic(_rotr64)
-#pragma intrinsic(_byteswap_ushort)
-#pragma intrinsic(_byteswap_ulong)
-#pragma intrinsic(_byteswap_uint64)
-#pragma intrinsic(_BitScanForward)
-#pragma intrinsic(_BitScanReverse)
+#pragma intrinsic(_rotl, _rotr, _rotl64, _rotr64)
+#pragma intrinsic(_byteswap_ushort, _byteswap_ulong, _byteswap_uint64)
+#pragma intrinsic(_BitScanForward, _BitScanReverse, _bittestandset)
 #pragma intrinsic(__emulu)
 #pragma intrinsic(_InterlockedExchange)
 #pragma intrinsic(_interlockedbittestandset)
@@ -571,8 +565,7 @@ template<typename T> CAT_INLINE T Bound(const T &minimum, const T &maximum, cons
 #if defined(CAT_WORD_64)
 #pragma intrinsic(__rdtsc)
 #pragma intrinsic(_umul128)
-#pragma intrinsic(_BitScanForward64)
-#pragma intrinsic(_BitScanReverse64)
+#pragma intrinsic(_BitScanForward64, _BitScanReverse64, _bittestandset64)
 #pragma intrinsic(_InterlockedCompareExchange128)
 #else
 #pragma intrinsic(_InterlockedCompareExchange64)
