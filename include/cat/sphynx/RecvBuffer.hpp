@@ -29,12 +29,11 @@
 #ifndef CAT_RECV_BUFFER_HPP
 #define CAT_RECV_BUFFER_HPP
 
-#include <cat/iocp/IOThreads.hpp>
+#include <cat/Platform.hpp>
 
 namespace cat {
 
 
-// A growing, aligned buffer specialized for writing to a socket
 class RecvBuffer
 {
 };
