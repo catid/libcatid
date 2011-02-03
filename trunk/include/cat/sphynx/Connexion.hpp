@@ -53,7 +53,7 @@ class Connexion : public Transport, public RefObject
 	friend class ConnexionMap;
 
 	virtual void OnShutdownRequest();
-	virtual void OnZeroReferences();
+	virtual bool OnZeroReferences();
 
 public:
 	Connexion();

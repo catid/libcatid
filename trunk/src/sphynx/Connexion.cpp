@@ -43,7 +43,7 @@ void Connexion::OnShutdownRequest()
 {
 }
 
-void Connexion::OnZeroReferences()
+bool Connexion::OnZeroReferences()
 {
 }
 

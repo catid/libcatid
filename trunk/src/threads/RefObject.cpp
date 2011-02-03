@@ -29,117 +29,13 @@
 #include <cat/threads/RefObject.hpp>
 using namespace cat;
 
-
-//// RefObjectWatch
-
-RefObjectWatch::RefObjectWatch()
-{
-	_wait_count = 0;
-}
-
-RefObjectWatch::~RefObjectWatch()
-{
-	WaitForShutdown();
-}
-
-bool RefObjectWatch::WaitForShutdown(s32 milliseconds, bool request_shutdown)
-{
-	AutoMutex lock(_lock);
-
-	if (_wait_count == 0) return true;
-
-	// If user wants to shutdown watched objects,
-	if (request_shutdown)
-	{
-		// For each object we haven't seen shutdown start yet,
-		for (std::list<RefObject*>::iterator ii = _watched_list.begin(); ii != _watched_list.end(); ++ii)
-		{
-			RefObject *obj = *ii;
-
-			obj->RequestShutdown();
-		}
-	}
-
-	lock.Release();
-
-	return _shutdown_flag.Wait(milliseconds);
-}
-
-void RefObjectWatch::Watch(RefObject *obj)
-{
-	AutoMutex lock(_lock);
-
-	// If object is already watched, abort
-	for (std::list<RefObject*>::iterator ii = _watched_list.begin(); ii != _watched_list.end(); ++ii)
-	{
-		RefObject *old_obj = *ii;
-
-		if (obj == old_obj)
-			return;
-	}
-
-	_watched_list.push_back(obj);
-	++_wait_count;
-
-	lock.Release();
-
-	obj->AddRef();
-}
-
-bool RefObjectWatch::OnObjectShutdownStart(RefObject *obj)
-{
-	AutoMutex lock(_lock);
-
-	for (std::list<RefObject*>::iterator ii = _watched_list.begin(); ii != _watched_list.end(); ++ii)
-	{
-		RefObject *old_obj = *ii;
-
-		if (obj == old_obj)
-		{
-			_watched_list.erase(ii);
-
-			lock.Release();
-
-			// Release object reference, since they still have a reference on us
-			// and will call us back when shutdown ends
-			obj->ReleaseRef();
-
-			// Do not decrement _wait_count until shutdown is complete
-			return true;
-		}
-	}
-
-	return false;
-}
-
-void RefObjectWatch::OnObjectShutdownEnd(RefObject *obj)
-{
-	_lock.Enter();
-	u32 wait_count = --_wait_count;
-	_lock.Leave();
-
-	if (wait_count == 0)
-		_shutdown_flag.Set();
-}
+#include <algorithm>
 
 
 //// RefObject
 
 void RefObject::ShutdownComplete(bool delete_this)
 {
-	_lock.Enter();
-
-	for (std::vector<RefObjectWatch*>::iterator ii = _watchers.begin(); ii != _watchers.end(); ++ii)
-	{
-		RefObjectWatch *watch = *ii;
-
-		watch->OnObjectShutdownEnd(this);
-	}
-
-	_watchers.clear();
-
-	_lock.Leave();
-
 	if (delete_this) delete this;
 }
 
@@ -165,4 +61,111 @@ void RefObject::RequestShutdown()
 		// Release the initial reference to allow OnZeroReference()
 		ReleaseRef();
 	}
+}
+
+
+//// WatchedRefObject
+
+void WatchedRefObject::ShutdownComplete(bool delete_this)
+{
+	_lock.Enter();
+
+	for (std::vector<RefObjectWatcher*>::iterator ii = _watchers.begin(); ii != _watchers.end(); ++ii)
+	{
+		RefObjectWatcher *watcher = *ii;
+
+		watcher->OnObjectShutdownEnd(this);
+	}
+
+	_watchers.clear();
+
+	_lock.Leave();
+
+	if (delete_this) delete this;
+}
+
+
+//// RefObjectWatcher
+
+RefObjectWatcher::RefObjectWatcher()
+{
+	_wait_count = 0;
+}
+
+RefObjectWatcher::~RefObjectWatcher()
+{
+	WaitForShutdown();
+}
+
+bool RefObjectWatcher::WaitForShutdown(s32 milliseconds, bool request_shutdown)
+{
+	AutoMutex lock(_lock);
+
+	if (_wait_count == 0) return true;
+
+	// If user wants to shutdown watched objects,
+	if (request_shutdown)
+	{
+		// For each object we haven't seen shutdown start yet,
+		for (std::list<RefObject*>::iterator ii = _watched_list.begin(); ii != _watched_list.end(); ++ii)
+		{
+			RefObject *obj = *ii;
+
+			obj->RequestShutdown();
+		}
+	}
+
+	lock.Release();
+
+	return _shutdown_flag.Wait(milliseconds);
+}
+
+void RefObjectWatcher::Watch(RefObject *obj)
+{
+	AutoMutex lock(_lock);
+
+	// If object is already watched, abort
+	if (find(_watched_list.begin(), _watched_list.end(), obj) != _watched_list.end()) return;
+
+	_watched_list.push_back(obj);
+	++_wait_count;
+
+	lock.Release();
+
+	obj->AddRef();
+}
+
+bool RefObjectWatcher::OnObjectShutdownStart(RefObject *obj)
+{
+	AutoMutex lock(_lock);
+
+	// Try to find the object in the watched list
+	std::list<RefObject*>::iterator ii = find(_watched_list.begin(), _watched_list.end(), obj);
+
+	// If it was found in the list,
+	if (ii != _watched_list.end())
+	{
+		_watched_list.erase(ii);
+
+		lock.Release();
+
+		// Release object reference, since they still have a reference on us
+		// and will call us back when shutdown ends
+		obj->ReleaseRef();
+
+		// Do not decrement _wait_count until shutdown is complete
+		return true;
+	}
+
+	return false;
+}
+
+void RefObjectWatcher::OnObjectShutdownEnd(RefObject *obj)
+{
+	_lock.Enter();
+	u32 wait_count = --_wait_count;
+	_lock.Leave();
+
+	if (wait_count == 0)
+		_shutdown_flag.Set();
 }

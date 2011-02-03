@@ -165,8 +165,9 @@ bool UDPEndpoint::Bind(IOThreads *iothreads, bool onlySupportIPv4, Port port, bo
 		return false;
 	}
 
-	// Add references for all the reads assuming it will work out
+	// Add references for all the reads assuming they will succeed
 	AddRef(SIMULTANEOUS_READS);
+	_buffers_posted = SIMULTANEOUS_READS;
 
 	// Put together a list of allocators to try
 	IAllocator *allocators[2];
@@ -176,11 +177,19 @@ bool UDPEndpoint::Bind(IOThreads *iothreads, bool onlySupportIPv4, Port port, bo
 	// Post reads for this socket
 	u32 read_count = PostReads(SIMULTANEOUS_READS, allocators, 2);
 
+	// There are now other threads working on this object before we return!
+	// TODO: Do not allow object to be deleted before we return...
+
+	// Release references that were held for unsuccessful reads
+	if (SIMULTANEOUS_READS != read_count)
+	{
+		ReleaseRef(SIMULTANEOUS_READS - read_count);
+		Atomic::Add(&_buffers_posted, read_count - SIMULTANEOUS_READS);
+	}
+
 	// If no reads could be posted,
 	if (read_count == 0)
 	{
-		ReleaseRef(SIMULTANEOUS_READS);
-
 		FATAL("UDPEndpoint") << "No reads could be launched";
 		CloseSocket(s);
 		_socket = SOCKET_ERROR;
@@ -188,16 +197,8 @@ bool UDPEndpoint::Bind(IOThreads *iothreads, bool onlySupportIPv4, Port port, bo
 	}
 	else if (read_count < SIMULTANEOUS_READS)
 	{
-		// Release references that were held for them
-		ReleaseRef(total_request_count - read_count);
-
 		WARN("UDPEndpoint") << "Only able to launch " << read_count << " reads out of " << SIMULTANEOUS_READS;
 	}
-
-	// Record the buffer deficiency (if any)
-	_buffer_deficiency_lock.Enter();
-	_buffers_posted = read_count;
-	_buffer_deficiency_lock.Leave();
 
     _port = port;
 
@@ -209,12 +210,11 @@ bool UDPEndpoint::Bind(IOThreads *iothreads, bool onlySupportIPv4, Port port, bo
 
 //// Begin Event
 
-bool UDPEndpoint::PostRead(IOCPOverlappedRecvFrom *ov_recvfrom)
+bool UDPEndpoint::PostRead(RecvBuffer *buffer)
 {
-	CAT_OBJCLR(ov_recvfrom->ov);
-	ov_recvfrom->allocator = allocator;
-	ov_recvfrom->io_type = IOTYPE_UDP_RECV;
-	ov_recvfrom->addr_len = sizeof(ov_recvfrom->addr);
+	CAT_OBJCLR(buffer->ov);
+	buffer->io_type = IOTYPE_UDP_RECV;
+	buffer->addr_len = sizeof(buffer->addr);
 
 	WSABUF wsabuf;
 	wsabuf.buf = reinterpret_cast<CHAR*>( GetTrailingBytes(ov_recvfrom) );
@@ -247,7 +247,7 @@ u32 UDPEndpoint::PostReads(u32 total_request_count, IAllocator *allocators[], u3
 	IAllocator *allocator = allocators[0];
 	u32 allocator_index = 0;
 
-	IOCPOverlappedRecvFrom *buffers[SIMULTANEOUS_READS];
+	RecvBuffer *buffers[SIMULTANEOUS_READS];
 
 	// Loop while more buffers are needed
 	while (read_count < total_request_count) 
@@ -261,7 +261,7 @@ u32 UDPEndpoint::PostReads(u32 total_request_count, IAllocator *allocators[], u3
 		for (u32 ii = 0; ii < buffer_count; ++ii)
 		{
 			// Fill buffer
-			ov_recvfrom->allocator = allocator;
+			buffers[ii]->allocator = allocator;
 
 			// If unable to post a read,
 			if (!PostRead(allocator, buffers[ii]))
@@ -403,7 +403,7 @@ u32 UDPEndpoint::Write(SendBuffer *buffers[], u32 total_count, const NetAddr &ad
 
 //// Event Completion
 
-void UDPEndpoint::ReleaseReadBuffers(IOCPOverlappedRecvFrom *ov_recvfrom[], u32 count)
+void UDPEndpoint::ReleaseReadBuffers(RecvBuffer *buffers[], u32 count)
 {
 	if (count <= 0) return;
 
@@ -414,7 +414,7 @@ void UDPEndpoint::ReleaseReadBuffers(IOCPOverlappedRecvFrom *ov_recvfrom[], u32 
 	{
 		// Re-use just one buffer to keep at least one request out there
 		// Posting reads is expensive so only do this if we are desperate
-		if (PostRead(ov_recvfrom[count-1]))
+		if (PostRead(buffers[count-1]))
 		{
 			// Increment the number of buffers posted and pull it out of the count
 			Atomic::Add(&_buffers_posted, 1);
@@ -431,17 +431,17 @@ void UDPEndpoint::ReleaseReadBuffers(IOCPOverlappedRecvFrom *ov_recvfrom[], u32 
 	if (count <= 0) return;
 
 	// For each buffer to deallocate,
-	IAllocator *allocator = ov_recvfrom[0]->allocator;
+	IAllocator *allocator = buffers[0]->allocator;
 	u32 ii, last_ii;
 	for (last_ii = 0, ii = 1; ii < count; ++ii)
 	{
-		IAllocator *new_allocator = ov_recvfrom[ii]->allocator;
+		IAllocator *new_allocator = buffers[ii]->allocator;
 
 		// If allocator has changed,
 		if (allocator != new_allocator)
 		{
 			// Release the batch so far
-			allocator->ReleaseBatch((void**)ov_recvfrom, ii - last_ii);
+			allocator->ReleaseBatch((void**)buffers, ii - last_ii);
 
 			last_ii = ii;
 			allocator = new_allocator;
@@ -449,32 +449,33 @@ void UDPEndpoint::ReleaseReadBuffers(IOCPOverlappedRecvFrom *ov_recvfrom[], u32 
 	}
 
 	// Release the remaining batch
-	allocator->ReleaseBatch((void**)ov_recvfrom, ii - last_ii);
+	allocator->ReleaseBatch((void**)buffers, ii - last_ii);
 
 	// Release one reference for each buffer
 	ReleaseRef(count);
 }
 
-void UDPEndpoint::OnRead(IOTLS *tls, IOCPOverlappedRecvFrom *ov_recvfrom[], u32 bytes[], u32 count, u32 event_time)
+void UDPEndpoint::OnReadCompletion(IOTLS *tls, RecvBuffer *buffers[], u32 count, u32 event_msec)
 {
 	// If reads completed during shutdown,
 	if (IsShutdown())
 	{
 		// Just release the read buffers
-		ReleaseReadBuffers(ov_recvfrom, count);
+		ReleaseReadBuffers(buffers, count);
 		return;
 	}
 
-	// TODO: WorkerThreads interface here
+	// Notify derived class about new buffers
+	OnRead(buffers, count, event_msec);
 
 	// Check if new posts need to be made
 	u32 perceived_deficiency = SIMULTANEOUS_READS - _buffers_posted;
 	if ((s32)perceived_deficiency > 0)
 	{
-		// Race to replentish the buffers
+		// Race to replenish the buffers
 		u32 race_posted = Atomic::Add(&_buffers_posted, perceived_deficiency);
  
-		// If we lost the race to replentish,
+		// If we lost the race to replenish,
 		if (race_posted >= SIMULTANEOUS_READS)
 		{
 			// Take it back

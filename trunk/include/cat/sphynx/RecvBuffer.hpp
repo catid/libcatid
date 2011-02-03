@@ -29,13 +29,24 @@
 #ifndef CAT_RECV_BUFFER_HPP
 #define CAT_RECV_BUFFER_HPP
 
-#include <cat/Platform.hpp>
+#include <cat/sphynx/WorkerThreads.hpp>
+#include <cat/sphynx/Connexion.hpp>
 
 namespace cat {
 
 
 class RecvBuffer
 {
+public:
+	// IOCP side
+	void GetAddr(NetAddr &addr);
+
+	// Worker side
+	RecvBuffer *_next_buffer;
+	Connexion *_conn;
+	u32 _event_msec;
+	u32 _data_bytes;
+	u8 _data[1];
 };
 
 

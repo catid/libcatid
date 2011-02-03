@@ -47,7 +47,6 @@ CAT_INLINE bool IOThread::HandleCompletion(IOTLS *tls, OVERLAPPED_ENTRY entries[
 
 	// Batch process receives
 	RecvBuffer *recv_list[MAX_IO_GATHER];
-	u32 recv_bytes_list[MAX_IO_GATHER];
 	u32 recv_list_size = 0;
 	UDPEndpoint *prev_recv_endpoint = 0;
 
@@ -56,7 +55,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOTLS *tls, OVERLAPPED_ENTRY entries[
 	for (u32 ii = 0; ii < count; ++ii)
 	{
 		UDPEndpoint *udp_endpoint = reinterpret_cast<UDPEndpoint*>( entries[ii].lpCompletionKey );
-		IOCPOverlapped *ov_iocp = reinterpret_cast<IOCPOverlapped*>( entries[ii].lpOverlapped );
+		IOCPOverlapped *ov_iocp = reinterpret_cast<IOCPOverlapped*>( (u8*)entries[ii].lpOverlapped - offsetof(IOCPOverlapped, ov) );
 		u32 bytes = entries[ii].dwNumberOfBytesTransferred;
 
 		// Terminate thread on zero completion
@@ -107,7 +106,6 @@ CAT_INLINE bool IOThread::HandleCompletion(IOTLS *tls, OVERLAPPED_ENTRY entries[
 				{
 					// Store this for batched release
 					recv_list[recv_list_size] = ov_recv;
-					recv_bytes_list[recv_list_size] = bytes;
 					++recv_list_size;
 				}
 				else
@@ -116,7 +114,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOTLS *tls, OVERLAPPED_ENTRY entries[
 					if (recv_list_size)
 					{
 						// Deliver the batch
-						prev_recv_endpoint->OnRead(tls, recv_list, recv_bytes_list, recv_list_size, event_time);
+						prev_recv_endpoint->OnReadCompletion(tls, recv_list, recv_list_size, event_time);
 					}
 
 					// Reset the list

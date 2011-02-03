@@ -114,7 +114,7 @@ int main()
 	}
 
 	// Watcher for shutdown events
-	RefObjectWatch watcher;
+	RefObjectWatcher watcher;
 
 	INFO("Client") << "Secure Chat Client 2.0";
 

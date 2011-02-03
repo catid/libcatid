@@ -44,20 +44,9 @@ class WorkerThreads;
 union OverlappedRecvFrom;
 
 // bool WorkerThreadCallback(WorkerTLS *tls, OverlappedRecvFrom *ov)
-typedef fastdelegate::FastDelegate2<WorkerTLS *, OverlappedRecvFrom *, bool> WorkerThreadCallback;
+typedef fastdelegate::FastDelegate2<WorkerTLS *, RecvBuffer *, bool> WorkerThreadCallback;
 
-union OverlappedRecvFrom
-{
-	IOCPOverlappedRecvFrom io;
-
-	struct {
-		IAllocator *allocator;
-		WorkerThreadCallback callback;
-		u32 bytes;
-		u32 event_time;
-		OverlappedRecvFrom *next;
-	};
-};
+static const u32 MAX_WORKERS = 16;
 
 class WorkerTLS
 {
@@ -128,6 +117,8 @@ class WorkerThreads
 public:
 	WorkerThreads();
 	virtual ~WorkerThreads();
+
+	CAT_INLINE u32 GetWorkerCount() { return _worker_count; }
 
 	bool Startup();
 	bool Shutdown();

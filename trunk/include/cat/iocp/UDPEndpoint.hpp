@@ -41,7 +41,7 @@ static const u32 SIMULTANEOUS_READS = 128;
 static const u32 SIMULTANEOUS_SENDS = 128;
 
 // Object that represents a UDP endpoint bound to a single port
-class UDPEndpoint : public RefObject
+class UDPEndpoint : public WatchedRefObject
 {
 	volatile u32 _buffers_posted; // Number of buffers posted to the socket waiting for data
 
@@ -79,19 +79,18 @@ public:
 	u32 Write(SendBuffer *buffers[], u32 count, const NetAddr &addr);
 
 	// When done with read buffers, call this function to add them back to the available pool
-	void ReleaseReadBuffers(RecvBuffer *ov_recvfrom[], u32 count);
+	void ReleaseReadBuffers(RecvBuffer *buffers[], u32 count);
 
 private:
-	bool PostRead(RecvBuffer *ov_recvfrom);
+	bool PostRead(RecvBuffer *buffer);
 
 	// Returns the number of reads posted
 	u32 PostReads(u32 count, IAllocator *allocators[], u32 allocator_count);
 
-	void OnRead(IOTLS *tls, RecvBuffer *ov_recvfrom[], u32 bytes[], u32 count, u32 event_time);
+	void OnReadCompletion(IOTLS *tls, RecvBuffer *buffers[], u32 count, u32 event_msec);
 
 protected:
-	virtual void OnRead(OverlappedRecvFrom *ov_rf, u32 bytes, u32 event_time) = 0;
-	virtual void OnClose() = 0;
+	virtual void OnRead(RecvBuffer *buffers[], u32 count, u32 event_msec) = 0;
     virtual void OnUnreachable(const NetAddr &addr) {} // Only IP is valid
 };
 
