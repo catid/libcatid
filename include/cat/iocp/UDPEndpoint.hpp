@@ -26,8 +26,8 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_UDP_ENDPOINT_HPP
-#define CAT_UDP_ENDPOINT_HPP
+#ifndef CAT_IOCP_UDP_ENDPOINT_HPP
+#define CAT_IOCP_UDP_ENDPOINT_HPP
 
 #include <cat/iocp/IOThreads.hpp>
 #include <cat/iocp/SendBuffer.hpp>
@@ -49,8 +49,12 @@ class UDPEndpoint : public WatchedRefObject
 	Port _port;
 	bool _ipv6;
 
-	virtual void OnShutdownRequest();
-	virtual bool OnZeroReferences();
+	bool PostRead(RecvBuffer *buffer);
+
+	// Returns the number of reads posted
+	u32 PostReads(u32 count, IAllocator *allocators[], u32 allocator_count);
+
+	void OnReadCompletion(IOTLS *tls, RecvBuffer *buffers[], u32 count, u32 event_msec);
 
 public:
     UDPEndpoint();
@@ -81,15 +85,10 @@ public:
 	// When done with read buffers, call this function to add them back to the available pool
 	void ReleaseReadBuffers(RecvBuffer *buffers[], u32 count);
 
-private:
-	bool PostRead(RecvBuffer *buffer);
-
-	// Returns the number of reads posted
-	u32 PostReads(u32 count, IAllocator *allocators[], u32 allocator_count);
-
-	void OnReadCompletion(IOTLS *tls, RecvBuffer *buffers[], u32 count, u32 event_msec);
-
 protected:
+	virtual void OnShutdownRequest();
+	virtual bool OnZeroReferences();
+
 	virtual void OnRead(RecvBuffer *buffers[], u32 count, u32 event_msec) = 0;
     virtual void OnUnreachable(const NetAddr &addr) {} // Only IP is valid
 };
@@ -97,4 +96,4 @@ protected:
 
 } // namespace cat
 
-#endif // CAT_UDP_ENDPOINT_HPP
+#endif // CAT_IOCP_UDP_ENDPOINT_HPP

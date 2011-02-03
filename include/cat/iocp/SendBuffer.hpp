@@ -26,8 +26,8 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_SEND_BUFFER_HPP
-#define CAT_SEND_BUFFER_HPP
+#ifndef CAT_IOCP_SEND_BUFFER_HPP
+#define CAT_IOCP_SEND_BUFFER_HPP
 
 #include <cat/iocp/IOThreads.hpp>
 #include <cat/mem/StdAllocator.hpp>
@@ -166,4 +166,4 @@ public:
 
 } // namespace cat
 
-#endif // CAT_SEND_BUFFER_HPP
+#endif // CAT_IOCP_SEND_BUFFER_HPP

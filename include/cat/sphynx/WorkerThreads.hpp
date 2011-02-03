@@ -26,8 +26,8 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_WORKER_THREADS_HPP
-#define CAT_WORKER_THREADS_HPP
+#ifndef CAT_SPHYNX_WORKER_THREADS_HPP
+#define CAT_SPHYNX_WORKER_THREADS_HPP
 
 #include <cat/threads/Thread.hpp>
 #include <cat/threads/RefObject.hpp>
@@ -36,6 +36,9 @@
 #include <cat/iocp/IOThreads.hpp>
 
 namespace cat {
+
+
+namespace sphynx {
 
 
 class WorkerTLS;
@@ -56,10 +59,6 @@ public:
 
 	bool Valid();
 };
-
-
-class 
-
 
 // Worker thread
 class WorkerThread : public Thread
@@ -110,6 +109,9 @@ public:
 };
 
 
+} // namespace sphynx
+
+
 } // namespace cat
 
-#endif // CAT_WORKER_THREADS_HPP
+#endif // CAT_SPHYNX_WORKER_THREADS_HPP

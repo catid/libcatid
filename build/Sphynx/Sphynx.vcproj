@@ -2,7 +2,7 @@
 <VisualStudioProject
 	ProjectType="Visual C++"
 	Version="9.00"
-	Name="Network"
+	Name="Sphynx"
 	ProjectGUID="{1A0860CD-3878-4B23-9B75-9F95B5555797}"
 	RootNamespace="Network"
 	TargetFrameworkVersion="196613"
@@ -90,6 +90,78 @@
 			/>
 		</Configuration>
 		<Configuration
+			Name="Debug|x64"
+			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
+			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			ConfigurationType="1"
+			CharacterSet="2"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+				TargetEnvironment="3"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				Optimization="0"
+				AdditionalIncludeDirectories="../../include/"
+				MinimalRebuild="true"
+				BasicRuntimeChecks="3"
+				RuntimeLibrary="3"
+				UsePrecompiledHeader="2"
+				PrecompiledHeaderThrough="$(ProjectDir)Precompiled.hpp"
+				WarningLevel="3"
+				DebugInformationFormat="3"
+				ForcedIncludeFiles="$(ProjectDir)Precompiled.hpp"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLinkerTool"
+				GenerateDebugInformation="true"
+				TargetMachine="17"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCManifestTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+			/>
+		</Configuration>
+		<Configuration
 			Name="Release|Win32"
 			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
 			IntermediateDirectory="$(ConfigurationName)"
@@ -140,78 +212,6 @@
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
 				TargetMachine="1"
-			/>
-			<Tool
-				Name="VCALinkTool"
-			/>
-			<Tool
-				Name="VCManifestTool"
-			/>
-			<Tool
-				Name="VCXDCMakeTool"
-			/>
-			<Tool
-				Name="VCBscMakeTool"
-			/>
-			<Tool
-				Name="VCFxCopTool"
-			/>
-			<Tool
-				Name="VCAppVerifierTool"
-			/>
-			<Tool
-				Name="VCPostBuildEventTool"
-			/>
-		</Configuration>
-		<Configuration
-			Name="Debug|x64"
-			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
-			ConfigurationType="1"
-			CharacterSet="2"
-			>
-			<Tool
-				Name="VCPreBuildEventTool"
-			/>
-			<Tool
-				Name="VCCustomBuildTool"
-			/>
-			<Tool
-				Name="VCXMLDataGeneratorTool"
-			/>
-			<Tool
-				Name="VCWebServiceProxyGeneratorTool"
-			/>
-			<Tool
-				Name="VCMIDLTool"
-				TargetEnvironment="3"
-			/>
-			<Tool
-				Name="VCCLCompilerTool"
-				Optimization="0"
-				AdditionalIncludeDirectories="../../include/"
-				MinimalRebuild="true"
-				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
-				UsePrecompiledHeader="2"
-				PrecompiledHeaderThrough="$(ProjectDir)Precompiled.hpp"
-				WarningLevel="3"
-				DebugInformationFormat="3"
-				ForcedIncludeFiles="$(ProjectDir)Precompiled.hpp"
-			/>
-			<Tool
-				Name="VCManagedResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCPreLinkEventTool"
-			/>
-			<Tool
-				Name="VCLinkerTool"
-				GenerateDebugInformation="true"
-				TargetMachine="17"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -320,7 +320,27 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
-				RelativePath="..\..\src\net\DNSClient.cpp"
+				RelativePath="..\..\src\sphynx\Client.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\sphynx\Connexion.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\sphynx\ConnexionMap.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\sphynx\FlowControl.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\sphynx\IOLayer.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\iocp\IOThreads.cpp"
 				>
 			</File>
 			<File
@@ -335,7 +355,7 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Release|Win32"
+					Name="Debug|x64"
 					>
 					<Tool
 						Name="VCCLCompilerTool"
@@ -343,7 +363,7 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Debug|x64"
+					Name="Release|Win32"
 					>
 					<Tool
 						Name="VCCLCompilerTool"
@@ -360,11 +380,23 @@
 				</FileConfiguration>
 			</File>
 			<File
+				RelativePath="..\..\src\sphynx\Server.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\src\net\Sockets.cpp"
 				>
 			</File>
 			<File
 				RelativePath="..\..\src\sphynx\Transport.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\iocp\UDPEndpoint.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\sphynx\WorkerThreads.cpp"
 				>
 			</File>
 		</Filter>
@@ -374,10 +406,6 @@
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
 			<File
-				RelativePath="..\..\include\cat\AllNetwork.hpp"
-				>
-			</File>
-			<File
 				RelativePath=".\Precompiled.hpp"
 				>
 			</File>
@@ -385,11 +413,71 @@
 				Name="net"
 				>
 				<File
-					RelativePath="..\..\include\cat\net\DNSClient.hpp"
+					RelativePath="..\..\include\cat\net\Sockets.hpp"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="sphynx"
+				>
+				<File
+					RelativePath="..\..\include\cat\sphynx\Client.hpp"
 					>
 				</File>
 				<File
-					RelativePath="..\..\include\cat\net\Sockets.hpp"
+					RelativePath="..\..\include\cat\sphynx\Collexion.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\sphynx\Common.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\sphynx\Connexion.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\sphynx\ConnexionMap.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\sphynx\FlowControl.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\sphynx\IOLayer.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\sphynx\RecvBuffer.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\sphynx\Server.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\sphynx\Transport.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\sphynx\WorkerThreads.hpp"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="iocp"
+				>
+				<File
+					RelativePath="..\..\include\cat\iocp\IOThreads.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\iocp\SendBuffer.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\iocp\UDPEndpoint.hpp"
 					>
 				</File>
 			</Filter>

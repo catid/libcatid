@@ -26,8 +26,8 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_IOCP_THREADS_HPP
-#define CAT_IOCP_THREADS_HPP
+#ifndef CAT_IOCP_IO_THREADS_HPP
+#define CAT_IOCP_IO_THREADS_HPP
 
 #include <cat/threads/Thread.hpp>
 #include <cat/net/Sockets.hpp>
@@ -89,11 +89,6 @@ struct IOCPOverlappedRecvFrom : IOCPOverlapped
 	sockaddr_in6 addr;
 };
 
-
-/*
-	
-*/
-
 typedef BOOL (WINAPI *PtGetQueuedCompletionStatusEx)(
 	__in   HANDLE CompletionPort,
 	__out  LPOVERLAPPED_ENTRY lpCompletionPortEntries,
@@ -143,4 +138,4 @@ public:
 
 } // namespace cat
 
-#endif // CAT_IOCP_THREADS_HPP
+#endif // CAT_IOCP_IO_THREADS_HPP
