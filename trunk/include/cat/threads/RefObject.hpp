@@ -63,19 +63,6 @@ class RefObject
 
 	virtual void ShutdownComplete(bool delete_this);
 
-protected:
-	// Called when a shutdown is in progress
-	// The object should release any internally held references
-	// such as private threads that are working on the object
-	// Always called and before OnZeroReferences()
-	// Proper implementation of derived classes should call the parent version
-	virtual void OnShutdownRequest() = 0;
-
-	// Called when object has no more references
-	// Return true to delete the object
-	// Always called and after OnShutdownRequest()
-	virtual bool OnZeroReferences() = 0;
-
 public:
 	CAT_INLINE RefObject()
 	{
@@ -88,12 +75,10 @@ public:
 
 	CAT_INLINE virtual ~RefObject() {}
 
-public:
 	virtual void RequestShutdown();
 
 	CAT_INLINE bool IsShutdown() { return _shutdown != 0; }
 
-public:
 	CAT_INLINE void AddRef(s32 times = 1)
 	{
 #if defined(CAT_NO_ATOMIC_REF_OBJECT)
@@ -141,6 +126,19 @@ public:
 			object = 0;
 		}
 	}
+
+protected:
+	// Called when a shutdown is in progress
+	// The object should release any internally held references
+	// such as private threads that are working on the object
+	// Always called and before OnZeroReferences()
+	// Proper implementation of derived classes should call the parent version
+	virtual void OnShutdownRequest() = 0;
+
+	// Called when object has no more references
+	// Return true to delete the object
+	// Always called and after OnShutdownRequest()
+	virtual bool OnZeroReferences() = 0;
 };
 
 
@@ -161,7 +159,6 @@ class WatchedRefObject : public RefObject
 public:
 	CAT_INLINE virtual ~WatchedRefObject() {}
 
-public:
 	virtual void RequestShutdown();
 };
 
@@ -185,11 +182,9 @@ public:
 	RefObjectWatcher();
 	virtual ~RefObjectWatcher();
 
-public:
 	// Wait for watched objects to finish shutdown, returns false on timeout
 	bool WaitForShutdown(s32 milliseconds = -1, bool request_shutdown = true); // < 0 = wait forever
 
-public:
 	void Watch(WatchedRefObject *obj);
 };
 

@@ -66,16 +66,6 @@ class Server : public UDPEndpoint
 	void PostConnectionCookie(const NetAddr &dest);
 	void PostConnectionError(const NetAddr &dest, HandshakeError err);
 
-protected:
-	// Must return a new instance of your Connexion derivation
-	virtual Connexion *NewConnexion() = 0;
-
-	// IP address filter: Return true to allow the connection to be made
-	virtual bool AcceptNewConnexion(const NetAddr &src) = 0;
-
-	// Lookup client by key
-	Connexion *Lookup(u32 key);
-
 public:
 	Server();
 	virtual ~Server();
@@ -87,6 +77,16 @@ public:
 	static bool GenerateKeyPair(ThreadPoolLocalStorage *tls, const char *public_key_file,
 								const char *private_key_file, u8 *public_key,
 								int public_bytes, u8 *private_key, int private_bytes);
+
+protected:
+	// Must return a new instance of your Connexion derivation
+	virtual Connexion *NewConnexion() = 0;
+
+	// IP address filter: Return true to allow the connection to be made
+	virtual bool AcceptNewConnexion(const NetAddr &src) = 0;
+
+	// Lookup client by key
+	Connexion *Lookup(u32 key);
 };
 
 
