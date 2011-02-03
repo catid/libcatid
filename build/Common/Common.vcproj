@@ -440,10 +440,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\include\cat\threads\AutoMutex.hpp"
-				>
-			</File>
-			<File
 				RelativePath="..\..\include\cat\Config.hpp"
 				>
 			</File>
@@ -496,6 +492,10 @@
 				>
 				<File
 					RelativePath="..\..\include\cat\threads\Atomic.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\threads\AutoMutex.hpp"
 					>
 				</File>
 				<File

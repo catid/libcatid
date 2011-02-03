@@ -26,7 +26,7 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/sphynx/WorkerThreads.hpp>
+#include <cat/net/WorkerThreads.hpp>
 #include <cat/time/Clock.hpp>
 #include <cat/port/SystemInfo.hpp>
 #include <cat/io/Logging.hpp>

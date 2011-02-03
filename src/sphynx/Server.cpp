@@ -349,6 +349,7 @@ void Server::OnRead(RecvBuffer *buffers[], u32 count, u32 event_msec)
 
 	Connexion *conn = 0;
 	NetAddr prev_addr;
+	RecvBuffer *prev_buffer;
 	u32 ii, prev_bin;
 
 	// Hunt for first buffer from a Connexion
@@ -360,6 +361,21 @@ void Server::OnRead(RecvBuffer *buffers[], u32 count, u32 event_msec)
 		if (conn)
 		{
 			prev_bin = conn->GetServerWorkerID();
+			prev_buffer = buffer[ii];
+
+			// If bin is already valid,
+			if (BTS32(&valid[prev_bin >> 5], prev_bin & 31))
+			{
+				// Insert at the end of the bin
+				bins[prev_bin].tail->_next_buffer = buffers[ii];
+				bins[prev_bin].tail = buffers[ii];
+			}
+			else
+			{
+				// Start bin
+				bins[prev_bin].head = bins[prev_bin].tail = buffers[ii];
+			}
+
 			break;
 		}
 
@@ -370,7 +386,7 @@ void Server::OnRead(RecvBuffer *buffers[], u32 count, u32 event_msec)
 		buffers[ii]->_next_buffer = 0;
 
 		// If bin is already valid,
-		if (valid[connect_worker >> 5] & (1 << (connect_worker & 31)))
+		if (BTS32(&valid[connect_worker >> 5], connect_worker & 31))
 		{
 			// Insert at the end of the bin
 			bins[connect_worker].tail->_next_buffer = buffers[ii];
@@ -395,11 +411,28 @@ void Server::OnRead(RecvBuffer *buffers[], u32 count, u32 event_msec)
 			continue;
 		}
 
+		buffers[ii-1]->_next_buffer = 0;
+
+		// If bin is already valid,
+		if (BTS32(&valid[prev_bin >> 5], prev_bin & 31))
+		{
+			// Insert at the end of the bin
+			bins[prev_bin].tail->_next_buffer = buffers[ii];
+			bins[prev_bin].tail = buffers[ii];
+		}
+		else
+		{
+			// Start bin
+			bins[prev_bin].head = bins[prev_bin].tail = buffers[ii];
+		}
+
 		// Queue a set of buffers
 		conn = _conn_map.Lookup(addr);
 		prev_addr = addr;
 		prev_bin = conn->GetServerWorkerID();
 	}
+
+	buffers[ii-1]->_next_buffer = 0;
 
 	// Store the final connect worker
 	_connect_worker = connect_worker;

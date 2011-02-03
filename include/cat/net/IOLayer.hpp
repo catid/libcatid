@@ -26,11 +26,10 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_SPHYNX_IOLAYER_HPP
-#define CAT_SPHYNX_IOLAYER_HPP
+#ifndef CAT_NET_IOLAYER_HPP
+#define CAT_NET_IOLAYER_HPP
 
-#include <cat/crypt/cookie/CookieJar.hpp>
-#include <cat/crypt/tunnel/KeyAgreementResponder.hpp>
+#include <cat/Platform.hpp>
 
 // TODO: Implement portable IO layer
 #if defined(CAT_OS_WINDOWS)
@@ -42,9 +41,6 @@ TODO
 #endif
 
 namespace cat {
-
-
-namespace sphynx {
 
 
 class IOLayer
@@ -62,9 +58,6 @@ public:
 };
 
 
-} // namespace sphynx
-
-
 } // namespace cat
 
-#endif // CAT_SPHYNX_IOLAYER_HPP
+#endif // CAT_NET_IOLAYER_HPP

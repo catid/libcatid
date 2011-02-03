@@ -26,7 +26,7 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/sphynx/IOLayer.hpp>
+#include <cat/net/IOLayer.hpp>
 using namespace cat;
 using namespace sphynx;
 

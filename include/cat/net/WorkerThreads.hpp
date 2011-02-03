@@ -26,24 +26,20 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_SPHYNX_WORKER_THREADS_HPP
-#define CAT_SPHYNX_WORKER_THREADS_HPP
+#ifndef CAT_NET_WORKER_THREADS_HPP
+#define CAT_NET_WORKER_THREADS_HPP
 
 #include <cat/threads/Thread.hpp>
 #include <cat/threads/WaitableFlag.hpp>
 #include <cat/threads/Mutex.hpp>
-#include <cat/sphynx/IOLayer.hpp>
+#include <cat/net/IOLayer.hpp>
 
 namespace cat {
-
-
-namespace sphynx {
 
 
 class WorkerTLS;
 class WorkerThread;
 class WorkerThreads;
-union OverlappedRecvFrom;
 
 static const u32 MAX_WORKER_THREADS = 32;
 
@@ -126,9 +122,6 @@ public:
 };
 
 
-} // namespace sphynx
-
-
 } // namespace cat
 
-#endif // CAT_SPHYNX_WORKER_THREADS_HPP
+#endif // CAT_NET_WORKER_THREADS_HPP

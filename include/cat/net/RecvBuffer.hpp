@@ -26,18 +26,15 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_SPHYNX_RECV_BUFFER_HPP
-#define CAT_SPHYNX_RECV_BUFFER_HPP
+#ifndef CAT_NET_RECV_BUFFER_HPP
+#define CAT_NET_RECV_BUFFER_HPP
 
-#include <cat/sphynx/WorkerThreads.hpp>
-#include <cat/sphynx/Connexion.hpp>
+#include <cat/net/WorkerThreads.hpp>
 
 namespace cat {
 
 
-namespace sphynx {
-
-
+// TODO: Implement this after I know what needs to be in here
 class RecvBuffer
 {
 public:
@@ -46,16 +43,13 @@ public:
 
 	// Worker side
 	RecvBuffer *_next_buffer;
-	Connexion *_conn;
+	WorkerCallbacks *_callback;
 	u32 _event_msec;
 	u32 _data_bytes;
 	u8 _data[1];
 };
 
 
-} // namespace sphynx
-
-
 } // namespace cat
 
-#endif // CAT_SPHYNX_RECV_BUFFER_HPP
+#endif // CAT_NET_RECV_BUFFER_HPP
