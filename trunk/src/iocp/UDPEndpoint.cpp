@@ -29,8 +29,6 @@
 #include <cat/iocp/UDPEndpoint.hpp>
 #include <cat/io/Logging.hpp>
 #include <cat/io/Settings.hpp>
-#include <cat/threads/Atomic.hpp>
-#include <cat/iocp/SendBuffer.hpp>
 using namespace std;
 using namespace cat;
 
@@ -43,9 +41,9 @@ void UDPEndpoint::OnShutdownRequest()
 	}
 }
 
-void UDPEndpoint::OnZeroReferences()
+bool UDPEndpoint::OnZeroReferences()
 {
-	delete this;
+	return true;
 }
 
 UDPEndpoint::UDPEndpoint()
