@@ -32,6 +32,7 @@
 #include <cat/crypt/cookie/CookieJar.hpp>
 #include <cat/crypt/tunnel/KeyAgreementResponder.hpp>
 
+// TODO: Implement portable IO layer
 #if defined(CAT_OS_WINDOWS)
 #include <cat/iocp/SendBuffer.hpp>
 #include <cat/iocp/IOThreads.hpp>
