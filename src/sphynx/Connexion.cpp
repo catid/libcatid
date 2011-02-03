@@ -66,7 +66,7 @@ void Connexion::Disconnect(u8 reason, bool notify)
 	}
 }
 
-void Connexion::OnWorkerRead(RecvBuffer *buffer_list_head)
+void Connexion::OnWorkerRead(WorkerTLS *tls, RecvBuffer *buffer_list_head)
 {
 	u32 buf_bytes = bytes;
 
@@ -92,7 +92,7 @@ void Connexion::OnWorkerRead(RecvBuffer *buffer_list_head)
 	WARN("Server") << "Ignoring invalid encrypted data";
 }
 
-void Connexion::OnWorkerTick(u32 now)
+void Connexion::OnWorkerTick(WorkerTLS *tls, u32 now)
 {
 	// If no packets have been received,
 	if ((s32)(now - _last_recv_tsc) >= TIMEOUT_DISCONNECT)

@@ -66,9 +66,13 @@ public:
 
 int main()
 {
-	sphynx::IOLayer iolayer;
+	IOLayer iolayer;
 
-	iolayer.Startup("ChatClient.cfg");
+	if (!iolayer.Startup("ChatClient.cfg"))
+	{
+		FATAL("Client") << "Unable to start IOLayer";
+		return 1;
+	}
 
 	INFO("Client") << "Secure Chat Client 2.0";
 

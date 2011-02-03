@@ -69,8 +69,8 @@ private:
 	u8 _cached_answer[128]; // Cached answer to this first challenge, to avoid eating server CPU time
 
 private:
-	virtual void OnWorkerRead(RecvBuffer *buffer_list_head);
-	virtual void OnWorkerTick(u32 now);
+	virtual void OnWorkerRead(WorkerTLS *tls, RecvBuffer *buffer_list_head);
+	virtual void OnWorkerTick(WorkerTLS *tls, u32 now);
 
 	virtual bool PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes);
 	virtual void OnInternal(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes);

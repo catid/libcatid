@@ -33,9 +33,11 @@
 #include <cat/AllMath.hpp>
 #include <cat/AllTunnel.hpp>
 
+// TODO: Split network stuff into its own project and make generic TLS
 #include <cat/net/Sockets.hpp>
-
-#include <cat/sphynx/IOLayer.hpp>
+#include <cat/net/IOLayer.hpp>
+#include <cat/net/RecvBuffer.hpp>
+#include <cat/net/WorkerThreads.hpp>
 
 #include <cat/sphynx/Common.hpp>
 #include <cat/sphynx/Connexion.hpp>
@@ -45,5 +47,3 @@
 #include <cat/sphynx/FlowControl.hpp>
 #include <cat/sphynx/Server.hpp>
 #include <cat/sphynx/Transport.hpp>
-#include <cat/sphynx/RecvBuffer.hpp>
-#include <cat/sphynx/WorkerThreads.hpp>
