@@ -34,6 +34,28 @@
 namespace cat {
 
 
+struct BatchHead;
+struct BatchSet;
+class IAllocator;
+
+
+// For batch allocations, this is the header attached to each one.  This header
+// allows for the batched objects to be passed around with a BatchSet (below).
+// Normal allocations do not use this header.
+struct BatchHead
+{
+	BatchHead *batch_next;
+	IAllocator *batch_allocator;
+};
+
+// When passing around a batch of allocated space, use this object to represent
+// the two ends of the batch for O(1) concatenation to other batches
+struct BatchSet
+{
+	BatchHead *head, *tail;
+};
+
+
 // Allocator interface
 class IAllocator
 {
@@ -55,23 +77,13 @@ public:
 	// Should not die if pointer is null
 	virtual void Release(void *ptr) = 0;
 
-public:
 	// Attempt to acquire a number of buffers
 	// Returns the number of valid buffers it was able to allocate
-	virtual u32 AcquireBatch(void **ptr_array, u32 count, u32 bytes)
-	{
-		u32 ii;
-		for (ii = 0; ii < count && !!(ptr_array[ii] = Acquire(bytes)); ++ii);
-		return ii;
-	}
+	virtual u32 AcquireBatch(BatchSet &set, u32 count, u32 bytes);
 
 	// Attempt to acquire a number of buffers
 	// Returns the number of valid buffers it was able to allocate
-	virtual void ReleaseBatch(void **ptr_array, u32 count)
-	{
-		for (u32 ii = 0; ii < count; ++ii)
-			Release(ptr_array[ii]);
-	}
+	virtual void ReleaseBatch(const BatchSet &batch);
 
 	// Delete an object calling the destructor and then freeing memory
     template<class T>

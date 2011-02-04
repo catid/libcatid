@@ -165,8 +165,10 @@
     <ClCompile Include="..\..\src\io\Logging.cpp" />
     <ClCompile Include="..\..\src\io\MMapFile.cpp" />
     <ClCompile Include="..\..\src\io\Settings.cpp" />
+    <ClCompile Include="..\..\src\math\BitMath.cpp" />
     <ClCompile Include="..\..\src\mem\AlignedAllocator.cpp" />
     <ClCompile Include="..\..\src\mem\BufferAllocator.cpp" />
+    <ClCompile Include="..\..\src\mem\IAllocator.cpp" />
     <ClCompile Include="..\..\src\mem\LargeAllocator.cpp" />
     <ClCompile Include="..\..\src\mem\StdAllocator.cpp" />
     <ClCompile Include="..\..\src\parse\BitStream.cpp" />
