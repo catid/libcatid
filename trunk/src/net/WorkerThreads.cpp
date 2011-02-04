@@ -32,9 +32,6 @@
 #include <cat/io/Logging.hpp>
 using namespace cat;
 
-
-//// WorkerTLS
-
 WorkerTLS::WorkerTLS()
 {
 	// Create 256-bit math library instance

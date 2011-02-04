@@ -40,8 +40,13 @@ using namespace std;
 using namespace cat;
 using namespace sphynx;
 
+void Client::OnShutdownRequest()
+{
+}
 
-//// Client
+bool Client::OnZeroReferences()
+{
+}
 
 Client::Client()
 {

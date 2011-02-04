@@ -37,6 +37,7 @@
 #include <cat/net/Sockets.hpp>
 #include <cat/net/IOLayer.hpp>
 #include <cat/net/RecvBuffer.hpp>
+#include <cat/net/SendBuffer.hpp>
 #include <cat/net/WorkerThreads.hpp>
 
 #include <cat/sphynx/Common.hpp>

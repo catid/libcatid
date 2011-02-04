@@ -32,9 +32,6 @@
 #include <cat/io/Logging.hpp>
 using namespace cat;
 
-
-//// IOThread
-
 CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY entries[], u32 count, u32 event_msec)
 {
 	BatchSet sendq, recvq;

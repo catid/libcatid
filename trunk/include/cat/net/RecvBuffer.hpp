@@ -44,7 +44,7 @@ struct RecvBuffer : public BatchHead
 
 	union
 	{
-		// IO layer specific overhead
+		// IO layer specific overhead pimpl
 		IOLayerRecvOverhead iointernal;
 
 		// Worker layer specific overhead

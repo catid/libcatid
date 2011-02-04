@@ -38,11 +38,10 @@ namespace cat {
 // A buffer specialized for writing to a socket
 class SendBuffer : public BatchHead
 {
-	friend class IOThread;
-	friend class UDPEndpoint;
-
+	// Shared data pimpl
 	u32 _data_bytes;
 
+	// IO layer specific overhead pimpl
 	IOLayerSendOverhead iointernal;
 
 	u8 _data[1];
@@ -50,6 +49,7 @@ class SendBuffer : public BatchHead
 public:
 	CAT_INLINE u8 *GetData() { return _data; }
 	CAT_INLINE u32 GetDataBytes() { return _data_bytes; }
+	CAT_INLINE IOLayerSendOverhead *GetIOInternal() { return &iointernal; }
 
 	// Acquire memory for a send buffer
 	static CAT_INLINE SendBuffer *Acquire(SendBuffer * &ptr, u32 data_bytes = 0)
