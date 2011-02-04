@@ -55,19 +55,19 @@ namespace cat {
 // Aligned buffer array heap allocator
 class BufferAllocator : public IAllocator
 {
-	struct BufferTail
-	{
-		BufferTail *next;
-	};
-
 	u32 _buffer_bytes, _buffer_count;
 	u8 *_buffers;
 
 	Mutex _acquire_lock;
-	BufferTail *_acquire_head;
+	BatchHead * volatile _acquire_head;
 
 	Mutex _release_lock;
-	BufferTail *_release_head;
+	BatchHead * volatile _release_head;
+
+	// This interface really doesn't make sense for this allocator
+	void *Acquire(u32 bytes) { return 0; }
+	void *Resize(void *ptr, u32 bytes) { return 0; }
+	void Release(void *buffer) {}
 
 public:
 	// Specify the number of bytes needed per buffer, which
@@ -78,22 +78,12 @@ public:
 
 	bool Valid() { return _buffers != 0; }
 
-	// Acquires buffer aligned to a CPU cache-line byte boundary from the heap
-	// Returns 0 if out of memory
-    void *Acquire(u32 bytes);
-
-	// Unable to resize
-	void *Resize(void *ptr, u32 bytes) { return 0; }
-
-	// Release a buffer pointer
-	void Release(void *buffer);
-
 	// Attempt to acquire a number of buffers
 	// Returns the number of valid buffers it was able to allocate
-	u32 AcquireBatch(void *buffers[], u32 count, u32 bytes);
+	u32 AcquireBatch(BatchSet &set, u32 count, u32 bytes);
 
 	// Release a number of buffers simultaneously
-	void ReleaseBatch(void *buffers[], u32 count);
+	void ReleaseBatch(const BatchSet &set);
 };
 
 

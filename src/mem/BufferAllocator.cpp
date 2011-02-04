@@ -38,7 +38,7 @@ BufferAllocator::BufferAllocator(u32 buffer_min_size, u32 buffer_count)
 	if (buffer_count < 4) buffer_count = 4;
 
 	u32 cache_line_bytes = system_info.CacheLineBytes;
-	u32 buffer_bytes = CAT_CEIL(buffer_min_size + sizeof(BufferTail), cache_line_bytes);
+	u32 buffer_bytes = CAT_CEIL(sizeof(BatchHead) + buffer_min_size, cache_line_bytes);
 	u32 total_bytes = buffer_count * buffer_bytes;
 	u8 *buffers = (u8*)LargeAllocator::ii->Acquire(total_bytes);
 
@@ -49,21 +49,23 @@ BufferAllocator::BufferAllocator(u32 buffer_min_size, u32 buffer_count)
 	if (!buffers) return;
 
 	// Construct linked list of free nodes
-	buffers += buffer_bytes - sizeof(BufferTail);
+	BatchHead *tail = reinterpret_cast<BatchHead*>( buffers );
 
-	for (u32 ii = 0; ii < buffer_count - 1; ++ii)
+	_acquire_head = tail;
+	_release_head = 0;
+
+	for (u32 ii = 1; ii < buffer_count; ++ii)
 	{
-		BufferTail *tail = (BufferTail*)(buffers + ii * buffer_bytes);
-		BufferTail *next = (BufferTail*)((u8*)tail + buffer_bytes);
+		buffers += buffer_bytes;
+		BatchHead *node = reinterpret_cast<BatchHead*>( buffers );
 
-		tail->next = next;
+		tail->batch_next = node;
+		tail->batch_allocator = this;
+		tail = node;
 	}
 
-	BufferTail *first = (BufferTail*)buffers;
-	BufferTail *last = (BufferTail*)(buffers + (buffer_count-1) * buffer_bytes);
-
-	_acquire_head = first;
-	last->next = 0;
+	tail->batch_next = 0;
+	tail->batch_allocator = this;
 }
 
 BufferAllocator::~BufferAllocator()
@@ -71,115 +73,98 @@ BufferAllocator::~BufferAllocator()
 	LargeAllocator::ii->Release(_buffers);
 }
 
-void *BufferAllocator::Acquire(u32 bytes)
+u32 BufferAllocator::AcquireBatch(BatchSet &set, u32 count, u32 bytes)
 {
+	u32 ii = 0;
+
 	_acquire_lock.Enter();
 
-	BufferTail *head = _acquire_head;
+	// Select up to count items from the list
+	BatchHead *last = _acquire_head;
 
-	// If the acquire list is empty,
-	if (!head)
+	if (last)
 	{
-		// Time to escalate the lock
-		// Grab the release list and re-use it
-		_release_lock.Enter();
+		set.head = last;
 
-		head = _release_head;
-		_release_head = 0;
-
-		_release_lock.Leave();
-
-		// If we ran out of room,
-		if (!head)
+		for (;;)
 		{
-			_acquire_lock.Leave();
-			return 0;
+			BatchHead *next = last->batch_next;
+
+			// If we are done,
+			if (++ii >= count)
+			{
+				_acquire_head = next;
+				_acquire_lock.Leave();
+
+				set.tail = last;
+				last->batch_next = 0;
+				return ii;
+			}
+
+			// If the list ran out,
+			if (!next) break;
+
+			last = next;
 		}
 	}
 
-	_acquire_head = head->next;
+	// End up here if the acquire list was empty or is empty now
 
-	_acquire_lock.Leave();
-
-	return (u8*)head - (_buffer_bytes - sizeof(BufferTail));
-}
-
-u32 BufferAllocator::AcquireBatch(void *buffers[], u32 count, u32 bytes)
-{
-	u32 buffer_index = 0;
-	BufferTail *head;
-	u32 buffer_offset = _buffer_bytes - sizeof(BufferTail);
-
-	_acquire_lock.Enter();
-
-	// For each requested buffer,
-	for (head = _acquire_head; head && buffer_index < count; head = head->next)
-		buffers[buffer_index++] = (u8*)head - buffer_offset;
-
-	// If there are still requests to fill,
-	if (buffer_index < count)
+	// If it looks like the release list has more,
+	if (_release_head)
 	{
-		// Time to escalate the lock
-		// Grab the release list and re-use it
+		// Escalate lock and steal from release list
 		_release_lock.Enter();
-
-		head = _release_head;
+		BatchHead *next = _release_head;
 		_release_head = 0;
-
 		_release_lock.Leave();
 
-		// For each remaining requested buffer,
-		for (; buffer_index < count && head; head = head->next)
-			buffers[buffer_index++] = (u8*)head - buffer_offset;
+		if (next)
+		{
+			// Link acquire list to release list
+			// Handle the case where the acquire list was empty
+			if (last) last->batch_next = next;
+			else set.head = next;
+
+			last = next;
+
+			for (;;)
+			{
+				next = last->batch_next;
+
+				// If we are done,
+				if (++ii >= count)
+				{
+					_acquire_head = next;
+					_acquire_lock.Leave();
+
+					set.tail = last;
+					last->batch_next = 0;
+					return ii;
+				}
+
+				// If the list ran out,
+				if (!next) break;
+
+				last = next;
+			}
+		}
 	}
 
-	_acquire_head = head;
-
+	_acquire_head = 0;
 	_acquire_lock.Leave();
 
-	return buffer_index;
+	set.tail = last;
+	//last->batch_next = 0;
+	return ii;
 }
 
-void BufferAllocator::Release(void *buffer)
+void BufferAllocator::ReleaseBatch(const BatchSet &set)
 {
-	if (!buffer) return;
+	if (!set.head) return;
 
-	BufferTail *tail = (BufferTail*)((u8*)buffer + (_buffer_bytes - sizeof(BufferTail)));
-
-	// Insert new released node at the head of the list
 	_release_lock.Enter();
-
-	BufferTail *head = _release_head;
-
-	_release_head = tail;
-	tail->next = head;
-
-	_release_lock.Leave();
-}
-
-void BufferAllocator::ReleaseBatch(void *buffers[], u32 count)
-{
-	if (!count) return;
-
-	u32 buffer_offset = _buffer_bytes - sizeof(BufferTail);
-
-	BufferTail *head, *tail;
-
-	tail = head = (BufferTail*)((u8*)buffers[0] + buffer_offset);
-
-	for (u32 ii = 1; ii < count; ++ii)
-	{
-		BufferTail *node = (BufferTail*)((u8*)buffers[ii] + buffer_offset);
-
-		tail->next = node;
-		tail = node;
-	}
-
-	// Insert new released node at the head of the list
-	_release_lock.Enter();
-
-	tail->next = _release_head;
-	_release_head = head;
-
+	set.tail->batch_next = _release_head;
+	_release_head = set.head;
 	_release_lock.Leave();
 }

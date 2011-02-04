@@ -21,14 +21,16 @@
   <ItemGroup>
     <ClCompile Include="..\..\src\iocp\IOThreads.cpp" />
     <ClCompile Include="..\..\src\iocp\UDPEndpoint.cpp" />
+    <ClCompile Include="..\..\src\net\DNSClient.cpp" />
+    <ClCompile Include="..\..\src\net\IOLayer.cpp" />
     <ClCompile Include="..\..\src\net\Sockets.cpp" />
+    <ClCompile Include="..\..\src\net\WorkerThreads.cpp" />
     <ClCompile Include="..\..\src\sphynx\Client.cpp" />
     <ClCompile Include="..\..\src\sphynx\Connexion.cpp" />
     <ClCompile Include="..\..\src\sphynx\ConnexionMap.cpp" />
     <ClCompile Include="..\..\src\sphynx\FlowControl.cpp" />
     <ClCompile Include="..\..\src\sphynx\Server.cpp" />
     <ClCompile Include="..\..\src\sphynx\Transport.cpp" />
-    <ClCompile Include="..\..\src\sphynx\WorkerThreads.cpp" />
     <ClCompile Include="Precompiled.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
@@ -41,18 +43,19 @@
     <ClInclude Include="..\..\include\cat\iocp\IOThreads.hpp" />
     <ClInclude Include="..\..\include\cat\iocp\SendBuffer.hpp" />
     <ClInclude Include="..\..\include\cat\iocp\UDPEndpoint.hpp" />
+    <ClInclude Include="..\..\include\cat\net\DNSClient.hpp" />
+    <ClInclude Include="..\..\include\cat\net\IOLayer.hpp" />
+    <ClInclude Include="..\..\include\cat\net\RecvBuffer.hpp" />
     <ClInclude Include="..\..\include\cat\net\Sockets.hpp" />
+    <ClInclude Include="..\..\include\cat\net\WorkerThreads.hpp" />
     <ClInclude Include="..\..\include\cat\sphynx\Client.hpp" />
     <ClInclude Include="..\..\include\cat\sphynx\Collexion.hpp" />
     <ClInclude Include="..\..\include\cat\sphynx\Common.hpp" />
     <ClInclude Include="..\..\include\cat\sphynx\Connexion.hpp" />
     <ClInclude Include="..\..\include\cat\sphynx\ConnexionMap.hpp" />
     <ClInclude Include="..\..\include\cat\sphynx\FlowControl.hpp" />
-    <ClInclude Include="..\..\include\cat\sphynx\IOLayer.hpp" />
-    <ClInclude Include="..\..\include\cat\sphynx\RecvBuffer.hpp" />
     <ClInclude Include="..\..\include\cat\sphynx\Server.hpp" />
     <ClInclude Include="..\..\include\cat\sphynx\Transport.hpp" />
-    <ClInclude Include="..\..\include\cat\sphynx\WorkerThreads.hpp" />
     <ClInclude Include="Precompiled.hpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

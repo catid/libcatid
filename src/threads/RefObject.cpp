@@ -155,7 +155,7 @@ void RefObjectWatcher::Watch(WatchedRefObject *obj)
 	if (obj->IsShutdown()) return;
 
 	// If object is already watched, abort
-	if (find(_watched_list.begin(), _watched_list.end(), obj) != _watched_list.end()) return;
+	if (std::find(_watched_list.begin(), _watched_list.end(), obj) != _watched_list.end()) return;
 
 	_watched_list.push_back(obj);
 	++_wait_count;
@@ -170,7 +170,7 @@ bool RefObjectWatcher::OnObjectShutdownStart(WatchedRefObject *obj)
 	AutoMutex lock(_lock);
 
 	// Try to find the object in the watched list
-	ListIterator ii = find(_watched_list.begin(), _watched_list.end(), obj);
+	ListIterator ii = std::find(_watched_list.begin(), _watched_list.end(), obj);
 
 	// If it was found in the list,
 	if (ii != _watched_list.end())

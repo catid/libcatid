@@ -355,8 +355,8 @@ CAT_INLINE bool BTS32(u32 *x, u32 bit)
 #else
 
 	u32 mask = 1 << bit;
-	if (x & mask) return 1;
-	x |= mask;
+	if (*x & mask) return 1;
+	*x |= mask;
 	return 0;
 
 #endif
