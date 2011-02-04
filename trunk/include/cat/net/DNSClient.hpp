@@ -36,10 +36,10 @@
 #ifndef CAT_DNS_CLIENT_HPP
 #define CAT_DNS_CLIENT_HPP
 
-#include <cat/net/ThreadPoolSockets.hpp>
+#include <cat/net/IOLayer.hpp>
+#include <cat/net/WorkerThreads.hpp>
 #include <cat/threads/Thread.hpp>
 #include <cat/threads/WaitableFlag.hpp>
-#include <cat/crypt/rand/Fortuna.hpp>
 #include <cat/port/FastDelegate.h>
 
 namespace cat {
@@ -53,6 +53,8 @@ static const int DNSCACHE_MAX_REQS = 8; // Maximum number of requests to cache
 static const int DNSCACHE_MAX_RESP = 8; // Maximum number of responses to cache
 static const int DNSCACHE_TIMEOUT = 60000; // Time until a cached response is dropped
 
+static const int DNS_THREAD_KILL_TIMEOUT = 10000; // 10 seconds
+
 // Prototype: bool MyResultCallback(const char *, const NetAddr*, int);
 typedef fastdelegate::FastDelegate3<const char *, const NetAddr*, int, bool> DNSResultCallback;
 
@@ -64,7 +66,7 @@ struct DNSCallback
 	DNSCallback *next;
 
 	DNSResultCallback cb;
-	ThreadRefObject *ref;
+	RefObject *ref;
 };
 
 struct DNSRequest
@@ -87,34 +89,43 @@ struct DNSRequest
 
 //// DNSClient
 
-class DNSClient : Thread, public UDPEndpoint, public Singleton<DNSClient>
+class DNSClient : public UDPEndpoint, public WorkerCallbacks
 {
-	static const int TICK_RATE = 200; // milliseconds
-	static const int DNS_THREAD_KILL_TIMEOUT = 10000; // 10 seconds
+	NetAddr _server_addr;
+	bool _initialized;
 
-	CAT_SINGLETON(DNSClient)
-		: UDPEndpoint(REFOBJ_PRIO_0+5)
-	{
-		_server_addr.Invalidate();
-		_dns_unavailable = true;
+	Mutex _request_lock;
+	DNSRequest *_request_head;
+	DNSRequest *_request_tail;
+	int _request_queue_size;
 
-		_cache_head = _cache_tail = 0;
-		_cache_size = 0;
+	Mutex _cache_lock;
+	DNSRequest *_cache_head;
+	DNSRequest *_cache_tail;
+	int _cache_size;
 
-		_request_head = _request_tail = 0;
-		_request_queue_size = 0;
-	}
+	bool Startup();
+
+	bool GetUnusedID(u16 &id); // not thread-safe, caller must lock
+	bool IsValidHostname(const char *hostname);
+	DNSRequest *PullRequest(u16 id); // not thread-safe, caller must lock
+
+	// These functions do not lock, caller must lock:
+	void CacheAdd(DNSRequest *req); // Assumes not already in cache
+	DNSRequest *CacheGet(const char *hostname); // Case-insensitive
+	void CacheKill(DNSRequest *req); // Assumes already in cache
+
+	bool GetServerAddr();
+	bool BindToRandomPort(bool ignoreUnreachable);
+	bool PostDNSPacket(DNSRequest *req, u32 now);
+	bool PerformLookup(DNSRequest *req); // not thread-safe, caller must lock
+
+	void ProcessDNSResponse(DNSRequest *req, int qdcount, int ancount, u8 *data, u32 bytes);
+	void NotifyRequesters(DNSRequest *req);
 
 public:
+	DNSClient();
 	CAT_INLINE virtual ~DNSClient() {}
-	virtual void Finalize();
-
-	/*
-		In your startup code, call Initialize() and check the return value.
-		In your shutdown code, call Shutdown().  This will delete the DNSClient object.
-	*/
-	bool Initialize();
-	void Shutdown();
 
 	/*
 		If hostname is numeric or in the cache, the callback function will be invoked
@@ -137,53 +148,17 @@ public:
 
 		If Resolve() returns false, no callback will be generated.
 	*/
-	bool Resolve(const char *hostname, DNSResultCallback, ThreadRefObject *holdRef = 0);
-
-private:
-	NetAddr _server_addr;
-	volatile bool _dns_unavailable;
-	FortunaOutput *_csprng;
-
-private:
-	Mutex _request_lock;
-	DNSRequest *_request_head;
-	DNSRequest *_request_tail;
-	int _request_queue_size;
-
-	bool GetUnusedID(u16 &id); // not thread-safe, caller must lock
-	bool IsValidHostname(const char *hostname);
-	DNSRequest *PullRequest(u16 id); // not thread-safe, caller must lock
-
-private:
-	Mutex _cache_lock;
-	DNSRequest *_cache_head;
-	DNSRequest *_cache_tail;
-	int _cache_size;
-
-	// These functions do not lock, caller must lock:
-	void CacheAdd(DNSRequest *req); // Assumes not already in cache
-	DNSRequest *CacheGet(const char *hostname); // Case-insensitive
-	void CacheKill(DNSRequest *req); // Assumes already in cache
-
-private:
-	bool GetServerAddr();
-	bool BindToRandomPort(bool ignoreUnreachable);
-	bool PostDNSPacket(DNSRequest *req, u32 now);
-	bool PerformLookup(DNSRequest *req); // not thread-safe, caller must lock
+	bool Resolve(const char *hostname, DNSResultCallback, RefObject *holdRef = 0);
 
 protected:
-	virtual void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes);
-	virtual void OnClose();
+	virtual void OnShutdownRequest();
+	virtual bool OnZeroReferences();
+
+	virtual void OnReadRouting(const BatchSet &buffers);
 	virtual void OnUnreachable(const NetAddr &src);
 
-protected:
-	void ProcessDNSResponse(DNSRequest *req, int qdcount, int ancount, u8 *data, u32 bytes);
-	void NotifyRequesters(DNSRequest *req);
-
-private:
-	WaitableFlag _kill_flag;
-
-	bool ThreadFunction(void *param);
+	virtual void OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers);
+	virtual void OnWorkerTick(IWorkerTLS *tls, u32 now);
 };
 
 
