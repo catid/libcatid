@@ -26,10 +26,10 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_IOCP_SEND_BUFFER_HPP
-#define CAT_IOCP_SEND_BUFFER_HPP
+#ifndef CAT_NET_SEND_BUFFER_HPP
+#define CAT_NET_SEND_BUFFER_HPP
 
-#include <cat/iocp/IOThreads.hpp>
+#include <cat/net/IOLayer.hpp>
 #include <cat/mem/StdAllocator.hpp>
 
 namespace cat {
@@ -41,26 +41,15 @@ class SendBuffer : public BatchHead
 	friend class IOThread;
 	friend class UDPEndpoint;
 
-	IOCPOverlapped iocp;
-	SendBuffer *_next_buffer;
 	u32 _data_bytes;
+
+	IOLayerSendOverhead iointernal;
 
 	u8 _data[1];
 
 public:
 	CAT_INLINE u8 *GetData() { return _data; }
 	CAT_INLINE u32 GetDataBytes() { return _data_bytes; }
-
-	CAT_INLINE void Reset(u64 offset = 0)
-	{
-		iocp.ov.hEvent = 0;
-		iocp.ov.Internal = 0;
-		iocp.ov.InternalHigh = 0;
-		iocp.ov.OffsetHigh = (u32)(offset >> 32);
-		iocp.ov.Offset = (u32)offset;
-
-		iocp.io_type = IOTYPE_UDP_SEND;
-	}
 
 	// Acquire memory for a send buffer
 	static CAT_INLINE SendBuffer *Acquire(SendBuffer * &ptr, u32 data_bytes = 0)
@@ -161,4 +150,4 @@ public:
 
 } // namespace cat
 
-#endif // CAT_IOCP_SEND_BUFFER_HPP
+#endif // CAT_NET_SEND_BUFFER_HPP

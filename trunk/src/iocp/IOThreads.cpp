@@ -65,15 +65,15 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 		{
 		case IOTYPE_UDP_SEND:
 			{
-				SendBuffer *ov_send = reinterpret_cast<SendBuffer*>( (u8*)ov_iocp - offsetof(SendBuffer, iocp.ov) );
+				SendBuffer *buffer = reinterpret_cast<SendBuffer*>( (u8*)ov_iocp - offsetof(SendBuffer, iointernal.ov) );
 
 				// Link to sendq
-				if (sendq.tail) sendq.tail->batch_next = ov_send;
-				else sendq.head = ov_send;
+				if (sendq.tail) sendq.tail->batch_next = buffer;
+				else sendq.head = buffer;
 
 				// Find the end of the buffers
 				BatchHead *last;
-				for (last = ov_send; last->batch_next; last = last->batch_next);
+				for (last = buffer; last->batch_next; last = last->batch_next);
 
 				// Use that as the new tail
 				sendq.tail = last;
@@ -82,18 +82,18 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 
 		case IOTYPE_UDP_RECV:
 			{
-				RecvBuffer *ov_recv = reinterpret_cast<RecvBuffer*>( (u8*)ov_iocp - offsetof(RecvBuffer, iocp.ov) );
+				RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( (u8*)ov_iocp - offsetof(RecvBuffer, iointernal.ov) );
 
 				// Write event completion results to buffer
-				ov_recv->_data_bytes = bytes;
-				ov_recv->_event_msec = event_msec;
+				buffer->_data_bytes = bytes;
+				buffer->_event_msec = event_msec;
 
 				// If the same allocator was used twice in a row and there is space,
 				if (prev_recv_endpoint == udp_endpoint)
 				{
 					// Append to recvq
-					recvq.tail->batch_next = ov_recv;
-					recvq.tail = ov_recv;
+					recvq.tail->batch_next = buffer;
+					recvq.tail = buffer;
 					++recv_count;
 				}
 				else
@@ -107,7 +107,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 					}
 
 					// Reset recvq
-					recvq.head = ov_recv;
+					recvq.head = buffer;
 					recv_count = 1;
 				}
 			}

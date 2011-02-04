@@ -46,10 +46,7 @@ struct IOCPOverlapped;
 struct IOTLS;
 class IOThread;
 class IOThreads;
-
-static const u32 IOTHREADS_BUFFER_DATA_BYTES = 1450;
-static const u32 IOTHREADS_BUFFER_TOTAL_BYTES = sizeof(IOCPOverlappedRecvFrom) + IOTHREADS_BUFFER_DATA_BYTES;
-static const u32 IOTHREADS_BUFFER_COUNT = 10000;
+class UDPEndpoint;
 
 //#define CAT_ALLOW_UNBOUNDED_RECV_BUFFERS
 
@@ -72,6 +69,16 @@ struct IOCPOverlappedRecvFrom : IOCPOverlapped
 	int addr_len;
 	sockaddr_in6 addr;
 };
+
+struct IOCPOverlappedSendTo : IOCPOverlapped
+{
+};
+
+typedef IOCPOverlappedRecvFrom IOLayerRecvOverhead;
+typedef IOCPOverlappedSendTo IOLayerSendOverhead;
+
+static const u32 IOTHREADS_BUFFER_READ_BYTES = 1450;
+static const u32 IOTHREADS_BUFFER_COUNT = 10000;
 
 typedef BOOL (WINAPI *PtGetQueuedCompletionStatusEx)(
 	__in   HANDLE CompletionPort,

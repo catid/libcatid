@@ -29,13 +29,12 @@
 #ifndef CAT_IOCP_UDP_ENDPOINT_HPP
 #define CAT_IOCP_UDP_ENDPOINT_HPP
 
-#include <cat/iocp/IOThreads.hpp>
 #include <cat/iocp/SendBuffer.hpp>
-#include <cat/net/RecvBuffer.hpp>
 
 namespace cat {
 
 
+struct RecvBuffer;
 class IOThreads;
 
 

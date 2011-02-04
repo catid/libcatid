@@ -29,22 +29,31 @@
 #ifndef CAT_NET_RECV_BUFFER_HPP
 #define CAT_NET_RECV_BUFFER_HPP
 
+#include <cat/net/IOLayer.hpp>
 #include <cat/net/WorkerThreads.hpp>
 
 namespace cat {
 
 
-// TODO: Implement this after I know what needs to be in here
+// A buffer specialized for reading data from a socket
 struct RecvBuffer : public BatchHead
 {
-	u32 _data_bytes;
-	u32 _event_msec;
+	// Shared overhead
+	u32 data_bytes;
+	u32 event_msec;
 
-	// IOCP side
-	IOCPOverlappedRecvFrom iocp;
+	union
+	{
+		// IO layer specific overhead
+		IOLayerRecvOverhead iointernal;
 
-	// Worker side
-	WorkerCallbacks *_callback;
+		// Worker layer specific overhead
+		struct 
+		{
+			WorkerCallbacks *callback;
+			NetAddr addr;
+		};
+	};
 };
 
 

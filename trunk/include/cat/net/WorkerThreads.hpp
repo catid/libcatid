@@ -33,7 +33,12 @@
 #include <cat/threads/Thread.hpp>
 #include <cat/threads/WaitableFlag.hpp>
 #include <cat/threads/Mutex.hpp>
+#include <cat/threads/Atomic.hpp>
 #include <cat/net/IOLayer.hpp>
+
+#if defined(CAT_NO_ATOMIC_ADD)
+#define CAT_NO_ATOMIC_POPCOUNT
+#endif
 
 namespace cat {
 
@@ -110,6 +115,11 @@ public:
 // Worker threads
 class WorkerThreads
 {
+#if !defined(CAT_NO_ATOMIC_POPCOUNT)
+	volatile u32 _population;
+	u8 _padding[CAT_DEFAULT_CACHE_LINE_SIZE];
+#endif // CAT_NO_ATOMIC_POPCOUNT
+
 	u32 _worker_count;
 	WorkerThread *_workers;
 
@@ -121,15 +131,25 @@ public:
 
 	u32 FindLeastPopulatedWorker();
 
+#if defined(CAT_NO_ATOMIC_POPCOUNT)
+	u32 GetTotalPopulation();
+#else
+	CAT_INLINE u32 GetTotalPopulation() { return _population; }
+#endif // CAT_NO_ATOMIC_POPCOUNT
+
 	CAT_INLINE void DeliverBuffers(u32 worker_id, const BatchSet &buffers)
 	{
-		_workers[worker_id]->DeliverBuffers(buffers);
+		_workers[worker_id].DeliverBuffers(buffers);
 	}
 
 	bool Startup();
 	bool Shutdown();
 	CAT_INLINE void Associate(WorkerCallbacks *callbacks)
 	{
+#if !defined(CAT_NO_ATOMIC_POPCOUNT)
+		Atomic::Add(&_population, 1);
+#endif // CAT_NO_ATOMIC_POPCOUNT
+
 		_workers[FindLeastPopulatedWorker()].Associate(callbacks);
 	}
 };
