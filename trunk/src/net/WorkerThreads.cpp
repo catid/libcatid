@@ -97,10 +97,10 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 {
 	WorkerThreads *master = (WorkerThreads*)vmaster;
 
-	WorkerTLS tls;
-	if (!tls.Valid())
+	IWorkerTLS *tls = master->_tls_builder();
+	if (!tls || !tls->Valid())
 	{
-		FATAL("WorkerThread") << "Out of memory initializing thread local storage";
+		FATAL("WorkerThread") << "Failure building thread local storage";
 		return false;
 	}
 
@@ -136,7 +136,7 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 						buffers.tail = last;
 						last->batch_next = 0;
 
-						last->callback->OnWorkerRead(&tls, buffers);
+						last->callback->OnWorkerRead(tls, buffers);
 
 						// Start a new one
 						buffers.head = next;
@@ -180,7 +180,7 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 				}
 				else
 				{
-					node->OnWorkerTick(&tls, now);
+					node->OnWorkerTick(tls, now);
 
 					prev = node;
 				}
@@ -226,6 +226,7 @@ WorkerThreads::WorkerThreads()
 	_population = 0;
 	_worker_count = 0;
 	_workers = 0;
+	_tls_builder = 0;
 }
 
 WorkerThreads::~WorkerThreads()
@@ -233,10 +234,12 @@ WorkerThreads::~WorkerThreads()
 	Shutdown();
 }
 
-bool WorkerThreads::Startup()
+bool WorkerThreads::Startup(IWorkerTLSBuilder *tls_builder)
 {
 	if (_worker_count)
-		return true;
+		return false;
+
+	_tls_builder = tls_builder;
 
 	u32 worker_count = system_info.ProcessorCount;
 	if (worker_count < 1) worker_count = 1;
@@ -294,6 +297,13 @@ bool WorkerThreads::Shutdown()
 	{
 		delete []_workers;
 		_workers = 0;
+	}
+
+	// Free TLS builder object
+	if (_tls_builder)
+	{
+		delete _tls_builder;
+		_tls_builder = 0;
 	}
 
 	return true;
