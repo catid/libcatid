@@ -19,12 +19,6 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\src\iocp\IOThreads.cpp" />
-    <ClCompile Include="..\..\src\iocp\UDPEndpoint.cpp" />
-    <ClCompile Include="..\..\src\net\DNSClient.cpp" />
-    <ClCompile Include="..\..\src\net\IOLayer.cpp" />
-    <ClCompile Include="..\..\src\net\Sockets.cpp" />
-    <ClCompile Include="..\..\src\net\WorkerThreads.cpp" />
     <ClCompile Include="..\..\src\sphynx\Client.cpp" />
     <ClCompile Include="..\..\src\sphynx\Connexion.cpp" />
     <ClCompile Include="..\..\src\sphynx\ConnexionMap.cpp" />
@@ -40,14 +34,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\cat\AllSphynx.hpp" />
-    <ClInclude Include="..\..\include\cat\iocp\IOThreads.hpp" />
-    <ClInclude Include="..\..\include\cat\iocp\SendBuffer.hpp" />
-    <ClInclude Include="..\..\include\cat\iocp\UDPEndpoint.hpp" />
-    <ClInclude Include="..\..\include\cat\net\DNSClient.hpp" />
-    <ClInclude Include="..\..\include\cat\net\IOLayer.hpp" />
-    <ClInclude Include="..\..\include\cat\net\RecvBuffer.hpp" />
-    <ClInclude Include="..\..\include\cat\net\Sockets.hpp" />
-    <ClInclude Include="..\..\include\cat\net\WorkerThreads.hpp" />
     <ClInclude Include="..\..\include\cat\sphynx\Client.hpp" />
     <ClInclude Include="..\..\include\cat\sphynx\Collexion.hpp" />
     <ClInclude Include="..\..\include\cat\sphynx\Common.hpp" />
