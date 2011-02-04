@@ -110,6 +110,70 @@ enum QClasses
 
 //// DNSClient
 
+void DNSClient::OnShutdownRequest()
+{
+	UDPEndpoint::OnShutdownRequest();
+}
+
+bool DNSClient::OnZeroReferences()
+{
+	return UDPEndpoint::OnZeroReferences();
+}
+
+void DNSClient::OnReadRouting(const BatchSet &buffers)
+{
+
+}
+
+void DNSClient::OnUnreachable(const NetAddr &src)
+{
+
+}
+
+void DNSClient::OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers)
+{
+
+}
+
+void DNSClient::OnWorkerTick(IWorkerTLS *tls, u32 now)
+{
+	AutoMutex lock(_request_lock);
+
+	// For each pending request,
+	for (DNSRequest *req_next, *req = _request_head; req; req = req_next)
+	{
+		req_next = req->next; // cached for deletion
+
+		// If the request has timed out or reposting failed,
+		if ((now - req->first_post_time >= DNSREQ_TIMEOUT) ||
+			(now - req->last_post_time >= DNSREQ_REPOST_TIME && !PostDNSPacket(req, now)))
+		{
+			// Unlink from doubly-linked list
+			DNSRequest *next = req->next;
+			DNSRequest *last = req->last;
+
+			if (next) next->last = last;
+			else _request_tail = last;
+			if (last) last->next = next;
+			else _request_head = next;
+
+			NotifyRequesters(req);
+		}
+	}
+}
+
+DNSClient::DNSClient()
+{
+	_server_addr.Invalidate();
+	_initialized = false;
+
+	_cache_head = _cache_tail = 0;
+	_cache_size = 0;
+
+	_request_head = _request_tail = 0;
+	_request_queue_size = 0;
+}
+
 bool DNSClient::GetServerAddr()
 {
 	// Mark server address as invalid
@@ -407,50 +471,6 @@ void DNSClient::CacheKill(DNSRequest *req)
 	delete req;
 }
 
-bool DNSClient::ThreadFunction(void *param)
-{
-	// Check for timeouts
-	while (!_kill_flag.Wait(TICK_RATE))
-	{
-		AutoMutex lock(_request_lock);
-
-		// Cache current time
-		u32 now = Clock::msec_fast();
-
-		// For each pending request,
-		for (DNSRequest *req_next, *req = _request_head; req; req = req_next)
-		{
-			req_next = req->next; // cached for deletion
-
-			// If the request has timed out or reposting failed,
-			if ((now - req->first_post_time >= DNSREQ_TIMEOUT) ||
-				(now - req->last_post_time >= DNSREQ_REPOST_TIME && !PostDNSPacket(req, now)))
-			{
-				// Unlink from doubly-linked list
-				DNSRequest *next = req->next;
-				DNSRequest *last = req->last;
-
-				if (next) next->last = last;
-				else _request_tail = last;
-				if (last) last->next = next;
-				else _request_head = next;
-
-				NotifyRequesters(req);
-			}
-		}
-	}
-
-	return true;
-}
-
-void DNSClient::Finalize()
-{
-	_kill_flag.Set();
-
-	if (!WaitForThread(DNS_THREAD_KILL_TIMEOUT))
-		AbortThread();
-}
-
 bool DNSClient::BindToRandomPort(bool ignoreUnreachable)
 {
 	// NOTE: Ignores ICMP unreachable errors from DNS server; prefers timeouts
@@ -480,15 +500,7 @@ bool DNSClient::BindToRandomPort(bool ignoreUnreachable)
 
 bool DNSClient::Initialize()
 {
-	_dns_unavailable = true;
-
-	// Create a CSPRNG
-	_csprng = FortunaFactory::ii->Create();
-	if (!_csprng)
-	{
-		WARN("DNS") << "Initialization failure: Unable create CSPRNG";
-		return false;
-	}
+	_initialized = true;
 
 	// Attempt to bind to any port; ignore ICMP unreachable messages
 	if (!BindToRandomPort(true))
@@ -513,18 +525,9 @@ bool DNSClient::Initialize()
 		return false;
 	}
 
-	_dns_unavailable = false;
+	_initialized = false;
 
 	return true;
-}
-
-void DNSClient::Shutdown()
-{
-	// NOTE: Does not remove artificial reference added on Initialize(), so
-	// the object is not actually destroyed.  We allow the ThreadPool to
-	// destroy this object after all the worker threads are dead.
-
-	Close();
 }
 
 bool DNSClient::GetUnusedID(u16 &unused_id)
@@ -629,10 +632,10 @@ bool DNSClient::IsValidHostname(const char *hostname)
 	return true;
 }
 
-bool DNSClient::Resolve(const char *hostname, DNSResultCallback callback, ThreadRefObject *holdRef)
+bool DNSClient::Resolve(const char *hostname, DNSResultCallback callback, RefObject *holdRef)
 {
 	// Initialize if needed
-	if (_dns_unavailable && !Initialize())
+	if (!_initialized && !Startup())
 		return false;
 
 	// Try to interpret hostname as numeric
@@ -670,10 +673,6 @@ bool DNSClient::Resolve(const char *hostname, DNSResultCallback callback, Thread
 	}
 
 	cache_lock.Release();
-
-	// If DNS lookup is unavailable,
-	if (_dns_unavailable)
-		return false;
 
 	AutoMutex req_lock(_request_lock);
 
@@ -928,10 +927,4 @@ void DNSClient::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data
 	}
 
 	NotifyRequesters(req);
-}
-
-void DNSClient::OnClose()
-{
-	// Marks DNS as unavailable OnClose() so that further resolve requests are squelched.
-	_dns_unavailable = true;
 }

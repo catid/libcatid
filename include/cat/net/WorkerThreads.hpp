@@ -68,7 +68,7 @@ class IWorkerTLSBuilder
 public:
 	virtual ~IWorkerTLSBuilder();
 
-	virtual IWorkerTLS *operator() = 0;
+	virtual IWorkerTLS *operator()() = 0;
 };
 
 

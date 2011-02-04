@@ -65,11 +65,6 @@ class Server : public UDPEndpoint, public WorkerCallbacks
 
 	ServerWorker *FindLeastPopulatedPort();
 
-	virtual void OnReadRouting(const BatchSet &buffers);
-
-	virtual void OnWorkerRead(WorkerTLS *tls, RecvBuffer *buffer_list_head);
-	virtual void OnWorkerTick(WorkerTLS *tls, u32 now);
-
 	void PostConnectionCookie(const NetAddr &dest);
 	void PostConnectionError(const NetAddr &dest, HandshakeError err);
 
@@ -94,6 +89,14 @@ protected:
 
 	// LookupConnexion client by key
 	Connexion *LookupConnexion(u32 key);
+
+	virtual void OnShutdownRequest();
+	virtual bool OnZeroReferences();
+
+	virtual void OnReadRouting(const BatchSet &buffers);
+
+	virtual void OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers);
+	virtual void OnWorkerTick(IWorkerTLS *tls, u32 now);
 };
 
 
