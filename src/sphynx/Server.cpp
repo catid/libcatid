@@ -222,122 +222,62 @@ void Server::PostConnectionError(const NetAddr &dest, HandshakeError err)
 	Post(dest, pkt, S2C_ERROR_LEN);
 }
 
-void Server::OnRead(const BatchSet &buffers, u32 event_msec)
+void Server::OnReadRouting(const BatchSet &buffers)
 {
-	// If there is only one buffer to process,
-	if (buffers.head == buffers.tail)
-	{
-		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( buffers.head );
-		NetAddr addr(&buffer->iocp.addr);
-
-		Connexion *conn = _conn_map.Lookup(addr);
-		u32 worker_id;
-
-		// If Connexion object was found,
-		if (conn)
-			worker_id = conn->GetServerWorkerID();
-		else
-		{
-			// Yes this should be synchronized, and it will cause some unfairness
-			// but I think it will not be too bad.  Right?
-			worker_id = _connect_worker + 1;
-			if (worker_id >= _worker_threads->GetWorkerCount())
-				worker_id = 0;
-			_connect_worker = worker_id;
-		}
-
-		_worker_threads->DeliverBuffers(worker_id, buffers[0], buffers[0]);
-
-		return;
-	}
-
 	u32 connect_worker = _connect_worker;
 	u32 worker_count = _worker_threads->GetWorkerCount();
 
-	struct 
-	{
-		RecvBuffer *head, *tail;
-	} bins[MAX_WORKER_THREADS];
+	BatchSet bins[MAX_WORKER_THREADS];
 
 	static const u32 MAX_VALID_WORDS = CAT_CEIL_UNIT(MAX_WORKER_THREADS, 32);
 	u32 valid[MAX_VALID_WORDS] = { 0 };
 
-	Connexion *conn = 0;
 	NetAddr prev_addr;
-	RecvBuffer *prev_buffer;
-	u32 ii, prev_bin;
+	prev_addr.Invalidate();
 
-	// Hunt for first buffer from a Connexion
-	for (ii = 0; ii < count; ++ii)
-	{
-		buffers[ii]->GetAddr(prev_addr);
-		conn = _conn_map.Lookup(prev_addr);
-
-		if (conn)
-		{
-			buffers[ii]->_callback = conn;
-			prev_bin = conn->GetServerWorkerID();
-			prev_buffer = buffers[ii];
-			break;
-		}
-
-		// Pick the next connect worker
-		if (++connect_worker >= worker_count)
-			connect_worker = 0;
-
-		buffers[ii]->_next_buffer = 0;
-
-		// If bin is already valid,
-		if (BTS32(&valid[connect_worker >> 5], connect_worker & 31))
-		{
-			// Insert at the end of the bin
-			bins[connect_worker].tail->_next_buffer = buffers[ii];
-			bins[connect_worker].tail = buffers[ii];
-		}
-		else
-		{
-			// Start bin
-			bins[connect_worker].head = bins[connect_worker].tail = buffers[ii];
-		}
-	}
+	Connexion *conn;
 
 	// For each buffer in the batch,
-	for (; ii < count; ++ii)
+	for (BatchHead *next, *node = buffers.head; node; node = next)
 	{
-		NetAddr addr;
-		buffers[ii]->GetAddr(addr);
+		next = node->batch_next;
+		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
+		NetAddr addr(&buffer->iocp.addr);
+		u32 worker_id;
 
-		// If source connexion has not changed,
-		if (addr == prev_addr)
+		// If source address has changed,
+		if (addr != prev_addr)
 		{
-			continue;
+			conn = _conn_map.Lookup(addr);
+			prev_addr = addr;
 		}
 
-		buffers[ii-1]->_next_buffer = 0;
+		if (conn)
+			worker_id = conn->GetServerWorkerID();
+		else
+		{
+			// Pick the next connect worker
+			if (++connect_worker >= worker_count)
+				connect_worker = 0;
+
+			worker_id = connect_worker;
+		}
+
+		buffer->batch_next = 0;
 
 		// If bin is already valid,
-		if (BTS32(&valid[prev_bin >> 5], prev_bin & 31))
+		if (BTS32(&valid[worker_id >> 5], connect_worker & 31))
 		{
 			// Insert at the end of the bin
-			bins[prev_bin].tail->_next_buffer = buffers[ii];
-			bins[prev_bin].tail = buffers[ii];
+			bins[worker_id].tail->batch_next = buffer;
+			bins[worker_id].tail = buffer;
 		}
 		else
 		{
 			// Start bin
-			bins[prev_bin].head = bins[prev_bin].tail = buffers[ii];
+			bins[worker_id].head = bins[worker_id].tail = buffer;
 		}
-
-		// Queue a set of buffers
-		conn = _conn_map.Lookup(addr);
-		prev_addr = addr;
-		prev_bin = conn->GetServerWorkerID();
 	}
-
-	buffers[ii-1]->_next_buffer = 0;
-
-	// Store the final connect worker
-	_connect_worker = connect_worker;
 
 	// For each valid word,
 	for (u32 jj = 0, offset = 0; jj < MAX_VALID_WORDS; ++jj, offset += 32)
@@ -350,12 +290,15 @@ void Server::OnRead(const BatchSet &buffers, u32 event_msec)
 			u32 bin = offset + BSF32(v);
 
 			// Deliver all buffers for this worker at once
-			_worker_threads->DeliverBuffers(bin, bins[bin].head, bins[bin].tail);
+			_worker_threads->DeliverBuffers(bin, bins[bin]);
 
 			// Clear LSB
-			v ^= CAT_LEAST_SIGNIFICANT_BIT32(v);
+			v ^= CAT_LSB32(v);
 		}
 	}
+
+	// Store the final connect worker
+	_connect_worker = connect_worker;
 }
 
 void Server::OnWorkerRead(WorkerTLS *tls, RecvBuffer *buffer_list_head)

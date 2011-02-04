@@ -38,13 +38,13 @@ namespace cat {
 struct RecvBuffer : public BatchHead
 {
 	u32 _data_bytes;
+	u32 _event_msec;
 
 	// IOCP side
 	IOCPOverlappedRecvFrom iocp;
 
 	// Worker side
 	WorkerCallbacks *_callback;
-	u32 _event_msec;
 };
 
 

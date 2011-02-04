@@ -506,8 +506,8 @@ template<typename T> CAT_INLINE T Bound(const T &minimum, const T &maximum, cons
 //// Integer macros ////
 
 #define CAT_AT_LEAST_2_BITS(n) ( (n) & ((n) - 1) )
-#define CAT_LEAST_SIGNIFICANT_BIT32(n) ( (n) & (u32)(-(s32)(n)) ) /* 0 -> 0 */
-#define CAT_LEAST_SIGNIFICANT_BIT64(n) ( (n) & (u64)(-(s64)(n)) ) /* 0 -> 0 */
+#define CAT_LSB32(n) ( (n) & (u32)(-(s32)(n)) ) /* 0 -> 0 */
+#define CAT_LSB64(n) ( (n) & (u64)(-(s64)(n)) ) /* 0 -> 0 */
 #define CAT_IS_POWER_OF_2(n) ( n && !CAT_AT_LEAST_2_BITS(n) )
 
 // Safely take the average of two numbers without possibility of overflow

@@ -395,7 +395,7 @@ void UDPEndpoint::ReleaseReadBuffers(BatchSet buffers, u32 count)
 	ReleaseRef(count);
 }
 
-void UDPEndpoint::OnReadCompletion(const BatchSet &buffers, u32 count, u32 event_msec)
+void UDPEndpoint::OnReadCompletion(const BatchSet &buffers, u32 count)
 {
 	// If reads completed during shutdown,
 	if (IsShutdown())
@@ -406,7 +406,7 @@ void UDPEndpoint::OnReadCompletion(const BatchSet &buffers, u32 count, u32 event
 	}
 
 	// Notify derived class about new buffers
-	OnRead(buffers, event_msec);
+	OnReadRouting(buffers);
 
 	// Check if new posts need to be made
 	u32 perceived_deficiency = SIMULTANEOUS_READS - _buffers_posted;
