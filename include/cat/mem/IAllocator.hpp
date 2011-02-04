@@ -45,7 +45,6 @@ class IAllocator;
 struct BatchHead
 {
 	BatchHead *batch_next;
-	IAllocator *batch_allocator;
 };
 
 // When passing around a batch of allocated space, use this object to represent
