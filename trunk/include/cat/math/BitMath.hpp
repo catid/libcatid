@@ -365,11 +365,11 @@ CAT_INLINE bool BTS32(u32 *x, u32 bit)
 
 CAT_INLINE bool BTS64(u64 *x, u32 bit)
 {
-#if defined(CAT_COMPILER_MSVC) && !defined(CAT_DEBUG)
+#if defined(CAT_COMPILER_MSVC) && defined(CAT_WORD_64) && !defined(CAT_DEBUG)
 
 	return !!_bittestandset64((LONG64*)x, bit);
 
-#elif defined(CAT_ASM_ATT) && defined(CAT_ISA_X86)
+#elif defined(CAT_ASM_ATT) && defined(CAT_WORD_64) && defined(CAT_ISA_X86)
 
 	bool retval;
 

@@ -26,19 +26,12 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-// Include all libcat Sphynx headers
+// Include all libcat Network headers
 
 #include <cat/AllCommon.hpp>
-#include <cat/AllCrypt.hpp>
-#include <cat/AllMath.hpp>
-#include <cat/AllTunnel.hpp>
-#include <cat/AllNetwork.hpp>
 
-#include <cat/sphynx/Common.hpp>
-#include <cat/sphynx/Connexion.hpp>
-#include <cat/sphynx/ConnexionMap.hpp>
-#include <cat/sphynx/Collexion.hpp>
-#include <cat/sphynx/Client.hpp>
-#include <cat/sphynx/FlowControl.hpp>
-#include <cat/sphynx/Server.hpp>
-#include <cat/sphynx/Transport.hpp>
+#include <cat/net/Sockets.hpp>
+#include <cat/net/IOLayer.hpp>
+#include <cat/net/RecvBuffer.hpp>
+#include <cat/net/SendBuffer.hpp>
+#include <cat/net/WorkerThreads.hpp>
