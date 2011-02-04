@@ -61,9 +61,8 @@ bool WorkerTLS::Valid()
 WorkerThread::WorkerThread()
 {
 	_kill_flag = false;
-	_workqueue_head = _workqueue_tail = 0;
+	_workqueue.head = _workqueue.tail = 0;
 
-	_new_workers_flag = false;
 	_new_head = 0;
 
 	_session_count = 0;
@@ -73,35 +72,82 @@ WorkerThread::~WorkerThread()
 {
 }
 
-void WorkerThread::DeliverBuffers(RecvBuffer *list_head, RecvBuffer *list_tail);
+void WorkerThread::Associate(WorkerCallbacks *callbacks)
+{
+	_new_workers_lock.Enter();
+
+	++_session_count;
+	callbacks->_worker_next = _new_head;
+	_new_head = callbacks;
+
+	_new_workers_lock.Leave();
+
+	callbacks->_parent->AddRef();
+}
+
+void WorkerThread::DeliverBuffers(const BatchSet &buffers)
 {
 	_workqueue_lock.Enter();
 
-	RecvBuffer *tail = _workqueue_tail;
-
-	if (tail) tail->_next_buffer = list_head;
-	else _workqueue_head = list_head;
-
-	_workqueue_tail = list_tail;
+	if (_workqueue.tail) _workqueue.tail->batch_next = buffers.head;
+	else _workqueue.head = buffers.head;
+	_workqueue.tail = buffers.tail;
 
 	_workqueue_lock.Leave();
 }
 
 bool WorkerThread::ThreadFunction(void *vmaster)
 {
-	static const u32 TICK_INTERVAL = 20;
-
 	WorkerThreads *master = (WorkerThreads*)vmaster;
 
-	WorkerSession *head = 0, *tail = 0;
+	WorkerTLS tls;
+	if (!tls.Valid())
+	{
+		FATAL("WorkerThread") << "Out of memory initializing thread local storage";
+		return false;
+	}
+
+	WorkerCallbacks *head = 0, *tail = 0;
 	u32 next_tick = Clock::msec();
 
 	while (!_kill_flag)
 	{
 		// If event is waiting,
-		if (_event_flag.Wait(TICK_INTERVAL))
+		if (_workqueue.head != 0 || _event_flag.Wait(WORKER_TICK_INTERVAL))
 		{
-			// TODO: Handle events
+			// Grab queue if event is flagged
+			_workqueue_lock.Enter();
+			BatchSet queue = _workqueue;
+			_workqueue.head = _workqueue.tail = 0;
+			_workqueue_lock.Leave();
+
+			// If there is anything in the queue,
+			if (queue.head)
+			{
+				BatchSet buffers;
+				buffers.head = queue.head;
+
+				RecvBuffer *last = reinterpret_cast<RecvBuffer*>( queue.head );
+
+				while (last)
+				{
+					RecvBuffer *next = reinterpret_cast<RecvBuffer*>( last->batch_next );
+
+					if (!next || next->_callback != last->_callback)
+					{
+						// Close out the previous buffer group
+						buffers.tail = last;
+						last->batch_next = 0;
+
+						last->_callback->OnWorkerRead(&tls, buffers);
+
+						// Start a new one
+						buffers.head = next;
+					}
+
+					last = next;
+				}
+			}
 		}
 
 		u32 now = Clock::msec();
@@ -109,23 +155,23 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 		// If tick interval is up,
 		if ((s32)(now - next_tick) >= 0)
 		{
-			WorkerSession *node, *prev = 0, *next;
+			WorkerCallbacks *node, *prev = 0, *next;
 
 			// For each session,
-			for (WorkerSession *node = head; node; node = next)
+			for (WorkerCallbacks *node = head; node; node = next)
 			{
-				next = node->_next_worker;
+				next = node->_worker_next;
 
 				// If session is shutting down,
-				if (node->IsShutdown())
+				if (node->_parent->IsShutdown())
 				{
 					// Unlink from list
-					if (prev) prev->_next_worker = next;
+					if (prev) prev->_worker_next = next;
 					else head = next;
 					if (!next) tail = prev;
 
 					// Release reference
-					node->ReleaseRef();
+					node->_parent->ReleaseRef();
 
 					_new_workers_lock.Enter();
 					_session_count--;
@@ -133,75 +179,42 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 				}
 				else
 				{
-					node->OnTick(now);
+					node->OnWorkerTick(&tls, now);
 
 					prev = node;
 				}
 			}
 
 			// Set up next tick
-			next_tick += TICK_INTERVAL;
+			next_tick += WORKER_TICK_INTERVAL;
 
 			// If next tick has already occurred,
 			if ((s32)(now - next_tick) >= 0)
 			{
 				// Push off next tick one interval into the future
-				next_tick = now + TICK_INTERVAL;
+				next_tick = now + WORKER_TICK_INTERVAL;
 
 				WARN("WorkerThread") << "Slow worker tick";
 			}
 		}
 
 		// If new workers have been added,
-		if (_new_workers_flag)
+		if (_new_head)
 		{
-			WorkerSession *new_head;
+			WorkerCallbacks *new_head;
 
 			_new_workers_lock.Enter();
-
 			new_head = _new_head;
 			_new_head = 0;
-			_new_workers_flag = false;
-
 			_new_workers_lock.Leave();
 
 			// Insert at end of linked worker list
-			if (tail) tail->_next_worker = new_head;
+			if (tail) tail->_worker_next = new_head;
 			else head = new_head;
 
 			tail = new_head;
 		}
 	}
-}
-
-void WorkerThread::Add(WorkerSession *session)
-{
-	_new_workers_lock.Enter();
-
-	++_session_count;
-	session->_next_worker = _new_head;
-	_new_head = session;
-	_new_workers_flag = true;
-
-	_new_workers_lock.Leave();
-
-	// Add reference to session
-	session->AddRef();
-}
-
-void WorkerThread::QueueRecvFrom(OverlappedRecvFrom *ov)
-{
-	ov->next = 0;
-
-	_workqueue_lock.Enter();
-
-	OverlappedRecvFrom *tail = _workqueue_tail;
-	if (tail) tail->next = ov;
-	else _workqueue_head = ov;
-
-	_workqueue_tail = ov;
-
-	_workqueue_lock.Leave();
 }
 
 
@@ -284,7 +297,24 @@ bool WorkerThreads::Shutdown()
 	return true;
 }
 
-bool WorkerThreads::Associate(WorkerSession *session)
+u32 WorkerThreads::FindLeastPopulatedWorker()
 {
+	u32 lowest_session_count = _workers[0].GetSessionCount();
+	u32 worker_id = 0;
 
+	// For each other worker,
+	for (u32 ii = 1, worker_count = _worker_count; ii < worker_count; ++ii)
+	{
+		u32 session_count = _workers[ii].GetSessionCount();
+
+		// If the session count is lower,
+		if (session_count < lowest_session_count)
+		{
+			// Use this one
+			lowest_session_count = session_count;
+			worker_id = ii;
+		}
+	}
+
+	return worker_id;
 }

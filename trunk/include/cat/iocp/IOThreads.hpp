@@ -59,12 +59,7 @@ enum IOType
 	IOTYPE_UDP_RECV
 };
 
-struct IOCPBufferHeader
-{
-	IAllocator *allocator;
-};
-
-struct IOCPOverlapped : IOCPBufferHeader
+struct IOCPOverlapped
 {
 	OVERLAPPED ov;
 

@@ -53,15 +53,13 @@ public:
 
 	CAT_INLINE void Reset(u64 offset = 0)
 	{
-		allocator = StdAllocator::ii;
+		iocp.ov.hEvent = 0;
+		iocp.ov.Internal = 0;
+		iocp.ov.InternalHigh = 0;
+		iocp.ov.OffsetHigh = (u32)(offset >> 32);
+		iocp.ov.Offset = (u32)offset;
 
-		ov.hEvent = 0;
-		ov.Internal = 0;
-		ov.InternalHigh = 0;
-		ov.OffsetHigh = (u32)(offset >> 32);
-		ov.Offset = (u32)offset;
-
-		io_type = IOTYPE_UDP_SEND;
+		iocp.io_type = IOTYPE_UDP_SEND;
 	}
 
 	// Acquire memory for a send buffer
