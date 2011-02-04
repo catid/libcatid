@@ -42,6 +42,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 	recvq.head = recvq.tail = 0;
 
 	UDPEndpoint *prev_recv_endpoint = 0;
+	u32 recv_count = 0;
 
 	bool exit_flag = false;
 
@@ -92,6 +93,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 					// Append to recvq
 					recvq.tail->batch_next = ov_recv;
 					recvq.tail = ov_recv;
+					++recv_count;
 				}
 				else
 				{
@@ -100,11 +102,12 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 					{
 						// Finalize the recvq and post it
 						recvq.tail->batch_next = 0;
-						prev_recv_endpoint->OnReadCompletion(recvq, event_time);
+						prev_recv_endpoint->OnReadCompletion(recvq, recv_count, event_time);
 					}
 
 					// Reset recvq
 					recvq.head = ov_recv;
+					recv_count = 1;
 				}
 			}
 			break;
@@ -116,7 +119,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 	{
 		// Finalize the recvq and post it
 		recvq.tail->batch_next = 0;
-		prev_recv_endpoint->OnReadCompletion(recvq, event_time);
+		prev_recv_endpoint->OnReadCompletion(recvq, recv_count, event_time);
 	}
 
 	// If sendq is not empty,
