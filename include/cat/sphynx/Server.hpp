@@ -29,7 +29,7 @@
 #ifndef CAT_SPHYNX_SERVER_HPP
 #define CAT_SPHYNX_SERVER_HPP
 
-#include <cat/sphynx/IOLayer.hpp>
+#include <cat/net/IOLayer.hpp>
 #include <cat/crypt/cookie/CookieJar.hpp>
 #include <cat/crypt/tunnel/KeyAgreementResponder.hpp>
 
@@ -65,7 +65,7 @@ class Server : public UDPEndpoint, public WorkerCallbacks
 
 	ServerWorker *FindLeastPopulatedPort();
 
-	virtual void OnRead(RecvBuffer *buffers[], u32 count, u32 event_msec);
+	virtual void OnRead(const BatchSet &buffers, u32 event_msec);
 
 	virtual void OnWorkerRead(WorkerTLS *tls, RecvBuffer *buffer_list_head);
 	virtual void OnWorkerTick(WorkerTLS *tls, u32 now);
@@ -92,8 +92,8 @@ protected:
 	// IP address filter: Return true to allow the connection to be made
 	virtual bool AcceptNewConnexion(const NetAddr &src) = 0;
 
-	// Lookup client by key
-	Connexion *Lookup(u32 key);
+	// LookupConnexion client by key
+	Connexion *LookupConnexion(u32 key);
 };
 
 

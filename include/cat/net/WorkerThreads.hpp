@@ -29,6 +29,7 @@
 #ifndef CAT_NET_WORKER_THREADS_HPP
 #define CAT_NET_WORKER_THREADS_HPP
 
+#include <cat/threads/RefObject.hpp>
 #include <cat/threads/Thread.hpp>
 #include <cat/threads/WaitableFlag.hpp>
 #include <cat/threads/Mutex.hpp>
@@ -41,8 +42,11 @@ class WorkerTLS;
 class WorkerThread;
 class WorkerThreads;
 
-static const u32 MAX_WORKER_THREADS = 32;
 
+static const u32 MAX_WORKER_THREADS = 32;
+static const u32 WORKER_TICK_INTERVAL = 20;
+
+// Thread-local storage for workers
 class WorkerTLS
 {
 public:
@@ -55,18 +59,22 @@ public:
 	bool Valid();
 };
 
+
 // Worker callbacks
 class WorkerCallbacks
 {
+	friend class WorkerThread;
+
 	RefObject *_parent;
 	WorkerCallbacks *_worker_prev, *_worker_next;
 
 protected:
 	CAT_INLINE void InitializeWorkerCallbacks(RefObject *obj) { _parent = obj; }
 
-	virtual void OnWorkerRead(WorkerTLS *tls, RecvBuffer *buffer_list_head) = 0;
+	virtual void OnWorkerRead(WorkerTLS *tls, const BatchSet &buffers) = 0;
 	virtual void OnWorkerTick(WorkerTLS *tls, u32 now) = 0;
 };
+
 
 // Worker thread
 class WorkerThread : public Thread
@@ -79,13 +87,12 @@ class WorkerThread : public Thread
 	volatile bool _kill_flag;
 
 	// Protected list of new workers to add to the running list
-	volatile bool _new_workers_flag;
 	Mutex _new_workers_lock;
 	WorkerCallbacks *_new_head;
 
 	// Queue of buffers waiting to be processed
 	Mutex _workqueue_lock;
-	RecvBuffer *_workqueue_head, *_workqueue_tail;
+	BatchSet _workqueue;
 
 public:
 	WorkerThread();
@@ -95,7 +102,8 @@ public:
 	CAT_INLINE void FlagEvent() { _event_flag.Set(); }
 	CAT_INLINE void SetKillFlag() { _kill_flag = true; }
 
-	void DeliverBuffers(RecvBuffer *list_head, RecvBuffer *list_tail);
+	void DeliverBuffers(const BatchSet &buffers);
+	void Associate(WorkerCallbacks *callbacks);
 };
 
 
@@ -111,14 +119,19 @@ public:
 
 	CAT_INLINE u32 GetWorkerCount() { return _worker_count; }
 
-	CAT_INLINE void DeliverBuffers(u32 worker_id, RecvBuffer *list_head, RecvBuffer *list_tail)
+	u32 FindLeastPopulatedWorker();
+
+	CAT_INLINE void DeliverBuffers(u32 worker_id, const BatchSet &buffers)
 	{
-		_workers[worker_id]->DeliverBuffers(list_head, list_tail);
+		_workers[worker_id]->DeliverBuffers(buffers);
 	}
 
 	bool Startup();
 	bool Shutdown();
-	bool Associate(WorkerSession *session);
+	CAT_INLINE void Associate(WorkerCallbacks *callbacks)
+	{
+		_workers[FindLeastPopulatedWorker()].Associate(callbacks);
+	}
 };
 
 

@@ -55,34 +55,6 @@ Server::Server()
 
 Server::~Server()
 {
-	//WARN("Destroy") << "Killing Server";
-
-	// Delete timer objects
-	if (_timers)
-	{
-		for (int ii = 0; ii < _timer_count; ++ii)
-		{
-			ServerTimer *timer = _timers[ii];
-
-			if (timer)
-			{
-				delete timer;
-			}
-		}
-
-		delete[] _timers;
-	}
-
-	// Delete worker object array
-	if (_workers)
-	{
-		for (int ii = 0; ii < _worker_count; ++ii)
-		{
-			ThreadRefObject::SafeRelease(_workers[ii]);
-		}
-
-		delete[] _workers;
-	}
 }
 
 bool Server::StartServer(ThreadPoolLocalStorage *tls, Port port, u8 *public_key, int public_bytes, u8 *private_key, int private_bytes, const char *session_key)
@@ -154,7 +126,6 @@ bool Server::StartServer(ThreadPoolLocalStorage *tls, Port port, u8 *public_key,
 	int kernelReceiveBufferBytes = Settings::ii->getInt("Sphynx.Server.KernelReceiveBuffer", 8000000);
 
 	// Attempt to bind to the server port
-	_server_port = port;
 	if (!Bind(only_ipv4, port, true, kernelReceiveBufferBytes))
 	{
 		WARN("Server") << "Failed to initialize: Unable to bind handshake port "
@@ -162,62 +133,10 @@ bool Server::StartServer(ThreadPoolLocalStorage *tls, Port port, u8 *public_key,
 		return false;
 	}
 
-	bool success = true;
-
-	int workers_per_timer = _worker_count / _timer_count;
-
-	// For each timer,
-	for (int ii = 0; ii < _timer_count; ++ii)
-	{
-		int first = ii * workers_per_timer;
-		int range = workers_per_timer;
-
-		if (first + range > _worker_count)
-		{
-			range = _worker_count - first;
-		}
-
-		ServerTimer *timer = new ServerTimer(&_conn_map, &_flood_guard, &_workers[first], range);
-
-		_timers[ii] = timer;
-
-		if (!timer || !timer->Valid())
-		{
-			WARN("Server") << "Failed to initialize: Unable to create server timer object";
-
-			success = false;
-		}
-	}
-
-	// For each data port,
-	for (int ii = 0; ii < _worker_count; ++ii)
-	{
-		// Create a new session endpoint
-		ServerWorker *worker = new ServerWorker(&_conn_map, _timers[ii / workers_per_timer]);
-
-		// Add a ref right away to avoid deletion until server is destroyed
-		worker->AddRef();
-
-		// Store it whether it is null or not
-		_workers[ii] = worker;
-
-		Port worker_port = port + ii + 1;
-
-		// If allocation or bind failed, report failure after done
-		if (!worker || !worker->Bind(only_ipv4, worker_port, true, kernelReceiveBufferBytes))
-		{
-			WARN("Server") << "Failed to initialize: Unable to bind to data port " << worker_port << ": "
-				<< SocketGetLastErrorString();
-
-			// Note failure
-			success = false;
-		}
-	}
-
-	return success;
+	return true;
 }
 
-Connexion *Server::Lookup(u32 key)
+Connexion *Server::LookupConnexion(u32 key)
 {
 	return _conn_map.Lookup(key);
 }
@@ -303,20 +222,16 @@ void Server::PostConnectionError(const NetAddr &dest, HandshakeError err)
 	Post(dest, pkt, S2C_ERROR_LEN);
 }
 
-void Server::OnRead(RecvBuffer *buffers[], u32 count, u32 event_msec)
+void Server::OnRead(const BatchSet &buffers, u32 event_msec)
 {
 	// If there is only one buffer to process,
-	if (count == 1)
+	if (buffers.head == buffers.tail)
 	{
-		NetAddr addr;
-		buffers[0]->GetAddr(addr);
-
-		buffers[0]->_next_buffer = 0;
+		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( buffers.head );
+		NetAddr addr(&buffer->iocp.addr);
 
 		Connexion *conn = _conn_map.Lookup(addr);
 		u32 worker_id;
-
-		buffers[0]->_conn = conn;
 
 		// If Connexion object was found,
 		if (conn)
