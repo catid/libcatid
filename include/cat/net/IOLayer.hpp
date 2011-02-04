@@ -29,13 +29,14 @@
 #ifndef CAT_NET_IOLAYER_HPP
 #define CAT_NET_IOLAYER_HPP
 
-#include <cat/Platform.hpp>
+#include <cat/net/WorkerThreads.hpp>
 
-// TODO: Implement portable IO layer
 #if defined(CAT_OS_WINDOWS)
+
 #include <cat/iocp/SendBuffer.hpp>
-#include <cat/iocp/IOThreads.hpp>
 #include <cat/iocp/UDPEndpoint.hpp>
+#include <cat/iocp/IOThreads.hpp>
+
 #else
 TODO
 #endif

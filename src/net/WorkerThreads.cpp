@@ -133,13 +133,13 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 				{
 					RecvBuffer *next = reinterpret_cast<RecvBuffer*>( last->batch_next );
 
-					if (!next || next->_callback != last->_callback)
+					if (!next || next->callback != last->callback)
 					{
 						// Close out the previous buffer group
 						buffers.tail = last;
 						last->batch_next = 0;
 
-						last->_callback->OnWorkerRead(&tls, buffers);
+						last->callback->OnWorkerRead(&tls, buffers);
 
 						// Start a new one
 						buffers.head = next;
@@ -176,6 +176,10 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 					_new_workers_lock.Enter();
 					_session_count--;
 					_new_workers_lock.Leave();
+
+#if !defined(CAT_NO_ATOMIC_POPCOUNT)
+					Atomic::Add(&master->_population, -1);
+#endif // CAT_NO_ATOMIC_POPCOUNT
 				}
 				else
 				{
@@ -222,6 +226,7 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 
 WorkerThreads::WorkerThreads()
 {
+	_population = 0;
 	_worker_count = 0;
 	_workers = 0;
 }
@@ -318,3 +323,20 @@ u32 WorkerThreads::FindLeastPopulatedWorker()
 
 	return worker_id;
 }
+
+#if defined(CAT_NO_ATOMIC_POPCOUNT)
+
+u32 WorkerThreads::GetTotalPopulation()
+{
+	u32 session_count = _workers[0].GetSessionCount();
+
+	// For each other worker,
+	for (u32 ii = 1, worker_count = _worker_count; ii < worker_count; ++ii)
+	{
+		session_count += _workers[ii].GetSessionCount();
+	}
+
+	return session_count;
+}
+
+#endif // CAT_NO_ATOMIC_POPCOUNT

@@ -213,7 +213,7 @@ bool UDPEndpoint::PostRead(RecvBuffer *buffer)
 
 	WSABUF wsabuf;
 	wsabuf.buf = reinterpret_cast<CHAR*>( GetTrailingBytes(buffer) );
-	wsabuf.len = IOTHREADS_BUFFER_DATA_BYTES;
+	wsabuf.len = IOTHREADS_BUFFER_READ_BYTES;
 
 	// Queue up a WSARecvFrom()
 	DWORD flags = 0, bytes;

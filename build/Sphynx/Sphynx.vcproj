@@ -46,7 +46,7 @@
 				AdditionalIncludeDirectories="../../include/"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
+				RuntimeLibrary="1"
 				UsePrecompiledHeader="2"
 				PrecompiledHeaderThrough="$(ProjectDir)Precompiled.hpp"
 				WarningLevel="3"
@@ -118,7 +118,7 @@
 				AdditionalIncludeDirectories="../../include/"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
+				RuntimeLibrary="1"
 				UsePrecompiledHeader="2"
 				PrecompiledHeaderThrough="$(ProjectDir)Precompiled.hpp"
 				WarningLevel="3"
@@ -189,7 +189,7 @@
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
 				AdditionalIncludeDirectories="../../include/"
-				RuntimeLibrary="2"
+				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
 				UsePrecompiledHeader="2"
 				PrecompiledHeaderThrough="$(ProjectDir)Precompiled.hpp"
@@ -264,7 +264,7 @@
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
 				AdditionalIncludeDirectories="../../include/"
-				RuntimeLibrary="2"
+				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
 				UsePrecompiledHeader="2"
 				PrecompiledHeaderThrough="$(ProjectDir)Precompiled.hpp"
@@ -341,6 +341,10 @@
 			</File>
 			<File
 				RelativePath="..\..\src\net\IOLayer.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\iocp\IOThreads.cpp"
 				>
 			</File>
 			<File
@@ -429,6 +433,10 @@
 					>
 				</File>
 				<File
+					RelativePath="..\..\include\cat\net\SendBuffer.hpp"
+					>
+				</File>
+				<File
 					RelativePath="..\..\include\cat\net\Sockets.hpp"
 					>
 				</File>
@@ -478,10 +486,6 @@
 				>
 				<File
 					RelativePath="..\..\include\cat\iocp\IOThreads.hpp"
-					>
-				</File>
-				<File
-					RelativePath="..\..\include\cat\iocp\SendBuffer.hpp"
 					>
 				</File>
 				<File

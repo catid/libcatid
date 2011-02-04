@@ -563,11 +563,15 @@
 					>
 				</File>
 				<File
-					RelativePath="..\..\include\cat\mem\CacheLineBytes.hpp"
+					RelativePath="..\..\include\cat\mem\IAllocator.hpp"
 					>
 				</File>
 				<File
 					RelativePath="..\..\include\cat\mem\LargeAllocator.hpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\include\cat\mem\StdAllocator.hpp"
 					>
 				</File>
 			</Filter>

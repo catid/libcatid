@@ -141,31 +141,6 @@ Connexion *Server::LookupConnexion(u32 key)
 	return _conn_map.Lookup(key);
 }
 
-ServerWorker *Server::FindLeastPopulatedPort()
-{
-	// Search through the list of session ports and find the lowest session count
-	u32 best_count = (u32)~0;
-	ServerWorker *best_port = 0;
-
-	// For each port,
-	for (int ii = 0; ii < _worker_count; ++ii)
-	{
-		// Grab the session count for this port
-		ServerWorker *port = _workers[ii];
-		u32 count = port->GetPopulation();
-
-		// If we found a lower session count,
-		if (count < best_count)
-		{
-			// Use this one instead
-			best_count = count;
-			best_port = port;
-		}
-	}
-
-	return best_port;
-}
-
 u32 Server::GetTotalPopulation()
 {
 	u32 population = 0;
