@@ -35,18 +35,16 @@ namespace cat {
 
 
 // TODO: Implement this after I know what needs to be in here
-class RecvBuffer
+struct RecvBuffer : public BatchHead
 {
-public:
+	u32 _data_bytes;
+
 	// IOCP side
-	void GetAddr(NetAddr &addr);
+	IOCPOverlappedRecvFrom iocp;
 
 	// Worker side
-	RecvBuffer *_next_buffer;
 	WorkerCallbacks *_callback;
 	u32 _event_msec;
-	u32 _data_bytes;
-	u8 _data[1];
 };
 
 

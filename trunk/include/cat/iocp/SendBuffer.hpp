@@ -36,11 +36,12 @@ namespace cat {
 
 
 // A buffer specialized for writing to a socket
-class SendBuffer : public IOCPOverlapped
+class SendBuffer : public BatchHead
 {
 	friend class IOThread;
 	friend class UDPEndpoint;
 
+	IOCPOverlapped iocp;
 	SendBuffer *_next_buffer;
 	u32 _data_bytes;
 

@@ -156,6 +156,8 @@ bool UDPEndpoint::Bind(IOThreads *iothreads, bool onlySupportIPv4, Port port, bo
         return false;
     }
 
+	_iothreads = iothreads;
+
 	// Associate with IOThreads
 	if (!iothreads->Associate(this))
 	{
@@ -169,22 +171,19 @@ bool UDPEndpoint::Bind(IOThreads *iothreads, bool onlySupportIPv4, Port port, bo
 	AddRef(SIMULTANEOUS_READS);
 	_buffers_posted = SIMULTANEOUS_READS;
 
-	// Put together a list of allocators to try
-	IAllocator *allocators[2];
-	allocators[0] = iothreads->GetAllocator();
-	allocators[1] = StdAllocator::ii;
-
 	// Post reads for this socket
-	u32 read_count = PostReads(SIMULTANEOUS_READS, allocators, 2);
+	u32 read_count = PostReads(iothreads, SIMULTANEOUS_READS);
 
 	// There are now other threads working on this object before we return!
 	// TODO: Do not allow object to be deleted before we return...
 
 	// Release references that were held for unsuccessful reads
-	if (SIMULTANEOUS_READS != read_count)
+	u32 read_fails = SIMULTANEOUS_READS - read_count;
+	if ((s32)read_fails > 0)
 	{
-		ReleaseRef(SIMULTANEOUS_READS - read_count);
-		Atomic::Add(&_buffers_posted, read_count - SIMULTANEOUS_READS);
+		ReleaseRef(read_fails);
+		Atomic::Add(&_buffers_posted, 0 - read_fails);
+		WARN("UDPEndpoint") << "Only able to launch " << read_count << " reads out of " << SIMULTANEOUS_READS;
 	}
 
 	// If no reads could be posted,
@@ -194,10 +193,6 @@ bool UDPEndpoint::Bind(IOThreads *iothreads, bool onlySupportIPv4, Port port, bo
 		CloseSocket(s);
 		_socket = SOCKET_ERROR;
 		return false;
-	}
-	else if (read_count < SIMULTANEOUS_READS)
-	{
-		WARN("UDPEndpoint") << "Only able to launch " << read_count << " reads out of " << SIMULTANEOUS_READS;
 	}
 
     _port = port;
@@ -212,19 +207,19 @@ bool UDPEndpoint::Bind(IOThreads *iothreads, bool onlySupportIPv4, Port port, bo
 
 bool UDPEndpoint::PostRead(RecvBuffer *buffer)
 {
-	CAT_OBJCLR(buffer->ov);
-	buffer->io_type = IOTYPE_UDP_RECV;
-	buffer->addr_len = sizeof(buffer->addr);
+	CAT_OBJCLR(buffer->iocp.ov);
+	buffer->iocp.io_type = IOTYPE_UDP_RECV;
+	buffer->iocp.addr_len = sizeof(buffer->iocp.addr);
 
 	WSABUF wsabuf;
-	wsabuf.buf = reinterpret_cast<CHAR*>( GetTrailingBytes(ov_recvfrom) );
+	wsabuf.buf = reinterpret_cast<CHAR*>( GetTrailingBytes(buffer) );
 	wsabuf.len = IOTHREADS_BUFFER_DATA_BYTES;
 
 	// Queue up a WSARecvFrom()
 	DWORD flags = 0, bytes;
 	int result = WSARecvFrom(_socket, &wsabuf, 1, &bytes, &flags,
-		reinterpret_cast<sockaddr*>( &buffer->addr ),
-		&buffer->addr_len, &buffer->ov, 0); 
+		reinterpret_cast<sockaddr*>( &buffer->iocp.addr ),
+		&buffer->iocp.addr_len, &buffer->iocp.ov, 0); 
 
 	// This overlapped operation will always complete unless
 	// we get an error code other than ERROR_IO_PENDING.
@@ -237,152 +232,111 @@ bool UDPEndpoint::PostRead(RecvBuffer *buffer)
 	return true;
 }
 
-u32 UDPEndpoint::PostReads(u32 total_request_count, IAllocator *allocators[], u32 allocator_count)
+u32 UDPEndpoint::PostReads(u32 count)
 {
 	if (IsShutdown())
 		return 0;
 
+	IAllocator *allocator = _iothreads->GetAllocator();
+
+	BatchSet set;
+	allocator->AcquireBatch(set, count, IOTHREADS_BUFFER_TOTAL_BYTES);
 	u32 read_count = 0;
 
-	IAllocator *allocator = allocators[0];
-	u32 allocator_index = 0;
-
-	RecvBuffer *buffers[SIMULTANEOUS_READS];
-
-	// Loop while more buffers are needed
-	while (read_count < total_request_count) 
+	for (BatchHead *node = set.head; node; node = node->batch_next, ++read_count)
 	{
-		u32 request_count = total_request_count;
-		if (request_count > SIMULTANEOUS_READS) request_count = SIMULTANEOUS_READS;
-
-		u32 buffer_count = allocator->AcquireBatch((void**)buffers, request_count, IOTHREADS_BUFFER_TOTAL_BYTES);
-
-		// For each allocated buffer,
-		for (u32 ii = 0; ii < buffer_count; ++ii)
+		if (!PostRead(reinterpret_cast<RecvBuffer*>( node )))
 		{
-			// Fill buffer
-			buffers[ii]->allocator = allocator;
-
-			// If unable to post a read,
-			if (!PostRead(allocator, buffers[ii]))
-			{
-				// Give up and release this buffer and the remaining ones
-				allocator->ReleaseBatch(buffers + ii, buffer_count - ii);
-
-				break;
-			}
-
-			// Another successful read
-			++read_count;
-		}
-
-		// If this allocator did not return all the requested buffers,
-		if (buffer_count < request_count)
-		{
-			// Try the next allocator
-			allocator_index++;
-
-			// If no additional allocators exist,
-			if (allocator_index >= allocator_count)
-				break;
-
-			// Select next allocator
-			allocator = allocators[allocator_index];
+			// Give up and release this buffer and the remaining ones
+			set.head = node;
+			allocator->ReleaseBatch(set);
+			break;
 		}
 	}
 
-	// Return number of reads that succeeded
 	return read_count;
 }
 
-u32 UDPEndpoint::Write(SendBuffer *buffers[], u32 total_count, const NetAddr &addr);
+bool UDPEndpoint::Write(const BatchSet &buffers, const NetAddr &addr)
 {
 	NetAddr::SockAddr out_addr;
 	int addr_len;
 
-	// If in the process of shutdown,
+	// If in the process of shutdown or input invalid,
 	if (IsShutdown() || !addr.Unwrap(out_addr, addr_len))
 	{
 		// Release all the buffers as a batch, since their allocators are all the same
-		StdAllocator::ii->ReleaseBatch(buffers, total_count);
-		return total_count; // Return total failure
+		StdAllocator::ii->ReleaseBatch(buffers);
+		return false;
 	}
-
-	// Add prospective references assuming no writes immediately fail
-	u32 expected_writes = CAT_CEIL_UNIT(total_count, SIMULTANEOUS_SENDS);
-	u32 failed_writes = 0;
-	AddRef(expected_writes);
 
 	WSABUF wsabufs[SIMULTANEOUS_SENDS];
+	u32 ii = 0;
+	BatchHead *node = buffers.head, *first = node;
+	bool success = true;
 
 	// While there are more buffers to send,
-	while (total_count > 0)
+	for (;;)
 	{
-		// Write up to SIMULTANEOUS_SENDS at a time
-		u32 request_count = total_count;
-		if (request_count > SIMULTANEOUS_SENDS) request_count = SIMULTANEOUS_SENDS;
+		BatchHead *next = node->batch_next;
 
-		// For each request,
-		for (u32 ii = 0; ii < request_count; ++ii)
+		// Write node to buffer array
+		SendBuffer *send_buf = reinterpret_cast<SendBuffer*>( node );
+		wsabufs[ii].buf = reinterpret_cast<CHAR*>( GetTrailingBytes(send_buf) );
+		wsabufs[ii].len = send_buf->_data_bytes;
+
+		// If that was the end of what we can fit, or there is no more data,
+		if (++ii >= SIMULTANEOUS_SENDS || !next)
 		{
-			wsabufs[ii].len = buffers[ii]->GetDataBytes();
-			wsabufs[ii].buf = (CHAR*)buffers[ii]->GetData();
+			AddRef();
 
-			buffers[ii]->Reset();
+			// Unlink these buffers from the rest of the batch
+			node->batch_next = 0;
 
-			buffers[ii]->_next_buffer = &buffers[ii + 1];
+			SendBuffer *first_buf = reinterpret_cast<SendBuffer*>( first );
+
+			// Fire off a WSASendTo() and forget about it
+			int result = WSASendTo(_socket, wsabufs, ii, 0, 0,
+								   reinterpret_cast<const sockaddr*>( &out_addr ),
+								   addr_len, &first_buf->iocp.ov, 0);
+
+			// This overlapped operation will always complete unless
+			// we get an error code other than ERROR_IO_PENDING.
+			if (result && WSAGetLastError() != ERROR_IO_PENDING)
+			{
+				WARN("UDPEndpoint") << "WSASendTo error: " << SocketGetLastErrorString();
+
+				// Relink buffers to the rest of the batch
+				node->batch_next = next;
+
+				// Release the rest of the batch
+				BatchSet set = { first, buffers.tail };
+				StdAllocator::ii->ReleaseBatch(set);
+
+				success = false;
+				ReleaseRef();
+				break;
+			}
+
+			// Stop here if there is no more data to send
+			if (!next) break;
+
+			// Start next batch over from here
+			first = next;
+			ii = 0;
 		}
 
-		// Set the final next buffer pointer to zero
-		buffers[request_count - 1]->_next_buffer = 0;
-
-		// Fire off a WSASendTo() and forget about it
-		int result = WSASendTo(_socket, wsabufs, request_count, 0, 0,
-			reinterpret_cast<const sockaddr*>( &out_addr ),
-			addr_len, &buffers[0]->ov, 0);
-
-		// This overlapped operation will always complete unless
-		// we get an error code other than ERROR_IO_PENDING.
-		if (result && WSAGetLastError() != ERROR_IO_PENDING)
-		{
-			WARN("UDPEndpoint") << "WSASendTo error: " << SocketGetLastErrorString();
-
-			// Release the whole batch of failed buffers
-			StdAllocator::ii->ReleaseBatch(buffers, request_count);
-
-			// Increment the fail count for later
-			failed_writes++;
-		}
-
-		// Add the request count to the number written so far
-		buffers += request_count;
-		total_count -= request_count;
+		node = next;
 	}
-
-	// Release refs for failed writes
-	if (failed_writes) ReleaseRef(failed_writes);
 
 	// If there are no read buffers posted on the socket,
 	if (_buffers_posted == 0)
 	{
-		// Put together a list of allocators to try
-		IAllocator *allocators[2];
-		allocators[0] = iothreads->GetAllocator();
-
-#if defined(CAT_ALLOW_UNBOUNDED_RECV_BUFFERS)
-		allocators[1] = StdAllocator::ii;
-		static const u32 ALLOCATOR_COUNT = 2;
-#else
-		static const u32 ALLOCATOR_COUNT = 1;
-#endif
-
 		AddRef();
 
 		// Post just one buffer to keep at least one request out there
 		// Posting reads is expensive so only do this if we are desperate
-		u32 read_count = PostReads(1, allocators, ALLOCATOR_COUNT);
-
-		if (read_count)
+		if (PostReads(1))
 		{
 			// Increment the number of buffers posted
 			Atomic::Add(&_buffers_posted, 1);
@@ -397,7 +351,7 @@ u32 UDPEndpoint::Write(SendBuffer *buffers[], u32 total_count, const NetAddr &ad
 		}
 	}
 
-	return failed_writes; // Return number of failed writes
+	return success;
 }
 
 
@@ -455,7 +409,7 @@ void UDPEndpoint::ReleaseReadBuffers(RecvBuffer *buffers[], u32 count)
 	ReleaseRef(count);
 }
 
-void UDPEndpoint::OnReadCompletion(IOTLS *tls, RecvBuffer *buffers[], u32 count, u32 event_msec)
+void UDPEndpoint::OnReadCompletion(const BatchSet &buffers, u32 event_msec)
 {
 	// If reads completed during shutdown,
 	if (IsShutdown())

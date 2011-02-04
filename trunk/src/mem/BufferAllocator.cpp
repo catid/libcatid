@@ -57,12 +57,10 @@ BufferAllocator::BufferAllocator(u32 buffer_min_size, u32 buffer_count)
 		BatchHead *node = reinterpret_cast<BatchHead*>( buffers );
 
 		tail->batch_next = node;
-		tail->batch_allocator = this;
 		tail = node;
 	}
 
 	tail->batch_next = 0;
-	tail->batch_allocator = this;
 }
 
 BufferAllocator::~BufferAllocator()

@@ -32,30 +32,24 @@
 #include <cat/io/Logging.hpp>
 using namespace cat;
 
-// Win 9x has a limit of 16 but we don't support that anyway
-static const u32 MAX_IO_GATHER = 32;
-
 
 //// IOThread
 
-CAT_INLINE bool IOThread::HandleCompletion(IOTLS *tls, OVERLAPPED_ENTRY entries[], u32 count, u32 event_time)
+CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY entries[], u32 count, u32 event_time)
 {
-	// Batch release sends
-	SendBuffer *send_list[MAX_IO_GATHER];
-	u32 send_list_size = 0;
-	IAllocator *prev_allocator = 0;
+	BatchSet sendq, recvq;
+	sendq.head = sendq.tail = 0;
+	recvq.head = recvq.tail = 0;
 
-	// Batch process receives
-	RecvBuffer *recv_list[MAX_IO_GATHER];
-	u32 recv_list_size = 0;
 	UDPEndpoint *prev_recv_endpoint = 0;
 
 	bool exit_flag = false;
 
+	// For each entry,
 	for (u32 ii = 0; ii < count; ++ii)
 	{
 		UDPEndpoint *udp_endpoint = reinterpret_cast<UDPEndpoint*>( entries[ii].lpCompletionKey );
-		IOCPOverlapped *ov_iocp = reinterpret_cast<IOCPOverlapped*>( (u8*)entries[ii].lpOverlapped - offsetof(IOCPOverlapped, ov) );
+		IOCPOverlapped *ov_iocp = reinterpret_cast<IOCPOverlapped*>( entries[ii].lpOverlapped );
 		u32 bytes = entries[ii].dwNumberOfBytesTransferred;
 
 		// Terminate thread on zero completion
@@ -69,80 +63,78 @@ CAT_INLINE bool IOThread::HandleCompletion(IOTLS *tls, OVERLAPPED_ENTRY entries[
 		switch (ov_iocp->io_type)
 		{
 		case IOTYPE_UDP_SEND:
-			// For each send buffer that was batched with this one,
-			for (SendBuffer *ov_send = reinterpret_cast<SendBuffer*>( ov_iocp ); ov_send ; ov_send = ov_send->_next_buffer)
 			{
-				IAllocator *allocator = ov_send->allocator;
+				SendBuffer *ov_send = reinterpret_cast<SendBuffer*>( (u8*)ov_iocp - offsetof(SendBuffer, iocp.ov) );
 
-				// If the same allocator was used twice in a row and there is space,
-				if (prev_allocator == allocator && send_list_size < MAX_IO_GATHER)
-				{
-					// Store this for batched release
-					send_list[send_list_size++] = ov_send;
-				}
-				else
-				{
-					// If sends exist,
-					if (send_list_size)
-					{
-						// Release the batch
-						prev_allocator->ReleaseBatch((void**)send_list, send_list_size);
-					}
+				// Link to sendq
+				if (sendq.tail) sendq.tail->batch_next = ov_send;
+				else sendq.head = ov_send;
 
-					// Reset the list
-					prev_allocator = allocator;
-					send_list[0] = ov_send;
-					send_list_size = 1;
-				}
+				// Find the end of the buffers
+				BatchHead *last;
+				for (last = ov_send; last->batch_next; last = last->batch_next);
+
+				// Use that as the new tail
+				sendq.tail = last;
 			}
 			break;
 
 		case IOTYPE_UDP_RECV:
 			{
-				RecvBuffer *ov_recv = reinterpret_cast<RecvBuffer*>( ov_iocp );
+				RecvBuffer *ov_recv = reinterpret_cast<RecvBuffer*>( (u8*)ov_iocp - offsetof(RecvBuffer, iocp.ov) );
+
+				// Write event completion results to buffer
+				ov_recv->_data_bytes = bytes;
 
 				// If the same allocator was used twice in a row and there is space,
-				if (prev_recv_endpoint == udp_endpoint && recv_list_size < MAX_IO_GATHER)
+				if (prev_recv_endpoint == udp_endpoint)
 				{
-					// Store this for batched release
-					recv_list[recv_list_size] = ov_recv;
-					++recv_list_size;
+					// Append to recvq
+					recvq.tail->batch_next = ov_recv;
+					recvq.tail = ov_recv;
 				}
 				else
 				{
-					// If sends exist,
-					if (recv_list_size)
+					// If recvq is not empty,
+					if (recvq.head)
 					{
-						// Deliver the batch
-						prev_recv_endpoint->OnReadCompletion(tls, recv_list, recv_list_size, event_time);
+						// Finalize the recvq and post it
+						recvq.tail->batch_next = 0;
+						prev_recv_endpoint->OnReadCompletion(recvq, event_time);
 					}
 
-					// Reset the list
-					recv_list[0] = ov_recv;
-					recv_bytes_list[0] = bytes;
-					recv_list_size = 1;
+					// Reset recvq
+					recvq.head = ov_recv;
 				}
 			}
 			break;
 		}
 	}
 
-	// Deliver remaining received
-	if (recv_list_size)
-		prev_recv_endpoint->OnRead(tls, recv_list, recv_bytes_list, recv_list_size, event_time);
+	// If recvq is not empty,
+	if (recvq.head)
+	{
+		// Finalize the recvq and post it
+		recvq.tail->batch_next = 0;
+		prev_recv_endpoint->OnReadCompletion(recvq, event_time);
+	}
 
-	// Release remaining sent
-	if (send_list_size > 0)
-		prev_allocator->ReleaseBatch((void**)send_list, send_list_size);
+	// If sendq is not empty,
+	if (sendq.head)
+	{
+		sendq.tail->batch_next = 0;
+		StdAllocator::ii->ReleaseBatch(sendq);
+	}
 
 	return exit_flag;
 }
 
-void IOThread::UseVistaAPI(IOTLS *tls, IOThreads *master)
+void IOThread::UseVistaAPI(IOThreads *master)
 {
 	PtGetQueuedCompletionStatusEx pGetQueuedCompletionStatusEx = master->pGetQueuedCompletionStatusEx;
 	HANDLE port = master->_io_port;
 
+	static const u32 MAX_IO_GATHER = 32;
 	OVERLAPPED_ENTRY entries[MAX_IO_GATHER];
 	unsigned long ulEntriesRemoved;
 
@@ -151,12 +143,12 @@ void IOThread::UseVistaAPI(IOTLS *tls, IOThreads *master)
 		u32 event_time = Clock::msec();
 
 		// Quit if we received the quit signal
-		if (HandleCompletion(tls, entries, ulEntriesRemoved, event_time))
+		if (HandleCompletion(master, entries, ulEntriesRemoved, event_time))
 			break;
 	}
 }
 
-void IOThread::UsePreVistaAPI(IOTLS *tls, IOThreads *master)
+void IOThread::UsePreVistaAPI(IOThreads *master)
 {
 	HANDLE port = master->_io_port;
 
@@ -164,6 +156,7 @@ void IOThread::UsePreVistaAPI(IOTLS *tls, IOThreads *master)
 	ULONG_PTR key;
 	LPOVERLAPPED ov;
 
+	static const u32 MAX_IO_GATHER = 4;
 	OVERLAPPED_ENTRY entries[MAX_IO_GATHER];
 	u32 count = 0;
 
@@ -185,7 +178,7 @@ void IOThread::UsePreVistaAPI(IOTLS *tls, IOThreads *master)
 		} while (bResult || ov);
 
 		// Quit if we received the quit signal
-		if (HandleCompletion(tls, entries, count, event_time))
+		if (HandleCompletion(master, entries, count, event_time))
 			break;
 
 		count = 0;
@@ -196,29 +189,12 @@ bool IOThread::ThreadFunction(void *vmaster)
 {
 	IOThreads *master = reinterpret_cast<IOThreads*>( vmaster );
 
-	IAllocator *private_allocator = new BufferAllocator(IOTHREADS_BUFFER_TOTAL_BYTES, IOTLS_BUFFER_COUNT);
-
-	if (!private_allocator || !private_allocator->Valid())
-	{
-		FATAL("IOThread") << "Out of memory initializing BufferAllocator";
-		return false;
-	}
-
-	// Initialize TLS
-	IOTLS tls;
-	tls.allocators[0] = private_allocator;
-	tls.allocators[1] = master->GetAllocator();
-	tls.allocators[2] = StdAllocator::ii;
-
 	// TODO: Test both of these
 
-	// If it is available,
 	if (master->pGetQueuedCompletionStatusEx)
-		UseVistaAPI(&tls, master);
+		UseVistaAPI(master);
 	else
-		UsePreVistaAPI(&tls, master);
-
-	delete private_allocator;
+		UsePreVistaAPI(master);
 
 	return true;
 }
@@ -231,7 +207,7 @@ IOThreads::IOThreads()
 	_io_port = 0;
 	_worker_count = 0;
 	_workers = 0;
-	_iothreads_allocator = 0;
+	_buffer_allocator = 0;
 
 	// Attempt to use Vista+ API
 	pGetQueuedCompletionStatusEx = (PtGetQueuedCompletionStatusEx)GetProcAddress(GetModuleHandleA("kernel32.dll"), "GetQueuedCompletionStatusEx");
@@ -245,14 +221,14 @@ IOThreads::~IOThreads()
 bool IOThreads::Startup()
 {
 	// If startup was previously attempted,
-	if (_worker_count || _io_port || _iothreads_allocator)
+	if (_worker_count || _io_port || _buffer_allocator)
 	{
 		// Clean up and try again
 		Shutdown();
 	}
 
-	_iothreads_allocator = new BufferAllocator(IOTHREADS_BUFFER_TOTAL_BYTES, IOTHREADS_BUFFER_COUNT);
-	if (!_iothreads_allocator || !_iothreads_allocator->Valid())
+	_buffer_allocator = new BufferAllocator(IOTHREADS_BUFFER_TOTAL_BYTES, IOTHREADS_BUFFER_COUNT);
+	if (!_buffer_allocator || !_buffer_allocator->Valid())
 	{
 		FATAL("IOThreads") << "Out of memory while allocating " << IOTHREADS_BUFFER_COUNT << " buffers for a shared pool";
 		return false;
@@ -339,10 +315,10 @@ bool IOThreads::Shutdown()
 	}
 
 	// If allocator was created,
-	if (_iothreads_allocator)
+	if (_buffer_allocator)
 	{
-		delete _iothreads_allocator;
-		_iothreads_allocator = 0;
+		delete _buffer_allocator;
+		_buffer_allocator = 0;
 	}
 
 	return true;

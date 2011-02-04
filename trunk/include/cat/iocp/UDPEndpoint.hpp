@@ -31,7 +31,7 @@
 
 #include <cat/iocp/IOThreads.hpp>
 #include <cat/iocp/SendBuffer.hpp>
-#include <cat/sphynx/RecvBuffer.hpp>
+#include <cat/net/RecvBuffer.hpp>
 
 namespace cat {
 
@@ -43,8 +43,11 @@ static const u32 SIMULTANEOUS_SENDS = 128;
 // Object that represents a UDP endpoint bound to a single port
 class UDPEndpoint : public WatchedRefObject
 {
+	friend class IOThread;
+
 	volatile u32 _buffers_posted; // Number of buffers posted to the socket waiting for data
 
+	IOThreads *_iothreads;
 	Socket _socket;
 	Port _port;
 	bool _ipv6;
@@ -52,9 +55,9 @@ class UDPEndpoint : public WatchedRefObject
 	bool PostRead(RecvBuffer *buffer);
 
 	// Returns the number of reads posted
-	u32 PostReads(u32 count, IAllocator *allocators[], u32 allocator_count);
+	u32 PostReads(u32 count);
 
-	void OnReadCompletion(IOTLS *tls, RecvBuffer *buffers[], u32 count, u32 event_msec);
+	void OnReadCompletion(const BatchSet &buffers, u32 event_msec);
 
 public:
     UDPEndpoint();
@@ -80,16 +83,16 @@ public:
 
 	// If Is6() == true, the address must be promoted to IPv6
 	// before calling using addr.PromoteTo6()
-	u32 Write(SendBuffer *buffers[], u32 count, const NetAddr &addr);
+	bool Write(const BatchSet &buffers, const NetAddr &addr);
 
 	// When done with read buffers, call this function to add them back to the available pool
-	void ReleaseReadBuffers(RecvBuffer *buffers[], u32 count);
+	void ReleaseReadBuffers(const BatchSet &buffers);
 
 protected:
 	virtual void OnShutdownRequest();
 	virtual bool OnZeroReferences();
 
-	virtual void OnRead(RecvBuffer *buffers[], u32 count, u32 event_msec) = 0;
+	virtual void OnRead(const BatchSet &buffers, u32 event_msec) = 0;
     virtual void OnUnreachable(const NetAddr &addr) {} // Only IP is valid
 };
 
