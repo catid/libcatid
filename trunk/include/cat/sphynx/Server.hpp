@@ -65,7 +65,7 @@ class Server : public UDPEndpoint, public WorkerCallbacks
 
 	ServerWorker *FindLeastPopulatedPort();
 
-	virtual void OnRead(const BatchSet &buffers, u32 event_msec);
+	virtual void OnReadRouting(const BatchSet &buffers);
 
 	virtual void OnWorkerRead(WorkerTLS *tls, RecvBuffer *buffer_list_head);
 	virtual void OnWorkerTick(WorkerTLS *tls, u32 now);

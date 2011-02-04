@@ -35,7 +35,7 @@ using namespace cat;
 
 //// IOThread
 
-CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY entries[], u32 count, u32 event_time)
+CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY entries[], u32 count, u32 event_msec)
 {
 	BatchSet sendq, recvq;
 	sendq.head = sendq.tail = 0;
@@ -86,6 +86,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 
 				// Write event completion results to buffer
 				ov_recv->_data_bytes = bytes;
+				ov_recv->_event_msec = event_msec;
 
 				// If the same allocator was used twice in a row and there is space,
 				if (prev_recv_endpoint == udp_endpoint)
@@ -102,7 +103,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 					{
 						// Finalize the recvq and post it
 						recvq.tail->batch_next = 0;
-						prev_recv_endpoint->OnReadCompletion(recvq, recv_count, event_time);
+						prev_recv_endpoint->OnReadCompletion(recvq, recv_count);
 					}
 
 					// Reset recvq
@@ -119,7 +120,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 	{
 		// Finalize the recvq and post it
 		recvq.tail->batch_next = 0;
-		prev_recv_endpoint->OnReadCompletion(recvq, recv_count, event_time);
+		prev_recv_endpoint->OnReadCompletion(recvq, recv_count, event_msec);
 	}
 
 	// If sendq is not empty,

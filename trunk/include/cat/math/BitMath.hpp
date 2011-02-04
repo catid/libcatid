@@ -194,7 +194,7 @@ CAT_INLINE u32 BSF32(u32 x)
 
 #else
 
-	u32 lsb = CAT_LEAST_SIGNIFICANT_BIT32(x);
+	u32 lsb = CAT_LSB32(x);
 
 	// Adapted from the Stanford Bit Twiddling Hacks collection
 	return MultiplyDeBruijnBitPosition2[(u32)(lsb * 0x077CB531) >> 27];
@@ -269,7 +269,7 @@ CAT_INLINE u32 BSF64(u64 x)
 
 #else
 
-	u64 lsb = CAT_LEAST_SIGNIFICANT_BIT64(x);
+	u64 lsb = CAT_LSB64(x);
 
 	// Adapted from the Stanford Bit Twiddling Hacks collection
 	u32 r = (lsb & 0xAAAAAAAAAAAAAAAAULL) != 0;

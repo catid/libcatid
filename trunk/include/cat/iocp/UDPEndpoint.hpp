@@ -60,7 +60,7 @@ class UDPEndpoint : public WatchedRefObject
 	// Returns the number of reads posted
 	u32 PostReads(u32 count);
 
-	void OnReadCompletion(const BatchSet &buffers, u32 count, u32 event_msec);
+	void OnReadCompletion(const BatchSet &buffers, u32 count);
 
 public:
     UDPEndpoint();
@@ -95,7 +95,7 @@ protected:
 	virtual void OnShutdownRequest();
 	virtual bool OnZeroReferences();
 
-	virtual void OnRead(const BatchSet &buffers, u32 event_msec) = 0;
+	virtual void OnReadRouting(const BatchSet &buffers) = 0;
     virtual void OnUnreachable(const NetAddr &addr) {} // Only IP is valid
 };
 
