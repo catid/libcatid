@@ -172,7 +172,7 @@ bool UDPEndpoint::Bind(IOThreads *iothreads, bool onlySupportIPv4, Port port, bo
 	_buffers_posted = SIMULTANEOUS_READS;
 
 	// Post reads for this socket
-	u32 read_count = PostReads(iothreads, SIMULTANEOUS_READS);
+	u32 read_count = PostReads(SIMULTANEOUS_READS);
 
 	// There are now other threads working on this object before we return!
 	// TODO: Do not allow object to be deleted before we return...
@@ -357,22 +357,25 @@ bool UDPEndpoint::Write(const BatchSet &buffers, const NetAddr &addr)
 
 //// Event Completion
 
-void UDPEndpoint::ReleaseReadBuffers(RecvBuffer *buffers[], u32 count)
+void UDPEndpoint::ReleaseReadBuffers(BatchSet buffers, u32 count)
 {
-	if (count <= 0) return;
+	if (!buffers.head) return;
 
 	u32 buffers_posted = 0;
 
 	// If there are no buffers posted on the socket,
 	if (_buffers_posted == 0 && !IsShutdown())
 	{
+		BatchHead *next = buffers.head->batch_next;
+
+		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( buffers.head );
+
 		// Re-use just one buffer to keep at least one request out there
 		// Posting reads is expensive so only do this if we are desperate
-		if (PostRead(buffers[count-1]))
+		if (PostRead(buffer))
 		{
 			// Increment the number of buffers posted and pull it out of the count
 			Atomic::Add(&_buffers_posted, 1);
-			--count;
 
 			WARN("UDPEndpoint") << "Release noticed reads were dry and reposted one";
 		}
@@ -380,36 +383,19 @@ void UDPEndpoint::ReleaseReadBuffers(RecvBuffer *buffers[], u32 count)
 		{
 			WARN("UDPEndpoint") << "Release noticed reads were dry but could not help";
 		}
+
+		if (!next) return;
+
+		buffers.head = next;
 	}
 
-	if (count <= 0) return;
-
-	// For each buffer to deallocate,
-	IAllocator *allocator = buffers[0]->allocator;
-	u32 ii, last_ii;
-	for (last_ii = 0, ii = 1; ii < count; ++ii)
-	{
-		IAllocator *new_allocator = buffers[ii]->allocator;
-
-		// If allocator has changed,
-		if (allocator != new_allocator)
-		{
-			// Release the batch so far
-			allocator->ReleaseBatch((void**)buffers, ii - last_ii);
-
-			last_ii = ii;
-			allocator = new_allocator;
-		}
-	}
-
-	// Release the remaining batch
-	allocator->ReleaseBatch((void**)buffers, ii - last_ii);
+	_iothreads->GetAllocator()->ReleaseBatch(buffers);
 
 	// Release one reference for each buffer
 	ReleaseRef(count);
 }
 
-void UDPEndpoint::OnReadCompletion(const BatchSet &buffers, u32 event_msec)
+void UDPEndpoint::OnReadCompletion(const BatchSet &buffers, u32 count, u32 event_msec)
 {
 	// If reads completed during shutdown,
 	if (IsShutdown())
@@ -420,7 +406,7 @@ void UDPEndpoint::OnReadCompletion(const BatchSet &buffers, u32 event_msec)
 	}
 
 	// Notify derived class about new buffers
-	OnRead(buffers, count, event_msec);
+	OnRead(buffers, event_msec);
 
 	// Check if new posts need to be made
 	u32 perceived_deficiency = SIMULTANEOUS_READS - _buffers_posted;
@@ -444,14 +430,8 @@ void UDPEndpoint::OnReadCompletion(const BatchSet &buffers, u32 event_msec)
 		}
 	}
 
-#if defined(CAT_ALLOW_UNBOUNDED_RECV_BUFFERS)
-	static const u32 ALLOCATOR_COUNT = 3;
-#else
-	static const u32 ALLOCATOR_COUNT = 2;
-#endif
-
 	// Post enough reads to fill in
-	u32 posted_reads = PostReads(count, tls->allocators, ALLOCATOR_COUNT);
+	u32 posted_reads = PostReads(count);
 
 	// If not all posts succeeded,
 	if (posted_reads < count)

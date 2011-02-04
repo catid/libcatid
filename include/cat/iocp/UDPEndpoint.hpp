@@ -36,6 +36,8 @@
 namespace cat {
 
 
+class IOThreads;
+
 // Number of IO outstanding on a UDP endpoint
 static const u32 SIMULTANEOUS_READS = 128;
 static const u32 SIMULTANEOUS_SENDS = 128;
@@ -57,7 +59,7 @@ class UDPEndpoint : public WatchedRefObject
 	// Returns the number of reads posted
 	u32 PostReads(u32 count);
 
-	void OnReadCompletion(const BatchSet &buffers, u32 event_msec);
+	void OnReadCompletion(const BatchSet &buffers, u32 count, u32 event_msec);
 
 public:
     UDPEndpoint();
@@ -86,7 +88,7 @@ public:
 	bool Write(const BatchSet &buffers, const NetAddr &addr);
 
 	// When done with read buffers, call this function to add them back to the available pool
-	void ReleaseReadBuffers(const BatchSet &buffers);
+	void ReleaseReadBuffers(BatchSet buffers, u32 count);
 
 protected:
 	virtual void OnShutdownRequest();

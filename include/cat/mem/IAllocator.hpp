@@ -96,7 +96,6 @@ public:
     }
 };
 
-
 // Provide placement new constructor and delete pair to allow for
 // an easy syntax to create objects:
 //   T *a = new (buffer_allocator) T();
@@ -113,6 +112,7 @@ CAT_INLINE void operator delete(void *ptr, cat::IAllocator *alloc) throw()
 {
 	alloc->Release(ptr);
 }
+
 
 } // namespace cat
 
