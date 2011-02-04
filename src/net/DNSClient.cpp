@@ -39,7 +39,7 @@ using namespace cat;
 /*
 	DNS protocol:
 
-	Big-endian of course.
+	All fields are big-endian
 
 	Header
 		ID(16)
