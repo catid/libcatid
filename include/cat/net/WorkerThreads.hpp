@@ -43,7 +43,9 @@
 namespace cat {
 
 
-class WorkerTLS;
+class IWorkerTLS;
+class IWorkerTLSBuilder;
+class WorkerCallbacks;
 class WorkerThread;
 class WorkerThreads;
 
@@ -51,17 +53,22 @@ class WorkerThreads;
 static const u32 MAX_WORKER_THREADS = 32;
 static const u32 WORKER_TICK_INTERVAL = 20;
 
-// Thread-local storage for workers
-class WorkerTLS
+// Interface for worker thread-local storage
+class IWorkerTLS
 {
 public:
-	BigTwistedEdwards *math;
-	FortunaOutput *csprng;
+	virtual ~IWorkerTLS();
 
-	WorkerTLS();
-	~WorkerTLS();
+	virtual bool Valid() = 0;
+};
 
-	bool Valid();
+// Interface to a builder functor for TLS objects
+class IWorkerTLSBuilder
+{
+public:
+	virtual ~IWorkerTLSBuilder();
+
+	virtual IWorkerTLS *operator() = 0;
 };
 
 
@@ -76,8 +83,8 @@ class WorkerCallbacks
 protected:
 	CAT_INLINE void InitializeWorkerCallbacks(RefObject *obj) { _parent = obj; }
 
-	virtual void OnWorkerRead(WorkerTLS *tls, const BatchSet &buffers) = 0;
-	virtual void OnWorkerTick(WorkerTLS *tls, u32 now) = 0;
+	virtual void OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers) = 0;
+	virtual void OnWorkerTick(IWorkerTLS *tls, u32 now) = 0;
 };
 
 
@@ -115,6 +122,8 @@ public:
 // Worker threads
 class WorkerThreads
 {
+	friend class WorkerThread;
+
 #if !defined(CAT_NO_ATOMIC_POPCOUNT)
 	volatile u32 _population;
 	u8 _padding[CAT_DEFAULT_CACHE_LINE_SIZE];
@@ -122,6 +131,8 @@ class WorkerThreads
 
 	u32 _worker_count;
 	WorkerThread *_workers;
+
+	IWorkerTLSBuilder *_tls_builder;
 
 public:
 	WorkerThreads();
@@ -142,8 +153,10 @@ public:
 		_workers[worker_id].DeliverBuffers(buffers);
 	}
 
-	bool Startup();
+	bool Startup(IWorkerTLSBuilder *tls_builder);
+
 	bool Shutdown();
+
 	CAT_INLINE void Associate(WorkerCallbacks *callbacks)
 	{
 #if !defined(CAT_NO_ATOMIC_POPCOUNT)
