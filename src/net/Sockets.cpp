@@ -31,7 +31,6 @@
 using namespace std;
 using namespace cat;
 
-
 #if defined (CAT_COMPILER_MSVC)
 #pragma comment(lib, "ws2_32.lib")
 #endif
@@ -251,51 +250,6 @@ namespace cat
 	}
 }
 
-
-NetAddr::NetAddr(const char *ip_str, Port port)
-{
-	// Invoke SetFromString(), ignoring the return value because
-	// it will leave the object in an invalid state if needed.
-	SetFromString(ip_str, port);
-}
-NetAddr::NetAddr(const sockaddr_in6 &addr)
-{
-	Wrap(addr);
-}
-NetAddr::NetAddr(const sockaddr_in &addr)
-{
-	Wrap(addr);
-}
-NetAddr::NetAddr(const sockaddr *addr)
-{
-	Wrap(addr);
-}
-NetAddr::NetAddr(int a, int b, int c, int d, Port port)
-{
-	// Invoke SetFromDotDecimals(), ignoring the return value because
-	// it will leave the object in an invalid state if needed.
-	SetFromDotDecimals(a, b, c, d, port);
-}
-
-NetAddr::NetAddr(const NetAddr &addr)
-{
-	_valid = addr._valid;
-	_ip.v6[0] = addr._ip.v6[0];
-	_ip.v6[1] = addr._ip.v6[1];
-}
-NetAddr &NetAddr::operator=(const NetAddr &addr)
-{
-	_valid = addr._valid;
-	_ip.v6[0] = addr._ip.v6[0];
-	_ip.v6[1] = addr._ip.v6[1];
-	return *this;
-}
-
-bool NetAddr::Wrap(const sockaddr_in6 &addr)
-{
-	// May be IPv4 that has been stuffed into an IPv6 sockaddr
-	return Wrap(reinterpret_cast<const sockaddr*>( &addr ));
-}
 bool NetAddr::Wrap(const sockaddr_in &addr)
 {
 	// Can only fit IPv4 in this address structure
@@ -312,6 +266,7 @@ bool NetAddr::Wrap(const sockaddr_in &addr)
 		return false;
 	}
 }
+
 bool NetAddr::Wrap(const sockaddr *addr)
 {
 	u16 family = addr->sa_family;
@@ -367,19 +322,6 @@ bool NetAddr::EqualsIPOnly(const NetAddr &addr) const
 		// If either address is invalid,
 		return false; // "not equal"
 	}
-}
-bool NetAddr::operator==(const NetAddr &addr) const
-{
-	// Check port
-	if (addr._port != _port)
-		return false; // "not equal"
-
-	// Tail call IP checking function
-	return EqualsIPOnly(addr);
-}
-bool NetAddr::operator!=(const NetAddr &addr) const
-{
-	return !(*this == addr);
 }
 
 bool NetAddr::IsInternetRoutable()
@@ -523,6 +465,7 @@ bool NetAddr::SetFromString(const char *ip_str, Port port)
 		}
 	}
 }
+
 bool NetAddr::SetFromRawIP(const u8 *ip_binary, int bytes)
 {
 	if (bytes == IP4_BYTES)
@@ -548,6 +491,7 @@ bool NetAddr::SetFromRawIP(const u8 *ip_binary, int bytes)
 		return false;
 	}
 }
+
 bool NetAddr::SetFromDotDecimals(int a, int b, int c, int d, Port port)
 {
 	if ((a | b | c | d) & 0xFFFFFF00)
@@ -564,6 +508,7 @@ bool NetAddr::SetFromDotDecimals(int a, int b, int c, int d, Port port)
 		return true;
 	}
 }
+
 std::string NetAddr::IPToString() const
 {
 	if (_family == AF_INET6)
@@ -675,7 +620,6 @@ bool NetAddr::Unwrap(SockAddr &addr, int &addr_len, bool PromoteToIP6) const
 	}
 }
 
-// Promote an IPv4 address to an IPv6 address if needed
 bool NetAddr::PromoteTo6()
 {
 	if (_family == AF_INET6)
@@ -716,7 +660,6 @@ bool NetAddr::PromoteTo6()
 	}
 }
 
-// Check if an IPv6 address can be demoted to IPv4 address
 bool NetAddr::CanDemoteTo4() const
 {
 	if (_family == AF_INET)
@@ -753,8 +696,6 @@ bool NetAddr::CanDemoteTo4() const
 	}
 }
 
-// Demote an IPv6 address to an IPv4 address if possible,
-// otherwise marks address as invalid and returns false
 bool NetAddr::DemoteTo4()
 {
 	if (_family == AF_INET)

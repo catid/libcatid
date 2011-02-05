@@ -238,6 +238,8 @@ void Server::OnReadRouting(const BatchSet &buffers)
 			worker_id = connect_worker;
 		}
 
+		buffer->callback = conn;
+		buffer->addr.Wrap(buffer->iointernal.addr);
 		buffer->batch_next = 0;
 
 		// If bin is already valid,

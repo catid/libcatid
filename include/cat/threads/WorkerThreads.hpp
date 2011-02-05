@@ -62,7 +62,6 @@ public:
 	virtual bool Valid() = 0;
 };
 
-// Interface to a builder for TLS objects
 class IWorkerTLSBuilder
 {
 public:
@@ -71,7 +70,6 @@ public:
 	virtual IWorkerTLS *Build() = 0;
 };
 
-// Implementation of builder interface
 template<class LocalStorageT>
 class WorkerTLSBuilder : public IWorkerTLSBuilder
 {
@@ -82,7 +80,6 @@ public:
 };
 
 
-// Worker callbacks
 class WorkerCallbacks
 {
 	friend class WorkerThread;
@@ -98,7 +95,6 @@ protected:
 };
 
 
-// Worker thread
 class WorkerThread : public Thread
 {
 	virtual bool ThreadFunction(void *master);
@@ -129,7 +125,6 @@ public:
 };
 
 
-// Worker threads
 class WorkerThreads
 {
 	friend class WorkerThread;
