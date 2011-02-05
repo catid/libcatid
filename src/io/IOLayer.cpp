@@ -34,13 +34,6 @@ bool IOLayer::OnStartup(IWorkerTLSBuilder *tls_builder, const char *settings_fil
 	if (!CommonLayer::OnStartup(tls_builder, settings_file_name, service, service_name))
 		return false;
 
-	// Start the CSPRNG subsystem
-	if (!FortunaFactory::ref()->Initialize())
-	{
-		FATAL("IOLayer") << "CSPRNG subsystem failed to initialize";
-		return false;
-	}
-
 	// Start the socket subsystem
 	if (!StartupSockets())
 	{
@@ -55,38 +48,16 @@ bool IOLayer::OnStartup(IWorkerTLSBuilder *tls_builder, const char *settings_fil
 		return false;
 	}
 
-	// Start the Worker threads
-	if (!_worker_threads.Startup(tls_builder))
-	{
-		FATAL("IOLayer") << "WorkerThreads subsystem failed to initialize";
-		return false;
-	}
-
 	return true;
 }
 
-void IOLayer::OnShutdown()
+void IOLayer::OnShutdown(bool watched_shutdown)
 {
-	if (!_watcher.WaitForShutdown())
-	{
-		WARN("ChatClient") << "Wait for shutdown expired";
-	}
-
-	// Terminate Worker threads
-	_worker_threads.Shutdown();
-
 	// Terminate IO threads
 	_io_threads.Shutdown();
 
 	// Terminate sockets
 	CleanupSockets();
 
-	// Terminate the entropy collection thread in the CSPRNG
-	FortunaFactory::ref()->Shutdown();
-
-	// Write settings to disk
-	Settings::ref()->write();
-
-	// Cleanup clock subsystem
-	Clock::Shutdown();
+	CommonLayer::OnShutdown(watched_shutdown);
 }
