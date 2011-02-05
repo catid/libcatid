@@ -243,7 +243,7 @@ DNSClient::DNSClient()
 	_request_queue_size = 0;
 }
 
-bool DNSClient::Initialize()
+bool DNSClient::Initialize(IOLayer *iolayer)
 {
 	// Attempt to get a CSPRNG
 	if (!(_csprng = FortunaFactory::ii->Create()))
@@ -254,7 +254,7 @@ bool DNSClient::Initialize()
 	}
 
 	// Attempt to bind to any port; ignore ICMP unreachable messages
-	if (!BindToRandomPort(true))
+	if (!BindToRandomPort(iolayer, true))
 	{
 		WARN("DNS") << "Initialization failure: Unable to bind to any port";
 		RequestShutdown();
@@ -262,7 +262,7 @@ bool DNSClient::Initialize()
 	}
 
 	// Assign to a worker
-	_worker_bin = GetIOLayer()->AssignWorker(this);
+	_worker_id = iolayer->AssignWorker(this);
 
 	// Attempt to get server address from operating system
 	if (!GetServerAddr())
@@ -409,7 +409,7 @@ bool DNSClient::GetServerAddr()
 	return true;
 }
 
-bool DNSClient::BindToRandomPort(bool ignoreUnreachable)
+bool DNSClient::BindToRandomPort(IOLayer *iolayer, bool ignoreUnreachable)
 {
 	// NOTE: Ignores ICMP unreachable errors from DNS server; prefers timeouts
 
@@ -428,12 +428,12 @@ bool DNSClient::BindToRandomPort(bool ignoreUnreachable)
 		Port port = (u16)_csprng->Generate();
 
 		// If bind succeeded,
-		if (port >= 1024 && Bind(_iolayer, only_ipv4, port, ignoreUnreachable))
+		if (port >= 1024 && Bind(iolayer, only_ipv4, port, ignoreUnreachable))
 			return true;
 	}
 
 	// Fall back to OS-chosen port
-	return Bind(_iolayer, only_ipv4, 0, ignoreUnreachable);
+	return Bind(iolayer, only_ipv4, 0, ignoreUnreachable);
 }
 
 bool DNSClient::PostDNSPacket(DNSRequest *req, u32 now)
@@ -703,10 +703,10 @@ bool DNSClient::IsValidHostname(const char *hostname)
 	return true;
 }
 
-bool DNSClient::Resolve(const char *hostname, DNSResultCallback callback, RefObject *holdRef)
+bool DNSClient::Resolve(IOLayer *iolayer, const char *hostname, DNSResultCallback callback, RefObject *holdRef)
 {
 	// Initialize if needed
-	if (!_initialized && !Initialize())
+	if (!_initialized && !Initialize(iolayer))
 		return false;
 
 	// Try to interpret hostname as numeric

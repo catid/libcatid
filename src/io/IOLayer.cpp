@@ -29,7 +29,7 @@
 #include <cat/io/IOLayer.hpp>
 using namespace cat;
 
-bool IOLayer::Startup(IWorkerTLS *tls, const char *settings_file_name, bool service, const char *service_name)
+bool IOLayer::Startup(IWorkerTLSBuilder *tls_builder, const char *settings_file_name, bool service, const char *service_name)
 {
 	// Initialize system info
 	InitializeSystemInfo();
@@ -72,7 +72,7 @@ bool IOLayer::Startup(IWorkerTLS *tls, const char *settings_file_name, bool serv
 	}
 
 	// Start the Worker threads
-	if (!_worker_threads.Startup())
+	if (!_worker_threads.Startup(tls_builder))
 	{
 		FATAL("IOLayer") << "WorkerThreads subsystem failed to initialize";
 		return false;
@@ -81,7 +81,7 @@ bool IOLayer::Startup(IWorkerTLS *tls, const char *settings_file_name, bool serv
 	return true;
 }
 
-bool IOLayer::Shutdown()
+void IOLayer::Shutdown()
 {
 	if (!_watcher.WaitForShutdown())
 	{

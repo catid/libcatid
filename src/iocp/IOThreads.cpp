@@ -228,7 +228,7 @@ bool IOThreads::Startup()
 		Shutdown();
 	}
 
-	_buffer_allocator = new BufferAllocator(IOTHREADS_BUFFER_TOTAL_BYTES, IOTHREADS_BUFFER_COUNT);
+	_buffer_allocator = new BufferAllocator(sizeof(RecvBuffer) + IOTHREADS_BUFFER_READ_BYTES, IOTHREADS_BUFFER_COUNT);
 	if (!_buffer_allocator || !_buffer_allocator->Valid())
 	{
 		FATAL("IOThreads") << "Out of memory while allocating " << IOTHREADS_BUFFER_COUNT << " buffers for a shared pool";
