@@ -100,9 +100,8 @@ public:
 protected:
 	CAT_INLINE IOLayer *GetIOLayer() { return _iolayer; }
 
-	CAT_INLINE void PrepareBuffer(RecvBuffer *buffer, WorkerCallbacks *callback)
+	CAT_INLINE void SetRemoteAddress(RecvBuffer *buffer)
 	{
-		buffer->callback = callback;
 		buffer->addr.Wrap(buffer->iointernal.addr);
 	}
 
