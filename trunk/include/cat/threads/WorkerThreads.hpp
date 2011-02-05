@@ -80,6 +80,13 @@ public:
 };
 
 
+// A buffer specialized for handling by the worker threads
+struct WorkerBuffer : public BatchHead
+{
+	WorkerCallbacks *callback;
+};
+
+
 class WorkerCallbacks
 {
 	friend class WorkerThread;

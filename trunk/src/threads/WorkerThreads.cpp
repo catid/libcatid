@@ -101,11 +101,11 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 				BatchSet buffers;
 				buffers.head = queue.head;
 
-				RecvBuffer *last = reinterpret_cast<RecvBuffer*>( queue.head );
+				WorkerBuffer *last = reinterpret_cast<WorkerBuffer*>( queue.head );
 
 				while (last)
 				{
-					RecvBuffer *next = reinterpret_cast<RecvBuffer*>( last->batch_next );
+					WorkerBuffer *next = reinterpret_cast<WorkerBuffer*>( last->batch_next );
 
 					if (!next || next->callback != last->callback)
 					{
@@ -129,7 +129,7 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 		// If tick interval is up,
 		if ((s32)(now - next_tick) >= 0)
 		{
-			WorkerCallbacks *node, *prev = 0, *next;
+			WorkerCallbacks *prev = 0, *next;
 
 			// For each session,
 			for (WorkerCallbacks *node = head; node; node = next)
@@ -193,6 +193,8 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 			tail = new_head;
 		}
 	}
+
+	return true;
 }
 
 
