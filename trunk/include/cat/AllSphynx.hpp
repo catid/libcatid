@@ -34,6 +34,8 @@
 #include <cat/AllTunnel.hpp>
 #include <cat/AllAsyncIO.hpp>
 
+#include <cat/net/DNSClient.hpp>
+
 #include <cat/sphynx/Common.hpp>
 #include <cat/sphynx/Connexion.hpp>
 #include <cat/sphynx/ConnexionMap.hpp>

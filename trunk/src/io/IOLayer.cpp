@@ -29,26 +29,10 @@
 #include <cat/io/IOLayer.hpp>
 using namespace cat;
 
-bool IOLayer::Startup(IWorkerTLSBuilder *tls_builder, const char *settings_file_name, bool service, const char *service_name)
+bool IOLayer::OnStartup(IWorkerTLSBuilder *tls_builder, const char *settings_file_name, bool service, const char *service_name)
 {
-	// Initialize system info
-	InitializeSystemInfo();
-
-	// Initialize clock subsystem
-	if (!Clock::Initialize())
-	{
-		FatalStop("Clock subsystem failed to initialize");
-	}
-
-	// Initialize logging subsystem with INFO reporting level
-	Logging::ref()->Initialize(LVL_INFO);
-	if (service) Logging::ii->EnableServiceMode(service_name);
-
-	// Initialize disk settings subsystem
-	Settings::ref()->readSettingsFromFile(settings_file_name);
-
-	// Read logging subsystem settings
-	Logging::ii->ReadSettings();
+	if (!CommonLayer::OnStartup(tls_builder, settings_file_name, service, service_name))
+		return false;
 
 	// Start the CSPRNG subsystem
 	if (!FortunaFactory::ref()->Initialize())
@@ -81,7 +65,7 @@ bool IOLayer::Startup(IWorkerTLSBuilder *tls_builder, const char *settings_file_
 	return true;
 }
 
-void IOLayer::Shutdown()
+void IOLayer::OnShutdown()
 {
 	if (!_watcher.WaitForShutdown())
 	{
