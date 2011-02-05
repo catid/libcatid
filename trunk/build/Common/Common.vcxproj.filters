@@ -126,6 +126,9 @@
     <ClCompile Include="..\..\src\mem\IAllocator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\threads\WorkerThreads.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\cat\AllCommon.hpp">
@@ -232,6 +235,9 @@
     </ClInclude>
     <ClInclude Include="..\..\include\cat\Config.hpp">
       <Filter>Header Files\misc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\threads\WorkerThreads.hpp">
+      <Filter>Header Files\threads</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

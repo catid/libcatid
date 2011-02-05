@@ -43,6 +43,7 @@
 #include <cat/threads/Thread.hpp>
 #include <cat/threads/WaitableFlag.hpp>
 #include <cat/threads/RefObject.hpp>
+#include <cat/threads/WorkerThreads.hpp>
 
 #include <cat/math/BitMath.hpp>
 
