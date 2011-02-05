@@ -29,6 +29,7 @@
 #include <cat/iocp/UDPEndpoint.hpp>
 #include <cat/io/Logging.hpp>
 #include <cat/io/Settings.hpp>
+#include <MSWSock.h>
 using namespace std;
 using namespace cat;
 

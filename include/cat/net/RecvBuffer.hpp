@@ -29,8 +29,8 @@
 #ifndef CAT_NET_RECV_BUFFER_HPP
 #define CAT_NET_RECV_BUFFER_HPP
 
-#include <cat/net/IOLayer.hpp>
-#include <cat/net/WorkerThreads.hpp>
+#include <cat/io/IOLayer.hpp>
+#include <cat/threads/WorkerThreads.hpp>
 
 namespace cat {
 

@@ -26,8 +26,8 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_NET_IOLAYER_HPP
-#define CAT_NET_IOLAYER_HPP
+#ifndef CAT_IO_IOLAYER_HPP
+#define CAT_IO_IOLAYER_HPP
 
 #include <cat/net/Sockets.hpp>
 #include <cat/threads/WorkerThreads.hpp>
@@ -48,12 +48,28 @@ class IOLayer
 	WorkerThreads _worker_threads;
 	RefObjectWatcher _watcher;
 
-public:
-	CAT_INLINE IOThreads *GetIOThreads() { return _io_threads; }
+	bool Startup(IWorkerTLS *tls, const char *settings_file_name, bool service, const char *service_name);
 
-	bool Startup(const char *settings_file_name = "Settings.cfg", bool service = false, const char *service_name = "MyService");
+public:
+	CAT_INLINE IOThreads *GetIOThreads() { return &_io_threads; }
 
 	CAT_INLINE void Watch(WatchedRefObject *obj) { _watcher.Watch(obj); }
+
+	template<class LocalStorageT>
+	CAT_INLINE bool Startup(const char *settings_file_name = "Settings.cfg", bool service = false, const char *service_name = "MyService")
+	{
+		IWorkerTLSBuilder *builder = new WorkerTLSBuilder<LocalStorageT>;
+
+		bool success = Startup(builder, settings_file_name, service, service_name);
+
+		if (!success) delete builder;
+
+		return success;
+	}
+
+	CAT_INLINE u32 AssignWorker(WorkerCallbacks *callbacks) { return _worker_threads.AssignWorker(callbacks); }
+
+	CAT_INLINE void DeliverBuffers(u32 worker_id, const BatchSet &buffers) { _worker_threads.DeliverBuffers(worker_id, buffers); }
 
 	void Shutdown();
 };
@@ -61,4 +77,4 @@ public:
 
 } // namespace cat
 
-#endif // CAT_NET_IOLAYER_HPP
+#endif // CAT_IO_IOLAYER_HPP

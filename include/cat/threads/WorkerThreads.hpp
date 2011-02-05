@@ -56,18 +56,28 @@ static const u32 WORKER_TICK_INTERVAL = 20;
 class IWorkerTLS
 {
 public:
-	virtual ~IWorkerTLS();
+	CAT_INLINE virtual ~IWorkerTLS() {}
 
 	virtual bool Valid() = 0;
 };
 
-// Interface to a builder functor for TLS objects
+// Interface to a builder for TLS objects
 class IWorkerTLSBuilder
 {
 public:
-	virtual ~IWorkerTLSBuilder();
+	CAT_INLINE virtual ~IWorkerTLSBuilder() {}
 
-	virtual IWorkerTLS *operator()() = 0;
+	virtual IWorkerTLS *Build() = 0;
+};
+
+// Implementation of builder interface
+template<class LocalStorageT>
+class WorkerTLSBuilder : public IWorkerTLSBuilder
+{
+public:
+	CAT_INLINE virtual ~WorkerTLSBuilder() {}
+
+	IWorkerTLS *Build() { return new LocalStorageT; }
 };
 
 
@@ -156,13 +166,17 @@ public:
 
 	bool Shutdown();
 
-	CAT_INLINE void Associate(WorkerCallbacks *callbacks)
+	CAT_INLINE u32 AssignWorker(WorkerCallbacks *callbacks)
 	{
 #if !defined(CAT_NO_ATOMIC_POPCOUNT)
 		Atomic::Add(&_population, 1);
 #endif // CAT_NO_ATOMIC_POPCOUNT
 
-		_workers[FindLeastPopulatedWorker()].Associate(callbacks);
+		u32 worker_id = FindLeastPopulatedWorker();
+
+		_workers[worker_id].Associate(callbacks);
+
+		return worker_id;
 	}
 };
 

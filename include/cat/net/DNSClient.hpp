@@ -36,9 +36,7 @@
 #ifndef CAT_DNS_CLIENT_HPP
 #define CAT_DNS_CLIENT_HPP
 
-#include <cat/net/IOLayer.hpp>
-#include <cat/net/WorkerThreads.hpp>
-#include <cat/threads/Thread.hpp>
+#include <cat/io/IOLayer.hpp>
 #include <cat/threads/WaitableFlag.hpp>
 #include <cat/port/FastDelegate.h>
 #include <cat/crypt/rand/Fortuna.hpp>
@@ -97,7 +95,7 @@ class DNSClient : public UDPEndpoint, public WorkerCallbacks
 
 	FortunaOutput *_csprng;
 
-	u32 _worker_bin;
+	u32 _worker_id;
 
 	Mutex _request_lock;
 	DNSRequest *_request_head;
