@@ -26,34 +26,11 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/net/WorkerThreads.hpp>
+#include <cat/threads/WorkerThreads.hpp>
 #include <cat/time/Clock.hpp>
 #include <cat/port/SystemInfo.hpp>
 #include <cat/io/Logging.hpp>
 using namespace cat;
-
-WorkerTLS::WorkerTLS()
-{
-	// Create 256-bit math library instance
-	math = KeyAgreementCommon::InstantiateMath(256);
-
-	// Create CSPRNG instance
-	csprng = FortunaFactory::ref()->Create();
-}
-
-WorkerTLS::~WorkerTLS()
-{
-	if (math) delete math;
-	if (csprng) delete csprng;
-}
-
-bool WorkerTLS::Valid()
-{
-	return math && csprng;
-}
-
-
-//// WorkerThread
 
 WorkerThread::WorkerThread()
 {
@@ -97,7 +74,7 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 {
 	WorkerThreads *master = (WorkerThreads*)vmaster;
 
-	IWorkerTLS *tls = master->_tls_builder();
+	IWorkerTLS *tls = master->_tls_builder->Build();
 	if (!tls || !tls->Valid())
 	{
 		FATAL("WorkerThread") << "Failure building thread local storage";

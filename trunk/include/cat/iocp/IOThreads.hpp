@@ -33,7 +33,6 @@
 #include <cat/net/Sockets.hpp>
 #include <cat/threads/RefObject.hpp>
 #include <cat/mem/BufferAllocator.hpp>
-#include <cat/iocp/UDPEndpoint.hpp>
 
 #if defined(CAT_OS_WINDOWS)
 # include <cat/port/WindowsInclude.hpp>

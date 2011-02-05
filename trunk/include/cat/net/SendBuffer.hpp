@@ -29,7 +29,7 @@
 #ifndef CAT_NET_SEND_BUFFER_HPP
 #define CAT_NET_SEND_BUFFER_HPP
 
-#include <cat/net/IOLayer.hpp>
+#include <cat/io/IOLayer.hpp>
 #include <cat/mem/StdAllocator.hpp>
 
 namespace cat {

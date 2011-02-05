@@ -122,6 +122,31 @@ bool DNSClient::OnZeroReferences()
 
 void DNSClient::OnReadRouting(const BatchSet &buffers)
 {
+	GetIOLayer()->DeliverBuffers(_worker_id, buffers);
+}
+
+void DNSClient::OnUnreachable(const NetAddr &src)
+{
+	// TODO: Recover from server failure by re-detecting servers
+
+	// If IP matches the server and we're not connected yet,
+	if (_server_addr.EqualsIPOnly(src))
+	{
+		WARN("DNS") << "Failed to contact DNS server: ICMP error received from server address";
+
+		// Close socket so that DNS resolves will be squelched
+		RequestShutdown();
+	}
+}
+
+void DNSClient::OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers)
+{
+	for (BatchHead *node = buffers.head; node; node = node->batch_next)
+	{
+		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
+
+	}
+
 	// If packet source is not the server, ignore this packet
 	if (_server_addr != src)
 		return;
@@ -177,16 +202,6 @@ void DNSClient::OnReadRouting(const BatchSet &buffers)
 	NotifyRequesters(req);
 }
 
-void DNSClient::OnUnreachable(const NetAddr &src)
-{
-
-}
-
-void DNSClient::OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers)
-{
-
-}
-
 void DNSClient::OnWorkerTick(IWorkerTLS *tls, u32 now)
 {
 	AutoMutex lock(_request_lock);
@@ -228,8 +243,6 @@ DNSClient::DNSClient()
 
 bool DNSClient::Initialize()
 {
-	_iolayer->Watch(this) _worker_bin;
-
 	// Attempt to get a CSPRNG
 	if (!(_csprng = FortunaFactory::ii->Create()))
 	{
@@ -245,6 +258,9 @@ bool DNSClient::Initialize()
 		RequestShutdown();
 		return false;
 	}
+
+	// Assign to a worker
+	_worker_bin = GetIOLayer()->AssignWorker(this);
 
 	// Attempt to get server address from operating system
 	if (!GetServerAddr())
@@ -776,20 +792,6 @@ bool DNSClient::Resolve(const char *hostname, DNSResultCallback callback, RefObj
 	}
 
 	return true;
-}
-
-void DNSClient::OnUnreachable(const NetAddr &src)
-{
-	// TODO: Recover from server failure by re-detecting servers
-
-	// If IP matches the server and we're not connected yet,
-	if (_server_addr.EqualsIPOnly(src))
-	{
-		WARN("DNS") << "Failed to contact DNS server: ICMP error received from server address";
-
-		// Close socket so that DNS resolves will be squelched
-		RequestShutdown();
-	}
 }
 
 DNSRequest *DNSClient::PullRequest(u16 id)

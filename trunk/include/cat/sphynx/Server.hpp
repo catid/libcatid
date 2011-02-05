@@ -55,15 +55,11 @@ class Server : public UDPEndpoint, public WorkerCallbacks
 	KeyAgreementResponder _key_agreement_responder;
 	u8 _public_key[PUBLIC_KEY_BYTES];
 
-	WorkerThreads *_worker_threads;
-
 	// Yes to really insure fairness this should be synchronized,
 	// but I am trying hard to eliminate locks everywhere and this
 	// should still round-robin spin pretty well without locks.
 	// TODO: Revisit this
 	u32 _connect_worker;
-
-	ServerWorker *FindLeastPopulatedPort();
 
 	void PostConnectionCookie(const NetAddr &dest);
 	void PostConnectionError(const NetAddr &dest, HandshakeError err);

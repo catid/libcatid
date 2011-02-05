@@ -49,6 +49,7 @@ class RefObjectWatcher;
 
 
 // Classes that derive from RefObject have asynchronously managed lifetimes
+// Never delete a RefObject directly.  Use the RequestShutdown() member instead
 class RefObject
 {
 	friend class WatchedRefObject;
