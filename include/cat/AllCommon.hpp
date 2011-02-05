@@ -67,3 +67,5 @@
 #include <cat/mem/AlignedAllocator.hpp>
 #include <cat/mem/LargeAllocator.hpp>
 #include <cat/mem/BufferAllocator.hpp>
+
+#include <cat/CommonLayer.hpp>
