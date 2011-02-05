@@ -87,7 +87,7 @@ public:
 
 	// Attempt to acquire a number of buffers
 	// Returns the number of valid buffers it was able to allocate
-	virtual u32 AcquireBatch(BatchSet &set, u32 count, u32 bytes);
+	virtual u32 AcquireBatch(BatchSet &set, u32 count, u32 bytes = 0);
 
 	// Attempt to acquire a number of buffers
 	// Returns the number of valid buffers it was able to allocate

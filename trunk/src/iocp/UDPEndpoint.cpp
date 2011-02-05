@@ -302,7 +302,7 @@ bool UDPEndpoint::Write(const BatchSet &buffers, const NetAddr &addr)
 			// Fire off a WSASendTo() and forget about it
 			int result = WSASendTo(_socket, wsabufs, ii, 0, 0,
 								   reinterpret_cast<const sockaddr*>( &out_addr ),
-								   addr_len, &first_buf->GetIOInternal()->ov, 0);
+								   addr_len, &first_buf->iointernal.ov, 0);
 
 			// This overlapped operation will always complete unless
 			// we get an error code other than ERROR_IO_PENDING.

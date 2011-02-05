@@ -145,63 +145,63 @@ void DNSClient::OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers)
 	{
 		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
 
+		SetRemoteAddress(buffer);
 		buffer->callback = this;
-		buffer->addr.Wrap()
+
+		// If packet source is not the server, ignore this packet
+		if (_server_addr != buffer->addr)
+			return;
+
+		// If packet is truncated, ignore this packet
+		if (buffer->data_bytes < DNS_HDRLEN)
+			return;
+
+		u16 *hdr_words = reinterpret_cast<u16*>( GetTrailingBytes(buffer) );
+
+		// QR(1) OPCODE(4) AA(1) TC(1) RD(1) RA(1) Z(3) RCODE(4) [=16]
+		u16 hdr = getBE(hdr_words[DNS_HDR]);
+
+		// Header bits
+		u16 qr = (hdr >> DNSHDR_QR) & 1; // Response
+		u16 opcode = (hdr >> DNSHDR_OPCODE) & 0x000F; // Opcode
+
+		// If header is invalid, ignore this packet
+		if (!qr || opcode != 0) return;
+
+		// Extract ID; endian agnostic
+		u16 id = hdr_words[DNS_ID];
+
+		AutoMutex lock(_request_lock);
+
+		// Pull request from pending queue
+		DNSRequest *req = PullRequest(id);
+
+		// If request was not found to match ID,
+		if (!req) return;
+
+		// Initialize number of responses to zero
+		req->num_responses = 0;
+
+		//u16 aa = (hdr >> DNSHDR_AA) & 1; // Authoritative
+		//u16 tc = (hdr >> DNSHDR_TC) & 1; // Truncated
+		//u16 rd = (hdr >> DNSHDR_RD) & 1; // Recursion desired
+		//u16 ra = (hdr >> DNSHDR_RA) & 1; // Recursion available
+		//u16 z = (hdr >> DNSHDR_Z) & 0x0007; // Reserved
+		u16 rcode = hdr & 0x000F; // Reply code
+
+		// If non-error result,
+		if (rcode == 0)
+		{
+			int qdcount = getBE(hdr_words[DNS_QDCOUNT]); // Question count
+			int ancount = getBE(hdr_words[DNS_ANCOUNT]); // Answer RRs
+			//int nscount = getBE(hdr_words[DNS_NSCOUNT]); // Authority RRs
+			//int arcount = getBE(hdr_words[DNS_ARCOUNT]); // Additional RRs
+
+			ProcessDNSResponse(req, qdcount, ancount, GetTrailingBytes(buffer), buffer->data_bytes);
+		}
+
+		NotifyRequesters(req);
 	}
-
-	// If packet source is not the server, ignore this packet
-	if (_server_addr != src)
-		return;
-
-	// If packet is truncated, ignore this packet
-	if (bytes < DNS_HDRLEN)
-		return;
-
-	u16 *hdr_words = reinterpret_cast<u16*>( data );
-
-	// QR(1) OPCODE(4) AA(1) TC(1) RD(1) RA(1) Z(3) RCODE(4) [=16]
-	u16 hdr = getBE(hdr_words[DNS_HDR]);
-
-	// Header bits
-	u16 qr = (hdr >> DNSHDR_QR) & 1; // Response
-	u16 opcode = (hdr >> DNSHDR_OPCODE) & 0x000F; // Opcode
-
-	// If header is invalid, ignore this packet
-	if (!qr || opcode != 0) return;
-
-	// Extract ID; endian agnostic
-	u16 id = hdr_words[DNS_ID];
-
-	AutoMutex lock(_request_lock);
-
-	// Pull request from pending queue
-	DNSRequest *req = PullRequest(id);
-
-	// If request was not found to match ID,
-	if (!req) return;
-
-	// Initialize number of responses to zero
-	req->num_responses = 0;
-
-	//u16 aa = (hdr >> DNSHDR_AA) & 1; // Authoritative
-	//u16 tc = (hdr >> DNSHDR_TC) & 1; // Truncated
-	//u16 rd = (hdr >> DNSHDR_RD) & 1; // Recursion desired
-	//u16 ra = (hdr >> DNSHDR_RA) & 1; // Recursion available
-	//u16 z = (hdr >> DNSHDR_Z) & 0x0007; // Reserved
-	u16 rcode = hdr & 0x000F; // Reply code
-
-	// If non-error result,
-	if (rcode == 0)
-	{
-		int qdcount = getBE(hdr_words[DNS_QDCOUNT]); // Question count
-		int ancount = getBE(hdr_words[DNS_ANCOUNT]); // Answer RRs
-		//int nscount = getBE(hdr_words[DNS_NSCOUNT]); // Authority RRs
-		//int arcount = getBE(hdr_words[DNS_ARCOUNT]); // Additional RRs
-
-		ProcessDNSResponse(req, qdcount, ancount, data, bytes);
-	}
-
-	NotifyRequesters(req);
 }
 
 void DNSClient::OnWorkerTick(IWorkerTLS *tls, u32 now)
