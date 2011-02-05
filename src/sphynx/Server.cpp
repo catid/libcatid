@@ -217,7 +217,7 @@ void Server::OnReadRouting(const BatchSet &buffers)
 	{
 		next = node->batch_next;
 		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
-		NetAddr addr(&buffer->iocp.addr);
+		NetAddr addr(buffer->iointernal.addr);
 		u32 worker_id;
 
 		// If source address has changed,
