@@ -132,6 +132,8 @@ public:
 		return *this;
 	}
 
+	// These functions are designed to support when this object overlaps the
+	// memory space of the input
 	bool Wrap(const sockaddr_in &addr);
 	bool Wrap(const sockaddr *addr);
 

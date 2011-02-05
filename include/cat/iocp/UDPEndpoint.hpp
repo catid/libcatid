@@ -31,11 +31,11 @@
 
 #include <cat/net/Sockets.hpp>
 #include <cat/net/SendBuffer.hpp>
+#include <cat/net/RecvBuffer.hpp>
 
 namespace cat {
 
 
-struct RecvBuffer;
 class SendBuffer;
 class IOLayer;
 
@@ -99,6 +99,12 @@ public:
 
 protected:
 	CAT_INLINE IOLayer *GetIOLayer() { return _iolayer; }
+
+	CAT_INLINE void PrepareBuffer(RecvBuffer *buffer, WorkerCallbacks *callback)
+	{
+		buffer->callback = callback;
+		buffer->addr.Wrap(buffer->iointernal.addr);
+	}
 
 	virtual void OnShutdownRequest();
 	virtual bool OnZeroReferences();

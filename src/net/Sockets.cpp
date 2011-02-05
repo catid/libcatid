@@ -38,216 +38,213 @@ using namespace cat;
 
 //// Error Codes
 
-namespace cat
+std::string cat::SocketGetLastErrorString()
 {
-    std::string SocketGetLastErrorString()
-    {
 #if defined(CAT_OS_WINDOWS)
-        return SocketGetErrorString(WSAGetLastError());
+    return SocketGetErrorString(WSAGetLastError());
 #else
-        return SocketGetErrorString(errno);
+    return SocketGetErrorString(errno);
 #endif
-    }
+}
 
-    std::string SocketGetErrorString(int code)
-    {
-		switch (code)
-		{
-#if defined(CAT_OS_WINDOWS)
-        case WSAEADDRNOTAVAIL:         return "[Address not available]";
-        case WSAEADDRINUSE:            return "[Address is in use]";
-        case WSANOTINITIALISED:        return "[Winsock not initialized]";
-        case WSAENETDOWN:              return "[Network is down]";
-        case WSAEINPROGRESS:           return "[Operation in progress]";
-        case WSA_NOT_ENOUGH_MEMORY:    return "[Out of memory]";
-        case WSA_INVALID_HANDLE:       return "[Invalid handle]";
-        case WSA_INVALID_PARAMETER:    return "[Invalid parameter]";
-        case WSAEFAULT:                return "[Fault]";
-        case WSAEINTR:                 return "[Interrupted]";
-        case WSAEINVAL:                return "[Invalid]";
-        case WSAEISCONN:               return "[Is connected]";
-        case WSAENETRESET:             return "[Network reset]";
-        case WSAENOTSOCK:              return "[Parameter is not a socket]";
-        case WSAEOPNOTSUPP:            return "[Operation not supported]";
-        case WSAESOCKTNOSUPPORT:       return "[Socket type not supported]";
-        case WSAESHUTDOWN:             return "[Shutdown]";
-        case WSAEWOULDBLOCK:           return "[Operation would block]";
-        case WSAEMSGSIZE:              return "[Message size]";
-        case WSAETIMEDOUT:             return "[Operation timed out]";
-        case WSAECONNRESET:            return "[Connection reset]";
-        case WSAENOTCONN:              return "[Socket not connected]";
-        case WSAEDISCON:               return "[Disconnected]";
-		case WSAENOBUFS:               return "[No buffer space available]";
-        case ERROR_IO_PENDING:         return "[IO operation will complete in IOCP worker thread]";
-        case WSA_OPERATION_ABORTED:    return "[Operation aborted]";
-        case ERROR_CONNECTION_ABORTED: return "[Connection aborted locally]";
-        case ERROR_NETNAME_DELETED:    return "[Socket was already closed]";
-        case ERROR_PORT_UNREACHABLE:   return "[Destination port is unreachable]";
-        case ERROR_MORE_DATA:          return "[More data is available]";
-#else
-		case EPERM:		return "[Operation not permitted]";
-		case ENOENT:	return "[No such file or directory]";
-		case ESRCH:		return "[No such process]";
-		case EINTR:		return "[Interrupted system call]";
-		case EIO:		return "[I/O error]";
-		case ENXIO:		return "[No such device or address]";
-		case E2BIG:		return "[Arg list too long]";
-		case ENOEXEC:	return "[Exec format error]";
-		case EBADF:		return "[Bad file number]";
-		case ECHILD:	return "[No child processes]";
-		case EAGAIN:	return "[Try again]";
-		case ENOMEM:	return "[Out of memory]";
-#endif
-        };
-
-        ostringstream oss;
-        oss << "[Error code: " << code << " (0x" << hex << code << ")]";
-        return oss.str();
-    }
-
-	static CAT_INLINE bool IsIP6ContactableByIP4()
+std::string cat::SocketGetErrorString(int code)
+{
+	switch (code)
 	{
-		// Under Windows 2003 or earlier, when a server binds to an IPv6 address it
-		// cannot be contacted by IPv4 clients, which is currently a very bad thing,
-		// so just do IPv4 under Windows 2003 or earlier.
 #if defined(CAT_OS_WINDOWS)
-		DWORD dwVersion = 0;
-		DWORD dwMajorVersion = 0;
-
-		dwVersion = GetVersion();
-		dwMajorVersion = (DWORD)(LOBYTE(LOWORD(dwVersion)));
-
-		// 5: 2000(.0), XP(.1), 2003(.2)
-		// 6: Vista(.0), 7(.1)
-		return (dwMajorVersion >= 6);
+    case WSAEADDRNOTAVAIL:         return "[Address not available]";
+    case WSAEADDRINUSE:            return "[Address is in use]";
+    case WSANOTINITIALISED:        return "[Winsock not initialized]";
+    case WSAENETDOWN:              return "[Network is down]";
+    case WSAEINPROGRESS:           return "[Operation in progress]";
+    case WSA_NOT_ENOUGH_MEMORY:    return "[Out of memory]";
+    case WSA_INVALID_HANDLE:       return "[Invalid handle]";
+    case WSA_INVALID_PARAMETER:    return "[Invalid parameter]";
+    case WSAEFAULT:                return "[Fault]";
+    case WSAEINTR:                 return "[Interrupted]";
+    case WSAEINVAL:                return "[Invalid]";
+    case WSAEISCONN:               return "[Is connected]";
+    case WSAENETRESET:             return "[Network reset]";
+    case WSAENOTSOCK:              return "[Parameter is not a socket]";
+    case WSAEOPNOTSUPP:            return "[Operation not supported]";
+    case WSAESOCKTNOSUPPORT:       return "[Socket type not supported]";
+    case WSAESHUTDOWN:             return "[Shutdown]";
+    case WSAEWOULDBLOCK:           return "[Operation would block]";
+    case WSAEMSGSIZE:              return "[Message size]";
+    case WSAETIMEDOUT:             return "[Operation timed out]";
+    case WSAECONNRESET:            return "[Connection reset]";
+    case WSAENOTCONN:              return "[Socket not connected]";
+    case WSAEDISCON:               return "[Disconnected]";
+	case WSAENOBUFS:               return "[No buffer space available]";
+    case ERROR_IO_PENDING:         return "[IO operation will complete in IOCP worker thread]";
+    case WSA_OPERATION_ABORTED:    return "[Operation aborted]";
+    case ERROR_CONNECTION_ABORTED: return "[Connection aborted locally]";
+    case ERROR_NETNAME_DELETED:    return "[Socket was already closed]";
+    case ERROR_PORT_UNREACHABLE:   return "[Destination port is unreachable]";
+    case ERROR_MORE_DATA:          return "[More data is available]";
 #else
-		return true; // For other OS this is not a problem, just return true
+	case EPERM:		return "[Operation not permitted]";
+	case ENOENT:	return "[No such file or directory]";
+	case ESRCH:		return "[No such process]";
+	case EINTR:		return "[Interrupted system call]";
+	case EIO:		return "[I/O error]";
+	case ENXIO:		return "[No such device or address]";
+	case E2BIG:		return "[Arg list too long]";
+	case ENOEXEC:	return "[Exec format error]";
+	case EBADF:		return "[Bad file number]";
+	case ECHILD:	return "[No child processes]";
+	case EAGAIN:	return "[Try again]";
+	case ENOMEM:	return "[Out of memory]";
 #endif
-	}
+    };
 
-	// Returns true on success
-	static bool DisableV6ONLY(Socket s)
-	{
-		int on = 0;
+    ostringstream oss;
+    oss << "[Error code: " << code << " (0x" << hex << code << ")]";
+    return oss.str();
+}
 
-		// Turn off IPV6_V6ONLY so that IPv4 is able to communicate with the socket also
-		return 0 == setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&on, sizeof(on));
-	}
-
-	bool CreateSocket(int type, int protocol, bool SupportIPv4, Socket &out_s, bool &inout_OnlyIPv4)
-	{
-		if (!inout_OnlyIPv4 && IsIP6ContactableByIP4())
-		{
-			// Attempt to create an IPv6 socket
+static CAT_INLINE bool IsIP6ContactableByIP4()
+{
+	// Under Windows 2003 or earlier, when a server binds to an IPv6 address it
+	// cannot be contacted by IPv4 clients, which is currently a very bad thing,
+	// so just do IPv4 under Windows 2003 or earlier.
 #if defined(CAT_OS_WINDOWS)
-			Socket s = WSASocket(AF_INET6, type, protocol, 0, 0, WSA_FLAG_OVERLAPPED);
+	DWORD dwVersion = 0;
+	DWORD dwMajorVersion = 0;
+
+	dwVersion = GetVersion();
+	dwMajorVersion = (DWORD)(LOBYTE(LOWORD(dwVersion)));
+
+	// 5: 2000(.0), XP(.1), 2003(.2)
+	// 6: Vista(.0), 7(.1)
+	return (dwMajorVersion >= 6);
 #else
-			Socket s = socket(AF_INET6, type, protocol);
+	return true; // For other OS this is not a problem, just return true
 #endif
+}
 
-			// If the socket was created,
-			while (s != INVALID_SOCKET)
-			{
-				// Attempt to disable IPv6_Only flag
-				if (SupportIPv4 && !DisableV6ONLY(s))
-				{
-					// If IPv4 cannot be supported, just create an IPv4 socket
-					CloseSocket(s);
-					break;
-				}
+// Returns true on success
+static bool DisableV6ONLY(Socket s)
+{
+	int on = 0;
 
-				out_s = s;
-				return true;
-			}
-		}
+	// Turn off IPV6_V6ONLY so that IPv4 is able to communicate with the socket also
+	return 0 == setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&on, sizeof(on));
+}
 
-		// Attempt to create an IPv4 socket
+bool cat::CreateSocket(int type, int protocol, bool SupportIPv4, Socket &out_s, bool &inout_OnlyIPv4)
+{
+	if (!inout_OnlyIPv4 && IsIP6ContactableByIP4())
+	{
+		// Attempt to create an IPv6 socket
 #if defined(CAT_OS_WINDOWS)
-		Socket s = WSASocket(AF_INET, type, protocol, 0, 0, WSA_FLAG_OVERLAPPED);
+		Socket s = WSASocket(AF_INET6, type, protocol, 0, 0, WSA_FLAG_OVERLAPPED);
 #else
-		Socket s = socket(AF_INET, type, protocol);
+		Socket s = socket(AF_INET6, type, protocol);
 #endif
 
 		// If the socket was created,
-		if (s != INVALID_SOCKET)
+		while (s != INVALID_SOCKET)
 		{
-			inout_OnlyIPv4 = true;
+			// Attempt to disable IPv6_Only flag
+			if (SupportIPv4 && !DisableV6ONLY(s))
+			{
+				// If IPv4 cannot be supported, just create an IPv4 socket
+				CloseSocket(s);
+				break;
+			}
+
 			out_s = s;
 			return true;
 		}
-
-		return false;
 	}
 
-	bool NetBind(Socket s, Port port, bool OnlyIPv4)
-	{
-		if (s == SOCKET_ERROR)
-			return false;
-
-		// Bind socket to port
-		sockaddr_in6 addr;
-		int addr_len;
-
-		// If only IPv4 is desired,
-		if (OnlyIPv4)
-		{
-			// Fill in IPv4 sockaddr within IPv6 addr
-			sockaddr_in *addr4 = reinterpret_cast<sockaddr_in*>( &addr );
-
-			addr4->sin_family = AF_INET;
-			addr4->sin_addr.S_un.S_addr = INADDR_ANY;
-			addr4->sin_port = htons(port);
-			CAT_OBJCLR(addr4->sin_zero);
-
-			addr_len = sizeof(sockaddr_in);
-		}
-		else
-		{
-			// Fill in IPv6 sockaddr
-			CAT_OBJCLR(addr);
-			addr.sin6_family = AF_INET6;
-			addr.sin6_addr = in6addr_any;
-			addr.sin6_port = htons(port);
-
-			addr_len = sizeof(sockaddr_in6);
-		}
-
-		// Attempt to bind
-		return 0 == bind(s, reinterpret_cast<sockaddr*>( &addr ), addr_len);
-	}
-
-	Port GetBoundPort(Socket s)
-	{
-        sockaddr_in6 addr;
-        int namelen = sizeof(addr);
-
-		// If socket name cannot be determined,
-        if (getsockname(s, reinterpret_cast<sockaddr*>( &addr ), &namelen))
-            return 0;
-
-		// Port is placed in the same location for IPv4 and IPv6
-        return ntohs(addr.sin6_port);
-	}
-
-	// Run startup and cleanup functions needed under some OS
-	bool StartupSockets()
-	{
+	// Attempt to create an IPv4 socket
 #if defined(CAT_OS_WINDOWS)
-		WSADATA wsaData;
-
-		// Request Winsock 2.2
-		return NO_ERROR == WSAStartup(MAKEWORD(2,2), &wsaData);
+	Socket s = WSASocket(AF_INET, type, protocol, 0, 0, WSA_FLAG_OVERLAPPED);
 #else
-		return true;
+	Socket s = socket(AF_INET, type, protocol);
 #endif
+
+	// If the socket was created,
+	if (s != INVALID_SOCKET)
+	{
+		inout_OnlyIPv4 = true;
+		out_s = s;
+		return true;
 	}
 
-	void CleanupSockets()
+	return false;
+}
+
+bool cat::NetBind(Socket s, Port port, bool OnlyIPv4)
+{
+	if (s == SOCKET_ERROR)
+		return false;
+
+	// Bind socket to port
+	sockaddr_in6 addr;
+	int addr_len;
+
+	// If only IPv4 is desired,
+	if (OnlyIPv4)
 	{
-#if defined(CAT_OS_WINDOWS)
-		WSACleanup();
-#endif
+		// Fill in IPv4 sockaddr within IPv6 addr
+		sockaddr_in *addr4 = reinterpret_cast<sockaddr_in*>( &addr );
+
+		addr4->sin_family = AF_INET;
+		addr4->sin_addr.S_un.S_addr = INADDR_ANY;
+		addr4->sin_port = htons(port);
+		CAT_OBJCLR(addr4->sin_zero);
+
+		addr_len = sizeof(sockaddr_in);
 	}
+	else
+	{
+		// Fill in IPv6 sockaddr
+		CAT_OBJCLR(addr);
+		addr.sin6_family = AF_INET6;
+		addr.sin6_addr = in6addr_any;
+		addr.sin6_port = htons(port);
+
+		addr_len = sizeof(sockaddr_in6);
+	}
+
+	// Attempt to bind
+	return 0 == bind(s, reinterpret_cast<sockaddr*>( &addr ), addr_len);
+}
+
+Port cat::GetBoundPort(Socket s)
+{
+    sockaddr_in6 addr;
+    int namelen = sizeof(addr);
+
+	// If socket name cannot be determined,
+    if (getsockname(s, reinterpret_cast<sockaddr*>( &addr ), &namelen))
+        return 0;
+
+	// Port is placed in the same location for IPv4 and IPv6
+    return ntohs(addr.sin6_port);
+}
+
+// Run startup and cleanup functions needed under some OS
+bool cat::StartupSockets()
+{
+#if defined(CAT_OS_WINDOWS)
+	WSADATA wsaData;
+
+	// Request Winsock 2.2
+	return NO_ERROR == WSAStartup(MAKEWORD(2, 2), &wsaData);
+#else
+	return true;
+#endif
+}
+
+void cat::CleanupSockets()
+{
+#if defined(CAT_OS_WINDOWS)
+	WSACleanup();
+#endif
 }
 
 bool NetAddr::Wrap(const sockaddr_in &addr)
@@ -255,9 +252,12 @@ bool NetAddr::Wrap(const sockaddr_in &addr)
 	// Can only fit IPv4 in this address structure
 	if (addr.sin_family == AF_INET)
 	{
+		Port port = ntohs(addr.sin_port);
+		u32 ip = addr.sin_addr.S_un.S_addr;
+
 		_family = AF_INET;
-		_port = ntohs(addr.sin_port);
-		_ip.v4 = addr.sin_addr.S_un.S_addr;
+		_port = port;
+		_ip.v4 = ip;
 		return true;
 	}
 	else
@@ -275,19 +275,23 @@ bool NetAddr::Wrap(const sockaddr *addr)
 	if (family == AF_INET)
 	{
 		const sockaddr_in *addr4 = reinterpret_cast<const sockaddr_in*>( addr );
+		Port port = ntohs(addr4->sin_port);
+		u32 ip = addr4->sin_addr.S_un.S_addr;
 
 		_family = AF_INET;
-		_port = ntohs(addr4->sin_port);
-		_ip.v4 = addr4->sin_addr.S_un.S_addr;
+		_port = port;
+		_ip.v4 = ip;
 		return true;
 	}
 	else if (family == AF_INET6)
 	{
 		const sockaddr_in6 *addr6 = reinterpret_cast<const sockaddr_in6*>( addr );
+		Port port = ntohs(addr6->sin6_port);
+
+		memmove(_ip.v6, &addr6->sin6_addr, sizeof(_ip.v6));
 
 		_family = AF_INET6;
-		_port = ntohs(addr6->sin6_port);
-		memcpy(_ip.v6, &addr6->sin6_addr, sizeof(_ip.v6));
+		_port = port;
 		return true;
 	}
 	else

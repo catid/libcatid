@@ -36,12 +36,9 @@ namespace cat {
 
 
 // A buffer specialized for reading data from a socket
+// Compatible with WorkerBuffer object
 struct RecvBuffer : public BatchHead
 {
-	// Shared overhead
-	u32 data_bytes;
-	u32 event_msec;
-
 	union
 	{
 		// IO layer specific overhead pimpl
@@ -54,6 +51,10 @@ struct RecvBuffer : public BatchHead
 			NetAddr addr;
 		};
 	};
+
+	// Shared overhead
+	u32 data_bytes;
+	u32 event_msec;
 };
 
 

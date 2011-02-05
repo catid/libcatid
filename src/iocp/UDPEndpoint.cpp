@@ -241,7 +241,7 @@ u32 UDPEndpoint::PostReads(u32 count)
 	if (IsShutdown())
 		return 0;
 
-	IAllocator *allocator = _iothreads->GetAllocator();
+	IAllocator *allocator = GetIOLayer()->GetIOThreads()->GetAllocator();
 
 	BatchSet set;
 	allocator->AcquireBatch(set, count);
