@@ -54,6 +54,8 @@ class IOLayer
 	RefObjectWatcher _watcher;
 
 public:
+	CAT_INLINE IOThreads *GetIOThreads() { return _io_threads; }
+
 	bool Startup(const char *settings_file_name = "Settings.cfg", bool service = false, const char *service_name = "MyService");
 
 	CAT_INLINE void Watch(WatchedRefObject *obj) { _watcher.Watch(obj); }

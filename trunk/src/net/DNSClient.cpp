@@ -122,7 +122,59 @@ bool DNSClient::OnZeroReferences()
 
 void DNSClient::OnReadRouting(const BatchSet &buffers)
 {
+	// If packet source is not the server, ignore this packet
+	if (_server_addr != src)
+		return;
 
+	// If packet is truncated, ignore this packet
+	if (bytes < DNS_HDRLEN)
+		return;
+
+	u16 *hdr_words = reinterpret_cast<u16*>( data );
+
+	// QR(1) OPCODE(4) AA(1) TC(1) RD(1) RA(1) Z(3) RCODE(4) [=16]
+	u16 hdr = getBE(hdr_words[DNS_HDR]);
+
+	// Header bits
+	u16 qr = (hdr >> DNSHDR_QR) & 1; // Response
+	u16 opcode = (hdr >> DNSHDR_OPCODE) & 0x000F; // Opcode
+
+	// If header is invalid, ignore this packet
+	if (!qr || opcode != 0) return;
+
+	// Extract ID; endian agnostic
+	u16 id = hdr_words[DNS_ID];
+
+	AutoMutex lock(_request_lock);
+
+	// Pull request from pending queue
+	DNSRequest *req = PullRequest(id);
+
+	// If request was not found to match ID,
+	if (!req) return;
+
+	// Initialize number of responses to zero
+	req->num_responses = 0;
+
+	//u16 aa = (hdr >> DNSHDR_AA) & 1; // Authoritative
+	//u16 tc = (hdr >> DNSHDR_TC) & 1; // Truncated
+	//u16 rd = (hdr >> DNSHDR_RD) & 1; // Recursion desired
+	//u16 ra = (hdr >> DNSHDR_RA) & 1; // Recursion available
+	//u16 z = (hdr >> DNSHDR_Z) & 0x0007; // Reserved
+	u16 rcode = hdr & 0x000F; // Reply code
+
+	// If non-error result,
+	if (rcode == 0)
+	{
+		int qdcount = getBE(hdr_words[DNS_QDCOUNT]); // Question count
+		int ancount = getBE(hdr_words[DNS_ANCOUNT]); // Answer RRs
+		//int nscount = getBE(hdr_words[DNS_NSCOUNT]); // Authority RRs
+		//int arcount = getBE(hdr_words[DNS_ARCOUNT]); // Additional RRs
+
+		ProcessDNSResponse(req, qdcount, ancount, data, bytes);
+	}
+
+	NotifyRequesters(req);
 }
 
 void DNSClient::OnUnreachable(const NetAddr &src)
@@ -172,6 +224,39 @@ DNSClient::DNSClient()
 
 	_request_head = _request_tail = 0;
 	_request_queue_size = 0;
+}
+
+bool DNSClient::Initialize()
+{
+	_iolayer->Watch(this) _worker_bin;
+
+	// Attempt to get a CSPRNG
+	if (!(_csprng = FortunaFactory::ii->Create()))
+	{
+		WARN("DNS") << "Initialization failure: Unable to get a CSPRNG";
+		RequestShutdown();
+		return false;
+	}
+
+	// Attempt to bind to any port; ignore ICMP unreachable messages
+	if (!BindToRandomPort(true))
+	{
+		WARN("DNS") << "Initialization failure: Unable to bind to any port";
+		RequestShutdown();
+		return false;
+	}
+
+	// Attempt to get server address from operating system
+	if (!GetServerAddr())
+	{
+		WARN("DNS") << "Initialization failure: Unable to discover DNS server address";
+		RequestShutdown();
+		return false;
+	}
+
+	_initialized = true;
+
+	return true;
 }
 
 bool DNSClient::GetServerAddr()
@@ -306,6 +391,33 @@ bool DNSClient::GetServerAddr()
 	return true;
 }
 
+bool DNSClient::BindToRandomPort(bool ignoreUnreachable)
+{
+	// NOTE: Ignores ICMP unreachable errors from DNS server; prefers timeouts
+
+	// Attempt to bind to a more random port.
+	// This is the standard fix for Dan Kaminsky's DNS exploit
+	const int RANDOM_BIND_ATTEMPTS_MAX = 16;
+
+	// Get SupportIPv6 flag from settings
+	bool only_ipv4 = Settings::ii->getInt("DNS.Client.SupportIPv6", 0) == 0;
+
+	// Try to use a more random port
+	int tries = RANDOM_BIND_ATTEMPTS_MAX;
+	while (tries--)
+	{
+		// Generate a random port
+		Port port = (u16)_csprng->Generate();
+
+		// If bind succeeded,
+		if (port >= 1024 && Bind(_iolayer, only_ipv4, port, ignoreUnreachable))
+			return true;
+	}
+
+	// Fall back to OS-chosen port
+	return Bind(_iolayer, only_ipv4, 0, ignoreUnreachable);
+}
+
 bool DNSClient::PostDNSPacket(DNSRequest *req, u32 now)
 {
 	// Allocate post buffer
@@ -313,7 +425,7 @@ bool DNSClient::PostDNSPacket(DNSRequest *req, u32 now)
 	int bytes = DNS_HDRLEN + 1 + str_len + 1 + DNS_QUESTION_FOOTER;
 
 	// Write header
-	u8 *dns_packet = AsyncBuffer::Acquire(bytes);
+	u8 *dns_packet = SendBuffer::Acquire(bytes);
 	if (!dns_packet) return false;
 	u16 *dns_hdr = reinterpret_cast<u16*>( dns_packet );
 
@@ -354,7 +466,7 @@ bool DNSClient::PostDNSPacket(DNSRequest *req, u32 now)
 	// Post DNS request
 	req->last_post_time = now;
 
-	return Post(_server_addr, dns_packet, bytes);
+	return Write(dns_packet, _server_addr);
 }
 
 bool DNSClient::PerformLookup(DNSRequest *req)
@@ -471,65 +583,6 @@ void DNSClient::CacheKill(DNSRequest *req)
 	delete req;
 }
 
-bool DNSClient::BindToRandomPort(bool ignoreUnreachable)
-{
-	// NOTE: Ignores ICMP unreachable errors from DNS server; prefers timeouts
-
-	// Attempt to bind to a more random port.
-	// This is the standard fix for Dan Kaminsky's DNS exploit
-	const int RANDOM_BIND_ATTEMPTS_MAX = 16;
-
-	// Get SupportIPv6 flag from settings
-	bool only_ipv4 = Settings::ii->getInt("DNS.Client.SupportIPv6", 0) == 0;
-
-	// Try to use a more random port
-	int tries = RANDOM_BIND_ATTEMPTS_MAX;
-	while (tries--)
-	{
-		// Generate a random port
-		Port port = (u16)_csprng->Generate();
-
-		// If bind succeeded,
-		if (port >= 1024 && Bind(only_ipv4, port, ignoreUnreachable))
-			return true;
-	}
-
-	// Fall back to OS-chosen port
-	return Bind(only_ipv4, 0, ignoreUnreachable);
-}
-
-bool DNSClient::Initialize()
-{
-	_initialized = true;
-
-	// Attempt to bind to any port; ignore ICMP unreachable messages
-	if (!BindToRandomPort(true))
-	{
-		WARN("DNS") << "Initialization failure: Unable to bind to any port";
-		return false;
-	}
-
-	// Attempt to get server address from operating system
-	if (!GetServerAddr())
-	{
-		WARN("DNS") << "Initialization failure: Unable to discover DNS server address";
-		Close();
-		return false;
-	}
-
-	// Attempt to start the timer thread
-	if (!StartThread())
-	{
-		WARN("DNS") << "Initialization failure: Unable to start timer thread";
-		Close();
-		return false;
-	}
-
-	_initialized = false;
-
-	return true;
-}
-
 bool DNSClient::GetUnusedID(u16 &unused_id)
 {
 	// If too many requests already pending,
@@ -635,7 +688,7 @@ bool DNSClient::IsValidHostname(const char *hostname)
 bool DNSClient::Resolve(const char *hostname, DNSResultCallback callback, RefObject *holdRef)
 {
 	// Initialize if needed
-	if (!_initialized && !Startup())
+	if (!_initialized && !Initialize())
 		return false;
 
 	// Try to interpret hostname as numeric
@@ -718,7 +771,7 @@ bool DNSClient::Resolve(const char *hostname, DNSResultCallback callback, RefObj
 	// Attempt to perform lookup
 	if (!PerformLookup(request))
 	{
-		ThreadRefObject::SafeRelease(holdRef);
+		RefObject::Release(holdRef);
 		return false;
 	}
 
@@ -735,7 +788,7 @@ void DNSClient::OnUnreachable(const NetAddr &src)
 		WARN("DNS") << "Failed to contact DNS server: ICMP error received from server address";
 
 		// Close socket so that DNS resolves will be squelched
-		Close();
+		RequestShutdown();
 	}
 }
 
@@ -771,7 +824,7 @@ void DNSClient::NotifyRequesters(DNSRequest *req)
 	add_to_cache |= req->callback_head.cb(req->hostname, req->responses, req->num_responses);
 
 	// Release ref if requested
-	ThreadRefObject::SafeRelease(req->callback_head.ref);
+	RefObject::Release(req->callback_head.ref);
 
 	// For each requester,
 	for (DNSCallback *cbnext, *cb = req->callback_head.next; cb; cb = cbnext)
@@ -782,7 +835,7 @@ void DNSClient::NotifyRequesters(DNSRequest *req)
 		add_to_cache |= cb->cb(req->hostname, req->responses, req->num_responses);
 
 		// Release ref if requested
-		ThreadRefObject::SafeRelease(cb->ref);
+		RefObject::Release(cb->ref);
 
 		delete cb;
 	}
@@ -870,61 +923,4 @@ void DNSClient::ProcessDNSResponse(DNSRequest *req, int qdcount, int ancount, u8
 			return;
 		}
 	}
-}
-
-void DNSClient::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes)
-{
-	// If packet source is not the server, ignore this packet
-	if (_server_addr != src)
-		return;
-
-	// If packet is truncated, ignore this packet
-	if (bytes < DNS_HDRLEN)
-		return;
-
-	u16 *hdr_words = reinterpret_cast<u16*>( data );
-
-	// QR(1) OPCODE(4) AA(1) TC(1) RD(1) RA(1) Z(3) RCODE(4) [=16]
-	u16 hdr = getBE(hdr_words[DNS_HDR]);
-
-	// Header bits
-	u16 qr = (hdr >> DNSHDR_QR) & 1; // Response
-	u16 opcode = (hdr >> DNSHDR_OPCODE) & 0x000F; // Opcode
-
-	// If header is invalid, ignore this packet
-	if (!qr || opcode != 0) return;
-
-	// Extract ID; endian agnostic
-	u16 id = hdr_words[DNS_ID];
-
-	AutoMutex lock(_request_lock);
-
-	// Pull request from pending queue
-	DNSRequest *req = PullRequest(id);
-
-	// If request was not found to match ID,
-	if (!req) return;
-
-	// Initialize number of responses to zero
-	req->num_responses = 0;
-
-	//u16 aa = (hdr >> DNSHDR_AA) & 1; // Authoritative
-	//u16 tc = (hdr >> DNSHDR_TC) & 1; // Truncated
-	//u16 rd = (hdr >> DNSHDR_RD) & 1; // Recursion desired
-	//u16 ra = (hdr >> DNSHDR_RA) & 1; // Recursion available
-	//u16 z = (hdr >> DNSHDR_Z) & 0x0007; // Reserved
-	u16 rcode = hdr & 0x000F; // Reply code
-
-	// If non-error result,
-	if (rcode == 0)
-	{
-		int qdcount = getBE(hdr_words[DNS_QDCOUNT]); // Question count
-		int ancount = getBE(hdr_words[DNS_ANCOUNT]); // Answer RRs
-		//int nscount = getBE(hdr_words[DNS_NSCOUNT]); // Authority RRs
-		//int arcount = getBE(hdr_words[DNS_ARCOUNT]); // Additional RRs
-
-		ProcessDNSResponse(req, qdcount, ancount, data, bytes);
-	}
-
-	NotifyRequesters(req);
 }

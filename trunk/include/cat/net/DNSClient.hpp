@@ -41,6 +41,7 @@
 #include <cat/threads/Thread.hpp>
 #include <cat/threads/WaitableFlag.hpp>
 #include <cat/port/FastDelegate.h>
+#include <cat/crypt/rand/Fortuna.hpp>
 
 namespace cat {
 
@@ -94,6 +95,10 @@ class DNSClient : public UDPEndpoint, public WorkerCallbacks
 	NetAddr _server_addr;
 	bool _initialized;
 
+	FortunaOutput *_csprng;
+
+	u32 _worker_bin;
+
 	Mutex _request_lock;
 	DNSRequest *_request_head;
 	DNSRequest *_request_tail;
@@ -104,7 +109,7 @@ class DNSClient : public UDPEndpoint, public WorkerCallbacks
 	DNSRequest *_cache_tail;
 	int _cache_size;
 
-	bool Startup();
+	bool Initialize();
 
 	bool GetUnusedID(u16 &id); // not thread-safe, caller must lock
 	bool IsValidHostname(const char *hostname);
@@ -148,7 +153,7 @@ public:
 
 		If Resolve() returns false, no callback will be generated.
 	*/
-	bool Resolve(const char *hostname, DNSResultCallback, RefObject *holdRef = 0);
+	bool Resolve(IOLayer *iolayer, const char *hostname, DNSResultCallback, RefObject *holdRef = 0);
 
 protected:
 	virtual void OnShutdownRequest();

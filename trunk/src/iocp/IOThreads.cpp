@@ -82,8 +82,8 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 				RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( (u8*)ov_iocp - offsetof(RecvBuffer, iointernal.ov) );
 
 				// Write event completion results to buffer
-				buffer->_data_bytes = bytes;
-				buffer->_event_msec = event_msec;
+				buffer->data_bytes = bytes;
+				buffer->event_msec = event_msec;
 
 				// If the same allocator was used twice in a row and there is space,
 				if (prev_recv_endpoint == udp_endpoint)
@@ -117,7 +117,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 	{
 		// Finalize the recvq and post it
 		recvq.tail->batch_next = 0;
-		prev_recv_endpoint->OnReadCompletion(recvq, recv_count, event_msec);
+		prev_recv_endpoint->OnReadCompletion(recvq, recv_count);
 	}
 
 	// If sendq is not empty,
