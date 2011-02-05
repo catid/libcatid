@@ -19,6 +19,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
     </Filter>
+    <Filter Include="Header Files\threads">
+      <UniqueIdentifier>{6cd253a5-8618-4aa0-a8b7-df0a5aa91162}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\net\DNSClient.cpp">
@@ -30,26 +33,20 @@
     <ClCompile Include="..\..\src\iocp\IOThreads.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Precompiled.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\net\Sockets.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\iocp\UDPEndpoint.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\net\WorkerThreads.cpp">
+    <ClCompile Include="Precompiled.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\threads\WorkerThreads.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\include\cat\AllNetwork.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Precompiled.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\include\cat\iocp\IOThreads.hpp">
       <Filter>Header Files\iocp</Filter>
     </ClInclude>
@@ -71,8 +68,14 @@
     <ClInclude Include="..\..\include\cat\net\Sockets.hpp">
       <Filter>Header Files\net</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\cat\net\WorkerThreads.hpp">
-      <Filter>Header Files\net</Filter>
+    <ClInclude Include="Precompiled.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\AllAsyncIO.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\threads\WorkerThreads.hpp">
+      <Filter>Header Files\threads</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -26,12 +26,15 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-// Include all libcat Network headers
+// Include all libcat AsyncIO headers
 
 #include <cat/AllCommon.hpp>
+#include <cat/AllCrypt.hpp>
+
+#include <cat/threads/WorkerThreads.hpp>
 
 #include <cat/net/Sockets.hpp>
 #include <cat/net/IOLayer.hpp>
 #include <cat/net/RecvBuffer.hpp>
 #include <cat/net/SendBuffer.hpp>
-#include <cat/net/WorkerThreads.hpp>
+#include <cat/net/DNSClient.hpp>

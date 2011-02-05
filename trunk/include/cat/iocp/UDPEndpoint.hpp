@@ -30,6 +30,7 @@
 #define CAT_IOCP_UDP_ENDPOINT_HPP
 
 #include <cat/net/Sockets.hpp>
+#include <cat/net/SendBuffer.hpp>
 
 namespace cat {
 

@@ -26,15 +26,14 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_NET_WORKER_THREADS_HPP
-#define CAT_NET_WORKER_THREADS_HPP
+#ifndef CAT_WORKER_THREADS_HPP
+#define CAT_WORKER_THREADS_HPP
 
 #include <cat/threads/RefObject.hpp>
 #include <cat/threads/Thread.hpp>
 #include <cat/threads/WaitableFlag.hpp>
 #include <cat/threads/Mutex.hpp>
 #include <cat/threads/Atomic.hpp>
-#include <cat/net/IOLayer.hpp>
 
 #if defined(CAT_NO_ATOMIC_ADD)
 #define CAT_NO_ATOMIC_POPCOUNT
@@ -170,4 +169,4 @@ public:
 
 } // namespace cat
 
-#endif // CAT_NET_WORKER_THREADS_HPP
+#endif // CAT_WORKER_THREADS_HPP

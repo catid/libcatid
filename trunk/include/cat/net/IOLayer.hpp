@@ -30,19 +30,14 @@
 #define CAT_NET_IOLAYER_HPP
 
 #include <cat/net/Sockets.hpp>
+#include <cat/threads/WorkerThreads.hpp>
 
 #if defined(CAT_OS_WINDOWS)
-
-#include <cat/iocp/UDPEndpoint.hpp>
 #include <cat/iocp/IOThreads.hpp>
-
+#include <cat/iocp/UDPEndpoint.hpp>
 #else
 TODO
 #endif
-
-#include <cat/net/RecvBuffer.hpp>
-#include <cat/net/SendBuffer.hpp>
-#include <cat/net/WorkerThreads.hpp>
 
 namespace cat {
 
