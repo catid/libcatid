@@ -36,7 +36,7 @@ namespace cat {
 
 struct RecvBuffer;
 class SendBuffer;
-class IOThreads;
+class IOLayer;
 
 
 // Number of IO outstanding on a UDP endpoint
@@ -50,7 +50,7 @@ class UDPEndpoint : public WatchedRefObject
 
 	volatile u32 _buffers_posted; // Number of buffers posted to the socket waiting for data
 
-	IOThreads *_iothreads;
+	IOLayer *_iolayer;
 	Socket _socket;
 	Port _port;
 	bool _ipv6;
@@ -82,16 +82,23 @@ public:
 	// Disabled by default; useful for MTU discovery
 	bool DontFragment(bool df = true);
 
-	bool Bind(IOThreads *iothreads, bool onlySupportIPv4, Port port = 0, bool ignoreUnreachable = true, int kernelReceiveBufferBytes = 0);
+	bool Bind(IOLayer *iolayer, bool onlySupportIPv4, Port port = 0, bool ignoreUnreachable = true, int kernelReceiveBufferBytes = 0);
 
 	// If Is6() == true, the address must be promoted to IPv6
 	// before calling using addr.PromoteTo6()
 	bool Write(const BatchSet &buffers, const NetAddr &addr);
 
+	CAT_INLINE bool Write(u8 *data, const NetAddr &addr)
+	{
+		return Write(SendBuffer::Promote(data), addr);
+	}
+
 	// When done with read buffers, call this function to add them back to the available pool
 	void ReleaseReadBuffers(BatchSet buffers, u32 count);
 
 protected:
+	CAT_INLINE IOLayer *GetIOLayer() { return _iolayer; }
+
 	virtual void OnShutdownRequest();
 	virtual bool OnZeroReferences();
 

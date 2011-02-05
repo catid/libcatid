@@ -35,7 +35,7 @@ namespace cat {
 
 
 struct BatchHead;
-struct BatchSet;
+class BatchSet;
 class IAllocator;
 
 
@@ -49,9 +49,18 @@ struct BatchHead
 
 // When passing around a batch of allocated space, use this object to represent
 // the two ends of the batch for O(1) concatenation to other batches
-struct BatchSet
+class BatchSet
 {
+public:
 	BatchHead *head, *tail;
+
+	CAT_INLINE BatchSet() {}
+	CAT_INLINE BatchSet(BatchHead *h, BatchHead *t) { head = h; tail = t; }
+	CAT_INLINE BatchSet(BatchHead *single)
+	{
+		head = tail = single;
+		single->batch_next = 0;
+	}
 };
 
 

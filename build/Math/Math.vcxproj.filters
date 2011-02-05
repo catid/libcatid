@@ -38,13 +38,13 @@
     <ClCompile Include="..\..\src\math\BigRTL.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\math\BigTwistedEdwards.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\math\BigBinaryExtension.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Precompiled.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\BigTwistedEdwards.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

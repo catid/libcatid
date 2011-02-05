@@ -113,7 +113,7 @@ bool UDPEndpoint::DontFragment(bool df)
 	return true;
 }
 
-bool UDPEndpoint::Bind(IOThreads *iothreads, bool onlySupportIPv4, Port port, bool ignoreUnreachable, int rcv_buffsize)
+bool UDPEndpoint::Bind(IOLayer *iolayer, bool onlySupportIPv4, Port port, bool ignoreUnreachable, int rcv_buffsize)
 {
 	// Create an unbound, overlapped UDP socket for the endpoint
     Socket s;
@@ -156,16 +156,19 @@ bool UDPEndpoint::Bind(IOThreads *iothreads, bool onlySupportIPv4, Port port, bo
         return false;
     }
 
-	_iothreads = iothreads;
+	_iolayer = iolayer;
 
 	// Associate with IOThreads
-	if (!iothreads->Associate(this))
+	if (!iolayer->GetIOThreads()->Associate(this))
 	{
 		FATAL("UDPEndpoint") << "Unable to associate with IOThreads";
 		CloseSocket(s);
 		_socket = SOCKET_ERROR;
 		return false;
 	}
+
+	// Now that we're in the IO layer, start watching the object for shutdown
+	iolayer->Watch(this);
 
 	// Add references for all the reads assuming they will succeed
 	AddRef(SIMULTANEOUS_READS);
@@ -207,9 +210,9 @@ bool UDPEndpoint::Bind(IOThreads *iothreads, bool onlySupportIPv4, Port port, bo
 
 bool UDPEndpoint::PostRead(RecvBuffer *buffer)
 {
-	CAT_OBJCLR(buffer->iocp.ov);
-	buffer->iocp.io_type = IOTYPE_UDP_RECV;
-	buffer->iocp.addr_len = sizeof(buffer->iocp.addr);
+	CAT_OBJCLR(buffer->iointernal.ov);
+	buffer->iointernal.io_type = IOTYPE_UDP_RECV;
+	buffer->iointernal.addr_len = sizeof(buffer->iointernal.addr);
 
 	WSABUF wsabuf;
 	wsabuf.buf = reinterpret_cast<CHAR*>( GetTrailingBytes(buffer) );
@@ -218,8 +221,8 @@ bool UDPEndpoint::PostRead(RecvBuffer *buffer)
 	// Queue up a WSARecvFrom()
 	DWORD flags = 0, bytes;
 	int result = WSARecvFrom(_socket, &wsabuf, 1, &bytes, &flags,
-		reinterpret_cast<sockaddr*>( &buffer->iocp.addr ),
-		&buffer->iocp.addr_len, &buffer->iocp.ov, 0); 
+		reinterpret_cast<sockaddr*>( &buffer->iointernal.addr ),
+		&buffer->iointernal.addr_len, &buffer->iointernal.ov, 0); 
 
 	// This overlapped operation will always complete unless
 	// we get an error code other than ERROR_IO_PENDING.
@@ -240,7 +243,7 @@ u32 UDPEndpoint::PostReads(u32 count)
 	IAllocator *allocator = _iothreads->GetAllocator();
 
 	BatchSet set;
-	allocator->AcquireBatch(set, count, IOTHREADS_BUFFER_TOTAL_BYTES);
+	allocator->AcquireBatch(set, count);
 	u32 read_count = 0;
 
 	for (BatchHead *node = set.head; node; node = node->batch_next, ++read_count)
@@ -282,8 +285,8 @@ bool UDPEndpoint::Write(const BatchSet &buffers, const NetAddr &addr)
 
 		// Write node to buffer array
 		SendBuffer *send_buf = reinterpret_cast<SendBuffer*>( node );
-		wsabufs[ii].buf = reinterpret_cast<CHAR*>( GetTrailingBytes(send_buf) );
-		wsabufs[ii].len = send_buf->_data_bytes;
+		wsabufs[ii].buf = reinterpret_cast<CHAR*>( send_buf->GetData() );
+		wsabufs[ii].len = send_buf->GetDataBytes();
 
 		// If that was the end of what we can fit, or there is no more data,
 		if (++ii >= SIMULTANEOUS_SENDS || !next)
@@ -298,7 +301,7 @@ bool UDPEndpoint::Write(const BatchSet &buffers, const NetAddr &addr)
 			// Fire off a WSASendTo() and forget about it
 			int result = WSASendTo(_socket, wsabufs, ii, 0, 0,
 								   reinterpret_cast<const sockaddr*>( &out_addr ),
-								   addr_len, &first_buf->iocp.ov, 0);
+								   addr_len, &first_buf->GetIOInternal()->ov, 0);
 
 			// This overlapped operation will always complete unless
 			// we get an error code other than ERROR_IO_PENDING.
@@ -310,7 +313,7 @@ bool UDPEndpoint::Write(const BatchSet &buffers, const NetAddr &addr)
 				node->batch_next = next;
 
 				// Release the rest of the batch
-				BatchSet set = { first, buffers.tail };
+				BatchSet set(first, buffers.tail);
 				StdAllocator::ii->ReleaseBatch(set);
 
 				success = false;
@@ -389,7 +392,7 @@ void UDPEndpoint::ReleaseReadBuffers(BatchSet buffers, u32 count)
 		buffers.head = next;
 	}
 
-	_iothreads->GetAllocator()->ReleaseBatch(buffers);
+	_iolayer->GetIOThreads()->GetAllocator()->ReleaseBatch(buffers);
 
 	// Release one reference for each buffer
 	ReleaseRef(count);

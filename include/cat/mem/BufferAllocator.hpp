@@ -78,9 +78,9 @@ public:
 
 	bool Valid() { return _buffers != 0; }
 
-	// Attempt to acquire a number of buffers
+	// Attempt to acquire a number of buffers, often pre-fixed size
 	// Returns the number of valid buffers it was able to allocate
-	u32 AcquireBatch(BatchSet &set, u32 count, u32 bytes);
+	u32 AcquireBatch(BatchSet &set, u32 count, u32 bytes = 0);
 
 	// Release a number of buffers simultaneously
 	void ReleaseBatch(const BatchSet &set);

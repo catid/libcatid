@@ -25,6 +25,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
     </Filter>
+    <Filter Include="Header Files\misc">
+      <UniqueIdentifier>{16168890-f4a6-424c-be3e-47625be6c8cd}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\crypt\privatekey\ChaCha.cpp">
@@ -71,9 +74,6 @@
     <ClInclude Include="..\..\include\cat\AllCrypt.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\cat\crypt\SecureCompare.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\include\cat\crypt\cookie\CookieJar.hpp">
       <Filter>Header Files\cookie</Filter>
     </ClInclude>
@@ -94,6 +94,9 @@
     </ClInclude>
     <ClInclude Include="Precompiled.hpp">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\crypt\SecureCompare.hpp">
+      <Filter>Header Files\misc</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
