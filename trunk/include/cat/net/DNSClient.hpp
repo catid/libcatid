@@ -107,7 +107,7 @@ class DNSClient : public UDPEndpoint, public WorkerCallbacks
 	DNSRequest *_cache_tail;
 	int _cache_size;
 
-	bool Initialize();
+	bool Initialize(IOLayer *iolayer);
 
 	bool GetUnusedID(u16 &id); // not thread-safe, caller must lock
 	bool IsValidHostname(const char *hostname);
@@ -119,7 +119,7 @@ class DNSClient : public UDPEndpoint, public WorkerCallbacks
 	void CacheKill(DNSRequest *req); // Assumes already in cache
 
 	bool GetServerAddr();
-	bool BindToRandomPort(bool ignoreUnreachable);
+	bool BindToRandomPort(IOLayer *iolayer, bool ignoreUnreachable);
 	bool PostDNSPacket(DNSRequest *req, u32 now);
 	bool PerformLookup(DNSRequest *req); // not thread-safe, caller must lock
 

@@ -48,7 +48,7 @@ class IOLayer
 	WorkerThreads _worker_threads;
 	RefObjectWatcher _watcher;
 
-	bool Startup(IWorkerTLS *tls, const char *settings_file_name, bool service, const char *service_name);
+	bool Startup(IWorkerTLSBuilder *tls, const char *settings_file_name, bool service, const char *service_name);
 
 public:
 	CAT_INLINE IOThreads *GetIOThreads() { return &_io_threads; }
