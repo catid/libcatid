@@ -31,8 +31,6 @@
 #include <cat/AllCommon.hpp>
 #include <cat/AllCrypt.hpp>
 
-#include <cat/threads/WorkerThreads.hpp>
-
 #include <cat/io/IOLayer.hpp>
 
 #include <cat/net/Sockets.hpp>

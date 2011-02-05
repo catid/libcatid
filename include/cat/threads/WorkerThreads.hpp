@@ -34,6 +34,7 @@
 #include <cat/threads/WaitableFlag.hpp>
 #include <cat/threads/Mutex.hpp>
 #include <cat/threads/Atomic.hpp>
+#include <cat/mem/IAllocator.hpp>
 
 #if defined(CAT_NO_ATOMIC_ADD)
 #define CAT_NO_ATOMIC_POPCOUNT

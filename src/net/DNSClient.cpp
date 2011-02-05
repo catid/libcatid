@@ -145,6 +145,7 @@ void DNSClient::OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers)
 	{
 		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
 
+		buffer->
 	}
 
 	// If packet source is not the server, ignore this packet

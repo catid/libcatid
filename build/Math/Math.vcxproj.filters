@@ -19,6 +19,21 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
     </Filter>
+    <Filter Include="Header Files\rtl">
+      <UniqueIdentifier>{d36aed41-9e58-4cb7-8587-afd740095a3b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\montgomery">
+      <UniqueIdentifier>{48e654e9-1b34-4f4c-baf9-8f29678e2fb6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\mersenne">
+      <UniqueIdentifier>{4c638023-9880-4d3d-8bf0-a8fe7fd0fd5d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\edward">
+      <UniqueIdentifier>{0b300068-9fbc-4b75-8027-d0f1a73d6c4c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\binext">
+      <UniqueIdentifier>{61b1110f-90ac-4976-a311-ddc0fc3fdc7b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\src\math\big_x64_elf.asm">
@@ -46,6 +61,195 @@
     </ClCompile>
     <ClCompile Include="..\..\src\math\BigTwistedEdwards.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\rtl\div\Divide.cpp">
+      <Filter>Header Files\rtl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\rtl\div\DivideAsm64.cpp">
+      <Filter>Header Files\rtl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\rtl\div\DivideGeneric.cpp">
+      <Filter>Header Files\rtl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\rtl\div\EatTrailingZeroes.cpp">
+      <Filter>Header Files\rtl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\rtl\div\ModularInverse.cpp">
+      <Filter>Header Files\rtl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\rtl\div\MulMod.cpp">
+      <Filter>Header Files\rtl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\rtl\div\MultiplicativeInverse.cpp">
+      <Filter>Header Files\rtl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\rtl\io\Load.cpp">
+      <Filter>Header Files\rtl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\rtl\io\LoadString.cpp">
+      <Filter>Header Files\rtl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\rtl\io\Save.cpp">
+      <Filter>Header Files\rtl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\rtl\mul\CombaMul.cpp">
+      <Filter>Header Files\rtl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\rtl\mul\Multiply.cpp">
+      <Filter>Header Files\rtl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\rtl\mul\MultiplyX.cpp">
+      <Filter>Header Files\rtl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\rtl\mul\MultiplyXAdd.cpp">
+      <Filter>Header Files\rtl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\rtl\mul\Square.cpp">
+      <Filter>Header Files\rtl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\rtl\addsub\Add.cpp">
+      <Filter>Header Files\rtl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\rtl\addsub\Add1.cpp">
+      <Filter>Header Files\rtl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\rtl\addsub\AddX.cpp">
+      <Filter>Header Files\rtl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\rtl\addsub\Compare.cpp">
+      <Filter>Header Files\rtl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\rtl\addsub\Double.cpp">
+      <Filter>Header Files\rtl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\rtl\addsub\DoubleAdd.cpp">
+      <Filter>Header Files\rtl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\rtl\addsub\Negate.cpp">
+      <Filter>Header Files\rtl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\rtl\addsub\Shift.cpp">
+      <Filter>Header Files\rtl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\rtl\addsub\Subtract.cpp">
+      <Filter>Header Files\rtl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\rtl\addsub\SubtractX.cpp">
+      <Filter>Header Files\rtl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\montgomery\addsub\MonAdd.cpp">
+      <Filter>Header Files\montgomery</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\montgomery\addsub\MonNegate.cpp">
+      <Filter>Header Files\montgomery</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\montgomery\addsub\MonSubtract.cpp">
+      <Filter>Header Files\montgomery</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\montgomery\expm\IsRabinMillerPrime.cpp">
+      <Filter>Header Files\montgomery</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\montgomery\expm\MonExpMod.cpp">
+      <Filter>Header Files\montgomery</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\montgomery\mul\MonMultiply.cpp">
+      <Filter>Header Files\montgomery</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\montgomery\mul\MonSquare.cpp">
+      <Filter>Header Files\montgomery</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\montgomery\reduce\MonInput.cpp">
+      <Filter>Header Files\montgomery</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\montgomery\reduce\MonOutput.cpp">
+      <Filter>Header Files\montgomery</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\montgomery\reduce\MonReduceProduct.cpp">
+      <Filter>Header Files\montgomery</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\mersenne\addsub\MrAdd.cpp">
+      <Filter>Header Files\mersenne</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\mersenne\addsub\MrNegate.cpp">
+      <Filter>Header Files\mersenne</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\mersenne\addsub\MrSubtract.cpp">
+      <Filter>Header Files\mersenne</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\mersenne\expm\MrInvert.cpp">
+      <Filter>Header Files\mersenne</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\mersenne\expm\MrSquareRoot.cpp">
+      <Filter>Header Files\mersenne</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\mersenne\mul\MrMultiply.cpp">
+      <Filter>Header Files\mersenne</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\mersenne\mul\MrMultiplyX.cpp">
+      <Filter>Header Files\mersenne</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\mersenne\mul\MrSquare.cpp">
+      <Filter>Header Files\mersenne</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\mersenne\reduce\MrReduce.cpp">
+      <Filter>Header Files\mersenne</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\mersenne\reduce\MrReduceProduct.cpp">
+      <Filter>Header Files\mersenne</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\edward\addsub\PtAdd.cpp">
+      <Filter>Header Files\edward</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\edward\addsub\PtDouble.cpp">
+      <Filter>Header Files\edward</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\edward\addsub\PtDoubleZ1.cpp">
+      <Filter>Header Files\edward</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\edward\addsub\PtNegate.cpp">
+      <Filter>Header Files\edward</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\edward\addsub\PtSubtract.cpp">
+      <Filter>Header Files\edward</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\edward\io\PtFillRandomX.cpp">
+      <Filter>Header Files\edward</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\edward\io\PtGenerate.cpp">
+      <Filter>Header Files\edward</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\edward\io\PtNormalize.cpp">
+      <Filter>Header Files\edward</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\edward\io\PtSolveAffineY.cpp">
+      <Filter>Header Files\edward</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\edward\io\PtValidAffine.cpp">
+      <Filter>Header Files\edward</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\edward\io\SaveAffineX.cpp">
+      <Filter>Header Files\edward</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\edward\io\SaveAffineXY.cpp">
+      <Filter>Header Files\edward</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\edward\mul\PtMultiply.cpp">
+      <Filter>Header Files\edward</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\edward\mul\PtMultiplyPrecomp.cpp">
+      <Filter>Header Files\edward</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\edward\mul\PtPrecompAddSub.cpp">
+      <Filter>Header Files\edward</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\edward\mul\RefMul.cpp">
+      <Filter>Header Files\edward</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\binext\addsub\BinAdd.cpp">
+      <Filter>Header Files\binext</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\math\binext\mul\BinMultiply.cpp">
+      <Filter>Header Files\binext</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

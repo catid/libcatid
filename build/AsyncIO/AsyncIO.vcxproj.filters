@@ -19,9 +19,6 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
     </Filter>
-    <Filter Include="Header Files\threads">
-      <UniqueIdentifier>{6cd253a5-8618-4aa0-a8b7-df0a5aa91162}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Header Files\io">
       <UniqueIdentifier>{7a52efdb-8cc6-4b47-84aa-49bcac5a6298}</UniqueIdentifier>
     </Filter>
@@ -40,9 +37,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Precompiled.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\threads\WorkerThreads.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\io\IOLayer.cpp">
@@ -73,9 +67,6 @@
     </ClInclude>
     <ClInclude Include="..\..\include\cat\AllAsyncIO.hpp">
       <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\include\cat\threads\WorkerThreads.hpp">
-      <Filter>Header Files\threads</Filter>
     </ClInclude>
     <ClInclude Include="..\..\include\cat\io\IOLayer.hpp">
       <Filter>Header Files\io</Filter>

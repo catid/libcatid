@@ -178,6 +178,7 @@
     <ClCompile Include="..\..\src\threads\RefObject.cpp" />
     <ClCompile Include="..\..\src\threads\Thread.cpp" />
     <ClCompile Include="..\..\src\threads\WaitableFlag.cpp" />
+    <ClCompile Include="..\..\src\threads\WorkerThreads.cpp" />
     <ClCompile Include="..\..\src\time\Clock.cpp" />
     <ClCompile Include="..\..\src\port\EndianNeutral.cpp" />
     <ClCompile Include="..\..\src\rand\MersenneTwister.cpp" />
@@ -216,6 +217,7 @@
     <ClInclude Include="..\..\include\cat\threads\RefObject.hpp" />
     <ClInclude Include="..\..\include\cat\threads\Thread.hpp" />
     <ClInclude Include="..\..\include\cat\threads\WaitableFlag.hpp" />
+    <ClInclude Include="..\..\include\cat\threads\WorkerThreads.hpp" />
     <ClInclude Include="..\..\include\cat\time\Clock.hpp" />
     <ClInclude Include="..\..\include\cat\rand\IRandom.hpp" />
     <ClInclude Include="..\..\include\cat\rand\MersenneTwister.hpp" />
