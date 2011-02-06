@@ -29,7 +29,7 @@
 #ifndef CAT_SPHYNX_COMMON_HPP
 #define CAT_SPHYNX_COMMON_HPP
 
-#include <cat/net/IOLayer.hpp>
+#include <cat/io/IOLayer.hpp>
 
 // TODO: SendQueue needs callback for file transfer and support for large external data array
 // TODO: when sending a reliable message, pre-allocate the send queue node for zero-copy
