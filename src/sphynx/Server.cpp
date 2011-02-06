@@ -43,172 +43,25 @@ using namespace sphynx;
 
 void Server::OnShutdownRequest()
 {
+	UDPEndpoint::OnShutdownRequest();
 }
 
 bool Server::OnZeroReferences()
 {
-}
-
-Server::Server()
-{
-}
-
-Server::~Server()
-{
-}
-
-bool Server::StartServer(ThreadPoolLocalStorage *tls, Port port, u8 *public_key, int public_bytes, u8 *private_key, int private_bytes, const char *session_key)
-{
-	// If objects were not created,
-	if (!tls->Valid())
-	{
-		WARN("Server") << "Failed to initialize: Unable to create thread local storage";
-		return false;
-	}
-
-	// Allocate worker array
-	_worker_count = ThreadPool::ref()->GetProcessorCount() * 4;
-	if (_worker_count > WORKER_LIMIT) _worker_count = WORKER_LIMIT;
-	if (_worker_count < 1) _worker_count = 1;
-
-	if (_workers) delete[] _workers;
-
-	_workers = new ServerWorker*[_worker_count];
-	if (!_workers)
-	{
-		WARN("Server") << "Failed to initialize: Unable to allocate " << _worker_count << " workers";
-		return false;
-	}
-
-	for (int ii = 0; ii < _worker_count; ++ii)
-		_workers[ii] = 0;
-
-	// Allocate timer array
-	_timer_count = _worker_count / 8;
-	if (_timer_count < 1) _timer_count = 1;
-
-	if (_timers) delete[] _timers;
-
-	_timers = new ServerTimer*[_timer_count];
-	if (!_timers)
-	{
-		WARN("Server") << "Failed to initialize: Unable to allocate " << _timer_count << " timers";
-		return false;
-	}
-
-	for (int ii = 0; ii < _timer_count; ++ii)
-		_timers[ii] = 0;
-
-	// Seed components
-	_cookie_jar.Initialize(tls->csprng);
-	_conn_map.Initialize(tls->csprng);
-	_flood_guard.Initialize(tls->csprng);
-
-	// Initialize key agreement responder
-	if (!_key_agreement_responder.Initialize(tls->math, tls->csprng,
-											 public_key, public_bytes,
-											 private_key, private_bytes))
-	{
-		WARN("Server") << "Failed to initialize: Key pair is invalid";
-		return false;
-	}
-
-	// Copy session key
-	CAT_STRNCPY(_session_key, session_key, SESSION_KEY_BYTES);
-
-	// Copy public key
-	memcpy(_public_key, public_key, sizeof(_public_key));
-
-	// Get SupportIPv6 flag from settings
-	bool only_ipv4 = Settings::ii->getInt("Sphynx.Server.SupportIPv6", 0) == 0;
-
-	// Get kernel receive buffer size
-	int kernelReceiveBufferBytes = Settings::ii->getInt("Sphynx.Server.KernelReceiveBuffer", 8000000);
-
-	// Attempt to bind to the server port
-	if (!Bind(only_ipv4, port, true, kernelReceiveBufferBytes))
-	{
-		WARN("Server") << "Failed to initialize: Unable to bind handshake port "
-			<< port << ". " << SocketGetLastErrorString();
-		return false;
-	}
-
-	return true;
-}
-
-Connexion *Server::LookupConnexion(u32 key)
-{
-	return _conn_map.Lookup(key);
-}
-
-u32 Server::GetTotalPopulation()
-{
-	u32 population = 0;
-
-	// For each port,
-	for (int ii = 0; ii < _worker_count; ++ii)
-	{
-		// Accumulate population
-		population += _workers[ii]->GetPopulation();
-	}
-
-	return population;
-}
-
-void Server::PostConnectionCookie(const NetAddr &dest)
-{
-	u8 *pkt = AsyncBuffer::Acquire(S2C_COOKIE_LEN);
-
-	// Verify that post buffer could be allocated
-	if (!pkt)
-	{
-		WARN("Server") << "Unable to post connection cookie: Unable to allocate post buffer";
-		return;
-	}
-
-	// Construct packet
-	pkt[0] = S2C_COOKIE;
-
-	// Endianness does not matter since we will read it back the same way
-	u32 *pkt_cookie = reinterpret_cast<u32*>( pkt + 1 );
-	*pkt_cookie = dest.Is6() ? _cookie_jar.Generate(&dest, sizeof(dest))
-							 : _cookie_jar.Generate(dest.GetIP4(), dest.GetPort());
-
-	// Attempt to post the packet, ignoring failures
-	Post(dest, pkt, S2C_COOKIE_LEN);
-}
-
-void Server::PostConnectionError(const NetAddr &dest, HandshakeError err)
-{
-	u8 *pkt = AsyncBuffer::Acquire(S2C_ERROR_LEN);
-
-	// Verify that post buffer could be allocated
-	if (!pkt)
-	{
-		WARN("Server") << "Unable to post connection error: Unable to allocate post buffer";
-		return;
-	}
-
-	// Construct packet
-	pkt[0] = S2C_ERROR;
-	pkt[1] = (u8)(err);
-
-	// Post packet without checking for errors
-	Post(dest, pkt, S2C_ERROR_LEN);
+	return UDPEndpoint::OnZeroReferences();
 }
 
 void Server::OnReadRouting(const BatchSet &buffers)
 {
 	u32 connect_worker = _connect_worker;
-	u32 worker_count = _worker_threads->GetWorkerCount();
+	u32 worker_count = GetIOLayer()->GetWorkerThreads()->GetWorkerCount();
 
 	BatchSet bins[MAX_WORKER_THREADS];
 
 	static const u32 MAX_VALID_WORDS = CAT_CEIL_UNIT(MAX_WORKER_THREADS, 32);
 	u32 valid[MAX_VALID_WORDS] = { 0 };
 
-	NetAddr prev_addr;
-	prev_addr.Invalidate();
+	RecvBuffer *prev_buffer = 0;
 
 	Connexion *conn;
 
@@ -217,14 +70,16 @@ void Server::OnReadRouting(const BatchSet &buffers)
 	{
 		next = node->batch_next;
 		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
-		NetAddr addr(buffer->iointernal.addr);
+
+		SetRemoteAddress(buffer);
+
 		u32 worker_id;
 
 		// If source address has changed,
-		if (addr != prev_addr)
+		if (!prev_buffer || buffer->addr != prev_buffer->addr)
 		{
-			conn = _conn_map.Lookup(addr);
-			prev_addr = addr;
+			conn = _conn_map.Lookup(buffer->addr);
+			prev_buffer = buffer;
 		}
 
 		if (conn)
@@ -239,7 +94,6 @@ void Server::OnReadRouting(const BatchSet &buffers)
 		}
 
 		buffer->callback = conn;
-		buffer->addr.Wrap(buffer->iointernal.addr);
 		buffer->batch_next = 0;
 
 		// If bin is already valid,
@@ -267,7 +121,7 @@ void Server::OnReadRouting(const BatchSet &buffers)
 			u32 bin = offset + BSF32(v);
 
 			// Deliver all buffers for this worker at once
-			_worker_threads->DeliverBuffers(bin, bins[bin]);
+			GetIOLayer()->GetWorkerThreads()->DeliverBuffers(bin, bins[bin]);
 
 			// Clear LSB
 			v ^= CAT_LSB32(v);
@@ -278,7 +132,7 @@ void Server::OnReadRouting(const BatchSet &buffers)
 	_connect_worker = connect_worker;
 }
 
-void Server::OnWorkerRead(WorkerTLS *tls, RecvBuffer *buffer_list_head)
+void Server::OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers)
 {
 	if (bytes == C2S_HELLO_LEN && data[0] == C2S_HELLO)
 	{
@@ -475,9 +329,162 @@ void Server::OnWorkerRead(WorkerTLS *tls, RecvBuffer *buffer_list_head)
 	}
 }
 
-void Server::OnWorkerTick(WorkerTLS *tls, u32 now)
+void Server::OnWorkerTick(IWorkerTLS *tls, u32 now)
 {
-	// Can't think of anything for the server to do here yet
+
+}
+
+Server::Server()
+{
+}
+
+Server::~Server()
+{
+}
+
+bool Server::StartServer(ThreadPoolLocalStorage *tls, Port port, u8 *public_key, int public_bytes, u8 *private_key, int private_bytes, const char *session_key)
+{
+	// If objects were not created,
+	if (!tls->Valid())
+	{
+		WARN("Server") << "Failed to initialize: Unable to create thread local storage";
+		return false;
+	}
+
+	// Allocate worker array
+	_worker_count = ThreadPool::ref()->GetProcessorCount() * 4;
+	if (_worker_count > WORKER_LIMIT) _worker_count = WORKER_LIMIT;
+	if (_worker_count < 1) _worker_count = 1;
+
+	if (_workers) delete[] _workers;
+
+	_workers = new ServerWorker*[_worker_count];
+	if (!_workers)
+	{
+		WARN("Server") << "Failed to initialize: Unable to allocate " << _worker_count << " workers";
+		return false;
+	}
+
+	for (int ii = 0; ii < _worker_count; ++ii)
+		_workers[ii] = 0;
+
+	// Allocate timer array
+	_timer_count = _worker_count / 8;
+	if (_timer_count < 1) _timer_count = 1;
+
+	if (_timers) delete[] _timers;
+
+	_timers = new ServerTimer*[_timer_count];
+	if (!_timers)
+	{
+		WARN("Server") << "Failed to initialize: Unable to allocate " << _timer_count << " timers";
+		return false;
+	}
+
+	for (int ii = 0; ii < _timer_count; ++ii)
+		_timers[ii] = 0;
+
+	// Seed components
+	_cookie_jar.Initialize(tls->csprng);
+	_conn_map.Initialize(tls->csprng);
+	_flood_guard.Initialize(tls->csprng);
+
+	// Initialize key agreement responder
+	if (!_key_agreement_responder.Initialize(tls->math, tls->csprng,
+											 public_key, public_bytes,
+											 private_key, private_bytes))
+	{
+		WARN("Server") << "Failed to initialize: Key pair is invalid";
+		return false;
+	}
+
+	// Copy session key
+	CAT_STRNCPY(_session_key, session_key, SESSION_KEY_BYTES);
+
+	// Copy public key
+	memcpy(_public_key, public_key, sizeof(_public_key));
+
+	// Get SupportIPv6 flag from settings
+	bool only_ipv4 = Settings::ii->getInt("Sphynx.Server.SupportIPv6", 0) == 0;
+
+	// Get kernel receive buffer size
+	int kernelReceiveBufferBytes = Settings::ii->getInt("Sphynx.Server.KernelReceiveBuffer", 8000000);
+
+	// Attempt to bind to the server port
+	if (!Bind(only_ipv4, port, true, kernelReceiveBufferBytes))
+	{
+		WARN("Server") << "Failed to initialize: Unable to bind handshake port "
+			<< port << ". " << SocketGetLastErrorString();
+		return false;
+	}
+
+	return true;
+}
+
+Connexion *Server::LookupConnexion(u32 key)
+{
+	return _conn_map.Lookup(key);
+}
+
+u32 Server::GetTotalPopulation()
+{
+	u32 population = 0;
+
+	// For each port,
+	for (int ii = 0; ii < _worker_count; ++ii)
+	{
+		// Accumulate population
+		population += _workers[ii]->GetPopulation();
+	}
+
+	return population;
+}
+
+void Server::PostConnectionCookie(const NetAddr &dest)
+{
+	u8 *pkt = AsyncBuffer::Acquire(S2C_COOKIE_LEN);
+
+	// Verify that post buffer could be allocated
+	if (!pkt)
+	{
+		WARN("Server") << "Unable to post connection cookie: Unable to allocate post buffer";
+		return;
+	}
+
+	// Construct packet
+	pkt[0] = S2C_COOKIE;
+
+	// Endianness does not matter since we will read it back the same way
+	u32 *pkt_cookie = reinterpret_cast<u32*>( pkt + 1 );
+	*pkt_cookie = dest.Is6() ? _cookie_jar.Generate(&dest, sizeof(dest))
+							 : _cookie_jar.Generate(dest.GetIP4(), dest.GetPort());
+
+	// Attempt to post the packet, ignoring failures
+	Post(dest, pkt, S2C_COOKIE_LEN);
+}
+
+void Server::PostConnectionError(const NetAddr &dest, HandshakeError err)
+{
+	u8 *pkt = AsyncBuffer::Acquire(S2C_ERROR_LEN);
+
+	// Verify that post buffer could be allocated
+	if (!pkt)
+	{
+		WARN("Server") << "Unable to post connection error: Unable to allocate post buffer";
+		return;
+	}
+
+	// Construct packet
+	pkt[0] = S2C_ERROR;
+	pkt[1] = (u8)(err);
+
+	// Post packet without checking for errors
+	Post(dest, pkt, S2C_ERROR_LEN);
+}
+
+void Server::OnReadRouting(const BatchSet &buffers)
+{
+
 }
 
 bool Server::GenerateKeyPair(ThreadPoolLocalStorage *tls, const char *public_key_file,

@@ -27,6 +27,7 @@
 */
 
 #include <cat/sphynx/SphynxLayer.hpp>
+#include <cat/crypt/rand/Fortuna.hpp>
 using namespace cat;
 
 bool SphynxLayer::OnStartup(IWorkerTLSBuilder *tls_builder, const char *settings_file_name, bool service, const char *service_name)
