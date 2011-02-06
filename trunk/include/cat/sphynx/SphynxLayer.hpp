@@ -29,13 +29,19 @@
 #ifndef CAT_SPHYNX_LAYER_HPP
 #define CAT_SPHYNX_LAYER_HPP
 
-#include <cat/Platform.hpp>
+#include <cat/sphynx/Common.hpp>
 
 namespace cat {
 
 
 class SphynxLayer : public IOLayer
 {
+public:
+	CAT_INLINE bool Startup(const char *settings_file_name = "Settings.cfg", bool service = false, const char *service_name = "MyService")
+	{
+		return CommonLayer::Startup(settings_file_name, service, service_name);
+	}
+
 protected:
 	virtual bool OnStartup(IWorkerTLSBuilder *tls, const char *settings_file_name, bool service, const char *service_name);
 	virtual void OnShutdown(bool watched_shutdown);

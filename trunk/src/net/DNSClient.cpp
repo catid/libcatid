@@ -122,7 +122,7 @@ bool DNSClient::OnZeroReferences()
 
 void DNSClient::OnReadRouting(const BatchSet &buffers)
 {
-	GetIOLayer()->DeliverBuffers(_worker_id, buffers);
+	GetIOLayer()->GetWorkerThreads()->DeliverBuffers(_worker_id, buffers);
 }
 
 void DNSClient::OnUnreachable(const NetAddr &src)
@@ -262,7 +262,7 @@ bool DNSClient::Initialize(IOLayer *iolayer)
 	}
 
 	// Assign to a worker
-	_worker_id = iolayer->AssignWorker(this);
+	_worker_id = iolayer->GetWorkerThreads()->AssignWorker(this);
 
 	// Attempt to get server address from operating system
 	if (!GetServerAddr())
@@ -291,7 +291,7 @@ bool DNSClient::GetServerAddr()
 
 	// Open Tcpip Interfaces key
 	HKEY key;
-	LSTATUS err = RegOpenKey(HKEY_LOCAL_MACHINE,
+	LSTATUS err = RegOpenKeyA(HKEY_LOCAL_MACHINE,
 		"SYSTEM\\ControlSet001\\Services\\Tcpip\\Parameters\\Interfaces", &key);
 
 	// Handle errors opening the key
@@ -303,18 +303,18 @@ bool DNSClient::GetServerAddr()
 
 	// For each subkey,
 	char subkey_name[SUBKEY_NAME_MAXLEN];
-	for (int ii = 0; ERROR_SUCCESS == RegEnumKey(key, ii, subkey_name, sizeof(subkey_name)); ++ii)
+	for (int ii = 0; ERROR_SUCCESS == RegEnumKeyA(key, ii, subkey_name, sizeof(subkey_name)); ++ii)
 	{
 		HKEY subkey;
 
 		// Open interface subkey
-		if (ERROR_SUCCESS == RegOpenKey(key, subkey_name, &subkey))
+		if (ERROR_SUCCESS == RegOpenKeyA(key, subkey_name, &subkey))
 		{
 			BYTE data[SUBKEY_DATA_MAXLEN];
 			DWORD type, data_len = sizeof(data);
 
 			// Get subkey's DhcpNameServer value
-			if (ERROR_SUCCESS == RegQueryValueEx(subkey, "DhcpNameServer", 0, &type, data, &data_len))
+			if (ERROR_SUCCESS == RegQueryValueExA(subkey, "DhcpNameServer", 0, &type, data, &data_len))
 			{
 				// If type is a string,
 				if (type == REG_EXPAND_SZ || type == REG_SZ)

@@ -40,6 +40,8 @@ class CommonLayer
 	RefObjectWatcher _watcher;
 
 public:
+	CAT_INLINE WorkerThreads *GetWorkerThreads() { return &_worker_threads; }
+
 	CAT_INLINE void Watch(WatchedRefObject *obj) { _watcher.Watch(obj); }
 
 	// No worker threads version
@@ -60,10 +62,6 @@ public:
 
 		return success;
 	}
-
-	CAT_INLINE u32 AssignWorker(WorkerCallbacks *callbacks) { return _worker_threads.AssignWorker(callbacks); }
-
-	CAT_INLINE void DeliverBuffers(u32 worker_id, const BatchSet &buffers) { _worker_threads.DeliverBuffers(worker_id, buffers); }
 
 	CAT_INLINE void Shutdown()
 	{
