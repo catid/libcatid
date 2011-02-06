@@ -173,7 +173,7 @@ static u32 GetProcessorCount()
 	return processor_count > 1 ? processor_count : 1;
 }
 
-void InitializeSystemInfo()
+void cat::InitializeSystemInfo()
 {
 	if (system_info_initialized) return;
 

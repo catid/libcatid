@@ -47,6 +47,8 @@ class IOLayer : public CommonLayer
 	IOThreads _io_threads;
 
 public:
+	CAT_INLINE virtual ~IOLayer() {}
+
 	CAT_INLINE IOThreads *GetIOThreads() { return &_io_threads; }
 
 protected:

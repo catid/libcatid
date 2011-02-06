@@ -41,6 +41,8 @@ class CommonLayer
 	RefObjectWatcher _watcher;
 
 public:
+	CAT_INLINE virtual ~CommonLayer() { Shutdown(); }
+
 	CAT_INLINE WorkerThreads *GetWorkerThreads() { return &_worker_threads; }
 
 	CAT_INLINE void Watch(WatchedRefObject *obj) { _watcher.Watch(obj); }
