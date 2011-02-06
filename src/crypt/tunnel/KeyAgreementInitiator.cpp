@@ -105,8 +105,10 @@ void KeyAgreementInitiator::SecureErasePrivateKey()
 	if (B) CAT_CLR(a, KeyBytes);
 }
 
-bool KeyAgreementInitiator::Initialize(BigTwistedEdwards *math, const u8 *responder_public_key, int public_bytes)
+bool KeyAgreementInitiator::Initialize(BigTwistedEdwards *math, TunnelPublicKey &public_key)
 {
+	if (!public_key.Valid()) return false;
+
 #if defined(CAT_USER_ERROR_CHECKING)
 	if (!math) return false;
 #endif
@@ -122,7 +124,7 @@ bool KeyAgreementInitiator::Initialize(BigTwistedEdwards *math, const u8 *respon
         return false;
 
     // Verify that inputs are of the correct length
-    if (public_bytes != KeyBytes*2) return false;
+    if (public_key.GetPublicKeyBytes() != KeyBytes*2) return false;
 
 	// Precompute a table for multiplication
 	G_MultPrecomp = math->PtMultiplyPrecompAlloc(6);
@@ -130,6 +132,7 @@ bool KeyAgreementInitiator::Initialize(BigTwistedEdwards *math, const u8 *respon
     math->PtMultiplyPrecomp(math->GetGenerator(), 6, G_MultPrecomp);
 
     // Unpack the responder's public key
+	u8 *responder_public_key = public_key.GetPublicKey();
     if (!math->LoadVerifyAffineXY(responder_public_key, responder_public_key + KeyBytes, B))
         return false;
 
@@ -152,17 +155,18 @@ bool KeyAgreementInitiator::Initialize(BigTwistedEdwards *math, const u8 *respon
     return true;
 }
 
-bool KeyAgreementInitiator::SetIdentity(BigTwistedEdwards *math,
-										const u8 *initiator_public_key, int public_bytes,
-										const u8 *initiator_private_key, int private_bytes)
+bool KeyAgreementInitiator::SetIdentity(BigTwistedEdwards *math, TunnelKeyPair &key_pair)
 {
+	if (!key_pair.Valid()) return false;
+
 #if defined(CAT_USER_ERROR_CHECKING)
-	if (!math || public_bytes != KeyBytes*2 || private_bytes != KeyBytes) return false;
+	if (!math || key_pair.GetPublicKeyBytes() != KeyBytes*2 || key_pair.GetPrivateKeyBytes() != KeyBytes) return false;
 #endif
 
 	Leg *I_temp = math->Get(0);
 
 	// Unpack the initiator's public key
+	u8 *initiator_public_key = key_pair.GetPublicKey();
 	if (!math->LoadVerifyAffineXY(initiator_public_key, initiator_public_key + KeyBytes, I_temp))
 		return false;
 
@@ -188,7 +192,7 @@ bool KeyAgreementInitiator::SetIdentity(BigTwistedEdwards *math,
 	memcpy(I_public, initiator_public_key, KeyBytes*2);
 
 	// Load the private key
-	math->Load(initiator_private_key, KeyBytes, I_private);
+	math->Load(key_pair.GetPrivateKey(), KeyBytes, I_private);
 
 	return true;
 }

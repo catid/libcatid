@@ -113,10 +113,11 @@ const char *GetHandshakeErrorString(HandshakeError err);
 // Disconnect reasons
 enum DisconnectReasons
 {
-	DISCO_TIMEOUT = 0xff,		// Remote host has not received data from us
-	DISCO_TAMPERING = 0xfe,		// Remote host received a tampered packet
-	DISCO_BROKEN_PIPE = 0xfd,	// Our socket got closed
-	DISCO_USER_EXIT = 0xfc		// User closed the remote application
+	DISCO_SILENT = 0xff,		// Disconnect without transmitting a reason
+	DISCO_TIMEOUT = 0xfe,		// Remote host has not received data from us
+	DISCO_TAMPERING = 0xfd,		// Remote host received a tampered packet
+	DISCO_BROKEN_PIPE = 0xfc,	// Our socket got closed
+	DISCO_USER_EXIT = 0xfb		// User closed the remote application
 
 	// Feel free to define your own disconnect reasons.  Here is probably not the best place.
 };

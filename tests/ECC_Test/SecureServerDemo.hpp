@@ -131,7 +131,7 @@ protected:
 public:
 	~SecureServerDemo();
 
-    void Reset(SecureClientDemo *client_ref, const u8 *server_public_key, const u8 *server_private_key);
+    void Reset(SecureClientDemo *client_ref, TunnelKeyPair &key_pair);
     void OnDatagram(const Address &source, u8 *buffer, u32 bytes);
 
     Address GetAddress() { return my_addr; }

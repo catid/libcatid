@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -40,9 +40,7 @@ namespace cat {
 namespace sphynx {
 
 
-//// sphynx::Connexion
-
-// Derive from sphynx::Connexion and sphynx::Server to define server behavior
+// Base class for a connexion with a remote Sphynx client
 class Connexion : public Transport, public RefObject, public WorkerCallbacks
 {
 	friend class Server;
@@ -67,7 +65,8 @@ public:
 	CAT_INLINE u32 GetFloodKey() { return _flood_key; }
 	CAT_INLINE u32 GetServerWorkerID() { return _server_worker_id; }
 
-	void Disconnect(u8 reason, bool notify);
+	// Will not notify remote host on DISCO_SILENT
+	void Disconnect(u8 reason = DISCO_SILENT);
 
 protected:
 	NetAddr _client_addr;

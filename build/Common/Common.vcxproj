@@ -162,7 +162,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\CommonLayer.cpp" />
-    <ClCompile Include="..\..\src\io\Base64.cpp" />
     <ClCompile Include="..\..\src\io\Logging.cpp" />
     <ClCompile Include="..\..\src\io\MMapFile.cpp" />
     <ClCompile Include="..\..\src\io\Settings.cpp" />
@@ -172,6 +171,7 @@
     <ClCompile Include="..\..\src\mem\IAllocator.cpp" />
     <ClCompile Include="..\..\src\mem\LargeAllocator.cpp" />
     <ClCompile Include="..\..\src\mem\StdAllocator.cpp" />
+    <ClCompile Include="..\..\src\parse\Base64.cpp" />
     <ClCompile Include="..\..\src\parse\BitStream.cpp" />
     <ClCompile Include="..\..\src\parse\BufferTok.cpp" />
     <ClCompile Include="..\..\src\parse\MessageRouter.cpp" />
@@ -199,7 +199,6 @@
     <ClInclude Include="..\..\include\cat\AllCommon.hpp" />
     <ClInclude Include="..\..\include\cat\CommonLayer.hpp" />
     <ClInclude Include="..\..\include\cat\Config.hpp" />
-    <ClInclude Include="..\..\include\cat\io\Base64.hpp" />
     <ClInclude Include="..\..\include\cat\io\Logging.hpp" />
     <ClInclude Include="..\..\include\cat\io\MMapFile.hpp" />
     <ClInclude Include="..\..\include\cat\io\Settings.hpp" />
@@ -208,6 +207,7 @@
     <ClInclude Include="..\..\include\cat\mem\IAllocator.hpp" />
     <ClInclude Include="..\..\include\cat\mem\LargeAllocator.hpp" />
     <ClInclude Include="..\..\include\cat\mem\StdAllocator.hpp" />
+    <ClInclude Include="..\..\include\cat\parse\Base64.hpp" />
     <ClInclude Include="..\..\include\cat\parse\BitStream.hpp" />
     <ClInclude Include="..\..\include\cat\parse\BufferStream.hpp" />
     <ClInclude Include="..\..\include\cat\parse\BufferTok.hpp" />

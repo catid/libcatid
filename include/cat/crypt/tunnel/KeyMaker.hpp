@@ -35,10 +35,52 @@
 namespace cat {
 
 
-class KeyMaker : public KeyAgreementCommon
+class TunnelKeyPair : KeyAgreementCommon
 {
+	u8 _key_pair[KeyAgreementCommon::MAX_BYTES * 3];
+	u32 _key_bytes;
+	bool _valid;
+
 public:
-    bool GenerateKeyPair(BigTwistedEdwards *math, FortunaOutput *csprng, u8 *public_key, int public_bytes, u8 *private_key, int private_bytes);
+	CAT_INLINE u8 *GetPublicKey() { return _key_pair; }
+	CAT_INLINE u8 *GetPrivateKey() { return _key_pair + _key_bytes * 2; }
+	CAT_INLINE u32 GetPublicKeyBytes() { return _key_bytes * 2; }
+	CAT_INLINE u32 GetPrivateKeyBytes() { return _key_bytes; }
+	CAT_INLINE bool Valid() { return _valid; }
+
+	TunnelKeyPair();
+	~TunnelKeyPair();
+
+	bool LoadBase64(const char *base64_encoded);
+	std::string SaveBase64();
+
+	bool LoadFile(const char *file_path);
+	bool SaveFile(const char *file_path);
+
+	bool Generate(BigTwistedEdwards *math, FortunaOutput *csprng);
+};
+
+
+class TunnelPublicKey
+{
+	u8 _public_key[KeyAgreementCommon::MAX_BYTES * 2];
+	u32 _key_bytes;
+	bool _valid;
+
+public:
+	CAT_INLINE u8 *GetPublicKey() { return _public_key; }
+	CAT_INLINE u32 GetPublicKeyBytes() { return _key_bytes * 2; }
+	CAT_INLINE bool Valid() { return _valid; }
+
+	TunnelPublicKey();
+	TunnelPublicKey(TunnelKeyPair &pair); // Copy from key pair
+	~TunnelPublicKey();
+
+	bool LoadBase64(const char *base64_encoded);
+	std::string SaveBase64();
+
+	bool LoadFile(const char *file_path);
+	bool SaveFile(const char *file_path);
 };
 
 

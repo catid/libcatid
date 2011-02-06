@@ -366,99 +366,116 @@ Client::Client()
 	_ts_sample_count = 0;
 }
 
-bool Client::SetServerKey(SphynxTLS *tls, const void *server_key, int key_bytes, const char *session_key)
+bool Client::InitialConnect(SphynxLayer *layer, SphynxTLS *tls, TunnelPublicKey &public_key, const char *session_key)
 {
-	// Verify the key bytes are correct
-	if (key_bytes != sizeof(_server_public_key))
-	{
-		WARN("Client") << "Failed to connect: Invalid server public key length provided";
-		return false;
-	}
-
-	// Verify TLS is valid
 	if (!tls->Valid())
 	{
-		WARN("Client") << "Failed to connect: Unable to create thread local storage";
+		WARN("Client") << "Failed to connect: Invalid thread local storage";
 		return false;
 	}
 
-	// Verify public key and initialize crypto library with it
-	if (!_key_agreement_initiator.Initialize(tls->math, reinterpret_cast<const u8*>( server_key ), key_bytes))
+	if (!public_key.Valid())
 	{
 		WARN("Client") << "Failed to connect: Invalid server public key provided";
 		return false;
 	}
 
-	// Generate a challenge for the server
-	if (!_key_agreement_initiator.GenerateChallenge(tls->math, tls->csprng, _cached_challenge, CHALLENGE_BYTES))
+	// Verify public key and initialize crypto library with it
+	if (!_key_agreement_initiator.Initialize(tls->math,
+					reinterpret_cast<const u8*>( public_key.GetPublicKey() ),
+					public_key.GetPublicKeyBytes()))
 	{
-		WARN("Client") << "Failed to connect: Cannot generate challenge message";
+		WARN("Client") << "Failed to connect: Corrupted server public key provided";
+		return false;
+	}
+
+	// Generate a challenge for the server
+	if (!_key_agreement_initiator.GenerateChallenge(tls->math, tls->csprng,
+										_cached_challenge, CHALLENGE_BYTES))
+	{
+		WARN("Client") << "Failed to connect: Cannot generate crypto-challenge";
 		return false;
 	}
 
 	// Copy session key
 	CAT_STRNCPY(_session_key, session_key, SESSION_KEY_BYTES);
 
-	memcpy(_server_public_key, server_key, sizeof(_server_public_key));
-
-	return true;
-}
-
-bool Client::Connect(const char *hostname, Port port)
-{
-	// Set port
-	_server_addr.SetPort(port);
-
-	// If DNS resolution fails,
-	if (!DNSClient::ii->Resolve(hostname, fastdelegate::MakeDelegate(this, &Client::OnResolve), this))
-	{
-		WARN("Client") << "Failed to connect: Unable to resolve server hostname";
-		return false;
-	}
-
-	return true;
-}
-
-bool Client::Connect(const NetAddr &addr)
-{
-	// Validate port
-	if (addr.GetPort() == 0)
-	{
-		WARN("Client") << "Failed to connect: Invalid server port specified";
-		return false;
-	}
-
-	_server_addr = addr;
+	// Copy public key
+	memcpy(_server_public_key, public_key.GetPublicKey(), sizeof(_server_public_key));
 
 	// Get SupportIPv6 flag from settings
 	bool only_ipv4 = Settings::ii->getInt("Sphynx.Client.SupportIPv6", 0) == 0;
 
 	// Get kernel receive buffer size
-	int kernelReceiveBufferBytes = Settings::ii->getInt("Sphynx.Client.KernelReceiveBuffer", 1000000);
+	int kernelReceiveBufferBytes =
+		Settings::ii->getInt("Sphynx.Client.KernelReceiveBuffer", 1000000);
 
 	// Attempt to bind to any port and accept ICMP errors initially
-	if (!Bind(only_ipv4, 0, false, kernelReceiveBufferBytes))
+	if (!Bind(layer, only_ipv4, 0, false, kernelReceiveBufferBytes))
 	{
 		WARN("Client") << "Failed to connect: Unable to bind to any port";
-		return false;
-	}
-
-	// Convert server address if needed
-	if (!_server_addr.Convert(Is6()))
-	{
-		WARN("Client") << "Failed to connect: Invalid address specified";
-		Close();
 		return false;
 	}
 
 	// Initialize max payload bytes
 	InitializePayloadBytes(Is6());
 
+	return true;
+}
+
+bool Client::FinalConnect(const NetAddr &addr)
+{
+	if (!addr.Valid())
+	{
+		WARN("Client") << "Failed to connect: Invalid server address";
+		return false;
+	}
+
+	_server_addr = addr;
+
+	// Convert server address if needed
+	if (!_server_addr.Convert(Is6()))
+	{
+		WARN("Client") << "Failed to connect: Invalid address specified";
+		return false;
+	}
+
 	// Attempt to post hello message
 	if (!PostHello())
 	{
 		WARN("Client") << "Failed to connect: Post failure";
-		Close();
+		return false;
+	}
+
+	return true;
+}
+
+bool Client::Connect(SphynxLayer *layer, SphynxTLS *tls, const char *hostname, Port port, TunnelPublicKey &public_key, const char *session_key)
+{
+	if (!InitialConnect(layer, tls, public_key, session_key))
+	{
+		RequestShutdown();
+		return false;
+	}
+
+	_server_addr.SetPort(port);
+
+	if (!layer->GetDNSClient()->Resolve(layer, hostname, fastdelegate::MakeDelegate(this, &Client::OnResolve), this))
+	{
+		WARN("Client") << "Failed to connect: Cannot start hostname resolve for " << hostname;
+		RequestShutdown();
+		return false;
+	}
+
+	return true;
+}
+
+bool Client::Connect(SphynxLayer *layer, SphynxTLS *tls, const NetAddr &addr, TunnelPublicKey &public_key, const char *session_key)
+{
+	if (!InitialConnect(layer, tls, public_key, session_key) ||
+		!FinalConnect(addr))
+	{
+		RequestShutdown();
 		return false;
 	}
 
@@ -471,18 +488,22 @@ bool Client::OnResolve(const char *hostname, const NetAddr *array, int array_len
 	if (array_length <= 0)
 	{
 		WARN("Client") << "Failed to connect: Server hostname resolve failed";
-
-		Close();
+		RequestShutdown();
+		return false;
 	}
 	else
 	{
 		NetAddr addr = array[0];
 		addr.SetPort(_server_addr.GetPort());
 
-		INANE("Client") << "Connecting: Resolved '" << hostname << "' to " << addr.IPToString();
+		INFO("Client") << "Connecting: Resolved '" << hostname << "' to " << addr.IPToString();
 
-		if (!Connect(addr))
-			Close();
+		if (!FinalConnect(addr))
+		{
+			WARN("Client") << "Failed to connect: Cannot start hostname resolve for " << hostname;
+			RequestShutdown();
+			return false;
+		}
 	}
 
 	return true;

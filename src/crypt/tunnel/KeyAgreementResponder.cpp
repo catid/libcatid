@@ -105,13 +105,18 @@ void KeyAgreementResponder::Rekey(BigTwistedEdwards *math, FortunaOutput *csprng
 #endif // CAT_NO_ATOMIC_RESPONDER
 }
 
-bool KeyAgreementResponder::Initialize(BigTwistedEdwards *math, FortunaOutput *csprng,
-									   const u8 *responder_public_key, int public_bytes,
-									   const u8 *responder_private_key, int private_bytes)
+bool KeyAgreementResponder::Initialize(BigTwistedEdwards *math, FortunaOutput *csprng, TunnelKeyPair &key_pair)
 {
+	if (!key_pair.Valid()) return false;
+
 #if defined(CAT_USER_ERROR_CHECKING)
 	if (!math || !csprng) return false;
+
+	// Verify that inputs are of the correct length
+	if (key_pair.GetPrivateKeyBytes() != KeyBytes) return false;
 #endif
+
+	if (key_pair.GetPublicKeyBytes() != KeyBytes*2) return false;
 
 #if defined(CAT_NO_ATOMIC_RESPONDER)
 	if (!m_thread_id_mutex.Valid()) return false;
@@ -127,17 +132,14 @@ bool KeyAgreementResponder::Initialize(BigTwistedEdwards *math, FortunaOutput *c
     if (!AllocateMemory())
         return false;
 
-    // Verify that inputs are of the correct length
-    if (private_bytes != KeyBytes) return false;
-    if (public_bytes != KeyBytes*2) return false;
-
 	// Precompute an 8-bit table for multiplication
 	G_MultPrecomp = math->PtMultiplyPrecompAlloc(8);
     if (!G_MultPrecomp) return false;
     math->PtMultiplyPrecomp(math->GetGenerator(), 8, G_MultPrecomp);
 
     // Unpack the responder's public point
-    math->Load(responder_private_key, KeyBytes, b);
+	u8 *responder_public_key = key_pair.GetPublicKey();
+    math->Load(key_pair.GetPrivateKey(), KeyBytes, b);
     if (!math->LoadVerifyAffineXY(responder_public_key, responder_public_key+KeyBytes, B))
         return false;
     math->PtUnpack(B);

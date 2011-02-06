@@ -65,9 +65,7 @@ public:
     KeyAgreementResponder();
     ~KeyAgreementResponder();
 
-    bool Initialize(BigTwistedEdwards *math, FortunaOutput *csprng,
-					const u8 *responder_public_key, int public_bytes,
-                    const u8 *responder_private_key, int private_bytes);
+    bool Initialize(BigTwistedEdwards *math, FortunaOutput *csprng, TunnelKeyPair &key_pair);
 
 public:
     bool ProcessChallenge(BigTwistedEdwards *math, FortunaOutput *csprng,

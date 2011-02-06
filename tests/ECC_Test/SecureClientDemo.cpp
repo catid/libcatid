@@ -150,7 +150,7 @@ void SecureClientDemo::OnSessionMessage(u8 *buffer, u32 bytes)
 static BigTwistedEdwards *tls_math = 0;
 static FortunaOutput *tls_csprng = 0;
 
-void SecureClientDemo::Reset(SecureServerDemo *cserver_ref, const u8 *server_public_key)
+void SecureClientDemo::Reset(SecureServerDemo *cserver_ref, TunnelPublicKey &public_key)
 {
     //cout << "Client: Reset!" << endl;
 
@@ -168,7 +168,7 @@ void SecureClientDemo::Reset(SecureServerDemo *cserver_ref, const u8 *server_pub
 
     double t1 = Clock::usec();
 
-    if (!tun_client.Initialize(tls_math, server_public_key, CAT_DEMO_PUBLIC_KEY_BYTES))
+    if (!tun_client.Initialize(tls_math, public_key))
     {
         cout << "Client: Unable to initialize" << endl;
         return;

@@ -27,9 +27,104 @@
 */
 
 #include <cat/crypt/tunnel/KeyMaker.hpp>
+#include <cat/parse/Base64.hpp>
+#include <fstream>
 using namespace cat;
+using namespace std;
 
-bool KeyMaker::GenerateKeyPair(BigTwistedEdwards *math, FortunaOutput *csprng, u8 *public_key, int public_bytes, u8 *private_key, int private_bytes)
+TunnelKeyPair::TunnelKeyPair()
+{
+	_key_bytes = 0;
+	_valid = false;
+}
+
+TunnelKeyPair::~TunnelKeyPair()
+{
+	CAT_OBJCLR(_key_pair);
+}
+
+bool TunnelKeyPair::LoadBase64(const char *base64_encoded)
+{
+	_valid = false;
+
+	int encoded_bytes = (int)strlen(base64_encoded);
+
+	// Decode the public key || private key pair
+	int copied = ReadBase64(base64_encoded, encoded_bytes, _key_pair, sizeof(_key_pair));
+
+	if (copied != (256 / 8) * 3 &&
+		copied != (384 / 8) * 3 &&
+		copied != (512 / 8) * 3)
+	{
+		return false;
+	}
+
+	_key_bytes = copied / 3;
+
+	_valid = true;
+	return true;
+}
+
+std::string TunnelKeyPair::SaveBase64()
+{
+	if (!Valid()) return "<invalid key pair>";
+
+	u32 pair_bytes = _key_bytes * 3;
+	int encoded_bytes = GetBase64LengthFromBinaryLength(pair_bytes);
+	char *base64_encoded = new char[encoded_bytes + 1];
+
+	int bytes = WriteBase64Str(_key_pair, pair_bytes, base64_encoded, encoded_bytes);
+
+	std::string str;
+
+	if (bytes <= 0) str = "<corrupt key pair>";
+	else str = base64_encoded;
+
+	delete []base64_encoded;
+
+	return str;
+}
+
+bool TunnelKeyPair::LoadFile(const char *file_path)
+{
+	_valid = false;
+
+	// Attempt to map key file
+	MMapFile mmf(file_path);
+
+	if (!mmf.good()) return false;
+
+	u32 bytes = mmf.remaining();
+
+	if (bytes != (256 / 8) * 3 &&
+		bytes != (384 / 8) * 3 &&
+		bytes != (512 / 8) * 3)
+	{
+		return false;
+	}
+
+	_key_bytes = bytes / 3;
+
+	memcpy(_key_pair, mmf.read(bytes), bytes);
+
+	_valid = true;
+	return true;
+}
+
+bool TunnelKeyPair::SaveFile(const char *file_path)
+{
+	if (!_valid) return false;
+
+	ofstream keyfile(file_path, ios_base::out | ios_base::binary);
+
+	if (!keyfile) return false;
+
+	keyfile.write((char*)_key_pair, _key_bytes * 3);
+
+	return keyfile.good();
+}
+
+bool TunnelKeyPair::Generate(BigTwistedEdwards *math, FortunaOutput *csprng)
 {
 #if defined(CAT_USER_ERROR_CHECKING)
 	if (!math || !csprng) return false;
@@ -37,26 +132,113 @@ bool KeyMaker::GenerateKeyPair(BigTwistedEdwards *math, FortunaOutput *csprng, u
 
 	int bits = math->RegBytes() * 8;
 
-    // Validate and accept number of bits
-    if (!KeyAgreementCommon::Initialize(bits))
-        return false;
+	// Validate and accept number of bits
+	if (!KeyAgreementCommon::Initialize(bits))
+		return false;
 
-    // Verify that inputs are of the correct length
-    if (private_bytes != KeyBytes) return false;
-    if (public_bytes != KeyBytes*2) return false;
+	Leg *b = math->Get(0);
+	Leg *B = math->Get(1);
 
-    Leg *b = math->Get(0);
-    Leg *B = math->Get(1);
-
-    // Generate private key
+	// Generate private key
 	GenerateKey(math, csprng, b);
 
-    // Generate public key
+	// Generate public key
 	math->PtMultiply(math->GetGenerator(), b, 0, B);
 
-    // Save key pair and generator point
-    math->SaveAffineXY(B, public_key, public_key + KeyBytes);
-    math->Save(b, private_key, private_bytes);
+	// Save key pair and generator point
+	math->SaveAffineXY(B, _key_pair, _key_pair + KeyBytes);
+	math->Save(b, _key_pair + KeyBytes * 2, KeyBytes);
 
-    return true;
+	_key_bytes = KeyBytes;
+
+	return true;
+}
+
+
+//// TunnelPublicKey
+
+TunnelPublicKey::TunnelPublicKey()
+{
+	_key_bytes = 0;
+	_valid = false;
+}
+
+TunnelPublicKey::TunnelPublicKey(TunnelKeyPair &pair)
+{
+	_key_bytes = 0;
+	_valid = false;
+
+	if (!pair.Valid()) return;
+
+	_key_bytes = pair.GetPrivateKeyBytes();
+
+	memcpy(_public_key, pair.GetPublicKey(), _key_bytes * 2);
+
+	_valid = true;
+}
+
+TunnelPublicKey::~TunnelPublicKey()
+{
+	CAT_OBJCLR(_public_key);
+}
+
+bool TunnelPublicKey::LoadBase64(const char *base64_encoded)
+{
+	_valid = false;
+
+	int encoded_bytes = (int)strlen(base64_encoded);
+
+	// Decode the public key || private key pair
+	int copied = ReadBase64(base64_encoded, encoded_bytes, _public_key, sizeof(_public_key));
+
+	if (copied != (256 / 8) * 2 &&
+		copied != (384 / 8) * 2 &&
+		copied != (512 / 8) * 2)
+	{
+		return false;
+	}
+
+	_key_bytes = copied / 2;
+
+	_valid = true;
+	return true;
+}
+
+bool TunnelPublicKey::LoadFile(const char *file_path)
+{
+	_valid = false;
+
+	// Attempt to map key file
+	MMapFile mmf(file_path);
+
+	if (!mmf.good()) return false;
+
+	u32 bytes = mmf.remaining();
+
+	if (bytes != (256 / 8) * 2 &&
+		bytes != (384 / 8) * 2 &&
+		bytes != (512 / 8) * 2)
+	{
+		return false;
+	}
+
+	_key_bytes = bytes / 2;
+
+	memcpy(_public_key, mmf.read(bytes), bytes);
+
+	_valid = true;
+	return true;
+}
+
+bool TunnelPublicKey::SaveFile(const char *file_path)
+{
+	if (!_valid) return false;
+
+	ofstream keyfile(file_path, ios_base::out | ios_base::binary);
+
+	if (!keyfile) return false;
+
+	keyfile.write((char*)_public_key, _key_bytes * 2);
+
+	return keyfile.good();
 }

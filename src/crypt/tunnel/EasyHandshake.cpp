@@ -83,17 +83,9 @@ EasyHandshake::~EasyHandshake()
 	EasyHandshake::Shutdown();
 }
 
-bool EasyHandshake::GenerateServerKey(void *out_public_key, void *out_private_key)
+bool EasyHandshake::GenerateServerKey(TunnelKeyPair &key_pair)
 {
-	u8 *public_key = reinterpret_cast<u8*>( out_public_key );
-	u8 *private_key = reinterpret_cast<u8*>( out_private_key );
-
-	KeyMaker bob;
-
-	// Generate a random key pair
-	return bob.GenerateKeyPair(tls_math, tls_csprng,
-							   public_key, PUBLIC_KEY_BYTES,
-							   private_key, PRIVATE_KEY_BYTES);
+	return key_pair.Generate(tls_math, tls_csprng);
 }
 
 bool EasyHandshake::GenerateRandomNumber(void *out_num, int bytes)
@@ -120,15 +112,12 @@ void ServerEasyHandshake::FillCookieJar(CookieJar *jar)
 	if (tls_csprng) jar->Initialize(tls_csprng);
 }
 
-bool ServerEasyHandshake::Initialize(const void *in_public_key, const void *in_private_key)
+bool ServerEasyHandshake::Initialize(TunnelKeyPair &key_pair)
 {
-	const u8 *public_key = reinterpret_cast<const u8*>( in_public_key );
-	const u8 *private_key = reinterpret_cast<const u8*>( in_private_key );
+	if (!key_pair.Valid()) return false;
 
 	// Initialize the tunnel server object using the provided key
-    return tun_server.Initialize(tls_math, tls_csprng,
-								 public_key, PUBLIC_KEY_BYTES,
-								 private_key, PRIVATE_KEY_BYTES);
+    return tun_server.Initialize(tls_math, tls_csprng, key_pair);
 }
 
 bool ServerEasyHandshake::ProcessChallenge(const void *in_challenge, void *out_answer, AuthenticatedEncryption *auth_enc)
@@ -182,22 +171,16 @@ ClientEasyHandshake::~ClientEasyHandshake()
 {
 }
 
-bool ClientEasyHandshake::Initialize(const void *in_public_key)
+bool ClientEasyHandshake::Initialize(TunnelPublicKey &public_key)
 {
-	const u8 *public_key = reinterpret_cast<const u8*>( in_public_key );
-
 	// Initialize the tunnel client with the given public key
-	return tun_client.Initialize(tls_math, public_key, PUBLIC_KEY_BYTES);
+	return tun_client.Initialize(tls_math, public_key);
 }
 
-bool ClientEasyHandshake::SetIdentity(const void *in_public_key /* EasyHandshake::PUBLIC_KEY_BYTES */,
-									  const void *in_private_key /* EasyHandshake::PRIVATE_KEY_BYTES */)
+bool ClientEasyHandshake::SetIdentity(TunnelKeyPair &key_pair)
 {
-	const u8 *public_key = reinterpret_cast<const u8*>( in_public_key );
-	const u8 *private_key = reinterpret_cast<const u8*>( in_private_key );
-
 	// Initialize the tunnel client's identity
-	return tun_client.SetIdentity(tls_math, public_key, PUBLIC_KEY_BYTES, private_key, PRIVATE_KEY_BYTES);
+	return tun_client.SetIdentity(tls_math, key_pair);
 }
 
 bool ClientEasyHandshake::GenerateChallenge(void *out_challenge)
