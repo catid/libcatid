@@ -30,6 +30,25 @@
 #include <cat/crypt/rand/Fortuna.hpp>
 using namespace cat;
 
+SphynxTLS::SphynxTLS()
+{
+	csprng = FortunaFactory::ii->Create();
+
+	math = KeyAgreementCommon::InstantiateMath(256);
+}
+
+SphynxTLS::~SphynxTLS()
+{
+	if (csprng) delete csprng;
+
+	if (math) delete math;
+}
+
+bool SphynxTLS::Valid()
+{
+	return csprng && math;
+}
+
 bool SphynxLayer::OnStartup(IWorkerTLSBuilder *tls_builder, const char *settings_file_name, bool service, const char *service_name)
 {
 	if (!IOLayer::OnStartup(tls_builder, settings_file_name, service, service_name))
