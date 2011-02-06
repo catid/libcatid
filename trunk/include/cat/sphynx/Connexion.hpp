@@ -30,13 +30,9 @@
 #define CAT_SPHYNX_CONNEXION_HPP
 
 #include <cat/sphynx/Transport.hpp>
-#include <cat/threads/RWLock.hpp>
-#include <cat/threads/Thread.hpp>
-#include <cat/threads/WaitableFlag.hpp>
-#include <cat/sphynx/Collexion.hpp>
-#include <cat/crypt/cookie/CookieJar.hpp>
-#include <cat/crypt/tunnel/KeyAgreementResponder.hpp>
+#include <cat/threads/WorkerThreads.hpp>
 #include <cat/threads/RefObject.hpp>
+#include <cat/sphynx/SphynxLayer.hpp>
 
 namespace cat {
 
@@ -52,14 +48,6 @@ class Connexion : public Transport, public RefObject, public WorkerCallbacks
 	friend class Server;
 	friend class ConnexionMap;
 
-	virtual void OnShutdownRequest();
-	virtual bool OnZeroReferences();
-
-public:
-	Connexion();
-	CAT_INLINE virtual ~Connexion() {}
-
-private:
 	u32 _flood_key;
 	u32 _key; // Map hash table index, unique for each active connection
 	Connexion *_next_delete;
@@ -68,15 +56,13 @@ private:
 	u8 _first_challenge[64]; // First challenge seen from this client address
 	u8 _cached_answer[128]; // Cached answer to this first challenge, to avoid eating server CPU time
 
-private:
-	virtual void OnWorkerRead(WorkerTLS *tls, RecvBuffer *buffer_list_head);
-	virtual void OnWorkerTick(WorkerTLS *tls, u32 now);
-
 	virtual bool PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes);
-	virtual void OnInternal(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes);
+	virtual void OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes);
 
 public:
-	CAT_INLINE bool IsValid() { return _destroyed == 0; }
+	Connexion();
+	CAT_INLINE virtual ~Connexion() {}
+
 	CAT_INLINE u32 GetKey() { return _key; }
 	CAT_INLINE u32 GetFloodKey() { return _flood_key; }
 	CAT_INLINE u32 GetServerWorkerID() { return _server_worker_id; }
@@ -92,10 +78,14 @@ protected:
 	bool _seen_encrypted;
 	AuthenticatedEncryption _auth_enc;
 
-protected:
-	virtual void OnConnect(ThreadPoolLocalStorage *tls) = 0;
+	virtual void OnShutdownRequest();
+	virtual bool OnZeroReferences();
+
+	virtual void OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers);
+	virtual void OnWorkerTick(IWorkerTLS *tls, u32 now);
+
+	virtual void OnConnect(SphynxTLS *tls) = 0;
 	virtual void OnDisconnect(u8 reason) = 0;
-	virtual void OnTick(ThreadPoolLocalStorage *tls, u32 now) = 0;
 };
 
 

@@ -41,15 +41,59 @@ using namespace sphynx;
 
 void Connexion::OnShutdownRequest()
 {
+	if (notify)
+		PostDisconnect(reason);
+
+	TransportDisconnected();
+
+	OnDisconnect(reason);
 }
 
 bool Connexion::OnZeroReferences()
 {
+	return true;
+}
+
+void Connexion::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
+{
+	SphynxTLS *tls = reinterpret_cast<SphynxTLS*>( itls );
+
+	for (BatchHead *node = buffers.head; node; node = node->batch_next)
+	{
+		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
+
+		u32 bytes = buffer->data_bytes;
+		u8 *data = GetTrailingBytes(buffer);
+
+		// If packet is valid,
+		if (_auth_enc.Decrypt(data, bytes))
+		{
+			_last_recv_tsc = buffer->event_msec;
+
+			if (bytes >= 2)
+			{
+				// Read timestamp for transmission
+				bytes -= 2;
+				u32 send_time = DecodeClientTimestamp(buffer->event_msec, getLE(*(u16 *)(data + bytes)));
+
+				// Pass it to the transport layer
+				OnDatagram(tls, send_time, buffer->event_msec, data, bytes);
+			}
+		}
+		else
+		{
+			WARN("Server") << "Ignoring invalid encrypted data";
+		}
+	}
+}
+
+void Connexion::OnWorkerTick(IWorkerTLS *tls, u32 now)
+{
+
 }
 
 Connexion::Connexion()
 {
-	_destroyed = 0;
 	_seen_encrypted = false;
 }
 
@@ -57,39 +101,7 @@ void Connexion::Disconnect(u8 reason, bool notify)
 {
 	if (Atomic::Set(&_destroyed, 1) == 0)
 	{
-		if (notify)
-			PostDisconnect(reason);
-
-		TransportDisconnected();
-
-		OnDisconnect(reason);
 	}
-}
-
-void Connexion::OnWorkerRead(WorkerTLS *tls, RecvBuffer *buffer_list_head)
-{
-	u32 buf_bytes = bytes;
-
-	// If packet is valid,
-	if (_auth_enc.Decrypt(data, buf_bytes))
-	{
-		u32 recv_time = Clock::msec();
-
-		_last_recv_tsc = recv_time;
-
-		if (buf_bytes >= 2)
-		{
-			// Read timestamp for transmission
-			buf_bytes -= 2;
-			u32 send_time = DecodeClientTimestamp(recv_time, getLE(*(u16 *)(data + buf_bytes)));
-
-			// Pass it to the transport layer
-			OnDatagram(tls, send_time, recv_time, data, buf_bytes);
-			return;
-		}
-	}
-
-	WARN("Server") << "Ignoring invalid encrypted data";
 }
 
 void Connexion::OnWorkerTick(WorkerTLS *tls, u32 now)
@@ -117,7 +129,7 @@ bool Connexion::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes)
 	{
 		WARN("Server") << "Encryption failure while sending packet";
 
-		AsyncBuffer::Release(buffer);
+		SendBuffer::Release(buffer);
 
 		return false;
 	}
@@ -125,7 +137,7 @@ bool Connexion::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes)
 	return _server_worker->Post(_client_addr, buffer, msg_bytes);
 }
 
-void Connexion::OnInternal(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, BufferStream data, u32 bytes)
+void Connexion::OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream data, u32 bytes)
 {
 	switch (data[0])
 	{

@@ -50,7 +50,11 @@ public:
 
 class SphynxLayer : public IOLayer
 {
+	DNSClient *_dns_client;
+
 public:
+	CAT_INLINE DNSClient *GetDNSClient() { return _dns_client; }
+
 	CAT_INLINE bool Startup(const char *settings_file_name = "Settings.cfg", bool service = false, const char *service_name = "MyService")
 	{
 		return CommonLayer::Startup<SphynxTLS>(settings_file_name, service, service_name);

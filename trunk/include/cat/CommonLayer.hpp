@@ -29,6 +29,7 @@
 #ifndef CAT_COMMON_LAYER_HPP
 #define CAT_COMMON_LAYER_HPP
 
+#include <cat/threads/RefObject.hpp>
 #include <cat/threads/WorkerThreads.hpp>
 
 namespace cat {

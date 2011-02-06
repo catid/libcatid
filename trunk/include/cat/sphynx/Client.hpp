@@ -42,7 +42,7 @@ namespace sphynx {
 
 //// sphynx::Client
 
-class Client : Thread, public UDPEndpoint, public Transport
+class Client : public UDPEndpoint, public Transport, public WorkerCallbacks
 {
 	static const int HANDSHAKE_TICK_RATE = 100; // milliseconds
 	static const int INITIAL_HELLO_POST_INTERVAL = 200; // milliseconds
@@ -62,15 +62,14 @@ class Client : Thread, public UDPEndpoint, public Transport
 	u32 _last_send_mstsc;
 	NetAddr _server_addr;
 	bool _connected;
-	u32 _destroyed;
+	u32 _worker_id;
 	AuthenticatedEncryption _auth_enc;
 
 	// Last time a packet was received from the server -- for disconnect timeouts
 	u32 _last_recv_tsc;
 
 private:
-	virtual void Finalize();
-	virtual void OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes);
+	virtual void OnRead(SphynxTLS *tls, const NetAddr &src, u8 *data, u32 bytes);
 
 	bool PostHello();
 	bool PostTimePing();
@@ -81,7 +80,7 @@ private:
 	bool OnResolve(const char *hostname, const NetAddr *array, int array_length);
 
 	virtual bool PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes);
-	virtual void OnInternal(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes);
+	virtual void OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes);
 
 	void ConnectFail(HandshakeError err);
 
@@ -105,22 +104,31 @@ protected:
 
 	virtual void OnClose() = 0;
 	virtual void OnConnectFail(sphynx::HandshakeError err) = 0;
-	virtual void OnConnect(ThreadPoolLocalStorage *tls) = 0;
+	virtual void OnConnect(SphynxTLS *tls) = 0;
 	virtual void OnTimestampDeltaUpdate() {}
-	virtual void OnMessage(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes) = 0;
+	virtual void OnMessage(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes) = 0;
 	virtual void OnDisconnect(u8 reason) = 0;
-	virtual void OnTick(ThreadPoolLocalStorage *tls, u32 now) = 0;
+	virtual void OnTick(SphynxTLS *tls, u32 now) = 0;
 
 public:
 	Client();
 	CAT_INLINE virtual ~Client() {}
 
-	bool SetServerKey(ThreadPoolLocalStorage *tls, const void *server_key, int key_bytes, const char *session_key);
+	bool SetServerKey(SphynxTLS *tls, const void *server_key, int key_bytes, const char *session_key);
 
 	bool Connect(const char *hostname, Port port);
 	bool Connect(const NetAddr &addr);
 
 	void Disconnect(u8 reason, bool notify);
+
+protected:
+	virtual void OnShutdownRequest();
+	virtual bool OnZeroReferences();
+
+	virtual void OnReadRouting(const BatchSet &buffers);
+
+	virtual void OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers);
+	virtual void OnWorkerTick(IWorkerTLS *tls, u32 now);
 };
 
 

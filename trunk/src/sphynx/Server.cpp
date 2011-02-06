@@ -305,6 +305,7 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 
 void Server::OnWorkerTick(IWorkerTLS *tls, u32 now)
 {
+	// Not synchronous with OnWorkerRead() callback because offline events are distributed between threads
 }
 
 Server::Server()
@@ -316,7 +317,7 @@ Server::~Server()
 {
 }
 
-bool Server::StartServer(ThreadPoolLocalStorage *tls, Port port, u8 *public_key, int public_bytes, u8 *private_key, int private_bytes, const char *session_key)
+bool Server::StartServer(SphynxTLS *tls, Port port, u8 *public_key, int public_bytes, u8 *private_key, int private_bytes, const char *session_key)
 {
 	// If objects were not created,
 	if (!tls->Valid())
@@ -437,7 +438,7 @@ bool Server::PostConnectionError(const NetAddr &dest, HandshakeError err)
 	return Write(pkt, dest);
 }
 
-bool Server::GenerateKeyPair(ThreadPoolLocalStorage *tls, const char *public_key_file,
+bool Server::GenerateKeyPair(SphynxTLS *tls, const char *public_key_file,
 							 const char *private_key_file, u8 *public_key,
 							 int public_bytes, u8 *private_key, int private_bytes)
 {

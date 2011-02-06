@@ -243,18 +243,18 @@ bool Collexion<T>::DoubleTable()
 	// Allocate secondary table
 	u32 new_bytes2 = sizeof(CollexionElement2) * new_allocated;
 	CollexionElement2 *new_table2 = reinterpret_cast<CollexionElement2*>(
-		RegionAllocator::ii->Acquire(new_bytes2) );
+		StdAllocator::ii->Acquire(new_bytes2) );
 
 	if (!new_table2) return false;
 
 	// Allocate primary table
 	u32 new_bytes = sizeof(CollexionElement<T>) * new_allocated;
 	CollexionElement<T> *new_table = reinterpret_cast<CollexionElement<T> *>(
-		RegionAllocator::ii->Acquire(new_bytes) );
+		StdAllocator::ii->Acquire(new_bytes) );
 
 	if (!new_table)
 	{
-		RegionAllocator::ii->Release(new_table2);
+		StdAllocator::ii->Release(new_table2);
 		return false;
 	}
 
@@ -308,8 +308,8 @@ bool Collexion<T>::DoubleTable()
 
 	// Resulting linked list starting with _first-1 will extend until e->next == 0
 
-	if (_table2) RegionAllocator::ii->Release(_table2);
-	if (_table) RegionAllocator::ii->Release(_table);
+	if (_table2) StdAllocator::ii->Release(_table2);
+	if (_table) StdAllocator::ii->Release(_table);
 
 	_table = new_table;
 	_table2 = new_table2;
@@ -323,7 +323,7 @@ Collexion<T>::~Collexion()
 {
 	if (_table2)
 	{
-		RegionAllocator::ii->Release(_table2);
+		StdAllocator::ii->Release(_table2);
 	}
 
 	// If table doesn't exist, return
@@ -340,7 +340,7 @@ Collexion<T>::~Collexion()
 	}
 
 	// Release table memory
-	RegionAllocator::ii->Release(_table);
+	StdAllocator::ii->Release(_table);
 }
 
 template<class T>
