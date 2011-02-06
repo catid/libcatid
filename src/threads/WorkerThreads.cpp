@@ -68,6 +68,8 @@ void WorkerThread::DeliverBuffers(const BatchSet &buffers)
 	_workqueue.tail = buffers.tail;
 
 	_workqueue_lock.Leave();
+
+	_event_flag.Set();
 }
 
 bool WorkerThread::ThreadFunction(void *vmaster)

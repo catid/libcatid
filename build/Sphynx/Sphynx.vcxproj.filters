@@ -73,10 +73,10 @@
     <ClInclude Include="..\..\include\cat\AllSphynx.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\cat\sphynx\SphynxLayer.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\include\cat\net\DNSClient.hpp">
+      <Filter>Header Files\sphynx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\sphynx\SphynxLayer.hpp">
       <Filter>Header Files\sphynx</Filter>
     </ClInclude>
   </ItemGroup>
