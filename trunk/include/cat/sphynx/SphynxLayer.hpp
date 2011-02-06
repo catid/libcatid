@@ -26,29 +26,16 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_IO_LAYER_HPP
-#define CAT_IO_LAYER_HPP
+#ifndef CAT_SPHYNX_LAYER_HPP
+#define CAT_SPHYNX_LAYER_HPP
 
-#include <cat/net/Sockets.hpp>
-#include <cat/threads/WorkerThreads.hpp>
-
-#if defined(CAT_OS_WINDOWS)
-#include <cat/iocp/IOThreads.hpp>
-#include <cat/iocp/UDPEndpoint.hpp>
-#else
-TODO
-#endif
+#include <cat/Platform.hpp>
 
 namespace cat {
 
 
-class IOLayer : public CommonLayer
+class SphynxLayer : public IOLayer
 {
-	IOThreads _io_threads;
-
-public:
-	CAT_INLINE IOThreads *GetIOThreads() { return &_io_threads; }
-
 protected:
 	virtual bool OnStartup(IWorkerTLSBuilder *tls, const char *settings_file_name, bool service, const char *service_name);
 	virtual void OnShutdown(bool watched_shutdown);
@@ -57,4 +44,4 @@ protected:
 
 } // namespace cat
 
-#endif // CAT_IO_LAYER_HPP
+#endif // CAT_SPHYNX_LAYER_HPP

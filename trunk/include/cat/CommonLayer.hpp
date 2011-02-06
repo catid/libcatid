@@ -26,28 +26,49 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_IO_LAYER_HPP
-#define CAT_IO_LAYER_HPP
+#ifndef CAT_COMMON_LAYER_HPP
+#define CAT_COMMON_LAYER_HPP
 
-#include <cat/net/Sockets.hpp>
-#include <cat/threads/WorkerThreads.hpp>
-
-#if defined(CAT_OS_WINDOWS)
-#include <cat/iocp/IOThreads.hpp>
-#include <cat/iocp/UDPEndpoint.hpp>
-#else
-TODO
-#endif
+#include <cat/Platform.hpp>
 
 namespace cat {
 
 
-class IOLayer : public CommonLayer
+class CommonLayer
 {
-	IOThreads _io_threads;
+	WorkerThreads _worker_threads;
+	RefObjectWatcher _watcher;
 
 public:
-	CAT_INLINE IOThreads *GetIOThreads() { return &_io_threads; }
+	CAT_INLINE void Watch(WatchedRefObject *obj) { _watcher.Watch(obj); }
+
+	// No worker threads version
+	CAT_INLINE bool Startup(const char *settings_file_name = "Settings.cfg", bool service = false, const char *service_name = "MyService")
+	{
+		return OnStartup(0, settings_file_name, service, service_name);
+	}
+
+	// Worker threads version
+	template<class LocalStorageT>
+	CAT_INLINE bool Startup(const char *settings_file_name = "Settings.cfg", bool service = false, const char *service_name = "MyService")
+	{
+		IWorkerTLSBuilder *builder = new WorkerTLSBuilder<LocalStorageT>;
+
+		bool success = OnStartup(builder, settings_file_name, service, service_name);
+
+		if (!success) delete builder;
+
+		return success;
+	}
+
+	CAT_INLINE u32 AssignWorker(WorkerCallbacks *callbacks) { return _worker_threads.AssignWorker(callbacks); }
+
+	CAT_INLINE void DeliverBuffers(u32 worker_id, const BatchSet &buffers) { _worker_threads.DeliverBuffers(worker_id, buffers); }
+
+	CAT_INLINE void Shutdown()
+	{
+		OnShutdown(_watcher.WaitForShutdown());
+	}
 
 protected:
 	virtual bool OnStartup(IWorkerTLSBuilder *tls, const char *settings_file_name, bool service, const char *service_name);
@@ -57,4 +78,4 @@ protected:
 
 } // namespace cat
 
-#endif // CAT_IO_LAYER_HPP
+#endif // CAT_COMMON_LAYER_HPP
