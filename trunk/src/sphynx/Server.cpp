@@ -37,7 +37,6 @@
 #include <cat/crypt/SecureCompare.hpp>
 #include <cat/crypt/tunnel/KeyMaker.hpp>
 #include <cat/sphynx/SphynxLayer.hpp>
-#include <fstream>
 using namespace std;
 using namespace cat;
 using namespace sphynx;
@@ -362,7 +361,6 @@ bool Server::StartServer(SphynxTLS *tls, Port port, u8 *public_key, int public_b
 	// Seed components
 	_cookie_jar.Initialize(tls->csprng);
 	_conn_map.Initialize(tls->csprng);
-	_flood_guard.Initialize(tls->csprng);
 
 	// Initialize key agreement responder
 	if (!_key_agreement_responder.Initialize(tls->math, tls->csprng,
@@ -438,70 +436,36 @@ bool Server::PostConnectionError(const NetAddr &dest, HandshakeError err)
 	return Write(pkt, dest);
 }
 
-bool Server::GenerateKeyPair(SphynxTLS *tls, const char *public_key_file,
-							 const char *private_key_file, u8 *public_key,
-							 int public_bytes, u8 *private_key, int private_bytes)
+bool Server::InitializeKey(SphynxTLS *tls, TunnelKeyPair &key_pair, const char *pair_path, const char *public_path)
 {
-	if (PUBLIC_KEY_BYTES != public_bytes || PRIVATE_KEY_BYTES != private_bytes)
-		return false;
-
-	// Open server key file (if possible)
-	MMapFile mmf(private_key_file);
-
-	// If the file was found and of the right size,
-	if (mmf.good() && mmf.remaining() == PUBLIC_KEY_BYTES + PRIVATE_KEY_BYTES)
+	if (key_pair.LoadFile(pair_path))
 	{
-		u8 *cp_public_key = reinterpret_cast<u8*>( mmf.read(PUBLIC_KEY_BYTES) );
-		u8 *cp_private_key = reinterpret_cast<u8*>( mmf.read(PRIVATE_KEY_BYTES) );
-
-		// Remember the public key so we can report it to connecting users
-		memcpy(public_key, cp_public_key, PUBLIC_KEY_BYTES);
-		memcpy(private_key, cp_private_key, PRIVATE_KEY_BYTES);
+		INFO("Server") << "Key pair loaded successfully from disk";
+		return true;
 	}
-	else
+
+	if (!tls->Valid())
 	{
-		INFO("KeyGenerator") << "Key file not present.  Creating a new key pair...";
+		INFO("Server") << "Generating new key pair failed: TLS invalid";
+		return false;
+	}
 
-		// Say hello to my little friend
-		KeyMaker Bob;
+	if (!key_pair.Generate(tls->math, tls->csprng))
+	{
+		INFO("Server") << "Generating new key pair failed";
+		return false;
+	}
 
-		// Ask Bob to generate a key pair for the server
-		if (!Bob.GenerateKeyPair(tls->math, tls->csprng,
-			public_key, PUBLIC_KEY_BYTES,
-			private_key, PRIVATE_KEY_BYTES))
-		{
-			WARN("KeyGenerator") << "Failed to initialize: Unable to generate key pair";
-			return false;
-		}
-		else
-		{
-			// Thanks Bob!  Now, write the key file
-			ofstream private_keyfile(private_key_file, ios_base::out | ios_base::binary);
-			ofstream public_keyfile(public_key_file, ios_base::out);
+	if (!key_pair.SaveFile(pair_path))
+	{
+		WARN("Server") << "Unable to save key pair to file " << pair_path;
+	}
 
-			// If the key file was NOT successfully opened in output mode,
-			if (public_keyfile.fail() || private_keyfile.fail())
-			{
-				WARN("KeyGenerator") << "Failed to initialize: Unable to open key file(s) for writing";
-				return false;
-			}
+	TunnelPublicKey public_key(key_pair);
 
-			// Write public key file in Base64 encoding
-			WriteBase64(public_key, PUBLIC_KEY_BYTES, public_keyfile);
-			public_keyfile.flush();
-
-			// Write private key file
-			private_keyfile.write((char*)public_key, PUBLIC_KEY_BYTES);
-			private_keyfile.write((char*)private_key, PRIVATE_KEY_BYTES);
-			private_keyfile.flush();
-
-			// If the key files were NOT successfully written,
-			if (public_keyfile.fail() || private_keyfile.fail())
-			{
-				WARN("KeyGenerator") << "Failed to initialize: Unable to write key file(s)";
-				return false;
-			}
-		}
+	if (!public_key.SaveFile(public_path))
+	{
+		WARN("Server") << "Unable to save public key to file " << public_path;
 	}
 
 	return true;

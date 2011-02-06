@@ -58,13 +58,10 @@ public:
     KeyAgreementInitiator();
     ~KeyAgreementInitiator();
 
-    bool Initialize(BigTwistedEdwards *math,
-					const u8 *responder_public_key, int public_bytes);
+    bool Initialize(BigTwistedEdwards *math, TunnelPublicKey &public_key);
 
 	// Call after Initialize()
-	bool SetIdentity(BigTwistedEdwards *math,
-					 const u8 *initiator_public_key, int public_bytes,
-					 const u8 *initiator_private_key, int private_bytes);
+	bool SetIdentity(BigTwistedEdwards *math, TunnelKeyPair &key_pair);
 
 public:
     bool GenerateChallenge(BigTwistedEdwards *math, FortunaOutput *csprng,

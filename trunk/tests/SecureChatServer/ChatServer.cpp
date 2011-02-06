@@ -63,51 +63,12 @@ public:
 
 int main()
 {
-	// Initialize system info
-	InitializeSystemInfo();
+	SphynxLayer layer;
 
-	// Initialize clock subsystem
-	if (!Clock::Initialize())
+	if (!layer.Startup("Server.cfg"))
 	{
-		FatalStop("Clock subsystem failed to initialize");
-	}
-
-	// Initialize logging subsystem with INFO reporting level
-	Logging::ref()->Initialize(LVL_INFO);
-	//Logging::ii->EnableServiceMode("ChatServerService");
-
-	// Initialize disk settings subsystem
-	Settings::ref()->readSettingsFromFile("ChatServer.cfg");
-
-	// Read logging subsystem settings
-	Logging::ref()->ReadSettings();
-
-	// Start the CSPRNG subsystem
-	if (!FortunaFactory::ref()->Initialize())
-	{
-		FatalStop("CSPRNG subsystem failed to initialize");
-	}
-
-	// Start the socket subsystem
-	if (!StartupSockets())
-	{
-		FatalStop("Socket subsystem failed to initialize");
-	}
-
-	// Start the IO threads
-	IOThreads io_threads;
-
-	if (!io_threads.Startup())
-	{
-		FatalStop("IOThreads subsystem failed to initialize");
-	}
-
-	// Start the Worker threads
-	WorkerThreads worker_threads;
-
-	if (!worker_threads.Startup())
-	{
-		FatalStop("WorkerThreads subsystem failed to initialize");
+		FATAL("Server") << "Unable to initialize SphynxLayer";
+		return 1;
 	}
 
 	INFO("Server") << "Secure Chat Server 2.0";
@@ -115,49 +76,29 @@ int main()
 	GameServer *server = new GameServer;
 	const Port SERVER_PORT = 22000;
 
+	SphynxTLS tls;
+
+	TunnelKeyPair key_pair;
+
+	if (!Server::InitializeKey(&tls, key_pair, "KeyPair.bin", "PublicKey.bin"))
 	{
-		ThreadPoolLocalStorage tls;
-		u8 public_key[sphynx::PUBLIC_KEY_BYTES];
-		u8 private_key[sphynx::PRIVATE_KEY_BYTES];
+		FATAL("Server") << "Unable to get key pair";
+	}
+	else if (server->StartServer(&tls, SERVER_PORT, key_pair, "Chat"))
+	{
+		FATAL("Server") << "Unable to start server";
+	}
+	else
+	{
+		INFO("Client") << "Press a key to terminate";
 
-		const char *SessionKey = "Chat";
-
-		if (!Server::GenerateKeyPair(&tls, "PublicKeyFile.txt", "PrivateKeyFile.bin", public_key, sizeof(public_key), private_key, sizeof(private_key)))
+		while (!kbhit())
 		{
-			FATAL("Server") << "Unable to get key pair";
-		}
-		else if (!server->StartServer(&tls, SERVER_PORT, public_key, sizeof(public_key), private_key, sizeof(private_key), SessionKey))
-		{
-			FATAL("Server") << "Unable to initialize";
-		}
-		else
-		{
-			while (!kbhit())
-			{
-				Clock::sleep(100);
-			}
+			Clock::sleep(100);
 		}
 	}
 
-	// TODO: Need to do some kind of shutdown code here
-
-	// Terminate Worker threads
-	worker_threads.Shutdown();
-
-	// Terminate IO threads
-	io_threads.Shutdown();
-
-	// Terminate sockets
-	CleanupSockets();
-
-	// Terminate the entropy collection thread in the CSPRNG
-	FortunaFactory::ref()->Shutdown();
-
-	// Write settings to disk
-	Settings::ref()->write();
-
-	// Cleanup clock subsystem
-	Clock::Shutdown();
+	layer.Shutdown();
 
 	return 0;
 }

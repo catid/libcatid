@@ -39,7 +39,7 @@ namespace cat {
 namespace sphynx {
 
 
-// Server port
+// Base class for a Sphynx server
 class Server : public UDPEndpoint, public WorkerCallbacks
 {
 	static const u32 FLOOD_MASK = 0x80000000;
@@ -67,13 +67,11 @@ public:
 	Server();
 	virtual ~Server();
 
-	bool StartServer(SphynxTLS *tls, Port port, u8 *public_key, int public_bytes, u8 *private_key, int private_bytes, const char *session_key);
+	static bool InitializeKey(SphynxTLS *tls, TunnelKeyPair &key_pair, const char *pair_path, const char *public_path);
 
-	u32 GetTotalPopulation();
+	bool StartServer(SphynxTLS *tls, Port port, TunnelKeyPair &key_pair, const char *session_key);
 
-	static bool GenerateKeyPair(SphynxTLS *tls, const char *public_key_file,
-								const char *private_key_file, u8 *public_key,
-								int public_bytes, u8 *private_key, int private_bytes);
+	CAT_INLINE u32 GetTotalPopulation() { return GetIOLayer()->GetWorkerThreads()->GetTotalPopulation(); }
 
 protected:
 	// Must return a new instance of your Connexion derivation

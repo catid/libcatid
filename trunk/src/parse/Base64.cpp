@@ -26,7 +26,7 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/io/Base64.hpp>
+#include <cat/parse/Base64.hpp>
 using namespace std;
 using namespace cat;
 

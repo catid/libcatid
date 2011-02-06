@@ -54,13 +54,13 @@
 #include <cat/lang/Strings.hpp>
 
 #include <cat/io/Logging.hpp>
-#include <cat/io/Base64.hpp>
 #include <cat/io/MMapFile.hpp>
 #include <cat/io/Settings.hpp>
 
 #include <cat/parse/BitStream.hpp>
 #include <cat/parse/BufferTok.hpp>
 #include <cat/parse/BufferStream.hpp>
+#include <cat/parse/Base64.hpp>
 
 #include <cat/mem/IAllocator.hpp>
 #include <cat/mem/StdAllocator.hpp>

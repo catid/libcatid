@@ -42,7 +42,7 @@ protected:
     void OnSessionMessage(u8 *buffer, u32 bytes);
 
 public:
-    void Reset(SecureServerDemo *server_ref, const u8 *server_public_key);
+    void Reset(SecureServerDemo *server_ref, TunnelPublicKey &public_key);
     void SendHello();
     void OnDatagram(const Address &source, u8 *buffer, u32 bytes);
 

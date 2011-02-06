@@ -227,8 +227,7 @@ public:
 public:
 	// Generate a server (public, private) key pair
 	// Connecting clients will need to know the public key in order to connect
-	bool GenerateServerKey(void *out_public_key /* EasyHandshake::PUBLIC_KEY_BYTES */,
-						   void *out_private_key /* EasyHandshake::PRIVATE_KEY_BYTES */);
+	bool GenerateServerKey(TunnelKeyPair &key_pair);
 
 	// Fills the given buffer with a variable number of random bytes
 	// Returns false on failure
@@ -251,8 +250,7 @@ public:
 	void FillCookieJar(CookieJar *jar);
 
 	// Provide the public and private key for the server, previously generated offline
-	bool Initialize(const void *in_public_key /* EasyHandshake::PUBLIC_KEY_BYTES */,
-					const void *in_private_key /* EasyHandshake::PRIVATE_KEY_BYTES */);
+	bool Initialize(TunnelKeyPair &key_pair);
 
 	// Process a client challenge and generate a server answer
 	// Returns false if challenge was invalid
@@ -280,11 +278,10 @@ public:
 	~ClientEasyHandshake();
 
 	// Provide the public key for the server, acquired through some secure means
-	bool Initialize(const void *in_public_key /* EasyHandshake::PUBLIC_KEY_BYTES */);
+	bool Initialize(TunnelPublicKey &public_key);
 
 	// (optional) Provide the identity for the client
-	bool SetIdentity(const void *in_public_key /* EasyHandshake::PUBLIC_KEY_BYTES */,
-					 const void *in_private_key /* EasyHandshake::PRIVATE_KEY_BYTES */);
+	bool SetIdentity(TunnelKeyPair &key_pair);
 
 	// Generate a challenge for the server to answer
 	bool GenerateChallenge(void *out_challenge /* EasyHandshake::CHALLENGE_BYTES */);

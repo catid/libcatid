@@ -907,12 +907,10 @@ void HandshakeTest()
 
 		double t0 = Clock::usec();
 
-        u8 server_private_key[CAT_DEMO_PRIVATE_KEY_BYTES];
-        u8 server_public_key[CAT_DEMO_PUBLIC_KEY_BYTES];
-        KeyMaker bob_the_key_maker;
+		TunnelKeyPair key_pair;
 
         //cout << "Generating server public and private keys..." << endl;
-        if (!bob_the_key_maker.GenerateKeyPair(tls_math, tls_csprng, server_public_key, CAT_DEMO_PUBLIC_KEY_BYTES, server_private_key, CAT_DEMO_PRIVATE_KEY_BYTES))
+        if (!key_pair.Generate(tls_math, tls_csprng))
         {
             cout << "FAILURE: Unable to generate key pair" << endl;
             return;
@@ -945,9 +943,11 @@ void HandshakeTest()
         SecureServerDemo server;
         SecureClientDemo client;
 
-        server.Reset(&client, server_public_key, server_private_key);
+        server.Reset(&client, key_pair);
 
-        client.Reset(&server, server_public_key);
+		TunnelPublicKey public_key(key_pair);
+
+        client.Reset(&server, public_key);
 
         // Online:
 

@@ -36,11 +36,17 @@
 namespace cat {
 
 
+class SphynxTLS;
+class SphynxLayer;
+
+
+// Sphynx thread-local storage
 class SphynxTLS : public IWorkerTLS
 {
 public:
 	FortunaOutput *csprng;
 	BigTwistedEdwards *math;
+	SphynxLayer *sphynx_layer;
 
 	SphynxTLS();
 	virtual ~SphynxTLS();
@@ -48,6 +54,7 @@ public:
 	bool Valid();
 };
 
+// Application layer for Sphynx library
 class SphynxLayer : public IOLayer
 {
 	DNSClient *_dns_client;

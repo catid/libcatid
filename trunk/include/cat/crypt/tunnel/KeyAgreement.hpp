@@ -170,7 +170,7 @@ namespace cat {
 // If CAT_USER_ERROR_CHECKING is defined, the key agreement objects will
 // check to make sure that the input parameters are all the right length
 // and that the math and prng objects are not null
-#define CAT_USER_ERROR_CHECKING
+//#define CAT_USER_ERROR_CHECKING
 
 class CAT_EXPORT KeyAgreementCommon
 {
@@ -190,9 +190,13 @@ public:
     static const int EDWARD_D_512 = 32;
 
     // Limits on field prime
-    static const int MAX_BITS = 512;
-    static const int MAX_BYTES = MAX_BITS / 8;
-    static const int MAX_LEGS = MAX_BYTES / sizeof(Leg);
+	static const int MIN_BITS = 256;
+	static const int MIN_BYTES = MIN_BITS / 8;
+	static const int MIN_LEGS = MIN_BYTES / sizeof(Leg);
+
+	static const int MAX_BITS = 512;
+	static const int MAX_BYTES = MAX_BITS / 8;
+	static const int MAX_LEGS = MAX_BYTES / sizeof(Leg);
 
 protected:
     int KeyBits, KeyBytes, KeyLegs;

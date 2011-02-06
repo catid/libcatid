@@ -76,48 +76,29 @@ int main()
 
 	INFO("Client") << "Secure Chat Client 2.0";
 
-	GameClient *client;
+	SphynxTLS tls;
 
+	TunnelPublicKey public_key;
+
+	if (!public_key.LoadFile("PublicKey.bin"))
 	{
-		// TODO: Make the crypto stuff easier to use in this context
-		ThreadPoolLocalStorage tls;
+		FATAL("Client") << "Unable to load server public key from disk";
+	}
 
-		ifstream keyfile("PublicKeyFile.txt");
+	GameClient *client = new GameClient;
 
-		if (!keyfile)
-		{
-			FATAL("Client") << "Unable to open public key file";
-		}
-
-		u8 server_public_key[PUBLIC_KEY_BYTES];
-
-		string key_str;
-		keyfile >> key_str;
-
-		if (ReadBase64(key_str.c_str(), (int)key_str.length(), server_public_key, sizeof(server_public_key)) != sizeof(server_public_key))
-		{
-			FATAL("Client") << "Public key from file is wrong length";
-		}
-
-		client = new GameClient;
-		iolayer.Watch(client);
-
-		const char *SessionKey = "Chat";
-
-		if (!client->SetServerKey(&tls, server_public_key, sizeof(server_public_key), SessionKey))
-		{
-			FATAL("Client") << "Provided server key invalid";
-		}
-
-		// loopback: 127.0.0.1
-		// desktop: 10.1.1.142
-		// linux: 10.1.1.146
-		// netbook: 10.1.1.110
-		// coldfront: 68.84.166.22
-		if (!client->Connect("68.84.166.22", 22000))
-		{
-			FATAL("Client") << "Unable to connect to server";
-		}
+	// loopback: 127.0.0.1
+	// desktop: 10.1.1.142
+	// linux: 10.1.1.146
+	// netbook: 10.1.1.110
+	// coldfront: 68.84.166.22
+	if (!client->Connect(&tls, "68.84.166.22", 22000, public_key, "Chat"))
+	{
+		FATAL("Client") << "Unable to connect to server";
+	}
+	else
+	{
+		INFO("Client") << "Press a key to terminate";
 
 		while (!kbhit())
 		{

@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -40,8 +40,7 @@ namespace cat {
 namespace sphynx {
 
 
-//// sphynx::Client
-
+// Base class for a Sphynx client
 class Client : public UDPEndpoint, public Transport, public WorkerCallbacks
 {
 	static const int HANDSHAKE_TICK_RATE = 100; // milliseconds
@@ -68,22 +67,6 @@ class Client : public UDPEndpoint, public Transport, public WorkerCallbacks
 	// Last time a packet was received from the server -- for disconnect timeouts
 	u32 _last_recv_tsc;
 
-private:
-	virtual void OnRead(SphynxTLS *tls, const NetAddr &src, u8 *data, u32 bytes);
-
-	bool PostHello();
-	bool PostTimePing();
-
-	void OnUnreachable(const NetAddr &src);
-
-	// Return false to remove resolve from cache
-	bool OnResolve(const char *hostname, const NetAddr *array, int array_length);
-
-	virtual bool PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes);
-	virtual void OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes);
-
-	void ConnectFail(HandshakeError err);
-
 	// Clock Synchronization
 	static const int TIME_SYNC_INTERVAL = 10000; // Normal time synch interval, milliseconds
 	static const int TIME_SYNC_FAST_COUNT = 8; // Number of fast measurements at the start, milliseconds
@@ -99,7 +82,41 @@ private:
 
 	void UpdateTimeSynch(u32 rtt, s32 delta);
 
+	bool PostHello();
+	bool PostTimePing();
+
+	// Return false to remove resolve from cache
+	bool OnResolve(const char *hostname, const NetAddr *array, int array_length);
+
+	virtual bool PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes);
+	virtual void OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes);
+
+	void ConnectFail(HandshakeError err);
+
+	bool InitialConnect(SphynxLayer *layer, SphynxTLS *tls, TunnelPublicKey &public_key, const char *session_key);
+	bool FinalConnect(const NetAddr &addr);
+
+public:
+	Client();
+	CAT_INLINE virtual ~Client() {}
+
+	// Once you call Connect(), the object may be deleted at any time.  If you want to keep a reference to it, AddRef() before calling
+	bool Connect(SphynxLayer *layer, SphynxTLS *tls, const char *hostname, Port port, TunnelPublicKey &public_key, const char *session_key);
+	bool Connect(SphynxLayer *layer, SphynxTLS *tls, const NetAddr &addr, TunnelPublicKey &public_key, const char *session_key);
+
+	// Will not notify remote host on DISCO_SILENT
+	void Disconnect(u8 reason = DISCO_SILENT);
+
 protected:
+	virtual void OnShutdownRequest();
+	virtual bool OnZeroReferences();
+
+	virtual void OnReadRouting(const BatchSet &buffers);
+	virtual void OnUnreachable(const NetAddr &src);
+
+	virtual void OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers);
+	virtual void OnWorkerTick(IWorkerTLS *tls, u32 now);
+
 	bool IsConnected() { return _connected; }
 
 	virtual void OnClose() = 0;
@@ -109,26 +126,6 @@ protected:
 	virtual void OnMessage(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes) = 0;
 	virtual void OnDisconnect(u8 reason) = 0;
 	virtual void OnTick(SphynxTLS *tls, u32 now) = 0;
-
-public:
-	Client();
-	CAT_INLINE virtual ~Client() {}
-
-	bool SetServerKey(SphynxTLS *tls, const void *server_key, int key_bytes, const char *session_key);
-
-	bool Connect(const char *hostname, Port port);
-	bool Connect(const NetAddr &addr);
-
-	void Disconnect(u8 reason, bool notify);
-
-protected:
-	virtual void OnShutdownRequest();
-	virtual bool OnZeroReferences();
-
-	virtual void OnReadRouting(const BatchSet &buffers);
-
-	virtual void OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers);
-	virtual void OnWorkerTick(IWorkerTLS *tls, u32 now);
 };
 
 

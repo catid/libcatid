@@ -139,7 +139,7 @@ void SecureServerDemo::Cleanup()
 static BigTwistedEdwards *tls_math = 0;
 static FortunaOutput *tls_csprng = 0;
 
-void SecureServerDemo::Reset(SecureClientDemo *cclient_ref, const u8 *server_public_key, const u8 *server_private_key)
+void SecureServerDemo::Reset(SecureClientDemo *cclient_ref, TunnelKeyPair &key_pair)
 {
     //cout << "Server: Reset!" << endl;
 
@@ -153,7 +153,7 @@ void SecureServerDemo::Reset(SecureClientDemo *cclient_ref, const u8 *server_pub
     my_addr = Address(0x11223344, 0x5566);
     cookie_jar.Initialize(tls_csprng);
 
-    if (!tun_server.Initialize(tls_math, tls_csprng, server_public_key, CAT_DEMO_PUBLIC_KEY_BYTES, server_private_key, CAT_DEMO_PRIVATE_KEY_BYTES))
+    if (!tun_server.Initialize(tls_math, tls_csprng, key_pair))
     {
         cout << "Server: Unable to initialize" << endl;
         return;
