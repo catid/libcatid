@@ -28,7 +28,6 @@
 
 #include <cat/sphynx/Transport.hpp>
 #include <cat/port/EndianNeutral.hpp>
-#include <cat/threads/RegionAllocator.hpp>
 #include <cat/io/Logging.hpp>
 using namespace cat;
 using namespace sphynx;
@@ -92,7 +91,7 @@ Transport::~Transport()
 	// Release memory for send buffer
 	if (_send_buffer_bytes)
 	{
-		RegionAllocator::ii->Release(_send_buffer);
+		StdAllocator::ii->Release(_send_buffer);
 	}
 
 	for (int stream = 0; stream < NUM_STREAMS; ++stream)
@@ -102,7 +101,7 @@ Transport::~Transport()
 		while (recv_node)
 		{
 			RecvQueue *next = recv_node->next;
-			RegionAllocator::ii->Release(recv_node);
+			StdAllocator::ii->Release(recv_node);
 			recv_node = next;
 		}
 
@@ -123,12 +122,12 @@ Transport::~Transport()
 
 				// Deallocate master node for a series of SendFrags
 				if (frag->full_data->frag_count == 1)
-					RegionAllocator::ii->Release(frag->full_data);
+					StdAllocator::ii->Release(frag->full_data);
 				else
 					frag->full_data->frag_count--;
 			}
 
-			RegionAllocator::ii->Release(sent_node);
+			StdAllocator::ii->Release(sent_node);
 			sent_node = next;
 		}
 
@@ -137,7 +136,7 @@ Transport::~Transport()
 		while (send_node)
 		{
 			SendQueue *next = send_node->next;
-			RegionAllocator::ii->Release(send_node);
+			StdAllocator::ii->Release(send_node);
 			send_node = next;
 		}
 	}
@@ -171,7 +170,7 @@ bool Transport::InitializeTransportSecurity(bool is_initiator, AuthenticatedEncr
 	return auth_enc.GenerateKey(!is_initiator ? "ws2_32.dll" : "winsock.ocx", _next_recv_expected_id, sizeof(_next_recv_expected_id));
 }
 
-void Transport::OnDatagram(ThreadPoolLocalStorage *tls,  u32 send_time, u32 recv_time, u8 *data, u32 bytes)
+void Transport::OnDatagram(SphynxTLS *tls,  u32 send_time, u32 recv_time, u8 *data, u32 bytes)
 {
 	if (_disconnected) return;
 /*
@@ -365,7 +364,7 @@ void Transport::OnDatagram(ThreadPoolLocalStorage *tls,  u32 send_time, u32 recv
 	}
 }
 
-void Transport::RunQueue(ThreadPoolLocalStorage *tls, u32 recv_time, u32 ack_id, u32 stream)
+void Transport::RunQueue(SphynxTLS *tls, u32 recv_time, u32 ack_id, u32 stream)
 {
 	RecvQueue *node = _recv_queue_head[stream];
 
@@ -436,13 +435,13 @@ void Transport::RunQueue(ThreadPoolLocalStorage *tls, u32 recv_time, u32 ack_id,
 		RecvQueue *next = kill_node->next;
 
 		// Delete queued message
-		RegionAllocator::ii->Release(kill_node);
+		StdAllocator::ii->Release(kill_node);
 
 		kill_node = next;
 	}
 }
 
-void Transport::QueueRecv(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, u8 *data, u32 data_bytes, u32 ack_id, u32 stream, u32 super_opcode)
+void Transport::QueueRecv(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *data, u32 data_bytes, u32 ack_id, u32 stream, u32 super_opcode)
 {
 	// Walk backwards from the end because we're probably receiving
 	// a blast of messages after a drop.
@@ -501,7 +500,7 @@ void Transport::QueueRecv(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_t
 	}
 
 	RecvQueue *new_node = reinterpret_cast<RecvQueue*>(
-		RegionAllocator::ii->Acquire(sizeof(RecvQueue) + stored_bytes) );
+		StdAllocator::ii->Acquire(sizeof(RecvQueue) + stored_bytes) );
 	if (!new_node)
 	{
 		WARN("Transport") << "Out of memory for incoming packet queue";
@@ -530,7 +529,7 @@ void Transport::QueueRecv(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_t
 	if (stored_bytes) memcpy(GetTrailingBytes(new_node), data, stored_bytes);
 }
 
-void Transport::OnFragment(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, u8 *data, u32 bytes, u32 stream)
+void Transport::OnFragment(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *data, u32 bytes, u32 stream)
 {
 	INANE("Transport") << "OnFragment " << bytes << ":" << HexDumpString(data, bytes);
 
@@ -613,7 +612,7 @@ bool Transport::WriteUnreliableOOB(u8 msg_opcode, const void *vmsg_data, u32 dat
 		return false;
 	}
 
-	u8 *pkt = AsyncBuffer::Acquire(msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD);
+	u8 *pkt = SendBuffer::Acquire(msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD);
 	if (!pkt)
 	{
 		WARN("Transport") << "Out of memory: Unable to allocate unreliable OOB post buffer";
@@ -672,7 +671,7 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 	{
 		u8 *old_send_buffer = _send_buffer;
 
-		u8 *msg_buffer = AsyncBuffer::Acquire(msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD);
+		u8 *msg_buffer = SendBuffer::Acquire(msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD);
 		if (!msg_buffer)
 		{
 			WARN("Transport") << "Out of memory: Unable to allocate unreliable post buffer";
@@ -709,7 +708,7 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 	else
 	{
 		// Create or grow buffer and write into it
-		_send_buffer = AsyncBuffer::Resize(_send_buffer, send_buffer_bytes + msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD);
+		_send_buffer = SendBuffer::Resize(_send_buffer, send_buffer_bytes + msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD);
 		if (!_send_buffer)
 		{
 			WARN("Transport") << "Out of memory: Unable to resize unreliable post buffer";
@@ -876,7 +875,7 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 	}
 
 	// Create or grow buffer and write into it
-	_send_buffer = AsyncBuffer::Resize(send_buffer, send_buffer_bytes + msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD);
+	_send_buffer = SendBuffer::Resize(send_buffer, send_buffer_bytes + msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD);
 	if (!_send_buffer)
 	{
 		WARN("Transport") << "Out of memory: Unable to resize post buffer";
@@ -1113,7 +1112,7 @@ void Transport::WriteACK()
 	{
 		u8 *old_send_buffer = _send_buffer;
 
-		u8 *msg_buffer = AsyncBuffer::Acquire(msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD);
+		u8 *msg_buffer = SendBuffer::Acquire(msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD);
 		if (!msg_buffer)
 		{
 			WARN("Transport") << "Out of memory: Unable to allocate ACK post buffer";
@@ -1135,7 +1134,7 @@ void Transport::WriteACK()
 	else
 	{
 		// Create or grow buffer and write into it
-		_send_buffer = AsyncBuffer::Resize(_send_buffer, send_buffer_bytes + msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD);
+		_send_buffer = SendBuffer::Resize(_send_buffer, send_buffer_bytes + msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD);
 		if (!_send_buffer)
 		{
 			WARN("Transport") << "Out of memory: Unable to resize ACK post buffer";
@@ -1150,7 +1149,7 @@ void Transport::WriteACK()
 	}
 }
 
-void Transport::TickTransport(ThreadPoolLocalStorage *tls, u32 now)
+void Transport::TickTransport(SphynxTLS *tls, u32 now)
 {
 	if (_disconnected) return;
 
@@ -1233,7 +1232,7 @@ u32 Transport::RetransmitLost(u32 now)
 	return loss_count;
 }
 
-bool Transport::PostMTUProbe(ThreadPoolLocalStorage *tls, u32 mtu)
+bool Transport::PostMTUProbe(SphynxTLS *tls, u32 mtu)
 {
 	INANE("Transport") << "Posting MTU Probe";
 
@@ -1244,7 +1243,7 @@ bool Transport::PostMTUProbe(ThreadPoolLocalStorage *tls, u32 mtu)
 	u32 buffer_bytes = payload_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD;
 	u32 data_bytes = payload_bytes - TRANSPORT_HEADER_BYTES;
 
-	u8 *pkt = AsyncBuffer::Acquire(buffer_bytes);
+	u8 *pkt = SendBuffer::Acquire(buffer_bytes);
 	if (!pkt) return false;
 
 	// Write header
@@ -1584,7 +1583,7 @@ void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 	while (kill_list)
 	{
 		SendQueue *next = kill_list->next;
-		RegionAllocator::ii->Release(kill_list);
+		StdAllocator::ii->Release(kill_list);
 		kill_list = next;
 	}
 }
@@ -1614,7 +1613,7 @@ bool Transport::WriteReliable(StreamMode stream, u8 msg_opcode, const void *vmsg
 	}
 
 	// Allocate SendQueue object
-	SendQueue *node = RegionAllocator::ii->AcquireBuffer<SendQueue>(1 + data_bytes);
+	SendQueue *node = StdAllocator::ii->AcquireBuffer<SendQueue>(1 + data_bytes);
 	if (!node)
 	{
 		WARN("Transport") << "Out of memory: Unable to allocate sendqueue object";
@@ -1811,7 +1810,7 @@ void Transport::TransmitQueued()
 					if (fragmented)
 					{
 						SendFrag *frag = reinterpret_cast<SendFrag*>( 
-							RegionAllocator::ii->Acquire(sizeof(SendFrag)) );
+							StdAllocator::ii->Acquire(sizeof(SendFrag)) );
 
 						if (!frag)
 						{
@@ -1891,7 +1890,7 @@ void Transport::TransmitQueued()
 					}
 
 					// Resize post buffer to contain the bytes that will be written
-					send_buffer = AsyncBuffer::Resize(send_buffer, send_buffer_bytes + write_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD);
+					send_buffer = SendBuffer::Resize(send_buffer, send_buffer_bytes + write_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD);
 					if (!send_buffer)
 					{
 						WARN("Transport") << "Out of memory: Unable to allocate send buffer";

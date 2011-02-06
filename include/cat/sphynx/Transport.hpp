@@ -34,8 +34,8 @@
 #include <cat/parse/BufferStream.hpp>
 #include <cat/time/Clock.hpp>
 #include <cat/math/BitMath.hpp>
-#include <cat/sphynx/Common.hpp>
 #include <cat/sphynx/FlowControl.hpp>
+#include <cat/sphynx/SphynxLayer.hpp>
 
 #define CAT_SEPARATE_ACK_LOCK /* Use a second mutex to serialize message acknowledgment data */
 
@@ -290,8 +290,8 @@ protected:
 	volatile u32 _recv_trip_time_avg; // Average trip time shared with timer thread
 
 private:
-	void RunQueue(ThreadPoolLocalStorage *tls, u32 recv_time, u32 ack_id, u32 stream);
-	void QueueRecv(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, u8 *data, u32 bytes, u32 ack_id, u32 stream, u32 super_opcode);
+	void RunQueue(SphynxTLS *tls, u32 recv_time, u32 ack_id, u32 stream);
+	void QueueRecv(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *data, u32 bytes, u32 ack_id, u32 stream, u32 super_opcode);
 
 protected:
 	// Send state: Synchronization objects
@@ -374,16 +374,14 @@ public:
 	// Decompress a timestamp on client from server; high two bits are unused; byte order must be fixed before decoding
 	CAT_INLINE u32 DecodeServerTimestamp(u32 local_time, u16 timestamp) { return FromServerTime(BiasedReconstructCounter<14>(ToServerTime(local_time), TS_COMPRESS_FUTURE_TOLERANCE, timestamp & 0x3fff)); }
 
-protected:
-	// Notify transport layer of disconnect to halt message processing
 	CAT_INLINE void TransportDisconnected() { _disconnected = true; }
 	CAT_INLINE bool IsDisconnected() { return _disconnected; }
 
-	void TickTransport(ThreadPoolLocalStorage *tls, u32 now);
-	void OnDatagram(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, u8 *data, u32 bytes);
+	void TickTransport(SphynxTLS *tls, u32 now);
+	void OnDatagram(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *data, u32 bytes);
 
 private:
-	void OnFragment(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, u8 *data, u32 bytes, u32 stream);
+	void OnFragment(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *data, u32 bytes, u32 stream);
 
 	void PostPacketList(TempSendNode *packet_send_head);
 	void PostSendBuffer();
@@ -391,11 +389,11 @@ private:
 
 protected:
 	virtual bool PostPacket(u8 *data, u32 buf_bytes, u32 msg_bytes) = 0;
-	virtual void OnMessage(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes) = 0; // precondition: bytes > 0
-	virtual void OnInternal(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes) = 0; // precondition: bytes > 0
+	virtual void OnMessage(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes) = 0; // precondition: bytes > 0
+	virtual void OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes) = 0; // precondition: bytes > 0
 
 protected:
-	bool PostMTUProbe(ThreadPoolLocalStorage *tls, u32 mtu);
+	bool PostMTUProbe(SphynxTLS *tls, u32 mtu);
 
 	CAT_INLINE bool PostDisconnect(u8 reason) { return WriteUnreliableOOB(IOP_DISCO, &reason, 1, SOP_INTERNAL); }
 };

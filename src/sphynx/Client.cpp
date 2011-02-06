@@ -42,177 +42,41 @@ using namespace sphynx;
 
 void Client::OnShutdownRequest()
 {
+	if (notify)
+		PostDisconnect(reason);
+
+	TransportDisconnected();
+
+	OnDisconnect(reason);
+
+	_kill_flag.Set();
+
+	UDPEndpoint::OnShutdownRequest();
 }
 
 bool Client::OnZeroReferences()
 {
+	return UDPEndpoint::OnZeroReferences();
 }
 
-Client::Client()
+void Client::OnReadRouting(const BatchSet &buffers)
 {
-	_connected = false;
-	_last_send_mstsc = 0;
-	_destroyed = 0;
-
-	// Clock synchronization
-	_ts_next_index = 0;
-	_ts_sample_count = 0;
+	GetIOLayer()->GetWorkerThreads()->DeliverBuffers(_worker_id, buffers);
 }
 
-void Client::Finalize()
+void Client::OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers)
 {
-	_kill_flag.Set();
-
-	if (!WaitForThread(CLIENT_THREAD_KILL_TIMEOUT))
-		AbortThread();
-}
-
-bool Client::SetServerKey(ThreadPoolLocalStorage *tls, const void *server_key, int key_bytes, const char *session_key)
-{
-	// Verify the key bytes are correct
-	if (key_bytes != sizeof(_server_public_key))
+	for (BatchHead *node = buffers.head; node; node = node->batch_next)
 	{
-		WARN("Client") << "Failed to connect: Invalid server public key length provided";
-		return false;
+		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
+
+		SetRemoteAddress(buffer);
+		buffer->callback = this;
+
+		// If packet source is not the server, ignore this packet
+		if (_server_addr != buffer->addr)
+			return;
 	}
-
-	// Verify TLS is valid
-	if (!tls->Valid())
-	{
-		WARN("Client") << "Failed to connect: Unable to create thread local storage";
-		return false;
-	}
-
-	// Verify public key and initialize crypto library with it
-	if (!_key_agreement_initiator.Initialize(tls->math, reinterpret_cast<const u8*>( server_key ), key_bytes))
-	{
-		WARN("Client") << "Failed to connect: Invalid server public key provided";
-		return false;
-	}
-
-	// Generate a challenge for the server
-	if (!_key_agreement_initiator.GenerateChallenge(tls->math, tls->csprng, _cached_challenge, CHALLENGE_BYTES))
-	{
-		WARN("Client") << "Failed to connect: Cannot generate challenge message";
-		return false;
-	}
-
-	// Copy session key
-	CAT_STRNCPY(_session_key, session_key, SESSION_KEY_BYTES);
-
-	memcpy(_server_public_key, server_key, sizeof(_server_public_key));
-
-	return true;
-}
-
-bool Client::Connect(const char *hostname, Port port)
-{
-	// Set port
-	_server_addr.SetPort(port);
-
-	// If DNS resolution fails,
-	if (!DNSClient::ii->Resolve(hostname, fastdelegate::MakeDelegate(this, &Client::OnResolve), this))
-	{
-		WARN("Client") << "Failed to connect: Unable to resolve server hostname";
-		return false;
-	}
-
-	return true;
-}
-
-bool Client::Connect(const NetAddr &addr)
-{
-	// Validate port
-	if (addr.GetPort() == 0)
-	{
-		WARN("Client") << "Failed to connect: Invalid server port specified";
-		return false;
-	}
-
-	_server_addr = addr;
-
-	// Get SupportIPv6 flag from settings
-	bool only_ipv4 = Settings::ii->getInt("Sphynx.Client.SupportIPv6", 0) == 0;
-
-	// Get kernel receive buffer size
-	int kernelReceiveBufferBytes = Settings::ii->getInt("Sphynx.Client.KernelReceiveBuffer", 1000000);
-
-	// Attempt to bind to any port and accept ICMP errors initially
-	if (!Bind(only_ipv4, 0, false, kernelReceiveBufferBytes))
-	{
-		WARN("Client") << "Failed to connect: Unable to bind to any port";
-		return false;
-	}
-
-	// Convert server address if needed
-	if (!_server_addr.Convert(Is6()))
-	{
-		WARN("Client") << "Failed to connect: Invalid address specified";
-		Close();
-		return false;
-	}
-
-	// Initialize max payload bytes
-	InitializePayloadBytes(Is6());
-
-	// Attempt to post hello message
-	if (!PostHello())
-	{
-		WARN("Client") << "Failed to connect: Post failure";
-		Close();
-		return false;
-	}
-
-	// Attempt to start the timer thread
-	if (!StartThread())
-	{
-		WARN("Client") << "Failed to connect: Unable to start timer thread";
-		Close();
-		return false;
-	}
-
-	return true;
-}
-
-bool Client::OnResolve(const char *hostname, const NetAddr *array, int array_length)
-{
-	// If resolve failed,
-	if (array_length <= 0)
-	{
-		WARN("Client") << "Failed to connect: Server hostname resolve failed";
-
-		Close();
-	}
-	else
-	{
-		NetAddr addr = array[0];
-		addr.SetPort(_server_addr.GetPort());
-
-		INANE("Client") << "Connecting: Resolved '" << hostname << "' to " << addr.IPToString();
-
-		if (!Connect(addr))
-			Close();
-	}
-
-	return true;
-}
-
-void Client::OnUnreachable(const NetAddr &src)
-{
-	// If IP matches the server and we're not connected yet,
-	if (!_connected && _server_addr.EqualsIPOnly(src))
-	{
-		WARN("Client") << "Failed to connect: ICMP error received from server address";
-
-		ConnectFail(ERR_CLIENT_ICMP);
-	}
-}
-
-void Client::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u32 bytes)
-{
-	// If packet source is not the server, ignore this packet
-	if (_server_addr != src)
-		return;
 
 	// If connection has completed
 	if (_connected)
@@ -244,7 +108,7 @@ void Client::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 	else if (bytes == S2C_COOKIE_LEN && data[0] == S2C_COOKIE)
 	{
 		// Allocate a post buffer
-		u8 *pkt = AsyncBuffer::Acquire(C2S_CHALLENGE_LEN);
+		u8 *pkt = SendBuffer::Acquire(C2S_CHALLENGE_LEN);
 
 		if (!pkt)
 		{
@@ -334,54 +198,7 @@ void Client::OnRead(ThreadPoolLocalStorage *tls, const NetAddr &src, u8 *data, u
 	}
 }
 
-bool Client::PostHello()
-{
-	if (_connected)
-	{
-		WARN("Client") << "Refusing to post hello after connected";
-		return false;
-	}
-
-	// Allocate space for a post buffer
-	u8 *pkt = AsyncBuffer::Acquire(C2S_HELLO_LEN);
-
-	// If unable to allocate,
-	if (!pkt)
-	{
-		WARN("Client") << "Cannot allocate a post buffer for hello packet";
-		return false;
-	}
-
-	// Construct packet
-	pkt[0] = C2S_HELLO;
-
-	u32 *magic = reinterpret_cast<u32*>( pkt + 1 );
-	*magic = getLE32(PROTOCOL_MAGIC);
-
-	u8 *public_key = pkt + 1 + 4;
-	memcpy(public_key, _server_public_key, PUBLIC_KEY_BYTES);
-
-	// Attempt to post packet
-	if (!Post(_server_addr, pkt, C2S_HELLO_LEN))
-	{
-		WARN("Client") << "Unable to post hello packet";
-		return false;
-	}
-
-	INANE("Client") << "Posted hello packet";
-
-	return true;
-}
-
-bool Client::PostTimePing()
-{
-	u32 timestamp = Clock::msec();
-
-	// Write it out-of-band to avoid delays in transmission
-	return WriteUnreliableOOB(IOP_C2S_TIME_PING, &timestamp, sizeof(timestamp), SOP_INTERNAL);
-}
-
-void Client::OnTick(u32 now) 
+void Client::OnWorkerTick(IWorkerTLS *tls, u32 now)
 {
 	u32 start_time = Clock::msec_fast();
 	u32 first_hello_post = start_time;
@@ -539,6 +356,196 @@ void Client::OnTick(u32 now)
 	}
 }
 
+Client::Client()
+{
+	_connected = false;
+	_last_send_mstsc = 0;
+
+	// Clock synchronization
+	_ts_next_index = 0;
+	_ts_sample_count = 0;
+}
+
+bool Client::SetServerKey(SphynxTLS *tls, const void *server_key, int key_bytes, const char *session_key)
+{
+	// Verify the key bytes are correct
+	if (key_bytes != sizeof(_server_public_key))
+	{
+		WARN("Client") << "Failed to connect: Invalid server public key length provided";
+		return false;
+	}
+
+	// Verify TLS is valid
+	if (!tls->Valid())
+	{
+		WARN("Client") << "Failed to connect: Unable to create thread local storage";
+		return false;
+	}
+
+	// Verify public key and initialize crypto library with it
+	if (!_key_agreement_initiator.Initialize(tls->math, reinterpret_cast<const u8*>( server_key ), key_bytes))
+	{
+		WARN("Client") << "Failed to connect: Invalid server public key provided";
+		return false;
+	}
+
+	// Generate a challenge for the server
+	if (!_key_agreement_initiator.GenerateChallenge(tls->math, tls->csprng, _cached_challenge, CHALLENGE_BYTES))
+	{
+		WARN("Client") << "Failed to connect: Cannot generate challenge message";
+		return false;
+	}
+
+	// Copy session key
+	CAT_STRNCPY(_session_key, session_key, SESSION_KEY_BYTES);
+
+	memcpy(_server_public_key, server_key, sizeof(_server_public_key));
+
+	return true;
+}
+
+bool Client::Connect(const char *hostname, Port port)
+{
+	// Set port
+	_server_addr.SetPort(port);
+
+	// If DNS resolution fails,
+	if (!DNSClient::ii->Resolve(hostname, fastdelegate::MakeDelegate(this, &Client::OnResolve), this))
+	{
+		WARN("Client") << "Failed to connect: Unable to resolve server hostname";
+		return false;
+	}
+
+	return true;
+}
+
+bool Client::Connect(const NetAddr &addr)
+{
+	// Validate port
+	if (addr.GetPort() == 0)
+	{
+		WARN("Client") << "Failed to connect: Invalid server port specified";
+		return false;
+	}
+
+	_server_addr = addr;
+
+	// Get SupportIPv6 flag from settings
+	bool only_ipv4 = Settings::ii->getInt("Sphynx.Client.SupportIPv6", 0) == 0;
+
+	// Get kernel receive buffer size
+	int kernelReceiveBufferBytes = Settings::ii->getInt("Sphynx.Client.KernelReceiveBuffer", 1000000);
+
+	// Attempt to bind to any port and accept ICMP errors initially
+	if (!Bind(only_ipv4, 0, false, kernelReceiveBufferBytes))
+	{
+		WARN("Client") << "Failed to connect: Unable to bind to any port";
+		return false;
+	}
+
+	// Convert server address if needed
+	if (!_server_addr.Convert(Is6()))
+	{
+		WARN("Client") << "Failed to connect: Invalid address specified";
+		Close();
+		return false;
+	}
+
+	// Initialize max payload bytes
+	InitializePayloadBytes(Is6());
+
+	// Attempt to post hello message
+	if (!PostHello())
+	{
+		WARN("Client") << "Failed to connect: Post failure";
+		Close();
+		return false;
+	}
+
+	return true;
+}
+
+bool Client::OnResolve(const char *hostname, const NetAddr *array, int array_length)
+{
+	// If resolve failed,
+	if (array_length <= 0)
+	{
+		WARN("Client") << "Failed to connect: Server hostname resolve failed";
+
+		Close();
+	}
+	else
+	{
+		NetAddr addr = array[0];
+		addr.SetPort(_server_addr.GetPort());
+
+		INANE("Client") << "Connecting: Resolved '" << hostname << "' to " << addr.IPToString();
+
+		if (!Connect(addr))
+			Close();
+	}
+
+	return true;
+}
+
+void Client::OnUnreachable(const NetAddr &src)
+{
+	// If IP matches the server and we're not connected yet,
+	if (!_connected && _server_addr.EqualsIPOnly(src))
+	{
+		WARN("Client") << "Failed to connect: ICMP error received from server address";
+
+		ConnectFail(ERR_CLIENT_ICMP);
+	}
+}
+
+bool Client::PostHello()
+{
+	if (_connected)
+	{
+		WARN("Client") << "Refusing to post hello after connected";
+		return false;
+	}
+
+	// Allocate space for a post buffer
+	u8 *pkt = SendBuffer::Acquire(C2S_HELLO_LEN);
+
+	// If unable to allocate,
+	if (!pkt)
+	{
+		WARN("Client") << "Cannot allocate a post buffer for hello packet";
+		return false;
+	}
+
+	// Construct packet
+	pkt[0] = C2S_HELLO;
+
+	u32 *magic = reinterpret_cast<u32*>( pkt + 1 );
+	*magic = getLE32(PROTOCOL_MAGIC);
+
+	u8 *public_key = pkt + 1 + 4;
+	memcpy(public_key, _server_public_key, PUBLIC_KEY_BYTES);
+
+	// Attempt to post packet
+	if (!Post(_server_addr, pkt, C2S_HELLO_LEN))
+	{
+		WARN("Client") << "Unable to post hello packet";
+		return false;
+	}
+
+	INANE("Client") << "Posted hello packet";
+
+	return true;
+}
+
+bool Client::PostTimePing()
+{
+	u32 timestamp = Clock::msec();
+
+	// Write it out-of-band to avoid delays in transmission
+	return WriteUnreliableOOB(IOP_C2S_TIME_PING, &timestamp, sizeof(timestamp), SOP_INTERNAL);
+}
+
 bool Client::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes)
 {
 	// Write timestamp for transmission
@@ -549,7 +556,7 @@ bool Client::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes)
 	{
 		WARN("Client") << "Encryption failure while sending packet";
 
-		AsyncBuffer::Release(buffer);
+		SendBuffer::Release(buffer);
 
 		return false;
 	}
@@ -564,7 +571,7 @@ bool Client::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes)
 	return false;
 }
 
-void Client::OnInternal(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, BufferStream data, u32 bytes)
+void Client::OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream data, u32 bytes)
 {
 	switch (data[0])
 	{
@@ -621,19 +628,7 @@ void Client::OnInternal(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_tim
 
 void Client::Disconnect(u8 reason, bool notify)
 {
-	if (Atomic::Set(&_destroyed, 1) == 0)
-	{
-		if (notify)
-			PostDisconnect(reason);
 
-		TransportDisconnected();
-
-		OnDisconnect(reason);
-
-		_kill_flag.Set();
-
-		Close();
-	}
 }
 
 void Client::ConnectFail(HandshakeError err)

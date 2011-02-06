@@ -61,6 +61,14 @@ bool SphynxLayer::OnStartup(IWorkerTLSBuilder *tls_builder, const char *settings
 		return false;
 	}
 
+	_dns_client = new DNSClient;
+
+	if (!_dns_client)
+	{
+		FATAL("IOLayer") << "DNS subsystem failed to initialize";
+		return false;
+	}
+
 	return true;
 }
 

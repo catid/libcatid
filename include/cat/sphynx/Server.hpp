@@ -67,11 +67,11 @@ public:
 	Server();
 	virtual ~Server();
 
-	bool StartServer(ThreadPoolLocalStorage *tls, Port port, u8 *public_key, int public_bytes, u8 *private_key, int private_bytes, const char *session_key);
+	bool StartServer(SphynxTLS *tls, Port port, u8 *public_key, int public_bytes, u8 *private_key, int private_bytes, const char *session_key);
 
 	u32 GetTotalPopulation();
 
-	static bool GenerateKeyPair(ThreadPoolLocalStorage *tls, const char *public_key_file,
+	static bool GenerateKeyPair(SphynxTLS *tls, const char *public_key_file,
 								const char *private_key_file, u8 *public_key,
 								int public_bytes, u8 *private_key, int private_bytes);
 
