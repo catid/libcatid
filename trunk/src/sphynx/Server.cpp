@@ -36,6 +36,7 @@
 #include <cat/hash/Murmur.hpp>
 #include <cat/crypt/SecureCompare.hpp>
 #include <cat/crypt/tunnel/KeyMaker.hpp>
+#include <cat/sphynx/SphynxLayer.hpp>
 #include <fstream>
 using namespace std;
 using namespace cat;
@@ -64,6 +65,7 @@ void Server::OnReadRouting(const BatchSet &buffers)
 	RecvBuffer *prev_buffer = 0;
 
 	Connexion *conn;
+	u32 flood = 0;
 
 	// For each buffer in the batch,
 	for (BatchHead *next, *node = buffers.head; node; node = next)
@@ -78,12 +80,14 @@ void Server::OnReadRouting(const BatchSet &buffers)
 		// If source address has changed,
 		if (!prev_buffer || buffer->addr != prev_buffer->addr)
 		{
-			conn = _conn_map.Lookup(buffer->addr);
+			flood = _conn_map.LookupCheckFlood(conn, buffer->addr) ? FLOOD_MASK : 0;
 			prev_buffer = buffer;
 		}
 
 		if (conn)
+		{
 			worker_id = conn->GetServerWorkerID();
+		}
 		else
 		{
 			// Pick the next connect worker
@@ -91,6 +95,9 @@ void Server::OnReadRouting(const BatchSet &buffers)
 				connect_worker = 0;
 
 			worker_id = connect_worker;
+
+			// Set high bit if flood was detected
+			buffer->data_bytes |= flood;
 		}
 
 		buffer->callback = conn;
@@ -132,115 +139,82 @@ void Server::OnReadRouting(const BatchSet &buffers)
 	_connect_worker = connect_worker;
 }
 
-void Server::OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers)
+void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 {
-	if (bytes == C2S_HELLO_LEN && data[0] == C2S_HELLO)
+	SphynxTLS *tls = reinterpret_cast<SphynxTLS*>( itls );
+
+	for (BatchHead *node = buffers.head; node; node = node->batch_next)
 	{
-		// If magic does not match,
-		u32 *protocol_magic = reinterpret_cast<u32*>( data + 1 );
-		if (*protocol_magic != getLE(PROTOCOL_MAGIC))
+		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
+
+		u32 bytes = buffer->data_bytes;
+		u8 *data = GetTrailingBytes(buffer);
+
+		// If flood was detected from unconnected client,
+		if (bytes & FLOOD_MASK)
 		{
-			WARN("Server") << "Ignoring hello: Bad magic";
-			return;
+			// Skip this packet
+			continue;
 		}
 
-		// Verify public key
-		if (!SecureEqual(data + 1 + 4, _public_key, PUBLIC_KEY_BYTES))
+		// Process message by type and length
+		if (bytes == C2S_HELLO_LEN && data[0] == C2S_HELLO)
 		{
-			WARN("Server") << "Failing hello: Client public key does not match";
-			PostConnectionError(src, ERR_WRONG_KEY);
-			return;
-		}
-
-		WARN("Server") << "Accepted hello and posted cookie";
-
-		PostConnectionCookie(src);
-	}
-	else if (bytes == C2S_CHALLENGE_LEN && data[0] == C2S_CHALLENGE)
-	{
-		// If magic does not match,
-		u32 *protocol_magic = reinterpret_cast<u32*>( data + 1 );
-		if (*protocol_magic != getLE(PROTOCOL_MAGIC))
-		{
-			WARN("Server") << "Ignoring challenge: Bad magic";
-			return;
-		}
-
-		// If cookie is invalid, ignore packet
-		u32 *cookie = reinterpret_cast<u32*>( data + 1 + 4 );
-		bool good_cookie = src.Is6() ?
-			_cookie_jar.Verify(&src, sizeof(src), *cookie) :
-		_cookie_jar.Verify(src.GetIP4(), src.GetPort(), *cookie);
-
-		if (!good_cookie)
-		{
-			WARN("Server") << "Ignoring challenge: Stale cookie";
-			return;
-		}
-
-		u8 *challenge = data + 1 + 4 + 4;
-
-		// They took the time to get the cookie right, might as well check if we know them
-		AutoRef<Connexion> conn = _conn_map.Lookup(src);
-
-		// If connection already exists,
-		if (conn)
-		{
-			// If the connection exists but has recently been deleted,
-			// If we have seen the first encrypted packet already,
-			// If we the challenge does not match the previous one,
-			if (!conn->IsValid() || conn->_seen_encrypted ||
-				!SecureEqual(conn->_first_challenge, challenge, CHALLENGE_BYTES))
+			// If magic does not match,
+			u32 *protocol_magic = reinterpret_cast<u32*>( data + 1 );
+			if (*protocol_magic != getLE(PROTOCOL_MAGIC))
 			{
-				WARN("Server") << "Ignoring challenge: Replay challenge in bad state";
+				WARN("Server") << "Ignoring hello: Bad magic";
 				return;
 			}
 
-			u8 *pkt = AsyncBuffer::Acquire(S2C_ANSWER_LEN);
-
-			// Verify that post buffer could be allocated
-			if (!pkt)
+			// Verify public key
+			if (!SecureEqual(data + 1 + 4, _public_key, PUBLIC_KEY_BYTES))
 			{
-				WARN("Server") << "Ignoring challenge: Unable to allocate post buffer";
+				WARN("Server") << "Failing hello: Client public key does not match";
+				PostConnectionError(buffer->addr, ERR_WRONG_KEY);
 				return;
 			}
 
-			// Construct packet
-			pkt[0] = S2C_ANSWER;
+			WARN("Server") << "Accepted hello and posted cookie";
 
-			Port *pkt_port = reinterpret_cast<Port*>( pkt + 1 );
-			*pkt_port = getLE(conn->_server_worker->GetPort());
-
-			u8 *pkt_answer = pkt + 1 + sizeof(Port);
-			memcpy(pkt_answer, conn->_cached_answer, ANSWER_BYTES);
-
-			// Post packet without checking for errors
-			Post(src, pkt, S2C_ANSWER_LEN);
-
-			INANE("Server") << "Replayed lost answer to client challenge";
+			PostConnectionCookie(buffer->addr);
 		}
-		else // Connexion did not exist yet:
+		else if (bytes == C2S_CHALLENGE_LEN && data[0] == C2S_CHALLENGE)
 		{
+			// If magic does not match,
+			u32 *protocol_magic = reinterpret_cast<u32*>( data + 1 );
+			if (*protocol_magic != getLE(PROTOCOL_MAGIC))
+			{
+				WARN("Server") << "Ignoring challenge: Bad magic";
+				return;
+			}
+
+			// If cookie is invalid, ignore packet
+			u32 *cookie = reinterpret_cast<u32*>( data + 1 + 4 );
+			bool good_cookie = buffer->addr.Is6() ?
+				_cookie_jar.Verify(&buffer->addr, sizeof(buffer->addr), *cookie) :
+			_cookie_jar.Verify(buffer->addr.GetIP4(), buffer->addr.GetPort(), *cookie);
+
+			if (!good_cookie)
+			{
+				WARN("Server") << "Ignoring challenge: Stale cookie";
+				return;
+			}
+
+			u8 *challenge = data + 1 + 4 + 4;
+
 			// If server is overpopulated,
-			if (GetTotalPopulation() >= MAX_POPULATION)
+			if (GetIOLayer()->GetWorkerThreads()->GetTotalPopulation() >= ConnexionMap::MAX_POPULATION)
 			{
 				WARN("Server") << "Ignoring challenge: Server is full";
-				PostConnectionError(src, ERR_SERVER_FULL);
-				return;
-			}
-
-			// If flood is detected,
-			u32 flood_key = _flood_guard.TryNewConnexion(src);
-			if (flood_key == FloodGuard::FLOOD_DETECTED)
-			{
-				WARN("Server") << "Ignoring challenge: Flood detected";
-				PostConnectionError(src, ERR_FLOOD_DETECTED);
+				PostConnectionError(buffer->addr, ERR_SERVER_FULL);
 				return;
 			}
 
 			Skein key_hash;
 
-			u8 *pkt = AsyncBuffer::Acquire(S2C_ANSWER_LEN);
+			u8 *pkt = SendBuffer::Acquire(S2C_ANSWER_LEN);
 
 			// Verify that post buffer could be allocated
 			if (!pkt)
@@ -331,11 +305,11 @@ void Server::OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers)
 
 void Server::OnWorkerTick(IWorkerTLS *tls, u32 now)
 {
-
 }
 
 Server::Server()
 {
+	_connect_worker = 0;
 }
 
 Server::~Server()
@@ -421,28 +395,9 @@ bool Server::StartServer(ThreadPoolLocalStorage *tls, Port port, u8 *public_key,
 	return true;
 }
 
-Connexion *Server::LookupConnexion(u32 key)
+bool Server::PostConnectionCookie(const NetAddr &dest)
 {
-	return _conn_map.Lookup(key);
-}
-
-u32 Server::GetTotalPopulation()
-{
-	u32 population = 0;
-
-	// For each port,
-	for (int ii = 0; ii < _worker_count; ++ii)
-	{
-		// Accumulate population
-		population += _workers[ii]->GetPopulation();
-	}
-
-	return population;
-}
-
-void Server::PostConnectionCookie(const NetAddr &dest)
-{
-	u8 *pkt = AsyncBuffer::Acquire(S2C_COOKIE_LEN);
+	u8 *pkt = SendBuffer::Acquire(S2C_COOKIE_LEN);
 
 	// Verify that post buffer could be allocated
 	if (!pkt)
@@ -460,12 +415,12 @@ void Server::PostConnectionCookie(const NetAddr &dest)
 							 : _cookie_jar.Generate(dest.GetIP4(), dest.GetPort());
 
 	// Attempt to post the packet, ignoring failures
-	Post(dest, pkt, S2C_COOKIE_LEN);
+	return Write(pkt, dest);
 }
 
-void Server::PostConnectionError(const NetAddr &dest, HandshakeError err)
+bool Server::PostConnectionError(const NetAddr &dest, HandshakeError err)
 {
-	u8 *pkt = AsyncBuffer::Acquire(S2C_ERROR_LEN);
+	u8 *pkt = SendBuffer::Acquire(S2C_ERROR_LEN);
 
 	// Verify that post buffer could be allocated
 	if (!pkt)
@@ -479,12 +434,7 @@ void Server::PostConnectionError(const NetAddr &dest, HandshakeError err)
 	pkt[1] = (u8)(err);
 
 	// Post packet without checking for errors
-	Post(dest, pkt, S2C_ERROR_LEN);
-}
-
-void Server::OnReadRouting(const BatchSet &buffers)
-{
-
+	return Write(pkt, dest);
 }
 
 bool Server::GenerateKeyPair(ThreadPoolLocalStorage *tls, const char *public_key_file,

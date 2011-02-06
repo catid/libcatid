@@ -153,50 +153,6 @@ bool ConnexionMap::LookupCheckFlood(Connexion * &connexion, const NetAddr &addr)
 	return (_flood_table[flood_key] >= CONNECTION_FLOOD_THRESHOLD);
 }
 
-// Lookup client by address
-Connexion *ConnexionMap::Lookup(const NetAddr &addr)
-{
-	// Hash IP:port:salt to get the hash table key
-	u32 key = map_hash_addr(addr, _ip_salt, _port_salt) & HASH_TABLE_MASK;
-
-	AutoReadLock lock(_table_lock);
-
-	// Forever,
-	for (;;)
-	{
-		// Grab the slot
-		Slot *slot = &_map_table[key];
-
-		Connexion *conn = slot->conn;
-
-		// If the slot is used and the user address matches,
-		if (conn && conn->_client_addr == addr)
-		{
-			conn->AddRef();
-
-			return conn;
-		}
-		else
-		{
-			// If the slot indicates a collision,
-			if (slot->collision)
-			{
-				// Calculate next collision key
-				key = (key * COLLISION_MULTIPLIER + COLLISION_INCREMENTER) & HASH_TABLE_MASK;
-
-				// Loop around and process the next slot in the collision list
-			}
-			else
-			{
-				// Reached end of collision list, so the address was not found in the table
-				break;
-			}
-		}
-	}
-
-	return 0;
-}
-
 // Lookup client by key
 Connexion *ConnexionMap::Lookup(u32 key)
 {

@@ -42,8 +42,7 @@ namespace sphynx {
 // Server port
 class Server : public UDPEndpoint, public WorkerCallbacks
 {
-	virtual void OnShutdownRequest();
-	virtual bool OnZeroReferences();
+	static const u32 FLOOD_MASK = 0x80000000;
 
 	static const int SESSION_KEY_BYTES = 32;
 	char _session_key[SESSION_KEY_BYTES];
@@ -61,8 +60,8 @@ class Server : public UDPEndpoint, public WorkerCallbacks
 	// TODO: Revisit this
 	u32 _connect_worker;
 
-	void PostConnectionCookie(const NetAddr &dest);
-	void PostConnectionError(const NetAddr &dest, HandshakeError err);
+	bool PostConnectionCookie(const NetAddr &dest);
+	bool PostConnectionError(const NetAddr &dest, HandshakeError err);
 
 public:
 	Server();
@@ -84,7 +83,7 @@ protected:
 	virtual bool AcceptNewConnexion(const NetAddr &src) = 0;
 
 	// LookupConnexion client by key
-	Connexion *LookupConnexion(u32 key);
+	CAT_INLINE Connexion *LookupConnexion(u32 key) { return _conn_map.Lookup(key); }
 
 	virtual void OnShutdownRequest();
 	virtual bool OnZeroReferences();

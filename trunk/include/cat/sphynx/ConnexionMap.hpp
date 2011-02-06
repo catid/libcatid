@@ -82,9 +82,6 @@ public:
 	// Returns true if flood guard triggered
 	bool LookupCheckFlood(Connexion * &connexion, const NetAddr &addr);
 
-	// Lookup client by address
-	Connexion *Lookup(const NetAddr &addr);
-
 	// Lookup client by key
 	Connexion *Lookup(u32 key);
 

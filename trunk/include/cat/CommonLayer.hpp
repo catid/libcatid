@@ -29,7 +29,7 @@
 #ifndef CAT_COMMON_LAYER_HPP
 #define CAT_COMMON_LAYER_HPP
 
-#include <cat/Platform.hpp>
+#include <cat/threads/WorkerThreads.hpp>
 
 namespace cat {
 

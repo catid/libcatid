@@ -29,8 +29,8 @@
 #ifndef CAT_IO_LAYER_HPP
 #define CAT_IO_LAYER_HPP
 
+#include <cat/CommonLayer.hpp>
 #include <cat/net/Sockets.hpp>
-#include <cat/threads/WorkerThreads.hpp>
 
 #if defined(CAT_OS_WINDOWS)
 #include <cat/iocp/IOThreads.hpp>

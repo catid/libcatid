@@ -29,17 +29,31 @@
 #ifndef CAT_SPHYNX_LAYER_HPP
 #define CAT_SPHYNX_LAYER_HPP
 
-#include <cat/sphynx/Common.hpp>
+#include <cat/io/IOLayer.hpp>
+#include <cat/math/BigTwistedEdwards.hpp>
+#include <cat/crypt/rand/Fortuna.hpp>
 
 namespace cat {
 
+
+class SphynxTLS : public IWorkerTLS
+{
+public:
+	FortunaOutput *csprng;
+	BigTwistedEdwards *math;
+
+	SphynxTLS();
+	virtual ~SphynxTLS();
+
+	bool Valid();
+};
 
 class SphynxLayer : public IOLayer
 {
 public:
 	CAT_INLINE bool Startup(const char *settings_file_name = "Settings.cfg", bool service = false, const char *service_name = "MyService")
 	{
-		return CommonLayer::Startup(settings_file_name, service, service_name);
+		return CommonLayer::Startup<SphynxTLS>(settings_file_name, service, service_name);
 	}
 
 protected:
