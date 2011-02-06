@@ -1335,7 +1335,10 @@ void ECCSpeed()
 
 int main()
 {
-	Clock::Initialize();
+	CommonLayer layer;
+
+	if (!layer.Startup("TestECC.cfg"))
+		return 1;
 
     if (!FortunaFactory::ref()->Initialize())
     {
@@ -1401,10 +1404,6 @@ int main()
 
     cout << endl << "ChaCha testing and timing:" << endl;
     TestChaCha();
-
-	FortunaFactory::ref()->Shutdown();
-
-	Clock::Shutdown();
 
     return 0;
 }
