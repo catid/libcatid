@@ -26,35 +26,53 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_IO_LAYER_HPP
-#define CAT_IO_LAYER_HPP
+#include <cat/CommonLayer.hpp>
+using namespace cat;
 
-#include <cat/net/Sockets.hpp>
-#include <cat/threads/WorkerThreads.hpp>
-
-#if defined(CAT_OS_WINDOWS)
-#include <cat/iocp/IOThreads.hpp>
-#include <cat/iocp/UDPEndpoint.hpp>
-#else
-TODO
-#endif
-
-namespace cat {
-
-
-class IOLayer : public CommonLayer
+bool CommonLayer::OnStartup(IWorkerTLSBuilder *tls_builder, const char *settings_file_name, bool service, const char *service_name)
 {
-	IOThreads _io_threads;
+	// Initialize system info
+	InitializeSystemInfo();
 
-public:
-	CAT_INLINE IOThreads *GetIOThreads() { return &_io_threads; }
+	// Initialize clock subsystem
+	if (!Clock::Initialize())
+	{
+		FatalStop("Clock subsystem failed to initialize");
+	}
 
-protected:
-	virtual bool OnStartup(IWorkerTLSBuilder *tls, const char *settings_file_name, bool service, const char *service_name);
-	virtual void OnShutdown(bool watched_shutdown);
-};
+	// Initialize logging subsystem with INFO reporting level
+	Logging::ref()->Initialize(LVL_INFO);
+	if (service) Logging::ii->EnableServiceMode(service_name);
 
+	// Initialize disk settings subsystem
+	Settings::ref()->readSettingsFromFile(settings_file_name);
 
-} // namespace cat
+	// Read logging subsystem settings
+	Logging::ii->ReadSettings();
 
-#endif // CAT_IO_LAYER_HPP
+	// Start the Worker threads if requested to by the caller
+	if (tls_builder && !_worker_threads.Startup(tls_builder))
+	{
+		FATAL("CommonLayer") << "WorkerThreads subsystem failed to initialize";
+		return false;
+	}
+
+	return true;
+}
+
+void CommonLayer::OnShutdown(bool watched_shutdown)
+{
+	if (!watched_shutdown)
+	{
+		WARN("CommonLayer") << "Wait for shutdown expired";
+	}
+
+	// Terminate Worker threads
+	_worker_threads.Shutdown();
+
+	// Write settings to disk
+	Settings::ref()->write();
+
+	// Cleanup clock subsystem
+	Clock::Shutdown();
+}
