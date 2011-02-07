@@ -32,7 +32,7 @@ using namespace cat;
 
 SphynxTLS::SphynxTLS()
 {
-	csprng = FortunaFactory::ii->Create();
+	csprng = new FortunaOutput;
 
 	math = KeyAgreementCommon::InstantiateMath(256);
 }
