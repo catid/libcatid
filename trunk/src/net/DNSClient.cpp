@@ -246,9 +246,9 @@ DNSClient::DNSClient()
 bool DNSClient::Initialize(IOLayer *iolayer)
 {
 	// Attempt to get a CSPRNG
-	if (!(_csprng = FortunaFactory::ii->Create()))
+	if (!(_csprng = new FortunaOutput))
 	{
-		WARN("DNS") << "Initialization failure: Unable to get a CSPRNG";
+		WARN("DNS") << "Out of memory: Unable to get a CSPRNG";
 		RequestShutdown();
 		return false;
 	}

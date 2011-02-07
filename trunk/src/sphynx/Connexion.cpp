@@ -31,11 +31,10 @@
 #include <cat/io/Logging.hpp>
 #include <cat/io/MMapFile.hpp>
 #include <cat/io/Settings.hpp>
-#include <cat/io/Base64.hpp>
 #include <cat/time/Clock.hpp>
 #include <cat/hash/Murmur.hpp>
 #include <cat/crypt/SecureCompare.hpp>
-#include <cat/crypt/tunnel/KeyMaker.hpp>
+#include <cat/crypt/tunnel/Keys.hpp>
 using namespace cat;
 using namespace sphynx;
 

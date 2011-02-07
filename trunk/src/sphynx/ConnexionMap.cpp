@@ -184,6 +184,9 @@ bool ConnexionMap::Insert(Connexion *conn)
 	// Grab the slot
 	Slot *slot = &_map_table[key];
 
+	// Add a reference to the Connexion
+	conn->AddRef();
+
 	AutoWriteLock lock(_table_lock);
 
 	// While collision keys are marked used,
@@ -191,7 +194,14 @@ bool ConnexionMap::Insert(Connexion *conn)
 	{
 		// If client is already connected,
 		if (slot->conn->_client_addr == conn->_client_addr)
+		{
+			lock.Release();
+
+			// Release the reference
+			conn->ReleaseRef();
+
 			return false;
+		}
 
 		// Set flag for collision
 		slot->collision = true;
@@ -210,6 +220,7 @@ bool ConnexionMap::Insert(Connexion *conn)
 	conn->_key = key;
 	conn->_flood_key = flood_key;
 
+	// Keeps reference held
 	return true;
 }
 
