@@ -58,7 +58,7 @@ class Client : public UDPEndpoint, public Transport, public WorkerCallbacks
 
 	WaitableFlag _kill_flag;
 
-	u32 _last_send_mstsc;
+	u32 _last_send_msec;
 	NetAddr _server_addr;
 	bool _connected;
 	u32 _worker_id;

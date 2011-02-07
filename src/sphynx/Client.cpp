@@ -61,55 +61,157 @@ bool Client::OnZeroReferences()
 
 void Client::OnReadRouting(const BatchSet &buffers)
 {
-	BatchSet free_set;
-	free_set.head = free_set.tail = 0;
-	u32 free_count = 0;
+	BatchSet garbage;
+	garbage.Clear();
+	u32 garbage_count = 0;
 
-	BatchHead *last = 0;
+	BatchSet delivery;
+	delivery.Clear();
 
 	// For each buffer in the set,
-	for (BatchHead *node = buffers.head; node; node = node->batch_next)
+	for (BatchHead *next, *node = buffers.head; node; node = node->batch_next)
 	{
+		next = node->batch_next;
 		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
 
 		SetRemoteAddress(buffer);
 
-		// If packet source is not the server, ignore this packet
+		// If packet source is not the server,
 		if (_server_addr != buffer->addr)
 		{
-			if (last) last->batch_next = buffer->batch_next;
-			buffer->batch_next = 0;
+			garbage.PushBack(buffer);
+			++garbage_count;
 		}
 		else
 		{
 			buffer->callback = this;
+			delivery.PushBack(buffer);
 		}
 	}
 
 	// If delivery set is not empty,
-	if (buffers.head)
-		GetIOLayer()->GetWorkerThreads()->DeliverBuffers(_worker_id, buffers);
+	if (delivery.head)
+		GetIOLayer()->GetWorkerThreads()->DeliverBuffers(_worker_id, delivery);
 
 	// If free set is not empty,
-	if (free_count > 0)
-		ReleaseRecvBuffers(free_set, free_count);
+	if (garbage_count > 0)
+		ReleaseRecvBuffers(garbage, garbage_count);
 }
 
 void Client::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 {
 	SphynxTLS *tls = reinterpret_cast<SphynxTLS*>( itls );
+	u32 buffer_count = 0;
+	BatchHead *node = buffers.head;
 
-	for (BatchHead *node = buffers.head; node; node = node->batch_next)
+	if (!_connected)
 	{
-		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
+		for (; node; node = node->batch_next)
+		{
+			++buffer_count;
+			RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
+			u32 bytes = buffer->data_bytes;
+			u8 *data = GetTrailingBytes(buffer);
 
-		SetRemoteAddress(buffer);
-		buffer->callback = this;
+			if (bytes == S2C_COOKIE_LEN && data[0] == S2C_COOKIE)
+			{
+				// Allocate a post buffer
+				u8 *pkt = SendBuffer::Acquire(C2S_CHALLENGE_LEN);
 
-		// If packet source is not the server, ignore this packet
-		if (_server_addr != buffer->addr)
-			continue;
+				if (!pkt)
+				{
+					WARN("Client") << "Unable to connect: Cannot allocate buffer for challenge message";
+					ConnectFail(ERR_CLIENT_OUT_OF_MEMORY);
+					continue;
+				}
+
+				// Start ignoring ICMP unreachable messages now that we've seen a pkt from the server
+				if (!IgnoreUnreachable())
+				{
+					WARN("Client") << "ICMP ignore unreachable failed";
+				}
+
+				// Construct challenge
+				pkt[0] = C2S_CHALLENGE;
+
+				u32 *magic = reinterpret_cast<u32*>( pkt + 1 );
+				*magic = getLE32(PROTOCOL_MAGIC);
+
+				u32 *in_cookie = reinterpret_cast<u32*>( data + 1 );
+				u32 *out_cookie = reinterpret_cast<u32*>( pkt + 1 + 4 );
+				*out_cookie = *in_cookie;
+
+				memcpy(pkt + 1 + 4 + 4, _cached_challenge, CHALLENGE_BYTES);
+
+				// Attempt to post a pkt
+				if (!Write(pkt, _server_addr))
+				{
+					WARN("Client") << "Unable to connect: Cannot post pkt to cookie";
+					ConnectFail(ERR_CLIENT_BROKEN_PIPE);
+				}
+				else
+				{
+					INANE("Client") << "Accepted cookie and posted challenge";
+				}
+			}
+			else if (bytes == S2C_ANSWER_LEN && data[0] == S2C_ANSWER)
+			{
+				Port *port = reinterpret_cast<Port*>( data + 1 );
+
+				Port server_session_port = getLE(*port);
+
+				// Ignore packet if the port doesn't make sense
+				if (server_session_port > _server_addr.GetPort())
+				{
+					Skein key_hash;
+
+					// Process answer from server, ignore invalid
+					if (_key_agreement_initiator.ProcessAnswer(tls->math, data + 1 + 2, ANSWER_BYTES, &key_hash) &&
+						_key_agreement_initiator.KeyEncryption(&key_hash, &_auth_enc, _session_key) &&
+						InitializeTransportSecurity(true, _auth_enc))
+					{
+						_connected = true;
+						OnConnect(tls);
+
+						// If we have already received the first encrypted message, keep processing
+						node = node->batch_next;
+						break;
+					}
+					else
+					{
+						INANE("Client") << "Ignored invalid server answer";
+					}
+				}
+				else
+				{
+					INANE("Client") << "Ignored server answer with insane port";
+				}
+			}
+			else if (bytes == S2C_ERROR_LEN && data[0] == S2C_ERROR)
+			{
+				HandshakeError err = (HandshakeError)data[1];
+
+				if (err <= ERR_NUM_INTERNAL_ERRORS)
+				{
+					INANE("Client") << "Ignored invalid server error";
+					continue;
+				}
+
+				WARN("Client") << "Unable to connect: Server returned error " << GetHandshakeErrorString(err);
+				ConnectFail(err);
+			}
+		}
 	}
+
+	for (; node; node = node->batch_next)
+	{
+		++buffer_count;
+		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
+		u32 bytes = buffer->data_bytes;
+		u8 *data = GetTrailingBytes(buffer);
+	}
+
+	ReleaseRecvBuffers(buffers, buffer_count);
 
 	// If connection has completed
 	if (_connected)
@@ -138,101 +240,12 @@ void Client::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 			WARN("Client") << "Ignored invalid encrypted data";
 		}
 	}
-	else if (bytes == S2C_COOKIE_LEN && data[0] == S2C_COOKIE)
-	{
-		// Allocate a post buffer
-		u8 *pkt = SendBuffer::Acquire(C2S_CHALLENGE_LEN);
-
-		if (!pkt)
-		{
-			WARN("Client") << "Unable to connect: Cannot allocate buffer for challenge message";
-
-			ConnectFail(ERR_CLIENT_OUT_OF_MEMORY);
-
-			return;
-		}
-
-		// Start ignoring ICMP unreachable messages now that we've seen a pkt from the server
-		if (!IgnoreUnreachable())
-		{
-			WARN("Client") << "ICMP ignore unreachable failed";
-		}
-
-		// Construct challenge
-		pkt[0] = C2S_CHALLENGE;
-
-		u32 *magic = reinterpret_cast<u32*>( pkt + 1 );
-		*magic = getLE32(PROTOCOL_MAGIC);
-
-		u32 *in_cookie = reinterpret_cast<u32*>( data + 1 );
-		u32 *out_cookie = reinterpret_cast<u32*>( pkt + 1 + 4 );
-		*out_cookie = *in_cookie;
-
-		memcpy(pkt + 1 + 4 + 4, _cached_challenge, CHALLENGE_BYTES);
-
-		// Attempt to post a pkt
-		if (!Post(_server_addr, pkt, C2S_CHALLENGE_LEN))
-		{
-			WARN("Client") << "Unable to connect: Cannot post pkt to cookie";
-
-			ConnectFail(ERR_CLIENT_BROKEN_PIPE);
-		}
-		else
-		{
-			INANE("Client") << "Accepted cookie and posted challenge";
-		}
-	}
-	else if (bytes == S2C_ANSWER_LEN && data[0] == S2C_ANSWER)
-	{
-		Port *port = reinterpret_cast<Port*>( data + 1 );
-
-		Port server_session_port = getLE(*port);
-
-		// Ignore packet if the port doesn't make sense
-		if (server_session_port > _server_addr.GetPort())
-		{
-			Skein key_hash;
-
-			// Process answer from server, ignore invalid
-			if (_key_agreement_initiator.ProcessAnswer(tls->math, data + 1 + 2, ANSWER_BYTES, &key_hash) &&
-				_key_agreement_initiator.KeyEncryption(&key_hash, &_auth_enc, _session_key) &&
-				InitializeTransportSecurity(true, _auth_enc))
-			{
-				_connected = true;
-
-				// Note: Will now only listen to packets from the session port
-				_server_addr.SetPort(server_session_port);
-
-				OnConnect(tls);
-			}
-			else
-			{
-				INANE("Client") << "Ignored invalid server answer";
-			}
-		}
-		else
-		{
-			INANE("Client") << "Ignored server answer with insane port";
-		}
-	}
-	else if (bytes == S2C_ERROR_LEN && data[0] == S2C_ERROR)
-	{
-		HandshakeError err = (HandshakeError)data[1];
-
-		if (err <= ERR_NUM_CLIENT_ERRORS)
-		{
-			INANE("Client") << "Ignored invalid server error";
-			return;
-		}
-
-		WARN("Client") << "Unable to connect: Server returned error " << GetHandshakeErrorString(err);
-
-		ConnectFail(err);
-	}
 }
 
-void Client::OnWorkerTick(IWorkerTLS *tls, u32 now)
+void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)
 {
+	SphynxTLS *tls = reinterpret_cast<SphynxTLS*>( itls );
+
 	u32 start_time = Clock::msec_fast();
 	u32 first_hello_post = start_time;
 	u32 last_hello_post = start_time;
@@ -380,7 +393,7 @@ void Client::OnWorkerTick(IWorkerTLS *tls, u32 now)
 		OnTick(&tls, now);
 
 		// Send a keep-alive after the silence limit expires
-		if ((s32)(now - _last_send_mstsc) >= SILENCE_LIMIT)
+		if ((s32)(now - _last_send_msec) >= SILENCE_LIMIT)
 		{
 			PostTimePing();
 
@@ -392,7 +405,7 @@ void Client::OnWorkerTick(IWorkerTLS *tls, u32 now)
 Client::Client()
 {
 	_connected = false;
-	_last_send_mstsc = 0;
+	_last_send_msec = 0;
 
 	// Clock synchronization
 	_ts_next_index = 0;
@@ -615,7 +628,7 @@ bool Client::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes)
 
 	if (Post(_server_addr, buffer, msg_bytes))
 	{
-		_last_send_mstsc = Clock::msec_fast();
+		_last_send_msec = Clock::msec_fast();
 
 		return true;
 	}

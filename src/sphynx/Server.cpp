@@ -67,6 +67,7 @@ void Server::OnReadRouting(const BatchSet &buffers)
 	RecvBuffer *prev_buffer = 0;
 
 	Connexion *conn;
+	u32 worker_id;
 
 	// For each buffer in the batch,
 	for (BatchHead *next, *node = buffers.head; node; node = next)
@@ -75,8 +76,6 @@ void Server::OnReadRouting(const BatchSet &buffers)
 		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
 
 		SetRemoteAddress(buffer);
-
-		u32 worker_id;
 
 		// If source address has changed,
 		if (!prev_buffer || buffer->addr != prev_buffer->addr)
