@@ -361,7 +361,7 @@ bool UDPEndpoint::Write(const BatchSet &buffers, const NetAddr &addr)
 
 //// Event Completion
 
-void UDPEndpoint::ReleaseReadBuffers(BatchSet buffers, u32 count)
+void UDPEndpoint::ReleaseRecvBuffers(BatchSet buffers, u32 count)
 {
 	if (!buffers.head) return;
 
@@ -405,7 +405,7 @@ void UDPEndpoint::OnReadCompletion(const BatchSet &buffers, u32 count)
 	if (IsShutdown())
 	{
 		// Just release the read buffers
-		ReleaseReadBuffers(buffers, count);
+		ReleaseRecvBuffers(buffers, count);
 		return;
 	}
 

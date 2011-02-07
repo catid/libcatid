@@ -55,6 +55,10 @@ void Server::OnReadRouting(const BatchSet &buffers)
 	u32 connect_worker = _connect_worker;
 	u32 worker_count = GetIOLayer()->GetWorkerThreads()->GetWorkerCount();
 
+	BatchSet garbage;
+	garbage.Clear();
+	u32 garbage_count = 0;
+
 	BatchSet bins[MAX_WORKER_THREADS];
 
 	static const u32 MAX_VALID_WORDS = CAT_CEIL_UNIT(MAX_WORKER_THREADS, 32);
@@ -63,7 +67,6 @@ void Server::OnReadRouting(const BatchSet &buffers)
 	RecvBuffer *prev_buffer = 0;
 
 	Connexion *conn;
-	bool flood;
 
 	// For each buffer in the batch,
 	for (BatchHead *next, *node = buffers.head; node; node = next)
@@ -78,28 +81,50 @@ void Server::OnReadRouting(const BatchSet &buffers)
 		// If source address has changed,
 		if (!prev_buffer || buffer->addr != prev_buffer->addr)
 		{
-			flood = _conn_map.LookupCheckFlood(conn, buffer->addr);
-			prev_buffer = buffer;
-		}
+			if (_conn_map.LookupCheckFlood(conn, buffer->addr))
+			{
+				// Flood detected on unconnected client, insert into garbage list
+				garbage.PushBack(buffer);
+				++garbage_count;
+				continue;
+			}
+			else
+			{
+				// If connection matched address,
+				if (conn)
+				{
+					worker_id = conn->GetServerWorkerID();
+				}
+				else
+				{
+					// Pick the next connect worker
+					if (++connect_worker >= worker_count)
+						connect_worker = 0;
 
-		if (conn)
+					worker_id = connect_worker;
+				}
+
+				// Compare to this buffer next time
+				prev_buffer = buffer;
+			}
+		}
+		else if (conn)
 		{
-			worker_id = conn->GetServerWorkerID();
+			// Another packet from the same connection
+			conn->AddRef();
 		}
 		else
 		{
-			// Pick the next connect worker
-			if (++connect_worker >= worker_count)
-				connect_worker = 0;
-
-			worker_id = connect_worker;
-
-			// Set high bit if flood was detected
-			buffer->data_bytes |= flood ? FLOOD_MASK : 0;
+			// Another packet from the same non-connection
+			// Ignore these because the handshake protocol does not expect more than one packet
+			// I think this is a good idea to handle connectionless floods better
+			garbage.PushBack(buffer);
+			++garbage_count;
+			continue;
 		}
 
-		buffer->callback = conn;
 		buffer->batch_next = 0;
+		buffer->callback = conn;
 
 		// If bin is already valid,
 		if (BTS32(&valid[worker_id >> 5], connect_worker & 31))
@@ -135,25 +160,23 @@ void Server::OnReadRouting(const BatchSet &buffers)
 
 	// Store the final connect worker
 	_connect_worker = connect_worker;
+
+	// If garbage needs to be taken out,
+	if (garbage_count > 0)
+		ReleaseRecvBuffers(garbage, garbage_count);
 }
 
 void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 {
 	SphynxTLS *tls = reinterpret_cast<SphynxTLS*>( itls );
+	u32 buffer_count = 0;
 
-	for (BatchHead *node = buffers.head; node; node = node->batch_next)
+	for (BatchHead *node = buffers.head; node; node = node->batch_next, ++buffer_count)
 	{
 		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
 
 		u32 bytes = buffer->data_bytes;
 		u8 *data = GetTrailingBytes(buffer);
-
-		// If flood was detected from unconnected client,
-		if (bytes & FLOOD_MASK)
-		{
-			// Skip this packet
-			continue;
-		}
 
 		// Process message by type and length
 		if (bytes == C2S_HELLO_LEN && data[0] == C2S_HELLO)
@@ -296,6 +319,8 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 			// AutoRef for the connexion will go out of scope here and destroy the object
 		}
 	}
+
+	ReleaseRecvBuffers(buffers, buffer_count);
 }
 
 void Server::OnWorkerTick(IWorkerTLS *tls, u32 now)

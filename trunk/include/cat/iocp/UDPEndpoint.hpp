@@ -95,7 +95,7 @@ public:
 	}
 
 	// When done with read buffers, call this function to add them back to the available pool
-	void ReleaseReadBuffers(BatchSet buffers, u32 count);
+	void ReleaseRecvBuffers(BatchSet buffers, u32 count);
 
 protected:
 	CAT_INLINE IOLayer *GetIOLayer() { return _iolayer; }

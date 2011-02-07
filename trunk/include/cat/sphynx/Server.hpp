@@ -42,8 +42,6 @@ namespace sphynx {
 // Base class for a Sphynx server
 class Server : public UDPEndpoint, public WorkerCallbacks
 {
-	static const u32 FLOOD_MASK = 0x80000000;
-
 	static const int SESSION_KEY_BYTES = 32;
 	char _session_key[SESSION_KEY_BYTES];
 
