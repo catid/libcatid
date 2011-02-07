@@ -166,7 +166,7 @@ TunnelPublicKey::TunnelPublicKey()
 
 TunnelPublicKey::~TunnelPublicKey()
 {
-	CAT_OBJCLR(_public_key);
+	//CAT_OBJCLR(_public_key);
 }
 
 TunnelPublicKey::TunnelPublicKey(TunnelKeyPair &pair)

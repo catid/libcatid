@@ -62,6 +62,18 @@ public:
 		head = tail = single;
 		single->batch_next = 0;
 	}
+
+	CAT_INLINE void Clear()
+	{
+		head = tail = 0;
+	}
+	CAT_INLINE void PushBack(BatchHead *single)
+	{
+		if (tail) tail->batch_next = single;
+		else head = single;
+		tail = single;
+		single->batch_next = 0;
+	}
 };
 
 

@@ -53,7 +53,7 @@ class Client : public UDPEndpoint, public Transport, public WorkerCallbacks
 	char _session_key[SESSION_KEY_BYTES];
 
 	KeyAgreementInitiator _key_agreement_initiator;
-	u8 _server_public_key[PUBLIC_KEY_BYTES];
+	TunnelPublicKey _server_public_key;
 	u8 _cached_challenge[CHALLENGE_BYTES];
 
 	WaitableFlag _kill_flag;

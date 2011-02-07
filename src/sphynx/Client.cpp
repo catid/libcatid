@@ -61,7 +61,38 @@ bool Client::OnZeroReferences()
 
 void Client::OnReadRouting(const BatchSet &buffers)
 {
-	GetIOLayer()->GetWorkerThreads()->DeliverBuffers(_worker_id, buffers);
+	BatchSet free_set;
+	free_set.head = free_set.tail = 0;
+	u32 free_count = 0;
+
+	BatchHead *last = 0;
+
+	// For each buffer in the set,
+	for (BatchHead *node = buffers.head; node; node = node->batch_next)
+	{
+		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
+
+		SetRemoteAddress(buffer);
+
+		// If packet source is not the server, ignore this packet
+		if (_server_addr != buffer->addr)
+		{
+			if (last) last->batch_next = buffer->batch_next;
+			buffer->batch_next = 0;
+		}
+		else
+		{
+			buffer->callback = this;
+		}
+	}
+
+	// If delivery set is not empty,
+	if (buffers.head)
+		GetIOLayer()->GetWorkerThreads()->DeliverBuffers(_worker_id, buffers);
+
+	// If free set is not empty,
+	if (free_count > 0)
+		ReleaseRecvBuffers(free_set, free_count);
 }
 
 void Client::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
@@ -77,7 +108,7 @@ void Client::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 
 		// If packet source is not the server, ignore this packet
 		if (_server_addr != buffer->addr)
-			return;
+			continue;
 	}
 
 	// If connection has completed
@@ -383,9 +414,7 @@ bool Client::InitialConnect(SphynxLayer *layer, SphynxTLS *tls, TunnelPublicKey 
 	}
 
 	// Verify public key and initialize crypto library with it
-	if (!_key_agreement_initiator.Initialize(tls->math,
-					reinterpret_cast<const u8*>( public_key.GetPublicKey() ),
-					public_key.GetPublicKeyBytes()))
+	if (!_key_agreement_initiator.Initialize(tls->math, public_key))
 	{
 		WARN("Client") << "Failed to connect: Corrupted server public key provided";
 		return false;
@@ -403,7 +432,7 @@ bool Client::InitialConnect(SphynxLayer *layer, SphynxTLS *tls, TunnelPublicKey 
 	CAT_STRNCPY(_session_key, session_key, SESSION_KEY_BYTES);
 
 	// Copy public key
-	memcpy(_server_public_key, public_key.GetPublicKey(), sizeof(_server_public_key));
+	_server_public_key = public_key;
 
 	// Get SupportIPv6 flag from settings
 	bool only_ipv4 = Settings::ii->getInt("Sphynx.Client.SupportIPv6", 0) == 0;
@@ -517,8 +546,8 @@ void Client::OnUnreachable(const NetAddr &src)
 	if (!_connected && _server_addr.EqualsIPOnly(src))
 	{
 		WARN("Client") << "Failed to connect: ICMP error received from server address";
-
 		ConnectFail(ERR_CLIENT_ICMP);
+		RequestShutdown();
 	}
 }
 
@@ -547,10 +576,10 @@ bool Client::PostHello()
 	*magic = getLE32(PROTOCOL_MAGIC);
 
 	u8 *public_key = pkt + 1 + 4;
-	memcpy(public_key, _server_public_key, PUBLIC_KEY_BYTES);
+	memcpy(public_key, _server_public_key.GetPublicKey(), PUBLIC_KEY_BYTES);
 
 	// Attempt to post packet
-	if (!Post(_server_addr, pkt, C2S_HELLO_LEN))
+	if (!Write(pkt, _server_addr))
 	{
 		WARN("Client") << "Unable to post hello packet";
 		return false;
