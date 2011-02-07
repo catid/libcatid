@@ -182,9 +182,6 @@ public:
 
     // Stop the entropy generator
     void Shutdown();
-
-    // Create a new Fortuna object
-    static FortunaOutput *Create();
 };
 
 
@@ -202,11 +199,11 @@ class FortunaOutput : public IRandom
 
     void Reseed();
 
-    FortunaOutput();
     FortunaOutput(FortunaOutput&) {}
     FortunaOutput &operator=(FortunaOutput &) { return *this; }
 
 public:
+	FortunaOutput();
     ~FortunaOutput();
 
     // Generate a 32-bit random number

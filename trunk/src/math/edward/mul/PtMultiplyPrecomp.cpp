@@ -36,30 +36,30 @@ Leg *BigTwistedEdwards::PtMultiplyPrecompAlloc(int w)
 {
     int points = 1 + (1 << (w - 1));
 
-	Leg *out = new (AlignedAllocator::ii) Leg[points * POINT_STRIDE];
+	Leg *out = AlignedAllocator::ii->AcquireArray<Leg>(points * POINT_STRIDE);
 
     return out;
 }
 
 // Precompute odd multiples of input point
-void BigTwistedEdwards::PtMultiplyPrecomp(const Leg *in, int w, Leg *out)
+void BigTwistedEdwards::PtMultiplyPrecomp(const Leg *in_reg, int w, Leg *out_reg)
 {
     int neg_offset = POINT_STRIDE << (w - 2);
 
 	// Identity
-	PtIdentity(out);
-	out += POINT_STRIDE;
+	PtIdentity(out_reg);
+	out_reg += POINT_STRIDE;
 
     // Precompute P and -P
-    Leg *pre_a = out;
-    PtCopy(in, pre_a);
-    PtNegate(in, pre_a+neg_offset);
+    Leg *pre_a = out_reg;
+    PtCopy(in_reg, pre_a);
+    PtNegate(in_reg, pre_a+neg_offset);
 
     Leg *P1 = pre_a;
 
     // Precompute 2P
     Leg *pre_2 = TempPt;
-    PtEDouble(in, pre_2);
+    PtEDouble(in_reg, pre_2);
 
     // Precompute 3P and -3P
     Leg *pre_b = pre_a+POINT_STRIDE;

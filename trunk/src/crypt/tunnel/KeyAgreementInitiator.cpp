@@ -35,7 +35,7 @@ bool KeyAgreementInitiator::AllocateMemory()
 {
     FreeMemory();
 
-    B = new (AlignedAllocator::ii) Leg[KeyLegs * 17];
+    B = AlignedAllocator::ii->AcquireArray<Leg>(KeyLegs * 17);
     a = B + KeyLegs*4;
     A = a + KeyLegs;
     hB = A + KeyLegs*4;

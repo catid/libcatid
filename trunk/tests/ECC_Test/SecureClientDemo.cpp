@@ -157,7 +157,7 @@ void SecureClientDemo::Reset(SecureServerDemo *cserver_ref, TunnelPublicKey &pub
 	if (!tls_math)
 	{
 		tls_math = KeyAgreementCommon::InstantiateMath(CAT_DEMO_BITS);
-		tls_csprng = FortunaFactory::ii->Create();
+		tls_csprng = new FortunaOutput;
 	}
 
     server_ref = cserver_ref;

@@ -215,9 +215,3 @@ void FortunaFactory::Shutdown()
 		_initialized = false;
 	}
 }
-
-// Create a new Fortuna object
-FortunaOutput *FortunaFactory::Create()
-{
-    return new FortunaOutput;
-}
