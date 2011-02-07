@@ -115,12 +115,12 @@ ChaChaOutput::ChaChaOutput(const ChaChaKey &key, u64 iv)
 	state[14] = (u32)iv;
 	state[15] = (u32)(iv >> 32);
 }
+
 ChaChaOutput::~ChaChaOutput()
 {
 	CAT_OBJCLR(state);
 }
 
-// Message with any number of bytes
 void ChaChaOutput::Crypt(const void *in_bytes, void *out_bytes, int bytes)
 {
 	const u32 *in32 = (const u32 *)in_bytes;

@@ -117,7 +117,7 @@ protected:
 	virtual void OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers);
 	virtual void OnWorkerTick(IWorkerTLS *tls, u32 now);
 
-	bool IsConnected() { return _connected; }
+	CAT_INLINE bool IsConnected() { return _connected; }
 
 	virtual void OnClose() = 0;
 	virtual void OnConnectFail(sphynx::HandshakeError err) = 0;
