@@ -27,6 +27,8 @@
 */
 
 #include <cat/iocp/IOThreads.hpp>
+#include <cat/net/RecvBuffer.hpp>
+#include <cat/net/SendBuffer.hpp>
 #include <cat/time/Clock.hpp>
 #include <cat/port/SystemInfo.hpp>
 #include <cat/io/Logging.hpp>
@@ -35,8 +37,8 @@ using namespace cat;
 CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY entries[], u32 count, u32 event_msec)
 {
 	BatchSet sendq, recvq;
-	sendq.head = sendq.tail = 0;
-	recvq.head = recvq.tail = 0;
+	sendq.Clear();
+	recvq.Clear();
 
 	UDPEndpoint *prev_recv_endpoint = 0;
 	u32 recv_count = 0;
