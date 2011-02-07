@@ -207,7 +207,7 @@ public:
 	CAT_INLINE operator T*() { return _ref; }
 
 	CAT_INLINE void Forget() throw() { _ref = 0; }
-	CAT_INLINE void Reset(T *ref = 0) throw() { if (_ref) _ref->Release(); _ref = ref; }
+	CAT_INLINE void Reset(T *ref = 0) throw() { if (_ref) _ref->ReleaseRef(); _ref = ref; }
 };
 
 
