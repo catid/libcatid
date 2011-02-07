@@ -167,7 +167,7 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 			}
 
 			// Verify public key
-			if (!SecureEqual(data + 1 + 4, _public_key, PUBLIC_KEY_BYTES))
+			if (!SecureEqual(data + 1 + 4, _public_key.GetPublicKey(), PUBLIC_KEY_BYTES))
 			{
 				WARN("Server") << "Failing hello: Client public key does not match";
 				PostConnectionError(buffer->addr, ERR_WRONG_KEY);
@@ -312,7 +312,7 @@ Server::~Server()
 {
 }
 
-bool Server::StartServer(SphynxTLS *tls, Port port, TunnelKeyPair &key_pair, const char *session_key)
+bool Server::StartServer(SphynxLayer *layer, SphynxTLS *tls, Port port, TunnelKeyPair &key_pair, const char *session_key)
 {
 	// If objects were not created,
 	if (!tls->Valid())
@@ -336,8 +336,7 @@ bool Server::StartServer(SphynxTLS *tls, Port port, TunnelKeyPair &key_pair, con
 	CAT_STRNCPY(_session_key, session_key, SESSION_KEY_BYTES);
 
 	// Copy public key
-	_public_key
-	memcpy(_public_key, public_key, sizeof(_public_key));
+	_public_key = key_pair;
 
 	// Get SupportIPv6 flag from settings
 	bool only_ipv4 = Settings::ii->getInt("Sphynx.Server.SupportIPv6", 0) == 0;
@@ -346,7 +345,7 @@ bool Server::StartServer(SphynxTLS *tls, Port port, TunnelKeyPair &key_pair, con
 	int kernelReceiveBufferBytes = Settings::ii->getInt("Sphynx.Server.KernelReceiveBuffer", 8000000);
 
 	// Attempt to bind to the server port
-	if (!Bind(only_ipv4, port, true, kernelReceiveBufferBytes))
+	if (!Bind(layer, only_ipv4, port, true, kernelReceiveBufferBytes))
 	{
 		WARN("Server") << "Failed to initialize: Unable to bind handshake port "
 			<< port << ". " << SocketGetLastErrorString();
