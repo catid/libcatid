@@ -58,7 +58,7 @@ public:
 // Use STLAlignedAllocator in place of the standard STL allocator
 // to make use of the AlignedAllocator in STL types.
 template<typename T>
-class STLLargeAllocatorAllocator
+class STLLargeAllocator
 {
 public:
 	typedef std::size_t size_type;
@@ -72,7 +72,7 @@ public:
 	template<typename S>
 	struct rebind
 	{
-		typedef STLLargeAllocatorAllocator<S> other;
+		typedef STLLargeAllocator<S> other;
 	};
 
 	pointer address(reference X) const
@@ -85,17 +85,17 @@ public:
 		return &X;
 	}
 
-	STLLargeAllocatorAllocator() throw ()
+	STLLargeAllocator() throw ()
 	{
 	}
 
 	template<typename S>
-	STLLargeAllocatorAllocator(const STLLargeAllocatorAllocator<S> &cp) throw ()
+	STLLargeAllocator(const STLLargeAllocator<S> &cp) throw ()
 	{
 	}
 
 	template<typename S>
-	STLLargeAllocatorAllocator<T> &operator=(const STLLargeAllocatorAllocator<S> &cp) throw ()
+	STLLargeAllocator<T> &operator=(const STLLargeAllocator<S> &cp) throw ()
 	{
 		return *this;
 	}
@@ -126,13 +126,13 @@ public:
 	}
 
 	template<typename S>
-	bool operator==(STLLargeAllocatorAllocator <S> const &) const throw()
+	bool operator==(STLLargeAllocator <S> const &) const throw()
 	{
 		return true;
 	}
 
 	template<typename S>
-	bool operator!=(STLLargeAllocatorAllocator <S> const &) const throw()
+	bool operator!=(STLLargeAllocator <S> const &) const throw()
 	{
 		return false;
 	}
