@@ -33,10 +33,10 @@
     <ClCompile Include="..\..\src\crypt\tunnel\KeyAgreementResponder.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\crypt\tunnel\KeyMaker.cpp">
+    <ClCompile Include="Precompiled.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Precompiled.cpp">
+    <ClCompile Include="..\..\src\crypt\tunnel\Keys.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -59,11 +59,11 @@
     <ClInclude Include="..\..\include\cat\crypt\tunnel\KeyAgreementResponder.hpp">
       <Filter>Header Files\tunnel</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\cat\crypt\tunnel\KeyMaker.hpp">
-      <Filter>Header Files\tunnel</Filter>
-    </ClInclude>
     <ClInclude Include="Precompiled.hpp">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\crypt\tunnel\Keys.hpp">
+      <Filter>Header Files\tunnel</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -88,7 +88,7 @@ enum HandshakeType
 static const u32 C2S_HELLO_LEN = 1 + 4 + PUBLIC_KEY_BYTES;
 static const u32 S2C_COOKIE_LEN = 1 + 4;
 static const u32 C2S_CHALLENGE_LEN = 1 + 4 + 4 + CHALLENGE_BYTES;
-static const u32 S2C_ANSWER_LEN = 1 + sizeof(Port) + ANSWER_BYTES;
+static const u32 S2C_ANSWER_LEN = 1 + ANSWER_BYTES;
 static const u32 S2C_ERROR_LEN = 1 + 1;
 
 // Handshake errors

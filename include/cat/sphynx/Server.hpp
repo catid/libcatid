@@ -52,7 +52,7 @@ class Server : public UDPEndpoint, public WorkerCallbacks
 	CookieJar _cookie_jar;
 
 	KeyAgreementResponder _key_agreement_responder;
-	u8 _public_key[PUBLIC_KEY_BYTES];
+	TunnelPublicKey _public_key;
 
 	// Yes to really insure fairness this should be synchronized,
 	// but I am trying hard to eliminate locks everywhere and this
@@ -67,7 +67,7 @@ public:
 	Server();
 	virtual ~Server();
 
-	static bool InitializeKey(SphynxTLS *tls, TunnelKeyPair &key_pair, const char *pair_path, const char *public_path);
+	static bool InitializeKey(SphynxTLS *tls, TunnelKeyPair &key_pair, const char *pair_file_path, const char *public_file_path);
 
 	bool StartServer(SphynxTLS *tls, Port port, TunnelKeyPair &key_pair, const char *session_key);
 

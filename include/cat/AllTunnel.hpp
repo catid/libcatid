@@ -30,7 +30,7 @@
 
 #include <cat/AllCrypt.hpp>
 
-#include <cat/crypt/tunnel/KeyMaker.hpp>
+#include <cat/crypt/tunnel/Keys.hpp>
 
 #include <cat/crypt/tunnel/KeyAgreement.hpp>
 #include <cat/crypt/tunnel/KeyAgreementInitiator.hpp>

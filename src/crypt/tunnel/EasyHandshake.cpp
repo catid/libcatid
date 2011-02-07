@@ -27,7 +27,7 @@
 */
 
 #include <cat/crypt/tunnel/EasyHandshake.hpp>
-#include <cat/crypt/tunnel/KeyMaker.hpp>
+#include <cat/crypt/tunnel/Keys.hpp>
 #include <cat/time/Clock.hpp>
 using namespace cat;
 

@@ -51,7 +51,8 @@ class SendBuffer : public BatchHead
 
 public:
 	CAT_INLINE u8 *GetData() { return _data; }
-	CAT_INLINE u32 GetDataBytes() { return _data_bytes; }
+	CAT_INLINE u32 GetSize() { return _data_bytes; }
+	CAT_INLINE void Shrink(u32 data_bytes) { _data_bytes = data_bytes; }
 
 	// Acquire memory for a send buffer
 	static CAT_INLINE SendBuffer *Acquire(SendBuffer * &ptr, u32 data_bytes = 0)
@@ -127,8 +128,18 @@ public:
 		u8 *data = reinterpret_cast<u8*>( vdata );
 		const u32 OVERHEAD_BYTES = (u32)(offsetof(SendBuffer, _data));
 
-		if (!data) return 0;
 		return reinterpret_cast<SendBuffer*>( data - OVERHEAD_BYTES );
+	}
+
+	// Promote a data pointer to the full send buffer
+	static CAT_INLINE SendBuffer *Shrink(void *vdata, u32 size)
+	{
+		u8 *data = reinterpret_cast<u8*>( vdata );
+		const u32 OVERHEAD_BYTES = (u32)(offsetof(SendBuffer, _data));
+
+		SendBuffer *buffer = reinterpret_cast<SendBuffer*>( data - OVERHEAD_BYTES );
+		buffer->Shrink(size);
+		return buffer;
 	}
 
 	// Release memory
@@ -144,8 +155,7 @@ public:
 
 	static CAT_INLINE void Release(void *vdata)
 	{
-		SendBuffer *buffer = Promote(vdata);
-		if (buffer) Release(buffer);
+		Release(Promote(vdata));
 	}
 };
 

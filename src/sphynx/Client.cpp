@@ -64,8 +64,10 @@ void Client::OnReadRouting(const BatchSet &buffers)
 	GetIOLayer()->GetWorkerThreads()->DeliverBuffers(_worker_id, buffers);
 }
 
-void Client::OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers)
+void Client::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 {
+	SphynxTLS *tls = reinterpret_cast<SphynxTLS*>( itls );
+
 	for (BatchHead *node = buffers.head; node; node = node->batch_next)
 	{
 		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );

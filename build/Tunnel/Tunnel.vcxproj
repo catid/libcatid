@@ -196,7 +196,7 @@
     <ClCompile Include="..\..\src\crypt\tunnel\KeyAgreement.cpp" />
     <ClCompile Include="..\..\src\crypt\tunnel\KeyAgreementInitiator.cpp" />
     <ClCompile Include="..\..\src\crypt\tunnel\KeyAgreementResponder.cpp" />
-    <ClCompile Include="..\..\src\crypt\tunnel\KeyMaker.cpp" />
+    <ClCompile Include="..\..\src\crypt\tunnel\Keys.cpp" />
     <ClCompile Include="Precompiled.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
@@ -211,7 +211,7 @@
     <ClInclude Include="..\..\include\cat\crypt\tunnel\KeyAgreement.hpp" />
     <ClInclude Include="..\..\include\cat\crypt\tunnel\KeyAgreementInitiator.hpp" />
     <ClInclude Include="..\..\include\cat\crypt\tunnel\KeyAgreementResponder.hpp" />
-    <ClInclude Include="..\..\include\cat\crypt\tunnel\KeyMaker.hpp" />
+    <ClInclude Include="..\..\include\cat\crypt\tunnel\Keys.hpp" />
     <ClInclude Include="Precompiled.hpp" />
   </ItemGroup>
   <ItemGroup>

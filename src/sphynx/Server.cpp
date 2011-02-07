@@ -31,11 +31,10 @@
 #include <cat/io/Logging.hpp>
 #include <cat/io/MMapFile.hpp>
 #include <cat/io/Settings.hpp>
-#include <cat/io/Base64.hpp>
 #include <cat/time/Clock.hpp>
 #include <cat/hash/Murmur.hpp>
 #include <cat/crypt/SecureCompare.hpp>
-#include <cat/crypt/tunnel/KeyMaker.hpp>
+#include <cat/crypt/tunnel/Keys.hpp>
 #include <cat/sphynx/SphynxLayer.hpp>
 using namespace std;
 using namespace cat;
@@ -64,7 +63,7 @@ void Server::OnReadRouting(const BatchSet &buffers)
 	RecvBuffer *prev_buffer = 0;
 
 	Connexion *conn;
-	u32 flood = 0;
+	bool flood;
 
 	// For each buffer in the batch,
 	for (BatchHead *next, *node = buffers.head; node; node = next)
@@ -79,7 +78,7 @@ void Server::OnReadRouting(const BatchSet &buffers)
 		// If source address has changed,
 		if (!prev_buffer || buffer->addr != prev_buffer->addr)
 		{
-			flood = _conn_map.LookupCheckFlood(conn, buffer->addr) ? FLOOD_MASK : 0;
+			flood = _conn_map.LookupCheckFlood(conn, buffer->addr);
 			prev_buffer = buffer;
 		}
 
@@ -96,7 +95,7 @@ void Server::OnReadRouting(const BatchSet &buffers)
 			worker_id = connect_worker;
 
 			// Set high bit if flood was detected
-			buffer->data_bytes |= flood;
+			buffer->data_bytes |= flood ? FLOOD_MASK : 0;
 		}
 
 		buffer->callback = conn;
@@ -164,7 +163,7 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 			if (*protocol_magic != getLE(PROTOCOL_MAGIC))
 			{
 				WARN("Server") << "Ignoring hello: Bad magic";
-				return;
+				continue;
 			}
 
 			// Verify public key
@@ -172,7 +171,7 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 			{
 				WARN("Server") << "Failing hello: Client public key does not match";
 				PostConnectionError(buffer->addr, ERR_WRONG_KEY);
-				return;
+				continue;
 			}
 
 			WARN("Server") << "Accepted hello and posted cookie";
@@ -186,7 +185,7 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 			if (*protocol_magic != getLE(PROTOCOL_MAGIC))
 			{
 				WARN("Server") << "Ignoring challenge: Bad magic";
-				return;
+				continue;
 			}
 
 			// If cookie is invalid, ignore packet
@@ -198,7 +197,7 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 			if (!good_cookie)
 			{
 				WARN("Server") << "Ignoring challenge: Stale cookie";
-				return;
+				continue;
 			}
 
 			u8 *challenge = data + 1 + 4 + 4;
@@ -208,12 +207,12 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 			{
 				WARN("Server") << "Ignoring challenge: Server is full";
 				PostConnectionError(buffer->addr, ERR_SERVER_FULL);
-				return;
+				continue;
 			}
 
 			Skein key_hash;
-
 			u8 *pkt = SendBuffer::Acquire(S2C_ANSWER_LEN);
+			AutoRef<Connexion> conn;
 
 			// Verify that post buffer could be allocated
 			if (!pkt)
@@ -222,14 +221,15 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 			}
 			// If challenge is invalid,
 			else if (!_key_agreement_responder.ProcessChallenge(tls->math, tls->csprng,
-				challenge, CHALLENGE_BYTES,
-				pkt + 1 + 2, ANSWER_BYTES, &key_hash))
+																challenge, CHALLENGE_BYTES,
+																pkt + 1 + 2, ANSWER_BYTES, &key_hash))
 			{
 				WARN("Server") << "Ignoring challenge: Invalid";
 
 				pkt[0] = S2C_ERROR;
 				pkt[1] = (u8)(ERR_TAMPERING);
-				Post(src, pkt, S2C_ERROR_LEN);
+				SendBuffer::Shrink(pkt, S2C_ERROR_LEN);
+				Write(pkt, buffer->addr);
 			}
 			// If out of memory for Connexion objects,
 			else if (!(conn = NewConnexion()))
@@ -238,7 +238,8 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 
 				pkt[0] = S2C_ERROR;
 				pkt[1] = (u8)(ERR_SERVER_ERROR);
-				Post(src, pkt, S2C_ERROR_LEN);
+				SendBuffer::Shrink(pkt, S2C_ERROR_LEN);
+				Write(pkt, buffer->addr);
 			}
 			// If unable to key encryption from session key,
 			else if (!_key_agreement_responder.KeyEncryption(&key_hash, &conn->_auth_enc, _session_key))
@@ -247,27 +248,20 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 
 				pkt[0] = S2C_ERROR;
 				pkt[1] = (u8)(ERR_SERVER_ERROR);
-				Post(src, pkt, S2C_ERROR_LEN);
+				SendBuffer::Shrink(pkt, S2C_ERROR_LEN);
+				Write(pkt, buffer->addr);
 			}
 			else // Good so far:
 			{
 				// Find the least populated port
-				ServerWorker *server_worker = FindLeastPopulatedPort();
-				Port server_port = server_worker->GetPort();
-
 				// Construct packet 3
 				pkt[0] = S2C_ANSWER;
-
-				Port *pkt_port = reinterpret_cast<Port*>( pkt + 1 );
-				*pkt_port = getLE(server_port);
 
 				// Initialize Connexion object
 				memcpy(conn->_first_challenge, challenge, CHALLENGE_BYTES);
 				memcpy(conn->_cached_answer, pkt + 1 + 2, ANSWER_BYTES);
-				conn->_client_addr = src;
-				conn->_server_worker = server_worker;
-				conn->_last_recv_tsc = Clock::msec_fast();
-				conn->_flood_key = flood_key;
+				conn->_client_addr = buffer->addr;
+				conn->_last_recv_tsc = buffer->event_msec;
 				conn->InitializePayloadBytes(Is6());
 
 				if (!conn->InitializeTransportSecurity(false, conn->_auth_enc))
@@ -276,7 +270,7 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 				}
 
 				// If packet post fails,
-				if (!Post(src, pkt, S2C_ANSWER_LEN))
+				if (!Write(pkt, buffer->addr))
 				{
 					WARN("Server") << "Ignoring challenge: Unable to post packet";
 				}
@@ -291,13 +285,15 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 
 					conn->OnConnect(tls);
 
+					// Forget the object so it will not go out of scope and die
 					conn.Forget();
 
-					return;
+					continue;
 				}
 			}
 
-			_flood_guard.DeleteConnexion(flood_key);
+			// Only get here if connection failed
+			// AutoRef for the connexion will go out of scope here and destroy the object
 		}
 	}
 }
@@ -316,7 +312,7 @@ Server::~Server()
 {
 }
 
-bool Server::StartServer(SphynxTLS *tls, Port port, u8 *public_key, int public_bytes, u8 *private_key, int private_bytes, const char *session_key)
+bool Server::StartServer(SphynxTLS *tls, Port port, TunnelKeyPair &key_pair, const char *session_key)
 {
 	// If objects were not created,
 	if (!tls->Valid())
@@ -325,47 +321,12 @@ bool Server::StartServer(SphynxTLS *tls, Port port, u8 *public_key, int public_b
 		return false;
 	}
 
-	// Allocate worker array
-	_worker_count = ThreadPool::ref()->GetProcessorCount() * 4;
-	if (_worker_count > WORKER_LIMIT) _worker_count = WORKER_LIMIT;
-	if (_worker_count < 1) _worker_count = 1;
-
-	if (_workers) delete[] _workers;
-
-	_workers = new ServerWorker*[_worker_count];
-	if (!_workers)
-	{
-		WARN("Server") << "Failed to initialize: Unable to allocate " << _worker_count << " workers";
-		return false;
-	}
-
-	for (int ii = 0; ii < _worker_count; ++ii)
-		_workers[ii] = 0;
-
-	// Allocate timer array
-	_timer_count = _worker_count / 8;
-	if (_timer_count < 1) _timer_count = 1;
-
-	if (_timers) delete[] _timers;
-
-	_timers = new ServerTimer*[_timer_count];
-	if (!_timers)
-	{
-		WARN("Server") << "Failed to initialize: Unable to allocate " << _timer_count << " timers";
-		return false;
-	}
-
-	for (int ii = 0; ii < _timer_count; ++ii)
-		_timers[ii] = 0;
-
 	// Seed components
 	_cookie_jar.Initialize(tls->csprng);
 	_conn_map.Initialize(tls->csprng);
 
 	// Initialize key agreement responder
-	if (!_key_agreement_responder.Initialize(tls->math, tls->csprng,
-											 public_key, public_bytes,
-											 private_key, private_bytes))
+	if (!_key_agreement_responder.Initialize(tls->math, tls->csprng, key_pair))
 	{
 		WARN("Server") << "Failed to initialize: Key pair is invalid";
 		return false;
@@ -375,6 +336,7 @@ bool Server::StartServer(SphynxTLS *tls, Port port, u8 *public_key, int public_b
 	CAT_STRNCPY(_session_key, session_key, SESSION_KEY_BYTES);
 
 	// Copy public key
+	_public_key
 	memcpy(_public_key, public_key, sizeof(_public_key));
 
 	// Get SupportIPv6 flag from settings
@@ -402,7 +364,7 @@ bool Server::PostConnectionCookie(const NetAddr &dest)
 	if (!pkt)
 	{
 		WARN("Server") << "Unable to post connection cookie: Unable to allocate post buffer";
-		return;
+		return false;
 	}
 
 	// Construct packet
@@ -421,11 +383,10 @@ bool Server::PostConnectionError(const NetAddr &dest, HandshakeError err)
 {
 	u8 *pkt = SendBuffer::Acquire(S2C_ERROR_LEN);
 
-	// Verify that post buffer could be allocated
 	if (!pkt)
 	{
-		WARN("Server") << "Unable to post connection error: Unable to allocate post buffer";
-		return;
+		WARN("Server") << "Out of memory: Unable to allocate send buffer";
+		return false;
 	}
 
 	// Construct packet

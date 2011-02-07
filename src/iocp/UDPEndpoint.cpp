@@ -287,7 +287,7 @@ bool UDPEndpoint::Write(const BatchSet &buffers, const NetAddr &addr)
 		// Write node to buffer array
 		SendBuffer *send_buf = reinterpret_cast<SendBuffer*>( node );
 		wsabufs[ii].buf = reinterpret_cast<CHAR*>( send_buf->GetData() );
-		wsabufs[ii].len = send_buf->GetDataBytes();
+		wsabufs[ii].len = send_buf->GetSize();
 
 		// If that was the end of what we can fit, or there is no more data,
 		if (++ii >= SIMULTANEOUS_SENDS || !next)
