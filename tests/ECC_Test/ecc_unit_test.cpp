@@ -398,7 +398,7 @@ void CheckTatePairing()
 
 int GenerateCurveParameterC()
 {
-	FortunaOutput *out = FortunaFactory::ref()->Create();
+	FortunaOutput *out = new FortunaOutput;
 
 	const int bits = 256;
 
@@ -469,7 +469,7 @@ bool TestCurveParameters()
 	for (int ii = 0; ii < 3; ++ii)
 	{
 		cout << "Testing curve parameters for " << BITS[ii] << "-bit modulus:" << endl;
-		FortunaOutput *out = FortunaFactory::ref()->Create();
+		FortunaOutput *out = new FortunaOutput;
 		BigTwistedEdwards *x = KeyAgreementCommon::InstantiateMath(BITS[ii]);
 
 		Leg *a = x->Get(0);
@@ -899,7 +899,7 @@ void ECCTest()
 void HandshakeTest()
 {
 	BigTwistedEdwards *tls_math = KeyAgreementCommon::InstantiateMath(CAT_DEMO_BITS);
-	FortunaOutput *tls_csprng = FortunaFactory::ii->Create();
+	FortunaOutput *tls_csprng = new FortunaOutput;
 
 	for (int ii = 0; ii < 5; ++ii)
     {
@@ -1299,7 +1299,7 @@ Leg *stt;
 
 void ECCSetup()
 {
-  FortunaOutput *output = FortunaFactory::ref()->Create();
+  FortunaOutput *output = new FortunaOutput;
 
   xt = KeyAgreementCommon::InstantiateMath(256);
   ptt = xt->Get(0);
@@ -1346,7 +1346,7 @@ int main()
         return 1;
     }
 
-	GenerateCurveParameterC();
+	//GenerateCurveParameterC();
 
 	ECCSetup();
 

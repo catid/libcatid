@@ -37,7 +37,7 @@ bool KeyAgreementResponder::AllocateMemory()
 {
     FreeMemory();
 
-    b = new (AlignedAllocator::ii) Leg[KeyLegs * 15];
+    b = AlignedAllocator::ii->AcquireArray<Leg>(KeyLegs * 15);
     B = b + KeyLegs;
 	B_neutral = B + KeyLegs*2;
 	y[0] = B_neutral + KeyLegs*2;
@@ -111,12 +111,7 @@ bool KeyAgreementResponder::Initialize(BigTwistedEdwards *math, FortunaOutput *c
 
 #if defined(CAT_USER_ERROR_CHECKING)
 	if (!math || !csprng) return false;
-
-	// Verify that inputs are of the correct length
-	if (key_pair.GetPrivateKeyBytes() != KeyBytes) return false;
 #endif
-
-	if (key_pair.GetPublicKeyBytes() != KeyBytes*2) return false;
 
 #if defined(CAT_NO_ATOMIC_RESPONDER)
 	if (!m_thread_id_mutex.Valid()) return false;
@@ -127,6 +122,10 @@ bool KeyAgreementResponder::Initialize(BigTwistedEdwards *math, FortunaOutput *c
     // Validate and accept number of bits
     if (!KeyAgreementCommon::Initialize(bits))
         return false;
+
+	// Verify that inputs are of the correct length
+	if (key_pair.GetPrivateKeyBytes() != KeyBytes) return false;
+	if (key_pair.GetPublicKeyBytes() != KeyBytes*2) return false;
 
     // Allocate memory space for the responder's key pair and generator point
     if (!AllocateMemory())

@@ -38,7 +38,11 @@ void SecureServerDemo::OnHello(BigTwistedEdwards *math, FortunaOutput *csprng, c
     *(u32*)response = getLE(cookie_jar.Generate(source.ip, source.port));
 
     double t1 = Clock::usec();
-	tun_server.Sign(math, csprng, response, 4, response + 4, CAT_DEMO_BYTES*2);
+	if (!tun_server.Sign(math, csprng, response, 4, response + 4, CAT_DEMO_BYTES*2))
+	{
+		cout << "Server: Signature generation failure" << endl;
+		return;
+	}
     double t2 = Clock::usec();
 
     cout << "Server: Signature generation time = " << (t2 - t1) << " usec" << endl;
@@ -146,7 +150,7 @@ void SecureServerDemo::Reset(SecureClientDemo *cclient_ref, TunnelKeyPair &key_p
 	if (!tls_math)
 	{
 		tls_math = KeyAgreementCommon::InstantiateMath(CAT_DEMO_BITS);
-		tls_csprng = FortunaFactory::ii->Create();
+		tls_csprng = new FortunaOutput;
 	}
 
     client_ref = cclient_ref;

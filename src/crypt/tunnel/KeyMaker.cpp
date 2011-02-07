@@ -150,6 +150,7 @@ bool TunnelKeyPair::Generate(BigTwistedEdwards *math, FortunaOutput *csprng)
 	math->Save(b, _key_pair + KeyBytes * 2, KeyBytes);
 
 	_key_bytes = KeyBytes;
+	_valid = true;
 
 	return true;
 }
