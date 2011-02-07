@@ -30,6 +30,7 @@
 #define CAT_I_ALLOCATOR_HPP
 
 #include <cat/Platform.hpp>
+#include <new>
 
 namespace cat {
 
@@ -77,6 +78,12 @@ public:
 	// May acquire more bytes than requested
     virtual void *Acquire(u32 bytes) = 0;
 
+	template<class T>
+	CAT_INLINE T *AcquireArray(u32 elements)
+	{
+		return reinterpret_cast<T*>( Acquire(sizeof(T) * elements) );
+	}
+
 	// Returns 0 on failure
 	// Resizes the given buffer to a new number of bytes
 	virtual void *Resize(void *ptr, u32 bytes) = 0;
@@ -104,23 +111,6 @@ public:
 		}
     }
 };
-
-// Provide placement new constructor and delete pair to allow for
-// an easy syntax to create objects:
-//   T *a = new (buffer_allocator) T();
-// The object can be freed with:
-//   buffer_allocator->Delete(a);
-// Which insures that the destructor is called before freeing memory
-CAT_INLINE void *operator new[](std::size_t bytes, cat::IAllocator *alloc) throw()
-{
-	return alloc->Acquire((u32)bytes);
-}
-
-// Placement "delete": Does not call destructor
-CAT_INLINE void operator delete(void *ptr, cat::IAllocator *alloc) throw()
-{
-	alloc->Release(ptr);
-}
 
 
 } // namespace cat

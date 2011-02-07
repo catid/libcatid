@@ -37,7 +37,7 @@ BigRTL::BigRTL(int regs, int bits)
     library_regs = regs + BIG_OVERHEAD;
 
     // Align library memory accesses to a 16-byte boundary
-	library_memory = new (AlignedAllocator::ii) Leg[library_legs * library_regs];
+	library_memory = AlignedAllocator::ii->AcquireArray<Leg>(library_legs * library_regs);
 }
 
 BigRTL::~BigRTL()

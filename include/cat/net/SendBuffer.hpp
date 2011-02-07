@@ -132,20 +132,20 @@ public:
 	}
 
 	// Release memory
-	CAT_INLINE void Release()
-	{
-		StdAllocator::ii->Release(this);
-	}
-
 	static CAT_INLINE void Release(SendBuffer *buffer)
 	{
 		StdAllocator::ii->Release(buffer);
 	}
 
+	CAT_INLINE void Release()
+	{
+		Release(this);
+	}
+
 	static CAT_INLINE void Release(void *vdata)
 	{
 		SendBuffer *buffer = Promote(vdata);
-		if (buffer) StdAllocator::ii->Release(buffer);
+		if (buffer) Release(buffer);
 	}
 };
 

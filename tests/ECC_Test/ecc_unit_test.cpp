@@ -1346,7 +1346,7 @@ int main()
         return 1;
     }
 
-	//GenerateCurveParameterC();
+	GenerateCurveParameterC();
 
 	ECCSetup();
 
