@@ -402,7 +402,7 @@ int GenerateCurveParameterC()
 
 	const int bits = 256;
 
-	for (int ii = 1; true; ii += 2)
+	for (int ii = 1; ii <= 65535; ii += 2)
 	{
 		BigMontgomery mont(16, bits);
 		Leg *x = mont.Get(1);
