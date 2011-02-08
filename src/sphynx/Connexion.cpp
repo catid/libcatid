@@ -146,22 +146,41 @@ void Connexion::OnWorkerTick(WorkerTLS *tls, u32 now)
 	OnTick(tls, now);
 }
 
-bool Connexion::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes)
+bool Connexion::PostDatagrams(const BatchSet &buffers)
 {
-	// Write timestamp for transmission
-	*(u16 *)(buffer + msg_bytes) = getLE(EncodeServerTimestamp(GetLocalTime()));
-	msg_bytes += 2;
+	u32 now = getLocalTime();
+	u16 timestamp = getLE(encodeClientTimestamp(now));
 
-	if (!_auth_enc.Encrypt(buffer, buf_bytes, msg_bytes))
+	/*
+		The format of each buffer:
+
+		[TRANSPORT(X)] [TIMESTAMP(2)] [ENCRYPTION(11)]
+
+		At this point, the timestamp has not been written.
+		The encryption overhead is also not filled in yet.
+
+		Each buffer's data_bytes includes the X bytes of transport layer data
+		as well as an additional 13 bytes of overhead that will now be filled.
+	*/
+
+	// For each datagram to send,
+	for (BatchHead *node = buffers.head; node; node = node->batch_next)
 	{
-		WARN("Server") << "Encryption failure while sending packet";
+		// Unwrap the message data
+		SendBuffer *buffer = reinterpret_cast<SendBuffer*>( node );
+		u8 *msg_data = buffer->GetData();
+		u32 buf_bytes = buffer->GetSize();
+		u32 msg_bytes = buffer->GetSize() - AuthenticatedEncryption::OVERHEAD_BYTES;
 
-		SendBuffer::Release(buffer);
+		// Write timestamp right before the encryption overhead
+		*(u16*)(msg_data + msg_bytes - 2) = timestamp;
 
-		return false;
+		// Encrypt the message
+		_auth_enc.Encrypt(msg_data, buf_bytes, msg_bytes);
 	}
 
-	return _server_worker->Post(_client_addr, buffer, msg_bytes);
+	// Do not need to update a "last send" timestamp here because the client is responsible for sending keep-alives
+	return _parent->Write(buffers, _client_addr);
 }
 
 void Connexion::OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream data, u32 bytes)

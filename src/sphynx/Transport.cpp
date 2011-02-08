@@ -257,7 +257,7 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 		// Decode the timestamp from the end of the buffer
 		bytes -= 2;
 		u32 recv_time = buffer->event_msec;
-		u32 send_time = DecodeServerTimestamp(recv_time, getLE(*(u16*)(data + bytes)));
+		u32 send_time = decodeServerTimestamp(recv_time, getLE(*(u16*)(data + bytes)));
 
 		// And start peeling out messages from the warm gooey center of the packet
 		u32 ack_id = 0, stream = 0;

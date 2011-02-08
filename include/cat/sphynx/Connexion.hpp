@@ -63,7 +63,7 @@ class Connexion : public Transport, public RefObject, public WorkerCallbacks
 	bool _seen_encrypted;
 	AuthenticatedEncryption _auth_enc;
 
-	virtual bool PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes);
+	virtual bool PostDatagrams(const BatchSet &buffers);
 	virtual void OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes);
 
 public:
