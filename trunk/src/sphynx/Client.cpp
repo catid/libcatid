@@ -591,8 +591,8 @@ bool Client::PostTimePing()
 
 bool Client::PostDatagrams(const BatchSet &buffers)
 {
-	u32 now = GetLocalTime();
-	u16 timestamp = getLE(EncodeClientTimestamp(now));
+	u32 now = getLocalTime();
+	u16 timestamp = getLE(encodeClientTimestamp(now));
 
 	/*
 		The format of each buffer:
