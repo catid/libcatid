@@ -40,12 +40,6 @@ using namespace sphynx;
 
 void Connexion::OnShutdownRequest()
 {
-	if (notify)
-		PostDisconnect(reason);
-
-	TransportDisconnected();
-
-	OnDisconnect(reason);
 }
 
 bool Connexion::OnZeroReferences()
@@ -56,34 +50,68 @@ bool Connexion::OnZeroReferences()
 void Connexion::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 {
 	SphynxTLS *tls = reinterpret_cast<SphynxTLS*>( itls );
+	u32 buffer_count = 0;
 
+	BatchSet delivery;
+	delivery.Clear();
+
+	// For each connected datagram,
 	for (BatchHead *node = buffers.head; node; node = node->batch_next)
 	{
+		++buffer_count;
 		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
 
-		u32 bytes = buffer->data_bytes;
-		u8 *data = GetTrailingBytes(buffer);
-
-		// If packet is valid,
-		if (_auth_enc.Decrypt(data, bytes))
+		// If the data could be decrypted,
+		if (_auth_enc.Decrypt(GetTrailingBytes(buffer), buffer->data_bytes))
 		{
-			_last_recv_tsc = buffer->event_msec;
+			delivery.PushBack(buffer);
+			_seen_encrypted = true;
+		}
+		else if (buffer_count <= 1 && !_seen_encrypted)
+		{
+			// Handle lost s2c answer by retransmitting it
+			// And only do this for the first packet we get
+			u32 bytes = buffer->data_bytes;
+			u8 *data = GetTrailingBytes(buffer);
 
-			if (bytes >= 2)
+			if (bytes == C2S_CHALLENGE_LEN && data[0] == C2S_CHALLENGE)
 			{
-				// Read timestamp for transmission
-				bytes -= 2;
-				u32 send_time = DecodeClientTimestamp(buffer->event_msec, getLE(*(u16 *)(data + bytes)));
+				u8 *challenge = data + 1 + 4 + 4;
 
-				// Pass it to the transport layer
-				OnDatagram(tls, send_time, buffer->event_msec, data, bytes);
+				// Only need to check that the challenge is the same, since we
+				// have already validated the cookie and protocol magic to get here
+				if (!SecureEqual(_first_challenge, challenge, CHALLENGE_BYTES))
+				{
+					WARN("Connexion") << "Ignoring challenge: Replay challenge in bad state";
+					continue;
+				}
+
+				u8 *pkt = SendBuffer::Acquire(S2C_ANSWER_LEN);
+
+				// Verify that post buffer could be allocated
+				if (!pkt)
+				{
+					WARN("Connexion") << "Ignoring challenge: Unable to allocate post buffer";
+					continue;
+				}
+
+				// Construct packet
+				pkt[0] = S2C_ANSWER;
+
+				u8 *pkt_answer = pkt + 1;
+				memcpy(pkt_answer, _cached_answer, ANSWER_BYTES);
+
+				_parent->Write(pkt, buffer->addr);
+
+				INANE("Connexion") << "Replayed lost answer to client challenge";
 			}
 		}
-		else
-		{
-			WARN("Server") << "Ignoring invalid encrypted data";
-		}
 	}
+
+	// Process all datagrams that decrypted properly
+	if (delivery.head) OnTransportDatagrams(tls, delivery);
+
+	_parent->ReleaseRecvBuffers(buffers, buffer_count);
 }
 
 void Connexion::OnWorkerTick(IWorkerTLS *tls, u32 now)

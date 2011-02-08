@@ -88,7 +88,7 @@ class Client : public UDPEndpoint, public Transport, public WorkerCallbacks
 	// Return false to remove resolve from cache
 	bool OnResolve(const char *hostname, const NetAddr *array, int array_length);
 
-	virtual bool PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes);
+	virtual bool PostDatagrams(const BatchSet &buffers);
 	virtual void OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes);
 
 	void ConnectFail(HandshakeError err);

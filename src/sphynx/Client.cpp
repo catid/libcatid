@@ -42,8 +42,6 @@ using namespace sphynx;
 
 void Client::OnShutdownRequest()
 {
-	TransportDisconnected();
-
 	UDPEndpoint::OnShutdownRequest();
 }
 
@@ -217,7 +215,7 @@ void Client::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 	}
 
 	// Process all datagrams that decrypted properly
-	if (delivery.head) OnDatagrams(tls, delivery);
+	if (delivery.head) OnTransportDatagrams(tls, delivery);
 
 	ReleaseRecvBuffers(buffers, buffer_count);
 }
@@ -236,7 +234,7 @@ void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)
 	{
 		// Wait for quit signal
 		if (_kill_flag.Wait(HANDSHAKE_TICK_RATE))
-			return false;
+			return;
 
 		// If now connected, break out
 		if (_connected)
@@ -591,29 +589,46 @@ bool Client::PostTimePing()
 	return WriteUnreliableOOB(IOP_C2S_TIME_PING, &timestamp, sizeof(timestamp), SOP_INTERNAL);
 }
 
-bool Client::PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes)
+bool Client::PostDatagrams(const BatchSet &buffers)
 {
-	// Write timestamp for transmission
-	*(u16 *)(buffer + msg_bytes) = getLE(EncodeClientTimestamp(GetLocalTime()));
-	msg_bytes += 2;
+	u32 now = GetLocalTime();
+	u16 timestamp = getLE(EncodeClientTimestamp(now));
 
-	if (!_auth_enc.Encrypt(buffer, buf_bytes, msg_bytes))
+	/*
+		The format of each buffer:
+
+		[TRANSPORT(X)] [TIMESTAMP(2)] [ENCRYPTION(11)]
+
+		At this point, the timestamp has not been written.
+		The encryption overhead is also not filled in yet.
+
+		Each buffer's data_bytes includes the X bytes of transport layer data
+		as well as an additional 13 bytes of overhead that will now be filled.
+	*/
+
+	// For each datagram to send,
+	for (BatchHead *node = buffers.head; node; node = node->batch_next)
 	{
-		WARN("Client") << "Encryption failure while sending packet";
+		// Unwrap the message data
+		SendBuffer *buffer = reinterpret_cast<SendBuffer*>( node );
+		u8 *msg_data = buffer->GetData();
+		u32 buf_bytes = buffer->GetSize();
+		u32 msg_bytes = buffer->GetSize() - AuthenticatedEncryption::OVERHEAD_BYTES;
 
-		SendBuffer::Release(buffer);
+		// Write timestamp right before the encryption overhead
+		*(u16*)(msg_data + msg_bytes - 2) = timestamp;
 
+		// Encrypt the message
+		_auth_enc.Encrypt(msg_data, buf_bytes, msg_bytes);
+	}
+
+	// If write fails,
+	if (!Write(buffers, _server_addr))
 		return false;
-	}
 
-	if (Post(_server_addr, buffer, msg_bytes))
-	{
-		_last_send_msec = Clock::msec_fast();
-
-		return true;
-	}
-
-	return false;
+	// Update the last send time to make sure we keep the channel occupied
+	_last_send_msec = now;
+	return true;
 }
 
 void Client::OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream data, u32 bytes)

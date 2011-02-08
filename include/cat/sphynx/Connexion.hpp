@@ -46,13 +46,22 @@ class Connexion : public Transport, public RefObject, public WorkerCallbacks
 	friend class Server;
 	friend class ConnexionMap;
 
-	u32 _flood_key;
+	Server *_parent; // Server object that owns this one
+
+	NetAddr _client_addr;
+	u32 _flood_key; // Flood key based on IP address, not necessarily unique
 	u32 _key; // Map hash table index, unique for each active connection
-	Connexion *_next_delete;
-	u32 _server_worker_id;
+	u32 _server_worker_id; // Worker thread index servicing reads and timer events
 
 	u8 _first_challenge[64]; // First challenge seen from this client address
 	u8 _cached_answer[128]; // Cached answer to this first challenge, to avoid eating server CPU time
+
+	// Last time a packet was received from this user -- for disconnect timeouts
+	u32 _last_recv_tsc;
+
+	// Flag indicating if a valid encrypted message has been seen yet
+	bool _seen_encrypted;
+	AuthenticatedEncryption _auth_enc;
 
 	virtual bool PostPacket(u8 *buffer, u32 buf_bytes, u32 msg_bytes);
 	virtual void OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes);
@@ -61,6 +70,7 @@ public:
 	Connexion();
 	CAT_INLINE virtual ~Connexion() {}
 
+	CAT_INLINE const NetAddr &GetAddress() { return _client_addr; }
 	CAT_INLINE u32 GetKey() { return _key; }
 	CAT_INLINE u32 GetFloodKey() { return _flood_key; }
 	CAT_INLINE u32 GetServerWorkerID() { return _server_worker_id; }
@@ -69,14 +79,6 @@ public:
 	void Disconnect(u8 reason = DISCO_SILENT);
 
 protected:
-	NetAddr _client_addr;
-
-	// Last time a packet was received from this user -- for disconnect timeouts
-	u32 _last_recv_tsc;
-
-	bool _seen_encrypted;
-	AuthenticatedEncryption _auth_enc;
-
 	virtual void OnShutdownRequest();
 	virtual bool OnZeroReferences();
 
