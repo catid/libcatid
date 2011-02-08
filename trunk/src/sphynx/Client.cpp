@@ -42,14 +42,7 @@ using namespace sphynx;
 
 void Client::OnShutdownRequest()
 {
-	if (notify)
-		PostDisconnect(reason);
-
 	TransportDisconnected();
-
-	OnDisconnect(reason);
-
-	_kill_flag.Set();
 
 	UDPEndpoint::OnShutdownRequest();
 }
@@ -203,43 +196,30 @@ void Client::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 		}
 	}
 
+	BatchSet delivery;
+	delivery.Clear();
+
+	// If connected datagrams exist, process them
 	for (; node; node = node->batch_next)
 	{
 		++buffer_count;
 		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
-		u32 bytes = buffer->data_bytes;
-		u8 *data = GetTrailingBytes(buffer);
-	}
 
-	ReleaseRecvBuffers(buffers, buffer_count);
-
-	// If connection has completed
-	if (_connected)
-	{
-		u32 buf_bytes = bytes;
-
-		// If the data could not be decrypted, ignore this packet
-		if (_auth_enc.Decrypt(data, buf_bytes))
+		// If the data could be decrypted,
+		if (_auth_enc.Decrypt(GetTrailingBytes(buffer), buffer->data_bytes))
 		{
-			u32 recv_time = Clock::msec();
-
-			_last_recv_tsc = recv_time;
-
-			if (buf_bytes >= 2)
-			{
-				// Read timestamp for transmission
-				buf_bytes -= 2;
-				u32 send_time = DecodeServerTimestamp(recv_time, getLE(*(u16 *)(data + buf_bytes)));
-
-				// Pass it to the transport layer
-				OnDatagram(tls, send_time, recv_time, data, buf_bytes);
-			}
+			delivery.PushBack(buffer);
 		}
 		else
 		{
 			WARN("Client") << "Ignored invalid encrypted data";
 		}
 	}
+
+	// Process all datagrams that decrypted properly
+	if (delivery.head) OnDatagrams(tls, delivery);
+
+	ReleaseRecvBuffers(buffers, buffer_count);
 }
 
 void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)

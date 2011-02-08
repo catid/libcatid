@@ -83,7 +83,8 @@ Transport::Transport()
 	CAT_OBJCLR(_send_next_remote_expected);
 	CAT_OBJCLR(_next_recv_expected_id);
 
-	_disconnected = false;
+	_disconnect_countdown = SHUTDOWN_TICK_COUNT;
+	_disconnect_reason = DISCO_CONNECTED;
 }
 
 Transport::~Transport()
@@ -142,6 +143,16 @@ Transport::~Transport()
 	}
 }
 
+void Transport::Disconnect(u8 reason)
+{
+	// If already disconnected,
+	if (IsDisconnected()) return;
+
+	_disconnect_reason = reason;
+
+	WriteDisconnect(reason);
+}
+
 void Transport::InitializePayloadBytes(bool ip6)
 {
 	_overhead_bytes = (ip6 ? IPV6_HEADER_BYTES : IPV4_HEADER_BYTES) + UDP_HEADER_BYTES + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD;
@@ -170,188 +181,260 @@ bool Transport::InitializeTransportSecurity(bool is_initiator, AuthenticatedEncr
 	return auth_enc.GenerateKey(!is_initiator ? "ws2_32.dll" : "winsock.ocx", _next_recv_expected_id, sizeof(_next_recv_expected_id));
 }
 
-void Transport::OnDatagram(SphynxTLS *tls,  u32 send_time, u32 recv_time, u8 *data, u32 bytes)
+void Transport::TickTransport(SphynxTLS *tls, u32 now)
 {
-	if (_disconnected) return;
-/*
-	// TODO: Remove this packetloss simulator
-	if ((tls->csprng->Generate() & 0x3) == 3)
-		return;
-*/
-	u32 ack_id = 0, stream = 0;
-
-	INANE("Transport") << "Datagram dump " << bytes << ":" << HexDumpString(data, bytes);
-
-	while (bytes >= 1)
+	// If disconnected,
+	if (IsDisconnected())
 	{
-		// Decode data_bytes
-		u8 hdr = data[0];
-		u32 data_bytes = hdr & BLO_MASK;
-
-		INANE("Transport") << " -- Processing subheader " << (int)hdr;
-
-		// If message length requires another byte to represent,
-		if (hdr & C_MASK)
+		// If the disconnect has completed sending,
+		if (--_disconnect_countdown == 0)
 		{
-			data_bytes |= (u16)data[1] << BHI_SHIFT;
-			data += 2;
-			bytes -= 2;
+			// Notify derived class
+			OnDisconnectComplete();
 		}
 		else
 		{
-			++data;
-			--bytes;
+			// Write another disconnect packet
+			WriteDisconnect(_disconnect_reason);
 		}
 
-		// If this message has an ACK-ID attached,
-		if (hdr & I_MASK)
+		// Skip other timed events
+		return;
+	}
+
+	// Acknowledge recent reliable messages
+	for (int stream = 0; stream < NUM_STREAMS; ++stream)
+	{
+		if (_got_reliable[stream])
 		{
-			if (bytes < 1)
+			WriteACK();
+			break;
+		}
+	}
+
+	u32 loss_count = 0;
+
+	// Retransmit lost messages
+	for (int stream = 0; stream < NUM_STREAMS; ++stream)
+	{
+		if (_sent_list_head[stream])
+		{
+			loss_count = RetransmitLost(now);
+			break;
+		}
+	}
+
+	_big_lock.Enter();
+	_send_flow.OnTick(now, loss_count);
+	_big_lock.Leave();
+
+	// Avoid locking to transmit queued if no queued exist
+	for (int stream = 0; stream < NUM_STREAMS; ++stream)
+	{
+		if (_send_queue_head[stream])
+		{
+			TransmitQueued();
+			break;
+		}
+	}
+
+	// Post whatever is left in the send buffer
+	PostSendBuffer();
+}
+
+void Transport::OnDatagrams(SphynxTLS *tls, const BatchSet &delivery)
+{
+	// For each buffer in the batch,
+	for (BatchHead *node = delivery.head; !IsDisconnected() && node; node = node->batch_next)
+	{
+		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
+		u8 *data = GetTrailingBytes(buffer);
+		u32 bytes = buffer->data_bytes;
+
+		// Skip if not enough data
+		if (bytes < 3) continue;
+
+		// Decode the timestamp from the end of the buffer
+		bytes -= 2;
+		u32 recv_time = buffer->event_msec;
+		u32 send_time = DecodeServerTimestamp(recv_time, getLE(*(u16*)(data + bytes)));
+
+		// And start peeling out messages from the warm gooey center of the packet
+		u32 ack_id = 0, stream = 0;
+
+		INANE("Transport") << "Datagram dump " << bytes << ":" << HexDumpString(data, bytes);
+
+		while (bytes >= 1)
+		{
+			// Decode data_bytes
+			u8 hdr = data[0];
+			u32 data_bytes = hdr & BLO_MASK;
+
+			INANE("Transport") << " -- Processing subheader " << (int)hdr;
+
+			// If message length requires another byte to represent,
+			if (hdr & C_MASK)
 			{
-				WARN("Transport") << "Truncated message ignored (1)";
-				break;
+				data_bytes |= (u16)data[1] << BHI_SHIFT;
+				data += 2;
+				bytes -= 2;
+			}
+			else
+			{
+				++data;
+				--bytes;
 			}
 
-			// Decode variable-length ACK-ID into ack_id and stream:
-			u8 ida = *data++;
-			--bytes;
-			stream = ida & 3;
-			ack_id = (ida >> 2) & 0x1f;
-
-			if (ida & 0x80)
+			// If this message has an ACK-ID attached,
+			if (hdr & I_MASK)
 			{
 				if (bytes < 1)
 				{
-					WARN("Transport") << "Truncated message ignored (2)";
+					WARN("Transport") << "Truncated message ignored (1)";
 					break;
 				}
 
-				u8 idb = *data++;
+				// Decode variable-length ACK-ID into ack_id and stream:
+				u8 ida = *data++;
 				--bytes;
-				ack_id |= (u32)(idb & 0x7f) << 5;
+				stream = ida & 3;
+				ack_id = (ida >> 2) & 0x1f;
 
-				if (idb & 0x80)
+				if (ida & 0x80)
 				{
 					if (bytes < 1)
 					{
-						WARN("Transport") << "Truncated message ignored (3)";
+						WARN("Transport") << "Truncated message ignored (2)";
 						break;
 					}
 
-					u8 idc = *data++;
+					u8 idb = *data++;
 					--bytes;
-					ack_id |= (u32)idc << 12;
+					ack_id |= (u32)(idb & 0x7f) << 5;
 
-					ack_id = ReconstructCounter<20>(_next_recv_expected_id[stream], ack_id);
+					if (idb & 0x80)
+					{
+						if (bytes < 1)
+						{
+							WARN("Transport") << "Truncated message ignored (3)";
+							break;
+						}
+
+						u8 idc = *data++;
+						--bytes;
+						ack_id |= (u32)idc << 12;
+
+						ack_id = ReconstructCounter<20>(_next_recv_expected_id[stream], ack_id);
+					}
+					else
+						ack_id = ReconstructCounter<12>(_next_recv_expected_id[stream], ack_id);
 				}
 				else
-					ack_id = ReconstructCounter<12>(_next_recv_expected_id[stream], ack_id);
+					ack_id = ReconstructCounter<5>(_next_recv_expected_id[stream], ack_id);
 			}
-			else
-				ack_id = ReconstructCounter<5>(_next_recv_expected_id[stream], ack_id);
-		}
-		else if (hdr & R_MASK)
-		{
-			// Could check for uninitialized ACK-ID here but I do not think that sending
-			// this type of malformed packet can hurt the server.
-			++ack_id;
-		}
-
-		if (bytes < data_bytes)
-		{
-			WARN("Transport") << "Truncated transport message ignored";
-			break;
-		}
-
-		// If reliable message,
-		if (hdr & R_MASK)
-		{
-			INFO("Transport") << "Got # " << stream << ":" << ack_id;
-
-			s32 diff = (s32)(ack_id - _next_recv_expected_id[stream]);
-
-			// If message is next expected,
-			if (diff == 0)
+			else if (hdr & R_MASK)
 			{
-				// Process it immediately
-				if (data_bytes > 0)
-				{
-					u32 super_opcode = (hdr >> SOP_SHIFT) & SOP_MASK;
+				// Could check for uninitialized ACK-ID here but I do not think that sending
+				// this type of malformed packet can hurt the server.
+				++ack_id;
+			}
 
-					if (super_opcode == SOP_DATA)
-						OnMessage(tls, send_time, recv_time, data, data_bytes);
-					else if (super_opcode == SOP_FRAG)
-						OnFragment(tls, send_time, recv_time, data, data_bytes, stream);
-					else if (super_opcode == SOP_INTERNAL)
-						OnInternal(tls, send_time, recv_time, data, data_bytes);
-					else WARN("Transport") << "Invalid reliable super opcode ignored";
+			if (bytes < data_bytes)
+			{
+				WARN("Transport") << "Truncated transport message ignored";
+				break;
+			}
+
+			// If reliable message,
+			if (hdr & R_MASK)
+			{
+				INFO("Transport") << "Got # " << stream << ":" << ack_id;
+
+				s32 diff = (s32)(ack_id - _next_recv_expected_id[stream]);
+
+				// If message is next expected,
+				if (diff == 0)
+				{
+					// Process it immediately
+					if (data_bytes > 0)
+					{
+						u32 super_opcode = (hdr >> SOP_SHIFT) & SOP_MASK;
+
+						if (super_opcode == SOP_DATA)
+							OnMessage(tls, send_time, recv_time, data, data_bytes);
+						else if (super_opcode == SOP_FRAG)
+							OnFragment(tls, send_time, recv_time, data, data_bytes, stream);
+						else if (super_opcode == SOP_INTERNAL)
+							OnInternal(tls, send_time, recv_time, data, data_bytes);
+						else WARN("Transport") << "Invalid reliable super opcode ignored";
+
+						if (_disconnected) return; // React to message handler
+					}
+					else WARN("Transport") << "Zero-length reliable message ignored";
+
+					RunQueue(tls, recv_time, ack_id + 1, stream);
 
 					if (_disconnected) return; // React to message handler
 				}
-				else WARN("Transport") << "Zero-length reliable message ignored";
+				else if (diff > 0) // Message is due to arrive
+				{
+					QueueRecv(tls, send_time, recv_time, data, data_bytes, ack_id, stream, (hdr >> SOP_SHIFT) & SOP_MASK);
 
-				RunQueue(tls, recv_time, ack_id + 1, stream);
+					if (_disconnected) return; // React to message handler (unordered)
+				}
+				else
+				{
+					WARN("Transport") << "Ignored duplicate rolled reliable message " << stream << ":" << ack_id;
+
+					INANE("Transport") << "Rel dump " << bytes << ":" << HexDumpString(data, bytes);
+
+					// Don't bother locking here: It's okay if we lose a race with this.
+					_got_reliable[stream] = true;
+				}
+			}
+			else if (data_bytes > 0) // Unreliable message:
+			{
+				u32 super_opcode = (hdr >> SOP_SHIFT) & SOP_MASK;
+
+				if (super_opcode == SOP_DATA)
+					OnMessage(tls, send_time, recv_time, data, data_bytes);
+				else if (super_opcode == SOP_ACK)
+					OnACK(send_time, recv_time, data, data_bytes);
+				else if (super_opcode == SOP_INTERNAL)
+					OnInternal(tls, send_time, recv_time, data, data_bytes);
 
 				if (_disconnected) return; // React to message handler
 			}
-			else if (diff > 0) // Message is due to arrive
-			{
-				QueueRecv(tls, send_time, recv_time, data, data_bytes, ack_id, stream, (hdr >> SOP_SHIFT) & SOP_MASK);
 
-				if (_disconnected) return; // React to message handler (unordered)
-			}
-			else
-			{
-				WARN("Transport") << "Ignored duplicate rolled reliable message " << stream << ":" << ack_id;
-
-				INANE("Transport") << "Rel dump " << bytes << ":" << HexDumpString(data, bytes);
-
-				// Don't bother locking here: It's okay if we lose a race with this.
-				_got_reliable[stream] = true;
-			}
-		}
-		else if (data_bytes > 0) // Unreliable message:
-		{
-			u32 super_opcode = (hdr >> SOP_SHIFT) & SOP_MASK;
-
-			if (super_opcode == SOP_DATA)
-				OnMessage(tls, send_time, recv_time, data, data_bytes);
-			else if (super_opcode == SOP_ACK)
-				OnACK(send_time, recv_time, data, data_bytes);
-			else if (super_opcode == SOP_INTERNAL)
-				OnInternal(tls, send_time, recv_time, data, data_bytes);
-
-			if (_disconnected) return; // React to message handler
+			bytes -= data_bytes;
+			data += data_bytes;
 		}
 
-		bytes -= data_bytes;
-		data += data_bytes;
-	}
+		// Calculate and accumulate transit time into statistics for flow control
+		u32 transit_time = recv_time - send_time;
 
-	// Calculate and accumulate transit time into statistics for flow control
-	u32 transit_time = recv_time - send_time;
+		// If transit time is in the future, clamp it into sanity
+		if ((s32)transit_time < 1) transit_time = 1;
 
-	// If transit time is in the future, clamp it into sanity
-	if ((s32)transit_time < 1) transit_time = 1;
-
-	// If transit time makes sense,
-	if (transit_time < TIMEOUT_DISCONNECT)
-	{
-		// Accumulate latest transit time
-		_recv_trip_time_sum += transit_time;
-
-		// Calculate cumulative average
-		u32 avg = _recv_trip_time_sum / ++_recv_trip_count;
-
-		// Write it for timer thread
-		u32 old = Atomic::Set(&_recv_trip_time_avg, avg);
-
-		// If average was cleared,
-		if (!old)
+		// If transit time makes sense,
+		if (transit_time < TIMEOUT_DISCONNECT)
 		{
-			// Timer thread wants us to reset the accumulator
-			_recv_trip_time_sum = 0;
-			_recv_trip_count = 0;
+			// Accumulate latest transit time
+			_recv_trip_time_sum += transit_time;
+
+			// Calculate cumulative average
+			u32 avg = _recv_trip_time_sum / ++_recv_trip_count;
+
+			// Write it for timer thread
+			u32 old = Atomic::Set(&_recv_trip_time_avg, avg);
+
+			// If average was cleared,
+			if (!old)
+			{
+				// Timer thread wants us to reset the accumulator
+				_recv_trip_time_sum = 0;
+				_recv_trip_count = 0;
+			}
 		}
 	}
 
@@ -1147,50 +1230,6 @@ void Transport::WriteACK()
 			_send_buffer_bytes = send_buffer_bytes + msg_bytes;
 		}
 	}
-}
-
-void Transport::TickTransport(SphynxTLS *tls, u32 now)
-{
-	if (_disconnected) return;
-
-	// Acknowledge recent reliable messages
-	for (int stream = 0; stream < NUM_STREAMS; ++stream)
-	{
-		if (_got_reliable[stream])
-		{
-			WriteACK();
-			break;
-		}
-	}
-
-	u32 loss_count = 0;
-
-	// Retransmit lost messages
-	for (int stream = 0; stream < NUM_STREAMS; ++stream)
-	{
-		if (_sent_list_head[stream])
-		{
-			loss_count = RetransmitLost(now);
-			break;
-		}
-	}
-
-	_big_lock.Enter();
-	_send_flow.OnTick(now, loss_count);
-	_big_lock.Leave();
-
-	// Avoid locking to transmit queued if no queued exist
-	for (int stream = 0; stream < NUM_STREAMS; ++stream)
-	{
-		if (_send_queue_head[stream])
-		{
-			TransmitQueued();
-			break;
-		}
-	}
-
-	// Post whatever is left in the send buffer
-	PostSendBuffer();
 }
 
 u32 Transport::RetransmitLost(u32 now)
