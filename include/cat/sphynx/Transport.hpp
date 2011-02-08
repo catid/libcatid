@@ -243,6 +243,8 @@ public:
 
 	static const u32 TRANSPORT_OVERHEAD = 2; // Number of bytes added to each packet for the transport layer
 
+	static const u8 SHUTDOWN_TICK_COUNT = 3; // Number of ticks before shutting down the object
+
 protected:
 	// Maximum transfer unit (MTU) in UDP payload bytes, excluding anything included in _overhead_bytes
 	u32 _max_payload_bytes;
@@ -322,7 +324,8 @@ protected:
 
 protected:
 	// true = no longer connected
-	bool _disconnected;
+	u8 _disconnect_countdown; // When it hits zero, will called RequestShutdown() and close the socket
+	u8 _disconnect_reason; // DISCO_CONNECTED = still connected
 
 	u32 _ts_delta; // Milliseconds clock difference between server and client: server_time = client_time + _ts_delta
 
@@ -374,11 +377,11 @@ public:
 	// Decompress a timestamp on client from server; high two bits are unused; byte order must be fixed before decoding
 	CAT_INLINE u32 DecodeServerTimestamp(u32 local_time, u16 timestamp) { return FromServerTime(BiasedReconstructCounter<14>(ToServerTime(local_time), TS_COMPRESS_FUTURE_TOLERANCE, timestamp & 0x3fff)); }
 
-	CAT_INLINE void TransportDisconnected() { _disconnected = true; }
-	CAT_INLINE bool IsDisconnected() { return _disconnected; }
+	void Disconnect(u8 reason = DISCO_USER_EXIT);
+	CAT_INLINE bool IsDisconnected() { return _disconnect_reason != DISCO_CONNECTED; }
 
 	void TickTransport(SphynxTLS *tls, u32 now);
-	void OnDatagram(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *data, u32 bytes);
+	void OnDatagrams(SphynxTLS *tls, const BatchSet &delivery);
 
 private:
 	void OnFragment(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *data, u32 bytes, u32 stream);
@@ -388,14 +391,16 @@ private:
 	u32 RetransmitLost(u32 now); // Returns estimated number of lost packets (granularity is 1 ms)
 
 protected:
+	virtual void OnDisconnectComplete() = 0;
 	virtual bool PostPacket(u8 *data, u32 buf_bytes, u32 msg_bytes) = 0;
+
 	virtual void OnMessage(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes) = 0; // precondition: bytes > 0
 	virtual void OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes) = 0; // precondition: bytes > 0
 
 protected:
 	bool PostMTUProbe(SphynxTLS *tls, u32 mtu);
 
-	CAT_INLINE bool PostDisconnect(u8 reason) { return WriteUnreliableOOB(IOP_DISCO, &reason, 1, SOP_INTERNAL); }
+	CAT_INLINE bool WriteDisconnect(u8 reason) { return WriteUnreliableOOB(IOP_DISCO, &reason, 1, SOP_INTERNAL); }
 };
 
 

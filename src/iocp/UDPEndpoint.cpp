@@ -157,7 +157,12 @@ bool UDPEndpoint::Bind(IOLayer *iolayer, bool onlySupportIPv4, Port port, bool i
         return false;
     }
 
+	_port = port;
 	_iolayer = iolayer;
+
+	// Add references for all the reads assuming they will succeed + 1 to keep object alive until function returns
+	AddRef(SIMULTANEOUS_READS + 1);
+	_buffers_posted = SIMULTANEOUS_READS;
 
 	// Associate with IOThreads
 	if (!iolayer->GetIOThreads()->Associate(this))
@@ -165,21 +170,15 @@ bool UDPEndpoint::Bind(IOLayer *iolayer, bool onlySupportIPv4, Port port, bool i
 		FATAL("UDPEndpoint") << "Unable to associate with IOThreads";
 		CloseSocket(s);
 		_socket = SOCKET_ERROR;
+		ReleaseRef(SIMULTANEOUS_READS + 1); // Release temporary references keeping the object alive until function returns
 		return false;
 	}
 
 	// Now that we're in the IO layer, start watching the object for shutdown
 	iolayer->Watch(this);
 
-	// Add references for all the reads assuming they will succeed
-	AddRef(SIMULTANEOUS_READS);
-	_buffers_posted = SIMULTANEOUS_READS;
-
 	// Post reads for this socket
 	u32 read_count = PostReads(SIMULTANEOUS_READS);
-
-	// There are now other threads working on this object before we return!
-	// TODO: Do not allow object to be deleted before we return...
 
 	// Release references that were held for unsuccessful reads
 	u32 read_fails = SIMULTANEOUS_READS - read_count;
@@ -196,13 +195,13 @@ bool UDPEndpoint::Bind(IOLayer *iolayer, bool onlySupportIPv4, Port port, bool i
 		FATAL("UDPEndpoint") << "No reads could be launched";
 		CloseSocket(s);
 		_socket = SOCKET_ERROR;
+		ReleaseRef(); // Release temporary reference keeping the object alive until function returns
 		return false;
 	}
 
-    _port = port;
-
     INFO("UDPEndpoint") << "Open on port " << GetPort();
 
+	ReleaseRef(); // Release temporary reference keeping the object alive until function returns
     return true;
 }
 

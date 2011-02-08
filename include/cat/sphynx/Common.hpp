@@ -113,6 +113,8 @@ const char *GetHandshakeErrorString(HandshakeError err);
 // Disconnect reasons
 enum DisconnectReasons
 {
+	DISCO_CONNECTED = 0,		// Not disconnected
+
 	DISCO_SILENT = 0xff,		// Disconnect without transmitting a reason
 	DISCO_TIMEOUT = 0xfe,		// Remote host has not received data from us
 	DISCO_TAMPERING = 0xfd,		// Remote host received a tampered packet
