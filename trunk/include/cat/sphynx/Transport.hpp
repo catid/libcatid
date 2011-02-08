@@ -37,14 +37,6 @@
 #include <cat/sphynx/FlowControl.hpp>
 #include <cat/sphynx/SphynxLayer.hpp>
 
-#define CAT_SEPARATE_ACK_LOCK /* Use a second mutex to serialize message acknowledgment data */
-
-#if defined(CAT_SEPARATE_ACK_LOCK)
-#define CAT_ACK_LOCK _ack_lock
-#else
-#define CAT_ACK_LOCK _big_lock
-#endif
-
 namespace cat {
 
 
@@ -52,14 +44,9 @@ namespace sphynx {
 
 
 /*
-	This transport layer provides fragmentation, three reliable ordered
-	streams, one unordered reliable stream, and unreliable delivery.
-
-	The Transport object that implements a sender/receiver in the protocol
-	requires 276 bytes of memory per server connection, plus 32 bytes per
-	message fragment in flight, plus buffers for queued send/recv packets, and
-	it keeps two mutexes for thread-safety.  A lockless memory allocator is used
-	to allocate all buffers except the fragmented message reassembly buffer.
+	This transport layer provides fragmentation, two reliable ordered
+	streams, one reliable ordered bulk stream, one unordered reliable stream,
+	and unreliable delivery.
 
 	Packet format on top of UDP header:
 
@@ -194,10 +181,29 @@ namespace sphynx {
 */
 
 /*
-	Bulk Transfer
+	Thread Safety
 
-	Writes bulk data to the end of outgoing packets to fill up to MTU size and
-	writes at each tick of the transport layer if channel is underutilized.
+	InitializePayloadBytes() and InitializeTransportSecurity() and other
+	initialization functions are called from the same thread.
+
+	TickTransport() and OnTransportDatagrams() are called from the same thread.
+
+	Other interfaces to the transport layer may be called asynchronously from
+	other threads.  For example, on the server another Connexion object in a
+	different worker thread may react to a message arriving by retransmitting
+	it via our transport object.
+
+	All of the simple inline functions are thread-safe.
+
+	The following functions need careful attention to avoid race conditions,
+	since these functions may be accessed from outside of the worker thread:
+
+	WriteUnreliableOOB, WriteUnreliable, WriteReliable, FlushImmediately
+
+	Locks should always be held for a minimal amount of time, never to include
+	invocations of the IO layer functions that actually transmit data.  Ideally
+	locks should also be held for a constant amount of time that does not grow
+	with the number of items to be processed.
 */
 
 class Transport
@@ -263,28 +269,10 @@ protected:
 	// Receive state: Synchronization objects
 	volatile bool _got_reliable[NUM_STREAMS];
 
-#if defined(CAT_SEPARATE_ACK_LOCK)
-	Mutex _ack_lock; // Just needs to protect writes OnDatagram() from messing up reads on tick
-#endif // CAT_SEPARATE_ACK_LOCK
-
 	// Receive state: Fragmentation
 	RecvFrag _fragments[NUM_STREAMS]; // Fragments for each stream
 
 	// Receive state: Receive queue head
-	/*
-		These are protected by the ack lock, which may be the same as the big
-		lock if CAT_SEPARATE_ACK_LOCK is unset.
-
-		OnDatagram() is serialized in Sphynx, so the locking is simplified.
-		This thread is arbitrator for queue contents.
-		So, when it is walking the queue it does not need to hold a lock.
-		It calls RunQueue() and QueueRecv() that work on this queue.
-		When making changes, it needs to hold the ack lock to synchronize
-		with the timer thread.
-
-		The transport timer is the only other thread to access the queue.
-		It calls WriteACK(), which locks the queue and then walks it.
-	*/
 	RecvQueue *_recv_queue_head[NUM_STREAMS], *_recv_queue_tail[NUM_STREAMS];
 
 	// Receive state: Statistics for flow control report in ACK response
@@ -381,7 +369,7 @@ public:
 	CAT_INLINE bool IsDisconnected() { return _disconnect_reason != DISCO_CONNECTED; }
 
 	void TickTransport(SphynxTLS *tls, u32 now);
-	void OnDatagrams(SphynxTLS *tls, const BatchSet &delivery);
+	void OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery);
 
 private:
 	void OnFragment(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *data, u32 bytes, u32 stream);

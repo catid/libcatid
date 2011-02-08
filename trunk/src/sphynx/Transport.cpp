@@ -242,7 +242,7 @@ void Transport::TickTransport(SphynxTLS *tls, u32 now)
 	PostSendBuffer();
 }
 
-void Transport::OnDatagrams(SphynxTLS *tls, const BatchSet &delivery)
+void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 {
 	// For each buffer in the batch,
 	for (BatchHead *node = delivery.head; !IsDisconnected() && node; node = node->batch_next)
@@ -454,14 +454,9 @@ void Transport::RunQueue(SphynxTLS *tls, u32 recv_time, u32 ack_id, u32 stream)
 	// If no queue to run or queue is not ready yet,
 	if (!node || node->id != ack_id)
 	{
-		// TODO: Is locking necessary here?
-		CAT_ACK_LOCK.Enter();
-
 		// Just update next expected id and set flag to send acks on next tick
 		_next_recv_expected_id[stream] = ack_id;
 		_got_reliable[stream] = true;
-
-		CAT_ACK_LOCK.Leave();
 
 		return;
 	}
@@ -501,16 +496,12 @@ void Transport::RunQueue(SphynxTLS *tls, u32 recv_time, u32 ack_id, u32 stream)
 		node = node->next;
 	} while (node && node->id == ack_id);
 
-	CAT_ACK_LOCK.Enter();
-
 	// Update receive queue state
 	_recv_queue_head[stream] = node;
 	if (!node) _recv_queue_tail[stream] = 0;
 	else node->prev = 0;
 	_next_recv_expected_id[stream] = ack_id;
 	_got_reliable[stream] = true;
-
-	CAT_ACK_LOCK.Leave();
 
 	// Split deletion from processing to reduce lock contention
 	while (kill_node != node)
@@ -598,16 +589,11 @@ void Transport::QueueRecv(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *data
 	new_node->next = next;
 	new_node->send_time = send_time;
 
-	// Just need to protect writes to the list linkages
-	CAT_ACK_LOCK.Enter();
-
 	if (next) next->prev = new_node;
 	else _recv_queue_tail[stream] = new_node;
 	if (node) node->next = new_node;
 	else _recv_queue_head[stream] = new_node;
 	_got_reliable[stream] = true;
-
-	CAT_ACK_LOCK.Leave();
 
 	if (stored_bytes) memcpy(GetTrailingBytes(new_node), data, stored_bytes);
 }
@@ -1033,8 +1019,6 @@ void Transport::WriteACK()
 		++remaining;
 	}
 
-	CAT_ACK_LOCK.Enter();
-
 	// Prioritizes ACKs for unordered stream, then 1, 2 and 3 in that order.
 	for (int stream = 0; stream < NUM_STREAMS; ++stream)
 	{
@@ -1163,8 +1147,6 @@ void Transport::WriteACK()
 			if (!node) _got_reliable[stream] = false;
 		}
 	}
-
-	CAT_ACK_LOCK.Leave();
 
 	u32 msg_bytes = max_payload_bytes - remaining;
 	u8 *packet_copy_source = packet;
