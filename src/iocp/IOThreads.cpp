@@ -106,8 +106,9 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 					}
 
 					// Reset recvq
-					recvq.head = buffer;
+					recvq.head = recvq.tail = buffer;
 					recv_count = 1;
+					prev_recv_endpoint = udp_endpoint;
 				}
 			}
 			break;

@@ -96,7 +96,7 @@ int main()
 	{
 		FATAL("Server") << "Unable to get key pair";
 	}
-	else if (server->StartServer(&layer, &tls, SERVER_PORT, key_pair, "Chat"))
+	else if (!server->StartServer(&layer, &tls, SERVER_PORT, key_pair, "Chat"))
 	{
 		FATAL("Server") << "Unable to start server";
 	}
