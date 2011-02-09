@@ -84,7 +84,9 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 	}
 
 	WorkerCallbacks *head = 0, *tail = 0;
-	u32 next_tick = Clock::msec();
+
+	// Give the startup code some breathing room before we start ticking
+	u32 next_tick = Clock::msec() + WORKER_TICK_INTERVAL * 2;
 
 	while (!_kill_flag)
 	{
