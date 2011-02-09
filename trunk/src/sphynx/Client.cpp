@@ -50,6 +50,11 @@ bool Client::OnZeroReferences()
 	return UDPEndpoint::OnZeroReferences();
 }
 
+void Client::OnDisconnectComplete()
+{
+	RequestShutdown();
+}
+
 void Client::OnReadRouting(const BatchSet &buffers)
 {
 	BatchSet garbage;
@@ -163,6 +168,22 @@ void Client::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 						_connected = true;
 						OnConnect(tls);
 
+						_last_recv_tsc = _next_sync_time = _mtu_discovery_time = Clock::msec();
+						_mtu_discovery_attempts = 2;
+						_sync_attempts = 0;
+
+						if (!DontFragment())
+						{
+							WARN("Client") << "Unable to detect MTU: Unable to set DF bit";
+
+							_mtu_discovery_attempts = 0;
+						}
+						else if (!PostMTUProbe(tls, MAXIMUM_MTU) ||
+								 !PostMTUProbe(tls, MEDIUM_MTU))
+						{
+							WARN("Client") << "Unable to detect MTU: First probe post failure";
+						}
+
 						// If we have already received the first encrypted message, keep processing
 						node = node->batch_next;
 						break;
@@ -223,110 +244,63 @@ void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)
 {
 	SphynxTLS *tls = reinterpret_cast<SphynxTLS*>( itls );
 
-	u32 start_time = Clock::msec_fast();
-	u32 first_hello_post = start_time;
-	u32 last_hello_post = start_time;
-	u32 hello_post_interval = INITIAL_HELLO_POST_INTERVAL;
-
-	// While still not connected,
-	while (!_connected)
+	if (!_connected)
 	{
-		// Wait for quit signal
-		if (_kill_flag.Wait(HANDSHAKE_TICK_RATE))
-			return;
-
-		// If now connected, break out
-		if (_connected)
-			break;
-
-		u32 now = Clock::msec_fast();
-
 		// If connection timed out,
-		if (now - first_hello_post >= CONNECT_TIMEOUT)
+		if (now - _first_hello_post >= CONNECT_TIMEOUT)
 		{
 			// NOTE: Connection can complete before or after OnConnectFail()
 			WARN("Client") << "Unable to connect: Timeout";
-
 			ConnectFail(ERR_CLIENT_TIMEOUT);
-
-			return false;
+			return;
 		}
 
 		// If time to repost hello packet,
-		if (now - last_hello_post >= hello_post_interval)
+		if (now - _last_hello_post >= _hello_post_interval)
 		{
 			if (!PostHello())
 			{
 				WARN("Client") << "Unable to connect: Post failure";
-
 				ConnectFail(ERR_CLIENT_BROKEN_PIPE);
-
-				return false;
+				return;
 			}
 
-			last_hello_post = now;
-			hello_post_interval *= 2;
+			_last_hello_post = now;
+			_hello_post_interval *= 2;
 		}
 
-		OnTick(&tls, now);
+		OnTick(tls, now);
 	}
-
-	// Begin MTU probing after connection completes
-	u32 mtu_discovery_time = Clock::msec();
-	int mtu_discovery_attempts = 2;
-
-	if (!DontFragment())
+	else
 	{
-		WARN("Client") << "Unable to detect MTU: Unable to set DF bit";
+		TickTransport(tls, now);
 
-		mtu_discovery_attempts = 0;
-	}
-	else if (!PostMTUProbe(&tls, MAXIMUM_MTU) ||
-		!PostMTUProbe(&tls, MEDIUM_MTU))
-	{
-		WARN("Client") << "Unable to detect MTU: First probe post failure";
-	}
-
-	// Time synchronization begins right away
-	u32 next_sync_time = Clock::msec();
-	u32 sync_attempts = 0;
-
-	// Set last receive time to avoid disconnecting due to timeout too soon
-	_last_recv_tsc = next_sync_time;
-
-	// While waiting for quit signal,
-	while (!_kill_flag.Wait(Transport::TICK_INTERVAL))
-	{
-		u32 now = Clock::msec();
-
-		TickTransport(&tls, now);
-
-		// If it is time for time synch,
-		if ((s32)(now - next_sync_time) >= 0)
+		// If it is time for time sync,
+		if ((s32)(now - _next_sync_time) >= 0)
 		{
 			PostTimePing();
 
 			// Increase synch interval after the first few data points
-			if (sync_attempts >= TIME_SYNC_FAST_COUNT)
-				next_sync_time = now + TIME_SYNC_INTERVAL;
+			if (_sync_attempts >= TIME_SYNC_FAST_COUNT)
+				_next_sync_time = now + TIME_SYNC_INTERVAL;
 			else
 			{
-				next_sync_time = now + TIME_SYNC_FAST;
-				++sync_attempts;
+				_next_sync_time = now + TIME_SYNC_FAST;
+				++_sync_attempts;
 			}
 		}
 
 		// If MTU discovery attempts continue,
-		if (mtu_discovery_attempts > 0)
+		if (_mtu_discovery_attempts > 0)
 		{
 			// If it is time to re-probe the MTU,
-			if (now - mtu_discovery_time >= MTU_PROBE_INTERVAL)
+			if (now - _mtu_discovery_time >= MTU_PROBE_INTERVAL)
 			{
 				// If payload bytes already maxed out,
 				if (_max_payload_bytes >= MAXIMUM_MTU - _overhead_bytes)
 				{
 					// Stop posting probes
-					mtu_discovery_attempts = 0;
+					_mtu_discovery_attempts = 0;
 
 					// On final attempt set DF=0
 					DontFragment(false);
@@ -334,22 +308,22 @@ void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)
 				else
 				{
 					// If not on final attempt,
-					if (mtu_discovery_attempts > 1)
+					if (_mtu_discovery_attempts > 1)
 					{
 						// Post probes
-						if (!PostMTUProbe(&tls, MAXIMUM_MTU - _overhead_bytes) ||
-							!PostMTUProbe(&tls, MEDIUM_MTU - _overhead_bytes))
+						if (!PostMTUProbe(tls, MAXIMUM_MTU - _overhead_bytes) ||
+							!PostMTUProbe(tls, MEDIUM_MTU - _overhead_bytes))
 						{
 							WARN("Client") << "Unable to detect MTU: Probe post failure";
 						}
 
-						mtu_discovery_time = now;
-						--mtu_discovery_attempts;
+						_mtu_discovery_time = now;
+						--_mtu_discovery_attempts;
 					}
 					else
 					{
 						// Stop posting probes
-						mtu_discovery_attempts = 0;
+						_mtu_discovery_attempts = 0;
 
 						// On final attempt set DF=0
 						DontFragment(false);
@@ -361,20 +335,19 @@ void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)
 		// If no packets have been received,
 		if ((s32)(now - _last_recv_tsc) >= TIMEOUT_DISCONNECT)
 		{
-			Disconnect(DISCO_TIMEOUT, true);
-
-			return true;
+			Disconnect(DISCO_TIMEOUT);
+			return;
 		}
 
 		// Tick subclass
-		OnTick(&tls, now);
+		OnTick(tls, now);
 
 		// Send a keep-alive after the silence limit expires
 		if ((s32)(now - _last_send_msec) >= SILENCE_LIMIT)
 		{
 			PostTimePing();
 
-			next_sync_time = now + TIME_SYNC_INTERVAL;
+			_next_sync_time = now + TIME_SYNC_INTERVAL;
 		}
 	}
 }
@@ -460,6 +433,9 @@ bool Client::FinalConnect(const NetAddr &addr)
 		WARN("Client") << "Failed to connect: Invalid address specified";
 		return false;
 	}
+
+	_first_hello_post = _last_hello_post = Clock::msec_fast();
+	_hello_post_interval = INITIAL_HELLO_POST_INTERVAL;
 
 	// Attempt to post hello message
 	if (!PostHello())
@@ -609,7 +585,7 @@ bool Client::WriteDatagrams(const BatchSet &buffers)
 		SendBuffer *buffer = reinterpret_cast<SendBuffer*>( node );
 		u8 *msg_data = GetTrailingBytes(buffer);
 		u32 buf_bytes = buffer->data_bytes;
-		u32 msg_bytes = buffer->data_bytes - AuthenticatedEncryption::OVERHEAD_BYTES;
+		u32 msg_bytes = buf_bytes - AuthenticatedEncryption::OVERHEAD_BYTES;
 
 		// Write timestamp right before the encryption overhead
 		*(u16*)(msg_data + msg_bytes - 2) = timestamp;
@@ -665,8 +641,6 @@ void Client::OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStre
 				//WARN("Client") << "Got IOP_S2C_TIME_PONG.  rtt=" << rtt << " unbalanced by " << (s32)(rtt/2 - (FromServerTime(server_ping_recv_time) - client_ping_send_time));
 
 				UpdateTimeSynch(rtt, delta);
-
-				OnTimestampDeltaUpdate();
 			}
 		}
 		break;
@@ -676,7 +650,7 @@ void Client::OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStre
 		{
 			WARN("Client") << "Got IOP_DISCO reason = " << (int)data[1];
 
-			Disconnect(data[1], false);
+			Disconnect(data[1]);
 		}
 		break;
 	}

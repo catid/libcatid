@@ -206,18 +206,20 @@ namespace sphynx {
 	with the number of items to be processed.
 */
 
-static const u32 NUM_STREAMS = 4; // Number of reliable streams
-
-static const int TICK_INTERVAL = 20; // Milliseconds between ticks
-
-static const u32 MAX_MESSAGE_DATALEN = 65535-1; // Maximum number of bytes in the data part of a message (-1 for the opcode)
-
-static const u32 TRANSPORT_OVERHEAD = 2; // Number of bytes added to each packet for the transport layer
-
-
 class Transport
 {
+public:
 	static const int TIMEOUT_DISCONNECT = 15000; // milliseconds; NOTE: If this changes, the timestamp compression will stop working
+	static const u32 NUM_STREAMS = 4; // Number of reliable streams
+	static const int TICK_INTERVAL = 20; // Milliseconds between ticks
+	static const u32 MAX_MESSAGE_DATALEN = 65535-1; // Maximum number of bytes in the data part of a message (-1 for the opcode)
+	static const u32 TRANSPORT_OVERHEAD = 2; // Number of bytes added to each packet for the transport layer
+
+	static const u32 MINIMUM_MTU = 576; // Dial-up
+	static const u32 MEDIUM_MTU = 1400; // Highspeed with unexpected overhead, maybe VPN
+	static const u32 MAXIMUM_MTU = 1500; // Highspeed
+
+private:
 	static const int TS_COMPRESS_FUTURE_TOLERANCE = 1000; // Milliseconds of time synch error before errors may occur in timestamp compression
 
 	static const u8 SHUTDOWN_TICK_COUNT = 3; // Number of ticks before shutting down the object
@@ -233,10 +235,6 @@ class Transport
 	static const u32 MIN_RTT = 2; // Minimum milliseconds for RTT
 	static const int INITIAL_RTT = 1500; // milliseconds
 
-	static const u32 MINIMUM_MTU = 576; // Dial-up
-	static const u32 MEDIUM_MTU = 1400; // Highspeed with unexpected overhead, maybe VPN
-	static const u32 MAXIMUM_MTU = 1500; // Highspeed
-
 	static const u32 IPV6_OPTIONS_BYTES = 40; // TODO: Not sure about this
 	static const u32 IPV6_HEADER_BYTES = 40 + IPV6_OPTIONS_BYTES;
 
@@ -249,12 +247,6 @@ class Transport
 	static const u32 FRAG_MAX = 65535;	// Max bytes for a fragmented message
 
 	static const u32 FRAG_THRESHOLD = 32; // Fragment if FRAG_THRESHOLD bytes would be in each fragment
-
-	// Maximum transfer unit (MTU) in UDP payload bytes, excluding anything included in _overhead_bytes
-	u32 _max_payload_bytes;
-
-	// Overhead bytes: UDP/IP headers, encryption and transport overhead
-	u32 _overhead_bytes;
 
 	// Receive state: Next expected ack id to receive
 	u32 _next_recv_expected_id[NUM_STREAMS];
@@ -289,9 +281,6 @@ class Transport
 	u32 _send_buffer_bytes;
 	u32 _send_buffer_stream, _send_buffer_ack_id; // Used to compress ACK-ID by setting I=0 after the first reliable message
 
-	// Send state: Flow control
-	FlowControl _send_flow;
-
 	// Send state: Queue of messages that are waiting to be sent
 	SendQueue *_send_queue_head[NUM_STREAMS], *_send_queue_tail[NUM_STREAMS];
 
@@ -304,8 +293,6 @@ class Transport
 	// true = no longer connected
 	u8 _disconnect_countdown; // When it hits zero, will called RequestShutdown() and close the socket
 	u8 _disconnect_reason; // DISCO_CONNECTED = still connected
-
-	u32 _ts_delta; // Milliseconds clock difference between server and client: server_time = client_time + _ts_delta
 
 	void FlushWrites();
 	u32 RetransmitLost(u32 now); // Returns estimated number of lost packets (granularity is 1 ms)
@@ -378,6 +365,17 @@ public:
 	void OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery);
 
 protected:
+	// Maximum transfer unit (MTU) in UDP payload bytes, excluding anything included in _overhead_bytes
+	u32 _max_payload_bytes;
+
+	// Overhead bytes: UDP/IP headers, encryption and transport overhead
+	u32 _overhead_bytes;
+
+	// Send state: Flow control
+	FlowControl _send_flow;
+
+	u32 _ts_delta; // Milliseconds clock difference between server and client: server_time = client_time + _ts_delta
+
 	virtual void OnDisconnectComplete() = 0;
 
 	virtual bool WriteDatagrams(const BatchSet &buffers) = 0;

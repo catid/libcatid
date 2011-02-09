@@ -68,6 +68,15 @@ class Client : public UDPEndpoint, public Transport, public WorkerCallbacks
 	// Last time a packet was received from the server -- for disconnect timeouts
 	u32 _last_recv_tsc;
 
+	u32 _first_hello_post;
+	u32 _last_hello_post;
+	u32 _hello_post_interval;
+
+	u32 _mtu_discovery_time;
+	int _mtu_discovery_attempts;
+	u32 _next_sync_time;
+	u32 _sync_attempts;
+
 	// Clock Synchronization
 	static const int TIME_SYNC_INTERVAL = 10000; // Normal time synch interval, milliseconds
 	static const int TIME_SYNC_FAST_COUNT = 8; // Number of fast measurements at the start, milliseconds
@@ -91,6 +100,7 @@ class Client : public UDPEndpoint, public Transport, public WorkerCallbacks
 
 	virtual bool WriteDatagrams(const BatchSet &buffers);
 	virtual void OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes);
+	virtual void OnDisconnectComplete();
 
 	void ConnectFail(HandshakeError err);
 

@@ -47,6 +47,11 @@ bool Connexion::OnZeroReferences()
 	return true;
 }
 
+void Connexion::OnDisconnectComplete()
+{
+	RequestShutdown();
+}
+
 void Connexion::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 {
 	SphynxTLS *tls = reinterpret_cast<SphynxTLS*>( itls );
@@ -112,25 +117,12 @@ void Connexion::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 	_parent->ReleaseRecvBuffers(buffers, buffer_count);
 }
 
-void Connexion::OnWorkerTick(IWorkerTLS *tls, u32 now)
+void Connexion::OnWorkerTick(IWorkerTLS *itls, u32 now)
 {
+	SphynxTLS *tls = reinterpret_cast<SphynxTLS*>( itls );
 
-}
+	TickTransport(tls, now);
 
-Connexion::Connexion()
-{
-	_seen_encrypted = false;
-}
-
-void Connexion::Disconnect(u8 reason, bool notify)
-{
-	if (Atomic::Set(&_destroyed, 1) == 0)
-	{
-	}
-}
-
-void Connexion::OnWorkerTick(WorkerTLS *tls, u32 now)
-{
 	// If disconnected, ignore tick events
 	if (IsDisconnected()) return;
 
@@ -144,6 +136,11 @@ void Connexion::OnWorkerTick(WorkerTLS *tls, u32 now)
 	TickTransport(tls, now);
 
 	OnTick(tls, now);
+}
+
+Connexion::Connexion()
+{
+	_seen_encrypted = false;
 }
 
 bool Connexion::WriteDatagrams(const BatchSet &buffers)
@@ -168,9 +165,9 @@ bool Connexion::WriteDatagrams(const BatchSet &buffers)
 	{
 		// Unwrap the message data
 		SendBuffer *buffer = reinterpret_cast<SendBuffer*>( node );
-		u8 *msg_data = buffer->GetData();
-		u32 buf_bytes = buffer->GetSize();
-		u32 msg_bytes = buffer->GetSize() - AuthenticatedEncryption::OVERHEAD_BYTES;
+		u8 *msg_data = GetTrailingBytes(buffer);
+		u32 buf_bytes = buffer->data_bytes;
+		u32 msg_bytes = buf_bytes - AuthenticatedEncryption::OVERHEAD_BYTES;
 
 		// Write timestamp right before the encryption overhead
 		*(u16*)(msg_data + msg_bytes - 2) = timestamp;
@@ -229,7 +226,7 @@ void Connexion::OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferS
 		{
 			//WARN("Server") << "Got IOP_DISCO reason = " << (int)data[1];
 
-			Disconnect(data[1], false);
+			Disconnect(data[1]);
 		}
 		break;
 	}
