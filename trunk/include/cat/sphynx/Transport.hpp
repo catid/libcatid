@@ -206,6 +206,29 @@ namespace sphynx {
 	with the number of items to be processed.
 */
 
+/*
+	Graceful Disconnection
+
+	When the user calls Transport::Disconnect(), the _disconnect_reason is set
+	to the given reason.  This is then used to send a few unreliable OOB
+	IOP_DISCO messages including the provided reason.  After the transmits are
+	finished, the Transport layer calls the OnDisconnectComplete() callback.
+
+	It takes a few timer ticks to finish sending all the IOP_DISCO messages,
+	say less than 100 milliseconds.
+
+	Once a disconnect is requested, further data from the remote host will
+	be silently ignored while IOP_DISCO messages are going out.  Timer tick
+	events will also no longer happen.
+
+	If the application needs to close fast, it can call RequestShutdown()
+	directly on the derived object.  This option for shutdown is not graceful
+	and will not transmit IOP_DISCO to the remote host(s).
+
+	The remote host will get notified about a graceful disconnect when its
+	OnDisconnectReason() callback is invoked.
+*/
+
 class Transport
 {
 public:

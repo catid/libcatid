@@ -273,54 +273,37 @@ void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)
 	}
 	else
 	{
-		TickTransport(tls, now);
-
-		// If it is time for time sync,
-		if ((s32)(now - _next_sync_time) >= 0)
+		// If in graceful disconnect,
+		if (IsDisconnected())
 		{
-			PostTimePing();
-
-			// Increase synch interval after the first few data points
-			if (_sync_attempts >= TIME_SYNC_FAST_COUNT)
-				_next_sync_time = now + TIME_SYNC_INTERVAL;
-			else
-			{
-				_next_sync_time = now + TIME_SYNC_FAST;
-				++_sync_attempts;
-			}
+			// Still tick transport layer because it is delivering IOP_DISCO messages
+			TickTransport(tls, now);
 		}
-
-		// If MTU discovery attempts continue,
-		if (_mtu_discovery_attempts > 0)
+		else
 		{
-			// If it is time to re-probe the MTU,
-			if (now - _mtu_discovery_time >= MTU_PROBE_INTERVAL)
+			// If it is time for time sync,
+			if ((s32)(now - _next_sync_time) >= 0)
 			{
-				// If payload bytes already maxed out,
-				if (_max_payload_bytes >= MAXIMUM_MTU - _overhead_bytes)
-				{
-					// Stop posting probes
-					_mtu_discovery_attempts = 0;
+				PostTimePing();
 
-					// On final attempt set DF=0
-					DontFragment(false);
-				}
+				// Increase synch interval after the first few data points
+				if (_sync_attempts >= TIME_SYNC_FAST_COUNT)
+					_next_sync_time = now + TIME_SYNC_INTERVAL;
 				else
 				{
-					// If not on final attempt,
-					if (_mtu_discovery_attempts > 1)
-					{
-						// Post probes
-						if (!PostMTUProbe(tls, MAXIMUM_MTU - _overhead_bytes) ||
-							!PostMTUProbe(tls, MEDIUM_MTU - _overhead_bytes))
-						{
-							WARN("Client") << "Unable to detect MTU: Probe post failure";
-						}
+					_next_sync_time = now + TIME_SYNC_FAST;
+					++_sync_attempts;
+				}
+			}
 
-						_mtu_discovery_time = now;
-						--_mtu_discovery_attempts;
-					}
-					else
+			// If MTU discovery attempts continue,
+			if (_mtu_discovery_attempts > 0)
+			{
+				// If it is time to re-probe the MTU,
+				if (now - _mtu_discovery_time >= MTU_PROBE_INTERVAL)
+				{
+					// If payload bytes already maxed out,
+					if (_max_payload_bytes >= MAXIMUM_MTU - _overhead_bytes)
 					{
 						// Stop posting probes
 						_mtu_discovery_attempts = 0;
@@ -328,26 +311,49 @@ void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)
 						// On final attempt set DF=0
 						DontFragment(false);
 					}
+					else
+					{
+						// If not on final attempt,
+						if (_mtu_discovery_attempts > 1)
+						{
+							// Post probes
+							if (!PostMTUProbe(tls, MAXIMUM_MTU - _overhead_bytes) ||
+								!PostMTUProbe(tls, MEDIUM_MTU - _overhead_bytes))
+							{
+								WARN("Client") << "Unable to detect MTU: Probe post failure";
+							}
+
+							_mtu_discovery_time = now;
+							--_mtu_discovery_attempts;
+						}
+						else
+						{
+							// Stop posting probes
+							_mtu_discovery_attempts = 0;
+
+							// On final attempt set DF=0
+							DontFragment(false);
+						}
+					}
 				}
 			}
-		}
 
-		// If no packets have been received,
-		if ((s32)(now - _last_recv_tsc) >= TIMEOUT_DISCONNECT)
-		{
-			Disconnect(DISCO_TIMEOUT);
-			return;
-		}
+			// Do derived class tick event so any messages posted do not need to wait 20 ms
+			OnTick(tls, now);
 
-		// Tick subclass
-		OnTick(tls, now);
+			TickTransport(tls, now);
 
-		// Send a keep-alive after the silence limit expires
-		if ((s32)(now - _last_send_msec) >= SILENCE_LIMIT)
-		{
-			PostTimePing();
+			// Send a keep-alive after the silence limit expires
+			if ((s32)(now - _last_send_msec) >= SILENCE_LIMIT)
+			{
+				PostTimePing();
 
-			_next_sync_time = now + TIME_SYNC_INTERVAL;
+				_next_sync_time = now + TIME_SYNC_INTERVAL;
+			}
+
+			// If no packets have been received,
+			if ((s32)(now - _last_recv_tsc) >= TIMEOUT_DISCONNECT)
+				Disconnect(DISCO_TIMEOUT);
 		}
 	}
 }
@@ -650,7 +656,7 @@ void Client::OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStre
 		{
 			WARN("Client") << "Got IOP_DISCO reason = " << (int)data[1];
 
-			Disconnect(data[1]);
+			OnDisconnectReason(data[1]);
 		}
 		break;
 	}
