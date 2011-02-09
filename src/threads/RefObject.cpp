@@ -111,12 +111,27 @@ void WatchedRefObject::RequestShutdown()
 	}
 }
 
+bool WatchedRefObject::AddWatcher(RefObjectWatcher *watcher)
+{
+	AutoMutex lock(_lock);
+
+	if (IsShutdown())
+	{
+		AddRef();
+		_watchers.push_back(watcher);
+		return true;
+	}
+
+	return false;
+}
+
 
 //// RefObjectWatcher
 
 RefObjectWatcher::RefObjectWatcher()
 {
 	_wait_count = 0;
+	_shutdown = false;
 }
 
 RefObjectWatcher::~RefObjectWatcher()
@@ -127,6 +142,8 @@ RefObjectWatcher::~RefObjectWatcher()
 bool RefObjectWatcher::WaitForShutdown(s32 milliseconds, bool request_shutdown)
 {
 	AutoMutex lock(_lock);
+
+	_shutdown = true;
 
 	if (_wait_count == 0) return true;
 
@@ -151,18 +168,15 @@ void RefObjectWatcher::Watch(WatchedRefObject *obj)
 {
 	AutoMutex lock(_lock);
 
-	// Abort if object is shutdown already
-	if (obj->IsShutdown()) return;
+	// Abort if watcher is shutdown already
+	if (_shutdown) return;
 
-	// If object is already watched, abort
-	if (std::find(_watched_list.begin(), _watched_list.end(), obj) != _watched_list.end()) return;
+	// Abort if in race condition with watched object shutdown
+	if (!obj->AddWatcher(this))
+		return;
 
 	_watched_list.push_back(obj);
 	++_wait_count;
-
-	lock.Release();
-
-	obj->AddRef();
 }
 
 bool RefObjectWatcher::OnObjectShutdownStart(WatchedRefObject *obj)
@@ -192,10 +206,16 @@ bool RefObjectWatcher::OnObjectShutdownStart(WatchedRefObject *obj)
 
 void RefObjectWatcher::OnObjectShutdownEnd(WatchedRefObject *obj)
 {
+	bool shutdown;
+
 	_lock.Enter();
+
 	u32 wait_count = --_wait_count;
+
+	shutdown = _shutdown && wait_count <= 0;
+
 	_lock.Leave();
 
-	if (wait_count == 0)
-		_shutdown_flag.Set();
+	// If the watcher is shutting down and all wait objects are dead,
+	if (shutdown) _shutdown_flag.Set();
 }

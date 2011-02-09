@@ -156,6 +156,7 @@ class WatchedRefObject : public RefObject
 	typedef std::vector<RefObjectWatcher*>::iterator VectorIterator;
 
 	virtual void ShutdownComplete(bool delete_this);
+	bool AddWatcher(RefObjectWatcher *watcher);
 
 public:
 	CAT_INLINE virtual ~WatchedRefObject() {}
@@ -173,6 +174,7 @@ class RefObjectWatcher
 	std::list<WatchedRefObject*> _watched_list;
 	typedef std::list<WatchedRefObject*>::iterator ListIterator;
 	u32 _wait_count;
+	bool _shutdown;
 
 	WaitableFlag _shutdown_flag;
 

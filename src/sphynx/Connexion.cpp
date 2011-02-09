@@ -143,6 +143,7 @@ void Connexion::OnWorkerTick(IWorkerTLS *itls, u32 now)
 Connexion::Connexion()
 {
 	_seen_encrypted = false;
+	InitializeWorkerCallbacks(this);
 }
 
 bool Connexion::WriteDatagrams(const BatchSet &buffers)

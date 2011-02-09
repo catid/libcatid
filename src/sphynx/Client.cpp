@@ -366,6 +366,8 @@ Client::Client()
 	// Clock synchronization
 	_ts_next_index = 0;
 	_ts_sample_count = 0;
+
+	InitializeWorkerCallbacks(this);
 }
 
 bool Client::InitialConnect(SphynxLayer *layer, SphynxTLS *tls, TunnelPublicKey &public_key, const char *session_key)
