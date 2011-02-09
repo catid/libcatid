@@ -121,9 +121,6 @@ public:
 	bool Connect(SphynxLayer *layer, SphynxTLS *tls, const char *hostname, Port port, TunnelPublicKey &public_key, const char *session_key);
 	bool Connect(SphynxLayer *layer, SphynxTLS *tls, const NetAddr &addr, TunnelPublicKey &public_key, const char *session_key);
 
-	// Will not notify remote host on DISCO_SILENT
-	void Disconnect(u8 reason = DISCO_SILENT);
-
 protected:
 	virtual void OnShutdownRequest();
 	virtual bool OnZeroReferences();

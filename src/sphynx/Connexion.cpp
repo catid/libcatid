@@ -121,21 +121,23 @@ void Connexion::OnWorkerTick(IWorkerTLS *itls, u32 now)
 {
 	SphynxTLS *tls = reinterpret_cast<SphynxTLS*>( itls );
 
-	TickTransport(tls, now);
-
-	// If disconnected, ignore tick events
-	if (IsDisconnected()) return;
-
-	// If no packets have been received,
-	if ((s32)(now - _last_recv_tsc) >= TIMEOUT_DISCONNECT)
+	// If in graceful disconnect,
+	if (IsDisconnected())
 	{
-		Disconnect(DISCO_TIMEOUT);
-		return;
+		// Still tick transport layer because it is delivering IOP_DISCO messages
+		TickTransport(tls, now);
 	}
+	else
+	{
+		// Do derived class tick event so any messages posted do not need to wait 20 ms
+		OnTick(tls, now);
 
-	TickTransport(tls, now);
+		TickTransport(tls, now);
 
-	OnTick(tls, now);
+		// If no packets have been received,
+		if ((s32)(now - _last_recv_tsc) >= TIMEOUT_DISCONNECT)
+			Disconnect(DISCO_TIMEOUT);
+	}
 }
 
 Connexion::Connexion()
@@ -226,7 +228,7 @@ void Connexion::OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferS
 		{
 			//WARN("Server") << "Got IOP_DISCO reason = " << (int)data[1];
 
-			Disconnect(data[1]);
+			OnDisconnectReason(data[1]);
 		}
 		break;
 	}

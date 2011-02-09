@@ -79,9 +79,6 @@ public:
 	CAT_INLINE u32 GetFloodKey() { return _flood_key; }
 	CAT_INLINE u32 GetServerWorkerID() { return _server_worker_id; }
 
-	// Will not notify remote host on DISCO_SILENT
-	void Disconnect(u8 reason = DISCO_SILENT);
-
 protected:
 	virtual void OnShutdownRequest();
 	virtual bool OnZeroReferences();
