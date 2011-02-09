@@ -50,35 +50,36 @@ namespace cat {
 class CAT_EXPORT HMAC_MD5 : public ICryptHash
 {
 protected:
-    static const int DIGEST_BYTES = 16;
-    static const int WORK_BYTES = 64; // bytes in one block
-    static const int WORK_WORDS = WORK_BYTES / sizeof(u32);
+	static const int DIGEST_BYTES = 16;
+	static const int WORK_BYTES = 64; // bytes in one block
+	static const int WORK_WORDS = WORK_BYTES / sizeof(u32);
 
-    u32 CachedInitialState[4]; // Cached state for H(K||inner padding)
-    u32 CachedFinalState[4];   // Cached state for H(K||outer padding)
+	u32 CachedInitialState[4]; // Cached state for H(K||inner padding)
+	u32 CachedFinalState[4];   // Cached state for H(K||outer padding)
 
-    u64 byte_counter;
-    u32 State[4];
-    u8 Work[WORK_BYTES];
-    int used_bytes;
+	u64 byte_counter;
+	u32 State[4];
+	u8 Work[WORK_BYTES];
+	int used_bytes;
 
-    void HashComputation(const void *message, int blocks, u32 *NextState);
+	void HashComputation(const void *message, int blocks, u32 *NextState);
 
-    // Unsupported modes
-    bool BeginKey(int /*bits*/) { return false; }
-    bool BeginKDF() { return false; }
-    bool BeginPRNG() { return false; }
+	// Unsupported modes
+	bool BeginKey(int /*bits*/) { return false; }
+	bool BeginKDF() { return false; }
+	bool BeginPRNG() { return false; }
 
 public:
-    ~HMAC_MD5();
-    bool SetKey(ICryptHash *parent);
+	~HMAC_MD5();
+
+	bool SetKey(ICryptHash *parent);
 	void RekeyFromMD5(HMAC_MD5 *parent);
-    bool BeginMAC();
-    void Crunch(const void *message, int bytes);
-    void End();
+	bool BeginMAC();
+	void Crunch(const void *message, int bytes);
+	void End();
 
 	// TODO: Strengthening is not supported right now
-    void Generate(void *out, int bytes, int strengthening_rounds = 0);
+	void Generate(void *out, int bytes, int strengthening_rounds = 0);
 };
 
 
