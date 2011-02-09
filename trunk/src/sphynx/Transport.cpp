@@ -131,7 +131,7 @@ Transport::Transport()
 Transport::~Transport()
 {
 	// Release memory for send buffer
-	if (_send_buffer) _send_buffer->Release();
+	if (_send_buffer) SendBuffer::Release(_send_buffer);
 
 	// Release memory for outgoing datagrams
 	for (BatchHead *next, *node = _outgoing_datagrams.head; node; node = next)
@@ -770,8 +770,8 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 
 	AutoMutex lock(_big_lock);
 
-	SendBuffer *old_send_buffer = _send_buffer;
-	u32 send_buffer_bytes = old_send_buffer ? old_send_buffer->data_bytes : 0;
+	u8 *old_send_buffer = _send_buffer;
+	u32 send_buffer_bytes = _send_buffer_bytes;
 
 	// If the growing send buffer cannot contain the new message,
 	if (send_buffer_bytes + msg_bytes > max_payload_bytes)
@@ -785,7 +785,7 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 		}
 
 		// Update send buffer state
-		_send_buffer = SendBuffer::Promote(pkt);
+		_send_buffer = pkt;
 		_send_buffer_stream = NUM_STREAMS;
 
 		// Write header
@@ -804,21 +804,19 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 		pkt[0] = msg_opcode;
 		memcpy(pkt + 1, msg_data, data_bytes - 1);
 
-		_outgoing_datagrams.PushBack(old_send_buffer);
+		_outgoing_datagrams.PushBack(SendBuffer::Promote(old_send_buffer));
 	}
 	else
 	{
 		// Create or grow buffer and write into it
-		u8 *pkt = SendBuffer::Resize(old_send_buffer, AuthenticatedEncryption::OVERHEAD_BYTES + send_buffer_bytes + msg_bytes + TRANSPORT_OVERHEAD);
-		if (!pkt)
+		u8 *pkt = _send_buffer = SendBuffer::Resize(old_send_buffer, AuthenticatedEncryption::OVERHEAD_BYTES + send_buffer_bytes + msg_bytes + TRANSPORT_OVERHEAD);
+		if (!_send_buffer)
 		{
 			WARN("Transport") << "Out of memory: Unable to resize unreliable post buffer";
-			_send_buffer = 0;
+			_send_buffer_bytes = 0;
 			_send_buffer_stream = NUM_STREAMS;
 			return false;
 		}
-
-		_send_buffer = SendBuffer::Promote(pkt);
 
 		pkt += send_buffer_bytes;
 
@@ -947,11 +945,7 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 	// If the growing send buffer cannot contain the new message,
 	if (send_buffer_bytes + msg_bytes > max_payload_bytes)
 	{
-		// TODO: Eventually I should move this PostPacket() outside of the caller's send lock
-
-		if (PostPacket(send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD, send_buffer_bytes))
-			_send_flow.OnPacketSend(send_buffer_bytes + _overhead_bytes);
-		else WARN("Transport") << "Packet post failure during retransmit overflow";
+		_outgoing_datagrams.PushBack(SendBuffer::Promote(send_buffer));
 
 		send_buffer = 0;
 		send_buffer_bytes = 0;
@@ -1212,9 +1206,7 @@ void Transport::WriteACK()
 
 			lock.Release();
 
-			if (PostPacket(old_send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD, send_buffer_bytes))
-				_send_flow.OnPacketSend(send_buffer_bytes + _overhead_bytes);
-			else WARN("Transport") << "Packet post failure during ACK send buffer overflow";
+			_outgoing_datagrams.PushBack(SendBuffer::Promote(old_send_buffer));
 		}
 	}
 	else
@@ -1705,9 +1697,6 @@ void Transport::TransmitQueued()
 	u32 now = Clock::msec();
 	u32 max_payload_bytes = _max_payload_bytes;
 
-	// List of packets to send after done with send lock
-	TempSendNode *packet_send_head = 0, *packet_send_tail = 0;
-
 	AutoMutex lock(_big_lock);
 
 	// Cache send buffer
@@ -1779,15 +1768,7 @@ void Transport::TransmitQueued()
 						}
 						else if (send_buffer_bytes > 0) // Not worth fragmentation, dump current send buffer
 						{
-							// Prepare a temp send node for the old packet send buffer
-							TempSendNode *old_node = reinterpret_cast<TempSendNode*>( send_buffer + send_buffer_bytes );
-							old_node->next = 0;
-							old_node->negative_offset = send_buffer_bytes;
-
-							// Insert old packet send buffer at the end of the temp send list
-							if (packet_send_tail) packet_send_tail->next = old_node;
-							else packet_send_head = old_node;
-							packet_send_tail = old_node;
+							_outgoing_datagrams.PushBack(SendBuffer::Promote(send_buffer));
 
 							// Update send epoch bytes
 							send_epoch_bytes += send_buffer_bytes + _overhead_bytes;
@@ -1812,11 +1793,6 @@ void Transport::TransmitQueued()
 								_send_buffer = 0;
 								_send_buffer_bytes = 0;
 								_send_buffer_stream = NUM_STREAMS;
-
-								lock.Release();
-
-								// Post any outstanding packets
-								PostPacketList(packet_send_head);
 
 								return;
 							}
@@ -1937,6 +1913,7 @@ void Transport::TransmitQueued()
 					{
 						WARN("Transport") << "Out of memory: Unable to allocate send buffer";
 						send_buffer_bytes = 0;
+						// TODO: Check if stream needs to be reset here
 						continue; // Retry
 					}
 
@@ -2064,8 +2041,4 @@ BreakStreamEarly:
 
 	_send_buffer = send_buffer;
 	_send_buffer_bytes = send_buffer_bytes;
-
-	lock.Release();
-
-	PostPacketList(packet_send_head);
 }
