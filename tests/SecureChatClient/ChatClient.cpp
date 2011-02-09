@@ -10,65 +10,76 @@ using namespace std;
 class GameClient : public Client
 {
 public:
-	virtual void OnClose()
+	virtual void OnShutdownRequest()
 	{
-		WARN("Client") << "-- CLOSED";
-	}
+		WARN("Client") << "-- Shutdown Requested";
 
-	virtual void OnConnectFail(HandshakeError err)
+		Client::OnShutdownRequest();
+	}
+	virtual bool OnZeroReferences()
+	{
+		WARN("Client") << "-- Zero References";
+
+		return Client::OnZeroReferences();
+	}
+	virtual void OnConnectFail(sphynx::HandshakeError err)
 	{
 		WARN("Client") << "-- CONNECT FAIL ERROR " << GetHandshakeErrorString(err);
 	}
-
-	virtual void OnConnect(ThreadPoolLocalStorage *tls)
+	virtual void OnConnect(SphynxTLS *tls)
 	{
 		WARN("Client") << "-- CONNECTED";
 	}
-
-	virtual void OnMessage(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes)
+	virtual void OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count)
 	{
-		switch (msg[0])
+		for (u32 ii = 0; ii < count; ++ii)
 		{
-		case 0:
+			BufferStream msg = msgs[ii].msg;
+			u32 bytes = msgs[ii].bytes;
+			u32 send_time = msgs[ii].send_time;
+
+			switch (msg[0])
 			{
-				WARN("Client") << "Got request for transmit";
+			case 0:
+				{
+					WARN("Client") << "Got request for transmit";
 
-				static char STR[4000];
+					static char STR[4000];
 
-				for (int ii = 0; ii < sizeof(STR); ++ii)
-					STR[ii] = (char)ii;
+					for (int ii = 0; ii < sizeof(STR); ++ii)
+						STR[ii] = (char)ii;
 
-				for (int jj = 0; jj < 10; ++jj)
-					WriteReliable(STREAM_UNORDERED, 1, STR, sizeof(STR)/4);
-				for (int jj = 0; jj < 1000; ++jj)
-					WriteReliable(STREAM_1, 1, STR, sizeof(STR));
-				for (int jj = 0; jj < 1000; ++jj)
-					WriteReliable(STREAM_2, 1, STR, sizeof(STR));
-				WriteReliable(STREAM_2, 2, STR, sizeof(STR));
+					for (int jj = 0; jj < 10; ++jj)
+						WriteReliable(STREAM_UNORDERED, 1, STR, sizeof(STR)/4);
+					for (int jj = 0; jj < 1000; ++jj)
+						WriteReliable(STREAM_1, 1, STR, sizeof(STR));
+					for (int jj = 0; jj < 1000; ++jj)
+						WriteReliable(STREAM_2, 1, STR, sizeof(STR));
+					WriteReliable(STREAM_2, 2, STR, sizeof(STR));
 
-				WriteReliable(STREAM_3, 0, STR, sizeof(STR));
+					WriteReliable(STREAM_BULK, 0, STR, sizeof(STR));
+				}
+				break;
+			default:
+				INFO("Client") << "Got message with " << bytes << " bytes";
 			}
-			break;
-		default:
-			INFO("Client") << "Got message with " << bytes << " bytes";
 		}
 	}
-
-	virtual void OnDisconnect(u8 reason)
+	virtual void OnDisconnectReason(u8 reason)
 	{
 		WARN("Client") << "-- DISCONNECTED REASON " << (int)reason;
 	}
-	virtual void OnTick(ThreadPoolLocalStorage *tls, u32 now)
+	virtual void OnTick(SphynxTLS *tls, u32 now)
 	{
-		//WARN("Client") << "-- TICK " << now;
+		WARN("Client") << "-- TICK " << now;
 	}
 };
 
 int main()
 {
-	IOLayer iolayer;
+	SphynxLayer layer;
 
-	if (!iolayer.Startup("ChatClient.cfg"))
+	if (!layer.Startup("ChatClient.cfg"))
 	{
 		FATAL("Client") << "Unable to start IOLayer";
 		return 1;
@@ -92,7 +103,7 @@ int main()
 	// linux: 10.1.1.146
 	// netbook: 10.1.1.110
 	// coldfront: 68.84.166.22
-	if (!client->Connect(&tls, "68.84.166.22", 22000, public_key, "Chat"))
+	if (!client->Connect(&layer, &tls, "68.84.166.22", 22000, public_key, "Chat"))
 	{
 		FATAL("Client") << "Unable to connect to server";
 	}
@@ -106,7 +117,7 @@ int main()
 		}
 	}
 
-	iolayer.Shutdown();
+	layer.Shutdown();
 
 	return 0;
 }

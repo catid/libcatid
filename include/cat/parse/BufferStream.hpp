@@ -52,6 +52,7 @@ protected:
 	u8 *_buffer;
 
 public:
+	CAT_INLINE BufferStream() {}
 	CAT_INLINE BufferStream(u8 *buffer) { _buffer = buffer; }
 	CAT_INLINE BufferStream &operator=(u8 *buffer) { _buffer = buffer; return *this; }
 
