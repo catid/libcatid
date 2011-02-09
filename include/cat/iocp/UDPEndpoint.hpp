@@ -87,10 +87,9 @@ public:
 
 	// If Is6() == true, the address must be promoted to IPv6
 	// before calling using addr.PromoteTo6()
-	// Returns number of bytes written in sum
-	u32 Write(const BatchSet &buffers, const NetAddr &addr);
+	bool Write(const BatchSet &buffers, const NetAddr &addr);
 
-	CAT_INLINE u32 Write(u8 *data, const NetAddr &addr)
+	CAT_INLINE bool Write(u8 *data, const NetAddr &addr)
 	{
 		return Write(SendBuffer::Promote(data), addr);
 	}

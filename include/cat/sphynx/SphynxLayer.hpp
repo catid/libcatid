@@ -48,7 +48,7 @@ public:
 	static const u32 DELIVERY_QUEUE_DEPTH = 128;
 
 	// Used internally by the Sphynx Transport layer to queue up messages for delivery
-	sphynx::UserMessage delivery_queue[DELIVERY_QUEUE_DEPTH];
+	sphynx::IncomingMessage delivery_queue[DELIVERY_QUEUE_DEPTH];
 	u32 delivery_queue_depth;
 	void *free_list[DELIVERY_QUEUE_DEPTH];
 	u32 free_list_count;

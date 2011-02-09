@@ -749,7 +749,7 @@ bool Transport::WriteUnreliableOOB(u8 msg_opcode, const void *vmsg_data, u32 dat
 	pkt[0] = msg_opcode;
 	memcpy(pkt + 1, msg_data, data_bytes - 1);
 
-	return WriteDatagrams(SendBuffer::Promote(pkt));
+	return WriteDatagrams(pkt);
 }
 
 bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_bytes, SuperOpcode super_opcode)
@@ -854,17 +854,18 @@ void Transport::FlushWrites()
 
 	_big_lock.Enter();
 
-	SendBuffer *send_buffer = _send_buffer;
-	if (send_buffer)
-	{
-		_outgoing_datagrams.PushBack(send_buffer);
-
-		_send_buffer = 0;
-		_send_buffer_stream = NUM_STREAMS;
-	}
-
 	BatchSet outgoing_datagrams = _outgoing_datagrams;
 	_outgoing_datagrams.Clear();
+
+	u8 *send_buffer = _send_buffer;
+	if (send_buffer)
+	{
+		outgoing_datagrams.PushBack(SendBuffer::Promote(send_buffer));
+
+		_send_buffer = 0;
+		_send_buffer_bytes = 0;
+		_send_buffer_stream = NUM_STREAMS;
+	}
 
 	_big_lock.Leave();
 
@@ -1295,9 +1296,10 @@ bool Transport::PostMTUProbe(SphynxTLS *tls, u32 mtu)
 	tls->csprng->Generate(pkt + 3, data_bytes - 1);
 
 	// Encrypt and send buffer
-	if (PostPacket(pkt, buffer_bytes, payload_bytes))
+	if (WriteDatagrams(pkt))
 	{
-		_send_flow.OnPacketSend(mtu);
+		// TODO: Need to rework this for flow control
+		//_send_flow.OnPacketSend(mtu);
 		return true;
 	}
 
@@ -1647,7 +1649,7 @@ bool Transport::WriteReliable(StreamMode stream, u8 msg_opcode, const void *vmsg
 	}
 
 	// Allocate SendQueue object
-	SendQueue *node = StdAllocator::ii->AcquireBuffer<SendQueue>(1 + data_bytes);
+	SendQueue *node = StdAllocator::ii->AcquireTrailing<SendQueue>(1 + data_bytes);
 	if (!node)
 	{
 		WARN("Transport") << "Out of memory: Unable to allocate sendqueue object";

@@ -122,7 +122,7 @@ protected:
 
 	virtual void OnConnectFail(sphynx::HandshakeError err) = 0;
 	virtual void OnConnect(SphynxTLS *tls) = 0;
-	virtual void OnMessages(SphynxTLS *tls, UserMessage msgs[], u32 count) = 0;
+	virtual void OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count) = 0;
 	virtual void OnDisconnectReason(u8 reason) = 0; // Called when the server provides a reason for disconnection
 	virtual void OnTick(SphynxTLS *tls, u32 now) = 0;
 };
