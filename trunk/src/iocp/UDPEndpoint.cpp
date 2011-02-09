@@ -297,6 +297,8 @@ bool UDPEndpoint::Write(const BatchSet &buffers, const NetAddr &addr)
 			node->batch_next = 0;
 
 			SendBuffer *first_buf = reinterpret_cast<SendBuffer*>( first );
+			CAT_OBJCLR(first_buf->iointernal.ov);
+			first_buf->iointernal.io_type = IOTYPE_UDP_SEND;
 
 			// Fire off a WSASendTo() and forget about it
 			int result = WSASendTo(_socket, wsabufs, ii, 0, 0,

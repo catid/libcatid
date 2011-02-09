@@ -422,6 +422,9 @@ bool Client::InitialConnect(SphynxLayer *layer, SphynxTLS *tls, TunnelPublicKey 
 	// Initialize max payload bytes
 	InitializePayloadBytes(Is6());
 
+	// Assign to a worker
+	_worker_id = layer->GetWorkerThreads()->AssignWorker(this);
+
 	return true;
 }
 
@@ -505,7 +508,6 @@ bool Client::OnResolve(const char *hostname, const NetAddr *array, int array_len
 
 		if (!FinalConnect(addr))
 		{
-			WARN("Client") << "Failed to connect: Cannot start hostname resolve for " << hostname;
 			RequestShutdown();
 			return false;
 		}

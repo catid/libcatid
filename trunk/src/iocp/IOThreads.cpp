@@ -72,10 +72,15 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 
 				// Find the end of the buffers
 				BatchHead *last;
-				for (last = buffer; last->batch_next; last = last->batch_next);
+				u32 count = 1;
+
+				for (last = buffer; last->batch_next; last = last->batch_next)
+					++count;
 
 				// Use that as the new tail
 				sendq.tail = last;
+
+				udp_endpoint->ReleaseRef(count);
 			}
 			break;
 
