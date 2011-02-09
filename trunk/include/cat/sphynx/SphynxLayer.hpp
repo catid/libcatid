@@ -47,15 +47,20 @@ class SphynxTLS : public IWorkerTLS
 public:
 	static const u32 DELIVERY_QUEUE_DEPTH = 128;
 
-	FortunaOutput *csprng;
-	BigTwistedEdwards *math;
-	SphynxLayer *sphynx_layer;
-
-	UserMessage delivery_queue[DELIVERY_QUEUE_DEPTH];
+	// Used internally by the Sphynx Transport layer to queue up messages for delivery
+	sphynx::UserMessage delivery_queue[DELIVERY_QUEUE_DEPTH];
 	u32 delivery_queue_depth;
-
 	void *free_list[DELIVERY_QUEUE_DEPTH];
 	u32 free_list_count;
+
+	// A cryptographically secure random number generator, if you need random numbers
+	FortunaOutput *csprng;
+
+	// Cryptographic math primitive
+	BigTwistedEdwards *math;
+
+	// Sphynx layer instance
+	SphynxLayer *sphynx_layer;
 
 	SphynxTLS();
 	virtual ~SphynxTLS();
