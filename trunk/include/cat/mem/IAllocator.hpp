@@ -96,9 +96,21 @@ public:
 		return reinterpret_cast<T*>( Acquire(sizeof(T) * elements) );
 	}
 
+	template<class T>
+	CAT_INLINE T *AcquireTrailing(u32 trailing_bytes)
+	{
+		return reinterpret_cast<T*>( Acquire(sizeof(T) + trailing_bytes) );
+	}
+
 	// Returns 0 on failure
 	// Resizes the given buffer to a new number of bytes
 	virtual void *Resize(void *ptr, u32 bytes) = 0;
+
+	template<class T>
+	CAT_INLINE T *ResizeTrailing(T *ptr, u32 trailing_bytes)
+	{
+		return reinterpret_cast<T*>( Resize(ptr, sizeof(T) + trailing_bytes) );
+	}
 
 	// Release a buffer
 	// Should not die if pointer is null

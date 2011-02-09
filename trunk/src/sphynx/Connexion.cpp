@@ -88,7 +88,6 @@ void Connexion::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 
 				u8 *pkt = SendBuffer::Acquire(S2C_ANSWER_LEN);
 
-				// Verify that post buffer could be allocated
 				if (!pkt)
 				{
 					WARN("Connexion") << "Ignoring challenge: Unable to allocate post buffer";
@@ -98,8 +97,7 @@ void Connexion::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 				// Construct packet
 				pkt[0] = S2C_ANSWER;
 
-				u8 *pkt_answer = pkt + 1;
-				memcpy(pkt_answer, _cached_answer, ANSWER_BYTES);
+				memcpy(pkt + 1, _cached_answer, ANSWER_BYTES);
 
 				_parent->Write(pkt, buffer->addr);
 

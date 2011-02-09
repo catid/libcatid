@@ -30,132 +30,72 @@
 #define CAT_NET_SEND_BUFFER_HPP
 
 #include <cat/io/IOLayer.hpp>
-#include <cat/mem/StdAllocator.hpp>
 
 namespace cat {
 
 
 // A buffer specialized for writing to a socket
-class SendBuffer : public BatchHead
+struct SendBuffer : public BatchHead
 {
-	friend class IOThread;
-	friend class UDPEndpoint;
+	// Shared data
+	u32 data_bytes;
 
-	// Shared data pimpl
-	u32 _data_bytes;
-
-	// IO layer specific overhead pimpl
-	IOLayerSendOverhead iointernal;
-
-	u8 _data[1];
-
-public:
-	CAT_INLINE u8 *GetData() { return _data; }
-	CAT_INLINE u32 GetSize() { return _data_bytes; }
-	CAT_INLINE void Shrink(u32 data_bytes) { _data_bytes = data_bytes; }
-
-	// Acquire memory for a send buffer
-	static CAT_INLINE SendBuffer *Acquire(SendBuffer * &ptr, u32 data_bytes = 0)
+	union
 	{
-		const u32 OVERHEAD_BYTES = (u32)(offsetof(SendBuffer, _data));
+		// IO layer specific overhead pimpl
+		IOLayerSendOverhead iointernal;
 
-		SendBuffer *buffer = reinterpret_cast<SendBuffer*>(
-			StdAllocator::ii->Acquire(OVERHEAD_BYTES + data_bytes) );
+		// Worker data
+		u32 allocated_bytes;
+	};
 
+	static CAT_INLINE u8 *Acquire(u32 trailing_bytes)
+	{
+		SendBuffer *buffer = StdAllocator::ii->AcquireTrailing<SendBuffer>(trailing_bytes);
 		if (!buffer) return 0;
-		buffer->_data_bytes = data_bytes;
-		return (ptr = buffer);
+
+		//buffer->allocated_bytes = trailing_bytes;
+		buffer->data_bytes = trailing_bytes;
+		return GetTrailingBytes(buffer);
 	}
 
-	// Acquire memory for a send buffer
-	static CAT_INLINE u8 *Acquire(u32 data_bytes = 0)
+	static CAT_INLINE SendBuffer *Promote(u8 *ptr)
 	{
-		SendBuffer *buffer;
-
-		if (!Acquire(buffer, data_bytes)) return 0;
-
-		buffer->_data_bytes = data_bytes;
-		return buffer->_data;
+		return reinterpret_cast<SendBuffer*>( ptr - sizeof(SendBuffer) );
 	}
 
-	// Acquire memory for a send buffer
-	template<class T>
-	static CAT_INLINE T *Acquire(T * &data)
+	static CAT_INLINE u8 *Resize(SendBuffer *ptr, u32 new_trailing_bytes)
 	{
-		SendBuffer *buffer;
-
-		if (!Acquire(buffer, sizeof(T))) return 0;
-
-		buffer->_data_bytes = sizeof(T);
-		return (data = reinterpret_cast<T*>( buffer->_data ));
-	}
-
-	// Change number of data bytes allocated to the buffer
-	// Returns a new data pointer that may be different from the old data pointer
-	CAT_INLINE SendBuffer *Resize(u32 data_bytes)
-	{
-		const u32 OVERHEAD_BYTES = (u32)(offsetof(SendBuffer, _data));
-
-		SendBuffer *buffer = reinterpret_cast<SendBuffer*>(
-			StdAllocator::ii->Resize(this, OVERHEAD_BYTES + data_bytes) );
-
+		SendBuffer *buffer = StdAllocator::ii->ResizeTrailing(ptr, new_trailing_bytes);
 		if (!buffer) return 0;
-		buffer->_data_bytes = data_bytes;
-		return buffer;
+
+		// TODO: Check if more performance may be achieved by using an amortized O(1) allocation scheme
+		//buffer->allocated_bytes = new_trailing_bytes;
+		buffer->data_bytes = new_trailing_bytes;
+
+		return GetTrailingBytes(buffer);
 	}
 
-	// Change number of data bytes allocated to the buffer
-	// Returns a new data pointer that may be different from the old data pointer
-	static CAT_INLINE u8 *Resize(void *vdata, u32 data_bytes)
+	CAT_INLINE u8 *Grow(u32 new_trailing_bytes)
 	{
-		u8 *data = reinterpret_cast<u8*>( vdata );
-		const u32 OVERHEAD_BYTES = (u32)(offsetof(SendBuffer, _data));
-
-		if (!data) return Acquire(data_bytes);
-
-		SendBuffer *buffer = reinterpret_cast<SendBuffer*>( data - OVERHEAD_BYTES );
-
-		buffer = buffer->Resize(data_bytes);
-
+		SendBuffer *buffer = StdAllocator::ii->ResizeTrailing(this, new_trailing_bytes);
 		if (!buffer) return 0;
-		buffer->_data_bytes = data_bytes;
-		return buffer->_data;
+
+		// TODO: Check if more performance may be achieved by using an amortized O(1) allocation scheme
+		//buffer->allocated_bytes = new_trailing_bytes;
+		buffer->data_bytes = new_trailing_bytes;
+
+		return GetTrailingBytes(buffer);
 	}
 
-	// Promote a data pointer to the full send buffer
-	static CAT_INLINE SendBuffer *Promote(void *vdata)
+	static CAT_INLINE void Shrink(u8 *ptr, u32 new_trailing_bytes)
 	{
-		u8 *data = reinterpret_cast<u8*>( vdata );
-		const u32 OVERHEAD_BYTES = (u32)(offsetof(SendBuffer, _data));
-
-		return reinterpret_cast<SendBuffer*>( data - OVERHEAD_BYTES );
-	}
-
-	// Promote a data pointer to the full send buffer
-	static CAT_INLINE SendBuffer *Shrink(void *vdata, u32 size)
-	{
-		u8 *data = reinterpret_cast<u8*>( vdata );
-		const u32 OVERHEAD_BYTES = (u32)(offsetof(SendBuffer, _data));
-
-		SendBuffer *buffer = reinterpret_cast<SendBuffer*>( data - OVERHEAD_BYTES );
-		buffer->Shrink(size);
-		return buffer;
-	}
-
-	// Release memory
-	static CAT_INLINE void Release(SendBuffer *buffer)
-	{
-		StdAllocator::ii->Release(buffer);
+		Promote(ptr)->data_bytes = new_trailing_bytes;
 	}
 
 	CAT_INLINE void Release()
 	{
-		Release(this);
-	}
-
-	static CAT_INLINE void Release(void *vdata)
-	{
-		Release(Promote(vdata));
+		StdAllocator::ii->Release(this);
 	}
 };
 

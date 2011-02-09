@@ -438,15 +438,16 @@ bool DNSClient::BindToRandomPort(IOLayer *iolayer, bool ignoreUnreachable)
 
 bool DNSClient::PostDNSPacket(DNSRequest *req, u32 now)
 {
-	// Allocate post buffer
+	// Allocate send buffer
 	int str_len = (int)strlen(req->hostname);
 	int bytes = DNS_HDRLEN + 1 + str_len + 1 + DNS_QUESTION_FOOTER;
 
-	// Write header
-	u8 *dns_packet = SendBuffer::Acquire(bytes);
-	if (!dns_packet) return false;
-	u16 *dns_hdr = reinterpret_cast<u16*>( dns_packet );
+	u8 *pkt = SendBuffer::Acquire(bytes);
+	if (!pkt) return false;
 
+	u16 *dns_hdr = reinterpret_cast<u16*>( pkt );
+
+	// Write header
 	dns_hdr[DNS_ID] = req->id; // Endianness doesn't matter
 	dns_hdr[DNS_HDR] = getBE16(1 << DNSHDR_RD);
 	dns_hdr[DNS_QDCOUNT] = getBE16(1); // One question
@@ -457,7 +458,7 @@ bool DNSClient::PostDNSPacket(DNSRequest *req, u32 now)
 	// Copy hostname over
 	int last_dot = str_len-1;
 
-	dns_packet[DNS_HDRLEN + 1 + str_len] = '\0';
+	pkt[DNS_HDRLEN + 1 + str_len] = '\0';
 
 	for (int ii = last_dot; ii >= 0; --ii)
 	{
@@ -470,10 +471,10 @@ bool DNSClient::PostDNSPacket(DNSRequest *req, u32 now)
 			last_dot = ii-1;
 		}
 
-		dns_packet[DNS_HDRLEN + ii + 1] = byte;
+		pkt[DNS_HDRLEN + ii + 1] = byte;
 	}
 
-	dns_packet[DNS_HDRLEN] = (u8)(last_dot + 1);
+	pkt[DNS_HDRLEN] = (u8)(last_dot + 1);
 
 	// Write request footer
 	u16 *foot = reinterpret_cast<u16*>( dns_packet + DNS_HDRLEN + 1 + str_len + 1 );
@@ -484,7 +485,7 @@ bool DNSClient::PostDNSPacket(DNSRequest *req, u32 now)
 	// Post DNS request
 	req->last_post_time = now;
 
-	return Write(dns_packet, _server_addr);
+	return Write(pkt, _server_addr);
 }
 
 bool DNSClient::PerformLookup(DNSRequest *req)

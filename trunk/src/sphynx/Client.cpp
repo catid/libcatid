@@ -106,7 +106,6 @@ void Client::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 
 			if (bytes == S2C_COOKIE_LEN && data[0] == S2C_COOKIE)
 			{
-				// Allocate a post buffer
 				u8 *pkt = SendBuffer::Acquire(C2S_CHALLENGE_LEN);
 
 				if (!pkt)
@@ -550,7 +549,6 @@ bool Client::PostHello()
 		return false;
 	}
 
-	// Allocate space for a post buffer
 	u8 *pkt = SendBuffer::Acquire(C2S_HELLO_LEN);
 
 	// If unable to allocate,
@@ -566,8 +564,7 @@ bool Client::PostHello()
 	u32 *magic = reinterpret_cast<u32*>( pkt + 1 );
 	*magic = getLE32(PROTOCOL_MAGIC);
 
-	u8 *public_key = pkt + 1 + 4;
-	memcpy(public_key, _server_public_key.GetPublicKey(), PUBLIC_KEY_BYTES);
+	memcpy(pkt + 1 + 4, _server_public_key.GetPublicKey(), PUBLIC_KEY_BYTES);
 
 	// Attempt to post packet
 	if (!Write(pkt, _server_addr))
@@ -577,7 +574,6 @@ bool Client::PostHello()
 	}
 
 	INANE("Client") << "Posted hello packet";
-
 	return true;
 }
 
@@ -611,9 +607,9 @@ bool Client::WriteDatagrams(const BatchSet &buffers)
 	{
 		// Unwrap the message data
 		SendBuffer *buffer = reinterpret_cast<SendBuffer*>( node );
-		u8 *msg_data = buffer->GetData();
-		u32 buf_bytes = buffer->GetSize();
-		u32 msg_bytes = buffer->GetSize() - AuthenticatedEncryption::OVERHEAD_BYTES;
+		u8 *msg_data = GetTrailingBytes(buffer);
+		u32 buf_bytes = buffer->data_bytes;
+		u32 msg_bytes = buffer->data_bytes - AuthenticatedEncryption::OVERHEAD_BYTES;
 
 		// Write timestamp right before the encryption overhead
 		*(u16*)(msg_data + msg_bytes - 2) = timestamp;
@@ -688,16 +684,8 @@ void Client::OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStre
 
 void Client::ConnectFail(HandshakeError err)
 {
-	if (Atomic::Set(&_destroyed, 1) == 0)
-	{
-		TransportDisconnected();
-
-		OnConnectFail(err);
-
-		_kill_flag.Set();
-
-		Close();
-	}
+	OnConnectFail(err);
+	RequestShutdown();
 }
 
 /*

@@ -48,6 +48,7 @@ class Client : public UDPEndpoint, public Transport, public WorkerCallbacks
 	static const int CONNECT_TIMEOUT = 6000; // milliseconds
 	static const u32 MTU_PROBE_INTERVAL = 8000; // seconds
 	static const int CLIENT_THREAD_KILL_TIMEOUT = 10000; // seconds
+	static const int SILENCE_LIMIT = 4357; // Time silent before sending a keep-alive (0-length unordered reliable message), milliseconds
 
 	static const int SESSION_KEY_BYTES = 32;
 	char _session_key[SESSION_KEY_BYTES];

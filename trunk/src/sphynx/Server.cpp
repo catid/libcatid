@@ -232,8 +232,9 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 				continue;
 			}
 
-			Skein key_hash;
 			u8 *pkt = SendBuffer::Acquire(S2C_ANSWER_LEN);
+
+			Skein key_hash;
 			AutoRef<Connexion> conn;
 
 			// Verify that post buffer could be allocated
@@ -291,7 +292,6 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 					WARN("Server") << "Ignoring challenge: Unable to initialize transport security";
 				}
 
-				// If packet post fails,
 				if (!Write(pkt, buffer->addr))
 				{
 					WARN("Server") << "Ignoring challenge: Unable to post packet";
@@ -382,8 +382,6 @@ bool Server::StartServer(SphynxLayer *layer, SphynxTLS *tls, Port port, TunnelKe
 bool Server::PostConnectionCookie(const NetAddr &dest)
 {
 	u8 *pkt = SendBuffer::Acquire(S2C_COOKIE_LEN);
-
-	// Verify that post buffer could be allocated
 	if (!pkt)
 	{
 		WARN("Server") << "Unable to post connection cookie: Unable to allocate post buffer";
@@ -405,7 +403,6 @@ bool Server::PostConnectionCookie(const NetAddr &dest)
 bool Server::PostConnectionError(const NetAddr &dest, HandshakeError err)
 {
 	u8 *pkt = SendBuffer::Acquire(S2C_ERROR_LEN);
-
 	if (!pkt)
 	{
 		WARN("Server") << "Out of memory: Unable to allocate send buffer";
