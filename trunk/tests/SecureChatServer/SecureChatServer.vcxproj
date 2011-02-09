@@ -153,14 +153,6 @@
   <ItemGroup>
     <ClCompile Include="ChatServer.cpp" />
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\build\Common\Common.vcxproj">
-      <Project>{e6e578bc-6936-451a-90f2-811c5ee5f82f}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\..\build\Sphynx\Sphynx.vcxproj">
-      <Project>{8687ce17-05a5-4987-a6d2-c9bc2f951a1b}</Project>
-    </ProjectReference>
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
