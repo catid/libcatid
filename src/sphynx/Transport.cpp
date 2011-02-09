@@ -85,6 +85,8 @@ Transport::Transport()
 
 	_disconnect_countdown = SHUTDOWN_TICK_COUNT;
 	_disconnect_reason = DISCO_CONNECTED;
+
+	_outgoing_datagrams.Clear();
 }
 
 Transport::~Transport()
@@ -95,6 +97,14 @@ Transport::~Transport()
 		StdAllocator::ii->Release(_send_buffer);
 	}
 
+	// Release memory for outgoing datagrams
+	for (BatchHead *next, *node = _outgoing_datagrams.head; node; node = next)
+	{
+		next = node->batch_next;
+		StdAllocator::ii->Release(node);
+	}
+
+	// For each stream,
 	for (int stream = 0; stream < NUM_STREAMS; ++stream)
 	{
 		// Release memory for receive queue
@@ -244,6 +254,10 @@ void Transport::TickTransport(SphynxTLS *tls, u32 now)
 
 void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 {
+	// Initialize the delivery queue
+	tls->delivery_queue_depth = 0;
+	tls->free_list_count = 0;
+
 	// For each buffer in the batch,
 	for (BatchHead *node = delivery.head; !IsDisconnected() && node; node = node->batch_next)
 	{
@@ -361,26 +375,20 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 						u32 super_opcode = (hdr >> SOP_SHIFT) & SOP_MASK;
 
 						if (super_opcode == SOP_DATA)
-							OnMessage(tls, send_time, recv_time, data, data_bytes);
+							QueueDelivery(tls, data, data_bytes, send_time);
 						else if (super_opcode == SOP_FRAG)
 							OnFragment(tls, send_time, recv_time, data, data_bytes, stream);
 						else if (super_opcode == SOP_INTERNAL)
 							OnInternal(tls, send_time, recv_time, data, data_bytes);
 						else WARN("Transport") << "Invalid reliable super opcode ignored";
-
-						if (_disconnected) return; // React to message handler
 					}
 					else WARN("Transport") << "Zero-length reliable message ignored";
 
 					RunQueue(tls, recv_time, ack_id + 1, stream);
-
-					if (_disconnected) return; // React to message handler
 				}
 				else if (diff > 0) // Message is due to arrive
 				{
 					QueueRecv(tls, send_time, recv_time, data, data_bytes, ack_id, stream, (hdr >> SOP_SHIFT) & SOP_MASK);
-
-					if (_disconnected) return; // React to message handler (unordered)
 				}
 				else
 				{
@@ -397,13 +405,11 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 				u32 super_opcode = (hdr >> SOP_SHIFT) & SOP_MASK;
 
 				if (super_opcode == SOP_DATA)
-					OnMessage(tls, send_time, recv_time, data, data_bytes);
+					QueueDelivery(tls, data, data_bytes, send_time);
 				else if (super_opcode == SOP_ACK)
 					OnACK(send_time, recv_time, data, data_bytes);
 				else if (super_opcode == SOP_INTERNAL)
 					OnInternal(tls, send_time, recv_time, data, data_bytes);
-
-				if (_disconnected) return; // React to message handler
 			}
 
 			bytes -= data_bytes;
@@ -437,6 +443,9 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 			}
 		}
 	}
+
+	// Deliver any messages that are queued up
+	DeliverQueued(tls);
 
 	// If flush was requested,
 	if (_send_flush_after_processing)
@@ -478,13 +487,11 @@ void Transport::RunQueue(SphynxTLS *tls, u32 recv_time, u32 ack_id, u32 stream)
 			u32 super_opcode = node->sop;
 
 			if (super_opcode == SOP_DATA)
-				OnMessage(tls, node->send_time, recv_time, old_data, old_data_bytes);
+				QueueDelivery(tls, data, data_bytes, send_time);
 			else if (super_opcode == SOP_FRAG)
 				OnFragment(tls, node->send_time, recv_time, old_data, old_data_bytes, stream);
 			else if (super_opcode == SOP_INTERNAL)
 				OnInternal(tls, node->send_time, recv_time, old_data, old_data_bytes);
-
-			if (_disconnected) return; // React to message handler
 
 			// NOTE: Unordered stream writes zero-length messages
 			// to the receive queue since it processes immediately
@@ -556,13 +563,11 @@ void Transport::QueueRecv(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *data
 		if (data_bytes > 0)
 		{
 			if (super_opcode == SOP_DATA)
-				OnMessage(tls, send_time, recv_time, data, data_bytes);
+				QueueDelivery(tls, data, data_bytes, send_time);
 			else if (super_opcode == SOP_FRAG)
 				OnFragment(tls, send_time, recv_time, data, data_bytes, stream);
 			else if (super_opcode == SOP_INTERNAL)
 				OnInternal(tls, send_time, recv_time, data, data_bytes);
-
-			if (_disconnected) return; // React to message handler
 		}
 		else WARN("Transport") << "Zero-length reliable message ignored";
 
@@ -646,16 +651,21 @@ void Transport::OnFragment(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *dat
 	// If the fragment is now complete,
 	if (bytes >= fragment_remaining)
 	{
+		u8 *buffer = _fragments[stream].buffer;
+
 		if (bytes > fragment_remaining)
 		{
 			WARN("Transport") << "Message fragment overflow truncated";
 		}
 
-		memcpy(_fragments[stream].buffer + _fragments[stream].offset, data, fragment_remaining);
+		memcpy(buffer + _fragments[stream].offset, data, fragment_remaining);
 
-		OnMessage(tls, send_time, recv_time, _fragments[stream].buffer, _fragments[stream].length);
+		// Queue up this buffer for deletion after we are done
+		QueueFragFree(tls, buffer);
 
-		delete []_fragments[stream].buffer;
+		// Deliver this buffer
+		QueueDelivery(tls, buffer, _fragments[stream].length, _fragments[stream].send_time);
+
 		_fragments[stream].length = 0;
 	}
 	else
@@ -2047,28 +2057,4 @@ BreakStreamEarly:
 	lock.Release();
 
 	PostPacketList(packet_send_head);
-}
-
-void Transport::PostPacketList(TempSendNode *packet_send_head)
-{
-	// Send packets after lock is released:
-	while (packet_send_head)
-	{
-		TempSendNode *next = packet_send_head->next;
-
-		u32 bytes = packet_send_head->negative_offset;
-		u8 *data = reinterpret_cast<u8*>( packet_send_head ) - bytes;
-
-		INANE("Transport") << "Sending packet with " << bytes;
-
-		if (PostPacket(data, bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD, bytes))
-			_send_flow.OnPacketSend(bytes);
-		else
-		{
-			WARN("Transport") << "Unable to post send buffer";
-			break;
-		}
-
-		packet_send_head = next;
-	}
 }
