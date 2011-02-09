@@ -379,9 +379,15 @@ public:
 
 protected:
 	virtual void OnDisconnectComplete() = 0;
+
 	virtual bool WriteDatagrams(const BatchSet &buffers) = 0;
 
-	virtual void OnMessages(SphynxTLS *tls, UserMessage msgs[], u32 count) = 0;
+	CAT_INLINE bool WriteDatagrams(u8 *single)
+	{
+		return WriteDatagrams(SendBuffer::Promote(single));
+	}
+
+	virtual void OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count) = 0;
 	virtual void OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes) = 0; // precondition: bytes > 0
 
 	bool PostMTUProbe(SphynxTLS *tls, u32 mtu);

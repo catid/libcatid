@@ -231,7 +231,7 @@ struct TempSendNode // Size <= 11 bytes = AuthenticatedEncryption::OVERHEAD_BYTE
 # pragma pack(pop)
 #endif
 
-struct UserMessage
+struct IncomingMessage
 {
 	BufferStream msg;
 	u32 bytes;
