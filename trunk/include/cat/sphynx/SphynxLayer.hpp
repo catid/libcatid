@@ -29,6 +29,7 @@
 #ifndef CAT_SPHYNX_LAYER_HPP
 #define CAT_SPHYNX_LAYER_HPP
 
+#include <cat/sphynx/Common.hpp>
 #include <cat/io/IOLayer.hpp>
 #include <cat/math/BigTwistedEdwards.hpp>
 #include <cat/crypt/rand/Fortuna.hpp>
@@ -44,9 +45,17 @@ class SphynxLayer;
 class SphynxTLS : public IWorkerTLS
 {
 public:
+	static const u32 DELIVERY_QUEUE_DEPTH = 128;
+
 	FortunaOutput *csprng;
 	BigTwistedEdwards *math;
 	SphynxLayer *sphynx_layer;
+
+	UserMessage delivery_queue[DELIVERY_QUEUE_DEPTH];
+	u32 delivery_queue_depth;
+
+	void *free_list[DELIVERY_QUEUE_DEPTH];
+	u32 free_list_count;
 
 	SphynxTLS();
 	virtual ~SphynxTLS();

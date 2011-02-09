@@ -686,11 +686,6 @@ void Client::OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStre
 	}
 }
 
-void Client::Disconnect(u8 reason, bool notify)
-{
-
-}
-
 void Client::ConnectFail(HandshakeError err)
 {
 	if (Atomic::Set(&_destroyed, 1) == 0)

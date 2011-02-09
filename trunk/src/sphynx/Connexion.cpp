@@ -133,12 +133,14 @@ void Connexion::Disconnect(u8 reason, bool notify)
 
 void Connexion::OnWorkerTick(WorkerTLS *tls, u32 now)
 {
+	// If disconnected, ignore tick events
+	if (IsDisconnected()) return;
+
 	// If no packets have been received,
 	if ((s32)(now - _last_recv_tsc) >= TIMEOUT_DISCONNECT)
 	{
-		Disconnect(DISCO_TIMEOUT, true);
-
-		RequestShutdown();
+		Disconnect(DISCO_TIMEOUT);
+		return;
 	}
 
 	TickTransport(tls, now);

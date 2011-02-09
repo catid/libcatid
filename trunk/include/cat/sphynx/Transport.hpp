@@ -310,6 +310,9 @@ protected:
 	// Send state: List of messages that are waiting to be acknowledged
 	SendQueue *_sent_list_head[NUM_STREAMS], *_sent_list_tail[NUM_STREAMS];
 
+	// Queue of outgoing datagrams for batched output
+	BatchSet _outgoing_datagrams;
+
 protected:
 	// true = no longer connected
 	u8 _disconnect_countdown; // When it hits zero, will called RequestShutdown() and close the socket
@@ -374,15 +377,57 @@ public:
 private:
 	void OnFragment(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *data, u32 bytes, u32 stream);
 
-	void PostPacketList(TempSendNode *packet_send_head);
 	void PostSendBuffer();
 	u32 RetransmitLost(u32 now); // Returns estimated number of lost packets (granularity is 1 ms)
+
+	// Queue a fragment for freeing
+	CAT_INLINE void QueueFragFree(SphynxTLS *tls, u8 *data)
+	{
+		// Add to the free frag list
+		u32 count = tls->free_list_count;
+		tls->free_list[count] = data;
+		tls->free_list_count = ++count;
+	}
+
+	// Queue received data for user processing
+	CAT_INLINE void QueueDelivery(SphynxTLS *tls, u8 *data, u32 data_bytes, u32 send_time)
+	{
+		u32 depth = tls->delivery_queue_depth;
+		tls->delivery_queue[depth].msg = data;
+		tls->delivery_queue[depth].bytes = data_bytes;
+		tls->delivery_queue[depth].send_time = send_time;
+
+		if (++depth < SphynxTLS::DELIVERY_QUEUE_DEPTH)
+			tls->delivery_queue_depth = depth;
+		else
+		{
+			OnMessages(tls, tls->delivery_queue, depth);
+
+			// Free memory for fragments
+			for (u32 ii = 0, count = tls->free_list_count; ii < count; ++ii)
+				delete [] (tls->free_list[ii]);
+
+			tls->delivery_queue_depth = 0;
+			tls->free_list_count = 0;
+		}
+	}
+
+	// Deliver messages to user in one big batch
+	CAT_INLINE void DeliverQueued(SphynxTLS *tls)
+	{
+		u32 depth = tls->delivery_queue_depth;
+		if (depth > 0)
+		{
+			OnMessages(tls, tls->delivery_queue, depth);
+			tls->delivery_queue_depth = 0;
+		}
+	}
 
 protected:
 	virtual void OnDisconnectComplete() = 0;
 	virtual bool PostPacket(u8 *data, u32 buf_bytes, u32 msg_bytes) = 0;
 
-	virtual void OnMessage(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes) = 0; // precondition: bytes > 0
+	virtual void OnMessages(SphynxTLS *tls, UserMessage msgs[], u32 count) = 0;
 	virtual void OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes) = 0; // precondition: bytes > 0
 
 protected:

@@ -231,6 +231,13 @@ struct TempSendNode // Size <= 11 bytes = AuthenticatedEncryption::OVERHEAD_BYTE
 # pragma pack(pop)
 #endif
 
+struct UserMessage
+{
+	BufferStream msg;
+	u32 bytes;
+	u32 send_time;
+};
+
 
 } // namespace sphynx
 
