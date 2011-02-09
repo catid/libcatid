@@ -115,7 +115,7 @@ bool WatchedRefObject::AddWatcher(RefObjectWatcher *watcher)
 {
 	AutoMutex lock(_lock);
 
-	if (IsShutdown())
+	if (!IsShutdown())
 	{
 		AddRef();
 		_watchers.push_back(watcher);

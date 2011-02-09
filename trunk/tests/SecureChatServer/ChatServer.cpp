@@ -56,7 +56,7 @@ public:
 	}
 	virtual void OnTick(SphynxTLS *tls, u32 now)
 	{
-		WARN("Connexion") << "-- TICK " << now;
+		//WARN("Connexion") << "-- TICK " << now;
 	}
 };
 

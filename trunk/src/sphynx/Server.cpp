@@ -93,6 +93,7 @@ void Server::OnReadRouting(const BatchSet &buffers)
 				if (conn)
 				{
 					worker_id = conn->GetServerWorkerID();
+					buffer->callback = conn;
 				}
 				else
 				{
@@ -101,6 +102,7 @@ void Server::OnReadRouting(const BatchSet &buffers)
 						connect_worker = 0;
 
 					worker_id = connect_worker;
+					buffer->callback = this;
 				}
 
 				// Compare to this buffer next time
@@ -111,6 +113,7 @@ void Server::OnReadRouting(const BatchSet &buffers)
 		{
 			// Another packet from the same connection
 			conn->AddRef();
+			buffer->callback = conn;
 		}
 		else
 		{
@@ -123,7 +126,6 @@ void Server::OnReadRouting(const BatchSet &buffers)
 		}
 
 		buffer->batch_next = 0;
-		buffer->callback = conn;
 
 		// If bin is already valid,
 		if (BTS32(&valid[worker_id >> 5], connect_worker & 31))
