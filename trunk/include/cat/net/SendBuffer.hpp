@@ -30,9 +30,12 @@
 #define CAT_NET_SEND_BUFFER_HPP
 
 #include <cat/io/IOLayer.hpp>
+#include <cat/mem/StdAllocator.hpp>
 
 namespace cat {
 
+
+static const u32 SEND_BUFFER_PREALLOCATION = 200;
 
 // A buffer specialized for writing to a socket
 struct SendBuffer : public BatchHead
@@ -51,11 +54,16 @@ struct SendBuffer : public BatchHead
 
 	static CAT_INLINE u8 *Acquire(u32 trailing_bytes)
 	{
-		SendBuffer *buffer = StdAllocator::ii->AcquireTrailing<SendBuffer>(trailing_bytes);
+		u32 allocated = trailing_bytes;
+		if (allocated < SEND_BUFFER_PREALLOCATION)
+			allocated = SEND_BUFFER_PREALLOCATION;
+
+		SendBuffer *buffer = StdAllocator::ii->AcquireTrailing<SendBuffer>(allocated);
 		if (!buffer) return 0;
 
 		//buffer->allocated_bytes = trailing_bytes;
 		buffer->data_bytes = trailing_bytes;
+		buffer->allocated_bytes = allocated;
 		return GetTrailingBytes(buffer);
 	}
 
@@ -64,13 +72,17 @@ struct SendBuffer : public BatchHead
 		return reinterpret_cast<SendBuffer*>( ptr - sizeof(SendBuffer) );
 	}
 
-	static CAT_INLINE u8 *Resize(SendBuffer *ptr, u32 new_trailing_bytes)
+	static CAT_INLINE u8 *Resize(SendBuffer *buffer, u32 new_trailing_bytes)
 	{
-		SendBuffer *buffer = StdAllocator::ii->ResizeTrailing(ptr, new_trailing_bytes);
+		if (!buffer) return Acquire(new_trailing_bytes);
+
+		if (new_trailing_bytes <= buffer->allocated_bytes)
+			return GetTrailingBytes(buffer);
+
+		buffer = StdAllocator::ii->ResizeTrailing(buffer, new_trailing_bytes);
 		if (!buffer) return 0;
 
-		// TODO: Check if more performance may be achieved by using an amortized O(1) allocation scheme
-		//buffer->allocated_bytes = new_trailing_bytes;
+		buffer->allocated_bytes = new_trailing_bytes;
 		buffer->data_bytes = new_trailing_bytes;
 
 		return GetTrailingBytes(buffer);
@@ -78,23 +90,16 @@ struct SendBuffer : public BatchHead
 
 	static CAT_INLINE u8 *Resize(u8 *ptr, u32 new_trailing_bytes)
 	{
-		SendBuffer *buffer = StdAllocator::ii->ResizeTrailing(ptr ? Promote(ptr) : 0, new_trailing_bytes);
+		if (!ptr) return Acquire(new_trailing_bytes);
+		SendBuffer *buffer = Promote(ptr);
+
+		if (new_trailing_bytes <= buffer->allocated_bytes)
+			return ptr;
+
+		buffer = StdAllocator::ii->ResizeTrailing(buffer, new_trailing_bytes);
 		if (!buffer) return 0;
 
-		// TODO: Check if more performance may be achieved by using an amortized O(1) allocation scheme
-		//buffer->allocated_bytes = new_trailing_bytes;
-		buffer->data_bytes = new_trailing_bytes;
-
-		return GetTrailingBytes(buffer);
-	}
-
-	CAT_INLINE u8 *Grow(u32 new_trailing_bytes)
-	{
-		SendBuffer *buffer = StdAllocator::ii->ResizeTrailing(this, new_trailing_bytes);
-		if (!buffer) return 0;
-
-		// TODO: Check if more performance may be achieved by using an amortized O(1) allocation scheme
-		//buffer->allocated_bytes = new_trailing_bytes;
+		buffer->allocated_bytes = new_trailing_bytes;
 		buffer->data_bytes = new_trailing_bytes;
 
 		return GetTrailingBytes(buffer);
