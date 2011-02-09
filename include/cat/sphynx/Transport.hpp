@@ -285,7 +285,8 @@ class Transport
 	u32 _send_next_remote_expected[NUM_STREAMS];
 
 	// Send state: Combined writes
-	SendBuffer *_send_buffer;
+	u8 *_send_buffer;
+	u32 _send_buffer_bytes;
 	u32 _send_buffer_stream, _send_buffer_ack_id; // Used to compress ACK-ID by setting I=0 after the first reliable message
 
 	// Send state: Flow control

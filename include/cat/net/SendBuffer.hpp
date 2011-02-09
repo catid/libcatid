@@ -76,6 +76,18 @@ struct SendBuffer : public BatchHead
 		return GetTrailingBytes(buffer);
 	}
 
+	static CAT_INLINE u8 *Resize(u8 *ptr, u32 new_trailing_bytes)
+	{
+		SendBuffer *buffer = StdAllocator::ii->ResizeTrailing(ptr ? Promote(ptr) : 0, new_trailing_bytes);
+		if (!buffer) return 0;
+
+		// TODO: Check if more performance may be achieved by using an amortized O(1) allocation scheme
+		//buffer->allocated_bytes = new_trailing_bytes;
+		buffer->data_bytes = new_trailing_bytes;
+
+		return GetTrailingBytes(buffer);
+	}
+
 	CAT_INLINE u8 *Grow(u32 new_trailing_bytes)
 	{
 		SendBuffer *buffer = StdAllocator::ii->ResizeTrailing(this, new_trailing_bytes);
@@ -96,6 +108,16 @@ struct SendBuffer : public BatchHead
 	CAT_INLINE void Release()
 	{
 		StdAllocator::ii->Release(this);
+	}
+
+	static CAT_INLINE void Release(SendBuffer *buffer)
+	{
+		StdAllocator::ii->Release(buffer);
+	}
+
+	static CAT_INLINE void Release(u8 *ptr)
+	{
+		if (ptr) SendBuffer::Promote(ptr)->Release();
 	}
 };
 
