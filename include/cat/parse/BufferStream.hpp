@@ -53,7 +53,7 @@ protected:
 
 public:
 	CAT_INLINE BufferStream(u8 *buffer) { _buffer = buffer; }
-	CAT_INLINE BufferStream &operator=(u8 *buffer) { _buffer = buffer; }
+	CAT_INLINE BufferStream &operator=(u8 *buffer) { _buffer = buffer; return *this; }
 
 	CAT_INLINE u32 GetOffset(void *buffer) { return (u32)(_buffer - reinterpret_cast<u8*>( buffer )); }
 

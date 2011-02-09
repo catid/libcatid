@@ -477,7 +477,7 @@ bool DNSClient::PostDNSPacket(DNSRequest *req, u32 now)
 	pkt[DNS_HDRLEN] = (u8)(last_dot + 1);
 
 	// Write request footer
-	u16 *foot = reinterpret_cast<u16*>( dns_packet + DNS_HDRLEN + 1 + str_len + 1 );
+	u16 *foot = reinterpret_cast<u16*>( pkt + DNS_HDRLEN + 1 + str_len + 1 );
 
 	foot[DNS_FOOT_QTYPE] = getBE16(QTYPE_ADDR_IPV4);
 	foot[DNS_FOOT_QCLASS] = getBE16(QCLASS_INTERNET);

@@ -65,6 +65,7 @@ class Connexion : public Transport, public RefObject, public WorkerCallbacks
 
 	virtual bool WriteDatagrams(const BatchSet &buffers);
 	virtual void OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes);
+	virtual void OnDisconnectComplete();
 
 	virtual void OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers);
 	virtual void OnWorkerTick(IWorkerTLS *tls, u32 now);
