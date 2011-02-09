@@ -346,7 +346,7 @@ bool IOThreads::Associate(UDPEndpoint *udp_endpoint)
 
 	if (result != _io_port)
 	{
-		FATAL("IOThreads") << "CreateIoCompletionPort error " << GetLastError();
+		FATAL("IOThreads") << "Associating UDPEndpoint error " << GetLastError();
 		return false;
 	}
 

@@ -57,7 +57,7 @@ bool SphynxLayer::PreWorkerThreads()
 	// Start the CSPRNG subsystem
 	if (!FortunaFactory::ref()->Initialize())
 	{
-		FATAL("IOLayer") << "CSPRNG subsystem failed to initialize";
+		FATAL("SphynxLayer") << "CSPRNG subsystem failed to initialize";
 		return false;
 	}
 
