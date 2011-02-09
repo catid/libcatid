@@ -6,45 +6,57 @@ using namespace sphynx;
 class GameConnexion : public Connexion
 {
 public:
-	virtual void OnConnect(ThreadPoolLocalStorage *tls)
+	virtual void OnShutdownRequest()
+	{
+		WARN("Client") << "-- Shutdown Requested";
+
+		Connexion::OnZeroReferences();
+	}
+	virtual bool OnZeroReferences()
+	{
+		WARN("Client") << "-- Zero References";
+
+		return Connexion::OnZeroReferences();
+	}
+
+	virtual void OnConnect(SphynxTLS *tls)
 	{
 		WARN("Connexion") << "-- CONNECTED";
 
 		WriteReliable(STREAM_1, 0);
 	}
+	virtual void OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count)
+	{
+		for (u32 ii = 0; ii < count; ++ii)
+		{
+			BufferStream msg = msgs[ii].msg;
+			u32 bytes = msgs[ii].bytes;
+			u32 send_time = msgs[ii].send_time;
 
-	virtual void OnDisconnect(u8 reason)
+			switch (msg[0])
+			{
+			case 0:
+				{
+					INFO("Connexion") << "Got request for transmit";
+					static char STR[4000];
+					for (int ii = 0; ii < sizeof(STR); ++ii)
+						STR[ii] = (char)ii/(4000/256);
+				}
+				break;
+			case 2:
+				WriteReliable(STREAM_1, 0);
+			default:
+				INFO("Connexion") << "Got message with " << bytes << " bytes";
+			}
+		}
+	}
+	virtual void OnDisconnectReason(u8 reason)
 	{
 		WARN("Connexion") << "-- DISCONNECTED REASON " << (int)reason;
 	}
-
-	virtual void OnTick(ThreadPoolLocalStorage *tls, u32 now)
+	virtual void OnTick(SphynxTLS *tls, u32 now)
 	{
-		//WARN("Connexion") << "-- TICK " << now;
-	}
-
-	virtual void OnMessage(ThreadPoolLocalStorage *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes)
-	{
-		switch (msg[0])
-		{
-		case 0:
-			{
-				INFO("Connexion") << "Got request for transmit";
-				static char STR[4000];
-				for (int ii = 0; ii < sizeof(STR); ++ii)
-					STR[ii] = (char)ii/(4000/256);
-			}
-			break;
-		case 2:
-			WriteReliable(STREAM_1, 0);
-		default:
-			INFO("Connexion") << "Got message with " << bytes << " bytes";
-		}
-	}
-
-	virtual void OnDestroy()
-	{
-		WARN("Connexion") << "-- DESTROYED";
+		WARN("Connexion") << "-- TICK " << now;
 	}
 };
 
@@ -84,7 +96,7 @@ int main()
 	{
 		FATAL("Server") << "Unable to get key pair";
 	}
-	else if (server->StartServer(&tls, SERVER_PORT, key_pair, "Chat"))
+	else if (server->StartServer(&layer, &tls, SERVER_PORT, key_pair, "Chat"))
 	{
 		FATAL("Server") << "Unable to start server";
 	}
