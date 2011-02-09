@@ -49,17 +49,25 @@ bool SphynxTLS::Valid()
 	return csprng && math;
 }
 
-bool SphynxLayer::OnStartup(IWorkerTLSBuilder *tls_builder, const char *settings_file_name, bool service, const char *service_name)
-{
-	if (!IOLayer::OnStartup(tls_builder, settings_file_name, service, service_name))
-		return false;
 
+//// SphynxLayer
+
+bool SphynxLayer::PreWorkerThreads()
+{
 	// Start the CSPRNG subsystem
 	if (!FortunaFactory::ref()->Initialize())
 	{
 		FATAL("IOLayer") << "CSPRNG subsystem failed to initialize";
 		return false;
 	}
+
+	return true;
+}
+
+bool SphynxLayer::OnStartup(IWorkerTLSBuilder *tls_builder, const char *settings_file_name, bool service, const char *service_name)
+{
+	if (!IOLayer::OnStartup(tls_builder, settings_file_name, service, service_name))
+		return false;
 
 	_dns_client = new DNSClient;
 

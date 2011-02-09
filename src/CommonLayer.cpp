@@ -29,6 +29,11 @@
 #include <cat/CommonLayer.hpp>
 using namespace cat;
 
+bool CommonLayer::PreWorkerThreads()
+{
+	return true;
+}
+
 bool CommonLayer::OnStartup(IWorkerTLSBuilder *tls_builder, const char *settings_file_name, bool service, const char *service_name)
 {
 	// Initialize system info
@@ -49,6 +54,8 @@ bool CommonLayer::OnStartup(IWorkerTLSBuilder *tls_builder, const char *settings
 
 	// Read logging subsystem settings
 	Logging::ii->ReadSettings();
+
+	if (!PreWorkerThreads()) return false;
 
 	// Start the Worker threads if requested to by the caller
 	if (tls_builder && !_worker_threads.Startup(tls_builder))
