@@ -63,8 +63,11 @@ class Connexion : public Transport, public RefObject, public WorkerCallbacks
 	bool _seen_encrypted;
 	AuthenticatedEncryption _auth_enc;
 
-	virtual bool PostDatagrams(const BatchSet &buffers);
+	virtual bool WriteDatagrams(const BatchSet &buffers);
 	virtual void OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes);
+
+	virtual void OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers);
+	virtual void OnWorkerTick(IWorkerTLS *tls, u32 now);
 
 public:
 	Connexion();
@@ -82,11 +85,8 @@ protected:
 	virtual void OnShutdownRequest();
 	virtual bool OnZeroReferences();
 
-	virtual void OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers);
-	virtual void OnWorkerTick(IWorkerTLS *tls, u32 now);
-
 	virtual void OnConnect(SphynxTLS *tls) = 0;
-	//virtual void OnMessages(SphynxTLS *tls, UserMessage msgs[], u32 count) = 0;
+	virtual void OnMessages(SphynxTLS *tls, UserMessage msgs[], u32 count) = 0;
 	virtual void OnDisconnectReason(u8 reason) = 0; // Called when the server provides a reason for disconnection
 	virtual void OnTick(SphynxTLS *tls, u32 now) = 0;
 };

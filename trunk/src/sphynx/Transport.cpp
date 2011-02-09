@@ -52,6 +52,46 @@ const char *cat::sphynx::GetHandshakeErrorString(HandshakeError err)
 	}
 }
 
+CAT_INLINE void Transport::QueueFragFree(SphynxTLS *tls, u8 *data)
+{
+	// Add to the free frag list
+	u32 count = tls->free_list_count;
+	tls->free_list[count] = data;
+	tls->free_list_count = ++count;
+}
+
+CAT_INLINE void Transport::QueueDelivery(SphynxTLS *tls, u8 *data, u32 data_bytes, u32 send_time)
+{
+	u32 depth = tls->delivery_queue_depth;
+	tls->delivery_queue[depth].msg = data;
+	tls->delivery_queue[depth].bytes = data_bytes;
+	tls->delivery_queue[depth].send_time = send_time;
+
+	if (++depth < SphynxTLS::DELIVERY_QUEUE_DEPTH)
+		tls->delivery_queue_depth = depth;
+	else
+	{
+		OnMessages(tls, tls->delivery_queue, depth);
+
+		// Free memory for fragments
+		for (u32 ii = 0, count = tls->free_list_count; ii < count; ++ii)
+			delete [] (tls->free_list[ii]);
+
+		tls->delivery_queue_depth = 0;
+		tls->free_list_count = 0;
+	}
+}
+
+CAT_INLINE void Transport::DeliverQueued(SphynxTLS *tls)
+{
+	u32 depth = tls->delivery_queue_depth;
+	if (depth > 0)
+	{
+		OnMessages(tls, tls->delivery_queue, depth);
+		tls->delivery_queue_depth = 0;
+	}
+}
+
 Transport::Transport()
 {
 	// Receive state
@@ -68,7 +108,6 @@ Transport::Transport()
 
 	// Send state
 	_send_buffer = 0;
-	_send_buffer_bytes = 0;
 	_send_buffer_stream = NUM_STREAMS;
 	_send_flush_after_processing = false;
 
@@ -92,10 +131,7 @@ Transport::Transport()
 Transport::~Transport()
 {
 	// Release memory for send buffer
-	if (_send_buffer_bytes)
-	{
-		StdAllocator::ii->Release(_send_buffer);
-	}
+	if (_send_buffer) _send_buffer->Release();
 
 	// Release memory for outgoing datagrams
 	for (BatchHead *next, *node = _outgoing_datagrams.head; node; node = next)
@@ -249,6 +285,7 @@ void Transport::TickTransport(SphynxTLS *tls, u32 now)
 	}
 
 	// Post whatever is left in the send buffer
+	PostDatagrams()
 	PostSendBuffer();
 }
 
@@ -487,7 +524,7 @@ void Transport::RunQueue(SphynxTLS *tls, u32 recv_time, u32 ack_id, u32 stream)
 			u32 super_opcode = node->sop;
 
 			if (super_opcode == SOP_DATA)
-				QueueDelivery(tls, data, data_bytes, send_time);
+				QueueDelivery(tls, old_data, old_data_bytes, node->send_time);
 			else if (super_opcode == SOP_FRAG)
 				OnFragment(tls, node->send_time, recv_time, old_data, old_data_bytes, stream);
 			else if (super_opcode == SOP_INTERNAL)

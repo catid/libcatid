@@ -208,6 +208,83 @@ namespace sphynx {
 
 class Transport
 {
+	// Maximum transfer unit (MTU) in UDP payload bytes, excluding anything included in _overhead_bytes
+	u32 _max_payload_bytes;
+
+	// Overhead bytes: UDP/IP headers, encryption and transport overhead
+	u32 _overhead_bytes;
+
+	// Receive state: Next expected ack id to receive
+	u32 _next_recv_expected_id[NUM_STREAMS];
+
+	// Receive state: Synchronization objects
+	volatile bool _got_reliable[NUM_STREAMS];
+
+	// Receive state: Fragmentation
+	RecvFrag _fragments[NUM_STREAMS]; // Fragments for each stream
+
+	// Receive state: Receive queue head
+	RecvQueue *_recv_queue_head[NUM_STREAMS], *_recv_queue_tail[NUM_STREAMS];
+
+	// Receive state: Statistics for flow control report in ACK response
+	u32 _recv_trip_time_sum, _recv_trip_count;
+	volatile u32 _recv_trip_time_avg; // Average trip time shared with timer thread
+
+	// Send state: Synchronization objects
+	Mutex _big_lock;
+
+	// Send state: Next ack id to use
+	u32 _next_send_id[NUM_STREAMS];
+
+	// Send statE: Flush after processing incoming data
+	volatile bool _send_flush_after_processing;
+
+	// Send state: Last rollup ack id from remote receiver
+	u32 _send_next_remote_expected[NUM_STREAMS];
+
+	// Send state: Combined writes
+	SendBuffer *_send_buffer;
+	u32 _send_buffer_stream, _send_buffer_ack_id; // Used to compress ACK-ID by setting I=0 after the first reliable message
+
+	// Send state: Flow control
+	FlowControl _send_flow;
+
+	// Send state: Queue of messages that are waiting to be sent
+	SendQueue *_send_queue_head[NUM_STREAMS], *_send_queue_tail[NUM_STREAMS];
+
+	// Send state: List of messages that are waiting to be acknowledged
+	SendQueue *_sent_list_head[NUM_STREAMS], *_sent_list_tail[NUM_STREAMS];
+
+	// Queue of outgoing datagrams for batched output
+	BatchSet _outgoing_datagrams;
+
+	// true = no longer connected
+	u8 _disconnect_countdown; // When it hits zero, will called RequestShutdown() and close the socket
+	u8 _disconnect_reason; // DISCO_CONNECTED = still connected
+
+	u32 _ts_delta; // Milliseconds clock difference between server and client: server_time = client_time + _ts_delta
+
+	void PostSendBuffer();
+	u32 RetransmitLost(u32 now); // Returns estimated number of lost packets (granularity is 1 ms)
+
+	// Queue a fragment for freeing
+	CAT_INLINE void QueueFragFree(SphynxTLS *tls, u8 *data);
+
+	// Queue received data for user processing
+	CAT_INLINE void QueueDelivery(SphynxTLS *tls, u8 *data, u32 data_bytes, u32 send_time);
+
+	// Deliver messages to user in one big batch
+	CAT_INLINE void DeliverQueued(SphynxTLS *tls);
+
+	void RunQueue(SphynxTLS *tls, u32 recv_time, u32 ack_id, u32 stream);
+	void QueueRecv(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *data, u32 bytes, u32 ack_id, u32 stream, u32 super_opcode);
+
+	void TransmitQueued();
+	void Retransmit(u32 stream, SendQueue *node, u32 now); // Does not hold the send lock!
+	void WriteACK();
+	void OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes);
+	void OnFragment(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *data, u32 bytes, u32 stream);
+
 public:
 	static const u8 BLO_MASK = 7;
 	static const u32 BHI_SHIFT = 3; 
@@ -251,86 +328,12 @@ public:
 
 	static const u8 SHUTDOWN_TICK_COUNT = 3; // Number of ticks before shutting down the object
 
-protected:
-	// Maximum transfer unit (MTU) in UDP payload bytes, excluding anything included in _overhead_bytes
-	u32 _max_payload_bytes;
-
-	// Overhead bytes: UDP/IP headers, encryption and transport overhead
-	u32 _overhead_bytes;
-
-public:
-	void InitializePayloadBytes(bool ip6);
-	bool InitializeTransportSecurity(bool is_initiator, AuthenticatedEncryption &auth_enc);
-
-protected:
-	// Receive state: Next expected ack id to receive
-	u32 _next_recv_expected_id[NUM_STREAMS];
-
-	// Receive state: Synchronization objects
-	volatile bool _got_reliable[NUM_STREAMS];
-
-	// Receive state: Fragmentation
-	RecvFrag _fragments[NUM_STREAMS]; // Fragments for each stream
-
-	// Receive state: Receive queue head
-	RecvQueue *_recv_queue_head[NUM_STREAMS], *_recv_queue_tail[NUM_STREAMS];
-
-	// Receive state: Statistics for flow control report in ACK response
-	u32 _recv_trip_time_sum, _recv_trip_count;
-	volatile u32 _recv_trip_time_avg; // Average trip time shared with timer thread
-
-private:
-	void RunQueue(SphynxTLS *tls, u32 recv_time, u32 ack_id, u32 stream);
-	void QueueRecv(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *data, u32 bytes, u32 ack_id, u32 stream, u32 super_opcode);
-
-protected:
-	// Send state: Synchronization objects
-	Mutex _big_lock;
-
-	// Send state: Next ack id to use
-	u32 _next_send_id[NUM_STREAMS];
-
-	// Send statE: Flush after processing incoming data
-	volatile bool _send_flush_after_processing;
-
-	// Send state: Last rollup ack id from remote receiver
-	u32 _send_next_remote_expected[NUM_STREAMS];
-
-	// Send state: Combined writes
-	u8 *_send_buffer;
-	u32 _send_buffer_bytes;
-	u32 _send_buffer_stream, _send_buffer_ack_id; // Used to compress ACK-ID by setting I=0 after the first reliable message
-
-	// Send state: Flow control
-	FlowControl _send_flow;
-
-	// Send state: Queue of messages that are waiting to be sent
-	SendQueue *_send_queue_head[NUM_STREAMS], *_send_queue_tail[NUM_STREAMS];
-
-	// Send state: List of messages that are waiting to be acknowledged
-	SendQueue *_sent_list_head[NUM_STREAMS], *_sent_list_tail[NUM_STREAMS];
-
-	// Queue of outgoing datagrams for batched output
-	BatchSet _outgoing_datagrams;
-
-protected:
-	// true = no longer connected
-	u8 _disconnect_countdown; // When it hits zero, will called RequestShutdown() and close the socket
-	u8 _disconnect_reason; // DISCO_CONNECTED = still connected
-
-	u32 _ts_delta; // Milliseconds clock difference between server and client: server_time = client_time + _ts_delta
-
-private:
-	void TransmitQueued();
-	void Retransmit(u32 stream, SendQueue *node, u32 now); // Does not hold the send lock!
-	void WriteACK();
-	void OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes);
-
-public:
 	Transport();
 	virtual ~Transport();
 
-public:
+	void InitializePayloadBytes(bool ip6);
+	bool InitializeTransportSecurity(bool is_initiator, AuthenticatedEncryption &auth_enc);
+
 	// Message sending commands
 	bool WriteUnreliableOOB(u8 msg_opcode, const void *msg_data = 0, u32 data_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
 	bool WriteUnreliable(u8 msg_opcode, const void *msg_data = 0, u32 data_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
@@ -343,7 +346,6 @@ public:
 	// Try to use FlushAfter() unless you really see benefit from this!
 	void FlushImmediately();
 
-public:
 	// Current local time
 	CAT_INLINE u32 getLocalTime() { return Clock::msec(); }
 
@@ -374,63 +376,13 @@ public:
 	void TickTransport(SphynxTLS *tls, u32 now);
 	void OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery);
 
-private:
-	void OnFragment(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *data, u32 bytes, u32 stream);
-
-	void PostSendBuffer();
-	u32 RetransmitLost(u32 now); // Returns estimated number of lost packets (granularity is 1 ms)
-
-	// Queue a fragment for freeing
-	CAT_INLINE void QueueFragFree(SphynxTLS *tls, u8 *data)
-	{
-		// Add to the free frag list
-		u32 count = tls->free_list_count;
-		tls->free_list[count] = data;
-		tls->free_list_count = ++count;
-	}
-
-	// Queue received data for user processing
-	CAT_INLINE void QueueDelivery(SphynxTLS *tls, u8 *data, u32 data_bytes, u32 send_time)
-	{
-		u32 depth = tls->delivery_queue_depth;
-		tls->delivery_queue[depth].msg = data;
-		tls->delivery_queue[depth].bytes = data_bytes;
-		tls->delivery_queue[depth].send_time = send_time;
-
-		if (++depth < SphynxTLS::DELIVERY_QUEUE_DEPTH)
-			tls->delivery_queue_depth = depth;
-		else
-		{
-			OnMessages(tls, tls->delivery_queue, depth);
-
-			// Free memory for fragments
-			for (u32 ii = 0, count = tls->free_list_count; ii < count; ++ii)
-				delete [] (tls->free_list[ii]);
-
-			tls->delivery_queue_depth = 0;
-			tls->free_list_count = 0;
-		}
-	}
-
-	// Deliver messages to user in one big batch
-	CAT_INLINE void DeliverQueued(SphynxTLS *tls)
-	{
-		u32 depth = tls->delivery_queue_depth;
-		if (depth > 0)
-		{
-			OnMessages(tls, tls->delivery_queue, depth);
-			tls->delivery_queue_depth = 0;
-		}
-	}
-
 protected:
 	virtual void OnDisconnectComplete() = 0;
-	virtual bool PostPacket(u8 *data, u32 buf_bytes, u32 msg_bytes) = 0;
+	virtual bool WriteDatagrams(const BatchSet &buffers) = 0;
 
 	virtual void OnMessages(SphynxTLS *tls, UserMessage msgs[], u32 count) = 0;
 	virtual void OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes) = 0; // precondition: bytes > 0
 
-protected:
 	bool PostMTUProbe(SphynxTLS *tls, u32 mtu);
 
 	CAT_INLINE bool WriteDisconnect(u8 reason) { return WriteUnreliableOOB(IOP_DISCO, &reason, 1, SOP_INTERNAL); }

@@ -589,7 +589,7 @@ bool Client::PostTimePing()
 	return WriteUnreliableOOB(IOP_C2S_TIME_PING, &timestamp, sizeof(timestamp), SOP_INTERNAL);
 }
 
-bool Client::PostDatagrams(const BatchSet &buffers)
+bool Client::WriteDatagrams(const BatchSet &buffers)
 {
 	u32 now = getLocalTime();
 	u16 timestamp = getLE(encodeClientTimestamp(now));
