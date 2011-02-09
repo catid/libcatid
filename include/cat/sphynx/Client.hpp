@@ -88,13 +88,19 @@ class Client : public UDPEndpoint, public Transport, public WorkerCallbacks
 	// Return false to remove resolve from cache
 	bool OnResolve(const char *hostname, const NetAddr *array, int array_length);
 
-	virtual bool PostDatagrams(const BatchSet &buffers);
+	virtual bool WriteDatagrams(const BatchSet &buffers);
 	virtual void OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes);
 
 	void ConnectFail(HandshakeError err);
 
 	bool InitialConnect(SphynxLayer *layer, SphynxTLS *tls, TunnelPublicKey &public_key, const char *session_key);
 	bool FinalConnect(const NetAddr &addr);
+
+	virtual void OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers);
+	virtual void OnWorkerTick(IWorkerTLS *tls, u32 now);
+
+	virtual void OnReadRouting(const BatchSet &buffers);
+	virtual void OnUnreachable(const NetAddr &src);
 
 public:
 	Client();
@@ -111,17 +117,11 @@ protected:
 	virtual void OnShutdownRequest();
 	virtual bool OnZeroReferences();
 
-	virtual void OnReadRouting(const BatchSet &buffers);
-	virtual void OnUnreachable(const NetAddr &src);
-
-	virtual void OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers);
-	virtual void OnWorkerTick(IWorkerTLS *tls, u32 now);
-
 	CAT_INLINE bool IsConnected() { return _connected; }
 
 	virtual void OnConnectFail(sphynx::HandshakeError err) = 0;
 	virtual void OnConnect(SphynxTLS *tls) = 0;
-	//virtual void OnMessages(SphynxTLS *tls, UserMessage msgs[], u32 count) = 0;
+	virtual void OnMessages(SphynxTLS *tls, UserMessage msgs[], u32 count) = 0;
 	virtual void OnDisconnectReason(u8 reason) = 0; // Called when the server provides a reason for disconnection
 	virtual void OnTick(SphynxTLS *tls, u32 now) = 0;
 };

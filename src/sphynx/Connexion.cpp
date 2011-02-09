@@ -148,7 +148,7 @@ void Connexion::OnWorkerTick(WorkerTLS *tls, u32 now)
 	OnTick(tls, now);
 }
 
-bool Connexion::PostDatagrams(const BatchSet &buffers)
+bool Connexion::WriteDatagrams(const BatchSet &buffers)
 {
 	u32 now = getLocalTime();
 	u16 timestamp = getLE(encodeClientTimestamp(now));
