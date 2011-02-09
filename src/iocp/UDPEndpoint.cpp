@@ -240,7 +240,7 @@ u32 UDPEndpoint::PostReads(u32 count)
 	if (IsShutdown())
 		return 0;
 
-	IAllocator *allocator = GetIOLayer()->GetIOThreads()->GetAllocator();
+	IAllocator *allocator = GetIOLayer()->GetIOThreads()->GetRecvAllocator();
 
 	BatchSet set;
 	allocator->AcquireBatch(set, count);
@@ -260,7 +260,7 @@ u32 UDPEndpoint::PostReads(u32 count)
 	return read_count;
 }
 
-bool UDPEndpoint::Write(const BatchSet &buffers, const NetAddr &addr)
+u32 UDPEndpoint::Write(const BatchSet &buffers, const NetAddr &addr)
 {
 	NetAddr::SockAddr out_addr;
 	int addr_len;
@@ -270,13 +270,13 @@ bool UDPEndpoint::Write(const BatchSet &buffers, const NetAddr &addr)
 	{
 		// Release all the buffers as a batch, since their allocators are all the same
 		StdAllocator::ii->ReleaseBatch(buffers);
-		return false;
+		return 0;
 	}
 
 	WSABUF wsabufs[SIMULTANEOUS_SENDS];
 	u32 ii = 0;
 	BatchHead *node = buffers.head, *first = node;
-	bool success = true;
+	u32 success_write_count = 0, current_write_count = 0;
 
 	// While there are more buffers to send,
 	for (;;)
@@ -285,8 +285,9 @@ bool UDPEndpoint::Write(const BatchSet &buffers, const NetAddr &addr)
 
 		// Write node to buffer array
 		SendBuffer *send_buf = reinterpret_cast<SendBuffer*>( node );
-		wsabufs[ii].buf = reinterpret_cast<CHAR*>( send_buf->GetData() );
-		wsabufs[ii].len = send_buf->GetSize();
+		wsabufs[ii].buf = reinterpret_cast<CHAR*>( GetTrailingBytes(send_buf) );
+		wsabufs[ii].len = send_buf->data_bytes;
+		current_write_count += send_buf->data_bytes;
 
 		// If that was the end of what we can fit, or there is no more data,
 		if (++ii >= SIMULTANEOUS_SENDS || !next)
@@ -316,10 +317,13 @@ bool UDPEndpoint::Write(const BatchSet &buffers, const NetAddr &addr)
 				BatchSet set(first, buffers.tail);
 				StdAllocator::ii->ReleaseBatch(set);
 
-				success = false;
 				ReleaseRef();
 				break;
 			}
+
+			// Include this data in the success write count and reset the count
+			success_write_count += current_write_count;
+			current_write_count = 0;
 
 			// Stop here if there is no more data to send
 			if (!next) break;
@@ -354,7 +358,7 @@ bool UDPEndpoint::Write(const BatchSet &buffers, const NetAddr &addr)
 		}
 	}
 
-	return success;
+	return success_write_count;
 }
 
 
@@ -392,7 +396,7 @@ void UDPEndpoint::ReleaseRecvBuffers(BatchSet buffers, u32 count)
 		buffers.head = next;
 	}
 
-	_iolayer->GetIOThreads()->GetAllocator()->ReleaseBatch(buffers);
+	_iolayer->GetIOThreads()->GetRecvAllocator()->ReleaseBatch(buffers);
 
 	// Release one reference for each buffer
 	ReleaseRef(count);

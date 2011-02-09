@@ -206,8 +206,50 @@ namespace sphynx {
 	with the number of items to be processed.
 */
 
+static const u32 NUM_STREAMS = 4; // Number of reliable streams
+
+static const int TICK_INTERVAL = 20; // Milliseconds between ticks
+
+static const u32 MAX_MESSAGE_DATALEN = 65535-1; // Maximum number of bytes in the data part of a message (-1 for the opcode)
+
+static const u32 TRANSPORT_OVERHEAD = 2; // Number of bytes added to each packet for the transport layer
+
+
 class Transport
 {
+	static const int TIMEOUT_DISCONNECT = 15000; // milliseconds; NOTE: If this changes, the timestamp compression will stop working
+	static const int TS_COMPRESS_FUTURE_TOLERANCE = 1000; // Milliseconds of time synch error before errors may occur in timestamp compression
+
+	static const u8 SHUTDOWN_TICK_COUNT = 3; // Number of ticks before shutting down the object
+
+	static const u8 BLO_MASK = 7;
+	static const u32 BHI_SHIFT = 3; 
+	static const u8 I_MASK = 1 << 3;
+	static const u8 R_MASK = 1 << 4;
+	static const u8 C_MASK = 1 << 7;
+	static const u32 SOP_SHIFT = 5;
+	static const u32 SOP_MASK = 3;
+
+	static const u32 MIN_RTT = 2; // Minimum milliseconds for RTT
+	static const int INITIAL_RTT = 1500; // milliseconds
+
+	static const u32 MINIMUM_MTU = 576; // Dial-up
+	static const u32 MEDIUM_MTU = 1400; // Highspeed with unexpected overhead, maybe VPN
+	static const u32 MAXIMUM_MTU = 1500; // Highspeed
+
+	static const u32 IPV6_OPTIONS_BYTES = 40; // TODO: Not sure about this
+	static const u32 IPV6_HEADER_BYTES = 40 + IPV6_OPTIONS_BYTES;
+
+	static const u32 IPV4_OPTIONS_BYTES = 40;
+	static const u32 IPV4_HEADER_BYTES = 20 + IPV4_OPTIONS_BYTES;
+
+	static const u32 UDP_HEADER_BYTES = 8;
+
+	static const u32 FRAG_MIN = 0;		// Min bytes for a fragmented message
+	static const u32 FRAG_MAX = 65535;	// Max bytes for a fragmented message
+
+	static const u32 FRAG_THRESHOLD = 32; // Fragment if FRAG_THRESHOLD bytes would be in each fragment
+
 	// Maximum transfer unit (MTU) in UDP payload bytes, excluding anything included in _overhead_bytes
 	u32 _max_payload_bytes;
 
@@ -264,7 +306,7 @@ class Transport
 
 	u32 _ts_delta; // Milliseconds clock difference between server and client: server_time = client_time + _ts_delta
 
-	void PostSendBuffer();
+	void FlushWrites();
 	u32 RetransmitLost(u32 now); // Returns estimated number of lost packets (granularity is 1 ms)
 
 	// Queue a fragment for freeing
@@ -286,48 +328,6 @@ class Transport
 	void OnFragment(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *data, u32 bytes, u32 stream);
 
 public:
-	static const u8 BLO_MASK = 7;
-	static const u32 BHI_SHIFT = 3; 
-	static const u8 I_MASK = 1 << 3;
-	static const u8 R_MASK = 1 << 4;
-	static const u8 C_MASK = 1 << 7;
-	static const u32 SOP_SHIFT = 5;
-	static const u32 SOP_MASK = 3;
-
-	static const u32 NUM_STREAMS = 4; // Number of reliable streams
-	static const u32 MIN_RTT = 2; // Minimum milliseconds for RTT
-
-	static const int TIMEOUT_DISCONNECT = 15000; // milliseconds; NOTE: If this changes, the timestamp compression will stop working
-	static const int TS_COMPRESS_FUTURE_TOLERANCE = 1000; // Milliseconds of time synch error before errors may occur in timestamp compression
-
-	static const int INITIAL_RTT = 1500; // milliseconds
-	static const int SILENCE_LIMIT = 4357; // Time silent before sending a keep-alive (0-length unordered reliable message), milliseconds
-
-	static const int TICK_INTERVAL = 20; // Milliseconds between ticks
-
-	static const u32 MINIMUM_MTU = 576; // Dial-up
-	static const u32 MEDIUM_MTU = 1400; // Highspeed with unexpected overhead, maybe VPN
-	static const u32 MAXIMUM_MTU = 1500; // Highspeed
-
-	static const u32 IPV6_OPTIONS_BYTES = 40; // TODO: Not sure about this
-	static const u32 IPV6_HEADER_BYTES = 40 + IPV6_OPTIONS_BYTES;
-
-	static const u32 IPV4_OPTIONS_BYTES = 40;
-	static const u32 IPV4_HEADER_BYTES = 20 + IPV4_OPTIONS_BYTES;
-
-	static const u32 UDP_HEADER_BYTES = 8;
-
-	static const u32 FRAG_MIN = 0;		// Min bytes for a fragmented message
-	static const u32 FRAG_MAX = 65535;	// Max bytes for a fragmented message
-
-	static const u32 FRAG_THRESHOLD = 32; // Fragment if FRAG_THRESHOLD bytes would be in each fragment
-
-	static const u32 MAX_MESSAGE_DATALEN = 65535-1; // Maximum number of bytes in the data part of a message (-1 for the opcode)
-
-	static const u32 TRANSPORT_OVERHEAD = 2; // Number of bytes added to each packet for the transport layer
-
-	static const u8 SHUTDOWN_TICK_COUNT = 3; // Number of ticks before shutting down the object
-
 	Transport();
 	virtual ~Transport();
 

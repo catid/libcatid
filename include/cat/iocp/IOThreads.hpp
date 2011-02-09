@@ -112,13 +112,13 @@ class IOThreads
 	PtGetQueuedCompletionStatusEx pGetQueuedCompletionStatusEx;
 	HANDLE _io_port;
 
-	BufferAllocator *_buffer_allocator;
+	BufferAllocator *_recv_allocator;
 
 public:
 	IOThreads();
 	virtual ~IOThreads();
 
-	CAT_INLINE BufferAllocator *GetAllocator() { return _buffer_allocator; }
+	CAT_INLINE BufferAllocator *GetRecvAllocator() { return _recv_allocator; }
 
 	bool Startup();
 	bool Shutdown();

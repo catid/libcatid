@@ -285,8 +285,7 @@ void Transport::TickTransport(SphynxTLS *tls, u32 now)
 	}
 
 	// Post whatever is left in the send buffer
-	PostDatagrams()
-	PostSendBuffer();
+	FlushWrites();
 }
 
 void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
@@ -615,8 +614,7 @@ void Transport::QueueRecv(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *data
 		stored_bytes = data_bytes;
 	}
 
-	RecvQueue *new_node = reinterpret_cast<RecvQueue*>(
-		StdAllocator::ii->Acquire(sizeof(RecvQueue) + stored_bytes) );
+	RecvQueue *new_node = StdAllocator::ii->AcquireTrailing<RecvQueue>(stored_bytes);
 	if (!new_node)
 	{
 		WARN("Transport") << "Out of memory for incoming packet queue";
@@ -728,38 +726,30 @@ bool Transport::WriteUnreliableOOB(u8 msg_opcode, const void *vmsg_data, u32 dat
 		return false;
 	}
 
-	u8 *pkt = SendBuffer::Acquire(msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD);
+	u8 *pkt = SendBuffer::Acquire(AuthenticatedEncryption::OVERHEAD_BYTES + msg_bytes + TRANSPORT_OVERHEAD);
 	if (!pkt)
 	{
 		WARN("Transport") << "Out of memory: Unable to allocate unreliable OOB post buffer";
 		return false;
 	}
 
-	u8 *msg_buffer = pkt;
-
 	// Write header
 	if (data_bytes > BLO_MASK)
 	{
-		msg_buffer[0] = (u8)(data_bytes & BLO_MASK) | (super_opcode << SOP_SHIFT) | C_MASK;
-		msg_buffer[1] = (u8)(data_bytes >> BHI_SHIFT);
+		pkt[0] = (u8)(data_bytes & BLO_MASK) | (super_opcode << SOP_SHIFT) | C_MASK;
+		pkt[1] = (u8)(data_bytes >> BHI_SHIFT);
 	}
 	else
 	{
-		msg_buffer[0] = (u8)data_bytes | (super_opcode << SOP_SHIFT);
+		pkt[0] = (u8)data_bytes | (super_opcode << SOP_SHIFT);
 	}
-	msg_buffer += header_bytes;
+	pkt += header_bytes;
 
 	// Write message
-	msg_buffer[0] = msg_opcode;
-	memcpy(msg_buffer + 1, msg_data, data_bytes - 1);
+	pkt[0] = msg_opcode;
+	memcpy(pkt + 1, msg_data, data_bytes - 1);
 
-	if (PostPacket(pkt, msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD, msg_bytes))
-	{
-		_send_flow.OnPacketSend(msg_bytes + _overhead_bytes);
-		return true;
-	}
-
-	return false;
+	return WriteDatagrams(SendBuffer::Promote(pkt));
 }
 
 bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_bytes, SuperOpcode super_opcode)
@@ -780,79 +770,73 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 
 	AutoMutex lock(_big_lock);
 
-	u32 send_buffer_bytes = _send_buffer_bytes;
+	SendBuffer *old_send_buffer = _send_buffer;
+	u32 send_buffer_bytes = old_send_buffer ? old_send_buffer->data_bytes : 0;
 
 	// If the growing send buffer cannot contain the new message,
 	if (send_buffer_bytes + msg_bytes > max_payload_bytes)
 	{
-		u8 *old_send_buffer = _send_buffer;
-
-		u8 *msg_buffer = SendBuffer::Acquire(msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD);
-		if (!msg_buffer)
+		// Create a new buffer
+		u8 *pkt = SendBuffer::Acquire(AuthenticatedEncryption::OVERHEAD_BYTES + msg_bytes + TRANSPORT_OVERHEAD);
+		if (!pkt)
 		{
 			WARN("Transport") << "Out of memory: Unable to allocate unreliable post buffer";
 			return false;
 		}
 
 		// Update send buffer state
-		_send_buffer = msg_buffer;
-		_send_buffer_bytes = msg_bytes;
+		_send_buffer = SendBuffer::Promote(pkt);
 		_send_buffer_stream = NUM_STREAMS;
 
 		// Write header
 		if (data_bytes > BLO_MASK)
 		{
-			msg_buffer[0] = (u8)(data_bytes & BLO_MASK) | (super_opcode << SOP_SHIFT) | C_MASK;
-			msg_buffer[1] = (u8)(data_bytes >> BHI_SHIFT);
+			pkt[0] = (u8)(data_bytes & BLO_MASK) | (super_opcode << SOP_SHIFT) | C_MASK;
+			pkt[1] = (u8)(data_bytes >> BHI_SHIFT);
 		}
 		else
 		{
-			msg_buffer[0] = (u8)data_bytes | (super_opcode << SOP_SHIFT);
+			pkt[0] = (u8)data_bytes | (super_opcode << SOP_SHIFT);
 		}
-		msg_buffer += header_bytes;
+		pkt += header_bytes;
 
 		// Write message
-		msg_buffer[0] = msg_opcode;
-		memcpy(msg_buffer + 1, msg_data, data_bytes - 1);
+		pkt[0] = msg_opcode;
+		memcpy(pkt + 1, msg_data, data_bytes - 1);
 
-		lock.Release();
-
-		if (PostPacket(old_send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD, send_buffer_bytes))
-			_send_flow.OnPacketSend(send_buffer_bytes + _overhead_bytes);
-		else WARN("Transport") << "Packet post failure during unreliable overflow";
+		_outgoing_datagrams.PushBack(old_send_buffer);
 	}
 	else
 	{
 		// Create or grow buffer and write into it
-		_send_buffer = SendBuffer::Resize(_send_buffer, send_buffer_bytes + msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD);
-		if (!_send_buffer)
+		u8 *pkt = SendBuffer::Resize(old_send_buffer, AuthenticatedEncryption::OVERHEAD_BYTES + send_buffer_bytes + msg_bytes + TRANSPORT_OVERHEAD);
+		if (!pkt)
 		{
 			WARN("Transport") << "Out of memory: Unable to resize unreliable post buffer";
-			_send_buffer_bytes = 0;
+			_send_buffer = 0;
 			_send_buffer_stream = NUM_STREAMS;
 			return false;
 		}
 
-		u8 *msg_buffer = _send_buffer + send_buffer_bytes;
+		_send_buffer = SendBuffer::Promote(pkt);
+
+		pkt += send_buffer_bytes;
 
 		// Write header
 		if (data_bytes > BLO_MASK)
 		{
-			msg_buffer[0] = (u8)(data_bytes & BLO_MASK) | (super_opcode << SOP_SHIFT) | C_MASK;
-			msg_buffer[1] = (u8)(data_bytes >> BHI_SHIFT);
+			pkt[0] = (u8)(data_bytes & BLO_MASK) | (super_opcode << SOP_SHIFT) | C_MASK;
+			pkt[1] = (u8)(data_bytes >> BHI_SHIFT);
 		}
 		else
 		{
-			msg_buffer[0] = (u8)data_bytes | (super_opcode << SOP_SHIFT);
+			pkt[0] = (u8)data_bytes | (super_opcode << SOP_SHIFT);
 		}
-		msg_buffer += header_bytes;
+		pkt += header_bytes;
 
 		// Write message
-		msg_buffer[0] = msg_opcode;
-		memcpy(msg_buffer + 1, msg_data, data_bytes - 1);
-
-		// Update send buffer state
-		_send_buffer_bytes = send_buffer_bytes + msg_bytes;
+		pkt[0] = msg_opcode;
+		memcpy(pkt + 1, msg_data, data_bytes - 1);
 	}
 
 	return true;
@@ -860,45 +844,35 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 
 void Transport::FlushImmediately()
 {
-	// Avoid locking to transmit queued if no queued exist
-	for (int stream = 0; stream < NUM_STREAMS; ++stream)
-	{
-		if (_send_queue_head[stream])
-		{
-			TransmitQueued();
-			break;
-		}
-	}
-
-	// Post whatever is left in the send buffer
-	PostSendBuffer();
+	TransmitQueued();
+	FlushWrites();
 }
 
-void Transport::PostSendBuffer()
+void Transport::FlushWrites()
 {
-	// Avoid locking if we can help it
-	if (!_send_buffer) return;
+	// If no data to flush,
+	if (!_send_buffer && !_outgoing_datagrams.head)
+		return;
 
-	AutoMutex lock(_big_lock);
+	_big_lock.Enter();
 
-	u8 *send_buffer = _send_buffer;
-
+	SendBuffer *send_buffer = _send_buffer;
 	if (send_buffer)
 	{
-		u32 send_buffer_bytes = _send_buffer_bytes;
+		_outgoing_datagrams.PushBack(send_buffer);
 
-		// Reset send buffer state
 		_send_buffer = 0;
-		_send_buffer_bytes = 0;
 		_send_buffer_stream = NUM_STREAMS;
-
-		// Release lock for actual posting
-		lock.Release();
-
-		if (PostPacket(send_buffer, send_buffer_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD, send_buffer_bytes))
-			_send_flow.OnPacketSend(send_buffer_bytes + _overhead_bytes);
-		else WARN("Transport") << "Packet post failure during flush write";
 	}
+
+	BatchSet outgoing_datagrams = _outgoing_datagrams;
+	_outgoing_datagrams.Clear();
+
+	_big_lock.Leave();
+
+	// If any datagrams to write,
+	if (outgoing_datagrams.head)
+		WriteDatagrams(outgoing_datagrams);
 }
 
 void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)

@@ -210,7 +210,7 @@ IOThreads::IOThreads()
 	_io_port = 0;
 	_worker_count = 0;
 	_workers = 0;
-	_buffer_allocator = 0;
+	_recv_allocator = 0;
 
 	// Attempt to use Vista+ API
 	pGetQueuedCompletionStatusEx = (PtGetQueuedCompletionStatusEx)GetProcAddress(GetModuleHandleA("kernel32.dll"), "GetQueuedCompletionStatusEx");
@@ -224,14 +224,15 @@ IOThreads::~IOThreads()
 bool IOThreads::Startup()
 {
 	// If startup was previously attempted,
-	if (_worker_count || _io_port || _buffer_allocator)
+	if (_worker_count || _io_port || _recv_allocator)
 	{
 		// Clean up and try again
 		Shutdown();
 	}
 
-	_buffer_allocator = new BufferAllocator(sizeof(RecvBuffer) + IOTHREADS_BUFFER_READ_BYTES, IOTHREADS_BUFFER_COUNT);
-	if (!_buffer_allocator || !_buffer_allocator->Valid())
+	_recv_allocator = new BufferAllocator(sizeof(RecvBuffer) + IOTHREADS_BUFFER_READ_BYTES, IOTHREADS_BUFFER_COUNT);
+
+	if (!_recv_allocator || !_recv_allocator->Valid())
 	{
 		FATAL("IOThreads") << "Out of memory while allocating " << IOTHREADS_BUFFER_COUNT << " buffers for a shared pool";
 		return false;
@@ -318,10 +319,10 @@ bool IOThreads::Shutdown()
 	}
 
 	// If allocator was created,
-	if (_buffer_allocator)
+	if (_recv_allocator)
 	{
-		delete _buffer_allocator;
-		_buffer_allocator = 0;
+		delete _recv_allocator;
+		_recv_allocator = 0;
 	}
 
 	return true;
