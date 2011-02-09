@@ -330,6 +330,7 @@ void Server::OnWorkerTick(IWorkerTLS *tls, u32 now)
 Server::Server()
 {
 	_connect_worker = 0;
+	InitializeWorkerCallbacks(this);
 }
 
 Server::~Server()

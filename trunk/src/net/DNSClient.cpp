@@ -241,6 +241,8 @@ DNSClient::DNSClient()
 
 	_request_head = _request_tail = 0;
 	_request_queue_size = 0;
+
+	InitializeWorkerCallbacks(this);
 }
 
 bool DNSClient::Initialize(IOLayer *iolayer)
