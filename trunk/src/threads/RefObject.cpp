@@ -31,9 +31,6 @@ using namespace cat;
 
 #include <algorithm>
 
-
-//// RefObject
-
 void RefObject::ShutdownComplete(bool delete_this)
 {
 	if (delete_this) delete this;
@@ -139,21 +136,23 @@ RefObjectWatcher::~RefObjectWatcher()
 	WaitForShutdown();
 }
 
-bool RefObjectWatcher::WaitForShutdown(s32 milliseconds, bool request_shutdown)
+bool RefObjectWatcher::WaitForShutdown(s32 milliseconds)
 {
 	AutoMutex lock(_lock);
 
+	bool shutdown = _shutdown;
 	_shutdown = true;
 
 	if (_wait_count == 0) return true;
 
-	// If user wants to shutdown watched objects,
-	if (request_shutdown)
+	// If first time shutting down,
+	if (!shutdown)
 	{
 		// For each object we haven't seen shutdown start yet,
 		for (ListIterator ii = _watched_list.begin(); ii != _watched_list.end(); ++ii)
 		{
 			RefObject *obj = *ii;
+			ListIterator next = ii;
 
 			obj->RequestShutdown();
 		}
@@ -183,6 +182,14 @@ bool RefObjectWatcher::OnObjectShutdownStart(WatchedRefObject *obj)
 {
 	AutoMutex lock(_lock);
 
+	// If shutting down,
+	if (_shutdown)
+	{
+		// Just release the reference - No longer using this list
+		obj->ReleaseRef();
+		return true;
+	}
+
 	// Try to find the object in the watched list
 	ListIterator ii = std::find(_watched_list.begin(), _watched_list.end(), obj);
 
@@ -211,7 +218,6 @@ void RefObjectWatcher::OnObjectShutdownEnd(WatchedRefObject *obj)
 	_lock.Enter();
 
 	u32 wait_count = --_wait_count;
-
 	shutdown = _shutdown && wait_count <= 0;
 
 	_lock.Leave();
