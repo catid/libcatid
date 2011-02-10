@@ -108,6 +108,7 @@ Transport::Transport()
 
 	// Send state
 	_send_buffer = 0;
+	_send_buffer_bytes = 0;
 	_send_buffer_stream = NUM_STREAMS;
 	_send_flush_after_processing = false;
 
@@ -726,7 +727,7 @@ bool Transport::WriteUnreliableOOB(u8 msg_opcode, const void *vmsg_data, u32 dat
 		return false;
 	}
 
-	u8 *pkt = SendBuffer::Acquire(AuthenticatedEncryption::OVERHEAD_BYTES + msg_bytes + TRANSPORT_OVERHEAD);
+	u8 *pkt = SendBuffer::Acquire(msg_bytes + TRANSPORT_OVERHEAD + AuthenticatedEncryption::OVERHEAD_BYTES);
 	if (!pkt)
 	{
 		WARN("Transport") << "Out of memory: Unable to allocate unreliable OOB post buffer";
@@ -743,11 +744,12 @@ bool Transport::WriteUnreliableOOB(u8 msg_opcode, const void *vmsg_data, u32 dat
 	{
 		pkt[0] = (u8)data_bytes | (super_opcode << SOP_SHIFT);
 	}
-	pkt += header_bytes;
+
+	u8 *pkt_msg = pkt + header_bytes;
 
 	// Write message
-	pkt[0] = msg_opcode;
-	memcpy(pkt + 1, msg_data, data_bytes - 1);
+	pkt_msg[0] = msg_opcode;
+	memcpy(pkt_msg + 1, msg_data, data_bytes - 1);
 
 	return WriteDatagrams(pkt);
 }
@@ -848,7 +850,7 @@ void Transport::FlushImmediately()
 
 void Transport::FlushWrites()
 {
-	// If no data to flush,
+	// If no data to flush (common),
 	if (!_send_buffer && !_outgoing_datagrams.head)
 		return;
 
@@ -1273,10 +1275,9 @@ bool Transport::PostMTUProbe(SphynxTLS *tls, u32 mtu)
 		return false;
 
 	u32 payload_bytes = mtu - _overhead_bytes;
-	u32 buffer_bytes = payload_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD;
 	u32 data_bytes = payload_bytes - TRANSPORT_HEADER_BYTES;
 
-	u8 *pkt = SendBuffer::Acquire(buffer_bytes);
+	u8 *pkt = SendBuffer::Acquire(payload_bytes + TRANSPORT_OVERHEAD + AuthenticatedEncryption::OVERHEAD_BYTES);
 	if (!pkt) return false;
 
 	// Write header

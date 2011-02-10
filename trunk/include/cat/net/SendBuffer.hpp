@@ -77,7 +77,10 @@ struct SendBuffer : public BatchHead
 		if (!buffer) return Acquire(new_trailing_bytes);
 
 		if (new_trailing_bytes <= buffer->allocated_bytes)
+		{
+			buffer->data_bytes = new_trailing_bytes;
 			return GetTrailingBytes(buffer);
+		}
 
 		buffer = StdAllocator::ii->ResizeTrailing(buffer, new_trailing_bytes);
 		if (!buffer) return 0;
@@ -94,7 +97,10 @@ struct SendBuffer : public BatchHead
 		SendBuffer *buffer = Promote(ptr);
 
 		if (new_trailing_bytes <= buffer->allocated_bytes)
+		{
+			buffer->data_bytes = new_trailing_bytes;
 			return ptr;
+		}
 
 		buffer = StdAllocator::ii->ResizeTrailing(buffer, new_trailing_bytes);
 		if (!buffer) return 0;

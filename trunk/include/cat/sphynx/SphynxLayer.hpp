@@ -59,9 +59,6 @@ public:
 	// Cryptographic math primitive
 	BigTwistedEdwards *math;
 
-	// Sphynx layer instance
-	SphynxLayer *sphynx_layer;
-
 	SphynxTLS();
 	virtual ~SphynxTLS();
 
