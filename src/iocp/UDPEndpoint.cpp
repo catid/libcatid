@@ -396,9 +396,6 @@ void UDPEndpoint::ReleaseRecvBuffers(BatchSet buffers, u32 count)
 	}
 
 	_iolayer->GetIOThreads()->GetRecvAllocator()->ReleaseBatch(buffers);
-
-	// Release one reference for each buffer
-	ReleaseRef(count);
 }
 
 void UDPEndpoint::OnReadCompletion(const BatchSet &buffers, u32 count)
@@ -408,6 +405,10 @@ void UDPEndpoint::OnReadCompletion(const BatchSet &buffers, u32 count)
 	{
 		// Just release the read buffers
 		ReleaseRecvBuffers(buffers, count);
+
+		// Release one reference for each buffer
+		ReleaseRef(count);
+
 		return;
 	}
 

@@ -122,6 +122,15 @@ bool DNSClient::OnZeroReferences()
 
 void DNSClient::OnReadRouting(const BatchSet &buffers)
 {
+	// For each message,
+	for (BatchHead *node = buffers.head; node; node = node->batch_next)
+	{
+		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
+
+		// Set the receive callback
+		buffer->callback = this;
+	}
+
 	GetIOLayer()->GetWorkerThreads()->DeliverBuffers(_worker_id, buffers);
 }
 

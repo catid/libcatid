@@ -31,6 +31,7 @@
 
 #include <cat/threads/Atomic.hpp>
 #include <cat/threads/WaitableFlag.hpp>
+//#include <cat/io/Logging.hpp>
 
 #if defined(CAT_NO_ATOMIC_ADD) || defined(CAT_NO_ATOMIC_SET)
 #include <cat/threads/Mutex.hpp>
@@ -82,6 +83,8 @@ public:
 
 	CAT_INLINE void AddRef(s32 times = 1)
 	{
+		//WARN("RefObject") << this << " add " << times;
+
 #if defined(CAT_NO_ATOMIC_REF_OBJECT)
 		_lock.Enter();
 		_ref_count += times;
@@ -94,6 +97,8 @@ public:
 
 	CAT_INLINE void ReleaseRef(s32 times = 1)
 	{
+		//WARN("RefObject") << this << " release " << times;
+
 		// Decrement reference count by # of times
 		// If all references are gone,
 #if defined(CAT_NO_ATOMIC_REF_OBJECT)
@@ -186,7 +191,7 @@ public:
 	virtual ~RefObjectWatcher();
 
 	// Wait for watched objects to finish shutdown, returns false on timeout
-	bool WaitForShutdown(s32 milliseconds = -1, bool request_shutdown = true); // < 0 = wait forever
+	bool WaitForShutdown(s32 milliseconds = -1); // < 0 = wait forever
 
 	void Watch(WatchedRefObject *obj);
 };

@@ -1205,8 +1205,6 @@ void Transport::WriteACK()
 			_send_buffer_bytes = msg_bytes;
 			_send_buffer_stream = NUM_STREAMS;
 
-			lock.Release();
-
 			_outgoing_datagrams.PushBack(SendBuffer::Promote(old_send_buffer));
 		}
 	}

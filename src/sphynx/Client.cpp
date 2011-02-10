@@ -73,7 +73,8 @@ void Client::OnReadRouting(const BatchSet &buffers)
 		SetRemoteAddress(buffer);
 
 		// If packet source is not the server,
-		if (_server_addr != buffer->addr)
+		// and data bytes is not zero (closing),
+		if (_server_addr != buffer->addr/* && buffer->data_bytes != 0 */)
 		{
 			garbage.PushBack(buffer);
 			++garbage_count;
@@ -146,7 +147,7 @@ void Client::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 				}
 				else
 				{
-					INANE("Client") << "Accepted cookie and posted challenge";
+					INFO("Client") << "Accepted cookie and posted challenge";
 				}
 			}
 			else if (bytes == S2C_ANSWER_LEN && data[0] == S2C_ANSWER)
