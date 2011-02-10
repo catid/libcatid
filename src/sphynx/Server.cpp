@@ -216,7 +216,7 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 			u32 *cookie = reinterpret_cast<u32*>( data + 1 + 4 );
 			bool good_cookie = buffer->addr.Is6() ?
 				_cookie_jar.Verify(&buffer->addr, sizeof(buffer->addr), *cookie) :
-			_cookie_jar.Verify(buffer->addr.GetIP4(), buffer->addr.GetPort(), *cookie);
+				_cookie_jar.Verify(buffer->addr.GetIP4(), buffer->addr.GetPort(), *cookie);
 
 			if (!good_cookie)
 			{
@@ -247,7 +247,7 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 			// If challenge is invalid,
 			else if (!_key_agreement_responder.ProcessChallenge(tls->math, tls->csprng,
 																challenge, CHALLENGE_BYTES,
-																pkt + 1 + 2, ANSWER_BYTES, &key_hash))
+																pkt + 1, ANSWER_BYTES, &key_hash))
 			{
 				WARN("Server") << "Ignoring challenge: Invalid";
 
@@ -287,6 +287,7 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 				memcpy(conn->_cached_answer, pkt + 1 + 2, ANSWER_BYTES);
 				conn->_client_addr = buffer->addr;
 				conn->_last_recv_tsc = buffer->event_msec;
+				conn->_parent = this;
 				conn->InitializePayloadBytes(Is6());
 
 				if (!conn->InitializeTransportSecurity(false, conn->_auth_enc))
@@ -306,6 +307,10 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 				else
 				{
 					WARN("Server") << "Accepted challenge and posted answer.  Client connected";
+
+					// Assign to a worker
+					SphynxLayer *layer = reinterpret_cast<SphynxLayer*>( GetIOLayer() );
+					conn->_server_worker_id = layer->GetWorkerThreads()->AssignWorker(conn);
 
 					conn->OnConnect(tls);
 

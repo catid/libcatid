@@ -152,51 +152,39 @@ void Client::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 			}
 			else if (bytes == S2C_ANSWER_LEN && data[0] == S2C_ANSWER)
 			{
-				Port *port = reinterpret_cast<Port*>( data + 1 );
+				Skein key_hash;
 
-				Port server_session_port = getLE(*port);
-
-				// Ignore packet if the port doesn't make sense
-				if (server_session_port > _server_addr.GetPort())
+				// Process answer from server, ignore invalid
+				if (_key_agreement_initiator.ProcessAnswer(tls->math, data + 1, ANSWER_BYTES, &key_hash) &&
+					_key_agreement_initiator.KeyEncryption(&key_hash, &_auth_enc, _session_key) &&
+					InitializeTransportSecurity(true, _auth_enc))
 				{
-					Skein key_hash;
+					_connected = true;
+					OnConnect(tls);
 
-					// Process answer from server, ignore invalid
-					if (_key_agreement_initiator.ProcessAnswer(tls->math, data + 1 + 2, ANSWER_BYTES, &key_hash) &&
-						_key_agreement_initiator.KeyEncryption(&key_hash, &_auth_enc, _session_key) &&
-						InitializeTransportSecurity(true, _auth_enc))
+					_last_recv_tsc = _next_sync_time = _mtu_discovery_time = Clock::msec();
+					_mtu_discovery_attempts = 2;
+					_sync_attempts = 0;
+
+					if (!DontFragment())
 					{
-						_connected = true;
-						OnConnect(tls);
+						WARN("Client") << "Unable to detect MTU: Unable to set DF bit";
 
-						_last_recv_tsc = _next_sync_time = _mtu_discovery_time = Clock::msec();
-						_mtu_discovery_attempts = 2;
-						_sync_attempts = 0;
-
-						if (!DontFragment())
-						{
-							WARN("Client") << "Unable to detect MTU: Unable to set DF bit";
-
-							_mtu_discovery_attempts = 0;
-						}
-						else if (!PostMTUProbe(tls, MAXIMUM_MTU) ||
-								 !PostMTUProbe(tls, MEDIUM_MTU))
-						{
-							WARN("Client") << "Unable to detect MTU: First probe post failure";
-						}
-
-						// If we have already received the first encrypted message, keep processing
-						node = node->batch_next;
-						break;
+						_mtu_discovery_attempts = 0;
 					}
-					else
+					else if (!PostMTUProbe(tls, MAXIMUM_MTU) ||
+							 !PostMTUProbe(tls, MEDIUM_MTU))
 					{
-						INANE("Client") << "Ignored invalid server answer";
+						WARN("Client") << "Unable to detect MTU: First probe post failure";
 					}
+
+					// If we have already received the first encrypted message, keep processing
+					node = node->batch_next;
+					break;
 				}
 				else
 				{
-					INANE("Client") << "Ignored server answer with insane port";
+					INANE("Client") << "Ignored invalid server answer";
 				}
 			}
 			else if (bytes == S2C_ERROR_LEN && data[0] == S2C_ERROR)

@@ -8,13 +8,13 @@ class GameConnexion : public Connexion
 public:
 	virtual void OnShutdownRequest()
 	{
-		WARN("Client") << "-- Shutdown Requested";
+		WARN("Connexion") << "-- Shutdown Requested";
 
 		Connexion::OnZeroReferences();
 	}
 	virtual bool OnZeroReferences()
 	{
-		WARN("Client") << "-- Zero References";
+		WARN("Connexion") << "-- Zero References";
 
 		return Connexion::OnZeroReferences();
 	}
