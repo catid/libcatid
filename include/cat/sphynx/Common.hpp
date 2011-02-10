@@ -142,8 +142,6 @@ enum SuperOpcode
 	SOP_INTERNAL,	// 3=Internal
 };
 
-static const u32 TRANSPORT_HEADER_BYTES = 2; // Or 1 if data bytes < 8
-
 // Internal opcodes
 enum InternalOpcode
 {

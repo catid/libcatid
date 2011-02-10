@@ -282,7 +282,7 @@ void Transport::TickTransport(SphynxTLS *tls, u32 now)
 	{
 		if (_send_queue_head[stream])
 		{
-			TransmitQueued();
+			WriteQueuedReliable();
 			break;
 		}
 	}
@@ -423,11 +423,11 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 					}
 					else WARN("Transport") << "Zero-length reliable message ignored";
 
-					RunQueue(tls, recv_time, ack_id + 1, stream);
+					RunReliableReceiveQueue(tls, recv_time, ack_id + 1, stream);
 				}
 				else if (diff > 0) // Message is due to arrive
 				{
-					QueueRecv(tls, send_time, recv_time, data, data_bytes, ack_id, stream, (hdr >> SOP_SHIFT) & SOP_MASK);
+					StoreReliableOutOfOrder(tls, send_time, recv_time, data, data_bytes, ack_id, stream, (hdr >> SOP_SHIFT) & SOP_MASK);
 				}
 				else
 				{
@@ -495,7 +495,7 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 	}
 }
 
-void Transport::RunQueue(SphynxTLS *tls, u32 recv_time, u32 ack_id, u32 stream)
+void Transport::RunReliableReceiveQueue(SphynxTLS *tls, u32 recv_time, u32 ack_id, u32 stream)
 {
 	RecvQueue *node = _recv_queue_head[stream];
 
@@ -561,7 +561,7 @@ void Transport::RunQueue(SphynxTLS *tls, u32 recv_time, u32 ack_id, u32 stream)
 	}
 }
 
-void Transport::QueueRecv(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *data, u32 data_bytes, u32 ack_id, u32 stream, u32 super_opcode)
+void Transport::StoreReliableOutOfOrder(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *data, u32 data_bytes, u32 ack_id, u32 stream, u32 super_opcode)
 {
 	// Walk backwards from the end because we're probably receiving
 	// a blast of messages after a drop.
@@ -790,6 +790,7 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 
 		// Update send buffer state
 		_send_buffer = pkt;
+		_send_buffer_bytes = msg_bytes;
 		_send_buffer_stream = NUM_STREAMS;
 
 		// Write header
@@ -808,6 +809,7 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 		pkt[0] = msg_opcode;
 		memcpy(pkt + 1, msg_data, data_bytes - 1);
 
+		SendBuffer::Shrink(old_send_buffer, send_buffer_bytes);
 		_outgoing_datagrams.PushBack(SendBuffer::Promote(old_send_buffer));
 	}
 	else
@@ -823,6 +825,7 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 		}
 
 		pkt += send_buffer_bytes;
+		_send_buffer_bytes += msg_bytes;
 
 		// Write header
 		if (data_bytes > BLO_MASK)
@@ -846,7 +849,7 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 
 void Transport::FlushImmediately()
 {
-	TransmitQueued();
+	WriteQueuedReliable();
 	FlushWrites();
 }
 
@@ -864,6 +867,7 @@ void Transport::FlushWrites()
 	u8 *send_buffer = _send_buffer;
 	if (send_buffer)
 	{
+		SendBuffer::Shrink(send_buffer, _send_buffer_bytes);
 		outgoing_datagrams.PushBack(SendBuffer::Promote(send_buffer));
 
 		_send_buffer = 0;
@@ -950,6 +954,7 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 	// If the growing send buffer cannot contain the new message,
 	if (send_buffer_bytes + msg_bytes > max_payload_bytes)
 	{
+		SendBuffer::Shrink(send_buffer, send_buffer_bytes);
 		_outgoing_datagrams.PushBack(SendBuffer::Promote(send_buffer));
 
 		send_buffer = 0;
@@ -1209,6 +1214,7 @@ void Transport::WriteACK()
 			_send_buffer_bytes = msg_bytes;
 			_send_buffer_stream = NUM_STREAMS;
 
+			SendBuffer::Shrink(old_send_buffer, send_buffer_bytes);
 			_outgoing_datagrams.PushBack(SendBuffer::Promote(old_send_buffer));
 		}
 	}
@@ -1277,7 +1283,7 @@ bool Transport::PostMTUProbe(SphynxTLS *tls, u32 mtu)
 		return false;
 
 	u32 payload_bytes = mtu - _overhead_bytes;
-	u32 data_bytes = payload_bytes - TRANSPORT_HEADER_BYTES;
+	u32 data_bytes = payload_bytes - TRANSPORT_OVERHEAD;
 
 	u8 *pkt = SendBuffer::Acquire(payload_bytes + TRANSPORT_OVERHEAD + AuthenticatedEncryption::OVERHEAD_BYTES);
 	if (!pkt) return false;
@@ -1682,7 +1688,7 @@ bool Transport::WriteReliable(StreamMode stream, u8 msg_opcode, const void *vmsg
 	return true;
 }
 
-void Transport::TransmitQueued()
+void Transport::WriteQueuedReliable()
 {
 	// ACK-ID compression thresholds
 	const u32 ACK_ID_1_THRESH = 8;
@@ -1771,6 +1777,7 @@ void Transport::TransmitQueued()
 						}
 						else if (send_buffer_bytes > 0) // Not worth fragmentation, dump current send buffer
 						{
+							SendBuffer::Shrink(send_buffer, send_buffer_bytes);
 							_outgoing_datagrams.PushBack(SendBuffer::Promote(send_buffer));
 
 							// Update send epoch bytes
