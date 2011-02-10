@@ -304,6 +304,8 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 		u8 *data = GetTrailingBytes(buffer);
 		u32 bytes = buffer->data_bytes;
 
+		INFO("Transport") << "\n" << cat::HexDumpString(data, bytes);
+
 		// Skip if not enough data
 		if (bytes < 3) continue;
 
@@ -753,6 +755,7 @@ bool Transport::WriteUnreliableOOB(u8 msg_opcode, const void *vmsg_data, u32 dat
 	pkt_msg[0] = msg_opcode;
 	memcpy(pkt_msg + 1, msg_data, data_bytes - 1);
 
+	SendBuffer::Shrink(pkt, msg_bytes);
 	return WriteDatagrams(pkt);
 }
 
