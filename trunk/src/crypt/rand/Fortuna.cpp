@@ -45,7 +45,7 @@ FortunaOutput::FortunaOutput()
 
 FortunaOutput::~FortunaOutput()
 {
-    CAT_OBJCLR(CachedRandomBytes);
+    CAT_SECURE_OBJCLR(CachedRandomBytes);
     used_bytes = 0;
     SeedRevision = 0;
     thread_id = 0;

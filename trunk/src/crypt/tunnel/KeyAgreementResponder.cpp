@@ -52,9 +52,9 @@ void KeyAgreementResponder::FreeMemory()
 {
     if (b)
     {
-        CAT_CLR(b, KeyBytes);
-        CAT_CLR(y[0], KeyBytes);
-        CAT_CLR(y[1], KeyBytes);
+        CAT_SECURE_CLR(b, KeyBytes);
+        CAT_SECURE_CLR(y[0], KeyBytes);
+        CAT_SECURE_CLR(y[1], KeyBytes);
         AlignedAllocator::ii->Delete(b);
         b = 0;
     }

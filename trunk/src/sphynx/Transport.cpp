@@ -198,6 +198,8 @@ void Transport::Disconnect(u8 reason)
 	_disconnect_reason = reason;
 
 	WriteDisconnect(reason);
+
+	OnDisconnectReason(reason);
 }
 
 void Transport::InitializePayloadBytes(bool ip6)

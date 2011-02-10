@@ -40,7 +40,7 @@ TunnelKeyPair::TunnelKeyPair()
 
 TunnelKeyPair::~TunnelKeyPair()
 {
-	CAT_OBJCLR(_key_pair);
+	CAT_SECURE_OBJCLR(_key_pair);
 }
 
 bool TunnelKeyPair::LoadBase64(const char *base64_encoded)
@@ -166,7 +166,6 @@ TunnelPublicKey::TunnelPublicKey()
 
 TunnelPublicKey::~TunnelPublicKey()
 {
-	//CAT_OBJCLR(_public_key);
 }
 
 TunnelPublicKey::TunnelPublicKey(TunnelKeyPair &pair)

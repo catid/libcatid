@@ -136,7 +136,9 @@ void Connexion::OnWorkerTick(IWorkerTLS *itls, u32 now)
 
 		// If no packets have been received,
 		if ((s32)(now - _last_recv_tsc) >= TIMEOUT_DISCONNECT)
+		{
 			Disconnect(DISCO_TIMEOUT);
+		}
 	}
 }
 
@@ -229,7 +231,7 @@ void Connexion::OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferS
 		{
 			//WARN("Server") << "Got IOP_DISCO reason = " << (int)data[1];
 
-			OnDisconnectReason(data[1]);
+			Disconnect(data[1]);
 		}
 		break;
 	}

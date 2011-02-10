@@ -410,6 +410,7 @@ protected:
 
 	virtual void OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count) = 0;
 	virtual void OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes) = 0; // precondition: bytes > 0
+	virtual void OnDisconnectReason(u8 reason) = 0; // Called to help explain why a disconnect is happening
 
 	bool PostMTUProbe(SphynxTLS *tls, u32 mtu);
 
