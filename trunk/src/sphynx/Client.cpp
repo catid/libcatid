@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -592,11 +592,11 @@ bool Client::WriteDatagrams(const BatchSet &buffers)
 		// Unwrap the message data
 		SendBuffer *buffer = reinterpret_cast<SendBuffer*>( node );
 		u8 *msg_data = GetTrailingBytes(buffer);
-		u32 buf_bytes = buffer->data_bytes;
-		u32 msg_bytes = buf_bytes - AuthenticatedEncryption::OVERHEAD_BYTES;
+		u32 msg_bytes = buffer->data_bytes + Transport::TRANSPORT_OVERHEAD;
+		u32 buf_bytes = msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES;
 
 		// Write timestamp right before the encryption overhead
-		*(u16*)(msg_data + msg_bytes - 2) = timestamp;
+		*(u16*)(msg_data + msg_bytes - Transport::TRANSPORT_OVERHEAD) = timestamp;
 
 		// Encrypt the message
 		_auth_enc.Encrypt(msg_data, buf_bytes, msg_bytes);

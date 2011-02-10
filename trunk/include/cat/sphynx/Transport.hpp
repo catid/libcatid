@@ -329,10 +329,10 @@ private:
 	// Deliver messages to user in one big batch
 	CAT_INLINE void DeliverQueued(SphynxTLS *tls);
 
-	void RunQueue(SphynxTLS *tls, u32 recv_time, u32 ack_id, u32 stream);
-	void QueueRecv(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *data, u32 bytes, u32 ack_id, u32 stream, u32 super_opcode);
+	void RunReliableReceiveQueue(SphynxTLS *tls, u32 recv_time, u32 ack_id, u32 stream);
+	void StoreReliableOutOfOrder(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *data, u32 bytes, u32 ack_id, u32 stream, u32 super_opcode);
 
-	void TransmitQueued();
+	void WriteQueuedReliable();
 	void Retransmit(u32 stream, SendQueue *node, u32 now); // Does not hold the send lock!
 	void WriteACK();
 	void OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes);
