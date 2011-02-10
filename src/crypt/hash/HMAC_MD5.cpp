@@ -177,10 +177,10 @@ void HMAC_MD5::HashComputation(const void *message, int blocks, u32 *NextState)
 
 HMAC_MD5::~HMAC_MD5()
 {
-    CAT_OBJCLR(State);
-    CAT_OBJCLR(Work);
-    CAT_OBJCLR(CachedInitialState);
-    CAT_OBJCLR(CachedFinalState);
+    CAT_SECURE_OBJCLR(State);
+    CAT_SECURE_OBJCLR(Work);
+    CAT_SECURE_OBJCLR(CachedInitialState);
+    CAT_SECURE_OBJCLR(CachedFinalState);
     byte_counter = 0;
     used_bytes = 0;
 }

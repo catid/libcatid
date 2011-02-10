@@ -463,7 +463,28 @@ union Float32 {
 #define CAT_CLR(dest, size) memset(dest, 0, size)
 
 // Works for arrays, also
-#define CAT_OBJCLR(object) memset((void*)&(object), 0, sizeof(object))
+#define CAT_OBJCLR(obj) CAT_CLR((void*)&(obj), sizeof(obj))
+
+// More secure memory clearing
+#if defined(CAT_OS_WINDOWS) && !defined(CAT_OS_WINDOWS_CE)
+# define CAT_SECURE_CLR(dest, size) SecureZeroMemory(dest, size)
+#else
+
+	// From https://www.securecoding.cert.org/confluence/display/cplusplus/MSC06-CPP.+Be+aware+of+compiler+optimization+when+dealing+with+sensitive+data
+	CAT_INLINE void *cat_memset_s(void *v, int c, size_t n)
+	{
+		volatile unsigned char *p = v;
+
+		while (n--)
+			*p++ = c;
+
+		return v;
+	}
+
+# define CAT_SECURE_CLR(dest, size) cat_memset_s(dest, 0, size)
+#endif
+
+#define CAT_SECURE_OBJCLR(obj) CAT_SECURE_CLR((void*)&(obj), sizeof(obj))
 
 // Stringize
 #define CAT_STRINGIZE(X) DO_CAT_STRINGIZE(X)

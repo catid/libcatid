@@ -49,7 +49,7 @@ void KeyAgreementInitiator::FreeMemory()
 {
     if (B)
     {
-        CAT_CLR(a, KeyBytes);
+        CAT_SECURE_CLR(a, KeyBytes);
         AlignedAllocator::ii->Delete(B);
         B = 0;
     }
@@ -102,7 +102,7 @@ KeyAgreementInitiator::~KeyAgreementInitiator()
 
 void KeyAgreementInitiator::SecureErasePrivateKey()
 {
-	if (B) CAT_CLR(a, KeyBytes);
+	if (B) CAT_SECURE_CLR(a, KeyBytes);
 }
 
 bool KeyAgreementInitiator::Initialize(BigTwistedEdwards *math, TunnelPublicKey &public_key)

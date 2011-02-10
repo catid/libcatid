@@ -43,9 +43,6 @@
     <Filter Include="Header Files\parse">
       <UniqueIdentifier>{7856b8fc-5136-40b6-95e0-0f7fe03d7053}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\misc">
-      <UniqueIdentifier>{1b7115c6-350a-4bb4-bf9d-11b8704d7e37}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\time\Clock.cpp">
@@ -227,15 +224,6 @@
     <ClInclude Include="..\..\include\cat\mem\StdAllocator.hpp">
       <Filter>Header Files\mem</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\cat\Singleton.hpp">
-      <Filter>Header Files\misc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\include\cat\Platform.hpp">
-      <Filter>Header Files\misc</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\include\cat\Config.hpp">
-      <Filter>Header Files\misc</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\include\cat\threads\WorkerThreads.hpp">
       <Filter>Header Files\threads</Filter>
     </ClInclude>
@@ -244,6 +232,15 @@
     </ClInclude>
     <ClInclude Include="..\..\include\cat\parse\Base64.hpp">
       <Filter>Header Files\parse</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\Platform.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\Singleton.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\Config.hpp">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

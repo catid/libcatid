@@ -36,7 +36,7 @@ using namespace cat;
 
 ChaChaKey::~ChaChaKey()
 {
-	CAT_OBJCLR(state);
+	CAT_SECURE_OBJCLR(state);
 }
 
 static u32 InitialState[12] = {

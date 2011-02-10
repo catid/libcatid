@@ -80,6 +80,10 @@ void Server::OnReadRouting(const BatchSet &buffers)
 		// If source address has changed,
 		if (!prev_buffer || buffer->addr != prev_buffer->addr)
 		{
+			// If close signal is received,
+			if (buffer->data_bytes == 0)
+				RequestShutdown();
+
 			if (_conn_map.LookupCheckFlood(conn, buffer->addr))
 			{
 				// Flood detected on unconnected client, insert into garbage list

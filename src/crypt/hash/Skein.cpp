@@ -32,9 +32,9 @@ using namespace cat;
 
 Skein::~Skein()
 {
-    CAT_OBJCLR(State);
-    CAT_OBJCLR(Tweak);
-    CAT_OBJCLR(Work);
+    CAT_SECURE_OBJCLR(State);
+    CAT_SECURE_OBJCLR(Tweak);
+    CAT_SECURE_OBJCLR(Work);
 }
 
 void Skein::GenerateInitialState(int bits)

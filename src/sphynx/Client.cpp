@@ -72,17 +72,16 @@ void Client::OnReadRouting(const BatchSet &buffers)
 
 		SetRemoteAddress(buffer);
 
-		// If packet source is not the server,
-		// and data bytes is not zero (closing),
-		if (_server_addr != buffer->addr/* && buffer->data_bytes != 0 */)
-		{
-			garbage.PushBack(buffer);
-			++garbage_count;
-		}
-		else
+		// If packet source is the server,
+		if (_server_addr == buffer->addr || buffer->data_bytes == 0)
 		{
 			buffer->callback = this;
 			delivery.PushBack(buffer);
+		}
+		else
+		{
+			garbage.PushBack(buffer);
+			++garbage_count;
 		}
 	}
 
@@ -110,7 +109,12 @@ void Client::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 			u32 bytes = buffer->data_bytes;
 			u8 *data = GetTrailingBytes(buffer);
 
-			if (bytes == S2C_COOKIE_LEN && data[0] == S2C_COOKIE)
+			if (bytes == 0)
+			{
+				WARN("Client") << "Unable to connect: Broken pipe";
+				ConnectFail(ERR_CLIENT_BROKEN_PIPE);
+			}
+			else if (bytes == S2C_COOKIE_LEN && data[0] == S2C_COOKIE)
 			{
 				u8 *pkt = SendBuffer::Acquire(C2S_CHALLENGE_LEN);
 
@@ -212,8 +216,13 @@ void Client::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 		++buffer_count;
 		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
 
-		// If the data could be decrypted,
-		if (_auth_enc.Decrypt(GetTrailingBytes(buffer), buffer->data_bytes))
+		if (buffer->data_bytes == 0)
+		{
+			WARN("Client") << "Connection closed: Broken pipe";
+			Disconnect(ERR_CLIENT_BROKEN_PIPE);
+			break;
+		}
+		else if (_auth_enc.Decrypt(GetTrailingBytes(buffer), buffer->data_bytes))
 		{
 			delivery.PushBack(buffer);
 		}
@@ -649,7 +658,7 @@ void Client::OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStre
 		{
 			WARN("Client") << "Got IOP_DISCO reason = " << (int)data[1];
 
-			OnDisconnectReason(data[1]);
+			Disconnect(data[1]);
 		}
 		break;
 	}
