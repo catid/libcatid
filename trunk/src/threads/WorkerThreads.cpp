@@ -35,7 +35,7 @@ using namespace cat;
 WorkerThread::WorkerThread()
 {
 	_kill_flag = false;
-	_workqueue.head = _workqueue.tail = 0;
+	_workqueue.Clear();
 
 	_new_head = 0;
 
@@ -96,7 +96,7 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 			// Grab queue if event is flagged
 			_workqueue_lock.Enter();
 			BatchSet queue = _workqueue;
-			_workqueue.head = _workqueue.tail = 0;
+			_workqueue.Clear();
 			_workqueue_lock.Leave();
 
 			// If there is anything in the queue,
@@ -226,6 +226,8 @@ bool WorkerThreads::Startup(IWorkerTLSBuilder *tls_builder)
 
 	u32 worker_count = system_info.ProcessorCount;
 	if (worker_count < 1) worker_count = 1;
+	// TODO: Allow multiple threads later
+	worker_count = 1;
 
 	_workers = new WorkerThread[worker_count];
 	if (!_workers)

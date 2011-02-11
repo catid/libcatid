@@ -65,10 +65,12 @@ void Connexion::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 	{
 		++buffer_count;
 		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
+		u32 data_bytes = buffer->data_bytes;
 
 		// If the data could be decrypted,
-		if (_auth_enc.Decrypt(GetTrailingBytes(buffer), buffer->data_bytes))
+		if (_auth_enc.Decrypt(GetTrailingBytes(buffer), data_bytes))
 		{
+			buffer->data_bytes = data_bytes - AuthenticatedEncryption::OVERHEAD_BYTES;
 			delivery.PushBack(buffer);
 			_seen_encrypted = true;
 		}
@@ -92,7 +94,6 @@ void Connexion::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 				}
 
 				u8 *pkt = SendBuffer::Acquire(S2C_ANSWER_LEN);
-
 				if (!pkt)
 				{
 					WARN("Connexion") << "Ignoring challenge: Unable to allocate post buffer";
@@ -104,7 +105,7 @@ void Connexion::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 
 				memcpy(pkt + 1, _cached_answer, ANSWER_BYTES);
 
-				_parent->Write(pkt, buffer->addr);
+				_parent->Write(pkt, S2C_ANSWER_LEN, buffer->addr);
 
 				INANE("Connexion") << "Replayed lost answer to client challenge";
 			}
@@ -151,7 +152,7 @@ Connexion::Connexion()
 bool Connexion::WriteDatagrams(const BatchSet &buffers)
 {
 	u32 now = getLocalTime();
-	u16 timestamp = getLE(encodeClientTimestamp(now));
+	u16 timestamp = getLE((u16)now);
 
 	/*
 		The format of each buffer:
@@ -161,8 +162,8 @@ bool Connexion::WriteDatagrams(const BatchSet &buffers)
 		At this point, the timestamp has not been written.
 		The encryption overhead is also not filled in yet.
 
-		Each buffer's data_bytes includes the X bytes of transport layer data
-		as well as an additional 13 bytes of overhead that will now be filled.
+		Each buffer's data_bytes is the transport layer data length.
+		We need to add the 13 bytes of overhead to this before writing it.
 	*/
 
 	// For each datagram to send,
@@ -171,14 +172,16 @@ bool Connexion::WriteDatagrams(const BatchSet &buffers)
 		// Unwrap the message data
 		SendBuffer *buffer = reinterpret_cast<SendBuffer*>( node );
 		u8 *msg_data = GetTrailingBytes(buffer);
-		u32 msg_bytes = buffer->data_bytes + Transport::TRANSPORT_OVERHEAD;
-		u32 buf_bytes = msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES;
+		u32 msg_bytes = buffer->data_bytes;
 
 		// Write timestamp right before the encryption overhead
-		*(u16*)(msg_data + msg_bytes - Transport::TRANSPORT_OVERHEAD) = timestamp;
+		*(u16*)(msg_data + msg_bytes) = timestamp;
+
+		msg_bytes += Transport::TRANSPORT_OVERHEAD + AuthenticatedEncryption::OVERHEAD_BYTES;
 
 		// Encrypt the message
-		_auth_enc.Encrypt(msg_data, buf_bytes, msg_bytes);
+		_auth_enc.Encrypt(msg_data, msg_bytes);
+		buffer->data_bytes = msg_bytes;
 	}
 
 	// Do not need to update a "last send" timestamp here because the client is responsible for sending keep-alives

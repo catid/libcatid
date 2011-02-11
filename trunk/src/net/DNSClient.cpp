@@ -496,7 +496,7 @@ bool DNSClient::PostDNSPacket(DNSRequest *req, u32 now)
 	// Post DNS request
 	req->last_post_time = now;
 
-	return Write(pkt, _server_addr);
+	return Write(pkt, bytes, _server_addr);
 }
 
 bool DNSClient::PerformLookup(DNSRequest *req)

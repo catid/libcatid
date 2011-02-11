@@ -313,6 +313,13 @@ private:
 	// Queue of outgoing datagrams for batched output
 	BatchSet _outgoing_datagrams;
 
+	CAT_INLINE void QueueWriteDatagram(u8 *data, u32 data_bytes)
+	{
+		SendBuffer *buffer = SendBuffer::Promote(data);
+		buffer->data_bytes = data_bytes;
+		_outgoing_datagrams.PushBack(buffer);
+	}
+
 	// true = no longer connected
 	u8 _disconnect_countdown; // When it hits zero, will called RequestShutdown() and close the socket
 	u8 _disconnect_reason; // DISCO_CONNECTED = still connected
@@ -403,9 +410,11 @@ protected:
 
 	virtual bool WriteDatagrams(const BatchSet &buffers) = 0;
 
-	CAT_INLINE bool WriteDatagrams(u8 *single)
+	CAT_INLINE bool WriteDatagrams(u8 *single, u32 data_bytes)
 	{
-		return WriteDatagrams(SendBuffer::Promote(single));
+		SendBuffer *buffer = SendBuffer::Promote(single);
+		buffer->data_bytes = data_bytes;
+		return WriteDatagrams(buffer);
 	}
 
 	virtual void OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count) = 0;

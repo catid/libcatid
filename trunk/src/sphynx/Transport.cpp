@@ -755,8 +755,7 @@ bool Transport::WriteUnreliableOOB(u8 msg_opcode, const void *vmsg_data, u32 dat
 	pkt_msg[0] = msg_opcode;
 	memcpy(pkt_msg + 1, msg_data, data_bytes - 1);
 
-	SendBuffer::Shrink(pkt, msg_bytes);
-	return WriteDatagrams(pkt);
+	return WriteDatagrams(pkt, msg_bytes);
 }
 
 bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_bytes, SuperOpcode super_opcode)
@@ -812,8 +811,7 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 		pkt[0] = msg_opcode;
 		memcpy(pkt + 1, msg_data, data_bytes - 1);
 
-		SendBuffer::Shrink(old_send_buffer, send_buffer_bytes);
-		_outgoing_datagrams.PushBack(SendBuffer::Promote(old_send_buffer));
+		QueueWriteDatagram(old_send_buffer, send_buffer_bytes);
 	}
 	else
 	{
@@ -864,19 +862,18 @@ void Transport::FlushWrites()
 
 	_big_lock.Enter();
 
-	BatchSet outgoing_datagrams = _outgoing_datagrams;
-	_outgoing_datagrams.Clear();
-
 	u8 *send_buffer = _send_buffer;
 	if (send_buffer)
 	{
-		SendBuffer::Shrink(send_buffer, _send_buffer_bytes);
-		outgoing_datagrams.PushBack(SendBuffer::Promote(send_buffer));
+		QueueWriteDatagram(send_buffer, _send_buffer_bytes);
 
 		_send_buffer = 0;
 		_send_buffer_bytes = 0;
 		_send_buffer_stream = NUM_STREAMS;
 	}
+
+	BatchSet outgoing_datagrams = _outgoing_datagrams;
+	_outgoing_datagrams.Clear();
 
 	_big_lock.Leave();
 
@@ -957,8 +954,7 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 	// If the growing send buffer cannot contain the new message,
 	if (send_buffer_bytes + msg_bytes > max_payload_bytes)
 	{
-		SendBuffer::Shrink(send_buffer, send_buffer_bytes);
-		_outgoing_datagrams.PushBack(SendBuffer::Promote(send_buffer));
+		QueueWriteDatagram(send_buffer, send_buffer_bytes);
 
 		send_buffer = 0;
 		send_buffer_bytes = 0;
@@ -1217,8 +1213,7 @@ void Transport::WriteACK()
 			_send_buffer_bytes = msg_bytes;
 			_send_buffer_stream = NUM_STREAMS;
 
-			SendBuffer::Shrink(old_send_buffer, send_buffer_bytes);
-			_outgoing_datagrams.PushBack(SendBuffer::Promote(old_send_buffer));
+			QueueWriteDatagram(old_send_buffer, send_buffer_bytes);
 		}
 	}
 	else
@@ -1286,7 +1281,6 @@ bool Transport::PostMTUProbe(SphynxTLS *tls, u32 mtu)
 		return false;
 
 	u32 payload_bytes = mtu - _overhead_bytes;
-	u32 data_bytes = payload_bytes - TRANSPORT_OVERHEAD;
 
 	u8 *pkt = SendBuffer::Acquire(payload_bytes + TRANSPORT_OVERHEAD + AuthenticatedEncryption::OVERHEAD_BYTES);
 	if (!pkt) return false;
@@ -1296,17 +1290,17 @@ bool Transport::PostMTUProbe(SphynxTLS *tls, u32 mtu)
 	//	R = 0 (unreliable)
 	//	C = 1 (large packet size)
 	//	SOP = IOP_C2S_MTU_PROBE
-	pkt[0] = (u8)((IOP_C2S_MTU_PROBE << SOP_SHIFT) | C_MASK | (data_bytes & BLO_MASK));
-	pkt[1] = (u8)(data_bytes >> BHI_SHIFT);
+	pkt[0] = (u8)((IOP_C2S_MTU_PROBE << SOP_SHIFT) | C_MASK | (payload_bytes & BLO_MASK));
+	pkt[1] = (u8)(payload_bytes >> BHI_SHIFT);
 
 	// Write message type
 	pkt[2] = IOP_C2S_MTU_PROBE;
 
 	// Fill with random data
-	tls->csprng->Generate(pkt + 3, data_bytes - 1);
+	tls->csprng->Generate(pkt + 3, payload_bytes - 3);
 
 	// Encrypt and send buffer
-	if (WriteDatagrams(pkt))
+	if (WriteDatagrams(pkt, payload_bytes))
 	{
 		// TODO: Need to rework this for flow control
 		//_send_flow.OnPacketSend(mtu);
@@ -1780,8 +1774,7 @@ void Transport::WriteQueuedReliable()
 						}
 						else if (send_buffer_bytes > 0) // Not worth fragmentation, dump current send buffer
 						{
-							SendBuffer::Shrink(send_buffer, send_buffer_bytes);
-							_outgoing_datagrams.PushBack(SendBuffer::Promote(send_buffer));
+							QueueWriteDatagram(send_buffer, send_buffer_bytes);
 
 							// Update send epoch bytes
 							send_epoch_bytes += send_buffer_bytes + _overhead_bytes;

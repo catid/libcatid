@@ -117,7 +117,6 @@ void Client::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 			else if (bytes == S2C_COOKIE_LEN && data[0] == S2C_COOKIE)
 			{
 				u8 *pkt = SendBuffer::Acquire(C2S_CHALLENGE_LEN);
-
 				if (!pkt)
 				{
 					WARN("Client") << "Unable to connect: Cannot allocate buffer for challenge message";
@@ -144,7 +143,7 @@ void Client::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 				memcpy(pkt + 1 + 4 + 4, _cached_challenge, CHALLENGE_BYTES);
 
 				// Attempt to post a pkt
-				if (!Write(pkt, _server_addr))
+				if (!Write(pkt, C2S_CHALLENGE_LEN, _server_addr))
 				{
 					WARN("Client") << "Unable to connect: Cannot post pkt to cookie";
 					ConnectFail(ERR_CLIENT_BROKEN_PIPE);
@@ -215,6 +214,7 @@ void Client::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 	{
 		++buffer_count;
 		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
+		u32 data_bytes = buffer->data_bytes;
 
 		if (buffer->data_bytes == 0)
 		{
@@ -222,8 +222,9 @@ void Client::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 			Disconnect(ERR_CLIENT_BROKEN_PIPE);
 			break;
 		}
-		else if (_auth_enc.Decrypt(GetTrailingBytes(buffer), buffer->data_bytes))
+		else if (_auth_enc.Decrypt(GetTrailingBytes(buffer), data_bytes))
 		{
+			buffer->data_bytes = data_bytes - AuthenticatedEncryption::OVERHEAD_BYTES;
 			delivery.PushBack(buffer);
 		}
 		else
@@ -551,7 +552,7 @@ bool Client::PostHello()
 	memcpy(pkt + 1 + 4, _server_public_key.GetPublicKey(), PUBLIC_KEY_BYTES);
 
 	// Attempt to post packet
-	if (!Write(pkt, _server_addr))
+	if (!Write(pkt, C2S_HELLO_LEN, _server_addr))
 	{
 		WARN("Client") << "Unable to post hello packet";
 		return false;
@@ -582,8 +583,8 @@ bool Client::WriteDatagrams(const BatchSet &buffers)
 		At this point, the timestamp has not been written.
 		The encryption overhead is also not filled in yet.
 
-		Each buffer's data_bytes includes the X bytes of transport layer data
-		as well as an additional 13 bytes of overhead that will now be filled.
+		Each buffer's data_bytes is the transport layer data length.
+		We need to add the 13 bytes of overhead to this before writing it.
 	*/
 
 	// For each datagram to send,
@@ -592,14 +593,16 @@ bool Client::WriteDatagrams(const BatchSet &buffers)
 		// Unwrap the message data
 		SendBuffer *buffer = reinterpret_cast<SendBuffer*>( node );
 		u8 *msg_data = GetTrailingBytes(buffer);
-		u32 msg_bytes = buffer->data_bytes + Transport::TRANSPORT_OVERHEAD;
-		u32 buf_bytes = msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES;
+		u32 msg_bytes = buffer->data_bytes;
 
 		// Write timestamp right before the encryption overhead
-		*(u16*)(msg_data + msg_bytes - Transport::TRANSPORT_OVERHEAD) = timestamp;
+		*(u16*)(msg_data + msg_bytes) = timestamp;
+
+		msg_bytes += Transport::TRANSPORT_OVERHEAD + AuthenticatedEncryption::OVERHEAD_BYTES;
 
 		// Encrypt the message
-		_auth_enc.Encrypt(msg_data, buf_bytes, msg_bytes);
+		_auth_enc.Encrypt(msg_data, msg_bytes);
+		buffer->data_bytes = msg_bytes;
 	}
 
 	// If write fails,

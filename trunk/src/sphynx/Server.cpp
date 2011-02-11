@@ -257,8 +257,7 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 
 				pkt[0] = S2C_ERROR;
 				pkt[1] = (u8)(ERR_TAMPERING);
-				SendBuffer::Shrink(pkt, S2C_ERROR_LEN);
-				Write(pkt, buffer->addr);
+				Write(pkt, S2C_ERROR_LEN, buffer->addr);
 			}
 			// If out of memory for Connexion objects,
 			else if (!(conn = NewConnexion()))
@@ -267,8 +266,7 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 
 				pkt[0] = S2C_ERROR;
 				pkt[1] = (u8)(ERR_SERVER_ERROR);
-				SendBuffer::Shrink(pkt, S2C_ERROR_LEN);
-				Write(pkt, buffer->addr);
+				Write(pkt, S2C_ERROR_LEN, buffer->addr);
 			}
 			// If unable to key encryption from session key,
 			else if (!_key_agreement_responder.KeyEncryption(&key_hash, &conn->_auth_enc, _session_key))
@@ -277,8 +275,7 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 
 				pkt[0] = S2C_ERROR;
 				pkt[1] = (u8)(ERR_SERVER_ERROR);
-				SendBuffer::Shrink(pkt, S2C_ERROR_LEN);
-				Write(pkt, buffer->addr);
+				Write(pkt, S2C_ERROR_LEN, buffer->addr);
 			}
 			else // Good so far:
 			{
@@ -294,12 +291,16 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 				conn->_parent = this;
 				conn->InitializePayloadBytes(Is6());
 
+				// Assign to a worker
+				SphynxLayer *layer = reinterpret_cast<SphynxLayer*>( GetIOLayer() );
+				conn->_server_worker_id = layer->GetWorkerThreads()->AssignWorker(conn);
+
 				if (!conn->InitializeTransportSecurity(false, conn->_auth_enc))
 				{
 					WARN("Server") << "Ignoring challenge: Unable to initialize transport security";
 				}
 
-				if (!Write(pkt, buffer->addr))
+				if (!Write(pkt, S2C_ANSWER_LEN, buffer->addr))
 				{
 					WARN("Server") << "Ignoring challenge: Unable to post packet";
 				}
@@ -311,10 +312,6 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 				else
 				{
 					WARN("Server") << "Accepted challenge and posted answer.  Client connected";
-
-					// Assign to a worker
-					SphynxLayer *layer = reinterpret_cast<SphynxLayer*>( GetIOLayer() );
-					conn->_server_worker_id = layer->GetWorkerThreads()->AssignWorker(conn);
 
 					conn->OnConnect(tls);
 
@@ -409,7 +406,7 @@ bool Server::PostConnectionCookie(const NetAddr &dest)
 							 : _cookie_jar.Generate(dest.GetIP4(), dest.GetPort());
 
 	// Attempt to post the packet, ignoring failures
-	return Write(pkt, dest);
+	return Write(pkt, S2C_COOKIE_LEN, dest);
 }
 
 bool Server::PostConnectionError(const NetAddr &dest, HandshakeError err)
@@ -426,7 +423,7 @@ bool Server::PostConnectionError(const NetAddr &dest, HandshakeError err)
 	pkt[1] = (u8)(err);
 
 	// Post packet without checking for errors
-	return Write(pkt, dest);
+	return Write(pkt, S2C_ERROR_LEN, dest);
 }
 
 bool Server::InitializeKey(SphynxTLS *tls, TunnelKeyPair &key_pair, const char *pair_path, const char *public_path)

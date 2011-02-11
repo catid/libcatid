@@ -259,7 +259,7 @@ void AuthenticatedEncryption::AcceptIV(u64 iv)
 
 
 // Decrypt a packet from the remote host
-bool AuthenticatedEncryption::Decrypt(u8 *buffer, u32 &buf_bytes)
+bool AuthenticatedEncryption::Decrypt(u8 *buffer, u32 buf_bytes)
 {
     if (buf_bytes < OVERHEAD_BYTES) return false;
 
@@ -352,18 +352,14 @@ bool AuthenticatedEncryption::Decrypt(u8 *buffer, u32 &buf_bytes)
 
     AcceptIV(iv);
 
-	// Return the number of message bytes in buf_bytes
-	buf_bytes = msg_bytes;
     return true;
 }
 
 // Encrypt a packet to send to the remote host
-bool AuthenticatedEncryption::Encrypt(u8 *buffer, u32 buffer_bytes, u32 &msg_bytes)
+bool AuthenticatedEncryption::Encrypt(u8 *buffer, u32 buf_bytes)
 {
-	u32 out_bytes = msg_bytes + OVERHEAD_BYTES;
-	if (out_bytes > buffer_bytes) return false;
-
-    u8 *overhead = buffer + msg_bytes;
+	u32 msg_bytes = buf_bytes - OVERHEAD_BYTES;
+    u8 *overhead = buffer + buf_bytes - OVERHEAD_BYTES;
 
 	// Outgoing IV increments by one each time, and starts one ahead of remotely generated IV
 	u64 iv = ++local_iv;
@@ -416,7 +412,5 @@ bool AuthenticatedEncryption::Encrypt(u8 *buffer, u32 buffer_bytes, u32 &msg_byt
 	printf("\n");
 #endif
 
-	// Return the number of ciphertext bytes in msg_bytes
-	msg_bytes = out_bytes;
 	return true;
 }
