@@ -219,11 +219,16 @@ void Connexion::OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferS
 		{
 			u32 *client_timestamp = reinterpret_cast<u32*>( data + 1 );
 
-			// Construct message data
-			u32 stamps[3] = { *client_timestamp, getLE(recv_time), getLE(Clock::msec()) };
+			u8 *pkt = GetOOBBuffer(4 * 3);
+			if (pkt)
+			{
+				u32 *stamps = reinterpret_cast<u32*>( pkt );
+				stamps[0] = *client_timestamp;
+				stamps[1] = getLE(recv_time);
+				stamps[2] = getLE(Clock::msec());
 
-			// Write it out-of-band to avoid delays in transmission
-			WriteUnreliableOOB(IOP_S2C_TIME_PONG, &stamps, sizeof(stamps), SOP_INTERNAL);
+				WriteOOB(IOP_S2C_TIME_PONG, pkt, 4 * 3, SOP_INTERNAL);
+			}
 
 			WARN("Server") << "Got IOP_C2S_TIME_PING.  Stamp = " << *client_timestamp;
 		}

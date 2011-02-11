@@ -564,10 +564,13 @@ bool Client::PostHello()
 
 bool Client::PostTimePing()
 {
-	u32 timestamp = Clock::msec();
+	u8 *pkt = GetOOBBuffer(4);
+	if (!pkt) return false;
+
+	*(u32*)pkt = Clock::msec();
 
 	// Write it out-of-band to avoid delays in transmission
-	return WriteUnreliableOOB(IOP_C2S_TIME_PING, &timestamp, sizeof(timestamp), SOP_INTERNAL);
+	return WriteOOB(IOP_C2S_TIME_PING, pkt, 4, SOP_INTERNAL);
 }
 
 bool Client::WriteDatagrams(const BatchSet &buffers)
