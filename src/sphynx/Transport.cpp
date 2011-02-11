@@ -392,6 +392,10 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 				++ack_id;
 			}
 
+			// Actual data bytes is one more than the field indicates, since
+			// there is always at least one byte of data following a header.
+			++data_bytes;
+
 			if (bytes < data_bytes)
 			{
 				WARN("Transport") << "Truncated transport message ignored";
@@ -713,44 +717,41 @@ void Transport::OnFragment(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *dat
 	}
 }
 
-bool Transport::WriteOOB(u8 msg_opcode, u8 *buffer, u32 data_bytes, SuperOpcode super_opcode)
+bool Transport::WriteOOB(u8 msg_opcode, const void *msg_data, u32 data_bytes, SuperOpcode super_opcode)
 {
-	u32 msg_bytes = 1 + data_bytes;
-
-	// Write header
-	if (data_bytes > BLO_MASK)
+	u8 *pkt = SendBuffer::Acquire(2 + 1 + data_bytes + TRANSPORT_OVERHEAD + AuthenticatedEncryption::OVERHEAD_BYTES);
+	if (!pkt)
 	{
-		buffer[0] = (u8)(data_bytes & BLO_MASK) | (super_opcode << SOP_SHIFT) | C_MASK;
-		buffer[1] = (u8)(data_bytes >> BHI_SHIFT);
-		buffer[2] = msg_opcode;
-		msg_bytes += 2;
-	}
-	else
-	{
-		buffer[0] = (u8)data_bytes | (super_opcode << SOP_SHIFT);
-		buffer[1] = msg_opcode;
-		++msg_bytes;
-	}
-
-	// Fail on invalid input
-	if (msg_bytes > _max_payload_bytes)
-	{
-		WARN("Transport") << "Invalid input: Unreliable OOB buffer size request too large";
-		SendBuffer::Release(buffer);
+		WARN("Transport") << "Out of memory for out-of-band message";
 		return false;
 	}
 
-	return WriteDatagrams(buffer, msg_bytes);
+	u32 offset = 1;
+
+	// Write header
+	if (data_bytes <= BLO_MASK)
+		pkt[0] = (u8)data_bytes | (super_opcode << SOP_SHIFT);
+	else
+	{
+		pkt[0] = (u8)(data_bytes & BLO_MASK) | (super_opcode << SOP_SHIFT) | C_MASK;
+		pkt[1] = (u8)(data_bytes >> BHI_SHIFT);
+		++offset;
+	}
+
+	// Write data
+	pkt[offset++] = msg_opcode;
+	memcpy(pkt + offset, msg_data, data_bytes);
+
+	return WriteDatagrams(pkt, offset + data_bytes);
 }
 
 bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_bytes, SuperOpcode super_opcode)
 {
 	const u8 *msg_data = reinterpret_cast<const u8*>( vmsg_data );
 
-	++data_bytes;
 	u32 max_payload_bytes = _max_payload_bytes;
 	u32 header_bytes = data_bytes > BLO_MASK ? 2 : 1;
-	u32 msg_bytes = header_bytes + data_bytes;
+	u32 msg_bytes = header_bytes + 1 + data_bytes;
 
 	// Fail on invalid input
 	if (msg_bytes > max_payload_bytes)
@@ -761,74 +762,46 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 
 	AutoMutex lock(_big_lock);
 
-	u8 *old_send_buffer = _send_buffer;
+	u8 *send_buffer = _send_buffer;
 	u32 send_buffer_bytes = _send_buffer_bytes;
 
-	// If the growing send buffer cannot contain the new message,
+	// If growing the send buffer cannot contain the new message,
 	if (send_buffer_bytes + msg_bytes > max_payload_bytes)
 	{
-		// Create a new buffer
-		u8 *pkt = SendBuffer::Acquire(AuthenticatedEncryption::OVERHEAD_BYTES + msg_bytes + TRANSPORT_OVERHEAD);
-		if (!pkt)
-		{
-			WARN("Transport") << "Out of memory: Unable to allocate unreliable post buffer";
-			return false;
-		}
+		QueueWriteDatagram(send_buffer, send_buffer_bytes);
 
-		// Update send buffer state
-		_send_buffer = pkt;
-		_send_buffer_bytes = msg_bytes;
+		send_buffer_bytes = 0;
 		_send_buffer_stream = NUM_STREAMS;
+	}
 
-		// Write header
-		if (data_bytes > BLO_MASK)
-		{
-			pkt[0] = (u8)(data_bytes & BLO_MASK) | (super_opcode << SOP_SHIFT) | C_MASK;
-			pkt[1] = (u8)(data_bytes >> BHI_SHIFT);
-		}
-		else
-		{
-			pkt[0] = (u8)data_bytes | (super_opcode << SOP_SHIFT);
-		}
-		pkt += header_bytes;
+	// Create or grow buffer and write into it
+	msg_bytes += send_buffer_bytes;
+	_send_buffer_bytes = msg_bytes;
+	send_buffer = _send_buffer = SendBuffer::Resize(send_buffer, msg_bytes + TRANSPORT_OVERHEAD + AuthenticatedEncryption::OVERHEAD_BYTES);
+	if (!send_buffer)
+	{
+		WARN("Transport") << "Out of memory: Unable to resize unreliable post buffer";
+		_send_buffer_bytes = 0;
+		_send_buffer_stream = NUM_STREAMS;
+		return false;
+	}
 
-		// Write message
-		pkt[0] = msg_opcode;
-		memcpy(pkt + 1, msg_data, data_bytes - 1);
-
-		QueueWriteDatagram(old_send_buffer, send_buffer_bytes);
+	// Write header
+	if (data_bytes <= BLO_MASK)
+	{
+		send_buffer[0] = (u8)data_bytes | (super_opcode << SOP_SHIFT);
+		send_buffer++;
 	}
 	else
 	{
-		// Create or grow buffer and write into it
-		u8 *pkt = _send_buffer = SendBuffer::Resize(old_send_buffer, AuthenticatedEncryption::OVERHEAD_BYTES + send_buffer_bytes + msg_bytes + TRANSPORT_OVERHEAD);
-		if (!_send_buffer)
-		{
-			WARN("Transport") << "Out of memory: Unable to resize unreliable post buffer";
-			_send_buffer_bytes = 0;
-			_send_buffer_stream = NUM_STREAMS;
-			return false;
-		}
-
-		pkt += send_buffer_bytes;
-		_send_buffer_bytes += msg_bytes;
-
-		// Write header
-		if (data_bytes > BLO_MASK)
-		{
-			pkt[0] = (u8)(data_bytes & BLO_MASK) | (super_opcode << SOP_SHIFT) | C_MASK;
-			pkt[1] = (u8)(data_bytes >> BHI_SHIFT);
-		}
-		else
-		{
-			pkt[0] = (u8)data_bytes | (super_opcode << SOP_SHIFT);
-		}
-		pkt += header_bytes;
-
-		// Write message
-		pkt[0] = msg_opcode;
-		memcpy(pkt + 1, msg_data, data_bytes - 1);
+		send_buffer[0] = (u8)(data_bytes & BLO_MASK) | (super_opcode << SOP_SHIFT) | C_MASK;
+		send_buffer[1] = (u8)(data_bytes >> BHI_SHIFT);
+		send_buffer += 2;
 	}
+
+	// Write data
+	send_buffer[0] = msg_opcode;
+	memcpy(send_buffer + 1, msg_data, data_bytes);
 
 	return true;
 }
@@ -953,8 +926,8 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 	}
 
 	// Create or grow buffer and write into it
-	_send_buffer = SendBuffer::Resize(send_buffer, send_buffer_bytes + msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD);
-	if (!_send_buffer)
+	u8 *msg = _send_buffer = SendBuffer::Resize(send_buffer, send_buffer_bytes + msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD);
+	if (!msg)
 	{
 		WARN("Transport") << "Out of memory: Unable to resize post buffer";
 		_send_buffer_bytes = 0;
@@ -962,8 +935,9 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 		return;
 	}
 
-	u8 *msg = _send_buffer + send_buffer_bytes;
+	msg += send_buffer_bytes;
 
+	// TODO: FIX DATA BYTES
 	if (data_bytes_with_overhead > BLO_MASK)
 	{
 		msg[0] = (u8)(data_bytes_with_overhead & BLO_MASK) | C_MASK | hdr;
@@ -1007,6 +981,7 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 
 void Transport::WriteACK()
 {
+	// TODO: FIX DATA BYTES AND ZERO COPY
 	u8 packet[MAXIMUM_MTU];
 	u8 *offset = packet + 2 + 2; // 2 for header field
 	u32 max_payload_bytes = _max_payload_bytes;
@@ -1224,6 +1199,7 @@ u32 Transport::RetransmitLost(u32 now)
 	u32 timeout = _send_flow.GetLossTimeout();
 	u32 loss_count = 0, last_mia_time = 0;
 
+	// TODO: Should not need to lock to retransmit
 	AutoMutex lock(_big_lock);
 
 	// Retransmit lost packets
@@ -1268,33 +1244,24 @@ bool Transport::PostMTUProbe(SphynxTLS *tls, u32 mtu)
 	u32 payload_bytes = mtu - _overhead_bytes;
 
 	u8 *pkt = SendBuffer::Acquire(payload_bytes + TRANSPORT_OVERHEAD + AuthenticatedEncryption::OVERHEAD_BYTES);
-	if (!pkt) return false;
+	if (!pkt)
+	{
+		WARN("Transport") << "Out of memory error while posting MTU probe";
+		return false;
+	}
 
-	// Write header
+	// Write message
 	//	I = 0 (no ack id follows)
 	//	R = 0 (unreliable)
 	//	C = 1 (large packet size)
 	//	SOP = IOP_C2S_MTU_PROBE
-	u32 msg_bytes = payload_bytes - 2;
-
+	u32 msg_bytes = payload_bytes - 3;
 	pkt[0] = (u8)((IOP_C2S_MTU_PROBE << SOP_SHIFT) | C_MASK | (msg_bytes & BLO_MASK));
 	pkt[1] = (u8)(msg_bytes >> BHI_SHIFT);
-
-	// Write message type
 	pkt[2] = IOP_C2S_MTU_PROBE;
+	tls->csprng->Generate(pkt + 3, msg_bytes);
 
-	// Fill with random data
-	tls->csprng->Generate(pkt + 3, payload_bytes - 3);
-
-	// Encrypt and send buffer
-	if (WriteDatagrams(pkt, payload_bytes))
-	{
-		// TODO: Need to rework this for flow control
-		//_send_flow.OnPacketSend(mtu);
-		return true;
-	}
-
-	return false;
+	return WriteDatagrams(pkt, payload_bytes);
 }
 
 void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
@@ -1326,6 +1293,8 @@ void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 
 	INANE("Transport") << "Got ACK with " << data_bytes << " bytes of data to decode ----";
 
+	// TODO: Split lock into one for the send buffer access and one for the send queue
+	// TODO: Retransmit a batch of packets at a time to reduce locking
 	AutoMutex lock(_big_lock);
 
 	while (data_bytes > 0)

@@ -67,7 +67,7 @@ namespace sphynx {
 		| BLO |I|R|SOP|C|      BHI      |
 		---------------------------------
 
-		DATA_BYTES: BHI | BLO = Number of bytes in data part of message.
+		DATA_BYTES: BHI | BLO = Number of bytes in data part of message - 1
 		I: 1=Followed by ACK-ID field. 0=ACK-ID is one higher than the last.
 		R: 1=Reliable. 0=Unreliable.
 		SOP: Super opcodes:
@@ -352,15 +352,9 @@ public:
 	void InitializePayloadBytes(bool ip6);
 	bool InitializeTransportSecurity(bool is_initiator, AuthenticatedEncryption &auth_enc);
 
-	// Get Out-Of-Band Buffer
-	// data_bytes = number of bytes after the mandatory type byte
-	CAT_INLINE u8 *GetOOBBuffer(u32 data_bytes) { return SendBuffer::Acquire(2 + 1 + data_bytes + TRANSPORT_OVERHEAD + AuthenticatedEncryption::OVERHEAD_BYTES); }
-	bool WriteOOB(u8 msg_opcode, u8 *buffer, u32 data_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
-
-	// Unreliable:
+	// Write
+	bool WriteOOB(u8 msg_opcode, const void *msg_data = 0, u32 data_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
 	bool WriteUnreliable(u8 msg_opcode, const void *msg_data = 0, u32 data_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
-
-	// Reliable:
 	bool WriteReliable(StreamMode, u8 msg_opcode, const void *msg_data = 0, u32 data_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
 
 	// Flush send buffer after processing the current message from the remote host
@@ -429,15 +423,7 @@ protected:
 
 	bool PostMTUProbe(SphynxTLS *tls, u32 mtu);
 
-	CAT_INLINE bool WriteDisconnect(u8 reason)
-	{
-		u8 *pkt = GetOOBBuffer(1);
-		if (!pkt) return false;
-
-		pkt[0] = reason;
-
-		return WriteOOB(IOP_DISCO, pkt, 1, SOP_INTERNAL);
-	}
+	CAT_INLINE bool WriteDisconnect(u8 reason) { return WriteOOB(IOP_DISCO, &reason, 1, SOP_INTERNAL); }
 };
 
 

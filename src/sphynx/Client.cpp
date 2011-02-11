@@ -257,7 +257,7 @@ void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)
 		// If time to repost hello packet,
 		if (now - _last_hello_post >= _hello_post_interval)
 		{
-			if (!PostHello())
+			if (!WriteHello())
 			{
 				WARN("Client") << "Unable to connect: Post failure";
 				ConnectFail(ERR_CLIENT_BROKEN_PIPE);
@@ -283,7 +283,7 @@ void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)
 			// If it is time for time sync,
 			if ((s32)(now - _next_sync_time) >= 0)
 			{
-				PostTimePing();
+				WriteTimePing();
 
 				// Increase synch interval after the first few data points
 				if (_sync_attempts >= TIME_SYNC_FAST_COUNT)
@@ -345,7 +345,7 @@ void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)
 			// Send a keep-alive after the silence limit expires
 			if ((s32)(now - _last_send_msec) >= SILENCE_LIMIT)
 			{
-				PostTimePing();
+				WriteTimePing();
 
 				_next_sync_time = now + TIME_SYNC_INTERVAL;
 			}
@@ -448,7 +448,7 @@ bool Client::FinalConnect(const NetAddr &addr)
 	_hello_post_interval = INITIAL_HELLO_POST_INTERVAL;
 
 	// Attempt to post hello message
-	if (!PostHello())
+	if (!WriteHello())
 	{
 		WARN("Client") << "Failed to connect: Post failure";
 		return false;
@@ -526,7 +526,7 @@ void Client::OnUnreachable(const NetAddr &src)
 	}
 }
 
-bool Client::PostHello()
+bool Client::WriteHello()
 {
 	if (_connected)
 	{
@@ -562,15 +562,12 @@ bool Client::PostHello()
 	return true;
 }
 
-bool Client::PostTimePing()
+bool Client::WriteTimePing()
 {
-	u8 *pkt = GetOOBBuffer(4);
-	if (!pkt) return false;
-
-	*(u32*)pkt = Clock::msec();
+	u32 timestamp = Clock::msec();
 
 	// Write it out-of-band to avoid delays in transmission
-	return WriteOOB(IOP_C2S_TIME_PING, pkt, 4, SOP_INTERNAL);
+	return WriteOOB(IOP_C2S_TIME_PING, &timestamp, 4, SOP_INTERNAL);
 }
 
 bool Client::WriteDatagrams(const BatchSet &buffers)

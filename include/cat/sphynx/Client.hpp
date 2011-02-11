@@ -92,8 +92,8 @@ class Client : public UDPEndpoint, public Transport, public WorkerCallbacks
 
 	void UpdateTimeSynch(u32 rtt, s32 delta);
 
-	bool PostHello();
-	bool PostTimePing();
+	bool WriteHello();
+	bool WriteTimePing();
 
 	// Return false to remove resolve from cache
 	bool OnResolve(const char *hostname, const NetAddr *array, int array_length);
