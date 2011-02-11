@@ -304,8 +304,6 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 		u8 *data = GetTrailingBytes(buffer);
 		u32 bytes = buffer->data_bytes;
 
-		INFO("Transport") << "\n" << cat::HexDumpString(data, bytes);
-
 		// Skip if not enough data
 		if (bytes < 3) continue;
 
@@ -1290,8 +1288,10 @@ bool Transport::PostMTUProbe(SphynxTLS *tls, u32 mtu)
 	//	R = 0 (unreliable)
 	//	C = 1 (large packet size)
 	//	SOP = IOP_C2S_MTU_PROBE
-	pkt[0] = (u8)((IOP_C2S_MTU_PROBE << SOP_SHIFT) | C_MASK | (payload_bytes & BLO_MASK));
-	pkt[1] = (u8)(payload_bytes >> BHI_SHIFT);
+	u32 msg_bytes = payload_bytes - 2;
+
+	pkt[0] = (u8)((IOP_C2S_MTU_PROBE << SOP_SHIFT) | C_MASK | (msg_bytes & BLO_MASK));
+	pkt[1] = (u8)(msg_bytes >> BHI_SHIFT);
 
 	// Write message type
 	pkt[2] = IOP_C2S_MTU_PROBE;

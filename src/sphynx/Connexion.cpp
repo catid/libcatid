@@ -198,7 +198,7 @@ void Connexion::OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferS
 			// MTU test payload includes a 2 byte header on top of data bytes
 			u32 payload_bytes = bytes + Transport::TRANSPORT_OVERHEAD;
 
-			//WARN("Server") << "Got IOP_C2S_MTU_PROBE.  Max payload bytes = " << payload_bytes;
+			WARN("Server") << "Got IOP_C2S_MTU_PROBE.  Max payload bytes = " << payload_bytes;
 
 			// If new maximum payload is greater than the previous one,
 			if (payload_bytes > _max_payload_bytes)
@@ -220,19 +220,19 @@ void Connexion::OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferS
 			u32 *client_timestamp = reinterpret_cast<u32*>( data + 1 );
 
 			// Construct message data
-			u32 stamps[2] = { *client_timestamp, getLE(Clock::msec()) };
+			u32 stamps[3] = { *client_timestamp, getLE(recv_time), getLE(Clock::msec()) };
 
 			// Write it out-of-band to avoid delays in transmission
 			WriteUnreliableOOB(IOP_S2C_TIME_PONG, &stamps, sizeof(stamps), SOP_INTERNAL);
 
-			//WARN("Server") << "Got IOP_C2S_TIME_PING.  Stamp = " << *client_timestamp;
+			WARN("Server") << "Got IOP_C2S_TIME_PING.  Stamp = " << *client_timestamp;
 		}
 		break;
 
 	case IOP_DISCO:
 		if (bytes == IOP_DISCO_LEN)
 		{
-			//WARN("Server") << "Got IOP_DISCO reason = " << (int)data[1];
+			WARN("Server") << "Got IOP_DISCO reason = " << (int)data[1];
 
 			Disconnect(data[1]);
 		}

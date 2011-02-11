@@ -43,7 +43,7 @@ public:
 			case 0:
 				{
 					WARN("Client") << "Got request for transmit";
-
+					/*
 					static char STR[4000];
 
 					for (int ii = 0; ii < sizeof(STR); ++ii)
@@ -57,7 +57,7 @@ public:
 						WriteReliable(STREAM_2, 1, STR, sizeof(STR));
 					WriteReliable(STREAM_2, 2, STR, sizeof(STR));
 
-					WriteReliable(STREAM_BULK, 0, STR, sizeof(STR));
+					WriteReliable(STREAM_BULK, 0, STR, sizeof(STR));*/
 				}
 				break;
 			default:

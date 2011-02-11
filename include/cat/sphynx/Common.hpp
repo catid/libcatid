@@ -158,7 +158,7 @@ enum InternalOpcode
 static const u32 IOP_C2S_MTU_TEST_MINLEN = 1 + 200;
 static const u32 IOP_S2C_MTU_SET_LEN = 1 + 2;
 static const u32 IOP_C2S_TIME_PING_LEN = 1 + 4;
-static const u32 IOP_S2C_TIME_PONG_LEN = 1 + 4 + 4;
+static const u32 IOP_S2C_TIME_PONG_LEN = 1 + 4 + 4 + 4;
 static const u32 IOP_DISCO_LEN = 1 + 1;
 
 

@@ -638,21 +638,29 @@ void Client::OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStre
 	case IOP_S2C_TIME_PONG:
 		if (bytes == IOP_S2C_TIME_PONG_LEN)
 		{
-			u32 client_now = Clock::msec();
 			u32 *timestamps = reinterpret_cast<u32*>( data + 1 );
 			u32 client_ping_send_time = timestamps[0];
 			u32 server_ping_recv_time = getLE(timestamps[1]);
-			u32 rtt = client_now - client_ping_send_time;
+			u32 server_pong_send_time = getLE(timestamps[2]);
+			u32 client_pong_recv_time = recv_time;
 
-			// If RTT is not impossible,
-			if (rtt < TIMEOUT_DISCONNECT)
-			{
-				s32 delta = server_ping_recv_time - client_ping_send_time - (rtt / 2);
+			// RTT = Overall transmit time c2s s2c without the processing time on the server
+			// Indicates quality of the delta measurement because lower RTT tends to happen
+			// when both legs are about the same trip time
+			u32 server_processing_time = server_pong_send_time - server_ping_recv_time;
+			u32 rtt = client_pong_recv_time - client_ping_send_time - server_processing_time;
 
-				//WARN("Client") << "Got IOP_S2C_TIME_PONG.  rtt=" << rtt << " unbalanced by " << (s32)(rtt/2 - (FromServerTime(server_ping_recv_time) - client_ping_send_time));
+			// First leg = Delta(Server-Client) + One-way c2s Trip Time
+			u32 first_leg = server_ping_recv_time - client_ping_send_time;
 
-				UpdateTimeSynch(rtt, delta);
-			}
+			// Second leg = Delta(Server-Client) - One-way s2c Trip Time
+			u32 second_leg = server_pong_send_time - client_pong_recv_time;
+
+			s32 delta = CAT_SAFE_AVERAGE(first_leg, second_leg);
+
+			WARN("Client") << "Got IOP_S2C_TIME_PONG.  rtt=" << rtt << " unbalanced by " << (s32)(rtt/2 - (fromServerTime(server_ping_recv_time) - client_ping_send_time));
+
+			UpdateTimeSynch(rtt, delta);
 		}
 		break;
 
