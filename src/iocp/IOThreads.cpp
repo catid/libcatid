@@ -246,6 +246,8 @@ bool IOThreads::Startup()
 
 	u32 worker_count = system_info.ProcessorCount;
 	if (worker_count < 1) worker_count = 1;
+	// TODO: Allow multiple threads later
+	worker_count = 1;
 
 	_workers = new IOThread[worker_count];
 	if (!_workers)
@@ -256,7 +258,7 @@ bool IOThreads::Startup()
 
 	_worker_count = worker_count;
 
-	_io_port = CreateIoCompletionPort(INVALID_HANDLE_VALUE, 0, 0, 1); // TODO: Allow multiple threads later
+	_io_port = CreateIoCompletionPort(INVALID_HANDLE_VALUE, 0, 0, 0);
 
 	if (!_io_port)
 	{
