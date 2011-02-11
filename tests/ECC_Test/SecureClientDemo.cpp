@@ -95,7 +95,8 @@ void SecureClientDemo::OnConnect()
 
     // Encrypt it
 	u32 bytes = 1500;
-    auth_enc.Encrypt(buffer, sizeof(buffer), bytes);
+	bytes += AuthenticatedEncryption::OVERHEAD_BYTES;
+    auth_enc.Encrypt(buffer, bytes);
 
     double t2 = Clock::usec();
 
@@ -138,7 +139,8 @@ void SecureClientDemo::OnSessionMessage(u8 *buffer, u32 bytes)
     *(u32*)&response[1] = id;
 
 	u32 response_bytes = 1500;
-    auth_enc.Encrypt(response, sizeof(response), response_bytes);
+	response_bytes += AuthenticatedEncryption::OVERHEAD_BYTES;
+    auth_enc.Encrypt(response, response_bytes);
 
     double t2 = Clock::usec();
 

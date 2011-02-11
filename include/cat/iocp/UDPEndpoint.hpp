@@ -89,9 +89,11 @@ public:
 	// before calling using addr.PromoteTo6()
 	bool Write(const BatchSet &buffers, const NetAddr &addr);
 
-	CAT_INLINE bool Write(u8 *data, const NetAddr &addr)
+	CAT_INLINE bool Write(u8 *data, u32 data_bytes, const NetAddr &addr)
 	{
-		return Write(SendBuffer::Promote(data), addr);
+		SendBuffer *buffer = SendBuffer::Promote(data);
+		buffer->data_bytes = data_bytes;
+		return Write(buffer, addr);
 	}
 
 	// When done with read buffers, call this function to add them back to the available pool

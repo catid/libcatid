@@ -102,7 +102,7 @@ int main()
 	}
 	else
 	{
-		INFO("Client") << "Press a key to terminate";
+		INFO("Server") << "Press a key to terminate";
 
 		while (!kbhit())
 		{

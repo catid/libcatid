@@ -115,7 +115,8 @@ void SecureServerDemo::OnSessionMessage(Connection *client, u8 *buffer, u32 byte
     }
 
     double t1 = Clock::usec();
-    client->auth_enc.Encrypt(response, sizeof(response), bytes);
+	bytes += AuthenticatedEncryption::OVERHEAD_BYTES;
+    client->auth_enc.Encrypt(response, bytes);
     double t2 = Clock::usec();
     cout << "Server: Encryption time = " << (t2 - t1) << " usec" << endl;
 

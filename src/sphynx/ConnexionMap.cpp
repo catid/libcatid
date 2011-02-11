@@ -129,7 +129,7 @@ bool ConnexionMap::LookupCheckFlood(Connexion * &connexion, const NetAddr &addr)
 			conn->AddRef();
 
 			connexion = conn;
-			return true;
+			return false;
 		}
 		else
 		{

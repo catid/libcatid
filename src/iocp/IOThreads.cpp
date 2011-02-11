@@ -256,7 +256,7 @@ bool IOThreads::Startup()
 
 	_worker_count = worker_count;
 
-	_io_port = CreateIoCompletionPort(INVALID_HANDLE_VALUE, 0, 0, 0);
+	_io_port = CreateIoCompletionPort(INVALID_HANDLE_VALUE, 0, 0, 1); // TODO: Allow multiple threads later
 
 	if (!_io_port)
 	{

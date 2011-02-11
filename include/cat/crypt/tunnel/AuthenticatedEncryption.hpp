@@ -132,17 +132,11 @@ public:
 	void AllowOutOfOrder(bool allowed = true) { _accept_out_of_order = allowed; }
 
 public:
-    // Overhead is OVERHEAD_BYTES bytes at the end of the packet
-    // Returns false if the message is invalid.  Invalid messages should just be ignored as if they were never received
-    // buf_bytes: Number of bytes in the buffer, including the overhead
-	// If Decrypt() returns true, buf_bytes is set to the size of the decrypted message
-    bool Decrypt(u8 *buffer, u32 &buf_bytes);
+	// buf_bytes: Number of bytes in the buffer, including OVERHEAD_BYTES at the end of the packet
+    bool Decrypt(u8 *buffer, u32 buf_bytes);
 
-    // Overhead is OVERHEAD_BYTES bytes at the end of the packet
-	// buffer_bytes: Number of bytes in the buffer; will return false if buffer size too small
-    // msg_bytes: Number of bytes in the message, excluding the overhead
-	// If Encrypt() returns true, msg_bytes is set to the size of the encrypted message
-    bool Encrypt(u8 *buffer, u32 buffer_bytes, u32 &msg_bytes);
+	// buf_bytes: Number of bytes in the buffer, including OVERHEAD_BYTES at the end of the packet
+    bool Encrypt(u8 *buffer, u32 buf_bytes);
 };
 
 
