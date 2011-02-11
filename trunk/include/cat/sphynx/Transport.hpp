@@ -198,7 +198,7 @@ namespace sphynx {
 	The following functions need careful attention to avoid race conditions,
 	since these functions may be accessed from outside of the worker thread:
 
-	WriteUnreliableOOB, WriteUnreliable, WriteReliable, FlushImmediately
+	WriteOOB, WriteUnreliable, WriteReliable, FlushImmediately
 
 	Locks should always be held for a minimal amount of time, never to include
 	invocations of the IO layer functions that actually transmit data.  Ideally
@@ -352,9 +352,15 @@ public:
 	void InitializePayloadBytes(bool ip6);
 	bool InitializeTransportSecurity(bool is_initiator, AuthenticatedEncryption &auth_enc);
 
-	// Message sending commands
-	bool WriteUnreliableOOB(u8 msg_opcode, const void *msg_data = 0, u32 data_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
+	// Get Out-Of-Band Buffer
+	// data_bytes = number of bytes after the mandatory type byte
+	CAT_INLINE u8 *GetOOBBuffer(u32 data_bytes) { return SendBuffer::Acquire(2 + 1 + data_bytes + TRANSPORT_OVERHEAD + AuthenticatedEncryption::OVERHEAD_BYTES); }
+	bool WriteOOB(u8 msg_opcode, u8 *buffer, u32 data_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
+
+	// Unreliable:
 	bool WriteUnreliable(u8 msg_opcode, const void *msg_data = 0, u32 data_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
+
+	// Reliable:
 	bool WriteReliable(StreamMode, u8 msg_opcode, const void *msg_data = 0, u32 data_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
 
 	// Flush send buffer after processing the current message from the remote host
@@ -423,7 +429,15 @@ protected:
 
 	bool PostMTUProbe(SphynxTLS *tls, u32 mtu);
 
-	CAT_INLINE bool WriteDisconnect(u8 reason) { return WriteUnreliableOOB(IOP_DISCO, &reason, 1, SOP_INTERNAL); }
+	CAT_INLINE bool WriteDisconnect(u8 reason)
+	{
+		u8 *pkt = GetOOBBuffer(1);
+		if (!pkt) return false;
+
+		pkt[0] = reason;
+
+		return WriteOOB(IOP_DISCO, pkt, 1, SOP_INTERNAL);
+	}
 };
 
 

@@ -713,47 +713,34 @@ void Transport::OnFragment(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *dat
 	}
 }
 
-bool Transport::WriteUnreliableOOB(u8 msg_opcode, const void *vmsg_data, u32 data_bytes, SuperOpcode super_opcode)
+bool Transport::WriteOOB(u8 msg_opcode, u8 *buffer, u32 data_bytes, SuperOpcode super_opcode)
 {
-	const u8 *msg_data = reinterpret_cast<const u8*>( vmsg_data );
-
-	++data_bytes;
-	u32 max_payload_bytes = _max_payload_bytes;
-	u32 header_bytes = data_bytes > BLO_MASK ? 2 : 1;
-	u32 msg_bytes = header_bytes + data_bytes;
-
-	// Fail on invalid input
-	if (msg_bytes > max_payload_bytes)
-	{
-		WARN("Transport") << "Invalid input: Unreliable OOB buffer size request too large";
-		return false;
-	}
-
-	u8 *pkt = SendBuffer::Acquire(msg_bytes + TRANSPORT_OVERHEAD + AuthenticatedEncryption::OVERHEAD_BYTES);
-	if (!pkt)
-	{
-		WARN("Transport") << "Out of memory: Unable to allocate unreliable OOB post buffer";
-		return false;
-	}
+	u32 msg_bytes = 1 + data_bytes;
 
 	// Write header
 	if (data_bytes > BLO_MASK)
 	{
-		pkt[0] = (u8)(data_bytes & BLO_MASK) | (super_opcode << SOP_SHIFT) | C_MASK;
-		pkt[1] = (u8)(data_bytes >> BHI_SHIFT);
+		buffer[0] = (u8)(data_bytes & BLO_MASK) | (super_opcode << SOP_SHIFT) | C_MASK;
+		buffer[1] = (u8)(data_bytes >> BHI_SHIFT);
+		buffer[2] = msg_opcode;
+		msg_bytes += 2;
 	}
 	else
 	{
-		pkt[0] = (u8)data_bytes | (super_opcode << SOP_SHIFT);
+		buffer[0] = (u8)data_bytes | (super_opcode << SOP_SHIFT);
+		buffer[1] = msg_opcode;
+		++msg_bytes;
 	}
 
-	u8 *pkt_msg = pkt + header_bytes;
+	// Fail on invalid input
+	if (msg_bytes > _max_payload_bytes)
+	{
+		WARN("Transport") << "Invalid input: Unreliable OOB buffer size request too large";
+		SendBuffer::Release(buffer);
+		return false;
+	}
 
-	// Write message
-	pkt_msg[0] = msg_opcode;
-	memcpy(pkt_msg + 1, msg_data, data_bytes - 1);
-
-	return WriteDatagrams(pkt, msg_bytes);
+	return WriteDatagrams(buffer, msg_bytes);
 }
 
 bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_bytes, SuperOpcode super_opcode)
