@@ -286,8 +286,11 @@ private:
 	// Receive state: Statistics for flow control report in ACK response
 	u32 _recv_trip_time_sum, _recv_trip_count;
 
-	// Send state: Synchronization objects
-	Mutex _big_lock;
+	// Serializes writes to the send buffer
+	Mutex _send_buffer_lock;
+
+	// Serializes changes to the send queue for reliable messages going out
+	Mutex _send_queue_lock;
 
 	// Send state: Next ack id to use
 	u32 _next_send_id[NUM_STREAMS];

@@ -203,8 +203,8 @@ struct SendQueue
 		u32 sent_bytes;	// In send queue: Number of sent bytes while fragmenting a large message
 		u32 id;			// In sent list: Acknowledgment id
 	};
-	u16 bytes;			// Data bytes
-	u16 frag_count;		// Number of fragments remaining to be delivered
+	u32 bytes;			// Data bytes
+	u32 frag_count;		// Number of fragments remaining to be delivered
 	u8 sop;				// Super opcode of message
 
 	// Message contents follow
@@ -213,7 +213,7 @@ struct SendQueue
 struct SendFrag : public SendQueue
 {
 	SendQueue *full_data;	// Object containing message data
-	u16 offset;				// Fragment data offset
+	u32 offset;				// Fragment data offset
 };
 
 // Temporary send node structure, nestled in the encryption overhead of outgoing packets
@@ -229,6 +229,12 @@ struct TempSendNode // Size <= 11 bytes = AuthenticatedEncryption::OVERHEAD_BYTE
 # pragma pack(pop)
 #endif
 
+class OutgoingMessage : public SendQueue
+{
+public:
+};
+
+// Incoming message data passed to user layer
 struct IncomingMessage
 {
 	BufferStream msg;
