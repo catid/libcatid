@@ -72,7 +72,6 @@ void Connexion::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 		{
 			buffer->data_bytes = data_bytes - AuthenticatedEncryption::OVERHEAD_BYTES;
 			delivery.PushBack(buffer);
-			_seen_encrypted = true;
 		}
 		else if (buffer_count <= 1 && !_seen_encrypted)
 		{
@@ -113,7 +112,12 @@ void Connexion::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 	}
 
 	// Process all datagrams that decrypted properly
-	if (delivery.head) OnTransportDatagrams(tls, delivery);
+	if (delivery.head)
+	{
+		OnTransportDatagrams(tls, delivery);
+		_seen_encrypted = true;
+		_last_recv_tsc = Clock::msec_fast();
+	}
 
 	_parent->ReleaseRecvBuffers(buffers, buffer_count);
 }
@@ -195,6 +199,9 @@ void Connexion::OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferS
 	case IOP_C2S_MTU_PROBE:
 		if (bytes >= IOP_C2S_MTU_TEST_MINLEN)
 		{
+			// The byte count does not include the 2 byte header
+			bytes += 2;
+
 			WARN("Server") << "Got IOP_C2S_MTU_PROBE.  Max payload bytes = " << bytes;
 
 			// If new maximum payload is greater than the previous one,
