@@ -89,6 +89,16 @@ template<int BITS, typename T> CAT_INLINE T ReconstructCounter(T center_count, u
 		- (((IV_MSB >> 1) - (diff & IV_MASK)) & IV_MSB)
 		+ (diff & IV_MSB);
 }
+template<typename T> CAT_INLINE T ReconstructCounter(u32 bits, T center_count, u32 partial_low_bits)
+{
+	u32 iv_msb = (1 << bits); // BITS < 32
+	u32 iv_mask = (iv_msb - 1);
+
+	s32 diff = partial_low_bits - (u32)(center_count & iv_mask);
+	return ((center_count & ~(T)iv_mask) | partial_low_bits)
+		- (((iv_msb >> 1) - (diff & iv_mask)) & iv_msb)
+		+ (diff & iv_msb);
+}
 
 /*
 	There are some other practical ways to center the allowable distance.
