@@ -1594,8 +1594,8 @@ void Transport::WriteQueuedReliable()
 	u32 now = Clock::msec();
 	u32 max_payload_bytes = _max_payload_bytes;
 
-	AutoMutex lock(_send_queue_lock);
-	AutoMutex lock(_send_buffer_lock);
+	AutoMutex send_queue_lock(_send_queue_lock);
+	AutoMutex send_buffer_lock(_send_buffer_lock);
 
 	// Cache send buffer
 	u32 send_buffer_bytes = _send_buffer_bytes;
@@ -1817,20 +1817,13 @@ void Transport::WriteQueuedReliable()
 
 					// Write header
 					u8 *msg = send_buffer + send_buffer_bytes;
-					u32 data_bytes = data_bytes_to_copy + frag_overhead;
+					u32 data_bytes = data_bytes_to_copy + frag_overhead - 1;
 
 					u8 hdr = R_MASK;
 					hdr |= (fragmented ? SOP_FRAG : node->sop) << SOP_SHIFT;
 					if (ack_id_overhead) hdr |= I_MASK;
 
-					if (data_bytes > BLO_MASK)
-					{
-						msg[0] = (u8)(data_bytes & BLO_MASK) | C_MASK | hdr;
-						msg[1] = (u8)(data_bytes >> BHI_SHIFT);
-						msg += 2;
-						send_buffer_bytes += write_bytes;
-					}
-					else
+					if (data_bytes <= BLO_MASK)
 					{
 						msg[0] = (u8)data_bytes | hdr;
 						++msg;
@@ -1839,6 +1832,13 @@ void Transport::WriteQueuedReliable()
 						// This could have been taken into account above but I don't think it's worth the processing time.
 						// The purpose of cutting out the second byte is to help in the case of many small messages,
 						// and this case is handled well as it is written now.
+					}
+					else
+					{
+						msg[0] = (u8)(data_bytes & BLO_MASK) | C_MASK | hdr;
+						msg[1] = (u8)(data_bytes >> BHI_SHIFT);
+						msg += 2;
+						send_buffer_bytes += write_bytes;
 					}
 
 					// Write optional ACK-ID
