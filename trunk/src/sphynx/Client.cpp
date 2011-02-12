@@ -111,7 +111,6 @@ void Client::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 
 			if (bytes == 0)
 			{
-				WARN("Client") << "Unable to connect: Broken pipe";
 				ConnectFail(ERR_CLIENT_BROKEN_PIPE);
 			}
 			else if (bytes == S2C_COOKIE_LEN && data[0] == S2C_COOKIE)
@@ -119,7 +118,6 @@ void Client::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 				u8 *pkt = SendBuffer::Acquire(C2S_CHALLENGE_LEN);
 				if (!pkt)
 				{
-					WARN("Client") << "Unable to connect: Cannot allocate buffer for challenge message";
 					ConnectFail(ERR_CLIENT_OUT_OF_MEMORY);
 					continue;
 				}
@@ -145,7 +143,6 @@ void Client::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 				// Attempt to post a pkt
 				if (!Write(pkt, C2S_CHALLENGE_LEN, _server_addr))
 				{
-					WARN("Client") << "Unable to connect: Cannot post pkt to cookie";
 					ConnectFail(ERR_CLIENT_BROKEN_PIPE);
 				}
 				else
@@ -192,49 +189,46 @@ void Client::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 			}
 			else if (bytes == S2C_ERROR_LEN && data[0] == S2C_ERROR)
 			{
-				HandshakeError err = (HandshakeError)data[1];
-
-				if (err <= ERR_NUM_INTERNAL_ERRORS)
-				{
-					INANE("Client") << "Ignored invalid server error";
-					continue;
-				}
-
-				WARN("Client") << "Unable to connect: Server returned error " << GetHandshakeErrorString(err);
-				ConnectFail(err);
+				ConnectFail((HandshakeError)data[1]);
 			}
 		}
 	}
 
-	BatchSet delivery;
-	delivery.Clear();
-
-	// If connected datagrams exist, process them
-	for (; node; node = node->batch_next)
+	// If connected datagrams exist,
+	if (node)
 	{
-		++buffer_count;
-		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
-		u32 data_bytes = buffer->data_bytes;
+		BatchSet delivery;
+		delivery.Clear();
 
-		if (buffer->data_bytes == 0)
+		for (; node; node = node->batch_next)
 		{
-			WARN("Client") << "Connection closed: Broken pipe";
-			Disconnect(ERR_CLIENT_BROKEN_PIPE);
-			break;
+			++buffer_count;
+			RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
+			u32 data_bytes = buffer->data_bytes;
+
+			if (buffer->data_bytes == 0)
+			{
+				Disconnect(ERR_CLIENT_BROKEN_PIPE);
+				break;
+			}
+			else if (_auth_enc.Decrypt(GetTrailingBytes(buffer), data_bytes))
+			{
+				buffer->data_bytes = data_bytes - AuthenticatedEncryption::OVERHEAD_BYTES;
+				delivery.PushBack(buffer);
+			}
+			else
+			{
+				WARN("Client") << "Ignored invalid encrypted data";
+			}
 		}
-		else if (_auth_enc.Decrypt(GetTrailingBytes(buffer), data_bytes))
+
+		// Process all datagrams that decrypted properly
+		if (delivery.head)
 		{
-			buffer->data_bytes = data_bytes - AuthenticatedEncryption::OVERHEAD_BYTES;
-			delivery.PushBack(buffer);
-		}
-		else
-		{
-			WARN("Client") << "Ignored invalid encrypted data";
+			OnTransportDatagrams(tls, delivery);
+			_last_recv_tsc = Clock::msec_fast();;
 		}
 	}
-
-	// Process all datagrams that decrypted properly
-	if (delivery.head) OnTransportDatagrams(tls, delivery);
 
 	ReleaseRecvBuffers(buffers, buffer_count);
 }
@@ -245,21 +239,17 @@ void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)
 
 	if (!_connected)
 	{
-		// If connection timed out,
 		if (now - _first_hello_post >= CONNECT_TIMEOUT)
 		{
 			// NOTE: Connection can complete before or after OnConnectFail()
-			WARN("Client") << "Unable to connect: Timeout";
 			ConnectFail(ERR_CLIENT_TIMEOUT);
 			return;
 		}
 
-		// If time to repost hello packet,
 		if (now - _last_hello_post >= _hello_post_interval)
 		{
 			if (!WriteHello())
 			{
-				WARN("Client") << "Unable to connect: Post failure";
 				ConnectFail(ERR_CLIENT_BROKEN_PIPE);
 				return;
 			}
@@ -302,7 +292,8 @@ void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)
 				if (now - _mtu_discovery_time >= MTU_PROBE_INTERVAL)
 				{
 					// If payload bytes already maxed out,
-					if (_max_payload_bytes >= MAXIMUM_MTU - _overhead_bytes)
+					if (_max_payload_bytes >= MAXIMUM_MTU - _overhead_bytes ||
+						_mtu_discovery_attempts <= 0)
 					{
 						// Stop posting probes
 						_mtu_discovery_attempts = 0;
@@ -312,27 +303,20 @@ void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)
 					}
 					else
 					{
-						// If not on final attempt,
-						if (_mtu_discovery_attempts > 1)
+						if (/*_max_payload_bytes < MAXIMUM_MTU - _overhead_bytes &&*/
+							!PostMTUProbe(tls, MAXIMUM_MTU))
 						{
-							// Post probes
-							if (!PostMTUProbe(tls, MAXIMUM_MTU - _overhead_bytes) ||
-								!PostMTUProbe(tls, MEDIUM_MTU - _overhead_bytes))
-							{
-								WARN("Client") << "Unable to detect MTU: Probe post failure";
-							}
-
-							_mtu_discovery_time = now;
-							--_mtu_discovery_attempts;
+							WARN("Client") << "Unable to detect MTU: Probe post failure";
 						}
-						else
+
+						if (_max_payload_bytes < MEDIUM_MTU - _overhead_bytes &&
+							!PostMTUProbe(tls, MAXIMUM_MTU))
 						{
-							// Stop posting probes
-							_mtu_discovery_attempts = 0;
-
-							// On final attempt set DF=0
-							DontFragment(false);
+							WARN("Client") << "Unable to detect MTU: Probe post failure";
 						}
+
+						_mtu_discovery_time = now;
+						--_mtu_discovery_attempts;
 					}
 				}
 			}
@@ -421,9 +405,6 @@ bool Client::InitialConnect(SphynxLayer *layer, SphynxTLS *tls, TunnelPublicKey 
 	// Initialize max payload bytes
 	InitializePayloadBytes(Is6());
 
-	// Assign to a worker
-	_worker_id = layer->GetWorkerThreads()->AssignWorker(this);
-
 	return true;
 }
 
@@ -431,7 +412,7 @@ bool Client::FinalConnect(const NetAddr &addr)
 {
 	if (!addr.Valid())
 	{
-		WARN("Client") << "Failed to connect: Invalid server address";
+		ConnectFail(ERR_CLIENT_SERVER_ADDR);
 		return false;
 	}
 
@@ -440,7 +421,7 @@ bool Client::FinalConnect(const NetAddr &addr)
 	// Convert server address if needed
 	if (!_server_addr.Convert(Is6()))
 	{
-		WARN("Client") << "Failed to connect: Invalid address specified";
+		ConnectFail(ERR_CLIENT_SERVER_ADDR);
 		return false;
 	}
 
@@ -450,9 +431,13 @@ bool Client::FinalConnect(const NetAddr &addr)
 	// Attempt to post hello message
 	if (!WriteHello())
 	{
-		WARN("Client") << "Failed to connect: Post failure";
+		ConnectFail(ERR_CLIENT_BROKEN_PIPE);
 		return false;
 	}
+
+	// Assign to a worker
+	SphynxLayer *layer = reinterpret_cast<SphynxLayer*>( GetIOLayer() );
+	_worker_id = layer->GetWorkerThreads()->AssignWorker(this);
 
 	return true;
 }
@@ -461,7 +446,7 @@ bool Client::Connect(SphynxLayer *layer, SphynxTLS *tls, const char *hostname, P
 {
 	if (!InitialConnect(layer, tls, public_key, session_key))
 	{
-		RequestShutdown();
+		ConnectFail(ERR_CLIENT_INVALID_KEY);
 		return false;
 	}
 
@@ -469,8 +454,7 @@ bool Client::Connect(SphynxLayer *layer, SphynxTLS *tls, const char *hostname, P
 
 	if (!layer->GetDNSClient()->Resolve(layer, hostname, fastdelegate::MakeDelegate(this, &Client::OnResolve), this))
 	{
-		WARN("Client") << "Failed to connect: Cannot start hostname resolve for " << hostname;
-		RequestShutdown();
+		ConnectFail(ERR_CLIENT_SERVER_ADDR);
 		return false;
 	}
 
@@ -482,7 +466,6 @@ bool Client::Connect(SphynxLayer *layer, SphynxTLS *tls, const NetAddr &addr, Tu
 	if (!InitialConnect(layer, tls, public_key, session_key) ||
 		!FinalConnect(addr))
 	{
-		RequestShutdown();
 		return false;
 	}
 
@@ -494,8 +477,7 @@ bool Client::OnResolve(const char *hostname, const NetAddr *array, int array_len
 	// If resolve failed,
 	if (array_length <= 0)
 	{
-		WARN("Client") << "Failed to connect: Server hostname resolve failed";
-		RequestShutdown();
+		ConnectFail(ERR_CLIENT_SERVER_ADDR);
 		return false;
 	}
 	else
@@ -506,10 +488,7 @@ bool Client::OnResolve(const char *hostname, const NetAddr *array, int array_len
 		INFO("Client") << "Connecting: Resolved '" << hostname << "' to " << addr.IPToString();
 
 		if (!FinalConnect(addr))
-		{
-			RequestShutdown();
 			return false;
-		}
 	}
 
 	return true;
