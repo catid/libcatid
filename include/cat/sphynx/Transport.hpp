@@ -285,7 +285,6 @@ private:
 
 	// Receive state: Statistics for flow control report in ACK response
 	u32 _recv_trip_time_sum, _recv_trip_count;
-	volatile u32 _recv_trip_time_avg; // Average trip time shared with timer thread
 
 	// Send state: Synchronization objects
 	Mutex _big_lock;
@@ -390,6 +389,7 @@ public:
 
 	void Disconnect(u8 reason = DISCO_USER_EXIT);
 	CAT_INLINE bool IsDisconnected() { return _disconnect_reason != DISCO_CONNECTED; }
+	CAT_INLINE bool WriteDisconnect(u8 reason) { return WriteOOB(IOP_DISCO, &reason, 1, SOP_INTERNAL); }
 
 	void TickTransport(SphynxTLS *tls, u32 now);
 	void OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery);
@@ -422,8 +422,6 @@ protected:
 	virtual void OnDisconnectReason(u8 reason) = 0; // Called to help explain why a disconnect is happening
 
 	bool PostMTUProbe(SphynxTLS *tls, u32 mtu);
-
-	CAT_INLINE bool WriteDisconnect(u8 reason) { return WriteOOB(IOP_DISCO, &reason, 1, SOP_INTERNAL); }
 };
 
 

@@ -302,7 +302,7 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 	{
 		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
 		u8 *data = GetTrailingBytes(buffer);
-		u32 bytes = buffer->data_bytes;
+		s32 bytes = buffer->data_bytes;
 
 		// Skip if not enough data
 		if (bytes < 3) continue;
@@ -326,17 +326,14 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 			INANE("Transport") << " -- Processing subheader " << (int)hdr;
 
 			// If message length requires another byte to represent,
+			u32 hdr_bytes = 1;
 			if (hdr & C_MASK)
 			{
 				data_bytes |= (u16)data[1] << BHI_SHIFT;
-				data += 2;
-				bytes -= 2;
+				++hdr_bytes;
 			}
-			else
-			{
-				++data;
-				--bytes;
-			}
+			data += hdr_bytes;
+			bytes -= hdr_bytes;
 
 			// If this message has an ACK-ID attached,
 			if (hdr & I_MASK)
@@ -348,12 +345,13 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 				}
 
 				// Decode variable-length ACK-ID into ack_id and stream:
-				u8 ida = *data++;
+				u8 id = *data++;
 				--bytes;
-				stream = ida & 3;
-				ack_id = (ida >> 2) & 0x1f;
+				stream = id & 3;
+				ack_id = (id >> 2) & 0x1f;
+				u32 counter_bits;
 
-				if (ida & 0x80)
+				if (id & C_MASK)
 				{
 					if (bytes < 1)
 					{
@@ -361,11 +359,11 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 						break;
 					}
 
-					u8 idb = *data++;
+					id = *data++;
 					--bytes;
-					ack_id |= (u32)(idb & 0x7f) << 5;
+					ack_id |= (u32)(id & 0x7f) << 5;
 
-					if (idb & 0x80)
+					if (id & C_MASK)
 					{
 						if (bytes < 1)
 						{
@@ -373,17 +371,19 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 							break;
 						}
 
-						u8 idc = *data++;
+						id = *data++;
 						--bytes;
-						ack_id |= (u32)idc << 12;
+						ack_id |= (u32)id << 12;
 
-						ack_id = ReconstructCounter<20>(_next_recv_expected_id[stream], ack_id);
+						counter_bits = 20;
 					}
 					else
-						ack_id = ReconstructCounter<12>(_next_recv_expected_id[stream], ack_id);
+						counter_bits = 12;
 				}
 				else
-					ack_id = ReconstructCounter<5>(_next_recv_expected_id[stream], ack_id);
+					counter_bits = 5;
+
+				ack_id = ReconstructCounter(counter_bits, _next_recv_expected_id[stream], ack_id);
 			}
 			else if (hdr & R_MASK)
 			{
@@ -470,20 +470,7 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 		{
 			// Accumulate latest transit time
 			_recv_trip_time_sum += transit_time;
-
-			// Calculate cumulative average
-			u32 avg = _recv_trip_time_sum / ++_recv_trip_count;
-
-			// Write it for timer thread
-			u32 old = Atomic::Set(&_recv_trip_time_avg, avg);
-
-			// If average was cleared,
-			if (!old)
-			{
-				// Timer thread wants us to reset the accumulator
-				_recv_trip_time_sum = 0;
-				_recv_trip_count = 0;
-			}
+			++_recv_trip_count;
 		}
 	}
 
@@ -494,7 +481,6 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 	if (_send_flush_after_processing)
 	{
 		FlushImmediately();
-
 		_send_flush_after_processing = false;
 	}
 }
@@ -509,7 +495,6 @@ void Transport::RunReliableReceiveQueue(SphynxTLS *tls, u32 recv_time, u32 ack_i
 		// Just update next expected id and set flag to send acks on next tick
 		_next_recv_expected_id[stream] = ack_id;
 		_got_reliable[stream] = true;
-
 		return;
 	}
 
@@ -659,7 +644,7 @@ void Transport::OnFragment(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *dat
 		}
 		else
 		{
-			u32 frag_length = getLE(*reinterpret_cast<u16*>( data ));
+			u32 frag_length = getLE(*(u16*)(data));
 
 			if (frag_length == 0)
 			{
@@ -882,24 +867,21 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 	}
 
 	// Include fragment header length in data bytes field
-	u32 data_bytes_with_overhead = data_bytes + frag_overhead;
-	u32 header_bytes = data_bytes_with_overhead > BLO_MASK ? 2 : 1;
-	u32 msg_bytes = header_bytes + data_bytes_with_overhead;
-	u32 ack_id = node->id;
+	u32 data_bytes_with_overhead = frag_overhead + data_bytes;
+	u32 hdr_bytes = (data_bytes_with_overhead - 1) > BLO_MASK ? 2 : 1;
+	u32 msg_bytes = hdr_bytes + data_bytes_with_overhead;
 
 	// If ACK-ID needs to be written again,
+	u32 ack_id = node->id;
 	if (_send_buffer_stream != stream ||
 		_send_buffer_ack_id != ack_id)
 	{
 		hdr |= I_MASK;
-		_send_buffer_ack_id = ack_id;
-		_send_buffer_stream = stream;
 		msg_bytes += 3;
 	}
 
-	u32 max_payload_bytes = _max_payload_bytes;
-
 	// Fail on invalid input
+	u32 max_payload_bytes = _max_payload_bytes;
 	if (msg_bytes > max_payload_bytes)
 	{
 		WARN("Transport") << "Retransmit failure: Reliable message too large";
@@ -919,58 +901,53 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 
 		// Set ACK-ID bit if it would now need to be sent
 		if (!(hdr & I_MASK))
-		{
-			hdr |= I_MASK;
 			msg_bytes += 3;
-		}
+		hdr |= I_MASK;
 	}
 
 	// Create or grow buffer and write into it
-	u8 *msg = _send_buffer = SendBuffer::Resize(send_buffer, send_buffer_bytes + msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD);
-	if (!msg)
+	u8 *pkt = _send_buffer = SendBuffer::Resize(send_buffer, send_buffer_bytes + msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD);
+	if (!pkt)
 	{
 		WARN("Transport") << "Out of memory: Unable to resize post buffer";
 		_send_buffer_bytes = 0;
 		_send_buffer_stream = NUM_STREAMS;
 		return;
 	}
+	pkt += send_buffer_bytes;
 
-	msg += send_buffer_bytes;
-
-	// TODO: FIX DATA BYTES
-	if (data_bytes_with_overhead > BLO_MASK)
-	{
-		msg[0] = (u8)(data_bytes_with_overhead & BLO_MASK) | C_MASK | hdr;
-		msg[1] = (u8)(data_bytes_with_overhead >> BHI_SHIFT);
-		msg += 2;
-	}
+	u32 hdr_data_bytes = data_bytes_with_overhead - 1;
+	if (hdr_data_bytes <= BLO_MASK)
+		pkt[0] = (u8)hdr_data_bytes | hdr;
 	else
 	{
-		msg[0] = (u8)data_bytes_with_overhead | hdr;
-		++msg;
+		pkt[0] = (u8)(hdr_data_bytes & BLO_MASK) | C_MASK | hdr;
+		pkt[1] = (u8)(hdr_data_bytes >> BHI_SHIFT);
 	}
+	pkt += hdr_bytes;
 
 	// If ACK-ID needs to be written, do not use compression since we
 	// cannot predict receiver state on retransmission
 	if (hdr & I_MASK)
 	{
-		msg[0] = (u8)(stream | ((ack_id & 31) << 2) | 0x80);
-		msg[1] = (u8)((ack_id >> 5) | 0x80);
-		msg[2] = (u8)(ack_id >> 12);
-		msg += 3;
+		pkt[0] = (u8)(stream | ((ack_id & 31) << 2) | 0x80);
+		pkt[1] = (u8)((ack_id >> 5) | 0x80);
+		pkt[2] = (u8)(ack_id >> 12);
+		pkt += 3;
 
 		// Next reliable message by default is one ACK-ID ahead
 		_send_buffer_ack_id = ack_id + 1;
+		_send_buffer_stream = stream;
 	}
 
 	// If fragment header needs to be written,
 	if (frag_overhead)
 	{
-		*reinterpret_cast<u16*>( msg ) = getLE16((u16)frag_total_bytes);
-		msg += 2;
+		*reinterpret_cast<u16*>( pkt ) = getLE16((u16)frag_total_bytes);
+		pkt += 2;
 	}
 
-	memcpy(msg, data, data_bytes);
+	memcpy(pkt, data, data_bytes);
 
 	_send_buffer_bytes = send_buffer_bytes + msg_bytes;
 
@@ -988,7 +965,7 @@ void Transport::WriteACK()
 	u32 remaining = max_payload_bytes - 2 - 2;
 
 	// Set the average trip time to zero to indicate statistics reset
-	u32 trip_time_avg = Atomic::Set(&_recv_trip_time_avg, 0);
+	u32 trip_time_avg = _recv_trip_time_sum / _recv_trip_count;
 
 	// Write average trip time
 	if (trip_time_avg > 0x7f)
