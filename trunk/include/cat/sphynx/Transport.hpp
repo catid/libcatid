@@ -332,7 +332,7 @@ private:
 	CAT_INLINE void QueueFragFree(SphynxTLS *tls, u8 *data);
 
 	// Queue received data for user processing
-	CAT_INLINE void QueueDelivery(SphynxTLS *tls, u8 *data, u32 data_bytes, u32 send_time);
+	void QueueDelivery(SphynxTLS *tls, u8 *data, u32 data_bytes, u32 send_time);
 
 	// Deliver messages to user in one big batch
 	CAT_INLINE void DeliverQueued(SphynxTLS *tls);

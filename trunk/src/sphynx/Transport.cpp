@@ -60,7 +60,7 @@ CAT_INLINE void Transport::QueueFragFree(SphynxTLS *tls, u8 *data)
 	tls->free_list_count = ++count;
 }
 
-CAT_INLINE void Transport::QueueDelivery(SphynxTLS *tls, u8 *data, u32 data_bytes, u32 send_time)
+void Transport::QueueDelivery(SphynxTLS *tls, u8 *data, u32 data_bytes, u32 send_time)
 {
 	u32 depth = tls->delivery_queue_depth;
 	tls->delivery_queue[depth].msg = data;
@@ -75,7 +75,7 @@ CAT_INLINE void Transport::QueueDelivery(SphynxTLS *tls, u8 *data, u32 data_byte
 
 		// Free memory for fragments
 		for (u32 ii = 0, count = tls->free_list_count; ii < count; ++ii)
-			delete [] (tls->free_list[ii]);
+			delete []tls->free_list[ii];
 
 		tls->delivery_queue_depth = 0;
 		tls->free_list_count = 0;
@@ -272,9 +272,7 @@ void Transport::TickTransport(SphynxTLS *tls, u32 now)
 		}
 	}
 
-	_send_buffer_lock.Enter();
 	_send_flow.OnTick(now, loss_count);
-	_send_buffer_lock.Leave();
 
 	// Avoid locking to transmit queued if no queued exist
 	for (int stream = 0; stream < NUM_STREAMS; ++stream)
@@ -1216,9 +1214,6 @@ u32 Transport::RetransmitLost(u32 now)
 	u32 timeout = _send_flow.GetLossTimeout();
 	u32 loss_count = 0, last_mia_time = 0;
 
-	// TODO: Should not need to lock to retransmit
-	AutoMutex lock(_send_buffer_lock);
-
 	// Retransmit lost packets
 	for (int stream = 0; stream < NUM_STREAMS; ++stream)
 	{
@@ -1599,6 +1594,7 @@ void Transport::WriteQueuedReliable()
 	u32 now = Clock::msec();
 	u32 max_payload_bytes = _max_payload_bytes;
 
+	AutoMutex lock(_send_queue_lock);
 	AutoMutex lock(_send_buffer_lock);
 
 	// Cache send buffer
