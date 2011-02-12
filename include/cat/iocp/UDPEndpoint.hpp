@@ -92,7 +92,7 @@ public:
 	CAT_INLINE bool Write(u8 *data, u32 data_bytes, const NetAddr &addr)
 	{
 		SendBuffer *buffer = SendBuffer::Promote(data);
-		buffer->data_bytes = data_bytes;
+		buffer->bytes = data_bytes;
 		return Write(buffer, addr);
 	}
 

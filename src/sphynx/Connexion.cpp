@@ -172,7 +172,7 @@ bool Connexion::WriteDatagrams(const BatchSet &buffers)
 		// Unwrap the message data
 		SendBuffer *buffer = reinterpret_cast<SendBuffer*>( node );
 		u8 *msg_data = GetTrailingBytes(buffer);
-		u32 msg_bytes = buffer->data_bytes;
+		u32 msg_bytes = buffer->bytes;
 
 		// Write timestamp right before the encryption overhead
 		*(u16*)(msg_data + msg_bytes) = timestamp;
@@ -181,7 +181,7 @@ bool Connexion::WriteDatagrams(const BatchSet &buffers)
 
 		// Encrypt the message
 		_auth_enc.Encrypt(msg_data, msg_bytes);
-		buffer->data_bytes = msg_bytes;
+		buffer->bytes = msg_bytes;
 	}
 
 	// Do not need to update a "last send" timestamp here because the client is responsible for sending keep-alives
@@ -195,20 +195,16 @@ void Connexion::OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferS
 	case IOP_C2S_MTU_PROBE:
 		if (bytes >= IOP_C2S_MTU_TEST_MINLEN)
 		{
-			// MTU test payload includes a 2 byte header on top of data bytes
-			u32 payload_bytes = bytes + Transport::TRANSPORT_OVERHEAD;
-
-			WARN("Server") << "Got IOP_C2S_MTU_PROBE.  Max payload bytes = " << payload_bytes;
+			WARN("Server") << "Got IOP_C2S_MTU_PROBE.  Max payload bytes = " << bytes;
 
 			// If new maximum payload is greater than the previous one,
-			if (payload_bytes > _max_payload_bytes)
+			if (bytes > _max_payload_bytes)
 			{
 				// Set max payload bytes
-				_max_payload_bytes = payload_bytes;
-				_send_flow.SetMTU(payload_bytes);
+				_max_payload_bytes = bytes;
+				_send_flow.SetMTU(bytes);
 
-				// Notify client that the packet made it through
-				u16 mtu = getLE((u16)payload_bytes);
+				u16 mtu = getLE((u16)bytes);
 				WriteReliable(STREAM_UNORDERED, IOP_S2C_MTU_SET, &mtu, sizeof(mtu), SOP_INTERNAL);
 			}
 		}

@@ -235,7 +235,6 @@ public:
 	static const int TIMEOUT_DISCONNECT = 15000; // milliseconds; NOTE: If this changes, the timestamp compression will stop working
 	static const u32 NUM_STREAMS = 4; // Number of reliable streams
 	static const int TICK_INTERVAL = 20; // Milliseconds between ticks
-	static const u32 MAX_MESSAGE_DATALEN = 65535-1; // Maximum number of bytes in the data part of a message (-1 for the opcode)
 	static const u32 TRANSPORT_OVERHEAD = 2; // Number of bytes added to each packet for the transport layer
 
 	static const u32 MINIMUM_MTU = 576; // Dial-up
@@ -318,7 +317,7 @@ private:
 	CAT_INLINE void QueueWriteDatagram(u8 *data, u32 data_bytes)
 	{
 		SendBuffer *buffer = SendBuffer::Promote(data);
-		buffer->data_bytes = data_bytes;
+		buffer->bytes = data_bytes;
 		_outgoing_datagrams.PushBack(buffer);
 	}
 
@@ -354,10 +353,15 @@ public:
 	void InitializePayloadBytes(bool ip6);
 	bool InitializeTransportSecurity(bool is_initiator, AuthenticatedEncryption &auth_enc);
 
-	// Write
+	// Copy data directly to the send buffer, no need to acquire an OutgoingMessage
 	bool WriteOOB(u8 msg_opcode, const void *msg_data = 0, u32 data_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
 	bool WriteUnreliable(u8 msg_opcode, const void *msg_data = 0, u32 data_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
-	bool WriteReliable(StreamMode, u8 msg_opcode, const void *msg_data = 0, u32 data_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
+	bool WriteReliable(StreamMode stream, u8 msg_opcode, const void *msg_data = 0, u32 data_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
+
+	// Queue up a reliable message for delivery without copy overhead
+	// msg: Allocate with OutgoingMessage::Acquire(msg_bytes), 
+	// msg_bytes: Includes message opcode byte at offset 0
+	bool WriteReliableZeroCopy(StreamMode, u8 *msg, u32 msg_bytes, SuperOpcode super_opcode = SOP_DATA);
 
 	// Flush send buffer after processing the current message from the remote host
 	CAT_INLINE void FlushAfter() { _send_flush_after_processing = true; }
@@ -416,7 +420,7 @@ protected:
 	CAT_INLINE bool WriteDatagrams(u8 *single, u32 data_bytes)
 	{
 		SendBuffer *buffer = SendBuffer::Promote(single);
-		buffer->data_bytes = data_bytes;
+		buffer->bytes = data_bytes;
 		return WriteDatagrams(buffer);
 	}
 

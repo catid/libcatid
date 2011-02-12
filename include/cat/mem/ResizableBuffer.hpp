@@ -40,10 +40,10 @@ class ResizableBuffer
 {
 	static const u32 RESIZABLE_BUFFER_PREALLOCATION = 200;
 
-	// Derived class must define u32 allocated_bytes member
+	// Derived class must define u32 "bytes" member
 
 public:
-	u32 GetAllocatedBytes() { return allocated_bytes; }
+	u32 GetAllocatedBytes() { return bytes; }
 
 	static u8 *Acquire(u32 trailing_bytes)
 	{
@@ -51,11 +51,11 @@ public:
 		if (allocated < RESIZABLE_BUFFER_PREALLOCATION)
 			allocated = RESIZABLE_BUFFER_PREALLOCATION;
 
-		SendBuffer *buffer = StdAllocator::ii->AcquireTrailing<T>(allocated);
+		T *buffer = StdAllocator::ii->AcquireTrailing<T>(allocated);
 		if (!buffer) return 0;
 
 		//buffer->allocated_bytes = trailing_bytes;
-		buffer->allocated_bytes = allocated;
+		buffer->bytes = allocated;
 		return GetTrailingBytes(buffer);
 	}
 
@@ -68,16 +68,16 @@ public:
 	{
 		if (!buffer) return Acquire(new_trailing_bytes);
 
-		if (new_trailing_bytes <= buffer->allocated_bytes)
+		if (new_trailing_bytes <= buffer->bytes)
 			return GetTrailingBytes(buffer);
 
 		// Grow buffer ahead of requested bytes according to golden ratio
-		new_trailing_bytes *= 1.6;
+		new_trailing_bytes = (new_trailing_bytes << 3) / 5;
 
 		buffer = StdAllocator::ii->ResizeTrailing(buffer, new_trailing_bytes);
 		if (!buffer) return 0;
 
-		buffer->allocated_bytes = new_trailing_bytes;
+		buffer->bytes = new_trailing_bytes;
 
 		return GetTrailingBytes(buffer);
 	}
@@ -85,9 +85,7 @@ public:
 	static CAT_INLINE u8 *Resize(u8 *ptr, u32 new_trailing_bytes)
 	{
 		if (!ptr) return Acquire(new_trailing_bytes);
-		T *buffer = Promote(ptr);
-
-		return Resize(buffer, new_trailing_bytes);
+		return Resize(Promote(ptr), new_trailing_bytes);
 	}
 
 	CAT_INLINE void Release()

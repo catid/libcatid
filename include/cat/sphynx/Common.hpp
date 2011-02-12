@@ -194,17 +194,28 @@ struct RecvQueue
 // Send state: Send queue
 struct SendQueue
 {
-	SendQueue *next;	// Next in queue
-	SendQueue *prev;	// Previous in queue
-	u32 ts_firstsend;	// Millisecond-resolution timestamp when it was first sent
-	u32 ts_lastsend;	// Millisecond-resolution timestamp when it was last sent
 	union
 	{
-		u32 sent_bytes;	// In send queue: Number of sent bytes while fragmenting a large message
-		u32 id;			// In sent list: Acknowledgment id
+		// In send queue:
+		struct
+		{
+			u32 sent_bytes;	// Number of sent bytes while fragmenting a large message
+		};
+
+		// In sent list:
+		struct
+		{
+			u32 id;				// Acknowledgment id
+			SendQueue *prev;	// Previous in queue
+			u32 ts_firstsend;	// Millisecond-resolution timestamp when it was first sent
+			u32 ts_lastsend;	// Millisecond-resolution timestamp when it was last sent
+			u32 frag_count;		// Number of fragments remaining to be delivered
+		};
 	};
+
+	// Shared members:
 	u32 bytes;			// Data bytes
-	u32 frag_count;		// Number of fragments remaining to be delivered
+	SendQueue *next;	// Next in queue
 	u8 sop;				// Super opcode of message
 
 	// Message contents follow
@@ -229,7 +240,7 @@ struct TempSendNode // Size <= 11 bytes = AuthenticatedEncryption::OVERHEAD_BYTE
 # pragma pack(pop)
 #endif
 
-class OutgoingMessage : public SendQueue
+class OutgoingMessage : public SendQueue, public ResizableBuffer<OutgoingMessage>
 {
 public:
 };
