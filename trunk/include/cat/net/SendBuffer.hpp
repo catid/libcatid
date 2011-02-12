@@ -39,16 +39,10 @@ namespace cat {
 struct SendBuffer : public BatchHead, public ResizableBuffer<SendBuffer>
 {
 	// Shared data
-	u32 data_bytes;
+	u32 bytes;
 
-	union
-	{
-		// IO layer specific overhead pimpl
-		IOLayerSendOverhead iointernal;
-
-		// Worker data
-		u32 allocated_bytes;
-	};
+	// IO layer specific overhead pimpl
+	IOLayerSendOverhead iointernal;
 };
 
 
