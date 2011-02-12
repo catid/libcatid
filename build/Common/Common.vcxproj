@@ -206,6 +206,9 @@
     <ClInclude Include="..\..\include\cat\mem\BufferAllocator.hpp" />
     <ClInclude Include="..\..\include\cat\mem\IAllocator.hpp" />
     <ClInclude Include="..\..\include\cat\mem\LargeAllocator.hpp" />
+    <ClInclude Include="..\..\include\cat\mem\ResizableBuffer.hpp">
+      <FileType>CppCode</FileType>
+    </ClInclude>
     <ClInclude Include="..\..\include\cat\mem\StdAllocator.hpp" />
     <ClInclude Include="..\..\include\cat\parse\Base64.hpp" />
     <ClInclude Include="..\..\include\cat\parse\BitStream.hpp" />

@@ -242,5 +242,8 @@
     <ClInclude Include="..\..\include\cat\Config.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\include\cat\mem\ResizableBuffer.hpp">
+      <Filter>Header Files\mem</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

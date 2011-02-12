@@ -30,15 +30,13 @@
 #define CAT_NET_SEND_BUFFER_HPP
 
 #include <cat/io/IOLayer.hpp>
-#include <cat/mem/StdAllocator.hpp>
+#include <cat/mem/ResizableBuffer.hpp>
 
 namespace cat {
 
 
-static const u32 SEND_BUFFER_PREALLOCATION = 200;
-
 // A buffer specialized for writing to a socket
-struct SendBuffer : public BatchHead
+struct SendBuffer : public BatchHead, public ResizableBuffer<SendBuffer>
 {
 	// Shared data
 	u32 data_bytes;
@@ -51,76 +49,6 @@ struct SendBuffer : public BatchHead
 		// Worker data
 		u32 allocated_bytes;
 	};
-
-	static CAT_INLINE u8 *Acquire(u32 trailing_bytes)
-	{
-		u32 allocated = trailing_bytes;
-		if (allocated < SEND_BUFFER_PREALLOCATION)
-			allocated = SEND_BUFFER_PREALLOCATION;
-
-		SendBuffer *buffer = StdAllocator::ii->AcquireTrailing<SendBuffer>(allocated);
-		if (!buffer) return 0;
-
-		//buffer->allocated_bytes = trailing_bytes;
-		buffer->allocated_bytes = allocated;
-		return GetTrailingBytes(buffer);
-	}
-
-	static CAT_INLINE SendBuffer *Promote(u8 *ptr)
-	{
-		return reinterpret_cast<SendBuffer*>( ptr - sizeof(SendBuffer) );
-	}
-
-	static CAT_INLINE u8 *Resize(SendBuffer *buffer, u32 new_trailing_bytes)
-	{
-		if (!buffer) return Acquire(new_trailing_bytes);
-
-		if (new_trailing_bytes <= buffer->allocated_bytes)
-			return GetTrailingBytes(buffer);
-
-		buffer = StdAllocator::ii->ResizeTrailing(buffer, new_trailing_bytes);
-		if (!buffer) return 0;
-
-		buffer->allocated_bytes = new_trailing_bytes;
-
-		return GetTrailingBytes(buffer);
-	}
-
-	static CAT_INLINE u8 *Resize(u8 *ptr, u32 new_trailing_bytes)
-	{
-		if (!ptr) return Acquire(new_trailing_bytes);
-		SendBuffer *buffer = Promote(ptr);
-
-		if (new_trailing_bytes <= buffer->allocated_bytes)
-			return ptr;
-
-		buffer = StdAllocator::ii->ResizeTrailing(buffer, new_trailing_bytes);
-		if (!buffer) return 0;
-
-		buffer->allocated_bytes = new_trailing_bytes;
-
-		return GetTrailingBytes(buffer);
-	}
-
-	static CAT_INLINE void Shrink(u8 *ptr, u32 new_trailing_bytes)
-	{
-		Promote(ptr)->data_bytes = new_trailing_bytes;
-	}
-
-	CAT_INLINE void Release()
-	{
-		StdAllocator::ii->Release(this);
-	}
-
-	static CAT_INLINE void Release(SendBuffer *buffer)
-	{
-		StdAllocator::ii->Release(buffer);
-	}
-
-	static CAT_INLINE void Release(u8 *ptr)
-	{
-		if (ptr) SendBuffer::Promote(ptr)->Release();
-	}
 };
 
 

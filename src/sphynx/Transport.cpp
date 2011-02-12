@@ -273,9 +273,9 @@ void Transport::TickTransport(SphynxTLS *tls, u32 now)
 		}
 	}
 
-	_big_lock.Enter();
+	_send_buffer_lock.Enter();
 	_send_flow.OnTick(now, loss_count);
-	_big_lock.Leave();
+	_send_buffer_lock.Leave();
 
 	// Avoid locking to transmit queued if no queued exist
 	for (int stream = 0; stream < NUM_STREAMS; ++stream)
@@ -745,7 +745,7 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 		return false;
 	}
 
-	AutoMutex lock(_big_lock);
+	AutoMutex lock(_send_buffer_lock);
 
 	u8 *send_buffer = _send_buffer;
 	u32 send_buffer_bytes = _send_buffer_bytes;
@@ -755,6 +755,7 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 	{
 		QueueWriteDatagram(send_buffer, send_buffer_bytes);
 
+		send_buffer = 0;
 		send_buffer_bytes = 0;
 		_send_buffer_stream = NUM_STREAMS;
 	}
@@ -773,16 +774,13 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 
 	// Write header
 	if (data_bytes <= BLO_MASK)
-	{
 		send_buffer[0] = (u8)data_bytes | (super_opcode << SOP_SHIFT);
-		send_buffer++;
-	}
 	else
 	{
 		send_buffer[0] = (u8)(data_bytes & BLO_MASK) | (super_opcode << SOP_SHIFT) | C_MASK;
 		send_buffer[1] = (u8)(data_bytes >> BHI_SHIFT);
-		send_buffer += 2;
 	}
+	send_buffer += header_bytes;
 
 	// Write data
 	send_buffer[0] = msg_opcode;
@@ -791,38 +789,61 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 	return true;
 }
 
-void Transport::FlushImmediately()
+bool Transport::WriteReliable(StreamMode stream, u8 msg_opcode, const void *vmsg_data, u32 data_bytes, SuperOpcode super_opcode)
 {
-	WriteQueuedReliable();
-	FlushWrites();
-}
+	const u8 *msg_data = reinterpret_cast<const u8*>( vmsg_data );
 
-void Transport::FlushWrites()
-{
-	// If no data to flush (common),
-	if (!_send_buffer && !_outgoing_datagrams.head)
-		return;
-
-	_big_lock.Enter();
-
-	u8 *send_buffer = _send_buffer;
-	if (send_buffer)
+	// Fail on invalid input
+	if (stream == STREAM_UNORDERED)
 	{
-		QueueWriteDatagram(send_buffer, _send_buffer_bytes);
+		u32 header_bytes = data_bytes > BLO_MASK ? 2 : 1;
 
-		_send_buffer = 0;
-		_send_buffer_bytes = 0;
-		_send_buffer_stream = NUM_STREAMS;
+		if (header_bytes + 3 + 1 + data_bytes > _max_payload_bytes)
+		{
+			WARN("Transport") << "Invalid input: Unordered buffer size request too large";
+			return false;
+		}
+	}
+	else
+	{
+		if (data_bytes > MAX_MESSAGE_DATALEN)
+		{
+			WARN("Transport") << "Invalid input: Stream buffer size request too large";
+			return false;
+		}
 	}
 
-	BatchSet outgoing_datagrams = _outgoing_datagrams;
-	_outgoing_datagrams.Clear();
+	// Allocate SendQueue object
+	SendQueue *node = StdAllocator::ii->AcquireTrailing<SendQueue>(1 + data_bytes);
+	if (!node)
+	{
+		WARN("Transport") << "Out of memory: Unable to allocate sendqueue object";
+		return false;
+	}
 
-	_big_lock.Leave();
+	// Fill the object
+	node->bytes = 1 + data_bytes;
+	node->frag_count = 0;
+	node->sop = super_opcode;
+	node->sent_bytes = 0;
+	node->next = 0;
 
-	// If any datagrams to write,
-	if (outgoing_datagrams.head)
-		WriteDatagrams(outgoing_datagrams);
+	u8 *node_data = GetTrailingBytes(node);
+	node_data[0] = msg_opcode;
+	memcpy(node_data+1, msg_data, data_bytes);
+
+	_send_queue_lock.Enter();
+
+	// Add to back of send queue
+	SendQueue *tail = _send_queue_tail[stream];
+	node->prev = tail;
+	if (tail) tail->next = node;
+	else _send_queue_head[stream] = node;
+	_send_queue_tail[stream] = node;
+
+	_send_queue_lock.Leave();
+
+	return true;
 }
 
 void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
@@ -871,22 +892,18 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 	u32 hdr_bytes = (data_bytes_with_overhead - 1) > BLO_MASK ? 2 : 1;
 	u32 msg_bytes = hdr_bytes + data_bytes_with_overhead;
 
-	// If ACK-ID needs to be written again,
-	u32 ack_id = node->id;
-	if (_send_buffer_stream != stream ||
-		_send_buffer_ack_id != ack_id)
-	{
-		hdr |= I_MASK;
-		msg_bytes += 3;
-	}
-
 	// Fail on invalid input
 	u32 max_payload_bytes = _max_payload_bytes;
-	if (msg_bytes > max_payload_bytes)
+	if (msg_bytes + 3 > max_payload_bytes)
 	{
 		WARN("Transport") << "Retransmit failure: Reliable message too large";
 		return;
 	}
+
+	AutoMutex lock(_send_buffer_lock);
+
+	// If ACK-ID needs to be written again,
+	u32 ack_id = node->id;
 
 	u8 *send_buffer = _send_buffer;
 	u32 send_buffer_bytes = _send_buffer_bytes;
@@ -899,10 +916,14 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 		send_buffer = 0;
 		send_buffer_bytes = 0;
 
-		// Set ACK-ID bit if it would now need to be sent
-		if (!(hdr & I_MASK))
-			msg_bytes += 3;
 		hdr |= I_MASK;
+		msg_bytes += 3;
+	}
+	else if (_send_buffer_stream != stream ||
+			 _send_buffer_ack_id != ack_id)
+	{
+		hdr |= I_MASK;
+		msg_bytes += 3;
 	}
 
 	// Create or grow buffer and write into it
@@ -935,10 +956,12 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 		pkt[2] = (u8)(ack_id >> 12);
 		pkt += 3;
 
-		// Next reliable message by default is one ACK-ID ahead
-		_send_buffer_ack_id = ack_id + 1;
+		// Set the stream if it is being written out
 		_send_buffer_stream = stream;
 	}
+
+	// Send buffer ACK ID gets updated regardless of whether or not it is in sequence
+	_send_buffer_ack_id = ack_id + 1;
 
 	// If fragment header needs to be written,
 	if (frag_overhead)
@@ -953,12 +976,47 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 
 	node->ts_lastsend = now;
 
+	lock.Release();
 	WARN("Transport") << "Retransmitted # " << stream << ":" << ack_id;
+}
+
+void Transport::FlushImmediately()
+{
+	WriteQueuedReliable();
+	FlushWrites();
+}
+
+void Transport::FlushWrites()
+{
+	// If no data to flush (common),
+	if (!_send_buffer && !_outgoing_datagrams.head)
+		return;
+
+	_send_buffer_lock.Enter();
+
+	u8 *send_buffer = _send_buffer;
+	if (send_buffer)
+	{
+		QueueWriteDatagram(send_buffer, _send_buffer_bytes);
+
+		_send_buffer = 0;
+		_send_buffer_bytes = 0;
+		_send_buffer_stream = NUM_STREAMS;
+	}
+
+	BatchSet outgoing_datagrams = _outgoing_datagrams;
+	_outgoing_datagrams.Clear();
+
+	_send_buffer_lock.Leave();
+
+	// If any datagrams to write,
+	if (outgoing_datagrams.head)
+		WriteDatagrams(outgoing_datagrams);
 }
 
 void Transport::WriteACK()
 {
-	// TODO: FIX DATA BYTES AND ZERO COPY
+	// TODO: FIX DATA BYTES
 	u8 packet[MAXIMUM_MTU];
 	u8 *offset = packet + 2 + 2; // 2 for header field
 	u32 max_payload_bytes = _max_payload_bytes;
@@ -1129,30 +1187,32 @@ void Transport::WriteACK()
 
 	// Post message:
 
-	AutoMutex lock(_big_lock);
+	AutoMutex lock(_send_buffer_lock);
 
 	u32 send_buffer_bytes = _send_buffer_bytes;
 
 	// If the growing send buffer cannot contain the new message,
 	if (send_buffer_bytes + msg_bytes > max_payload_bytes)
 	{
-		u8 *old_send_buffer = _send_buffer;
+		QueueWriteDatagram(_send_buffer, send_buffer_bytes);
 
-		u8 *msg_buffer = SendBuffer::Acquire(msg_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD);
-		if (!msg_buffer)
-		{
-			WARN("Transport") << "Out of memory: Unable to allocate ACK post buffer";
-		}
-		else
-		{
-			memcpy(msg_buffer, packet_copy_source, msg_bytes);
-			_send_buffer = msg_buffer;
-			_send_buffer_bytes = msg_bytes;
-			_send_buffer_stream = NUM_STREAMS;
-
-			QueueWriteDatagram(old_send_buffer, send_buffer_bytes);
-		}
+		send_buffer_bytes = 0;
+		_send_buffer_stream = NUM_STREAMS;
 	}
+
+	// Create or grow buffer and write into it
+	msg_bytes += send_buffer_bytes;
+	_send_buffer_bytes = msg_bytes;
+	u8 *send_buffer = _send_buffer = SendBuffer::Resize(send_buffer, msg_bytes + TRANSPORT_OVERHEAD + AuthenticatedEncryption::OVERHEAD_BYTES);
+	if (!send_buffer)
+	{
+		WARN("Transport") << "Out of memory: Unable to resize unreliable post buffer";
+		_send_buffer_bytes = 0;
+		_send_buffer_stream = NUM_STREAMS;
+		return false;
+	}
+
+
 	else
 	{
 		// Create or grow buffer and write into it
@@ -1177,7 +1237,7 @@ u32 Transport::RetransmitLost(u32 now)
 	u32 loss_count = 0, last_mia_time = 0;
 
 	// TODO: Should not need to lock to retransmit
-	AutoMutex lock(_big_lock);
+	AutoMutex lock(_send_buffer_lock);
 
 	// Retransmit lost packets
 	for (int stream = 0; stream < NUM_STREAMS; ++stream)
@@ -1272,7 +1332,7 @@ void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 
 	// TODO: Split lock into one for the send buffer access and one for the send queue
 	// TODO: Retransmit a batch of packets at a time to reduce locking
-	AutoMutex lock(_big_lock);
+	AutoMutex lock(_send_buffer_lock);
 
 	while (data_bytes > 0)
 	{
@@ -1561,63 +1621,6 @@ void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 	}
 }
 
-bool Transport::WriteReliable(StreamMode stream, u8 msg_opcode, const void *vmsg_data, u32 data_bytes, SuperOpcode super_opcode)
-{
-	const u8 *msg_data = reinterpret_cast<const u8*>( vmsg_data );
-
-	// Fail on invalid input
-	if (stream == STREAM_UNORDERED)
-	{
-		u32 header_bytes = data_bytes > BLO_MASK ? 2 : 1;
-
-		if (header_bytes + 3 + 1 + data_bytes > _max_payload_bytes)
-		{
-			WARN("Transport") << "Invalid input: Unordered buffer size request too large";
-			return false;
-		}
-	}
-	else
-	{
-		if (data_bytes > MAX_MESSAGE_DATALEN)
-		{
-			WARN("Transport") << "Invalid input: Stream buffer size request too large";
-			return false;
-		}
-	}
-
-	// Allocate SendQueue object
-	SendQueue *node = StdAllocator::ii->AcquireTrailing<SendQueue>(1 + data_bytes);
-	if (!node)
-	{
-		WARN("Transport") << "Out of memory: Unable to allocate sendqueue object";
-		return false;
-	}
-
-	// Fill the object
-	node->bytes = 1 + data_bytes;
-	node->frag_count = 0;
-	node->sop = super_opcode;
-	node->sent_bytes = 0;
-	node->next = 0;
-
-	u8 *node_data = GetTrailingBytes(node);
-	node_data[0] = msg_opcode;
-	memcpy(node_data+1, msg_data, data_bytes);
-
-	_big_lock.Enter();
-
-	// Add to back of send queue
-	SendQueue *tail = _send_queue_tail[stream];
-	node->prev = tail;
-	if (tail) tail->next = node;
-	else _send_queue_head[stream] = node;
-	_send_queue_tail[stream] = node;
-
-	_big_lock.Leave();
-
-	return true;
-}
-
 void Transport::WriteQueuedReliable()
 {
 	// ACK-ID compression thresholds
@@ -1636,7 +1639,7 @@ void Transport::WriteQueuedReliable()
 	u32 now = Clock::msec();
 	u32 max_payload_bytes = _max_payload_bytes;
 
-	AutoMutex lock(_big_lock);
+	AutoMutex lock(_send_buffer_lock);
 
 	// Cache send buffer
 	u32 send_buffer_bytes = _send_buffer_bytes;
