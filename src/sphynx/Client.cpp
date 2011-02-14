@@ -57,15 +57,26 @@ void Client::OnDisconnectComplete()
 
 void Client::OnReadRouting(const BatchSet &buffers)
 {
-	BatchSet garbage;
-	garbage.Clear();
 	u32 garbage_count = 0;
 
-	BatchSet delivery;
+	// If worker id is not assigned yet,
+	u32 worker_id = _worker_id;
+	if (worker_id == INVALID_WORKER_ID)
+	{
+		// For each buffer in the set,
+		for (BatchHead *node = buffers.head; node; node = node->batch_next)
+			++garbage_count;
+
+		ReleaseRecvBuffers(buffers, garbage_count);
+		return;
+	}
+
+	BatchSet garbage, delivery;
+	garbage.Clear();
 	delivery.Clear();
 
 	// For each buffer in the set,
-	for (BatchHead *next, *node = buffers.head; node; node = node->batch_next)
+	for (BatchHead *next, *node = buffers.head; node; node = next)
 	{
 		next = node->batch_next;
 		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
@@ -87,7 +98,7 @@ void Client::OnReadRouting(const BatchSet &buffers)
 
 	// If delivery set is not empty,
 	if (delivery.head)
-		GetIOLayer()->GetWorkerThreads()->DeliverBuffers(_worker_id, delivery);
+		GetIOLayer()->GetWorkerThreads()->DeliverBuffers(worker_id, delivery);
 
 	// If free set is not empty,
 	if (garbage_count > 0)
@@ -166,6 +177,8 @@ void Client::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 					_mtu_discovery_attempts = 2;
 					_sync_attempts = 0;
 
+					WriteTimePing();
+
 					if (!DontFragment())
 					{
 						WARN("Client") << "Unable to detect MTU: Unable to set DF bit";
@@ -200,8 +213,9 @@ void Client::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 		BatchSet delivery;
 		delivery.Clear();
 
-		for (; node; node = node->batch_next)
+		for (BatchHead *next; node; node = next)
 		{
+			next = node->batch_next;
 			++buffer_count;
 			RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
 			u32 data_bytes = buffer->data_bytes;
@@ -289,7 +303,7 @@ void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)
 			if (_mtu_discovery_attempts > 0)
 			{
 				// If it is time to re-probe the MTU,
-				if (now - _mtu_discovery_time >= MTU_PROBE_INTERVAL)
+				if ((s32)(now - _mtu_discovery_time) >= MTU_PROBE_INTERVAL)
 				{
 					// If payload bytes already maxed out,
 					if (_max_payload_bytes >= MAXIMUM_MTU - _overhead_bytes ||
@@ -349,6 +363,7 @@ Client::Client()
 	// Clock synchronization
 	_ts_next_index = 0;
 	_ts_sample_count = 0;
+	_worker_id = INVALID_WORKER_ID;
 
 	InitializeWorkerCallbacks(this);
 }

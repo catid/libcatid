@@ -61,8 +61,9 @@ void Connexion::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 	delivery.Clear();
 
 	// For each connected datagram,
-	for (BatchHead *node = buffers.head; node; node = node->batch_next)
+	for (BatchHead *next, *node = buffers.head; node; node = next)
 	{
+		next = node->batch_next;
 		++buffer_count;
 		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
 		u32 data_bytes = buffer->data_bytes;
