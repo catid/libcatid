@@ -36,6 +36,7 @@ public:
 			switch (msg[0])
 			{
 			case 0:
+				WriteReliable(STREAM_BULK, 0);
 				{
 					INFO("Connexion") << "Got request for transmit";
 					static char STR[4000];

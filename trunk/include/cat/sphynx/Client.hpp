@@ -79,8 +79,8 @@ class Client : public UDPEndpoint, public Transport, public WorkerCallbacks
 
 	// Clock Synchronization
 	static const int TIME_SYNC_INTERVAL = 10000; // Normal time synch interval, milliseconds
-	static const int TIME_SYNC_FAST_COUNT = 8; // Number of fast measurements at the start, milliseconds
-	static const int TIME_SYNC_FAST = 5000; // Interval during fast measurements, milliseconds
+	static const int TIME_SYNC_FAST_COUNT = 20; // Number of fast measurements at the start, milliseconds
+	static const int TIME_SYNC_FAST = 2000; // Interval during fast measurements, milliseconds
 	static const int MAX_TS_SAMPLES = 16; // Maximum timestamp sample memory
 	static const int MIN_TS_SAMPLES = 1; // Minimum number of timestamp samples
 

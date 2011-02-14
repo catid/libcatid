@@ -43,6 +43,9 @@ public:
 			case 0:
 				{
 					WARN("Client") << "Got request for transmit";
+
+					WriteReliable(STREAM_BULK, 0);
+
 					/*
 					static char STR[4000];
 

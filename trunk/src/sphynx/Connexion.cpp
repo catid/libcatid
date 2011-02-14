@@ -66,12 +66,16 @@ void Connexion::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 		next = node->batch_next;
 		++buffer_count;
 		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
+		u8 *data = GetTrailingBytes(buffer);
 		u32 data_bytes = buffer->data_bytes;
 
 		// If the data could be decrypted,
-		if (_auth_enc.Decrypt(GetTrailingBytes(buffer), data_bytes))
+		if (data_bytes > (AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD) &&
+			_auth_enc.Decrypt(data, data_bytes))
 		{
-			buffer->data_bytes = data_bytes - AuthenticatedEncryption::OVERHEAD_BYTES;
+			data_bytes -= AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD;
+			buffer->send_time = decodeClientTimestamp(buffer->event_msec, getLE(*(u16*)(data + data_bytes)));
+			buffer->data_bytes = data_bytes;
 			delivery.PushBack(buffer);
 		}
 		else if (buffer_count <= 1 && !_seen_encrypted)
@@ -79,7 +83,6 @@ void Connexion::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 			// Handle lost s2c answer by retransmitting it
 			// And only do this for the first packet we get
 			u32 bytes = buffer->data_bytes;
-			u8 *data = GetTrailingBytes(buffer);
 
 			if (bytes == C2S_CHALLENGE_LEN && data[0] == C2S_CHALLENGE)
 			{
@@ -157,7 +160,7 @@ Connexion::Connexion()
 bool Connexion::WriteDatagrams(const BatchSet &buffers)
 {
 	u32 now = getLocalTime();
-	u16 timestamp = getLE((u16)now);
+	u16 timestamp = getLE(encodeServerTimestamp(now));
 
 	/*
 		The format of each buffer:
