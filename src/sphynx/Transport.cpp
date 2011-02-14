@@ -1697,6 +1697,13 @@ void Transport::WriteQueuedReliable()
 							send_buffer = 0;
 							send_buffer_bytes = 0;
 							remaining_send_buffer = max_payload_bytes;
+
+							// Recalculate how many bytes it would take to represent
+							u32 diff = ack_id - remote_expected;
+							if (diff < ACK_ID_1_THRESH)			ack_id_bytes = 1;
+							else if (diff < ACK_ID_2_THRESH)	ack_id_bytes = 2;
+							else								ack_id_bytes = 3;
+
 							ack_id_overhead = ack_id_bytes;
 
 							// If the message is still fragmented after emptying the send buffer,
@@ -1866,12 +1873,6 @@ void Transport::WriteQueuedReliable()
 
 					// Increment ACK-ID
 					++ack_id;
-
-					// Recalculate how many bytes it would take to represent
-					u32 diff = ack_id - remote_expected;
-					if (diff < ACK_ID_1_THRESH)			ack_id_bytes = 1;
-					else if (diff < ACK_ID_2_THRESH)	ack_id_bytes = 2;
-					else								ack_id_bytes = 3;
 
 					// Write optional fragment word
 					if (frag_overhead)
