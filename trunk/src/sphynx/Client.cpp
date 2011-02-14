@@ -603,6 +603,8 @@ bool Client::WriteDatagrams(const BatchSet &buffers)
 		// Encrypt the message
 		_auth_enc.Encrypt(msg_data, msg_bytes);
 		buffer->bytes = msg_bytes;
+
+		INFO("Client") << "Transmitting datagram with " << msg_bytes << " data bytes";
 	}
 
 	// If write fails,
