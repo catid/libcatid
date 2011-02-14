@@ -218,16 +218,22 @@ void Client::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 			next = node->batch_next;
 			++buffer_count;
 			RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
+			u8 *data = GetTrailingBytes(buffer);
 			u32 data_bytes = buffer->data_bytes;
 
-			if (buffer->data_bytes == 0)
+			if (data_bytes == 0)
 			{
 				Disconnect(ERR_CLIENT_BROKEN_PIPE);
 				break;
 			}
-			else if (_auth_enc.Decrypt(GetTrailingBytes(buffer), data_bytes))
+			else if (data_bytes > (TRANSPORT_OVERHEAD + AuthenticatedEncryption::OVERHEAD_BYTES) &&
+					 _auth_enc.Decrypt(data, data_bytes))
 			{
-				buffer->data_bytes = data_bytes - AuthenticatedEncryption::OVERHEAD_BYTES;
+				data_bytes -= TRANSPORT_OVERHEAD + AuthenticatedEncryption::OVERHEAD_BYTES;
+				buffer->send_time = decodeServerTimestamp(buffer->event_msec, getLE(*(u16*)(data + data_bytes)));
+
+				buffer->data_bytes = data_bytes;
+
 				delivery.PushBack(buffer);
 			}
 			else

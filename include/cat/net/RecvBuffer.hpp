@@ -49,6 +49,9 @@ struct RecvBuffer : public BatchHead
 		{
 			WorkerCallbacks *callback;
 			NetAddr addr;
+
+			// TODO: Sphynx specific
+			u32 send_time;
 		};
 	};
 

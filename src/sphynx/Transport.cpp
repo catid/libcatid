@@ -301,13 +301,9 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 		u8 *data = GetTrailingBytes(buffer);
 		s32 bytes = buffer->data_bytes;
 
-		// Skip if not enough data
-		if (bytes < 3) continue;
-
 		// Decode the timestamp from the end of the buffer
-		bytes -= 2;
 		u32 recv_time = buffer->event_msec;
-		u32 send_time = decodeServerTimestamp(recv_time, getLE(*(u16*)(data + bytes)));
+		u32 send_time = buffer->send_time;
 
 		// And start peeling out messages from the warm gooey center of the packet
 		u32 ack_id = 0, stream = 0;
@@ -1014,7 +1010,9 @@ void Transport::WriteACK()
 	u32 remaining = max_payload_bytes - 2 - 2;
 
 	// Calculate trip time average
-	u32 trip_time_avg = _recv_trip_time_sum / _recv_trip_count;
+	u32 trip_time_avg = (_recv_trip_count > 0) ? (_recv_trip_time_sum / _recv_trip_count) : 0;
+	_recv_trip_time_sum = 0;
+	_recv_trip_count = 0;
 
 	// Write average trip time
 	if (trip_time_avg < C_MASK)
