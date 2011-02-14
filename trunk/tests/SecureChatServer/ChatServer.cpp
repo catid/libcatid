@@ -38,7 +38,7 @@ public:
 			case 0:
 				WriteReliable(STREAM_BULK, 0);
 				{
-					INFO("Connexion") << "Got request for transmit";
+					INFO("Connexion") << "-- Got request for transmit";
 					static char STR[4000];
 					for (int ii = 0; ii < sizeof(STR); ++ii)
 						STR[ii] = (char)ii/(4000/256);
@@ -47,7 +47,7 @@ public:
 			case 2:
 				WriteReliable(STREAM_1, 0);
 			default:
-				INFO("Connexion") << "Got message with " << bytes << " bytes";
+				INFO("Connexion") << "-- Got message with " << bytes << " bytes";
 			}
 		}
 	}
