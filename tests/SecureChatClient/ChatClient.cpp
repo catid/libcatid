@@ -44,14 +44,11 @@ public:
 				{
 					WARN("Client") << "Got request for transmit";
 
-					WriteReliable(STREAM_BULK, 0);
-
-					/*
 					static char STR[4000];
 
 					for (int ii = 0; ii < sizeof(STR); ++ii)
 						STR[ii] = (char)ii;
-
+/*
 					for (int jj = 0; jj < 10; ++jj)
 						WriteReliable(STREAM_UNORDERED, 1, STR, sizeof(STR)/4);
 					for (int jj = 0; jj < 1000; ++jj)
@@ -59,8 +56,8 @@ public:
 					for (int jj = 0; jj < 1000; ++jj)
 						WriteReliable(STREAM_2, 1, STR, sizeof(STR));
 					WriteReliable(STREAM_2, 2, STR, sizeof(STR));
-
-					WriteReliable(STREAM_BULK, 0, STR, sizeof(STR));*/
+*/
+					WriteReliable(STREAM_BULK, 0, STR, sizeof(STR));
 				}
 				break;
 			default:

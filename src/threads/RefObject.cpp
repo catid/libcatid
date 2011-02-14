@@ -145,6 +145,8 @@ bool RefObjectWatcher::WaitForShutdown(s32 milliseconds)
 
 	if (_wait_count == 0) return true;
 
+	lock.Release();
+
 	// If first time shutting down,
 	if (!shutdown)
 	{
@@ -157,8 +159,6 @@ bool RefObjectWatcher::WaitForShutdown(s32 milliseconds)
 			obj->RequestShutdown();
 		}
 	}
-
-	lock.Release();
 
 	return _shutdown_flag.Wait(milliseconds);
 }
@@ -194,31 +194,26 @@ bool RefObjectWatcher::OnObjectShutdownStart(WatchedRefObject *obj)
 	ListIterator ii = std::find(_watched_list.begin(), _watched_list.end(), obj);
 
 	// If it was found in the list,
-	if (ii != _watched_list.end())
-	{
-		_watched_list.erase(ii);
+	if (ii == _watched_list.end()) return false;
 
-		lock.Release();
+	_watched_list.erase(ii);
 
-		// Release object reference, since they still have a reference on us
-		// and will call us back when shutdown ends
-		obj->ReleaseRef();
+	lock.Release();
 
-		// Do not decrement _wait_count until shutdown is complete
-		return true;
-	}
+	// Release object reference, since they still have a reference on us
+	// and will call us back when shutdown ends
+	obj->ReleaseRef();
 
-	return false;
+	// Do not decrement _wait_count until shutdown is complete
+	return true;
 }
 
 void RefObjectWatcher::OnObjectShutdownEnd(WatchedRefObject *obj)
 {
-	bool shutdown;
-
 	_lock.Enter();
 
 	u32 wait_count = --_wait_count;
-	shutdown = _shutdown && wait_count <= 0;
+	bool shutdown = _shutdown && wait_count <= 0;
 
 	_lock.Leave();
 

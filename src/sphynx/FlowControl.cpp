@@ -47,7 +47,7 @@ FlowControl::FlowControl()
 
 	_max_epoch_bytes = _bandwidth_low_limit / 2;
 
-	_loss_timeout = 100;
+	_loss_timeout = 1500;
 }
 
 void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
@@ -89,7 +89,6 @@ void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 
 void FlowControl::OnACK(u32 now, u32 avg_one_way_time, u32 nack_loss_count)
 {
-	/*
 	_stats_trip[_stats_ack_ii] = avg_one_way_time;
 	_stats_nack[_stats_ack_ii] = nack_loss_count;
 	_stats_ack_ii++;
@@ -101,7 +100,7 @@ void FlowControl::OnACK(u32 now, u32 avg_one_way_time, u32 nack_loss_count)
 			FATAL("FlowControl") << "AvgTrip=" << _stats_trip[ii] << " NACK=" << _stats_nack[ii];
 		}
 		_stats_ack_ii = 0;
-	}*/
+	}
 
 	if (avg_one_way_time > 300)
 	{

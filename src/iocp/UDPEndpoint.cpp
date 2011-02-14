@@ -393,9 +393,13 @@ void UDPEndpoint::ReleaseRecvBuffers(BatchSet buffers, u32 count)
 		if (!next) return;
 
 		buffers.head = next;
+		--count;
 	}
 
 	_iolayer->GetIOThreads()->GetRecvAllocator()->ReleaseBatch(buffers);
+
+	// Release one reference for each buffer
+	ReleaseRef(count);
 }
 
 void UDPEndpoint::OnReadCompletion(const BatchSet &buffers, u32 count)
@@ -405,10 +409,6 @@ void UDPEndpoint::OnReadCompletion(const BatchSet &buffers, u32 count)
 	{
 		// Just release the read buffers
 		ReleaseRecvBuffers(buffers, count);
-
-		// Release one reference for each buffer
-		ReleaseRef(count);
-
 		return;
 	}
 
@@ -421,7 +421,7 @@ void UDPEndpoint::OnReadCompletion(const BatchSet &buffers, u32 count)
 	{
 		// Race to replenish the buffers
 		u32 race_posted = Atomic::Add(&_buffers_posted, perceived_deficiency);
- 
+
 		// If we lost the race to replenish,
 		if (race_posted >= SIMULTANEOUS_READS)
 		{
@@ -432,10 +432,10 @@ void UDPEndpoint::OnReadCompletion(const BatchSet &buffers, u32 count)
 		{
 			// Set new post count to the perceived deficiency
 			count += perceived_deficiency;
-
-			AddRef(perceived_deficiency);
 		}
 	}
+
+	AddRef(count);
 
 	// Post enough reads to fill in
 	u32 posted_reads = PostReads(count);
