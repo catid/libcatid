@@ -52,6 +52,7 @@ class WorkerThreads;
 
 static const u32 MAX_WORKER_THREADS = 32;
 static const u32 WORKER_TICK_INTERVAL = 20;
+static const u32 INVALID_WORKER_ID = ~(u32)0;
 
 // Interface for worker thread-local storage
 class IWorkerTLS
