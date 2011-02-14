@@ -491,8 +491,6 @@ void Transport::RunReliableReceiveQueue(SphynxTLS *tls, u32 recv_time, u32 ack_i
 		return;
 	}
 
-	RecvQueue *kill_node = node;
-
 	// For each queued message that is now ready to go,
 	do
 	{
@@ -521,7 +519,10 @@ void Transport::RunReliableReceiveQueue(SphynxTLS *tls, u32 recv_time, u32 ack_i
 
 		// And proceed on to next message
 		++ack_id;
-		node = node->next;
+
+		RecvQueue *next = node->next;
+		StdAllocator::ii->Release(node);
+		node = next;
 	} while (node && node->id == ack_id);
 
 	// Update receive queue state
@@ -530,17 +531,6 @@ void Transport::RunReliableReceiveQueue(SphynxTLS *tls, u32 recv_time, u32 ack_i
 	else node->prev = 0;
 	_next_recv_expected_id[stream] = ack_id;
 	_got_reliable[stream] = true;
-
-	// Split deletion from processing to reduce lock contention
-	while (kill_node != node)
-	{
-		RecvQueue *next = kill_node->next;
-
-		// Delete queued message
-		StdAllocator::ii->Release(kill_node);
-
-		kill_node = next;
-	}
 }
 
 void Transport::StoreReliableOutOfOrder(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *data, u32 data_bytes, u32 ack_id, u32 stream, u32 super_opcode)
@@ -620,7 +610,7 @@ void Transport::StoreReliableOutOfOrder(SphynxTLS *tls, u32 send_time, u32 recv_
 	else _recv_queue_head[stream] = new_node;
 	_got_reliable[stream] = true;
 
-	if (stored_bytes) memcpy(GetTrailingBytes(new_node), data, stored_bytes);
+	memcpy(GetTrailingBytes(new_node), data, stored_bytes);
 }
 
 void Transport::OnFragment(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *data, u32 bytes, u32 stream)
@@ -953,7 +943,7 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 	// If fragment header needs to be written,
 	if (frag_overhead)
 	{
-		*reinterpret_cast<u16*>( pkt ) = getLE16((u16)frag_total_bytes);
+		*(u16*)pkt = getLE16((u16)frag_total_bytes);
 		pkt += 2;
 	}
 
@@ -1577,8 +1567,8 @@ void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 void Transport::WriteQueuedReliable()
 {
 	// ACK-ID compression thresholds
-	const u32 ACK_ID_1_THRESH = 8;
-	const u32 ACK_ID_2_THRESH = 1024;
+	const u32 ACK_ID_1_THRESH = 16;
+	const u32 ACK_ID_2_THRESH = 2048;
 
 	// If there is no more room in the channel,
 	s32 send_epoch_bytes = _send_flow.GetSentBytes();
@@ -1707,11 +1697,16 @@ void Transport::WriteQueuedReliable()
 							ack_id_overhead = ack_id_bytes;
 
 							// If the message is still fragmented after emptying the send buffer,
-							if (!fragmented && 2 + ack_id_bytes + remaining_data_bytes > remaining_send_buffer)
+							if (2 + ack_id_bytes + remaining_data_bytes > remaining_send_buffer)
 							{
 								frag_overhead = 2;
 								fragmented = true;
 							}
+						}
+						else
+						{
+							frag_overhead = 2;
+							fragmented = true;
 						}
 					}
 
@@ -1736,6 +1731,7 @@ void Transport::WriteQueuedReliable()
 						if (!frag)
 						{
 							WARN("Transport") << "Out of memory: Unable to allocate fragment node";
+							// TODO: Check if this fails gracefully
 							continue; // Retry
 						}
 						else
@@ -1811,7 +1807,7 @@ void Transport::WriteQueuedReliable()
 					}
 
 					// Resize post buffer to contain the bytes that will be written
-					send_buffer = SendBuffer::Resize(send_buffer, send_buffer_bytes + write_bytes + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD);
+					send_buffer = SendBuffer::Resize(send_buffer, send_buffer_bytes + write_bytes + TRANSPORT_OVERHEAD + AuthenticatedEncryption::OVERHEAD_BYTES);
 					if (!send_buffer)
 					{
 						WARN("Transport") << "Out of memory: Unable to allocate send buffer";
@@ -1877,7 +1873,7 @@ void Transport::WriteQueuedReliable()
 					// Write optional fragment word
 					if (frag_overhead)
 					{
-						*reinterpret_cast<u16*>( msg ) = getLE((u16)node->bytes);
+						*(u16*)msg = getLE((u16)node->bytes);
 						frag_overhead = 0;
 						msg += 2;
 					}

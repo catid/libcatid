@@ -382,17 +382,17 @@ public:
 	// Current server time
 	CAT_INLINE u32 getServerTime() { return toServerTime(getLocalTime()); }
 
-	// Compress timestamp on client for delivery to server; high two bits are unused; byte order must be fixed before writing to message
-	CAT_INLINE u16 encodeClientTimestamp(u32 local_time) { return (u16)(toServerTime(local_time) & 0x3fff); }
+	// Compress timestamp on client for delivery to server; byte order must be fixed before writing to message
+	CAT_INLINE u16 encodeClientTimestamp(u32 local_time) { return (u16)toServerTime(local_time); }
 
 	// Decompress a timestamp on server from client; high two bits are unused; byte order must be fixed before decoding
-	CAT_INLINE u32 decodeClientTimestamp(u32 local_time, u16 timestamp) { return BiasedReconstructCounter<14>(local_time, TS_COMPRESS_FUTURE_TOLERANCE, timestamp & 0x3fff); }
+	CAT_INLINE u32 decodeClientTimestamp(u32 local_time, u16 timestamp) { return BiasedReconstructCounter<16>(local_time, TS_COMPRESS_FUTURE_TOLERANCE, timestamp); }
 
 	// Compress timestamp on server for delivery to client; high two bits are unused; byte order must be fixed before writing to message
-	CAT_INLINE u16 encodeServerTimestamp(u32 local_time) { return (u16)(local_time & 0x3fff); }
+	CAT_INLINE u16 encodeServerTimestamp(u32 local_time) { return (u16)local_time; }
 
 	// Decompress a timestamp on client from server; high two bits are unused; byte order must be fixed before decoding
-	CAT_INLINE u32 decodeServerTimestamp(u32 local_time, u16 timestamp) { return fromServerTime(BiasedReconstructCounter<14>(toServerTime(local_time), TS_COMPRESS_FUTURE_TOLERANCE, timestamp & 0x3fff)); }
+	CAT_INLINE u32 decodeServerTimestamp(u32 local_time, u16 timestamp) { return fromServerTime(BiasedReconstructCounter<16>(toServerTime(local_time), TS_COMPRESS_FUTURE_TOLERANCE, timestamp)); }
 
 	void Disconnect(u8 reason = DISCO_USER_EXIT);
 	CAT_INLINE bool IsDisconnected() { return _disconnect_reason != DISCO_CONNECTED; }

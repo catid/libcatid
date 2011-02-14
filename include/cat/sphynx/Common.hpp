@@ -229,15 +229,6 @@ struct SendFrag : public SendQueue
 	u32 offset;				// Fragment data offset
 };
 
-// Temporary send node structure, nestled in the encryption overhead of outgoing packets
-struct TempSendNode // Size <= 11 bytes = AuthenticatedEncryption::OVERHEAD_BYTES
-{
-	static const u32 BYTE_MASK = 0xffff;
-
-	TempSendNode *next;
-	u16 negative_offset; // Number of bytes before this structure, and single flag
-};
-
 #if defined(CAT_PACK_TRANSPORT_STATE_STRUCTURES)
 # pragma pack(pop)
 #endif
