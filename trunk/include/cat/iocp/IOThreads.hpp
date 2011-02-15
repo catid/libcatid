@@ -71,6 +71,16 @@ struct IOCPOverlappedRecvFrom : IOCPOverlapped
 
 struct IOCPOverlappedSendTo : IOCPOverlapped
 {
+	union
+	{
+		/*
+			Buffer count:
+			1: this pointer is null
+			2+: this pointer points to an array of WSABUF objects on the completed object, and second object will have a valid count
+		*/
+		WSABUF *wsabufs;
+		u32 count;
+	};
 };
 
 typedef IOCPOverlappedRecvFrom IOLayerRecvOverhead;

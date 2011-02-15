@@ -69,6 +69,8 @@ void Connexion::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 		u8 *data = GetTrailingBytes(buffer);
 		u32 data_bytes = buffer->data_bytes;
 
+		INFO("Connexion") << "Decrypting " << data_bytes << " bytes";
+
 		// If the data could be decrypted,
 		if (data_bytes > (AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD) &&
 			_auth_enc.Decrypt(data, data_bytes))
@@ -175,9 +177,11 @@ bool Connexion::WriteDatagrams(const BatchSet &buffers)
 	*/
 
 	// For each datagram to send,
+	u32 count = 0;
 	for (BatchHead *node = buffers.head; node; node = node->batch_next)
 	{
 		// Unwrap the message data
+		++count;
 		SendBuffer *buffer = reinterpret_cast<SendBuffer*>( node );
 		u8 *msg_data = GetTrailingBytes(buffer);
 		u32 msg_bytes = buffer->bytes;
@@ -193,7 +197,7 @@ bool Connexion::WriteDatagrams(const BatchSet &buffers)
 	}
 
 	// Do not need to update a "last send" timestamp here because the client is responsible for sending keep-alives
-	return _parent->Write(buffers, _client_addr);
+	return _parent->Write(buffers, count, _client_addr);
 }
 
 void Connexion::OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream data, u32 bytes)

@@ -44,7 +44,7 @@ public:
 				{
 					WARN("Client") << "Got request for transmit";
 
-					static char STR[4000];
+					static char STR[1600];
 
 					for (int ii = 0; ii < sizeof(STR); ++ii)
 						STR[ii] = (char)ii;
