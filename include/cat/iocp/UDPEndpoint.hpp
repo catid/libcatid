@@ -87,13 +87,13 @@ public:
 
 	// If Is6() == true, the address must be promoted to IPv6
 	// before calling using addr.PromoteTo6()
-	bool Write(const BatchSet &buffers, const NetAddr &addr);
+	bool Write(const BatchSet &buffers, u32 count, const NetAddr &addr);
 
 	CAT_INLINE bool Write(u8 *data, u32 data_bytes, const NetAddr &addr)
 	{
 		SendBuffer *buffer = SendBuffer::Promote(data);
 		buffer->bytes = data_bytes;
-		return Write(buffer, addr);
+		return Write(buffer, 1, addr);
 	}
 
 	// When done with read buffers, call this function to add them back to the available pool

@@ -588,9 +588,11 @@ bool Client::WriteDatagrams(const BatchSet &buffers)
 	*/
 
 	// For each datagram to send,
+	u32 count = 0;
 	for (BatchHead *node = buffers.head; node; node = node->batch_next)
 	{
 		// Unwrap the message data
+		++count;
 		SendBuffer *buffer = reinterpret_cast<SendBuffer*>( node );
 		u8 *msg_data = GetTrailingBytes(buffer);
 		u32 msg_bytes = buffer->bytes;
@@ -608,7 +610,7 @@ bool Client::WriteDatagrams(const BatchSet &buffers)
 	}
 
 	// If write fails,
-	if (!Write(buffers, _server_addr))
+	if (!Write(buffers, count, _server_addr))
 		return false;
 
 	// Update the last send time to make sure we keep the channel occupied

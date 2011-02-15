@@ -70,17 +70,30 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 				if (sendq.tail) sendq.tail->batch_next = buffer;
 				else sendq.head = buffer;
 
-				// Find the end of the buffers
-				BatchHead *last;
-				u32 count = 1;
+				WSABUF *wsabufs = buffer->iointernal.wsabufs;
 
-				for (last = buffer; last->batch_next; last = last->batch_next)
-					++count;
+				// Get buffer count
+				u32 count;
+				SendBuffer *last;
+
+				if (!wsabufs)
+				{
+					count = 1;
+					last = buffer;
+				}
+				else
+				{
+					count = reinterpret_cast<SendBuffer*>(buffer->batch_next)->iointernal.count;
+					last = SendBuffer::Promote(reinterpret_cast<u8*>( wsabufs[count - 1].buf ));
+				}
 
 				// Use that as the new tail
 				sendq.tail = last;
 
 				udp_endpoint->ReleaseRef(count);
+
+				// Free memory for WSABUFs
+				delete []wsabufs;
 			}
 			break;
 

@@ -260,7 +260,7 @@ u32 UDPEndpoint::PostReads(u32 count)
 	return read_count;
 }
 
-bool UDPEndpoint::Write(const BatchSet &buffers, const NetAddr &addr)
+bool UDPEndpoint::Write(const BatchSet &buffers, u32 count, const NetAddr &addr)
 {
 	NetAddr::SockAddr out_addr;
 	int addr_len;
@@ -268,71 +268,98 @@ bool UDPEndpoint::Write(const BatchSet &buffers, const NetAddr &addr)
 	// If in the process of shutdown or input invalid,
 	if (IsShutdown() || !addr.Unwrap(out_addr, addr_len))
 	{
-		// Release all the buffers as a batch, since their allocators are all the same
 		StdAllocator::ii->ReleaseBatch(buffers);
 		return false;
 	}
 
-	WSABUF wsabufs[SIMULTANEOUS_SENDS];
-	u32 ii = 0;
-	BatchHead *node = buffers.head, *first = node;
 	bool success = true;
 
-	// While there are more buffers to send,
-	for (;;)
+	// If only one buffer,
+	if (count == 1)
 	{
-		BatchHead *next = node->batch_next;
-
 		// Write node to buffer array
+		BatchHead *node = buffers.head;
 		SendBuffer *send_buf = reinterpret_cast<SendBuffer*>( node );
-		wsabufs[ii].buf = reinterpret_cast<CHAR*>( GetTrailingBytes(send_buf) );
-		wsabufs[ii].len = send_buf->bytes;
 
-		// If that was the end of what we can fit, or there is no more data,
-		if (++ii >= SIMULTANEOUS_SENDS || !next)
+		WSABUF wsabuf;
+		wsabuf.buf = reinterpret_cast<CHAR*>( GetTrailingBytes(send_buf) );
+		wsabuf.len = send_buf->bytes;
+
+		AddRef();
+
+		CAT_OBJCLR(send_buf->iointernal.ov);
+		send_buf->iointernal.wsabufs = 0;
+		send_buf->iointernal.io_type = IOTYPE_UDP_SEND;
+
+		// Fire off a WSASendTo() and forget about it
+		int result = WSASendTo(_socket, &wsabuf, 1, 0, 0,
+			reinterpret_cast<const sockaddr*>( &out_addr ),
+			addr_len, &send_buf->iointernal.ov, 0);
+
+		// This overlapped operation will always complete unless
+		// we get an error code other than ERROR_IO_PENDING.
+		if (result && WSAGetLastError() != ERROR_IO_PENDING)
 		{
-			AddRef();
+			WARN("UDPEndpoint") << "WSASendTo(1) error: " << SocketGetLastErrorString();
 
-			// Unlink these buffers from the rest of the batch
-			node->batch_next = 0;
+			StdAllocator::ii->Release(node);
 
-			SendBuffer *first_buf = reinterpret_cast<SendBuffer*>( first );
-			CAT_OBJCLR(first_buf->iointernal.ov);
-			first_buf->iointernal.io_type = IOTYPE_UDP_SEND;
+			ReleaseRef();
 
-			// Fire off a WSASendTo() and forget about it
-			int result = WSASendTo(_socket, wsabufs, ii, 0, 0,
-								   reinterpret_cast<const sockaddr*>( &out_addr ),
-								   addr_len, &first_buf->iointernal.ov, 0);
-
-			// This overlapped operation will always complete unless
-			// we get an error code other than ERROR_IO_PENDING.
-			if (result && WSAGetLastError() != ERROR_IO_PENDING)
-			{
-				WARN("UDPEndpoint") << "WSASendTo error: " << SocketGetLastErrorString();
-
-				// Relink buffers to the rest of the batch
-				node->batch_next = next;
-
-				// Release the rest of the batch
-				BatchSet set(first, buffers.tail);
-				StdAllocator::ii->ReleaseBatch(set);
-
-				ReleaseRef();
-
-				success = false;
-				break;
-			}
-
-			// Stop here if there is no more data to send
-			if (!next) break;
-
-			// Start next batch over from here
-			first = next;
-			ii = 0;
+			success = false;
+		}
+	}
+	else
+	{
+		WSABUF *wsabufs = new WSABUF[count];
+		if (!wsabufs)
+		{
+			StdAllocator::ii->ReleaseBatch(buffers);
+			return false;
 		}
 
-		node = next;
+		BatchHead *node = buffers.head;
+
+		// Store wsabufs and count in first two buffers
+		SendBuffer *first_buf = reinterpret_cast<SendBuffer*>( node );
+		first_buf->iointernal.wsabufs = wsabufs;
+		CAT_OBJCLR(first_buf->iointernal.ov);
+		first_buf->iointernal.io_type = IOTYPE_UDP_SEND;
+
+		SendBuffer *second_buf = reinterpret_cast<SendBuffer*>( node->batch_next );
+		second_buf->iointernal.count = count;
+
+		// Assumes count matches actual length of buffer list
+		u32 ii = 0;
+		for (; node; node = node->batch_next, ++ii)
+		{
+			SendBuffer *send_buf = reinterpret_cast<SendBuffer*>( node );
+
+			wsabufs[ii].buf = reinterpret_cast<CHAR*>( GetTrailingBytes(send_buf) );
+			wsabufs[ii].len = send_buf->bytes;
+		}
+
+		AddRef();
+
+		// Fire off a WSASendTo() and forget about it
+		int result = WSASendTo(_socket, wsabufs, ii, 0, 0,
+							   reinterpret_cast<const sockaddr*>( &out_addr ),
+							   addr_len, &first_buf->iointernal.ov, 0);
+
+		// This overlapped operation will always complete unless
+		// we get an error code other than ERROR_IO_PENDING.
+		if (result && WSAGetLastError() != ERROR_IO_PENDING)
+		{
+			WARN("UDPEndpoint") << "WSASendTo error: " << SocketGetLastErrorString();
+
+			// Release the rest of the batch
+			StdAllocator::ii->ReleaseBatch(buffers);
+			delete []wsabufs;
+
+			ReleaseRef();
+
+			success = false;
+		}
 	}
 
 	// If there are no read buffers posted on the socket,
