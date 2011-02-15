@@ -78,7 +78,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 				else
 					sendq.tail = (SendBuffer*)((SendBuffer*)buffer->batch_next)->iointernal.last;
 
-				udp_endpoint->ReleaseRef(count);
+				udp_endpoint->ReleaseRef();
 			}
 			break;
 
@@ -90,10 +90,8 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 				buffer->data_bytes = bytes;
 				buffer->event_msec = event_msec;
 
-				if (bytes >= 1450)
-				{
-					int x = 0;
-				}
+				// TODO: Remove this
+				WARN("IOThreads") << "Reading: " << HexDumpString(GetTrailingBytes(buffer), bytes);
 
 				// If the same allocator was used twice in a row and there is space,
 				if (prev_recv_endpoint == udp_endpoint)

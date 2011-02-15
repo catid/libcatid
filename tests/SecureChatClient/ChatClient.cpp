@@ -103,7 +103,7 @@ int main()
 	// linux: 10.1.1.146
 	// netbook: 10.1.1.110
 	// coldfront: 68.84.166.22
-	if (!client->Connect(&layer, &tls, "127.0.0.1", 22000, public_key, "Chat"))
+	if (!client->Connect(&layer, &tls, "10.1.1.142", 22000, public_key, "Chat"))
 	{
 		FATAL("Client") << "Unable to connect to server";
 	}
