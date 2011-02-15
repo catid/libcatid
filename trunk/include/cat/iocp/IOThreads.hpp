@@ -73,13 +73,10 @@ struct IOCPOverlappedSendTo : IOCPOverlapped
 {
 	union
 	{
-		/*
-			Buffer count:
-			1: this pointer is null
-			2+: this pointer points to an array of WSABUF objects on the completed object, and second object will have a valid count
-		*/
-		WSABUF *wsabufs;
+		// First buffer in a set will have a valid count
+		// Second buffer in a set will have a valid last pointer
 		u32 count;
+		BatchHead *last;
 	};
 };
 
