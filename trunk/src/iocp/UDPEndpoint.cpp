@@ -353,7 +353,7 @@ bool UDPEndpoint::Write(const BatchSet &buffers, u32 count, const NetAddr &addr)
 		AddRef();
 
 		// Fire off a WSASendTo() and forget about it
-		int result = WSASendTo(_socket, wsabufs, actual_count, 0, MSG_PARTIAL,
+		int result = WSASendTo(_socket, wsabufs, actual_count, 0, 0,
 							   reinterpret_cast<const sockaddr*>( &out_addr ),
 							   addr_len, &first_buf->iointernal.ov, 0);
 
