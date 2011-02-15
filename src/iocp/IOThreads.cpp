@@ -70,30 +70,15 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 				if (sendq.tail) sendq.tail->batch_next = buffer;
 				else sendq.head = buffer;
 
-				WSABUF *wsabufs = buffer->iointernal.wsabufs;
-
 				// Get buffer count
-				u32 count;
-				SendBuffer *last;
+				u32 count = buffer->iointernal.count;
 
-				if (!wsabufs)
-				{
-					count = 1;
-					last = buffer;
-				}
+				if (count <= 1)
+					sendq.tail = buffer;
 				else
-				{
-					count = reinterpret_cast<SendBuffer*>(buffer->batch_next)->iointernal.count;
-					last = SendBuffer::Promote(reinterpret_cast<u8*>( wsabufs[count - 1].buf ));
-				}
-
-				// Use that as the new tail
-				sendq.tail = last;
+					sendq.tail = (SendBuffer*)((SendBuffer*)buffer->batch_next)->iointernal.last;
 
 				udp_endpoint->ReleaseRef(count);
-
-				// Free memory for WSABUFs
-				delete []wsabufs;
 			}
 			break;
 
@@ -104,6 +89,11 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 				// Write event completion results to buffer
 				buffer->data_bytes = bytes;
 				buffer->event_msec = event_msec;
+
+				if (bytes >= 1450)
+				{
+					int x = 0;
+				}
 
 				// If the same allocator was used twice in a row and there is space,
 				if (prev_recv_endpoint == udp_endpoint)

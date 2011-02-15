@@ -288,7 +288,7 @@ bool UDPEndpoint::Write(const BatchSet &buffers, u32 count, const NetAddr &addr)
 		AddRef();
 
 		CAT_OBJCLR(send_buf->iointernal.ov);
-		send_buf->iointernal.wsabufs = 0;
+		send_buf->iointernal.count = 1;
 		send_buf->iointernal.io_type = IOTYPE_UDP_SEND;
 
 		// Fire off a WSASendTo() and forget about it
@@ -311,38 +311,42 @@ bool UDPEndpoint::Write(const BatchSet &buffers, u32 count, const NetAddr &addr)
 	}
 	else
 	{
-		WSABUF *wsabufs = new WSABUF[count];
-		if (!wsabufs)
-		{
-			StdAllocator::ii->ReleaseBatch(buffers);
-			return false;
-		}
+		WSABUF *wsabufs = reinterpret_cast<WSABUF*>( alloca(sizeof(WSABUF) * count) );
 
-		BatchHead *node = buffers.head;
+		u32 actual_count = 0;
+		BatchHead *next, *node = buffers.head;
 
-		// Store wsabufs and count in first two buffers
 		SendBuffer *first_buf = reinterpret_cast<SendBuffer*>( node );
-		first_buf->iointernal.wsabufs = wsabufs;
 		CAT_OBJCLR(first_buf->iointernal.ov);
 		first_buf->iointernal.io_type = IOTYPE_UDP_SEND;
 
-		SendBuffer *second_buf = reinterpret_cast<SendBuffer*>( node->batch_next );
-		second_buf->iointernal.count = count;
-
-		// Assumes count matches actual length of buffer list
-		u32 ii = 0;
-		for (; node; node = node->batch_next, ++ii)
+		for (;;)
 		{
 			SendBuffer *send_buf = reinterpret_cast<SendBuffer*>( node );
 
-			wsabufs[ii].buf = reinterpret_cast<CHAR*>( GetTrailingBytes(send_buf) );
-			wsabufs[ii].len = send_buf->bytes;
+			wsabufs[actual_count].buf = reinterpret_cast<CHAR*>( GetTrailingBytes(send_buf) );
+			wsabufs[actual_count].len = send_buf->bytes;
+			++actual_count;
+
+			next = node->batch_next;
+			if (!next) break;
+			node = next;
+		}
+
+		// Stash count and last pointer in first two buffers
+		SendBuffer *second_buf = reinterpret_cast<SendBuffer*>( first_buf->batch_next );
+		first_buf->iointernal.count = actual_count;
+		second_buf->iointernal.last = node;
+
+		if (count != actual_count)
+		{
+			WARN("UDPEndpoint") << "Count passed to Write() does not match actual count";
 		}
 
 		AddRef();
 
 		// Fire off a WSASendTo() and forget about it
-		int result = WSASendTo(_socket, wsabufs, ii, 0, 0,
+		int result = WSASendTo(_socket, wsabufs, actual_count, 0, 0,
 							   reinterpret_cast<const sockaddr*>( &out_addr ),
 							   addr_len, &first_buf->iointernal.ov, 0);
 
@@ -354,7 +358,6 @@ bool UDPEndpoint::Write(const BatchSet &buffers, u32 count, const NetAddr &addr)
 
 			// Release the rest of the batch
 			StdAllocator::ii->ReleaseBatch(buffers);
-			delete []wsabufs;
 
 			ReleaseRef();
 
