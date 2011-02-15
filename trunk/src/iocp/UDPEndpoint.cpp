@@ -285,6 +285,9 @@ bool UDPEndpoint::Write(const BatchSet &buffers, u32 count, const NetAddr &addr)
 		wsabuf.buf = reinterpret_cast<CHAR*>( GetTrailingBytes(send_buf) );
 		wsabuf.len = send_buf->bytes;
 
+		// TODO: Remove this
+		WARN("UDPEndpoint") << "Writing: " << HexDumpString(wsabuf.buf, wsabuf.len);
+
 		AddRef();
 
 		CAT_OBJCLR(send_buf->iointernal.ov);
@@ -326,6 +329,10 @@ bool UDPEndpoint::Write(const BatchSet &buffers, u32 count, const NetAddr &addr)
 
 			wsabufs[actual_count].buf = reinterpret_cast<CHAR*>( GetTrailingBytes(send_buf) );
 			wsabufs[actual_count].len = send_buf->bytes;
+
+			// TODO: Remove this
+			WARN("UDPEndpoint") << "Writing: " << HexDumpString(wsabufs[actual_count].buf, wsabufs[actual_count].len);
+
 			++actual_count;
 
 			next = node->batch_next;
