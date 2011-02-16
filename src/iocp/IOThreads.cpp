@@ -141,7 +141,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 
 void IOThread::UseVistaAPI(IOThreads *master)
 {
-	PtGetQueuedCompletionStatusEx pGetQueuedCompletionStatusEx = master->pGetQueuedCompletionStatusEx;
+	PtGetQueuedCompletionStatusEx pGetQueuedCompletionStatusEx = master->_GetQueuedCompletionStatusEx;
 	HANDLE port = master->_io_port;
 
 	static const u32 MAX_IO_GATHER = 32;
@@ -201,7 +201,7 @@ bool IOThread::ThreadFunction(void *vmaster)
 
 	// TODO: Test both of these
 
-	if (master->pGetQueuedCompletionStatusEx)
+	if (master->_GetQueuedCompletionStatusEx)
 		UseVistaAPI(master);
 	else
 		UsePreVistaAPI(master);
@@ -220,7 +220,7 @@ IOThreads::IOThreads()
 	_recv_allocator = 0;
 
 	// Attempt to use Vista+ API
-	pGetQueuedCompletionStatusEx = (PtGetQueuedCompletionStatusEx)GetProcAddress(GetModuleHandleA("kernel32.dll"), "GetQueuedCompletionStatusEx");
+	_GetQueuedCompletionStatusEx = (PtGetQueuedCompletionStatusEx)GetProcAddress(GetModuleHandleA("kernel32.dll"), "GetQueuedCompletionStatusEx");
 }
 
 IOThreads::~IOThreads()

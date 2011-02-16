@@ -116,7 +116,7 @@ class IOThreads
 	u32 _worker_count;
 	IOThread *_workers;
 
-	PtGetQueuedCompletionStatusEx pGetQueuedCompletionStatusEx;
+	PtGetQueuedCompletionStatusEx _GetQueuedCompletionStatusEx;
 	HANDLE _io_port;
 
 	BufferAllocator *_recv_allocator;

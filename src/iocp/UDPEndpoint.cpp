@@ -143,7 +143,19 @@ bool UDPEndpoint::Bind(IOLayer *iolayer, bool onlySupportIPv4, Port port, bool i
 		return false;
 	}
 
-    _socket = s;
+	// Get TransmitPackets() interface
+	GUID GuidTransmitPackets = WSAID_TRANSMITPACKETS;
+	DWORD copied;
+
+	if (WSAIoctl(s, SIO_GET_EXTENSION_FUNCTION_POINTER, &GuidTransmitPackets, sizeof(GuidTransmitPackets),
+		&_TransmitPackets, sizeof(_TransmitPackets), &copied, 0, 0))
+	{
+		FATAL("UDPEndpoint") << "Unable to get TransmitPackets interface: " << SocketGetLastErrorString();
+		CloseSocket(s);
+		return false;
+	}
+
+	_socket = s;
 
 	// Ignore ICMP Unreachable
     if (ignoreUnreachable) IgnoreUnreachable();
@@ -314,7 +326,7 @@ bool UDPEndpoint::Write(const BatchSet &buffers, u32 count, const NetAddr &addr)
 	}
 	else
 	{
-		WSABUF *wsabufs = reinterpret_cast<WSABUF*>( alloca(sizeof(WSABUF) * count) );
+		TRANSMIT_PACKETS_ELEMENT *elements = reinterpret_cast<TRANSMIT_PACKETS_ELEMENT*>( alloca(sizeof(TRANSMIT_PACKETS_ELEMENT) * count) );
 
 		u32 actual_count = 0;
 		BatchHead *next, *node = buffers.head;
@@ -327,11 +339,12 @@ bool UDPEndpoint::Write(const BatchSet &buffers, u32 count, const NetAddr &addr)
 		{
 			SendBuffer *send_buf = reinterpret_cast<SendBuffer*>( node );
 
-			wsabufs[actual_count].buf = reinterpret_cast<CHAR*>( GetTrailingBytes(send_buf) );
-			wsabufs[actual_count].len = send_buf->bytes;
+			elements[actual_count].dwElFlags = TP_ELEMENT_EOP | TP_ELEMENT_MEMORY;
+			elements[actual_count].cLength = send_buf->bytes;
+			elements[actual_count].pBuffer = GetTrailingBytes(send_buf);
 
 			// TODO: Remove this
-			WARN("UDPEndpoint") << "Writing: " << HexDumpString(wsabufs[actual_count].buf, wsabufs[actual_count].len);
+			WARN("UDPEndpoint") << "Writing: " << HexDumpString(elements[actual_count].pBuffer, elements[actual_count].cLength);
 
 			++actual_count;
 
@@ -352,16 +365,18 @@ bool UDPEndpoint::Write(const BatchSet &buffers, u32 count, const NetAddr &addr)
 
 		AddRef();
 
+		int result = _TransmitPackets(_socket, elements, actual_count, 0xFFFFFFF, &first_buf->iointernal.ov, TF_USE_SYSTEM_THREAD);
+/*
 		// Fire off a WSASendTo() and forget about it
 		int result = WSASendTo(_socket, wsabufs, actual_count, 0, 0,
 							   reinterpret_cast<const sockaddr*>( &out_addr ),
 							   addr_len, &first_buf->iointernal.ov, 0);
-
+*/
 		// This overlapped operation will always complete unless
 		// we get an error code other than ERROR_IO_PENDING.
 		if (result && WSAGetLastError() != ERROR_IO_PENDING)
 		{
-			WARN("UDPEndpoint") << "WSASendTo error: " << SocketGetLastErrorString();
+			WARN("UDPEndpoint") << "TransmitPackets error: " << SocketGetLastErrorString();
 
 			// Release the rest of the batch
 			StdAllocator::ii->ReleaseBatch(buffers);
