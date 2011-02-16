@@ -109,6 +109,10 @@ namespace sphynx {
 
 		TOTAL_BYTES: Total bytes in data part of fragmented message,
 					 not including this header.
+
+		As a result, normal message transmission is limited to messages
+		that are up to 65535 bytes.  This includes the message type byte
+		so the payload part of messages can be as long as 65534 bytes.
 */
 
 /*
