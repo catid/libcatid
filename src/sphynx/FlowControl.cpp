@@ -43,7 +43,7 @@ FlowControl::FlowControl()
 	_stats_ack_ii = 0;
 
 	_bandwidth_low_limit = 10000;
-	_bandwidth_high_limit = 10000000;
+	_bandwidth_high_limit = 100000000;
 
 	_max_epoch_bytes = _bandwidth_high_limit / 2;
 
