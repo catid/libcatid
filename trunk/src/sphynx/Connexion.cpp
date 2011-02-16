@@ -161,9 +161,6 @@ Connexion::Connexion()
 
 bool Connexion::WriteDatagrams(const BatchSet &buffers)
 {
-	u32 now = getLocalTime();
-	u16 timestamp = getLE(encodeServerTimestamp(now));
-
 	/*
 		The format of each buffer:
 
@@ -185,6 +182,9 @@ bool Connexion::WriteDatagrams(const BatchSet &buffers)
 		SendBuffer *buffer = reinterpret_cast<SendBuffer*>( node );
 		u8 *msg_data = GetTrailingBytes(buffer);
 		u32 msg_bytes = buffer->bytes;
+
+		u32 now = getLocalTime();
+		u16 timestamp = getLE(encodeServerTimestamp(now));
 
 		// Write timestamp right before the encryption overhead
 		*(u16*)(msg_data + msg_bytes) = timestamp;

@@ -561,8 +561,7 @@ bool Client::WriteTimePing()
 
 bool Client::WriteDatagrams(const BatchSet &buffers)
 {
-	u32 now = getLocalTime();
-	u16 timestamp = getLE(encodeClientTimestamp(now));
+	u32 now;
 
 	/*
 		The format of each buffer:
@@ -586,6 +585,9 @@ bool Client::WriteDatagrams(const BatchSet &buffers)
 		u8 *msg_data = GetTrailingBytes(buffer);
 		u32 msg_bytes = buffer->bytes;
 
+		u32 now = getLocalTime();
+		u16 timestamp = getLE(encodeClientTimestamp(now));
+
 		// Write timestamp right before the encryption overhead
 		*(u16*)(msg_data + msg_bytes) = timestamp;
 
@@ -598,12 +600,16 @@ bool Client::WriteDatagrams(const BatchSet &buffers)
 		INFO("Client") << "Transmitting datagram with " << msg_bytes << " data bytes";
 	}
 
-	// If write fails,
-	if (!Write(buffers, count, _server_addr))
-		return false;
+	if (count)
+	{
+		// If write fails,
+		if (!Write(buffers, count, _server_addr))
+			return false;
 
-	// Update the last send time to make sure we keep the channel occupied
-	_last_send_msec = now;
+		// Update the last send time to make sure we keep the channel occupied
+		_last_send_msec = now;
+	}
+
 	return true;
 }
 

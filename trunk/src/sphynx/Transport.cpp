@@ -431,7 +431,7 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 				}
 				else
 				{
-					WARN("Transport") << "Ignored duplicate rolled reliable message " << stream << ":" << ack_id;
+					INFO("Transport") << "Ignored duplicate rolled reliable message " << stream << ":" << ack_id;
 
 					INANE("Transport") << "Rel dump " << bytes << ":" << HexDumpString(data, bytes);
 
