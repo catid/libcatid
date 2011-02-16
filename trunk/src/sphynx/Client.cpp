@@ -655,16 +655,16 @@ void Client::OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStre
 			u32 rtt = client_pong_recv_time - client_ping_send_time - server_processing_time;
 
 			// First leg = Delta(Server-Client) + One-way c2s Trip Time
-			u32 first_leg = server_ping_recv_time - client_ping_send_time;
+			s32 first_leg = server_ping_recv_time - client_ping_send_time;
 
 			// Second leg = Delta(Server-Client) - One-way s2c Trip Time
-			u32 second_leg = server_pong_send_time - client_pong_recv_time;
+			s32 second_leg = server_pong_send_time - client_pong_recv_time;
 
-			s32 delta = CAT_SAFE_AVERAGE(first_leg, second_leg);
-
-			WARN("Client") << "Got IOP_S2C_TIME_PONG.  rtt=" << rtt << " unbalanced by " << (s32)(rtt/2 - (fromServerTime(server_ping_recv_time) - client_ping_send_time));
+			s32 delta = (s32)(((s64)first_leg + (s64)second_leg) / 2);
 
 			UpdateTimeSynch(rtt, delta);
+
+			WARN("Client") << "Got IOP_S2C_TIME_PONG.  rtt=" << rtt << " first leg = " << first_leg << " second leg = " << second_leg << " delta = " << delta << " running delta = " << (s32)_ts_delta;
 		}
 		break;
 
