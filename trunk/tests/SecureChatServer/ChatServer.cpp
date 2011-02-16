@@ -41,7 +41,7 @@ public:
 				//WriteReliable(STREAM_BULK, 0);
 				{
 					WARN("Connexion") << "-- Got request for transmit";
-					static char STR[400000];
+					static char STR[65534];
 					for (int ii = 0; ii < sizeof(STR); ++ii)
 						STR[ii] = (char)ii/(4000/256);
 					WriteReliable(STREAM_BULK, 0, STR, sizeof STR);
