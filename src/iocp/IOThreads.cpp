@@ -70,13 +70,8 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 				if (sendq.tail) sendq.tail->batch_next = buffer;
 				else sendq.head = buffer;
 
-				// Get buffer count
-				u32 count = buffer->iointernal.count;
-
-				if (count <= 1)
-					sendq.tail = buffer;
-				else
-					sendq.tail = (SendBuffer*)((SendBuffer*)buffer->batch_next)->iointernal.last;
+				sendq.tail = buffer;
+				buffer->batch_next = 0;
 
 				udp_endpoint->ReleaseRef();
 			}
@@ -89,9 +84,6 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 				// Write event completion results to buffer
 				buffer->data_bytes = bytes;
 				buffer->event_msec = event_msec;
-
-				// TODO: Remove this
-				WARN("IOThreads") << "Reading: " << HexDumpString(GetTrailingBytes(buffer), bytes);
 
 				// If the same allocator was used twice in a row and there is space,
 				if (prev_recv_endpoint == udp_endpoint)
