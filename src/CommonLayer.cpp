@@ -82,4 +82,6 @@ void CommonLayer::OnShutdown(bool watched_shutdown)
 
 	// Cleanup clock subsystem
 	Clock::Shutdown();
+
+	CAT_DEBUG_LEAKS_DUMP();
 }

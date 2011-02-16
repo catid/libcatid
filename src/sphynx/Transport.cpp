@@ -72,13 +72,13 @@ void Transport::QueueDelivery(SphynxTLS *tls, u8 *data, u32 data_bytes, u32 send
 	{
 		OnMessages(tls, tls->delivery_queue, depth);
 
-		// Free memory for fragments
-		for (u32 ii = 0, count = tls->free_list_count; ii < count; ++ii)
-			delete []tls->free_list[ii];
-
 		tls->delivery_queue_depth = 0;
-		tls->free_list_count = 0;
 	}
+
+	// Free memory for fragments
+	for (u32 ii = 0, count = tls->free_list_count; ii < count; ++ii)
+		delete []tls->free_list[ii];
+	tls->free_list_count = 0;
 }
 
 CAT_INLINE void Transport::DeliverQueued(SphynxTLS *tls)
@@ -89,6 +89,11 @@ CAT_INLINE void Transport::DeliverQueued(SphynxTLS *tls)
 		OnMessages(tls, tls->delivery_queue, depth);
 		tls->delivery_queue_depth = 0;
 	}
+
+	// Free memory for fragments
+	for (u32 ii = 0, count = tls->free_list_count; ii < count; ++ii)
+		delete []tls->free_list[ii];
+	tls->free_list_count = 0;
 }
 
 Transport::Transport()
