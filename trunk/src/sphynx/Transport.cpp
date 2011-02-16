@@ -797,6 +797,13 @@ bool Transport::WriteReliableZeroCopy(StreamMode stream, u8 *msg, u32 msg_bytes,
 		stream = STREAM_1;
 	}
 
+	if (msg_bytes > MAX_MESSAGE_SIZE)
+	{
+		WARN("Transport") << "Reliable write request too large " << msg_bytes;
+		OutgoingMessage::Release(msg);
+		return false;
+	}
+
 	// Fill the object
 	OutgoingMessage *node = OutgoingMessage::Promote(msg);
 	node->bytes = msg_bytes;

@@ -38,15 +38,15 @@ public:
 			u32 bytes = msgs[ii].bytes;
 			u32 send_time = msgs[ii].send_time;
 
-			INFO("Client") << "Got message with " << bytes << " bytes";
+			//INFO("Client") << "Got message with " << bytes << " bytes";
 
 			switch (msg[0])
 			{
 			case 0:
 				{
-					WARN("Client") << "Got request for transmit";
+					WARN("Client") << "-- Got request for transmit";
 
-					static char STR[4000];
+					static char STR[400000];
 
 					for (int ii = 0; ii < sizeof(STR); ++ii)
 						STR[ii] = (char)ii;
@@ -103,7 +103,8 @@ int main()
 	// linux: 10.1.1.146
 	// netbook: 10.1.1.110
 	// coldfront: 68.84.166.22
-	if (!client->Connect(&layer, &tls, "127.0.0.1", 22000, public_key, "Chat"))
+	// workstation: 10.15.40.161
+	if (!client->Connect(&layer, &tls, "10.15.40.161", 22000, public_key, "Chat"))
 	{
 		FATAL("Client") << "Unable to connect to server";
 	}

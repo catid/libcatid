@@ -61,6 +61,7 @@ public:
 
 	static CAT_INLINE T *Promote(u8 *ptr)
 	{
+		u32 size = sizeof(T);
 		return reinterpret_cast<T*>( ptr - sizeof(T) );
 	}
 
@@ -88,11 +89,6 @@ public:
 		return Resize(Promote(ptr), new_trailing_bytes);
 	}
 
-	CAT_INLINE void Release()
-	{
-		StdAllocator::ii->Release(this);
-	}
-
 	static CAT_INLINE void Release(T *buffer)
 	{
 		StdAllocator::ii->Release(buffer);
@@ -100,7 +96,7 @@ public:
 
 	static CAT_INLINE void Release(u8 *ptr)
 	{
-		if (ptr) T::Promote(ptr)->Release();
+		if (ptr) T::Release(T::Promote(ptr));
 	}
 };
 

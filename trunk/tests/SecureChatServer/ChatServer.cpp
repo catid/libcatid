@@ -33,17 +33,18 @@ public:
 			u32 bytes = msgs[ii].bytes;
 			u32 send_time = msgs[ii].send_time;
 
-			INFO("Connexion") << "-- Got message with " << bytes << " bytes" << HexDumpString(msg, min(16, bytes));
+			//INFO("Connexion") << "-- Got message with " << bytes << " bytes" << HexDumpString(msg, min(16, bytes));
 
 			switch (msg[0])
 			{
 			case 0:
 				//WriteReliable(STREAM_BULK, 0);
 				{
-					INFO("Connexion") << "-- Got request for transmit";
-					static char STR[4000];
+					WARN("Connexion") << "-- Got request for transmit";
+					static char STR[400000];
 					for (int ii = 0; ii < sizeof(STR); ++ii)
 						STR[ii] = (char)ii/(4000/256);
+					WriteReliable(STREAM_BULK, 0, STR, sizeof STR);
 				}
 				break;
 			case 2:
