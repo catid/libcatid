@@ -616,14 +616,14 @@ template<typename T> CAT_INLINE T Bound(const T &minimum, const T &maximum, cons
 
 //// Memory Leaks ////
 
+#define CAT_DEBUG_LEAKS_DUMP()
 #if defined(CAT_DEBUG_LEAKS)
 # if defined(CAT_COMPILER_MSVC)
 #  define _CRTDBG_MAP_ALLOC
 #  include <stdlib.h>
 #  include <crtdbg.h>
+#  undef CAT_DEBUG_LEAKS_DUMP
 #  define CAT_DEBUG_LEAKS_DUMP() _CrtDumpMemoryLeaks()
-# else
-#  define CAT_DEBUG_LEAKS_DUMP()
 # endif
 #endif
 

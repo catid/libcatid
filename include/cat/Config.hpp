@@ -54,7 +54,7 @@ namespace cat {
 #define CAT_DEFAULT_CACHE_LINE_SIZE 128
 
 // Enable leak debug mode of the common runtime heap allocator
-#define CAT_DEBUG_LEAKS
+//#define CAT_DEBUG_LEAKS
 
 
 } // namespace cat
