@@ -615,7 +615,7 @@ void Transport::StoreReliableOutOfOrder(SphynxTLS *tls, u32 send_time, u32 recv_
 
 void Transport::OnFragment(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *data, u32 bytes, u32 stream)
 {
-	INANE("Transport") << "OnFragment " << bytes << ":" << HexDumpString(data, bytes);
+	INFO("Transport") << "OnFragment " << bytes << ":" << HexDumpString(data, bytes);
 
 	// If fragment is starting,
 	if (!_fragments[stream].length)
@@ -1696,17 +1696,23 @@ void Transport::WriteQueuedReliable()
 
 							ack_id_overhead = ack_id_bytes;
 
-							// If the message is still fragmented after emptying the send buffer,
-							if (2 + ack_id_bytes + remaining_data_bytes > remaining_send_buffer)
+							if (!fragmented)
 							{
-								frag_overhead = 2;
-								fragmented = true;
+								// If the message is still fragmented after emptying the send buffer,
+								if (2 + ack_id_bytes + remaining_data_bytes > remaining_send_buffer)
+								{
+									frag_overhead = 2;
+									fragmented = true;
+								}
 							}
 						}
 						else
 						{
-							frag_overhead = 2;
-							fragmented = true;
+							if (!fragmented)
+							{
+								frag_overhead = 2;
+								fragmented = true;
+							}
 						}
 					}
 
