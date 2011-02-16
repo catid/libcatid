@@ -143,18 +143,6 @@ bool UDPEndpoint::Bind(IOLayer *iolayer, bool onlySupportIPv4, Port port, bool i
 		return false;
 	}
 
-	// Get TransmitPackets() interface
-	GUID GuidTransmitPackets = WSAID_TRANSMITPACKETS;
-	DWORD copied;
-
-	if (WSAIoctl(s, SIO_GET_EXTENSION_FUNCTION_POINTER, &GuidTransmitPackets, sizeof(GuidTransmitPackets),
-		&_TransmitPackets, sizeof(_TransmitPackets), &copied, 0, 0))
-	{
-		FATAL("UDPEndpoint") << "Unable to get TransmitPackets interface: " << SocketGetLastErrorString();
-		CloseSocket(s);
-		return false;
-	}
-
 	_socket = s;
 
 	// Ignore ICMP Unreachable
@@ -284,107 +272,39 @@ bool UDPEndpoint::Write(const BatchSet &buffers, u32 count, const NetAddr &addr)
 		return false;
 	}
 
-	bool success = true;
+	u32 write_count = 0;
 
-	// If only one buffer,
-	if (count == 1)
+	AddRef(count);
+
+	for (BatchHead *next, *node = buffers.head; node; node = next)
 	{
-		// Write node to buffer array
-		BatchHead *node = buffers.head;
-		SendBuffer *send_buf = reinterpret_cast<SendBuffer*>( node );
+		next = node->batch_next;
+		SendBuffer *buffer = reinterpret_cast<SendBuffer*>( node );
 
 		WSABUF wsabuf;
-		wsabuf.buf = reinterpret_cast<CHAR*>( GetTrailingBytes(send_buf) );
-		wsabuf.len = send_buf->bytes;
+		wsabuf.buf = reinterpret_cast<CHAR*>( GetTrailingBytes(buffer) );
+		wsabuf.len = buffer->bytes;
 
-		// TODO: Remove this
-		WARN("UDPEndpoint") << "Writing: " << HexDumpString(wsabuf.buf, wsabuf.len);
-
-		AddRef();
-
-		CAT_OBJCLR(send_buf->iointernal.ov);
-		send_buf->iointernal.count = 1;
-		send_buf->iointernal.io_type = IOTYPE_UDP_SEND;
+		CAT_OBJCLR(buffer->iointernal.ov);
+		buffer->iointernal.io_type = IOTYPE_UDP_SEND;
 
 		// Fire off a WSASendTo() and forget about it
 		int result = WSASendTo(_socket, &wsabuf, 1, 0, 0,
 			reinterpret_cast<const sockaddr*>( &out_addr ),
-			addr_len, &send_buf->iointernal.ov, 0);
+			addr_len, &buffer->iointernal.ov, 0);
 
 		// This overlapped operation will always complete unless
 		// we get an error code other than ERROR_IO_PENDING.
 		if (result && WSAGetLastError() != ERROR_IO_PENDING)
 		{
-			WARN("UDPEndpoint") << "WSASendTo(1) error: " << SocketGetLastErrorString();
+			WARN("UDPEndpoint") << "WSASendTo error: " << SocketGetLastErrorString();
 
 			StdAllocator::ii->Release(node);
-
 			ReleaseRef();
-
-			success = false;
-		}
-	}
-	else
-	{
-		TRANSMIT_PACKETS_ELEMENT *elements = reinterpret_cast<TRANSMIT_PACKETS_ELEMENT*>( alloca(sizeof(TRANSMIT_PACKETS_ELEMENT) * count) );
-
-		u32 actual_count = 0;
-		BatchHead *next, *node = buffers.head;
-
-		SendBuffer *first_buf = reinterpret_cast<SendBuffer*>( node );
-		CAT_OBJCLR(first_buf->iointernal.ov);
-		first_buf->iointernal.io_type = IOTYPE_UDP_SEND;
-
-		for (;;)
-		{
-			SendBuffer *send_buf = reinterpret_cast<SendBuffer*>( node );
-
-			elements[actual_count].dwElFlags = TP_ELEMENT_EOP | TP_ELEMENT_MEMORY;
-			elements[actual_count].cLength = send_buf->bytes;
-			elements[actual_count].pBuffer = GetTrailingBytes(send_buf);
-
-			// TODO: Remove this
-			WARN("UDPEndpoint") << "Writing: " << HexDumpString(elements[actual_count].pBuffer, elements[actual_count].cLength);
-
-			++actual_count;
-
-			next = node->batch_next;
-			if (!next) break;
-			node = next;
+			continue;
 		}
 
-		// Stash count and last pointer in first two buffers
-		SendBuffer *second_buf = reinterpret_cast<SendBuffer*>( first_buf->batch_next );
-		first_buf->iointernal.count = actual_count;
-		second_buf->iointernal.last = node;
-
-		if (count != actual_count)
-		{
-			WARN("UDPEndpoint") << "Count passed to Write() does not match actual count";
-		}
-
-		AddRef();
-
-		int result = _TransmitPackets(_socket, elements, actual_count, 0xFFFFFFF, &first_buf->iointernal.ov, TF_USE_SYSTEM_THREAD);
-/*
-		// Fire off a WSASendTo() and forget about it
-		int result = WSASendTo(_socket, wsabufs, actual_count, 0, 0,
-							   reinterpret_cast<const sockaddr*>( &out_addr ),
-							   addr_len, &first_buf->iointernal.ov, 0);
-*/
-		// This overlapped operation will always complete unless
-		// we get an error code other than ERROR_IO_PENDING.
-		if (result && WSAGetLastError() != ERROR_IO_PENDING)
-		{
-			WARN("UDPEndpoint") << "TransmitPackets error: " << SocketGetLastErrorString();
-
-			// Release the rest of the batch
-			StdAllocator::ii->ReleaseBatch(buffers);
-
-			ReleaseRef();
-
-			success = false;
-		}
+		++write_count;
 	}
 
 	// If there are no read buffers posted on the socket,
@@ -409,7 +329,7 @@ bool UDPEndpoint::Write(const BatchSet &buffers, u32 count, const NetAddr &addr)
 		}
 	}
 
-	return success;
+	return count == write_count;
 }
 
 

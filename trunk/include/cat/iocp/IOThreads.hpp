@@ -71,13 +71,6 @@ struct IOCPOverlappedRecvFrom : IOCPOverlapped
 
 struct IOCPOverlappedSendTo : IOCPOverlapped
 {
-	union
-	{
-		// First buffer in a set will have a valid count
-		// Second buffer in a set will have a valid last pointer
-		u32 count;
-		BatchHead *last;
-	};
 };
 
 typedef IOCPOverlappedRecvFrom IOLayerRecvOverhead;

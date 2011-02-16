@@ -32,7 +32,6 @@
 #include <cat/net/Sockets.hpp>
 #include <cat/net/SendBuffer.hpp>
 #include <cat/net/RecvBuffer.hpp>
-#include <MSWSock.h>
 
 /*
 	To get maximum performance from the UDP sockets, be sure to adjust your
@@ -54,15 +53,6 @@ class IOLayer;
 static const u32 SIMULTANEOUS_READS = 128;
 static const u32 SIMULTANEOUS_SENDS = 128;
 
-typedef BOOL (PASCAL *PtTransmitPackets)(
-	SOCKET hSocket,
-	LPTRANSMIT_PACKETS_ELEMENT lpPacketArray,
-	DWORD nElementCount,
-	DWORD nSendSize,
-	LPOVERLAPPED lpOverlapped,
-	DWORD dwFlags
-	);
-
 
 // Object that represents a UDP endpoint bound to a single port
 class UDPEndpoint : public WatchedRefObject
@@ -73,8 +63,6 @@ class UDPEndpoint : public WatchedRefObject
 
 	IOLayer *_iolayer;
 	Socket _socket;
-	PtTransmitPackets _TransmitPackets;
-
 	Port _port;
 	bool _ipv6;
 
