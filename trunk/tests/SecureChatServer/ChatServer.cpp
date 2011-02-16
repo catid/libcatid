@@ -33,6 +33,8 @@ public:
 			u32 bytes = msgs[ii].bytes;
 			u32 send_time = msgs[ii].send_time;
 
+			INFO("Connexion") << "-- Got message with " << bytes << " bytes" << HexDumpString(msg, min(16, bytes));
+
 			switch (msg[0])
 			{
 			case 0:
@@ -46,8 +48,6 @@ public:
 				break;
 			case 2:
 				WriteReliable(STREAM_1, 0);
-			default:
-				INFO("Connexion") << "-- Got message with " << bytes << " bytes";
 			}
 		}
 	}
