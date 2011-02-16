@@ -95,10 +95,19 @@ void FlowControl::OnACK(u32 now, u32 avg_one_way_time, u32 nack_loss_count)
 
 	if (_stats_ack_ii == IIMAX)
 	{
-		for (int ii = 0; ii < IIMAX; ++ii)
+		u32 avg_trip, min_trip, max_trip, nack_count = 0;
+		avg_trip = min_trip = max_trip = _stats_trip[0];
+
+		for (int ii = 1; ii < IIMAX; ++ii)
 		{
-			FATAL("FlowControl") << "AvgTrip=" << _stats_trip[ii] << " NACK=" << _stats_nack[ii];
+			u32 trip = _stats_trip[ii];
+			avg_trip += trip;
+			if (min_trip > trip) min_trip = trip;
+			if (max_trip < trip) max_trip = trip;
+			nack_count += _stats_nack[ii];
 		}
+		avg_trip /= IIMAX;
+		FATAL("FlowControl") << "AvgTrip=" << avg_trip << " MinTrip=" << min_trip << " MaxTrip=" << max_trip << " NACK=" << nack_count;
 		_stats_ack_ii = 0;
 	}
 

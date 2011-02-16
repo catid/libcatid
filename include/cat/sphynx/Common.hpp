@@ -175,8 +175,8 @@ static const u32 IOP_DISCO_LEN = 1 + 1;
 struct RecvFrag
 {
 	u8 *buffer; // Buffer for accumulating fragment
-	u32 length; // Number of bytes in fragment buffer
-	u32 offset; // Current write offset in buffer
+	u16 length; // Number of bytes in fragment buffer
+	u16 offset; // Current write offset in buffer
 	u32 send_time; // Timestamp on first fragment piece
 };
 
@@ -201,7 +201,7 @@ struct SendQueue
 		// In send queue:
 		struct
 		{
-			u32 sent_bytes;	// Number of sent bytes while fragmenting a large message
+			u16 sent_bytes;	// Number of sent bytes while fragmenting a large message
 		};
 
 		// In sent list:
@@ -211,12 +211,12 @@ struct SendQueue
 			SendQueue *prev;	// Previous in queue
 			u32 ts_firstsend;	// Millisecond-resolution timestamp when it was first sent
 			u32 ts_lastsend;	// Millisecond-resolution timestamp when it was last sent
-			u32 frag_count;		// Number of fragments remaining to be delivered
+			u16 frag_count;		// Number of fragments remaining to be delivered
 		};
 	};
 
 	// Shared members:
-	u32 bytes;			// Data bytes
+	u16 bytes;			// Data bytes
 	SendQueue *next;	// Next in queue
 	u8 sop;				// Super opcode of message
 
@@ -226,7 +226,7 @@ struct SendQueue
 struct SendFrag : public SendQueue
 {
 	SendQueue *full_data;	// Object containing message data
-	u32 offset;				// Fragment data offset
+	u16 offset;				// Fragment data offset
 };
 
 #if defined(CAT_PACK_TRANSPORT_STATE_STRUCTURES)

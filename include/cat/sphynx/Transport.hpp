@@ -232,6 +232,7 @@ namespace sphynx {
 class Transport
 {
 public:
+	static const u32 MAX_MESSAGE_SIZE = 65535;
 	static const int TIMEOUT_DISCONNECT = 15000; // milliseconds; NOTE: If this changes, the timestamp compression will stop working
 	static const u32 NUM_STREAMS = 4; // Number of reliable streams
 	static const int TICK_INTERVAL = 20; // Milliseconds between ticks
