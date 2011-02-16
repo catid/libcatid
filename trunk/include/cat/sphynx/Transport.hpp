@@ -368,6 +368,8 @@ public:
 	// msg_bytes: Includes message opcode byte at offset 0
 	bool WriteReliableZeroCopy(StreamMode, u8 *msg, u32 msg_bytes, SuperOpcode super_opcode = SOP_DATA);
 
+	bool WriteHuge(void *data_source, u32 bytes);
+
 	// Flush send buffer after processing the current message from the remote host
 	CAT_INLINE void FlushAfter() { _send_flush_after_processing = true; }
 
@@ -430,6 +432,7 @@ protected:
 	}
 
 	virtual void OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count) = 0;
+	virtual void OnPartialHuge(u32 total_bytes, u32 offset, u32 size, BufferStream data) = 0;
 	virtual void OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes) = 0; // precondition: bytes > 0
 	virtual void OnDisconnectReason(u8 reason) = 0; // Called to help explain why a disconnect is happening
 

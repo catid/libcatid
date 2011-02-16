@@ -110,7 +110,7 @@ int main()
 	// coldfront: 68.84.166.22
 	// workstation: 10.15.40.161
 	// Patrick: 10.15.40.77
-	if (!client->Connect(&layer, &tls, "10.15.40.161", 22000, public_key, "Chat"))
+	if (!client->Connect(&layer, &tls, "10.15.40.77", 22000, public_key, "Chat"))
 	{
 		FATAL("Client") << "Unable to connect to server";
 	}

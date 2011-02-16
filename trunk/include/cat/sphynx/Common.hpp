@@ -200,7 +200,7 @@ struct SendQueue
 		// In send queue:
 		struct
 		{
-			u16 sent_bytes;	// Number of sent bytes while fragmenting a large message
+			u32 sent_bytes;	// Number of sent bytes while fragmenting a large message
 		};
 
 		// In sent list:
@@ -210,12 +210,12 @@ struct SendQueue
 			SendQueue *prev;	// Previous in queue
 			u32 ts_firstsend;	// Millisecond-resolution timestamp when it was first sent
 			u32 ts_lastsend;	// Millisecond-resolution timestamp when it was last sent
-			u16 frag_count;		// Number of fragments remaining to be delivered
+			u32 frag_count;		// Number of fragments remaining to be delivered
 		};
 	};
 
 	// Shared members:
-	u16 bytes;			// Data bytes
+	u32 bytes;			// Data bytes
 	SendQueue *next;	// Next in queue
 	u8 sop;				// Super opcode of message
 
