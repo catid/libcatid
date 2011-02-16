@@ -77,10 +77,10 @@ u32 BufferAllocator::AcquireBatch(BatchSet &set, u32 count, u32 bytes)
 	// Select up to count items from the list
 	BatchHead *last = _acquire_head;
 
+	set.head = last;
+
 	if (last)
 	{
-		set.head = last;
-
 		for (;;)
 		{
 			BatchHead *next = last->batch_next;

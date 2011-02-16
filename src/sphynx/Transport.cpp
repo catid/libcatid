@@ -40,7 +40,6 @@ const char *cat::sphynx::GetHandshakeErrorString(HandshakeError err)
 	case ERR_CLIENT_OUT_OF_MEMORY:	return "Out of memory";
 	case ERR_CLIENT_BROKEN_PIPE:	return "Broken pipe";
 	case ERR_CLIENT_TIMEOUT:		return "Connect timeout";
-	case ERR_CLIENT_ICMP:			return "Server unreachable";
 
 	case ERR_WRONG_KEY:			return "Wrong key";
 	case ERR_SERVER_FULL:		return "Server full";
@@ -1597,11 +1596,13 @@ void Transport::WriteQueuedReliable()
 	u8 *send_buffer = _send_buffer;
 
 	// For each round,
-	int stream;
+	bool data_remains;
 	do
 	{
+		data_remains = false;
+
 		// For each reliable stream,
-		for (stream = 0; stream < NUM_STREAMS; ++stream)
+		for (int stream = 0; stream < NUM_STREAMS; ++stream)
 		{
 			SendQueue *node = _send_queue_head[stream];
 			if (!node) continue;
@@ -1672,6 +1673,8 @@ void Transport::WriteQueuedReliable()
 								// Does not need to update _send_buffer_ack_id and _send_buffer_stream
 								// since those members are updated whenever the send buffer is appended
 
+								//WARN("Transport") << "Exceeded bandwidth limit";
+
 								// Update node sent bytes
 								node->sent_bytes = sent_bytes;
 
@@ -1694,6 +1697,24 @@ void Transport::WriteQueuedReliable()
 							send_buffer = 0;
 							send_buffer_bytes = 0;
 							remaining_send_buffer = max_payload_bytes;
+
+							// If it is time to stripe the next stream,
+							if (stream_sent + FRAG_THRESHOLD >= max_payload_bytes)
+							{
+								data_remains = true;
+
+								// Update node sent bytes
+								node->sent_bytes = sent_bytes;
+
+								// Keep it as the head
+								_send_queue_head[stream] = node;
+								node->prev = 0;
+
+								_send_buffer_stream = NUM_STREAMS;
+
+								// Break out of walking send queue
+								goto BreakStreamEarly;
+							}
 
 							// Recalculate how many bytes it would take to represent
 							u32 diff = ack_id - remote_expected;
@@ -1902,31 +1923,6 @@ void Transport::WriteQueuedReliable()
 					_send_buffer_stream = stream;
 
 					INFO("Transport") << "Wrote " << stream << ":" << sent_bytes << " / " << total_bytes;
-
-					// If it is time to stripe the next stream,
-					if (stream_sent >= max_payload_bytes)
-					{
-						// Update node sent bytes
-						node->sent_bytes = sent_bytes;
-
-						// If node hasn't completed sending yet,
-						if (sent_bytes < total_bytes)
-						{
-							// Keep it as the head
-							_send_queue_head[stream] = node;
-							node->prev = 0;
-						}
-						else
-						{
-							// Unlink previous node from node and leave the rest on the send queue
-							_send_queue_head[stream] = next;
-							if (!next) _send_queue_tail[stream] = 0;
-							else next->prev = 0;
-						}
-
-						// Break out of walking send queue
-						goto BreakStreamEarly;
-					}
 				} while (sent_bytes < total_bytes);
 
 				if (sent_bytes > total_bytes)
@@ -1943,7 +1939,7 @@ void Transport::WriteQueuedReliable()
 BreakStreamEarly:
 			_next_send_id[stream] = ack_id;
 		} // walking streams
-	} while (stream < NUM_STREAMS); // end of round
+	} while (data_remains); // end of round
 
 	_send_buffer = send_buffer;
 	_send_buffer_bytes = send_buffer_bytes;

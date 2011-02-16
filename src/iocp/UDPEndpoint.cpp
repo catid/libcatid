@@ -243,7 +243,7 @@ u32 UDPEndpoint::PostReads(u32 count)
 	IAllocator *allocator = GetIOLayer()->GetIOThreads()->GetRecvAllocator();
 
 	BatchSet set;
-	allocator->AcquireBatch(set, count);
+	u32 acquire_count = allocator->AcquireBatch(set, count);
 	u32 read_count = 0;
 
 	for (BatchHead *node = set.head; node; node = node->batch_next, ++read_count)

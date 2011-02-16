@@ -45,7 +45,7 @@ FlowControl::FlowControl()
 	_bandwidth_low_limit = 10000;
 	_bandwidth_high_limit = 10000000;
 
-	_max_epoch_bytes = _bandwidth_low_limit / 2;
+	_max_epoch_bytes = _bandwidth_high_limit / 2;
 
 	_loss_timeout = 1500;
 }

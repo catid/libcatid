@@ -134,20 +134,6 @@ void DNSClient::OnReadRouting(const BatchSet &buffers)
 	GetIOLayer()->GetWorkerThreads()->DeliverBuffers(_worker_id, buffers);
 }
 
-void DNSClient::OnUnreachable(const NetAddr &src)
-{
-	// TODO: Recover from server failure by re-detecting servers
-
-	// If IP matches the server and we're not connected yet,
-	if (_server_addr.EqualsIPOnly(src))
-	{
-		WARN("DNS") << "Failed to contact DNS server: ICMP error received from server address";
-
-		// Close socket so that DNS resolves will be squelched
-		RequestShutdown();
-	}
-}
-
 void DNSClient::OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers)
 {
 	for (BatchHead *node = buffers.head; node; node = node->batch_next)
