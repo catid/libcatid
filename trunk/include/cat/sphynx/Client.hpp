@@ -111,7 +111,6 @@ class Client : public UDPEndpoint, public Transport, public WorkerCallbacks
 	virtual void OnWorkerTick(IWorkerTLS *tls, u32 now);
 
 	virtual void OnReadRouting(const BatchSet &buffers);
-	virtual void OnUnreachable(const NetAddr &src);
 
 public:
 	Client();

@@ -42,6 +42,16 @@
 	Set it to 1500
 */
 
+/*
+	ICMP Unreachable
+
+	When an ICMP unreachable message arrives, it will cause a read to
+	complete with zero data bytes.
+
+	This is indistinguishable from a socket close event.  A server
+	will not want to accept unreachable messages.
+*/
+
 namespace cat {
 
 
@@ -121,7 +131,6 @@ protected:
 	virtual bool OnZeroReferences();
 
 	virtual void OnReadRouting(const BatchSet &buffers) = 0;
-    virtual void OnUnreachable(const NetAddr &addr) {} // Only IP is valid
 };
 
 

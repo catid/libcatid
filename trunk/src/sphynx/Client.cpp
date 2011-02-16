@@ -515,17 +515,6 @@ bool Client::OnResolve(const char *hostname, const NetAddr *array, int array_len
 	return true;
 }
 
-void Client::OnUnreachable(const NetAddr &src)
-{
-	// If IP matches the server and we're not connected yet,
-	if (!_connected && _server_addr.EqualsIPOnly(src))
-	{
-		WARN("Client") << "Failed to connect: ICMP error received from server address";
-		ConnectFail(ERR_CLIENT_ICMP);
-		RequestShutdown();
-	}
-}
-
 bool Client::WriteHello()
 {
 	if (_connected)

@@ -158,7 +158,6 @@ protected:
 	virtual bool OnZeroReferences();
 
 	virtual void OnReadRouting(const BatchSet &buffers);
-	virtual void OnUnreachable(const NetAddr &src);
 
 	virtual void OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers);
 	virtual void OnWorkerTick(IWorkerTLS *tls, u32 now);
