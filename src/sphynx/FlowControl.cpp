@@ -82,8 +82,22 @@ void FlowControl::OnPacketSend(u32 bytes_with_overhead)
 	_lock.Leave();
 }
 
+static u32 trip_ii = 0;
+static u32 bw_ii = 80;
+
 void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 {
+	_lock.Enter();
+
+	if (++trip_ii >= 500)
+	{
+		trip_ii = 0;
+
+		_bps = ++bw_ii * 10000;
+		WARN("FlowControl") << "Setting BW to " << _bps;
+	}
+
+	_lock.Leave();
 }
 
 void FlowControl::OnACK(u32 now, u32 avg_one_way_time, u32 nack_loss_count)

@@ -84,7 +84,7 @@ public:
 	}
 };
 
-int main()
+int main(int argc, char *argv[])
 {
 	SphynxLayer layer;
 
@@ -114,7 +114,11 @@ int main()
 	// coldfront: 68.84.166.22
 	// workstation: 10.15.40.161
 	// Patrick: 10.15.40.77
-	if (!client->Connect(&layer, &tls, "68.84.166.22", 22000, public_key, "Chat"))
+	// stew 2 caws: 80.3.22.26
+	char *hostname = "127.0.0.1";
+	if (argc >= 2) hostname = argv[1];
+
+	if (!client->Connect(&layer, &tls, hostname, 22000, public_key, "Chat"))
 	{
 		FATAL("Client") << "Unable to connect to server";
 	}
