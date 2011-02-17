@@ -849,6 +849,7 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 		copy 2 fewer bytes on initial transmission.
 	*/
 
+	// TODO: Somehow the fragment master node is making its way in here and failing
 	u8 *data;
 	u16 data_bytes = node->bytes;
 	u8 hdr = R_MASK;
