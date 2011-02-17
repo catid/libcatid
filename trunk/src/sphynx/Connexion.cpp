@@ -161,6 +161,9 @@ Connexion::Connexion()
 
 bool Connexion::WriteDatagrams(const BatchSet &buffers)
 {
+	u32 now = getLocalTime();
+	u16 timestamp = getLE(encodeServerTimestamp(now));
+
 	/*
 		The format of each buffer:
 
@@ -182,9 +185,6 @@ bool Connexion::WriteDatagrams(const BatchSet &buffers)
 		SendBuffer *buffer = reinterpret_cast<SendBuffer*>( node );
 		u8 *msg_data = GetTrailingBytes(buffer);
 		u32 msg_bytes = buffer->bytes;
-
-		u32 now = getLocalTime();
-		u16 timestamp = getLE(encodeServerTimestamp(now));
 
 		// Write timestamp right before the encryption overhead
 		*(u16*)(msg_data + msg_bytes) = timestamp;
@@ -217,7 +217,6 @@ void Connexion::OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferS
 			{
 				// Set max payload bytes
 				_max_payload_bytes = bytes;
-				_send_flow.SetMTU(bytes);
 
 				u16 mtu = getLE((u16)bytes);
 				WriteReliable(STREAM_UNORDERED, IOP_S2C_MTU_SET, &mtu, sizeof(mtu), SOP_INTERNAL);

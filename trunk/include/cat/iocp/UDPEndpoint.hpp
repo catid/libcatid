@@ -107,6 +107,7 @@ public:
 
 	// If Is6() == true, the address must be promoted to IPv6
 	// before calling using addr.PromoteTo6()
+	// This function takes approximately 1 ms per ~20 buffers
 	bool Write(const BatchSet &buffers, u32 count, const NetAddr &addr);
 
 	CAT_INLINE bool Write(u8 *data, u32 data_bytes, const NetAddr &addr)

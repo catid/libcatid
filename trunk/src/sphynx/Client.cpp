@@ -561,7 +561,8 @@ bool Client::WriteTimePing()
 
 bool Client::WriteDatagrams(const BatchSet &buffers)
 {
-	u32 now;
+	u32 now = getLocalTime();
+	u16 timestamp = getLE(encodeClientTimestamp(now));
 
 	/*
 		The format of each buffer:
@@ -585,9 +586,6 @@ bool Client::WriteDatagrams(const BatchSet &buffers)
 		u8 *msg_data = GetTrailingBytes(buffer);
 		u32 msg_bytes = buffer->bytes;
 
-		u32 now = getLocalTime();
-		u16 timestamp = getLE(encodeClientTimestamp(now));
-
 		// Write timestamp right before the encryption overhead
 		*(u16*)(msg_data + msg_bytes) = timestamp;
 
@@ -600,16 +598,12 @@ bool Client::WriteDatagrams(const BatchSet &buffers)
 		INFO("Client") << "Transmitting datagram with " << msg_bytes << " data bytes";
 	}
 
-	if (count)
-	{
-		// If write fails,
-		if (!Write(buffers, count, _server_addr))
-			return false;
+	// If write fails,
+	if (!Write(buffers, count, _server_addr))
+		return false;
 
-		// Update the last send time to make sure we keep the channel occupied
-		_last_send_msec = now;
-	}
-
+	// Update the last send time to make sure we keep the channel occupied
+	_last_send_msec = now;
 	return true;
 }
 
@@ -629,7 +623,6 @@ void Client::OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStre
 			{
 				// Set max payload bytes
 				_max_payload_bytes = max_payload_bytes;
-				_send_flow.SetMTU(max_payload_bytes);
 			}
 		}
 		break;
