@@ -140,7 +140,7 @@ void Connexion::OnWorkerTick(IWorkerTLS *itls, u32 now)
 	}
 	else
 	{
-		// Do derived class tick event so any messages posted do not need to wait 20 ms
+		// Do derived class tick event so any messages posted do not need to wait for the next tick
 		OnTick(tls, now);
 
 		TickTransport(tls, now);

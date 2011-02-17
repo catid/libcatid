@@ -51,7 +51,6 @@ class WorkerThreads;
 
 
 static const u32 MAX_WORKER_THREADS = 32;
-static const u32 WORKER_TICK_INTERVAL = 20;
 static const u32 INVALID_WORKER_ID = ~(u32)0;
 
 // Interface for worker thread-local storage
@@ -142,6 +141,8 @@ class WorkerThreads
 	u8 _padding[CAT_DEFAULT_CACHE_LINE_SIZE];
 #endif // CAT_NO_ATOMIC_POPCOUNT
 
+	u32 _tick_interval;
+
 	u32 _worker_count;
 	WorkerThread *_workers;
 
@@ -166,7 +167,7 @@ public:
 		_workers[worker_id].DeliverBuffers(buffers);
 	}
 
-	bool Startup(IWorkerTLSBuilder *tls_builder);
+	bool Startup(u32 worker_tick_interval, IWorkerTLSBuilder *tls_builder);
 
 	bool Shutdown();
 

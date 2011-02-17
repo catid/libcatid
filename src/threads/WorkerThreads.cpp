@@ -83,15 +83,17 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 		return false;
 	}
 
+	u32 tick_interval = master->_tick_interval;
+
 	WorkerCallbacks *head = 0, *tail = 0;
 
 	// Give the startup code some breathing room before we start ticking
-	u32 next_tick = Clock::msec() + WORKER_TICK_INTERVAL * 2;
+	u32 next_tick = Clock::msec() + tick_interval * 2;
 
 	while (!_kill_flag)
 	{
 		// If event is waiting,
-		if (_workqueue.head != 0 || _event_flag.Wait(WORKER_TICK_INTERVAL))
+		if (_workqueue.head != 0 || _event_flag.Wait(tick_interval))
 		{
 			// Grab queue if event is flagged
 			_workqueue_lock.Enter();
@@ -168,13 +170,13 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 			}
 
 			// Set up next tick
-			next_tick += WORKER_TICK_INTERVAL;
+			next_tick += tick_interval;
 
 			// If next tick has already occurred,
 			if ((s32)(now - next_tick) >= 0)
 			{
 				// Push off next tick one interval into the future
-				next_tick = now + WORKER_TICK_INTERVAL;
+				next_tick = now + tick_interval;
 
 				WARN("WorkerThread") << "Slow worker tick";
 			}
@@ -217,11 +219,12 @@ WorkerThreads::~WorkerThreads()
 	Shutdown();
 }
 
-bool WorkerThreads::Startup(IWorkerTLSBuilder *tls_builder)
+bool WorkerThreads::Startup(u32 worker_tick_interval, IWorkerTLSBuilder *tls_builder)
 {
 	if (_worker_count)
 		return false;
 
+	_tick_interval = worker_tick_interval;
 	_tls_builder = tls_builder;
 
 	u32 worker_count = system_info.ProcessorCount;

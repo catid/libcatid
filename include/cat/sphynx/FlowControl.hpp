@@ -60,7 +60,7 @@ namespace sphynx {
 	wakes up on the following events:
 		+ On message send request from another thread : Asynchronous sending
 		+ On datagram arrival : Processing incoming data and may transmit
-		+ 20 millisecond timer : Retransmission and message blobbing
+		+ Timer : Retransmission and message blobbing
 
 	Sphynx supports reliable messaging with selective acknowledgments (SACK).
 	This implies support for negative acknowledgment (NACK) as well.  So, it is
