@@ -53,7 +53,7 @@ namespace sphynx {
 	Tampon is designed for online game flows.  Features of these flows:
 		+ Many types of message delivery and multiple streams
 		+ Most messages are not part of bulk file transfers
-		+ Low tolerance for packetloss
+		+ Low tolerance for packetloss and latency
 		+ Bandwidth requirements burst and wane unexpectedly
 
 	Tampon is built to be integrated with the Sphynx transport layer, which
@@ -93,27 +93,19 @@ public:
 	static const int EPOCH_INTERVAL = 500; // Milliseconds per epoch
 
 protected:
+	Mutex _lock;
+
+	// BPS low and high limits
 	u32 _bandwidth_low_limit, _bandwidth_high_limit;
 
-	// Maximum transfer unit
-	u32 _mtu;
+	// Current BPS limit
+	s32 _bps;
 
-	// Bytes per epoch maximum (0 = none)
-	s32 _max_epoch_bytes;
+	s32 _available_bw;
+	u32 _last_bw_update;
 
 	// Milliseconds without receiving acknowledgment that a message will be considered lost
 	u32 _loss_timeout;
-
-	// Time when next epoch will start
-	u32 _next_epoch_time;
-
-	// Number of bytes sent during the current epoch, atomically synchronized
-	volatile u32 _send_epoch_bytes;
-
-	u32 _last_epoch_bytes;
-
-	// In slow start
-	bool _slow_start;
 
 	static const int IIMAX = 20;
 	u32 _stats_trip[IIMAX];
@@ -123,28 +115,19 @@ protected:
 public:
 	FlowControl();
 
-	CAT_INLINE u32 GetMTU() { return _mtu; }
-	CAT_INLINE void SetMTU(u32 mtu) { _mtu = mtu; }
-
 	CAT_INLINE u32 GetBandwidthLowLimit() { return _bandwidth_low_limit; }
 	CAT_INLINE void SetBandwidthLowLimit(u32 limit) { _bandwidth_low_limit = limit; }
 	CAT_INLINE u32 GetBandwidthHighLimit() { return _bandwidth_high_limit; }
 	CAT_INLINE void SetBandwidthHighLimit(u32 limit) { _bandwidth_high_limit = limit; }
 
 	// The whole purpose of this class is to calculate this value
-	CAT_INLINE s32 GetMaxSentBytes() { return _max_epoch_bytes; }
+	s32 GetRemainingBytes();
+
+	// Report number of bytes for each successfully sent packet, including overhead bytes
+	void OnPacketSend(u32 bytes_with_overhead);
 
 	// Get timeout for reliable message delivery before considering it lost
 	CAT_INLINE u32 GetLossTimeout() { return _loss_timeout; }
-
-	// Get number of bytes sent in this epoch
-	CAT_INLINE s32 GetSentBytes() { return (s32)_send_epoch_bytes; }
-
-	// Report number of bytes for each successfully sent packet, including overhead bytes
-	CAT_INLINE void OnPacketSend(u32 bytes_with_overhead)
-	{
-		Atomic::Add(&_send_epoch_bytes, bytes_with_overhead);
-	}
 
 	// Called when a transport layer tick occurs
 	void OnTick(u32 now, u32 timeout_loss_count);

@@ -324,6 +324,8 @@ private:
 		SendBuffer *buffer = SendBuffer::Promote(data);
 		buffer->bytes = data_bytes;
 		_outgoing_datagrams.PushBack(buffer);
+
+		_send_flow.OnPacketSend(data_bytes + _overhead_bytes);
 	}
 
 	// true = no longer connected

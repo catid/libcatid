@@ -35,56 +35,55 @@ using namespace sphynx;
 
 FlowControl::FlowControl()
 {
-	_last_epoch_bytes = 0;
-	_send_epoch_bytes = 0;
-
-	_next_epoch_time = Clock::msec();
-
-	_stats_ack_ii = 0;
-
 	_bandwidth_low_limit = 10000;
 	_bandwidth_high_limit = 100000000;
-
-	_max_epoch_bytes = _bandwidth_high_limit / 2;
+	_bps = _bandwidth_low_limit;
 
 	_loss_timeout = 1500;
+
+	_last_bw_update = 0;
+	_available_bw = 0;
+
+	_stats_ack_ii = 0;
+}
+
+s32 FlowControl::GetRemainingBytes()
+{
+	_lock.Enter();
+
+	u32 now = Clock::msec();
+
+	u32 elapsed = now - _last_bw_update;
+	_last_bw_update = now;
+
+	// Need to use 64-bit here because this number can exceed 4 MB
+	u32 bytes = (u32)(((u64)elapsed * _bps) / 1000);
+
+	u32 available = _available_bw + bytes;
+
+	// If available is more than we would want to send in a 20 ms tick,
+	u32 bytes_per_tick_max = _bps / 50;
+	if (available > bytes_per_tick_max)
+		available = bytes_per_tick_max;
+
+	_available_bw = available;
+
+	_lock.Leave();
+
+	return available;
+}
+
+void FlowControl::OnPacketSend(u32 bytes_with_overhead)
+{
+	_lock.Enter();
+
+	_available_bw -= bytes_with_overhead;
+
+	_lock.Leave();
 }
 
 void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 {
-	if (timeout_loss_count)
-	{
-		FATAL("FlowControl") << "Timeout loss count: " << timeout_loss_count;
-	}
-
-	// If epoch has ended,
-	if ((s32)(now - _next_epoch_time) >= 0)
-	{
-		// If some bandwidth has been used this epoch,
-		if ((s32)_send_epoch_bytes > 0)
-		{
-			FATAL("FlowControl") << "_send_epoch_bytes = " << (s32)_send_epoch_bytes - _last_epoch_bytes + _max_epoch_bytes;
-
-			// Subtract off the amount allowed this epoch
-			_last_epoch_bytes = Atomic::Add(&_send_epoch_bytes, -_max_epoch_bytes);
-		}
-
-		// Set next epoch time
-		_next_epoch_time += EPOCH_INTERVAL;
-
-		// If within one tick of another epoch,
-		if ((s32)(now - _next_epoch_time + Transport::TICK_INTERVAL) > 0)
-		{
-			FATAL("FlowControl") << "Slow epoch - Scheduling next epoch one interval into the future";
-
-			// Lagged too much - reset epoch interval
-			_next_epoch_time = now + EPOCH_INTERVAL;
-		}
-	}
-
-	_max_epoch_bytes += 1000;
-	if (_max_epoch_bytes > (s32)_bandwidth_high_limit / 2)
-		_max_epoch_bytes = (s32)_bandwidth_high_limit / 2;
 }
 
 void FlowControl::OnACK(u32 now, u32 avg_one_way_time, u32 nack_loss_count)
@@ -106,6 +105,7 @@ void FlowControl::OnACK(u32 now, u32 avg_one_way_time, u32 nack_loss_count)
 			if (max_trip < trip) max_trip = trip;
 			nack_count += _stats_nack[ii];
 		}
+
 		avg_trip /= IIMAX;
 		FATAL("FlowControl") << "AvgTrip=" << avg_trip << " MinTrip=" << min_trip << " MaxTrip=" << max_trip << " NACK=" << nack_count;
 		_stats_ack_ii = 0;
@@ -114,8 +114,9 @@ void FlowControl::OnACK(u32 now, u32 avg_one_way_time, u32 nack_loss_count)
 	if (avg_one_way_time > 300)
 	{
 		FATAL("FlowControl") << "Halving transmit rate since one way time shot up to " << avg_one_way_time;
-		_max_epoch_bytes /= 2;
-		if (_max_epoch_bytes < (s32)_bandwidth_low_limit / 2)
-			_max_epoch_bytes = (s32)_bandwidth_low_limit / 2;
+
+		_bps /= 2;
+		if (_bps < (s32)_bandwidth_low_limit)
+			_bps = (s32)_bandwidth_low_limit;
 	}
 }

@@ -208,7 +208,6 @@ void Transport::InitializePayloadBytes(bool ip6)
 {
 	_overhead_bytes = (ip6 ? IPV6_HEADER_BYTES : IPV4_HEADER_BYTES) + UDP_HEADER_BYTES + AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD;
 	_max_payload_bytes = MINIMUM_MTU - _overhead_bytes;
-	_send_flow.SetMTU(_max_payload_bytes);
 }
 
 bool Transport::InitializeTransportSecurity(bool is_initiator, AuthenticatedEncryption &auth_enc)
@@ -713,7 +712,11 @@ bool Transport::WriteOOB(u8 msg_opcode, const void *msg_data, u32 data_bytes, Su
 	pkt[offset++] = msg_opcode;
 	memcpy(pkt + offset, msg_data, data_bytes);
 
-	return WriteDatagrams(pkt, offset + data_bytes);
+	if (!WriteDatagrams(pkt, offset + data_bytes))
+		return false;
+
+	_send_flow.OnPacketSend(offset + data_bytes + _overhead_bytes);
+	return true;
 }
 
 bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_bytes, SuperOpcode super_opcode)
@@ -986,6 +989,8 @@ void Transport::FlushWrites()
 	if (send_buffer)
 	{
 		QueueWriteDatagram(send_buffer, _send_buffer_bytes);
+
+		_send_flow.OnPacketSend(_send_buffer_bytes + _overhead_bytes);
 
 		_send_buffer = 0;
 		_send_buffer_bytes = 0;
@@ -1581,8 +1586,8 @@ void Transport::WriteQueuedReliable()
 	const u32 ACK_ID_2_THRESH = 2048;
 
 	// If there is no more room in the channel,
-	s32 send_epoch_bytes = _send_flow.GetSentBytes();
-	if (send_epoch_bytes >= _send_flow.GetMaxSentBytes())
+	s32 send_epoch_remaining = _send_flow.GetRemainingBytes();
+	if (send_epoch_remaining <= 0)
 	{
 		// Stop sending here
 		return;
@@ -1601,6 +1606,7 @@ void Transport::WriteQueuedReliable()
 
 	// For each round,
 	bool data_remains;
+	u32 stream_limit = NUM_STREAMS - 1;
 	do
 	{
 		data_remains = false;
@@ -1669,10 +1675,10 @@ void Transport::WriteQueuedReliable()
 							QueueWriteDatagram(send_buffer, send_buffer_bytes);
 
 							// Update send epoch bytes
-							send_epoch_bytes += send_buffer_bytes + _overhead_bytes;
+							send_epoch_remaining -= send_buffer_bytes + _overhead_bytes;
 
 							// If there is no more room in the channel,
-							if (send_epoch_bytes >= _send_flow.GetMaxSentBytes())
+							if (send_epoch_remaining <= 0)
 							{
 								// Does not need to update _send_buffer_ack_id and _send_buffer_stream
 								// since those members are updated whenever the send buffer is appended
@@ -1703,7 +1709,8 @@ void Transport::WriteQueuedReliable()
 							remaining_send_buffer = max_payload_bytes;
 
 							// If it is time to stripe the next stream,
-							if (stream_sent + FRAG_THRESHOLD >= max_payload_bytes)
+							if (stream < STREAM_BULK &&
+								stream_sent + FRAG_THRESHOLD >= max_payload_bytes)
 							{
 								data_remains = true;
 
@@ -1943,7 +1950,9 @@ void Transport::WriteQueuedReliable()
 BreakStreamEarly:
 			_next_send_id[stream] = ack_id;
 		} // walking streams
-	} while (data_remains); // end of round
+
+		if (!data_remains) stream_limit = NUM_STREAMS;
+	} while (data_remains && stream_limit < NUM_STREAMS); // end of round
 
 	_send_buffer = send_buffer;
 	_send_buffer_bytes = send_buffer_bytes;
