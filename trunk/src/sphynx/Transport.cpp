@@ -1662,6 +1662,7 @@ void Transport::WriteQueuedReliable()
 							about FRAG_THRESHOLD bytes of lost bandwidth per packet.  If more bytes than that can fit
 							in a packet then it is time to fragment.
 						*/
+
 						// If it is worth fragmentation,
 						if (remaining_send_buffer >= FRAG_THRESHOLD)
 						{
