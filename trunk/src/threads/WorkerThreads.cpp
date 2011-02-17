@@ -84,18 +84,36 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 	}
 
 	u32 tick_interval = master->_tick_interval;
+	u32 next_tick = 0; // Tick right away
 
 	WorkerCallbacks *head = 0, *tail = 0;
 
-	// Give the startup code some breathing room before we start ticking
-	u32 next_tick = Clock::msec() + tick_interval * 2;
-
 	while (!_kill_flag)
 	{
-		// If event is waiting,
-		if (_workqueue.head != 0 || _event_flag.Wait(tick_interval))
+		u32 now = Clock::msec();
+
+		// Check if an event is waiting or the timer interval is up
+		bool check_events = false;
+		if (_workqueue.head != 0)
 		{
-			// Grab queue if event is flagged
+			check_events = true;
+		}
+		else
+		{
+			u32 wait_time = next_tick - now;
+
+			if ((s32)wait_time >= 0)
+			{
+				if (_event_flag.Wait(wait_time))
+					check_events = true;
+
+				now = Clock::msec();
+			}
+		}
+
+		// Grab queue if event is flagged
+		if (check_events)
+		{
 			_workqueue_lock.Enter();
 			BatchSet queue = _workqueue;
 			_workqueue.Clear();
@@ -129,8 +147,6 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 				}
 			}
 		}
-
-		u32 now = Clock::msec();
 
 		// If tick interval is up,
 		if ((s32)(now - next_tick) >= 0)
