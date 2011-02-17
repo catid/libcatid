@@ -34,7 +34,7 @@ bool CommonLayer::PreWorkerThreads()
 	return true;
 }
 
-bool CommonLayer::OnStartup(IWorkerTLSBuilder *tls_builder, const char *settings_file_name, bool service, const char *service_name)
+bool CommonLayer::OnStartup(u32 worker_tick_interval, IWorkerTLSBuilder *tls_builder, const char *settings_file_name, bool service, const char *service_name)
 {
 	// Initialize system info
 	InitializeSystemInfo();
@@ -58,7 +58,7 @@ bool CommonLayer::OnStartup(IWorkerTLSBuilder *tls_builder, const char *settings
 	if (!PreWorkerThreads()) return false;
 
 	// Start the Worker threads if requested to by the caller
-	if (tls_builder && !_worker_threads.Startup(tls_builder))
+	if (tls_builder && !_worker_threads.Startup(worker_tick_interval, tls_builder))
 	{
 		FATAL("CommonLayer") << "WorkerThreads subsystem failed to initialize";
 		return false;

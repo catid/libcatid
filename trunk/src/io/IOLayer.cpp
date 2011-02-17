@@ -29,9 +29,9 @@
 #include <cat/io/IOLayer.hpp>
 using namespace cat;
 
-bool IOLayer::OnStartup(IWorkerTLSBuilder *tls_builder, const char *settings_file_name, bool service, const char *service_name)
+bool IOLayer::OnStartup(u32 worker_tick_interval, IWorkerTLSBuilder *tls_builder, const char *settings_file_name, bool service, const char *service_name)
 {
-	if (!CommonLayer::OnStartup(tls_builder, settings_file_name, service, service_name))
+	if (!CommonLayer::OnStartup(worker_tick_interval, tls_builder, settings_file_name, service, service_name))
 		return false;
 
 	// Start the socket subsystem

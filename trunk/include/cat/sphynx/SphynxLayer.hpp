@@ -75,14 +75,11 @@ public:
 
 	CAT_INLINE DNSClient *GetDNSClient() { return _dns_client; }
 
-	CAT_INLINE bool Startup(const char *settings_file_name = "Settings.cfg", bool service = false, const char *service_name = "MyService")
-	{
-		return CommonLayer::Startup<SphynxTLS>(settings_file_name, service, service_name);
-	}
+	bool Startup(const char *settings_file_name = "Settings.cfg", bool service = false, const char *service_name = "MyService");
 
 protected:
 	virtual bool PreWorkerThreads();
-	virtual bool OnStartup(IWorkerTLSBuilder *tls, const char *settings_file_name, bool service, const char *service_name);
+	virtual bool OnStartup(u32 worker_tick_interval, IWorkerTLSBuilder *tls, const char *settings_file_name, bool service, const char *service_name);
 	virtual void OnShutdown(bool watched_shutdown);
 };
 
