@@ -110,7 +110,7 @@ void FlowControl::OnACK(u32 now, u32 avg_one_way_time, u32 nack_loss_count)
 		FATAL("FlowControl") << "AvgTrip=" << avg_trip << " MinTrip=" << min_trip << " MaxTrip=" << max_trip << " NACK=" << nack_count;
 		_stats_ack_ii = 0;
 	}
-
+/*
 	if (avg_one_way_time > 300)
 	{
 		FATAL("FlowControl") << "Halving transmit rate since one way time shot up to " << avg_one_way_time;
@@ -118,5 +118,5 @@ void FlowControl::OnACK(u32 now, u32 avg_one_way_time, u32 nack_loss_count)
 		_bps /= 2;
 		if (_bps < (s32)_bandwidth_low_limit)
 			_bps = (s32)_bandwidth_low_limit;
-	}
+	} */
 }

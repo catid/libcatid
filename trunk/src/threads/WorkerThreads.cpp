@@ -194,7 +194,7 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 				// Push off next tick one interval into the future
 				next_tick = now + tick_interval;
 
-				WARN("WorkerThread") << "Slow worker tick";
+				INANE("WorkerThread") << "Slow worker tick";
 			}
 		}
 
