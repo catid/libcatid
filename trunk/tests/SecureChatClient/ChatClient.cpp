@@ -60,11 +60,11 @@ public:
 					WriteReliable(STREAM_2, 2, STR, sizeof(STR));
 */
 					WriteReliable(STREAM_UNORDERED, 0, STR, sizeof(STR));
-
+/*
 					for (int ii = 0; ii < 100; ++ii)
 					{
 						WriteReliable(STREAM_UNORDERED, 1, STR, sizeof(STR));
-					}
+					}*/
 				}
 				break;
 			}
