@@ -46,7 +46,7 @@ public:
 				{
 					WARN("Client") << "-- Got request for transmit";
 
-					static char STR[65534];
+					static char STR[Transport::MAX_MESSAGE_SIZE - 1];
 
 					for (int ii = 0; ii < sizeof(STR); ++ii)
 						STR[ii] = (char)ii;

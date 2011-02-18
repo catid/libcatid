@@ -859,14 +859,6 @@ bool Transport::WriteReliable(StreamMode stream, u8 msg_opcode, const void *msg_
 
 bool Transport::WriteReliableZeroCopy(StreamMode stream, u8 *msg, u32 msg_bytes, SuperOpcode super_opcode)
 {
-	// If max overhead + message bytes exceeds the payload capacity for an unordered message,
-	if (stream == STREAM_UNORDERED &&
-		2 + 3 + msg_bytes > _max_payload_bytes)
-	{
-		// We cannot fit this message in the unordered channel, so stick it in high priority stream 1 instead
-		stream = STREAM_1;
-	}
-
 	if (msg_bytes > MAX_MESSAGE_SIZE)
 	{
 		WARN("Transport") << "Reliable write request too large " << msg_bytes;
