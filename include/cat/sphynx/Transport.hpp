@@ -285,7 +285,7 @@ private:
 	RecvFrag _fragments[NUM_STREAMS]; // Fragments for each stream
 
 	// Receive state: Receive queue head
-	RecvQueue *_recv_queue_head[NUM_STREAMS], *_recv_queue_tail[NUM_STREAMS];
+	RecvQueue *_recv_queue_head[NUM_STREAMS];
 
 	// Receive state: Statistics for flow control report in ACK response
 	u32 _recv_trip_time_sum, _recv_trip_count;

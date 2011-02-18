@@ -103,7 +103,6 @@ Transport::Transport()
 	CAT_OBJCLR(_fragments);
 
 	CAT_OBJCLR(_recv_queue_head);
-	CAT_OBJCLR(_recv_queue_tail);
 
 	_recv_trip_time_sum = 0;
 	_recv_trip_count = 0;
@@ -295,6 +294,10 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 	// Initialize the delivery queue
 	tls->delivery_queue_depth = 0;
 	tls->free_list_count = 0;
+
+	// TODO: Remove this packetloss generator
+	if (tls->csprng->GenerateUnbiased(0, 2) == 2)
+		return;
 
 	// For each buffer in the batch,
 	for (BatchHead *node = delivery.head; !IsDisconnected() && node; node = node->batch_next)
@@ -529,43 +532,42 @@ void Transport::RunReliableReceiveQueue(SphynxTLS *tls, u32 recv_time, u32 ack_i
 
 	// Update receive queue state
 	_recv_queue_head[stream] = node;
-	if (!node) _recv_queue_tail[stream] = 0;
-	else node->prev = 0;
 	_next_recv_expected_id[stream] = ack_id;
 	_got_reliable[stream] = true;
 }
 
 void Transport::StoreReliableOutOfOrder(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *data, u32 data_bytes, u32 ack_id, u32 stream, u32 super_opcode)
 {
-	// Walk backwards from the end because we're probably receiving
-	// a blast of messages after a drop.
-	RecvQueue *node = _recv_queue_tail[stream];
-	RecvQueue *next = 0;
+	// Walk forwards because the skip list makes this straight-forward (pun intended)
+	RecvQueue *next = _recv_queue_head[stream];
+	RecvQueue *prev = 0, *prev_seq = 0;
 
 	// Search for queue insertion point
-	while (node)
+	while (next)
 	{
-		s32 diff = (s32)(ack_id - node->id);
+		// If insertion point is found,
+		if (ack_id < next->id)
+			break;
 
-		if (diff == 0)
+		// Node is either in this sequence or after it
+
+		// Investigate the end of sequence
+		RecvQueue *eos = next->eos;
+
+		// If ack_id is contained within the sequence,
+		if (ack_id <= eos->id)
 		{
-			// Ignore duplicate message
 			WARN("Transport") << "Ignored duplicate queued reliable message";
 			return;
 		}
-		else if (diff > 0)
-		{
-			// Insert after this node
-			break;
-		}
 
-		// Keep searching for insertion point
-		next = node;
-		node = node->prev;
+		// Set up for the next loop
+		prev_seq = next;
+		prev = eos;
+		next = eos->next;
 	}
 
-	INFO("Transport") << "Queued out-of-order message # " << stream << ":" << ack_id;
-
+	INFO("Transport") << "Queuing out-of-order message # " << stream << ":" << ack_id;
 	INANE("Transport") << "Out-of-order message " << data_bytes << ":" << HexDumpString(data, data_bytes);
 
 	u32 stored_bytes;
@@ -598,21 +600,27 @@ void Transport::StoreReliableOutOfOrder(SphynxTLS *tls, u32 send_time, u32 recv_
 		return;
 	}
 
-	// Insert new data into queue
+	// Initialize next data
 	new_node->bytes = stored_bytes;
 	new_node->sop = super_opcode;
 	new_node->id = ack_id;
-	new_node->prev = node;
-	new_node->next = next;
 	new_node->send_time = send_time;
-
-	if (next) next->prev = new_node;
-	else _recv_queue_tail[stream] = new_node;
-	if (node) node->next = new_node;
-	else _recv_queue_head[stream] = new_node;
-	_got_reliable[stream] = true;
-
 	memcpy(GetTrailingBytes(new_node), data, stored_bytes);
+
+	// Link into list
+	new_node->next = next;
+	if (prev) prev->next = new_node;
+	else _recv_queue_head[stream] = new_node;
+
+	// Link into sequence (skip list),
+	if (prev && prev->id + 1 == ack_id)
+		prev_seq->eos = (next && ack_id + 1 == next->id) ? next->eos : new_node;
+	else if (next && ack_id + 1 == next->id)
+		new_node->eos = next->eos;
+	else
+		new_node->eos = new_node;
+
+	_got_reliable[stream] = true;
 }
 
 void Transport::OnFragment(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *data, u32 bytes, u32 stream)
