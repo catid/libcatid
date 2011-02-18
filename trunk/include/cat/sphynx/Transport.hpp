@@ -103,16 +103,18 @@ namespace sphynx {
 
 		--- Fragment Header (16 bits) ---
 		 0 1 2 3 4 5 6 7 8 9 a b c d e f
-		<-- LSB ----------------- MSB -->
+		<-- LSB -------------------------
 		|        TOTAL_BYTES(16)        |
 		---------------------------------
 
-		TOTAL_BYTES: Total bytes in data part of fragmented message,
-					 not including this header.
+		TOTAL_BYTES: Total bytes in this and following data fragments.
+			0xFFFF means that the overall message is Huge and should go
+			through the OnPartialHuge() callback on the receiving side
+			instead of being reassembled in the transport layer.
 
 		As a result, normal message transmission is limited to messages
-		that are up to 65535 bytes.  This includes the message type byte
-		so the payload part of messages can be as long as 65534 bytes.
+		that are up to 65534 bytes.  This includes the message type byte
+		so the payload part of messages can be as long as 65533 bytes.
 */
 
 /*
@@ -236,7 +238,7 @@ namespace sphynx {
 class Transport
 {
 public:
-	static const u32 MAX_MESSAGE_SIZE = 65535;
+	static const u32 MAX_MESSAGE_SIZE = 65534;	// Past this size the messages must go through the WriteHuge() interface
 	static const int TIMEOUT_DISCONNECT = 15000; // milliseconds; NOTE: If this changes, the timestamp compression will stop working
 	static const u32 NUM_STREAMS = 4; // Number of reliable streams
 	static const u32 TRANSPORT_OVERHEAD = 2; // Number of bytes added to each packet for the transport layer
@@ -269,10 +271,12 @@ private:
 
 	static const u32 UDP_HEADER_BYTES = 8;
 
-	static const u32 FRAG_MIN = 0;		// Min bytes for a fragmented message
-	static const u32 FRAG_MAX = 65535;	// Max bytes for a fragmented message
-
+	static const u16 FRAG_HUGE = 0xffff; // Huge fragment marker
 	static const u32 FRAG_THRESHOLD = 32; // Fragment if FRAG_THRESHOLD bytes would be in each fragment
+
+	// This is 4 times larger than the encryption out of order limit to match max expectations
+	static const u32 OUT_OF_ORDER_LIMIT = 4096; // Stop acknowledging out of order packets after caching this many
+	static const u32 OUT_OF_ORDER_LOOPS = 32; // Max number of loops looking for the insertion point for out of order arrivals
 
 	// Receive state: Next expected ack id to receive
 	u32 _next_recv_expected_id[NUM_STREAMS];
@@ -283,8 +287,8 @@ private:
 	// Receive state: Fragmentation
 	RecvFrag _fragments[NUM_STREAMS]; // Fragments for each stream
 
-	// Receive state: Receive queue head
-	RecvQueue *_recv_queue_head[NUM_STREAMS];
+	// Receive state: Out of order packets waiting for an earlier ACK_ID to be processed
+	OutOfOrderQueue _recv_wait[NUM_STREAMS];
 
 	// Receive state: Statistics for flow control report in ACK response
 	u32 _recv_trip_time_sum, _recv_trip_count;
@@ -434,7 +438,7 @@ protected:
 	}
 
 	virtual void OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count) = 0;
-	virtual void OnPartialHuge(u32 total_bytes, u32 offset, u32 size, BufferStream data) = 0;
+	virtual void OnPartialHuge(StreamMode stream, BufferStream data, u32 size) = 0; // Sets size = 0 on end of data
 	virtual void OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes) = 0; // precondition: bytes > 0
 	virtual void OnDisconnectReason(u8 reason) = 0; // Called to help explain why a disconnect is happening
 

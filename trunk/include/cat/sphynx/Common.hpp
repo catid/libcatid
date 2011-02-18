@@ -192,6 +192,31 @@ struct RecvQueue
 	// Message contents follow
 };
 
+// Receive state: Out of order wait queue
+struct OutOfOrderQueue
+{
+	/*
+		An alternative to a skip list is a huge preallocated
+		circular buffer.  The memory space required for this
+		is really prohibitive.  It would be 1 GB for 1k users
+		for a window of 32k packets.  With this skip list
+		approach I can achieve good average case efficiency
+		with just 48 bytes overhead.
+
+		If the circular buffer grows with demand, then it
+		requires a lot of additional overhead for allocation.
+		And the advantage over a skip list becomes less clear.
+
+		In the worst case it may take longer to walk the list
+		on insert and an attacker may be able to slow down the
+		server by sending a lot of swiss cheese.  So I limit
+		the number of loops allowed through the wait list to
+		bound the processing time.
+	*/
+	RecvQueue *head;	// Head of skip list
+	u32 size;			// Number of elements
+};
+
 // Send state: Send queue
 struct SendQueue
 {

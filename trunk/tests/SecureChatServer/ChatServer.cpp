@@ -52,9 +52,9 @@ public:
 			}
 		}
 	}
-	virtual void OnPartialHuge(u32 total_bytes, u32 offset, u32 size, BufferStream data)
+	virtual void OnPartialHuge(StreamMode stream, BufferStream data, u32 size)
 	{
-
+		WARN("Connexion") << "Got partial huge with " << size;
 	}
 	virtual void OnDisconnectReason(u8 reason)
 	{
