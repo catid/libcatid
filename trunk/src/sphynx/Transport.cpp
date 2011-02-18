@@ -1630,18 +1630,16 @@ void Transport::WriteQueuedReliable()
 
 			u32 ack_id = _next_send_id[stream];
 			u32 remote_expected = _send_next_remote_expected[stream];
-			u32 ack_id_overhead = 0, ack_id_bytes;
-
-			u32 diff = ack_id - remote_expected;
-			if (diff < ACK_ID_1_THRESH)			ack_id_bytes = 1;
-			else if (diff < ACK_ID_2_THRESH)	ack_id_bytes = 2;
-			else								ack_id_bytes = 3;
+			u32 ack_id_overhead = 0;
 
 			// If ACK-ID needs to be sent,
 			if (_send_buffer_ack_id != ack_id ||
 				_send_buffer_stream != stream)
 			{
-				ack_id_overhead = ack_id_bytes;
+				u32 diff = ack_id - remote_expected;
+				if (diff < ACK_ID_1_THRESH)			ack_id_overhead = 1;
+				else if (diff < ACK_ID_2_THRESH)	ack_id_overhead = 2;
+				else								ack_id_overhead = 3;
 			}
 
 			// For each message ready to go,
@@ -1739,16 +1737,14 @@ void Transport::WriteQueuedReliable()
 
 							// Recalculate how many bytes it would take to represent
 							u32 diff = ack_id - remote_expected;
-							if (diff < ACK_ID_1_THRESH)			ack_id_bytes = 1;
-							else if (diff < ACK_ID_2_THRESH)	ack_id_bytes = 2;
-							else								ack_id_bytes = 3;
-
-							ack_id_overhead = ack_id_bytes;
+							if (diff < ACK_ID_1_THRESH)			ack_id_overhead = 1;
+							else if (diff < ACK_ID_2_THRESH)	ack_id_overhead = 2;
+							else								ack_id_overhead = 3;
 
 							if (!fragmented)
 							{
 								// If the message is still fragmented after emptying the send buffer,
-								if (2 + ack_id_bytes + remaining_data_bytes > remaining_send_buffer)
+								if (2 + ack_id_overhead + remaining_data_bytes > remaining_send_buffer)
 								{
 									frag_overhead = 2;
 									fragmented = true;
@@ -1861,7 +1857,6 @@ void Transport::WriteQueuedReliable()
 						_sent_list_tail[stream] = node;
 					}
 
-					// Resize post buffer to contain the bytes that will be written
 					send_buffer = SendBuffer::Resize(send_buffer, send_buffer_bytes + write_bytes + TRANSPORT_OVERHEAD + AuthenticatedEncryption::OVERHEAD_BYTES);
 					if (!send_buffer)
 					{
@@ -1901,17 +1896,17 @@ void Transport::WriteQueuedReliable()
 					if (ack_id_overhead)
 					{
 						// ACK-ID compression
-						if (ack_id_bytes == 1)
+						if (ack_id_overhead == 1)
 						{
 							*msg++ = (u8)(((ack_id & 31) << 2) | stream);
 						}
-						else if (ack_id_bytes == 2)
+						else if (ack_id_overhead == 2)
 						{
 							msg[1] = (u8)((ack_id >> 5) & 0x7f);
 							msg[0] = (u8)((ack_id << 2) | 0x80 | stream);
 							msg += 2;
 						}
-						else // if (ack_id_bytes == 3)
+						else // if (ack_id_overhead == 3)
 						{
 							msg[2] = (u8)(ack_id >> 12);
 							msg[1] = (u8)((ack_id >> 5) | 0x80);
