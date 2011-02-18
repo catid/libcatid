@@ -606,10 +606,14 @@ void Transport::StoreReliableOutOfOrder(SphynxTLS *tls, u32 send_time, u32 recv_
 				QueueDelivery(tls, data, data_bytes, send_time);
 			else if (super_opcode == SOP_INTERNAL)
 				OnInternal(tls, send_time, recv_time, data, data_bytes);
-		}
-		else WARN("Transport") << "Zero-length reliable message ignored";
 
-		stored_bytes = 0;
+			stored_bytes = 0;
+		}
+		else
+		{
+			WARN("Transport") << "Zero-length reliable message ignored";
+			return;
+		}
 	}
 	else
 	{
