@@ -132,7 +132,7 @@ void Server::OnReadRouting(const BatchSet &buffers)
 		buffer->batch_next = 0;
 
 		// If bin is already valid,
-		if (BTS32(&valid[worker_id >> 5], connect_worker & 31))
+		if (BTS32(&valid[worker_id >> 5], worker_id & 31))
 		{
 			// Insert at the end of the bin
 			bins[worker_id].tail->batch_next = buffer;

@@ -34,7 +34,7 @@ bool CommonLayer::PreWorkerThreads()
 	return true;
 }
 
-bool CommonLayer::OnStartup(u32 worker_tick_interval, IWorkerTLSBuilder *tls_builder, const char *settings_file_name, bool service, const char *service_name)
+bool CommonLayer::OnStartup(IWorkerTLSBuilder *tls_builder, const char *settings_file_name, bool service, const char *service_name)
 {
 	// Initialize system info
 	InitializeSystemInfo();
@@ -57,8 +57,11 @@ bool CommonLayer::OnStartup(u32 worker_tick_interval, IWorkerTLSBuilder *tls_bui
 
 	if (!PreWorkerThreads()) return false;
 
+	u32 worker_count_override = Settings::ii->getInt("WorkerThreads.Count", 0);
+	u32 worker_tick_interval = Settings::ii->getInt("WorkerThreads.TickInterval", 10);
+
 	// Start the Worker threads if requested to by the caller
-	if (tls_builder && !_worker_threads.Startup(worker_tick_interval, tls_builder))
+	if (tls_builder && !_worker_threads.Startup(worker_tick_interval, tls_builder, worker_count_override))
 	{
 		FATAL("CommonLayer") << "WorkerThreads subsystem failed to initialize";
 		return false;

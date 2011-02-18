@@ -235,7 +235,7 @@ WorkerThreads::~WorkerThreads()
 	Shutdown();
 }
 
-bool WorkerThreads::Startup(u32 worker_tick_interval, IWorkerTLSBuilder *tls_builder)
+bool WorkerThreads::Startup(u32 worker_tick_interval, IWorkerTLSBuilder *tls_builder, u32 worker_count_override)
 {
 	if (_worker_count)
 		return false;
@@ -245,8 +245,13 @@ bool WorkerThreads::Startup(u32 worker_tick_interval, IWorkerTLSBuilder *tls_bui
 
 	u32 worker_count = system_info.ProcessorCount;
 	if (worker_count < 1) worker_count = 1;
-	// TODO: Allow multiple threads later
-	worker_count = 1;
+
+	// If worker count override is set,
+	if (worker_count_override != 0)
+	{
+		// Use it instead of the number of processors
+		worker_count = worker_count_override;
+	}
 
 	_workers = new WorkerThread[worker_count];
 	if (!_workers)

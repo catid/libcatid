@@ -50,16 +50,16 @@ public:
 	// No worker threads version
 	CAT_INLINE bool Startup(const char *settings_file_name = "Settings.cfg", bool service = false, const char *service_name = "MyService")
 	{
-		return OnStartup(0, 0, settings_file_name, service, service_name);
+		return OnStartup(0, settings_file_name, service, service_name);
 	}
 
 	// Worker threads version
 	template<class LocalStorageT>
-	CAT_INLINE bool Startup(u32 worker_tick_interval = 10, const char *settings_file_name = "Settings.cfg", bool service = false, const char *service_name = "MyService")
+	CAT_INLINE bool Startup(const char *settings_file_name = "Settings.cfg", bool service = false, const char *service_name = "MyService")
 	{
 		IWorkerTLSBuilder *builder = new WorkerTLSBuilder<LocalStorageT>;
 
-		bool success = OnStartup(worker_tick_interval, builder, settings_file_name, service, service_name);
+		bool success = OnStartup(builder, settings_file_name, service, service_name);
 
 		if (!success) delete builder;
 
@@ -73,7 +73,7 @@ public:
 
 protected:
 	virtual bool PreWorkerThreads();
-	virtual bool OnStartup(u32 worker_tick_interval, IWorkerTLSBuilder *tls, const char *settings_file_name, bool service, const char *service_name);
+	virtual bool OnStartup(IWorkerTLSBuilder *tls, const char *settings_file_name, bool service, const char *service_name);
 	virtual void OnShutdown(bool watched_shutdown);
 };
 

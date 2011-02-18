@@ -79,7 +79,7 @@ public:
 
 protected:
 	virtual bool PreWorkerThreads();
-	virtual bool OnStartup(u32 worker_tick_interval, IWorkerTLSBuilder *tls, const char *settings_file_name, bool service, const char *service_name);
+	virtual bool OnStartup(IWorkerTLSBuilder *tls, const char *settings_file_name, bool service, const char *service_name);
 	virtual void OnShutdown(bool watched_shutdown);
 };
 

@@ -61,8 +61,8 @@ s32 FlowControl::GetRemainingBytes()
 
 	u32 available = _available_bw + bytes;
 
-	// If available is more than we would want to send in a tick,
-	u32 bytes_per_tick_max = _bps * Transport::TICK_INTERVAL / 1000;
+	// If available is more than we would want to send in a 10 millisecond tick,
+	u32 bytes_per_tick_max = _bps * 10 / 1000;
 	if (available > bytes_per_tick_max)
 		available = bytes_per_tick_max;
 
