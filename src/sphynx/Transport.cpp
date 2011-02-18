@@ -506,7 +506,7 @@ void Transport::RunReliableReceiveQueue(SphynxTLS *tls, u32 recv_time, u32 ack_i
 		// Process fragment now
 		if (old_data_bytes > 0)
 		{
-			INFO("Transport") << "Running queued message # " << stream << ":" << ack_id;
+			WARN("Transport") << "Running queued message # " << stream << ":" << ack_id;
 
 			u32 super_opcode = node->sop;
 
@@ -567,7 +567,7 @@ void Transport::StoreReliableOutOfOrder(SphynxTLS *tls, u32 send_time, u32 recv_
 		next = eos->next;
 	}
 
-	INFO("Transport") << "Queuing out-of-order message # " << stream << ":" << ack_id;
+	WARN("Transport") << "Queuing out-of-order message # " << stream << ":" << ack_id;
 	INANE("Transport") << "Out-of-order message " << data_bytes << ":" << HexDumpString(data, data_bytes);
 
 	u32 stored_bytes;
@@ -600,7 +600,7 @@ void Transport::StoreReliableOutOfOrder(SphynxTLS *tls, u32 send_time, u32 recv_
 		return;
 	}
 
-	// Initialize next data
+	// Initialize data
 	new_node->bytes = stored_bytes;
 	new_node->sop = super_opcode;
 	new_node->id = ack_id;
