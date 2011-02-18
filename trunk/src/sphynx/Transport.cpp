@@ -294,11 +294,11 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 	// Initialize the delivery queue
 	tls->delivery_queue_depth = 0;
 	tls->free_list_count = 0;
-
+/*
 	// TODO: Remove this packetloss generator
 	if (tls->csprng->GenerateUnbiased(0, 2) == 2)
 		return;
-
+*/
 	// For each buffer in the batch,
 	for (BatchHead *node = delivery.head; !IsDisconnected() && node; node = node->batch_next)
 	{

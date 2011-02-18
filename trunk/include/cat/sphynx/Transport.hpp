@@ -369,7 +369,8 @@ public:
 	// msg_bytes: Includes message opcode byte at offset 0
 	bool WriteReliableZeroCopy(StreamMode, u8 *msg, u32 msg_bytes, SuperOpcode super_opcode = SOP_DATA);
 
-	bool WriteHuge(void *data_source, u32 bytes);
+	// Queue up a huge data transfer
+	bool WriteHuge(u32 bytes);
 
 	// Flush send buffer after processing the current message from the remote host
 	CAT_INLINE void FlushAfter() { _send_flush_after_processing = true; }
