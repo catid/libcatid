@@ -239,8 +239,14 @@ bool IOThreads::Startup()
 
 	u32 worker_count = system_info.ProcessorCount;
 	if (worker_count < 1) worker_count = 1;
-	// TODO: Allow multiple threads later
-	worker_count = 1;
+
+	// If worker count override is set,
+	u32 worker_count_override = Settings::ii->getInt("IOThreads.Count", 0);
+	if (worker_count_override != 0)
+	{
+		// Use it instead of the number of processors
+		worker_count = worker_count_override;
+	}
 
 	_workers = new IOThread[worker_count];
 	if (!_workers)
