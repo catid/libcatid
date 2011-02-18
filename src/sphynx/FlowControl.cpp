@@ -59,10 +59,10 @@ s32 FlowControl::GetRemainingBytes()
 	// Need to use 64-bit here because this number can exceed 4 MB
 	u32 bytes = (u32)(((u64)elapsed * _bps) / 1000);
 
-	u32 available = _available_bw + bytes;
+	s32 available = _available_bw + bytes;
 
 	// If available is more than we would want to send in a 10 millisecond tick,
-	u32 bytes_per_tick_max = _bps * 10 / 1000;
+	s32 bytes_per_tick_max = _bps * 10 / 1000;
 	if (available > bytes_per_tick_max)
 		available = bytes_per_tick_max;
 
