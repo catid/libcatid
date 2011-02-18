@@ -129,7 +129,7 @@ protected:
 	virtual void OnConnectFail(sphynx::HandshakeError err) = 0;
 	virtual void OnConnect(SphynxTLS *tls) = 0;
 	virtual void OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count) = 0;
-	virtual void OnPartialHuge(u32 total_bytes, u32 offset, u32 size, BufferStream data) = 0;
+	virtual void OnPartialHuge(StreamMode stream, BufferStream data, u32 size) = 0;
 	virtual void OnTick(SphynxTLS *tls, u32 now) = 0;
 };
 

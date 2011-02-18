@@ -102,7 +102,7 @@ Transport::Transport()
 
 	CAT_OBJCLR(_fragments);
 
-	CAT_OBJCLR(_recv_queue_head);
+	CAT_OBJCLR(_recv_wait);
 
 	_recv_trip_time_sum = 0;
 	_recv_trip_count = 0;
@@ -146,7 +146,7 @@ Transport::~Transport()
 	for (int stream = 0; stream < NUM_STREAMS; ++stream)
 	{
 		// Release memory for receive queue
-		RecvQueue *recv_node = _recv_queue_head[stream];
+		RecvQueue *recv_node = _recv_wait[stream].head;
 		while (recv_node)
 		{
 			RecvQueue *next = recv_node->next;
@@ -294,11 +294,11 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 	// Initialize the delivery queue
 	tls->delivery_queue_depth = 0;
 	tls->free_list_count = 0;
-/*
+
 	// TODO: Remove this packetloss generator
-	if (tls->csprng->GenerateUnbiased(0, 2) == 2)
+	if (tls->csprng->GenerateUnbiased(0, 9) == 2)
 		return;
-*/
+
 	// For each buffer in the batch,
 	for (BatchHead *node = delivery.head; !IsDisconnected() && node; node = node->batch_next)
 	{
@@ -485,7 +485,7 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 
 void Transport::RunReliableReceiveQueue(SphynxTLS *tls, u32 recv_time, u32 ack_id, u32 stream)
 {
-	RecvQueue *node = _recv_queue_head[stream];
+	RecvQueue *node = _recv_wait[stream].head;
 
 	// If no queue to run or queue is not ready yet,
 	if (!node || node->id != ack_id)
@@ -497,23 +497,26 @@ void Transport::RunReliableReceiveQueue(SphynxTLS *tls, u32 recv_time, u32 ack_i
 	}
 
 	// For each queued message that is now ready to go,
+	u32 initial_ack_id = ack_id;
 	do
 	{
 		// Grab the queued message
-		u32 old_data_bytes = node->bytes;
+		u32 super_opcode = node->sop;
 		u8 *old_data = GetTrailingBytes(node);
+		u32 old_data_bytes = node->bytes;
 
-		// Process fragment now
-		if (old_data_bytes > 0)
+		// Process queued message
+		if (super_opcode == SOP_FRAG)
+		{
+			// Fragments are always processed in order, and zero data bytes indicates abortion
+			OnFragment(tls, node->send_time, recv_time, old_data, old_data_bytes, stream);
+		}
+		else if (old_data_bytes > 0)
 		{
 			WARN("Transport") << "Running queued message # " << stream << ":" << ack_id;
 
-			u32 super_opcode = node->sop;
-
 			if (super_opcode == SOP_DATA)
 				QueueDelivery(tls, old_data, old_data_bytes, node->send_time);
-			else if (super_opcode == SOP_FRAG)
-				OnFragment(tls, node->send_time, recv_time, old_data, old_data_bytes, stream);
 			else if (super_opcode == SOP_INTERNAL)
 				OnInternal(tls, node->send_time, recv_time, old_data, old_data_bytes);
 
@@ -530,19 +533,29 @@ void Transport::RunReliableReceiveQueue(SphynxTLS *tls, u32 recv_time, u32 ack_i
 		node = next;
 	} while (node && node->id == ack_id);
 
-	// Update receive queue state
-	_recv_queue_head[stream] = node;
+	// Reduce the size of the wait queue
+	_recv_wait[stream].size -= ack_id - initial_ack_id;
+	_recv_wait[stream].head = node;
 	_next_recv_expected_id[stream] = ack_id;
 	_got_reliable[stream] = true;
 }
 
 void Transport::StoreReliableOutOfOrder(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *data, u32 data_bytes, u32 ack_id, u32 stream, u32 super_opcode)
 {
+	// If too many out of order arrivals already,
+	u32 count = _recv_wait[stream].size;
+	if (count >= OUT_OF_ORDER_LIMIT)
+	{
+		WARN("Transport") << "Out of room for out-of-order arrivals";
+		return;
+	}
+
 	// Walk forwards because the skip list makes this straight-forward (pun intended)
-	RecvQueue *next = _recv_queue_head[stream];
+	RecvQueue *next = _recv_wait[stream].head;
 	RecvQueue *prev = 0, *prev_seq = 0;
 
 	// Search for queue insertion point
+	u32 ii = 0;
 	while (next)
 	{
 		// If insertion point is found,
@@ -565,6 +578,13 @@ void Transport::StoreReliableOutOfOrder(SphynxTLS *tls, u32 send_time, u32 recv_
 		prev_seq = next;
 		prev = eos;
 		next = eos->next;
+
+		// If too many attempts to find insertion point already,
+		if (++ii >= OUT_OF_ORDER_LOOPS)
+		{
+			WARN("Transport") << "Dropped message due to swiss cheese";
+			return;
+		}
 	}
 
 	WARN("Transport") << "Queuing out-of-order message # " << stream << ":" << ack_id;
@@ -574,13 +594,16 @@ void Transport::StoreReliableOutOfOrder(SphynxTLS *tls, u32 send_time, u32 recv_
 
 	if (stream == STREAM_UNORDERED)
 	{
-		// Process it immediately
-		if (data_bytes > 0)
+		// If it is a fragment,
+		if (super_opcode == SOP_FRAG)
+		{
+			// Then wait until it is in order to process it
+			stored_bytes = data_bytes;
+		}
+		else if (data_bytes > 0)
 		{
 			if (super_opcode == SOP_DATA)
 				QueueDelivery(tls, data, data_bytes, send_time);
-			else if (super_opcode == SOP_FRAG)
-				OnFragment(tls, send_time, recv_time, data, data_bytes, stream);
 			else if (super_opcode == SOP_INTERNAL)
 				OnInternal(tls, send_time, recv_time, data, data_bytes);
 		}
@@ -610,7 +633,7 @@ void Transport::StoreReliableOutOfOrder(SphynxTLS *tls, u32 send_time, u32 recv_
 	// Link into list
 	new_node->next = next;
 	if (prev) prev->next = new_node;
-	else _recv_queue_head[stream] = new_node;
+	else _recv_wait[stream].head = new_node;
 
 	// Link into sequence (skip list),
 	if (prev && prev->id + 1 == ack_id)
@@ -621,14 +644,17 @@ void Transport::StoreReliableOutOfOrder(SphynxTLS *tls, u32 send_time, u32 recv_
 		new_node->eos = new_node;
 
 	_got_reliable[stream] = true;
+	_recv_wait[stream].size = count + 1;
 }
 
 void Transport::OnFragment(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *data, u32 bytes, u32 stream)
 {
 	INFO("Transport") << "OnFragment " << bytes << ":" << HexDumpString(data, bytes);
 
+	u16 frag_length = _fragments[stream].length;
+
 	// If fragment is starting,
-	if (!_fragments[stream].length)
+	if (!frag_length)
 	{
 		if (bytes < 2)
 		{
@@ -637,7 +663,7 @@ void Transport::OnFragment(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *dat
 		}
 		else
 		{
-			u32 frag_length = getLE(*(u16*)(data));
+			frag_length = getLE(*(u16*)(data));
 
 			if (frag_length == 0)
 			{
@@ -648,22 +674,52 @@ void Transport::OnFragment(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *dat
 			data += 2;
 			bytes -= 2;
 
-			// Allocate fragment buffer
-			_fragments[stream].buffer = new u8[frag_length];
-			if (!_fragments[stream].buffer)
+			// If fragment length field does not indicate that it is oversized,
+			if (frag_length != FRAG_HUGE)
 			{
-				WARN("Transport") << "Out of memory: Unable to allocate fragment buffer";
-				return;
-			}
-			else
-			{
-				_fragments[stream].length = frag_length;
-				_fragments[stream].offset = 0;
-				_fragments[stream].send_time = send_time;
+				// Allocate fragment buffer
+				_fragments[stream].buffer = new u8[frag_length];
+				if (!_fragments[stream].buffer)
+				{
+					WARN("Transport") << "Out of memory: Unable to allocate fragment buffer";
+					return;
+				}
+				else
+				{
+					_fragments[stream].length = frag_length;
+					_fragments[stream].offset = 0;
+					_fragments[stream].send_time = send_time;
+				}
 			}
 		}
 
 		// Fall-thru to processing data part of fragment message:
+	}
+
+	// If fragment length is huge,
+	if (frag_length == FRAG_HUGE)
+	{
+		OnPartialHuge((StreamMode)stream, data, bytes);
+
+		// If got final part,
+		if (bytes == 0)
+		{
+			// Stop delivering fragments via this callback now
+			_fragments[stream].length = 0;
+		}
+		return;
+	}
+
+	// If there are no data bytes in this fragment,
+	if (bytes == 0)
+	{
+		// This is a request to abort the fragment
+		if (_fragments[stream].buffer)
+			delete []_fragments[stream].buffer;
+
+		_fragments[stream].length = 0;
+		WARN("Transport") << "Aborted fragment transfer in stream " << stream;
+		return;
 	}
 
 	u32 fragment_remaining = _fragments[stream].length - _fragments[stream].offset;
@@ -1066,104 +1122,83 @@ void Transport::WriteACK()
 
 			INFO("Transport") << "Acknowledging rollup # " << stream << ":" << rollup_ack_id;
 
-			RecvQueue *node = _recv_queue_head[stream];
+			RecvQueue *eos, *node = _recv_wait[stream].head;
+			u32 last_id = rollup_ack_id;
 
-			if (node)
+			for (u32 ii = 0; node && ii < OUT_OF_ORDER_LOOPS; ++ii, node = eos->next)
 			{
-				u32 start_id = node->id;
-				u32 end_id = start_id;
-				u32 last_id = rollup_ack_id;
+				eos = node->eos;
 
-				node = node->next;
-
-				for (;;)
+				// Encode RANGE: START(3) || END(3)
+				if (remaining < 6)
 				{
-					// If range continues,
-					if (node && node->id == end_id + 1)
+					WARN("Transport") << "ACK packet truncated due to lack of space(2)";
+					break;
+				}
+
+				u32 start_id = node->id, end_id = eos->id;
+
+				// ACK messages transmits ids relative to the previous one in the datagram
+				u32 start_offset = start_id - last_id;
+				u32 end_offset = end_id - start_id;
+				last_id = end_id;
+
+				INFO("Transport") << "Acknowledging range # " << stream << ":" << start_id << " - " << end_id;
+
+				// Write START
+				u8 ack_hdr = (u8)((end_offset ? 2 : 0) | (start_offset << 2));
+				if (start_offset & ~0x1f)
+				{
+					offset[0] = ack_hdr | 0x80;
+
+					if (start_offset & ~0xfff)
 					{
-						++end_id;
+						offset[1] = (u8)((start_offset >> 5) | 0x80);
+						offset[2] = (u8)(start_offset >> 12);
+						offset += 3;
+						remaining -= 3;
 					}
-					else // New range or end of ranges
+					else
 					{
-						// Encode RANGE: START(3) || END(3)
-						if (remaining < 6)
+						offset[1] = (u8)(start_offset >> 5);
+						offset += 2;
+						remaining -= 2;
+					}
+				}
+				else
+				{
+					*offset++ = ack_hdr;
+					--remaining;
+				}
+
+				// Write END
+				if (end_offset)
+				{
+					if (end_offset & ~0x7f)
+					{
+						offset[0] = (u8)(end_offset | 0x80);
+
+						if (end_offset & ~0x3fff)
 						{
-							WARN("Transport") << "ACK packet truncated due to lack of space(2)";
-							break;
-						}
-
-						// ACK messages transmits ids relative to the previous one in the datagram
-						u32 start_offset = start_id - last_id;
-						u32 end_offset = end_id - start_id;
-						last_id = end_id;
-
-						INFO("Transport") << "Acknowledging range # " << stream << ":" << start_id << " - " << end_id;
-
-						// Write START
-						if (start_offset & ~0x1f)
-						{
-							offset[0] = (u8)((end_offset ? 2 : 0) | (start_offset << 2) | 0x80);
-
-							if (start_offset & ~0xfff)
-							{
-								offset[1] = (u8)((start_offset >> 5) | 0x80);
-								offset[2] = (u8)(start_offset >> 12);
-								offset += 3;
-								remaining -= 3;
-							}
-							else
-							{
-								offset[1] = (u8)(start_offset >> 5);
-								offset += 2;
-								remaining -= 2;
-							}
+							offset[1] = (u8)((end_offset >> 7) | 0x80);
+							offset[2] = (u8)(end_offset >> 14);
+							offset += 3;
+							remaining -= 3;
 						}
 						else
 						{
-							*offset++ = (u8)((end_offset ? 2 : 0) | (start_offset << 2));
-							--remaining;
+							offset[1] = (u8)(end_offset >> 7);
+							offset += 2;
+							remaining -= 2;
 						}
-
-						// Write END
-						if (end_offset)
-						{
-							if (end_offset & ~0x7f)
-							{
-								offset[0] = (u8)(end_offset | 0x80);
-
-								if (end_offset & ~0x3fff)
-								{
-									offset[1] = (u8)((end_offset >> 7) | 0x80);
-									offset[2] = (u8)(end_offset >> 14);
-									offset += 3;
-									remaining -= 3;
-								}
-								else
-								{
-									offset[1] = (u8)(end_offset >> 7);
-									offset += 2;
-									remaining -= 2;
-								}
-							}
-							else
-							{
-								*offset++ = (u8)end_offset;
-								--remaining;
-							}
-						}
-
-						// Exit condition: node is null
-						if (!node) break;
-
-						// Begin new range
-						start_id = node->id;
-						end_id = start_id;
-
-					} // End of range
-
-					node = node->next;
-				} // Looping until node is null (see exit condition above)
-			} // If node is not null
+					}
+					else
+					{
+						*offset++ = (u8)end_offset;
+						--remaining;
+					}
+				}
+			} // for each range in the waiting list
 
 			// If we exhausted all in the list, unset flag
 			if (!node) _got_reliable[stream] = false;
