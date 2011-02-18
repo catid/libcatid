@@ -167,7 +167,7 @@ public:
 		_workers[worker_id].DeliverBuffers(buffers);
 	}
 
-	bool Startup(u32 worker_tick_interval, IWorkerTLSBuilder *tls_builder);
+	bool Startup(u32 worker_tick_interval, IWorkerTLSBuilder *tls_builder, u32 worker_count_override);
 
 	bool Shutdown();
 

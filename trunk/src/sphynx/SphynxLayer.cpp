@@ -67,12 +67,12 @@ bool SphynxLayer::PreWorkerThreads()
 
 bool SphynxLayer::Startup(const char *settings_file_name, bool service, const char *service_name)
 {
-	return CommonLayer::Startup<SphynxTLS>(sphynx::Transport::TICK_INTERVAL, settings_file_name, service, service_name);
+	return CommonLayer::Startup<SphynxTLS>(settings_file_name, service, service_name);
 }
 
-bool SphynxLayer::OnStartup(u32 worker_tick_interval, IWorkerTLSBuilder *tls_builder, const char *settings_file_name, bool service, const char *service_name)
+bool SphynxLayer::OnStartup(IWorkerTLSBuilder *tls_builder, const char *settings_file_name, bool service, const char *service_name)
 {
-	if (!IOLayer::OnStartup(worker_tick_interval, tls_builder, settings_file_name, service, service_name))
+	if (!IOLayer::OnStartup(tls_builder, settings_file_name, service, service_name))
 		return false;
 
 	_dns_client = new DNSClient;
