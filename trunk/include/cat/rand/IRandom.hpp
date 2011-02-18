@@ -53,8 +53,8 @@ public:
     {
         u32 range = high - low;
 
-        // Round range up to the next pow(2)-1 using a Stanford Bit Twiddling Hack
-        u32 v = range - 1;
+        // Round range up to the next pow(2)-1
+        u32 v = range;
         v |= v >> 1;
         v |= v >> 2;
         v |= v >> 4;

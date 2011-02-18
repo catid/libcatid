@@ -182,8 +182,8 @@ struct RecvFrag
 // Receive state: Receive queue
 struct RecvQueue
 {
-	RecvQueue *next;	// Next in queue
-	RecvQueue *prev;	// Previous in queue
+	RecvQueue *next;	// Next message in list
+	RecvQueue *eos;		// End of current sequence (forward)
 	u32 id;				// Acknowledgment id
 	u16 sop;			// Super Opcode
 	u16 bytes;			// Data Bytes
