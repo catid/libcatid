@@ -228,7 +228,13 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 				continue;
 			}
 
-			u8 *challenge = data + 1 + 4 + 4;
+			// If the derived server object does not like this address,
+			if (!AcceptNewConnexion(buffer->addr))
+			{
+				WARN("Server") << "Ignoring challenge: Source address is blocked";
+				PostConnectionError(buffer->addr, ERR_BLOCKED);
+				continue;
+			}
 
 			// If server is overpopulated,
 			if (GetIOLayer()->GetWorkerThreads()->GetTotalPopulation() >= ConnexionMap::MAX_POPULATION)
@@ -239,7 +245,7 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 			}
 
 			u8 *pkt = SendBuffer::Acquire(S2C_ANSWER_LEN);
-
+			u8 *challenge = data + 1 + 4 + 4;
 			Skein key_hash;
 			AutoRef<Connexion> conn;
 
@@ -277,10 +283,17 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 				pkt[1] = (u8)(ERR_SERVER_ERROR);
 				Write(pkt, S2C_ERROR_LEN, buffer->addr);
 			}
+			else if (!conn->InitializeTransportSecurity(false, conn->_auth_enc))
+			{
+				WARN("Server") << "Ignoring challenge: Unable to initialize transport security";
+
+				pkt[0] = S2C_ERROR;
+				pkt[1] = (u8)(ERR_SERVER_ERROR);
+				Write(pkt, S2C_ERROR_LEN, buffer->addr);
+			}
 			else // Good so far:
 			{
-				// Find the least populated port
-				// Construct packet 3
+				// Finish constructing the answer packet
 				pkt[0] = S2C_ANSWER;
 
 				// Initialize Connexion object
@@ -294,11 +307,6 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 				// Assign to a worker
 				SphynxLayer *layer = reinterpret_cast<SphynxLayer*>( GetIOLayer() );
 				conn->_server_worker_id = layer->GetWorkerThreads()->AssignWorker(conn);
-
-				if (!conn->InitializeTransportSecurity(false, conn->_auth_enc))
-				{
-					WARN("Server") << "Ignoring challenge: Unable to initialize transport security";
-				}
 
 				if (!Write(pkt, S2C_ANSWER_LEN, buffer->addr))
 				{
