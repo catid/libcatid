@@ -32,9 +32,6 @@
 #include <cat/net/Sockets.hpp>
 
 // TODO: SendQueue needs callback for file transfer and support for large external data array
-// TODO: when sending a reliable message, pre-allocate the send queue node for zero-copy
-// TODO: when reading data from a set of datagrams, produce a single callback for the user also with an array of data
-// TODO: coalesce locks in TickTransport()
 // TODO: periodically reset the average trip time to avoid skewing statistics
 // TODO: make debug output optional with preprocessor flag
 // TODO: evaluate all places that allocate memory to see if retry would help
@@ -42,8 +39,7 @@
 // TODO: flow control
 // TODO: add random bytes to length of each packet under MTU to mask function
 // TODO: do something with the extra two bits in the new timestamp field
-// TODO: vulnerable to resource starvation attacks (out of sequence packets, etc)
-// TODO: move all packet sending outside of locks
+// TODO: vulnerable to resource starvation attacks
 
 #if defined(CAT_WORD_32)
 #define CAT_PACK_TRANSPORT_STATE_STRUCTURES /* For 32-bit version, this allows fragments to fit in 32 bytes */
@@ -103,8 +99,8 @@ enum HandshakeError
 
 	ERR_WRONG_KEY = 0x7f,
 	ERR_SERVER_FULL = 0xa6,
-	ERR_FLOOD_DETECTED = 0x40,
 	ERR_TAMPERING = 0xcc,
+	ERR_BLOCKED = 0xb7,
 	ERR_SERVER_ERROR = 0x1f
 };
 
@@ -137,10 +133,10 @@ enum StreamMode
 // Super opcodes
 enum SuperOpcode
 {
-	SOP_DATA,		// 0=Data (reliable or unreliable)
-	SOP_FRAG,		// 1=Fragment (reliable)
-	SOP_ACK,		// 2=ACK (unreliable)
-	SOP_INTERNAL,	// 3=Internal
+	SOP_INTERNAL,	// 0=Internal (reliable or unreliable)
+	SOP_DATA,		// 1=Data (reliable or unreliable)
+	SOP_FRAG,		// 2=Fragment (reliable)
+	SOP_ACK,		// 3=ACK (unreliable)
 };
 
 // Internal opcodes
