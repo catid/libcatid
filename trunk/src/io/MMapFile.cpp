@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -35,7 +35,6 @@ using namespace cat;
 # include <sys/stat.h>
 # include <fcntl.h>
 #endif
-
 
 MMapFile::MMapFile()
 {

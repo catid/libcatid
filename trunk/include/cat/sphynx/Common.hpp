@@ -253,6 +253,7 @@ struct SendFrag : public SendQueue
 # pragma pack(pop)
 #endif
 
+// Outgoing message data from user layer
 class OutgoingMessage : public SendQueue, public ResizableBuffer<OutgoingMessage>
 {
 public:

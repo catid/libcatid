@@ -897,8 +897,32 @@ bool Transport::WriteReliableZeroCopy(StreamMode stream, u8 *msg, u32 msg_bytes,
 	return true;
 }
 
-bool Transport::WriteHuge(u32 bytes)
+bool Transport::WriteHuge(StreamMode stream)
 {
+	// Fill the object
+	SendQueue *node = StdAllocator::ii->AcquireTrailing<SendQueue>(0);
+	node->bytes = FRAG_HUGE;
+	node->frag_count = 0;
+	node->sop = SOP_DATA;
+	node->sent_bytes = 0;
+	node->next = 0;
+
+	// Add to back of send queue
+
+	_send_queue_lock.Enter();
+
+	SendQueue *tail = _send_queue_tail[stream];
+
+	if (tail) tail->next = node;
+	else _send_queue_head[stream] = node;
+
+	_send_queue_tail[stream] = node;
+
+	_send_queue_lock.Leave();
+
+	INFO("Transport") << "Appended huge message placeholder to stream " << stream;
+
+	return true;
 }
 
 void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
@@ -1684,6 +1708,13 @@ void Transport::WriteQueuedReliable()
 
 				// Cache next pointer since node will be modified
 				SendQueue *next = node->next;
+
+				// TODO: Handle huge fragmented message case
+				if (node->bytes == FRAG_HUGE)
+				{
+
+				}
+
 				bool fragmented = (node->frag_count != 0);
 				u32 sent_bytes = node->sent_bytes, total_bytes = node->bytes;
 

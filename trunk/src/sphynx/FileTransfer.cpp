@@ -32,6 +32,7 @@ using namespace sphynx;
 
 FileTransferSource::FileTransferSource()
 {
+	_active = 0;
 }
 
 FileTransferSource::~FileTransferSource()
@@ -41,6 +42,8 @@ FileTransferSource::~FileTransferSource()
 
 void FileTransferSource::ClearHeap()
 {
+	AutoMutex lock(_lock);
+
 	// For each heap element,
 	while (!_heap.empty())
 	{
@@ -48,9 +51,21 @@ void FileTransferSource::ClearHeap()
 		QueuedFile *file = _heap.top();
 		_heap.pop();
 
+		if (file->msg)
+			OutgoingMessage::Release(file->msg);
+
 		// Free memory
 		delete file;
 	}
+}
+
+bool FileTransferSource::StartTransfer(QueuedFile *file, Transport *transport)
+{
+	// Write the informational message to the bulk stream first
+	transport->WriteReliableZeroCopy(STREAM_BULK, file->msg, file->msg_bytes);
+
+	// Then kick off huge fragments
+	transport->WriteHuge(STREAM_BULK);
 }
 
 bool FileTransferSource::WriteFile(u8 opcode, const std::string &source_path, const std::string &sink_path, Transport *transport, u32 priority)
@@ -65,6 +80,12 @@ bool FileTransferSource::WriteFile(u8 opcode, const std::string &source_path, co
 		return false;
 	}
 
+	// Construct message
+	msg[0] = opcode;
+	*(u64*)(msg + 1) = getLE(file->reader.GetLength());
+	memcpy(msg + 1 + 8, sink_path.c_str(), sink_path_len);
+
+	// Build a queued file object
 	QueuedFile *file = new QueuedFile;
 	if (!file)
 	{
@@ -73,21 +94,26 @@ bool FileTransferSource::WriteFile(u8 opcode, const std::string &source_path, co
 		return false;
 	}
 
+	// Configure it
 	file->sink_path = sink_path;
 	file->priority = priority;
+	file->msg = msg;
+	file->msg_bytes = msg_bytes;
 
 	// If source file could not be opened,
 	if (!file->reader.Open(source_path.c_str()))
 	{
 		WARN("FileTransferSource") << "Unable to open specified file " << source_path;
-		delete file;
 		OutgoingMessage::Release(msg);
+		delete file;
 		return false;
 	}
 
+	// Push it on the heap
+	_lock.Enter();
 	_heap.push(file);
+	_lock.Leave();
 
-	transport->WriteReliableZeroCopy(STREAM_BULK, msg, msg_bytes);
 }
 
 u32 FileTransferSource::OnWriteHugeRequest(StreamMode stream, u8 *data, u32 space)

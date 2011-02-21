@@ -235,12 +235,6 @@ namespace sphynx {
 	OnDisconnectReason() callback is invoked.
 */
 
-class FileTransfer
-{
-	MMapFile mmf;
-public:
-};
-
 class Transport
 {
 public:
@@ -377,10 +371,10 @@ public:
 	// Queue up a reliable message for delivery without copy overhead
 	// msg: Allocate with OutgoingMessage::Acquire(msg_bytes)
 	// msg_bytes: Includes message opcode byte at offset 0
-	bool WriteReliableZeroCopy(StreamMode, u8 *msg, u32 msg_bytes, SuperOpcode super_opcode = SOP_DATA);
+	bool WriteReliableZeroCopy(StreamMode stream, u8 *msg, u32 msg_bytes, SuperOpcode super_opcode = SOP_DATA);
 
-	// Queue up a huge data transfer
-	bool WriteHuge(u32 bytes);
+	// Queue up a huge data transfer, OnWriteHugeRequest() will be called when data is needed
+	bool WriteHuge(StreamMode stream);
 
 	// Flush send buffer after processing the current message from the remote host
 	CAT_INLINE void FlushAfter() { _send_flush_after_processing = true; }

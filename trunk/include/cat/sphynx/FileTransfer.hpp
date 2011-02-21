@@ -40,26 +40,32 @@ namespace cat {
 namespace sphynx {
 
 
-struct QueuedFile
-{
-	u32 priority; // lower = lower priority
-	SequentialFileReader reader;
-	std::string sink_path;
-
-	// Returns true if lhs > rhs for priority
-	CAT_INLINE bool operator()(const QueuedFile *lhs, const QueuedFile *rhs)
-	{
-		return lhs->priority > rhs->priority;
-	}
-};
-
 class FileTransferSource
 {
+	struct QueuedFile
+	{
+		u32 priority; // lower = lower priority
+		SequentialFileReader reader;
+
+		// File announcement message
+		u8 *msg;
+		u32 msg_bytes;
+
+		// Returns true if lhs > rhs for priority
+		CAT_INLINE bool operator()(const QueuedFile *lhs, const QueuedFile *rhs)
+		{
+			return lhs->priority > rhs->priority;
+		}
+	};
+
 	typedef std::priority_queue<QueuedFile*, std::vector<QueuedFile*>, QueuedFile> FileHeap;
 
+	Mutex _lock;
 	FileHeap _heap;
+	QueuedFile *_active;
 
 	void ClearHeap();
+	void StartTransfer(QueuedFile *file, Transport *transport);
 
 public:
 	FileTransferSource();
