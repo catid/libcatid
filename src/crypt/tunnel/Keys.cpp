@@ -219,7 +219,7 @@ bool TunnelPublicKey::LoadFile(const char *file_path)
 
 	if (!file.Open(file_path)) return false;
 
-	u32 bytes = mmf.remaining();
+	u32 bytes = (u32)file.GetLength();
 
 	if (bytes != (256 / 8) * 2 &&
 		bytes != (384 / 8) * 2 &&
@@ -230,7 +230,7 @@ bool TunnelPublicKey::LoadFile(const char *file_path)
 
 	_key_bytes = bytes / 2;
 
-	memcpy(_public_key, mmf.read(bytes), bytes);
+	memcpy(_public_key, file.Read(bytes), bytes);
 
 	_valid = true;
 	return true;

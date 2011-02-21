@@ -33,7 +33,6 @@
 #include <cat/io/MMapFile.hpp>
 #include <vector>
 #include <queue> // priority_queue<>
-#include <functional> // greater<>
 
 namespace cat {
 
@@ -41,17 +40,21 @@ namespace cat {
 namespace sphynx {
 
 
+struct QueuedFile
+{
+	u32 priority; // lower = lower priority
+	MMapFile mmf;
+
+	// Returns true if lhs > rhs for priority
+	CAT_INLINE bool operator()(const QueuedFile *lhs, const QueuedFile *rhs)
+	{
+		return lhs->priority > rhs->priority;
+	}
+};
+
 class FileTransferSource
 {
-	struct QueuedFile
-	{
-		u32 priority; // lower = lower priority
-		MMapFile mmf;
-	};
-
-	static CAT_INLINE bool operator>(const QueuedFile *lhs, const QueuedFile *rhs) { return lhs->priority > rhs->priority; }
-
-	typedef std::priority_queue<QueuedFile*, std::vector<QueuedFile*>, std::greater<QueuedFile*> > FileHeap;
+	typedef std::priority_queue<QueuedFile*, std::vector<QueuedFile*>, QueuedFile> FileHeap;
 
 	FileHeap _heap;
 
