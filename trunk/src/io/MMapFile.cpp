@@ -37,60 +37,151 @@ using namespace cat;
 #endif
 
 
-MMapFile::MMapFile(const char *path)
+MMapFile::MMapFile()
 {
-    data = 0;
-    offset = 0;
-    len = 0;
+    _data = 0;
+    _len = 0;
 
-#if defined(CAT_OS_LINUX)
+#if defined(CAT_OS_WINDOWS)
 
-    fd = open(path, O_RDONLY);
-    if (fd == -1) { INANE("MMapFile") << "Unable to open file: " << path; return; }
+	_map = 0;
+	_file = 0;
 
-    struct stat st;
-    if (fstat(fd, &st) < 0) { INANE("MMapFile") << "Unable to stat file: " << path; return; }
-    len = st.st_size;
-    if (len == 0) return;
+#else
 
-    data = (char *)mmap(0, len, PROT_READ, MAP_SHARED, fd, 0);
-    if (data == MAP_FAILED) { INANE("MMapFile") << "Unable to mmap file: " << path; return; }
-
-    close(fd);
-    fd = -1;
-
-#elif defined(CAT_OS_WINDOWS)
-
-    hMapping = hFile = 0;
-
-    hFile = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL|FILE_FLAG_RANDOM_ACCESS, 0);
-    if (hFile == INVALID_HANDLE_VALUE) { INANE("MMapFile") << "Unable to open file: " << path; return; }
-
-    len = GetFileSize(hFile, 0);
-    if (len == -1) { INANE("MMapFile") << "Unable to stat file: " << path; return; }
-    if (len == 0) return;
-
-    hMapping = CreateFileMapping(hFile, 0, PAGE_READONLY, 0, 0, 0);
-    if (!hMapping) { INANE("MMapFile") << "Unable to CreateFileMapping[" << GetLastError() << "]: " << path; return; }
-
-    data = (char *)MapViewOfFile(hMapping, FILE_MAP_READ, 0, 0, 0);
-    if (!data) { INANE("MMapFile") << "Unable to MapViewOfFile[" << GetLastError() << "]: " << path; return; }
+	_fd = -1;
 
 #endif
 }
 
 MMapFile::~MMapFile()
 {
-#if defined(CAT_OS_LINUX)
+	Close();
+}
 
-    if (fd != -1) close(fd);
-    if (data) munmap(data, len);
+bool MMapFile::Open(const char *path, bool readonly, bool random_access)
+{
+	Close();
 
-#elif defined(CAT_OS_WINDOWS)
+#if defined(CAT_OS_WINDOWS)
 
-    if (data) UnmapViewOfFile(data);
-    if (hMapping) CloseHandle(hMapping);
-    if (hFile) CloseHandle(hFile);
+	u32 file_access, share_access, creation_disposition;
+	u32 page_permissions, map_permissions;
+
+	if (readonly)
+	{
+		file_access = GENERIC_READ;
+		share_access = FILE_SHARE_READ;
+		creation_disposition = OPEN_EXISTING;
+
+		page_permissions = PAGE_READONLY;
+
+		map_permissions = FILE_MAP_READ;
+	}
+	else
+	{
+		file_access = GENERIC_READ | GENERIC_WRITE;
+		share_access = FILE_SHARE_READ | FILE_SHARE_WRITE;
+		creation_disposition = CREATE_ALWAYS;
+
+		page_permissions = PAGE_READWRITE;
+
+		map_permissions = FILE_MAP_WRITE;
+	}
+
+	u32 access_pattern = random_access ? FILE_FLAG_RANDOM_ACCESS : FILE_FLAG_SEQUENTIAL_SCAN;
+
+	_file = CreateFileA(path, file_access, share_access, 0, creation_disposition, access_pattern, 0);
+	if (_file == INVALID_HANDLE_VALUE)
+	{
+		INANE("MMapFile") << "CreateFileA error " << GetLastError() << " for " << path;
+		return false;
+	}
+
+	if (!GetFileSizeEx(_file, (LARGE_INTEGER*)&_len))
+	{
+		INANE("MMapFile") << "GetFileSizeEx error " << GetLastError() << " for " << path;
+		return false;
+	}
+
+	_map = CreateFileMapping(_file, 0, page_permissions, 0, 0, 0);
+	if (!_map)
+	{
+		INANE("MMapFile") << "CreateFileMapping error " << GetLastError() << " for " << path;
+		return false;
+	}
+
+#else
+#error "TODO"
+#endif
+
+	return true;
+}
+
+bool MMapFile::SetLength(u64 length)
+{
+#if defined(CAT_OS_WINDOWS)
+
+	if (!SetFilePointerEx(_file, length, 0, FILE_BEGIN))
+	{
+		INANE("MMapFile") << "SetFilePointerEx error " << GetLastError() << " for " << length;
+		return false;
+	}
+
+	if (!SetEndOfFile(_file))
+	{
+		INANE("MMapFile") << "SetEndOfFile error " << GetLastError() << " for " << length;
+		return false;
+	}
+
+#else
+#error "TODO"
+#endif
+}
+
+u8 *MMapFile::MapView(u64 offset, u32 length)
+{
+	_data = (u8*)MapViewOfFile(_map, map_permissions, 0, 0, 0);
+	if (!_data)
+	{
+		INANE("MMapFile") << "MapViewOfFile error " << GetLastError() << " for " << path;
+		return false;
+	}
+}
+
+void MMapFile::Close()
+{
+#if defined(CAT_OS_WINDOWS)
+
+	if (_data)
+	{
+		UnmapViewOfFile(_data);
+		_data = 0;
+	}
+	if (_map)
+	{
+		CloseHandle(_map);
+		_map = 0;
+	}
+	if (_file)
+	{
+		CloseHandle(_file);
+		_file = 0;
+	}
+
+#else
+
+	if (fd != -1)
+	{
+		close(fd);
+		fd = -1;
+	}
+
+	if (data)
+	{
+		munmap(data, len);
+		data = 0;
+	}
 
 #endif
 }

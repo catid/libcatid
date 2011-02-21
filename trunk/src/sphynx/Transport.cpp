@@ -710,7 +710,9 @@ void Transport::OnFragment(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *dat
 		{
 			// Stop delivering fragments via this callback now
 			_fragments[stream].length = 0;
+			WARN("Transport") << "Aborted huge fragment transfer in stream " << stream;
 		}
+
 		return;
 	}
 

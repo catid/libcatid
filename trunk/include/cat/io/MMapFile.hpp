@@ -40,33 +40,34 @@ namespace cat {
 
 class MMapFile
 {
-    char *data;
-    u32 len;
-    s32 offset;
+    u8 *_data;
+    u64 _len;
 
-#if defined(CAT_OS_LINUX)
-    int fd;
-#elif defined(CAT_OS_WINDOWS)
-    HANDLE hFile, hMapping;
+#if defined(CAT_OS_WINDOWS)
+    HANDLE _file, _map;
+#else
+	int _fd;
 #endif
 
 public:
-    MMapFile(const char *path);
+    MMapFile();
     ~MMapFile();
 
-    inline bool good() { return data != 0; }
-    inline bool inside() { return offset >= 0 && offset < (s32)len; }
+	bool Open(const char *path, bool readonly = true, bool random_access = false);
+	CAT_INLINE u64 GetLength() { return _len; }
+	bool SetLength(u64 length);
+	void Close();
 
-    inline u32 size() { return len; }
+	// Only one view is valid at a time
+	u8 *MapView(u64 offset, u32 length);
 
-    inline void seek(s32 poffset) { offset = poffset; }
-    inline bool underrun(s32 requested) { return (u32)(offset + requested) > len; }
-    inline char *look() { return data + offset; }
-    inline char *look(s32 offset) { return data + offset; }
-    inline char *read(s32 requested) { offset += requested; return data + (offset - requested); }
-    inline void skip(s32 requested) { offset += requested; }
-    inline u32 remaining() { return len - offset; }
-    inline u32 getOffset() { return offset; }
+    CAT_INLINE bool IsValid() { return _data != 0; }
+};
+
+
+class SequentialFileReader
+{
+public:
 };
 
 

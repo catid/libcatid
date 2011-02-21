@@ -176,8 +176,8 @@ void Settings::readSettingsFromFile(const char *file_path, const char *override_
 
 	_settings_file = file_path;
 
-    MMapFile sfile(file_path);
-    if (!sfile.good())
+    MMapFile sfile;
+    if (!sfile.Open(file_path))
     {
         WARN("Settings") << "Read: Unable to open " << file_path;
         return;

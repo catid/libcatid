@@ -44,3 +44,4 @@
 #include <cat/sphynx/FlowControl.hpp>
 #include <cat/sphynx/Server.hpp>
 #include <cat/sphynx/Transport.hpp>
+#include <cat/sphynx/FileTransfer.hpp>
