@@ -30,6 +30,10 @@
 #define CAT_SPHYNX_FILE_TRANSFER_HPP
 
 #include <cat/sphynx/Transport.hpp>
+#include <cat/io/MMapFile.hpp>
+#include <vector>
+#include <queue> // priority_queue<>
+#include <functional> // greater<>
 
 namespace cat {
 
@@ -39,12 +43,26 @@ namespace sphynx {
 
 class FileTransferSource
 {
+	struct QueuedFile
+	{
+		u32 priority; // lower = lower priority
+		MMapFile mmf;
+	};
+
+	static CAT_INLINE bool operator>(const QueuedFile *lhs, const QueuedFile *rhs) { return lhs->priority > rhs->priority; }
+
+	typedef std::priority_queue<QueuedFile*, std::vector<QueuedFile*>, std::greater<QueuedFile*> > FileHeap;
+
+	FileHeap _heap;
+
+	void ClearHeap();
+
 public:
 	FileTransferSource();
 	~FileTransferSource();
 
 	// Queue up a file transfer
-	bool WriteFile(u8 opcode, const char *source_path, const char *sink_path, Transport *transport);
+	bool WriteFile(u8 opcode, const std::string &source_path, const std::string &sink_path, Transport *transport);
 
 	// Takes over u32 OnWriteHugeRequest(StreamMode stream, u8 *data, u32 space)
 	u32 OnWriteHugeRequest(StreamMode stream, u8 *data, u32 space);

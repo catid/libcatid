@@ -36,10 +36,38 @@ FileTransferSource::FileTransferSource()
 
 FileTransferSource::~FileTransferSource()
 {
+	ClearHeap();
 }
 
-bool FileTransferSource::WriteFile(u8 opcode, const char *path, Transport *transport)
+void FileTransferSource::ClearHeap()
 {
+	// For each heap element,
+	while (!_heap.empty())
+	{
+		// Get top element from heap
+		QueuedFile *file = _heap.top();
+		_heap.pop();
+
+		// Free memory
+		delete file;
+	}
+}
+
+bool FileTransferSource::WriteFile(u8 opcode, const std::string &source_path, const std::string &sink_path, Transport *transport)
+{
+	QueuedFile *file = new QueuedFile;
+	if (!file)
+	{
+		WARN("FileTransferSource") << "Out of memory: Unable to allocate queued file";
+		return false;
+	}
+
+	// If source file could not be opened,
+	if (!file->mmf.Open(source_path))
+	{
+		WARN("FileTransferSource") << "Out of memory: Unable to allocate queued file";
+		return false;
+	}
 }
 
 u32 FileTransferSource::OnWriteHugeRequest(StreamMode stream, u8 *data, u32 space)
