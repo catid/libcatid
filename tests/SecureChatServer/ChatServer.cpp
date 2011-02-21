@@ -50,7 +50,7 @@ public:
 			switch (msg[0])
 			{
 			case OP_FILE_UPLOAD_START:
-				if (_fsource.OnFileStart(msg, bytes))
+				if (_fsink.OnFileStart(msg, bytes))
 				{
 					WARN("Connexion") << "-- File upload from remote peer starting";
 				}

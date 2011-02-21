@@ -43,7 +43,8 @@ namespace sphynx {
 struct QueuedFile
 {
 	u32 priority; // lower = lower priority
-	MMapFile mmf;
+	SequentialFileReader reader;
+	std::string sink_path;
 
 	// Returns true if lhs > rhs for priority
 	CAT_INLINE bool operator()(const QueuedFile *lhs, const QueuedFile *rhs)
@@ -65,7 +66,7 @@ public:
 	~FileTransferSource();
 
 	// Queue up a file transfer
-	bool WriteFile(u8 opcode, const std::string &source_path, const std::string &sink_path, Transport *transport);
+	bool WriteFile(u8 opcode, const std::string &source_path, const std::string &sink_path, Transport *transport, u32 priority = 0);
 
 	// Takes over u32 OnWriteHugeRequest(StreamMode stream, u8 *data, u32 space)
 	u32 OnWriteHugeRequest(StreamMode stream, u8 *data, u32 space);
@@ -76,6 +77,7 @@ public:
 
 class FileTransferSink
 {
+	// TODO: Thread safety
 public:
 	FileTransferSink();
 	~FileTransferSink();

@@ -53,21 +53,41 @@ void FileTransferSource::ClearHeap()
 	}
 }
 
-bool FileTransferSource::WriteFile(u8 opcode, const std::string &source_path, const std::string &sink_path, Transport *transport)
+bool FileTransferSource::WriteFile(u8 opcode, const std::string &source_path, const std::string &sink_path, Transport *transport, u32 priority)
 {
+	u32 sink_path_len = (u32)sink_path.length();
+	u32 msg_bytes = 1 + sizeof(u64) + sink_path_len;
+
+	u8 *msg = OutgoingMessage::Acquire(msg_bytes);
+	if (!msg)
+	{
+		WARN("FileTransferSource") << "Out of memory: Unable to allocate outgoing message bytes = " << msg_bytes;
+		return false;
+	}
+
 	QueuedFile *file = new QueuedFile;
 	if (!file)
 	{
 		WARN("FileTransferSource") << "Out of memory: Unable to allocate queued file";
+		OutgoingMessage::Release(msg);
 		return false;
 	}
 
+	file->sink_path = sink_path;
+	file->priority = priority;
+
 	// If source file could not be opened,
-	if (!file->mmf.Open(source_path.c_str()))
+	if (!file->reader.Open(source_path.c_str()))
 	{
-		WARN("FileTransferSource") << "Out of memory: Unable to allocate queued file";
+		WARN("FileTransferSource") << "Unable to open specified file " << source_path;
+		delete file;
+		OutgoingMessage::Release(msg);
 		return false;
 	}
+
+	_heap.push(file);
+
+	transport->WriteReliableZeroCopy(STREAM_BULK, msg, msg_bytes);
 }
 
 u32 FileTransferSource::OnWriteHugeRequest(StreamMode stream, u8 *data, u32 space)
