@@ -9,6 +9,14 @@ using namespace std;
 
 class GameClient : public Client
 {
+	FileTransferSource _fsource;
+	FileTransferSink _fsink;
+
+	enum
+	{
+		OP_FILE_UPLOAD_START
+	};
+
 public:
 	virtual void OnShutdownRequest()
 	{
@@ -29,6 +37,15 @@ public:
 	virtual void OnConnect(SphynxTLS *tls)
 	{
 		WARN("Client") << "-- CONNECTED";
+
+		if (_fsource.WriteFile(OP_FILE_UPLOAD_START, "source_file.txt", "sink_file.txt", this))
+		{
+			WARN("Client") << "-- File upload starting";
+		}
+		else
+		{
+			WARN("Client") << "-- File upload FAILED";
+		}
 	}
 	virtual void OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count)
 	{
@@ -38,41 +55,40 @@ public:
 			u32 bytes = msgs[ii].bytes;
 			u32 send_time = msgs[ii].send_time;
 
-			//INFO("Client") << "Got message with " << bytes << " bytes";
-
 			switch (msg[0])
 			{
-			case 0:
+			case OP_FILE_UPLOAD_START:
+				if (_fsource.OnFileStart(msg, bytes))
 				{
-					WARN("Client") << "-- Got request for transmit";
-
-					static char STR[Transport::MAX_MESSAGE_SIZE - 1];
-
-					for (int ii = 0; ii < sizeof(STR); ++ii)
-						STR[ii] = (char)ii;
-/*
-					for (int jj = 0; jj < 10; ++jj)
-						WriteReliable(STREAM_UNORDERED, 1, STR, sizeof(STR)/4);
-					for (int jj = 0; jj < 1000; ++jj)
-						WriteReliable(STREAM_1, 1, STR, sizeof(STR));
-					for (int jj = 0; jj < 1000; ++jj)
-						WriteReliable(STREAM_2, 1, STR, sizeof(STR));
-					WriteReliable(STREAM_2, 2, STR, sizeof(STR));
-*/
-					WriteReliable(STREAM_UNORDERED, 0, STR, sizeof(STR));
-/*
-					for (int ii = 0; ii < 100; ++ii)
-					{
-						WriteReliable(STREAM_UNORDERED, 1, STR, sizeof(STR));
-					}*/
+					WARN("Client") << "-- File upload from remote peer starting";
+				}
+				else
+				{
+					WARN("Client") << "-- File upload from remote peer NOT ACCEPTED";
 				}
 				break;
+			default:
+				WARN("Client") << "-- Got unknown message with " << bytes << " bytes" << HexDumpString(msg, min(16, bytes));
 			}
 		}
 	}
-	virtual void OnPartialHuge(StreamMode stream, BufferStream data, u32 size)
+	virtual u32 OnWriteHugeRequest(StreamMode stream, u8 *data, u32 space)
 	{
-		WARN("Client") << "Got partial huge with " << size;
+		WARN("Client") << "Huge write request stream " << stream << " space = " << space;
+
+		return _fsource.OnWriteHugeRequest(stream, data, space);
+	}
+	virtual u32 OnWriteHugeNext(StreamMode stream, Transport *transport)
+	{
+		WARN("Client") << "Huge write next stream " << stream;
+
+		return _fsource.OnWriteHugeNext(stream, transport);
+	}
+	virtual void OnReadHuge(StreamMode stream, BufferStream data, u32 size)
+	{
+		WARN("Client") << "Huge read stream " << stream << " of size = " << size;
+
+		_fsink.OnReadHuge(stream, data, size);
 	}
 	virtual void OnDisconnectReason(u8 reason)
 	{
@@ -81,6 +97,10 @@ public:
 	virtual void OnTick(SphynxTLS *tls, u32 now)
 	{
 		//WARN("Client") << "-- TICK " << now;
+
+		// If next huge write is available,
+		u32 bytes = _fsource.OnNextHuge();
+		if (bytes > 0) WriteHuge(bytes);
 	}
 };
 

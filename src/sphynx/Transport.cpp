@@ -896,6 +896,10 @@ bool Transport::WriteReliableZeroCopy(StreamMode stream, u8 *msg, u32 msg_bytes,
 	return true;
 }
 
+bool Transport::WriteHuge(u32 bytes)
+{
+}
+
 void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 {
 	/*
