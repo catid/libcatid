@@ -90,11 +90,11 @@ bool TunnelKeyPair::LoadFile(const char *file_path)
 	_valid = false;
 
 	// Attempt to map key file
-	MMapFile mmf(file_path);
+	SequentialFileReader file;
 
-	if (!mmf.good()) return false;
+	if (!file.Open(file_path)) return false;
 
-	u32 bytes = mmf.remaining();
+	u32 bytes = (u32)file.GetLength();
 
 	if (bytes != (256 / 8) * 3 &&
 		bytes != (384 / 8) * 3 &&
@@ -105,7 +105,7 @@ bool TunnelKeyPair::LoadFile(const char *file_path)
 
 	_key_bytes = bytes / 3;
 
-	memcpy(_key_pair, mmf.read(bytes), bytes);
+	memcpy(_key_pair, file.Read(bytes), bytes);
 
 	_valid = true;
 	return true;
@@ -215,9 +215,9 @@ bool TunnelPublicKey::LoadFile(const char *file_path)
 	_valid = false;
 
 	// Attempt to map key file
-	MMapFile mmf(file_path);
+	SequentialFileReader file;
 
-	if (!mmf.good()) return false;
+	if (!file.Open(file_path)) return false;
 
 	u32 bytes = mmf.remaining();
 

@@ -66,7 +66,7 @@ bool MMapFile::Open(const char *path, bool readonly, bool random_access)
 #if defined(CAT_OS_WINDOWS)
 
 	u32 file_access, share_access, creation_disposition;
-	u32 page_permissions, map_permissions;
+	u32 page_permissions;
 
 	if (readonly)
 	{
@@ -76,7 +76,7 @@ bool MMapFile::Open(const char *path, bool readonly, bool random_access)
 
 		page_permissions = PAGE_READONLY;
 
-		map_permissions = FILE_MAP_READ;
+		_map_permissions = FILE_MAP_READ;
 	}
 	else
 	{
@@ -86,7 +86,7 @@ bool MMapFile::Open(const char *path, bool readonly, bool random_access)
 
 		page_permissions = PAGE_READWRITE;
 
-		map_permissions = FILE_MAP_WRITE;
+		_map_permissions = FILE_MAP_WRITE;
 	}
 
 	u32 access_pattern = random_access ? FILE_FLAG_RANDOM_ACCESS : FILE_FLAG_SEQUENTIAL_SCAN;
@@ -122,7 +122,10 @@ bool MMapFile::SetLength(u64 length)
 {
 #if defined(CAT_OS_WINDOWS)
 
-	if (!SetFilePointerEx(_file, length, 0, FILE_BEGIN))
+	LARGE_INTEGER offset;
+	offset.QuadPart = length;
+
+	if (!SetFilePointerEx(_file, offset, 0, FILE_BEGIN))
 	{
 		INANE("MMapFile") << "SetFilePointerEx error " << GetLastError() << " for " << length;
 		return false;
@@ -141,12 +144,19 @@ bool MMapFile::SetLength(u64 length)
 
 u8 *MMapFile::MapView(u64 offset, u32 length)
 {
-	_data = (u8*)MapViewOfFile(_map, map_permissions, 0, 0, 0);
+	if (_data && !UnmapViewOfFile(_data))
+	{
+		INANE("MMapFile") << "UnmapViewOfFile error " << GetLastError();
+	}
+
+	_data = (u8*)MapViewOfFile(_map, _map_permissions, (u32)(offset >> 32), (u32)offset, length);
 	if (!_data)
 	{
-		INANE("MMapFile") << "MapViewOfFile error " << GetLastError() << " for " << path;
-		return false;
+		INANE("MMapFile") << "MapViewOfFile error " << GetLastError();
+		return 0;
 	}
+
+	return _data;
 }
 
 void MMapFile::Close()
@@ -184,4 +194,62 @@ void MMapFile::Close()
 	}
 
 #endif
+}
+
+
+//// SequentialFileReader
+
+bool SequentialFileReader::Open(const char *path)
+{
+	_file_offset = 0;
+	_map_offset = 0;
+	_map_size = 0;
+
+	return _mmf.Open(path, true, false);
+}
+
+u8 *SequentialFileReader::Read(u32 bytes)
+{
+	// Read ahead
+	if (bytes > MAX_READ_SIZE)
+	{
+		WARN("SequentialFileReader") << "Read size too large = " << bytes;
+		return 0;
+	}
+
+	u32 map_offset = _map_offset;
+	u32 map_size = _map_size;
+
+	// If bytes read is available,
+	if (bytes <= map_size - map_offset)
+	{
+		_map_offset = map_offset + bytes;
+
+		return _mmf.GetView() + map_offset;
+	}
+
+	u64 file_offset = _file_offset + map_offset;
+	u64 file_remaining = _mmf.GetLength() - file_offset;
+
+	// If requested data is beyond the end of the file,
+	if (bytes > file_remaining)
+		return 0;
+
+	u32 acquire = bytes;
+	if (acquire < READ_AHEAD_CACHE)
+	{
+		if (READ_AHEAD_CACHE > file_remaining)
+			acquire = (u32)file_remaining;
+		else
+			acquire = READ_AHEAD_CACHE;
+	}
+
+	// Map new view of file
+	u8 *data = _mmf.MapView(file_offset, acquire);
+
+	_file_offset = file_offset;
+	_map_offset = 0;
+	_map_size = acquire;
+
+	return data;
 }

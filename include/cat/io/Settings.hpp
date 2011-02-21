@@ -97,7 +97,7 @@ protected:
     
 public:
     void readSettingsFromFile(const char *file_path = "settings.txt", const char *override_file = "override.txt");
-    void readSettingsFromBuffer(const char *data, int len);
+    void readSettingsFromBuffer(SequentialFileReader &sfile);
     void write();
 
 public:

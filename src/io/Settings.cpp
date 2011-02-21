@@ -144,11 +144,12 @@ void Settings::clear()
     }
 }
 
-void Settings::readSettingsFromBuffer(const char *data, int len)
+void Settings::readSettingsFromBuffer(SequentialFileReader &sfile)
 {
 	AutoMutex lock(_lock);
 
-    BufferTok bt(data, len);
+	u32 length = (u32)sfile.GetLength();
+    BufferTok bt((char*)sfile.Read(length), length);
 
     char keyName[256];
 
@@ -176,7 +177,7 @@ void Settings::readSettingsFromFile(const char *file_path, const char *override_
 
 	_settings_file = file_path;
 
-    MMapFile sfile;
+    SequentialFileReader sfile;
     if (!sfile.Open(file_path))
     {
         WARN("Settings") << "Read: Unable to open " << file_path;
@@ -187,16 +188,16 @@ void Settings::readSettingsFromFile(const char *file_path, const char *override_
     INANE("Settings") << "Read: " << file_path;
 #endif
 
-    readSettingsFromBuffer((const char*)sfile.look(), sfile.size());
+    readSettingsFromBuffer(sfile);
 
-    MMapFile ofile(override_file);
-    if (ofile.good())
+    SequentialFileReader ofile;
+    if (ofile.Open(file_path))
     {
 #ifdef SETTINGS_VERBOSE
         INANE("Settings") << "Read: " << override_file;
 #endif
 
-        readSettingsFromBuffer((const char*)ofile.look(), ofile.size());
+        readSettingsFromBuffer(ofile);
     }
 
     // Delete the override settings file if settings request it
