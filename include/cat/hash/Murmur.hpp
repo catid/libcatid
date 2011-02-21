@@ -78,6 +78,8 @@ public:
 };
 
 
+// Use Murmur hash to generate an unbiased random number within a given inclusive range
+u32 MurmurGenerateUnbiased(const void *key, u64 bytes, u32 range_low, u32 range_high);
 
 
 } // namespace cat

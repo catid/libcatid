@@ -493,17 +493,30 @@ bool Client::Connect(SphynxLayer *layer, SphynxTLS *tls, const NetAddr &addr, Tu
 	return true;
 }
 
-bool Client::OnResolve(const char *hostname, const NetAddr *array, int array_length)
+bool Client::OnResolve(const char *hostname, const NetAddr *addrs, int count)
 {
 	// If resolve failed,
-	if (array_length <= 0)
+	if (count <= 0)
 	{
 		ConnectFail(ERR_CLIENT_SERVER_ADDR);
 		return false;
 	}
 	else
 	{
-		NetAddr addr = array[0];
+		struct 
+		{
+			u16 port;
+			int count;
+			double time;
+		} entropy_source;
+
+		entropy_source.port = GetCachedPort();
+		entropy_source.time = Clock::usec();
+		entropy_source.count = count;
+
+		u32 n = MurmurGenerateUnbiased(&entropy_source, sizeof(entropy_source), 0, count - 1);
+
+		NetAddr addr = addrs[n];
 		addr.SetPort(_server_addr.GetPort());
 
 		INFO("Client") << "Connecting: Resolved '" << hostname << "' to " << addr.IPToString();

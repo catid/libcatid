@@ -177,3 +177,44 @@ MurmurHash::MurmurHash(const void *key, u64 bytes, u64 seed)
 
 	FinalMix(bytes, _h1, _h2);
 }
+
+u32 cat::MurmurGenerateUnbiased(const void *key, u64 bytes, u32 low, u32 high)
+{
+	u64 h1, h2;
+
+	u32 range = high - low;
+	if (range == 0) return low;
+
+	// Round range up to the next pow(2)-1
+	u32 available = BSR32(range);
+	u32 v = (((1 << available) - 1) << 1) | 1;
+	available = 64 - available;
+
+	// For each trial,
+	for (u32 trial = 0; trial < 16; ++trial)
+	{
+		MurmurHash(key, bytes, trial).Get128(h1, h2);
+
+		// Try to find a bit region that is within range anywhere in the hash output:
+		u32 count = available;
+		u64 h = h1;
+		while (count--)
+		{
+			u32 x = h & v;
+			if (x <= range) return low + x;
+			h >>= 1;
+		}
+
+		count = available;
+		h = h2;
+		while (count--)
+		{
+			u32 x = h & v;
+			if (x <= range) return low + x;
+			h >>= 1;
+		}
+	}
+
+	// Give up on being unbiased because it is taking too long
+	return low + (h1 % (range + 1));
+}
