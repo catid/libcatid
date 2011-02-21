@@ -58,7 +58,7 @@ public:
 			switch (msg[0])
 			{
 			case OP_FILE_UPLOAD_START:
-				if (_fsource.OnFileStart(msg, bytes))
+				if (_fsink.OnFileStart(msg, bytes))
 				{
 					WARN("Client") << "-- File upload from remote peer starting";
 				}
@@ -97,10 +97,6 @@ public:
 	virtual void OnTick(SphynxTLS *tls, u32 now)
 	{
 		//WARN("Client") << "-- TICK " << now;
-
-		// If next huge write is available,
-		u32 bytes = _fsource.OnNextHuge();
-		if (bytes > 0) WriteHuge(bytes);
 	}
 };
 

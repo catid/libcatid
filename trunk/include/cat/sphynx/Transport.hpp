@@ -375,7 +375,7 @@ public:
 	bool WriteReliable(StreamMode stream, u8 msg_opcode, const void *msg_data = 0, u32 data_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
 
 	// Queue up a reliable message for delivery without copy overhead
-	// msg: Allocate with OutgoingMessage::Acquire(msg_bytes), 
+	// msg: Allocate with OutgoingMessage::Acquire(msg_bytes)
 	// msg_bytes: Includes message opcode byte at offset 0
 	bool WriteReliableZeroCopy(StreamMode, u8 *msg, u32 msg_bytes, SuperOpcode super_opcode = SOP_DATA);
 

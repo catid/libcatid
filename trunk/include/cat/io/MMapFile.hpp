@@ -82,8 +82,32 @@ private:
 public:
 	bool Open(const char *path);
 
-	// Returns 0 if read would be beyond end of the file
+	// Returns 0 if read would be beyond end of file
 	u8 *Read(u32 bytes);
+
+	CAT_INLINE bool IsValid() { return _mmf.IsValid(); }
+	CAT_INLINE u64 GetLength() { return _mmf.GetLength(); }
+	CAT_INLINE void Close() { _mmf.Close(); }
+};
+
+
+class SequentialFileWriter
+{
+public:
+	static const u32 WRITE_AHEAD_CACHE = 4000000; // 4 MB write ahead cache
+	static const u32 MAX_WRITE_SIZE = 512000000; // 512 MB write limit (per write)
+
+private:
+	MMapFile _mmf;
+	u64 _file_offset;
+
+	u32 _map_offset, _map_size;
+
+public:
+	bool Open(const char *path, u64 length);
+
+	// Returns false if write would be beyond end of file
+	bool Write(void *data, u32 bytes);
 
 	CAT_INLINE bool IsValid() { return _mmf.IsValid(); }
 	CAT_INLINE u64 GetLength() { return _mmf.GetLength(); }

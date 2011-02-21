@@ -1353,7 +1353,6 @@ void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 
 	INANE("Transport") << "Got ACK with " << data_bytes << " bytes of data to decode ----";
 
-	// TODO: Retransmit a batch of packets at a time to reduce locking
 	while (data_bytes > 0)
 	{
 		u8 ida = *data++;

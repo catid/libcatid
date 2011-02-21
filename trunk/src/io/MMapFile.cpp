@@ -248,8 +248,74 @@ u8 *SequentialFileReader::Read(u32 bytes)
 	u8 *data = _mmf.MapView(file_offset, acquire);
 
 	_file_offset = file_offset;
-	_map_offset = 0;
+	_map_offset = bytes;
 	_map_size = acquire;
 
 	return data;
+}
+
+
+//// SequentialFileWriter
+
+bool SequentialFileWriter::Open(const char *path, u64 length)
+{
+	_file_offset = 0;
+	_map_offset = 0;
+	_map_size = 0;
+
+	return _mmf.Open(path, true, false);
+}
+
+bool SequentialFileWriter::Write(void *data, u32 bytes)
+{
+	// Read ahead
+	if (bytes > MAX_WRITE_SIZE)
+	{
+		WARN("SequentialFileWriter") << "Read size too large = " << bytes;
+		return false;
+	}
+
+	u32 map_offset = _map_offset;
+	u32 map_size = _map_size;
+
+	// If bytes written is available,
+	if (bytes <= map_size - map_offset)
+	{
+		_map_offset = map_offset + bytes;
+	}
+	else
+	{
+		u64 file_offset = _file_offset + map_offset;
+		u64 file_remaining = _mmf.GetLength() - file_offset;
+
+		// If requested data is beyond the end of the file,
+		if (bytes > file_remaining)
+			return 0;
+
+		u32 acquire = bytes;
+		if (acquire < WRITE_AHEAD_CACHE)
+		{
+			if (WRITE_AHEAD_CACHE > file_remaining)
+				acquire = (u32)file_remaining;
+			else
+				acquire = WRITE_AHEAD_CACHE;
+		}
+
+		// Map new view of file
+		if (!_mmf.MapView(file_offset, acquire))
+		{
+			WARN("SequentialFileWriter") << "Unable to map view of file at " << file_offset << " size " << acquire;
+			return false;
+		}
+
+		_file_offset = file_offset;
+		_map_offset = bytes;
+		_map_size = acquire;
+
+		map_offset = 0;
+	}
+
+	memcpy(_mmf.GetView() + map_offset, data, bytes);
+
+	return true;
 }
