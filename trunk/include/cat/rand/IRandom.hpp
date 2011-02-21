@@ -29,7 +29,7 @@
 #ifndef CAT_I_RANDOM_HPP
 #define CAT_I_RANDOM_HPP
 
-#include <cat/Platform.hpp>
+#include <cat/math/BitMath.hpp>
 
 namespace cat {
 

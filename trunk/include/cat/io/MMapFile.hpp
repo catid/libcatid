@@ -42,6 +42,7 @@ class MMapFile
 {
     u8 *_data;
     u64 _len;
+	u32 _map_permissions;
 
 #if defined(CAT_OS_WINDOWS)
     HANDLE _file, _map;
@@ -54,20 +55,39 @@ public:
     ~MMapFile();
 
 	bool Open(const char *path, bool readonly = true, bool random_access = false);
-	CAT_INLINE u64 GetLength() { return _len; }
 	bool SetLength(u64 length);
 	void Close();
 
 	// Only one view is valid at a time
 	u8 *MapView(u64 offset, u32 length);
 
-    CAT_INLINE bool IsValid() { return _data != 0; }
+	CAT_INLINE bool IsValid() { return _data != 0; }
+	CAT_INLINE u64 GetLength() { return _len; }
+	CAT_INLINE u8 *GetView() { return _data; }
 };
 
 
 class SequentialFileReader
 {
 public:
+	static const u32 READ_AHEAD_CACHE = 16000000; // 16 MB read ahead cache
+	static const u32 MAX_READ_SIZE = 512000000; // 512 MB read limit (per read)
+
+private:
+	MMapFile _mmf;
+	u64 _file_offset;
+
+	u32 _map_offset, _map_size;
+
+public:
+	bool Open(const char *path);
+
+	// Returns 0 if read would be beyond end of the file
+	u8 *Read(u32 bytes);
+
+	CAT_INLINE bool IsValid() { return _mmf.IsValid(); }
+	CAT_INLINE u64 GetLength() { return _mmf.GetLength(); }
+	CAT_INLINE void Close() { _mmf.Close(); }
 };
 
 
