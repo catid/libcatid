@@ -35,39 +35,48 @@ namespace cat {
 
 
 // Pseudo-random number generators will derive from IRandom and implement its public methods
-// WARNING: Not seeded by default.  Be sure to call Initialize() before Generate()
 class IRandom
 {
 public:
-    virtual ~IRandom() {}
+	virtual ~IRandom() {}
 
-    // Generate a 32-bit random number
-    virtual u32 Generate() = 0;
+	// Generate a 32-bit random number
+	virtual u32 Generate() = 0;
 
-    // Generate a variable number of random bytes
-    virtual void Generate(void *buffer, int bytes) = 0;
+	// Generate a variable number of random bytes
+	virtual void Generate(void *buffer, int bytes) = 0;
 
 public:
-    // Generate a 32-bit random number in the range [low..high] inclusive
-    u32 GenerateUnbiased(u32 low, u32 high)
-    {
-        u32 range = high - low;
+	// Generate a 32-bit random number in the range [low..high] inclusive
+	u32 GenerateUnbiased(u32 low, u32 high)
+	{
+		u32 range = high - low;
+		if (range == 0) return low;
 
-        // Round range up to the next pow(2)-1
-        u32 v = range;
-        v |= v >> 1;
-        v |= v >> 2;
-        v |= v >> 4;
-        v |= v >> 8;
-        v |= v >> 16;
+		// Round range up to the next pow(2)-1
+		u32 available = BSR32(range);
+		u32 v = (((1 << available) - 1) << 1) | 1;
+		available = 32 - available;
 
-        // Generate an unbiased random number in the inclusive range [0..(high-low)]
-        u32 x;
-        do x = Generate() & v;
-        while (x > range);
+		// Generate an unbiased random number in the inclusive range [0..(high-low)]
+		u32 x;
+		for (u32 trials = 0; trials < 16; ++trials)
+		{
+			x = Generate();
+			u32 y = x;
 
-        return low + x;
-    }
+			u32 count = available;
+			while (count--)
+			{
+				u32 z = y & v;
+				if (z <= range) return low + z;
+				y >>= 1;
+			}
+		}
+
+		// Give up on being unbiased because it is taking too long
+		return low + (x % (range + 1));
+	}
 };
 
 
