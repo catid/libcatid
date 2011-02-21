@@ -63,7 +63,7 @@ bool FileTransferSource::WriteFile(u8 opcode, const std::string &source_path, co
 	}
 
 	// If source file could not be opened,
-	if (!file->mmf.Open(source_path))
+	if (!file->mmf.Open(source_path.c_str()))
 	{
 		WARN("FileTransferSource") << "Out of memory: Unable to allocate queued file";
 		return false;
@@ -89,7 +89,7 @@ FileTransferSink::~FileTransferSink()
 {
 }
 
-bool FileTransferSink::OnReadFile(BufferStream msg, u32 bytes)
+bool FileTransferSink::OnFileStart(BufferStream msg, u32 bytes)
 {
 }
 

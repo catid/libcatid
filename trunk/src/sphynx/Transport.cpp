@@ -43,7 +43,6 @@ const char *cat::sphynx::GetHandshakeErrorString(HandshakeError err)
 
 	case ERR_WRONG_KEY:			return "Wrong key";
 	case ERR_SERVER_FULL:		return "Server full";
-	case ERR_FLOOD_DETECTED:	return "Flood detected";
 	case ERR_TAMPERING:			return "Tampering detected";
 	case ERR_SERVER_ERROR:		return "Server error";
 
@@ -703,7 +702,7 @@ void Transport::OnFragment(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *dat
 	// If fragment length is huge,
 	if (frag_length == FRAG_HUGE)
 	{
-		OnPartialHuge((StreamMode)stream, data, bytes);
+		OnReadHuge((StreamMode)stream, data, bytes);
 
 		// If got final part,
 		if (bytes == 0)
