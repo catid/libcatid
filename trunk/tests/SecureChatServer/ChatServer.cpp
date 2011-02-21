@@ -5,6 +5,14 @@ using namespace sphynx;
 
 class GameConnexion : public Connexion
 {
+	FileTransferSource _fsource;
+	FileTransferSink _fsink;
+
+	enum
+	{
+		OP_FILE_UPLOAD_START
+	};
+
 public:
 	virtual void OnShutdownRequest()
 	{
@@ -18,12 +26,18 @@ public:
 
 		return Connexion::OnZeroReferences();
 	}
-
 	virtual void OnConnect(SphynxTLS *tls)
 	{
 		WARN("Connexion") << "-- CONNECTED";
 
-		WriteReliable(STREAM_1, 0);
+		if (_fsource.WriteFile(OP_FILE_UPLOAD_START, "source_file.txt", "sink_file.txt", this))
+		{
+			WARN("Connexion") << "-- File upload starting";
+		}
+		else
+		{
+			WARN("Connexion") << "-- File upload FAILED";
+		}
 	}
 	virtual void OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count)
 	{
@@ -33,28 +47,40 @@ public:
 			u32 bytes = msgs[ii].bytes;
 			u32 send_time = msgs[ii].send_time;
 
-			//INFO("Connexion") << "-- Got message with " << bytes << " bytes" << HexDumpString(msg, min(16, bytes));
-
 			switch (msg[0])
 			{
-			case 0:
-				//WriteReliable(STREAM_BULK, 0);
+			case OP_FILE_UPLOAD_START:
+				if (_fsource.OnFileStart(msg, bytes))
 				{
-					WARN("Connexion") << "-- Got request for transmit";
-					static char STR[Transport::MAX_MESSAGE_SIZE - 1];
-					for (int ii = 0; ii < sizeof(STR); ++ii)
-						STR[ii] = (char)ii/(4000/256);
-					WriteReliable(STREAM_BULK, 0, STR, sizeof STR);
+					WARN("Connexion") << "-- File upload from remote peer starting";
+				}
+				else
+				{
+					WARN("Connexion") << "-- File upload from remote peer NOT ACCEPTED";
 				}
 				break;
-			case 2:
-				WriteReliable(STREAM_1, 0);
+			default:
+				WARN("Connexion") << "-- Got unknown message with " << bytes << " bytes" << HexDumpString(msg, min(16, bytes));
 			}
 		}
 	}
-	virtual void OnPartialHuge(StreamMode stream, BufferStream data, u32 size)
+	virtual u32 OnWriteHugeRequest(StreamMode stream, u8 *data, u32 space)
 	{
-		WARN("Connexion") << "Got partial huge with " << size;
+		WARN("Connexion") << "Huge write request stream " << stream << " space = " << space;
+
+		return _fsource.OnWriteHugeRequest(stream, data, space);
+	}
+	virtual u32 OnWriteHugeNext(StreamMode stream, Transport *transport)
+	{
+		WARN("Connexion") << "Huge write next stream " << stream;
+
+		return _fsource.OnWriteHugeNext(stream, transport);
+	}
+	virtual void OnReadHuge(StreamMode stream, BufferStream data, u32 size)
+	{
+		WARN("Connexion") << "Huge read stream " << stream << " of size = " << size;
+
+		_fsink.OnReadHuge(stream, data, size);
 	}
 	virtual void OnDisconnectReason(u8 reason)
 	{
