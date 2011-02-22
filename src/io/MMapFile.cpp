@@ -139,6 +139,8 @@ bool MMapFile::SetLength(u64 length)
 #else
 #error "TODO"
 #endif
+
+	return true;
 }
 
 u8 *MMapFile::MapView(u64 offset, u32 length)

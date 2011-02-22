@@ -29,6 +29,7 @@
 #include <cat/parse/BitStream.hpp>
 #include <cat/io/Logging.hpp>
 #include <cat/math/BitMath.hpp>
+using namespace std;
 using namespace cat;
 
 #define BITSTREAM_CLEAR_EXTRANEOUS_BITS
@@ -62,6 +63,43 @@ BitStream::BitStream(u32 bits, void *vbuffer)
     read_underrun = false;
     buffer_bytes = bytes;
     read_offset = 0;
+}
+
+BitStream::BitStream(const BitStream &rhs)
+{
+	u32 bits = rhs.get_write_offset();
+	u32 bytes = CAT_CEIL_UNIT(bits, 8);
+
+	fixed_buffer = false;
+	buffer = new u8[bytes];
+	if (buffer) memcpy(buffer, rhs.get(), bytes);
+
+	write_offset = bits;
+	read_offset = 0;
+
+	read_underrun = false;
+	buffer_bytes = bytes;
+}
+
+BitStream &BitStream::operator=(BitStream &rhs)
+{
+	if (!fixed_buffer && buffer)
+		delete []buffer;
+
+	u32 bits = rhs.get_write_offset();
+	u32 bytes = CAT_CEIL_UNIT(bits, 8);
+
+	fixed_buffer = false;
+	buffer = new u8[bytes];
+	if (buffer) memcpy(buffer, rhs.get(), bytes);
+
+	write_offset = bits;
+	read_offset = 0;
+
+	read_underrun = false;
+	buffer_bytes = bytes;
+
+	return *this;
 }
 
 BitStream::~BitStream()
@@ -379,69 +417,28 @@ void BitStream::readBytes(void *vdata, u32 byte_count)
 
 BitStream &BitStream::operator<<(const BitStream &rhs)
 {
-	grow(rhs.write_offset);
+	u32 start = rhs.read_offset;
+	u32 end = rhs.write_offset;
 
-	u32 byte_offset = write_offset / 8;
-	u32 shift = write_offset % 8;
+	grow(end - start);
 
-	if (shift)
+	for (u32 ii = start; ii < end; ++ii)
 	{
-		u8 *data = (u8*)rhs.buffer;
-		u8 *out = buffer + byte_offset;
-
-		u32 remaining = rhs.write_offset / 8;
-		if (remaining > 0)
-		{
-			u8 next = data[0];
-
-			*out++ |= next << shift;
-
-			while (remaining >= 5)
-			{
-				next = data[4];
-				*(u32*)out = getLE32((*(u32*)data >> (8 - shift)) | (next << (shift + 24)));
-				out += 4;
-				data += 4;
-				remaining -= 4;
-			}
-
-			while (remaining >= 2)
-			{
-				u8 last = next;
-				next = data[1];
-				*out++ = (last >> (8 - shift)) | (next << shift);
-				++data;
-				--remaining;
-			}
-
-			if (remaining > 0)
-			{
-				*out = next >> (8 - shift);
-			}
-		}
-
-		u32 remaining_bits = rhs.write_offset % 8;
-		if (remaining_bits > 0)
-		{
-			u32 byte_offset = write_offset / 8;
-			u32 bits = data[0];
-
-			*out++ |= bits << shift;
-			bits >>= 8 - shift;
-			remaining_bits -= 8 - shift;
-
-			if (remaining_bits > 0)
-			{
-				*out = bits;
-			}
-		}
+		write_offset + ii - start;
 	}
-	else
-	{
-		memcpy(buffer + byte_offset, rhs.buffer, CAT_CEIL_UNIT(rhs.write_offset, 8));
-	}
-
-	write_offset += rhs.write_offset;
 
 	return *this;
+}
+
+
+ostream &cat::operator<<(ostream &os, const BitStream &rhs)
+{
+	const u8 *data = rhs.get();
+
+	for (u32 ii = 0, len = rhs.get_write_offset(); ii < len; ++ii)
+	{
+		os << ((data[ii / 8] & (1 << (ii % 8))) ? '1' : '0');
+	}
+
+	return os;
 }
