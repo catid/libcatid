@@ -182,6 +182,9 @@
       <Project>{e6e578bc-6936-451a-90f2-811c5ee5f82f}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
+    <ProjectReference Include="..\..\build\Crypt\Crypt.vcxproj">
+      <Project>{30d7c283-4016-48e9-bf8d-017da4a57e2f}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

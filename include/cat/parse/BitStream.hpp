@@ -88,7 +88,7 @@ public:
     u32 read_offset, write_offset; // in bits
 
 public:
-    BitStream(u32 bytes = 0, void *vbuffer = 0);
+    BitStream(u32 bits = 0, void *vbuffer = 0);
     ~BitStream();
 
     // free unused buffer space
