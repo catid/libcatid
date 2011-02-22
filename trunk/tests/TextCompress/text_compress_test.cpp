@@ -44,6 +44,201 @@ void RunHuffmanTests()
 		return;
 	}
 
+	// 5.4 (a) (b)
+	{
+		WARN("Huffman") << "Problem 5.4 (a) (b)";
+
+		HuffmanTreeFactory factory;
+
+		factory.AddSymbol(1, 0.49);
+		factory.AddSymbol(2, 0.26);
+		factory.AddSymbol(3, 0.12);
+		factory.AddSymbol(4, 0.04);
+		factory.AddSymbol(5, 0.04);
+		factory.AddSymbol(6, 0.03);
+		factory.AddSymbol(7, 0.02);
+
+		HuffmanTree *tree = factory.BuildTree(2);
+
+		WARN("Huffman") << "Expected length = " << tree->ExpectedLength();
+
+		delete tree;
+	}
+
+	// 5.4 (c)
+	{
+		WARN("Huffman") << "Problem 5.4 (c)";
+
+		HuffmanTreeFactory factory;
+
+		factory.AddSymbol(1, 0.49);
+		factory.AddSymbol(2, 0.26);
+		factory.AddSymbol(3, 0.12);
+		factory.AddSymbol(4, 0.04);
+		factory.AddSymbol(5, 0.04);
+		factory.AddSymbol(6, 0.03);
+		factory.AddSymbol(7, 0.02);
+
+		HuffmanTree *tree = factory.BuildTree(3);
+
+		WARN("Huffman") << "Expected length = " << tree->ExpectedLength();
+
+		delete tree;
+	}
+
+	// 5.16 (a)
+	{
+		WARN("Huffman") << "Problem 5.16 (a)";
+
+		HuffmanTreeFactory factory;
+
+		factory.AddSymbol(1, 0.5);
+		factory.AddSymbol(2, 0.25);
+		factory.AddSymbol(3, 0.1);
+		factory.AddSymbol(4, 0.05);
+		factory.AddSymbol(5, 0.05);
+		factory.AddSymbol(6, 0.05);
+
+		HuffmanTree *tree = factory.BuildTree(2);
+
+		WARN("Huffman") << "Expected length = " << tree->ExpectedLength();
+
+		delete tree;
+	}
+
+	// 5.16 (b)
+	{
+		WARN("Huffman") << "Problem 5.16 (b) (c)";
+
+		HuffmanTreeFactory factory;
+
+		factory.AddSymbol(1, 0.5);
+		factory.AddSymbol(2, 0.25);
+		factory.AddSymbol(3, 0.1);
+		factory.AddSymbol(4, 0.05);
+		factory.AddSymbol(5, 0.05);
+		factory.AddSymbol(6, 0.05);
+		factory.AddSymbol(7, 0.00);
+
+		HuffmanTree *tree = factory.BuildTree(4);
+
+		WARN("Huffman") << "Expected length = " << tree->ExpectedLength();
+
+		delete tree;
+	}
+
+	// 5.16 (e)
+	{
+		WARN("Huffman") << "Problem 5.16 (e) binary";
+
+		HuffmanTreeFactory factory;
+
+		factory.AddSymbol(1, 0.25);
+		factory.AddSymbol(2, 0.25);
+		factory.AddSymbol(3, 0.25);
+		factory.AddSymbol(4, 0.25);
+
+		HuffmanTree *tree = factory.BuildTree(2);
+
+		WARN("Huffman") << "Expected length = " << tree->ExpectedLength();
+
+		delete tree;
+	}
+	{
+		WARN("Huffman") << "Problem 5.16 (e) quaternary";
+
+		HuffmanTreeFactory factory;
+
+		factory.AddSymbol(1, 0.25);
+		factory.AddSymbol(2, 0.25);
+		factory.AddSymbol(3, 0.25);
+		factory.AddSymbol(4, 0.25);
+
+		HuffmanTree *tree = factory.BuildTree(4);
+
+		WARN("Huffman") << "Expected length = " << tree->ExpectedLength();
+
+		delete tree;
+	}
+
+	// 5.16 (f)
+	{
+		WARN("Huffman") << "Problem 5.16 (f) binary";
+
+		HuffmanTreeFactory factory;
+
+		factory.AddSymbol(1, 0.5);
+		factory.AddSymbol(2, 0.25);
+		factory.AddSymbol(3, 0.125);
+		factory.AddSymbol(4, 0.125);
+
+		HuffmanTree *tree = factory.BuildTree(2);
+
+		WARN("Huffman") << "Expected length = " << tree->ExpectedLength();
+
+		delete tree;
+	}
+	{
+		WARN("Huffman") << "Problem 5.16 (f) quaternary";
+
+		HuffmanTreeFactory factory;
+
+		factory.AddSymbol(1, 0.5);
+		factory.AddSymbol(2, 0.25);
+		factory.AddSymbol(3, 0.125);
+		factory.AddSymbol(4, 0.125);
+
+		HuffmanTree *tree = factory.BuildTree(4);
+
+		WARN("Huffman") << "Expected length = " << tree->ExpectedLength();
+
+		delete tree;
+	}
+
+	/*
+		Output:
+
+		<Huffman> Problem 5.4 (a) (b)
+		<HuffmanTree> 1 = 0
+		<HuffmanTree> 3 = 100
+		<HuffmanTree> 7 = 10100
+		<HuffmanTree> 6 = 10101
+		<HuffmanTree> 4 = 10110
+		<HuffmanTree> 5 = 10111
+		<HuffmanTree> 2 = 11
+		<Huffman> Expected length = 2.02
+
+		<Huffman> Problem 5.4 (c)
+		<HuffmanTree> 5 = 0000
+		<HuffmanTree> 7 = 001000
+		<HuffmanTree> 6 = 001010
+		<HuffmanTree> 4 = 001001
+		<HuffmanTree> 3 = 0001
+		<HuffmanTree> 2 = 10
+		<HuffmanTree> 1 = 01
+		<Huffman> Expected length = 2.68
+
+		<Huffman> Problem 5.16 (a)
+		<HuffmanTree> 1 = 0
+		<HuffmanTree> 2 = 10
+		<HuffmanTree> 4 = 1100
+		<HuffmanTree> 6 = 1101
+		<HuffmanTree> 5 = 1110
+		<HuffmanTree> 3 = 1111
+		<Huffman> Expected length = 2
+
+		<Huffman> Problem 5.16 (b) (c)
+		<HuffmanTree> 2 = 00
+		<HuffmanTree> 4 = 1000
+		<HuffmanTree> 6 = 1010
+		<HuffmanTree> 5 = 1001
+		<HuffmanTree> 3 = 1011
+		<HuffmanTree> 1 = 01
+		<Huffman> Expected length = 2.5
+	*/
+
+	return;
+
 	// Over 10k trials,
 	for (u32 ii = 0; ii < 10000; ++ii)
 	{
@@ -73,7 +268,7 @@ void RunHuffmanTests()
 			factory.AddSymbol(symbol, probability);
 		}
 
-		HuffmanTree *tree = factory.BuildTree();
+		HuffmanTree *tree = factory.BuildTree(2);
 
 		if (!tree)
 		{
@@ -81,7 +276,7 @@ void RunHuffmanTests()
 			return;
 		}
 
-		BitStream compressed;
+		string compressed;
 
 		if (!tree->Encode(data, sizeof(data), compressed))
 		{
@@ -105,7 +300,9 @@ void RunHuffmanTests()
 			return;
 		}
 
-		INFO("Huffman") << "Compression success!  Compressed size was " << compressed.get_write_offset();
+		INFO("Huffman") << "Compression success!  Compressed size was " << compressed.length();
+
+		delete tree;
 	}
 }
 
