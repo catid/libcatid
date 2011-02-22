@@ -72,25 +72,27 @@ HuffmanTree::~HuffmanTree()
 	Kill(_root);
 }
 
-bool HuffmanTree::Encode(const string &letters, BitStream &bs)
+bool HuffmanTree::Encode(const u8 *data, u32 bytes, BitStream &bs)
 {
-	for (u32 ii = 0, len = (u32)letters.length(); ii < len; ++ii)
+	for (u32 ii = 0; ii < bytes; ++ii)
 	{
-		u32 ch = (u8)letters.at(ii);
+		u32 letter = data[ii];
 
-		HuffmanTreeNode *node = _encoding_map[ch];
+		HuffmanTreeNode *node = _encoding_map[letter];
 		if (!node) return false;
 
 		bs << node->encoding;
 	}
+
+	return true;
 }
 
-bool HuffmanTree::Decode(BitStream &bs, string &letters)
+u32 HuffmanTree::Decode(BitStream &bs, u8 *data, u32 max_bytes)
 {
-	if (!bs.valid()) return false;
+	if (!bs.valid()) return 0;
 
 	HuffmanTreeNode *node = _root;
-	ostringstream oss;
+	u32 ii = 0;
 
 	// While there are more bits to read,
 	while (bs.unread() > 0)
@@ -102,8 +104,11 @@ bool HuffmanTree::Decode(BitStream &bs, string &letters)
 		// If at the end of the tree,
 		if (!next)
 		{
+			// If out of space,
+			if (ii >= max_bytes) return 0;
+
 			// Write out symbol
-			oss << (char)node->letter;
+			data[ii++] = (u8)node->letter;
 
 			// Reset to root and keep reading
 			node = _root;
@@ -115,13 +120,13 @@ bool HuffmanTree::Decode(BitStream &bs, string &letters)
 		}
 	}
 
-	// If there were left over bits,
-	if (node == _root) return false;
+	// Fail if the bit stream did not end on a symbol
+	if (node != _root) return 0;
 
-	letters = oss.str();
+	return ii;
 }
 
-CanonicalHuffmanTreeFactory::~CanonicalHuffmanTreeFactory()
+HuffmanTreeFactory::~HuffmanTreeFactory()
 {
 	if (_tree)
 	{
@@ -135,7 +140,7 @@ CanonicalHuffmanTreeFactory::~CanonicalHuffmanTreeFactory()
 	}
 }
 
-bool CanonicalHuffmanTreeFactory::AddSymbol(u32 letter, ProbabilityType probability)
+bool HuffmanTreeFactory::AddSymbol(u32 letter, ProbabilityType probability)
 {
 	if (_tree)
 	{
@@ -162,7 +167,7 @@ bool CanonicalHuffmanTreeFactory::AddSymbol(u32 letter, ProbabilityType probabil
 	return true;
 }
 
-HuffmanTree *CanonicalHuffmanTreeFactory::BuildTree()
+HuffmanTree *HuffmanTreeFactory::BuildTree()
 {
 	while (_heap.size() > 1)
 	{

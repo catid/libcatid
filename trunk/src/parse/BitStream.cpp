@@ -42,13 +42,15 @@ static const int FLOAT_BITS = FLOAT_BYTES * 8;
 // minimum size of the buffer before reads will shrink it
 static const int SHRINK_MINSIZE = 512;
 
-BitStream::BitStream(u32 bytes, void *vbuffer)
+BitStream::BitStream(u32 bits, void *vbuffer)
 {
+	u32 bytes = CAT_CEIL_UNIT(bits, 8);
+
     if (vbuffer)
     {
         fixed_buffer = true;
         buffer = (u8*)vbuffer;
-        write_offset = bytes * 8;
+        write_offset = bits;
     }
     else
     {

@@ -26,6 +26,12 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
+// This is for MATH-4280 Information Theory homework at Georgia Tech,
+// so this is a little different from practical usage.  For the netcode stuff
+// I am thinking about incorporating LZMA compression for the packets
+
+// TODO: Optimize out the STL classes and specialize for byte streams with binary encoding
+
 #ifndef CAT_CODEC_HUFFMAN_HPP
 #define CAT_CODEC_HUFFMAN_HPP
 
@@ -36,8 +42,6 @@
 #include <map>
 #include <queue>
 #include <functional>
-#include <string>
-#include <sstream>
 
 namespace cat {
 
@@ -89,7 +93,7 @@ struct HuffmanTreeNode
 // Helper class that provides utilities for operating on HuffmanTreeNode objects
 class HuffmanTree
 {
-	friend class CanonicalHuffmanTreeFactory;
+	friend class HuffmanTreeFactory;
 
 	typedef std::map<u32, HuffmanTreeNode*, HuffmanTreeNode::MapGreater > Map;
 
@@ -113,15 +117,16 @@ public:
 	~HuffmanTree();
 
 	// Encode a string of letters
-	bool Encode(const std::string &letters, BitStream &bs);
+	bool Encode(const u8 *data, u32 bytes, BitStream &bs);
 
 	// Decode to a string of letters
-	bool Decode(BitStream &bs, std::string &letters);
+	// Returns number of bytes decoded
+	u32 Decode(BitStream &bs, u8 *data, u32 max_bytes);
 };
 
 
 // Object that builds canonical form Huffman trees for compression
-class CanonicalHuffmanTreeFactory
+class HuffmanTreeFactory
 {
 	typedef std::priority_queue<HuffmanTreeNode*, std::vector<HuffmanTreeNode*>, HuffmanTreeNode::HeapGreater > Heap;
 
@@ -133,7 +138,7 @@ class CanonicalHuffmanTreeFactory
 
 public:
 	// Free memory for the dynamically allocated nodes in the heap
-	~CanonicalHuffmanTreeFactory();
+	~HuffmanTreeFactory();
 
 	// Add a symbol to the proto-tree
 	bool AddSymbol(u32 letter, ProbabilityType probability);

@@ -31,6 +31,75 @@ using namespace cat;
 
 //#define GENERATING_TABLE
 
+
+
+
+void RunHuffmanTests()
+{
+	MersenneTwister mt;
+
+	if (!mt.Initialize())
+	{
+		WARN("Huffman") << "Failed initialize MT";
+		return;
+	}
+
+	// Over 10k trials,
+	for (u32 ii = 0; ii < 10000; ++ii)
+	{
+		// For 1 to 255 symbols,
+		for (u32 kk = 1; kk < 256; ++kk)
+		{
+			HuffmanTreeFactory factory;
+
+			// Add each symbol with random probability
+			for (u32 jj = 0; jj < kk; ++jj)
+			{
+				u32 symbol = ii;
+				ProbabilityType probability = mt.Generate();
+
+				factory.AddSymbol(symbol, probability);
+			}
+
+			HuffmanTree *tree = factory.BuildTree();
+
+			if (!tree)
+			{
+				WARN("Huffman") << "Unable to build tree!";
+				return;
+			}
+
+			u8 data[10000];
+			mt.Generate(data, sizeof(data));
+
+			u8 _compressed[400];
+			BitStream compressed(400, _compressed);
+
+			if (!tree->Encode(data, sizeof(data), compressed))
+			{
+				WARN("Huffman") << "Unable to encode!";
+				return;
+			}
+
+			u8 decompressed[sizeof(data)];
+
+			u32 bytes = tree->Decode(compressed, decompressed, sizeof(decompressed));
+
+			if (bytes != sizeof(data))
+			{
+				WARN("Huffman") << "Unable to decode!";
+				return;
+			}
+
+			if (0 != memcmp(decompressed, data, sizeof(data)))
+			{
+				WARN("Huffman") << "Decode corrupted!";
+				return;
+			}
+		}
+	}
+}
+
 int main(int argc, const char **argv)
 {
 	CommonLayer layer;
@@ -256,7 +325,9 @@ int main(int argc, const char **argv)
 #endif
     }
 
-    //Random::ref()->init(0);
+	//// Huffman tests
+
+	RunHuffmanTests();
 
     INFO("Launcher") << "** Press any key to close.";
 
