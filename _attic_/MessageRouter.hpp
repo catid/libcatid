@@ -29,7 +29,6 @@
 #ifndef CAT_MESSAGE_ROUTER_HPP
 #define CAT_MESSAGE_ROUTER_HPP
 
-#include <cat/parse/BitStream.hpp>
 #include <cat/port/FastDelegate.h>
 
 namespace cat {

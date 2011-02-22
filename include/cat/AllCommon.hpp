@@ -57,7 +57,6 @@
 #include <cat/io/MMapFile.hpp>
 #include <cat/io/Settings.hpp>
 
-#include <cat/parse/BitStream.hpp>
 #include <cat/parse/BufferTok.hpp>
 #include <cat/parse/BufferStream.hpp>
 #include <cat/parse/Base64.hpp>

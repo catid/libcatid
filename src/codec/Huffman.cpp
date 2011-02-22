@@ -70,7 +70,7 @@ void HuffmanTree::Initialize(HuffmanTreeNode *root)
 {
 	_root = root;
 
-	BitStream empty_bs;
+	string empty_bs;
 	FillEncodings(root, empty_bs);
 }
 
@@ -79,7 +79,7 @@ HuffmanTree::~HuffmanTree()
 	Kill(_root);
 }
 
-bool HuffmanTree::Encode(const u8 *data, u32 bytes, BitStream &bs)
+bool HuffmanTree::Encode(const u8 *data, u32 bytes, string &bs)
 {
 	for (u32 ii = 0; ii < bytes; ++ii)
 	{
@@ -94,7 +94,7 @@ bool HuffmanTree::Encode(const u8 *data, u32 bytes, BitStream &bs)
 	return true;
 }
 
-u32 HuffmanTree::Decode(BitStream &bs, u8 *data, u32 max_bytes)
+u32 HuffmanTree::Decode(string &bs, u8 *data, u32 max_bytes)
 {
 	if (!bs.valid()) return 0;
 
