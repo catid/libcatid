@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -25,9 +25,6 @@
 	ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 	POSSIBILITY OF SUCH DAMAGE.
 */
-
-// FIXME: Big-endian code is untested
-// FIXME: Not suitable for storing large buffers > 500 MB in size
 
 #ifndef CAT_BIT_STREAM_HPP
 #define CAT_BIT_STREAM_HPP
@@ -152,6 +149,8 @@ public:
 
     CAT_INLINE BitStream &operator<<(const bs_byte::set &n) { writeBytes(n.ref, n.bytes); return *this; }
 
+	BitStream &operator<<(const BitStream &rhs);
+
 public:
     // extraction
     u8 read1();
@@ -216,4 +215,3 @@ template<> CAT_INLINE BitStream &BitStream::operator>>(const bs_bit::get<32> &n)
 } // namespace cat
 
 #endif // CAT_BIT_STREAM_HPP
-

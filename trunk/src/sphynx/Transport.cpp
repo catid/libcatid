@@ -1708,13 +1708,6 @@ void Transport::WriteQueuedReliable()
 
 				// Cache next pointer since node will be modified
 				SendQueue *next = node->next;
-
-				// TODO: Handle huge fragmented message case
-				if (node->bytes == FRAG_HUGE)
-				{
-
-				}
-
 				bool fragmented = (node->frag_count != 0);
 				u32 sent_bytes = node->sent_bytes, total_bytes = node->bytes;
 
@@ -1842,69 +1835,61 @@ void Transport::WriteQueuedReliable()
 					SendQueue *tail = _sent_list_tail[stream];
 					if (fragmented)
 					{
-						SendFrag *frag = reinterpret_cast<SendFrag*>( 
-							StdAllocator::ii->Acquire(sizeof(SendFrag)) );
+						SendFrag *frag;
+						do frag = reinterpret_cast<SendFrag*>( StdAllocator::ii->Acquire(sizeof(SendFrag)) );
+						while (!frag);
 
-						if (!frag)
+						// Fill fragment object
+						frag->id = ack_id;
+						frag->next = 0;
+						frag->prev = tail;
+						frag->bytes = data_bytes_to_copy;
+						frag->offset = sent_bytes;
+						frag->ts_firstsend = now;
+						frag->ts_lastsend = now;
+						frag->full_data = node;
+						frag->frag_count = 1;
+
+						// Link fragment at the end of the sent list
+						if (tail) tail->next = reinterpret_cast<SendQueue*>( frag );
+						else _sent_list_head[stream] = reinterpret_cast<SendQueue*>( frag );
+						_sent_list_tail[stream] = reinterpret_cast<SendQueue*>( frag );
+
+						/*
+							How do we know when to deallocate the master node for fragments?
+
+							node->frag_count is used to know when to deallocate a master node.
+							When all of the fragments are acknowledged, the master node can be
+							deallocated.  Each fragment decreases frag_count by 1 until it
+							reaches zero, signaling that all fragments have been acknowledged.
+
+							Since we're sending fragments while they're being received, and the
+							rate may be very low, node->frag_count could conceivably be reduced
+							to zero before all fragments are transmitted.  This would cause the
+							trigger condition for deleting the master node prematurely.
+
+							To avoid the above problem, I begin by setting node->frag_count to
+							to 2 instead of 1 for the first fragment.  For the final fragment,
+							node->frag_count is not incremented, allowing the master node to
+							be deallocated at the correct time.
+						*/
+
+						// For first fragment,
+						if (sent_bytes == 0)
 						{
-							WARN("Transport") << "Out of memory: Unable to allocate fragment node";
-							// TODO: Check if this fails gracefully
-							continue; // Retry
+							// Set master node frag count to 2
+							node->frag_count = 2;
+
+							// Mark node as a master node so that it can be ignored for
+							// RTT determination OnACK()
+							node->ts_firstsend = 1;
+							node->ts_lastsend = 0;
 						}
-						else
+						// And for all other fragments until the final one,
+						else if (sent_bytes + data_bytes_to_copy < total_bytes)
 						{
-							// Fill fragment object
-							frag->id = ack_id;
-							frag->next = 0;
-							frag->prev = tail;
-							frag->bytes = data_bytes_to_copy;
-							frag->offset = sent_bytes;
-							frag->ts_firstsend = now;
-							frag->ts_lastsend = now;
-							frag->full_data = node;
-							frag->frag_count = 1;
-
-							// Link fragment at the end of the sent list
-							if (tail) tail->next = reinterpret_cast<SendQueue*>( frag );
-							else _sent_list_head[stream] = reinterpret_cast<SendQueue*>( frag );
-							_sent_list_tail[stream] = reinterpret_cast<SendQueue*>( frag );
-
-							/*
-								How do we know when to deallocate the master node for fragments?
-
-								node->frag_count is used to know when to deallocate a master node.
-								When all of the fragments are acknowledged, the master node can be
-								deallocated.  Each fragment decreases frag_count by 1 until it
-								reaches zero, signaling that all fragments have been acknowledged.
-
-								Since we're sending fragments while they're being received, and the
-								rate may be very low, node->frag_count could conceivably be reduced
-								to zero before all fragments are transmitted.  This would cause the
-								trigger condition for deleting the master node prematurely.
-
-								To avoid the above problem, I begin by setting node->frag_count to
-								to 2 instead of 1 for the first fragment.  For the final fragment,
-								node->frag_count is not incremented, allowing the master node to
-								be deallocated at the correct time.
-							*/
-
-							// For first fragment,
-							if (sent_bytes == 0)
-							{
-								// Set master node frag count to 2
-								node->frag_count = 2;
-
-								// Mark node as a master node so that it can be ignored for
-								// RTT determination OnACK()
-								node->ts_firstsend = 1;
-								node->ts_lastsend = 0;
-							}
-							// And for all other fragments until the final one,
-							else if (sent_bytes + data_bytes_to_copy < total_bytes)
-							{
-								// Increment the frag count
-								node->frag_count++;
-							}
+							// Increment the frag count
+							node->frag_count++;
 						}
 					}
 					else
@@ -1926,10 +1911,10 @@ void Transport::WriteQueuedReliable()
 					send_buffer = SendBuffer::Resize(send_buffer, send_buffer_bytes + write_bytes + TRANSPORT_OVERHEAD + AuthenticatedEncryption::OVERHEAD_BYTES);
 					if (!send_buffer)
 					{
-						WARN("Transport") << "Out of memory: Unable to allocate send buffer";
 						send_buffer_bytes = 0;
-						// TODO: Check if stream needs to be reset here
-						continue; // Retry
+
+						do send_buffer = SendBuffer::Resize(send_buffer, write_bytes + TRANSPORT_OVERHEAD + AuthenticatedEncryption::OVERHEAD_BYTES);
+						while (!send_buffer);
 					}
 
 					// Write header

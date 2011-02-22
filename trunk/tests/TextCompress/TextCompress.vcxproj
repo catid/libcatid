@@ -175,6 +175,9 @@
     <ClCompile Include="text_compress_test.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\build\Codec\Codec.vcxproj">
+      <Project>{27fb49da-71ad-4a54-8038-10401a64a135}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\..\build\Common\Common.vcxproj">
       <Project>{e6e578bc-6936-451a-90f2-811c5ee5f82f}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>

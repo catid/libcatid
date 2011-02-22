@@ -111,7 +111,7 @@ int main()
 
 	if (!layer.Startup("Server.cfg"))
 	{
-		FATAL("Server") << "Unable to initialize SphynxLayer";
+		FatalStop("Unable to initialize framework!");
 		return 1;
 	}
 

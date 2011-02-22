@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
 
 	if (!layer.Startup("ChatClient.cfg"))
 	{
-		FATAL("Client") << "Unable to start IOLayer";
+		FatalStop("Unable to initialize framework!");
 		return 1;
 	}
 
