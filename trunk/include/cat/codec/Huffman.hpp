@@ -35,13 +35,13 @@
 #ifndef CAT_CODEC_HUFFMAN_HPP
 #define CAT_CODEC_HUFFMAN_HPP
 
-#include <cat/parse/BitStream.hpp>
 #include <cat/math/BitMath.hpp>
 
 #include <cmath>
 #include <map>
 #include <queue>
 #include <functional>
+#include <string>
 
 namespace cat {
 
@@ -65,7 +65,7 @@ struct HuffmanTreeNode
 	ProbabilityType probability;
 
 	// Encoding
-	BitStream encoding;
+	std::string encoding;
 
 	HuffmanTreeNode *children[CODE_SYMBOLS];
 
@@ -96,7 +96,7 @@ class HuffmanTree
 	void Kill(HuffmanTreeNode *node);
 
 	// Fill in encodings for the whole tree
-	void FillEncodings(HuffmanTreeNode *node, BitStream &encoding);
+	void FillEncodings(HuffmanTreeNode *node, std::string &encoding);
 
 	// Hidden constructor so only the factory can create these
 	HuffmanTree();
@@ -109,11 +109,11 @@ public:
 	~HuffmanTree();
 
 	// Encode a string of letters
-	bool Encode(const u8 *data, u32 bytes, BitStream &bs);
+	bool Encode(const u8 *data, u32 bytes, std::string &bs);
 
 	// Decode to a string of letters
 	// Returns number of bytes decoded
-	u32 Decode(BitStream &bs, u8 *data, u32 max_bytes);
+	u32 Decode(std::string &bs, u8 *data, u32 max_bytes);
 };
 
 

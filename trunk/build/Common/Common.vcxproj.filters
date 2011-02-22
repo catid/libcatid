@@ -99,12 +99,6 @@
     <ClCompile Include="..\..\src\parse\BufferTok.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\parse\BitStream.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\parse\MessageRouter.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\port\SystemInfo.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -203,14 +197,8 @@
     <ClInclude Include="..\..\include\cat\parse\BufferTok.hpp">
       <Filter>Header Files\parse</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\cat\parse\BitStream.hpp">
-      <Filter>Header Files\parse</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\include\cat\threads\AutoMutex.hpp">
       <Filter>Header Files\threads</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\include\cat\parse\MessageRouter.hpp">
-      <Filter>Header Files\parse</Filter>
     </ClInclude>
     <ClInclude Include="..\..\include\cat\threads\RefObject.hpp">
       <Filter>Header Files\threads</Filter>
