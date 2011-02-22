@@ -46,9 +46,6 @@
 namespace cat {
 
 
-// Number of symbols in the encoded form (usually 2 for binary encoding)
-static const u32 CODE_SYMBOLS = 2;
-
 typedef double ProbabilityType;
 
 // Uses STL log10() to compute the base-2 logarithm of a double
@@ -61,13 +58,15 @@ CAT_INLINE double log2(double x)
 // One letter in an alphabet with a probability and its position in a tree
 struct HuffmanTreeNode
 {
+	static const u32 MAX_CODE_SYMBOLS = 16;
+
 	u32 letter;
 	ProbabilityType probability;
 
 	// Encoding
 	std::string encoding;
 
-	HuffmanTreeNode *children[CODE_SYMBOLS];
+	HuffmanTreeNode *children[MAX_CODE_SYMBOLS];
 
 	struct HeapGreater
 	{
@@ -84,10 +83,13 @@ class HuffmanTree
 {
 	friend class HuffmanTreeFactory;
 
+	typedef std::map<u32, HuffmanTreeNode*> Map;
+
+	// Number of symbols in the encoded form (usually 2 for binary encoding)
+	u32 _code_symbols;
+
 	// Number of bits per encoded symbol (usually 1 for binary encoding)
 	u32 _code_symbol_bits;
-
-	typedef std::map<u32, HuffmanTreeNode*> Map;
 
 	HuffmanTreeNode *_root;
 	Map _encoding_map;
@@ -102,18 +104,20 @@ class HuffmanTree
 	HuffmanTree();
 
 	// Initialization function for the factory
-	void Initialize(HuffmanTreeNode *root);
+	void Initialize(u32 code_symbols, HuffmanTreeNode *root);
 
 public:
 	// Free memory for the dynamically allocated nodes in the tree
 	~HuffmanTree();
+
+	double ExpectedLength();
 
 	// Encode a string of letters
 	bool Encode(const u8 *data, u32 bytes, std::string &bs);
 
 	// Decode to a string of letters
 	// Returns number of bytes decoded
-	u32 Decode(std::string &bs, u8 *data, u32 max_bytes);
+	u32 Decode(std::string bs, u8 *data, u32 max_bytes);
 };
 
 
@@ -138,7 +142,7 @@ public:
 	bool AddSymbol(u32 letter, ProbabilityType probability);
 
 	// Build a tree from the added symbols, clearing the proto-tree
-	HuffmanTree *BuildTree();
+	HuffmanTree *BuildTree(u32 code_symbols);
 };
 
 
