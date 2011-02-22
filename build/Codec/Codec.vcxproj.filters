@@ -27,6 +27,9 @@
     <ClCompile Include="Precompiled.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\codec\Huffman.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\cat\AllCodec.hpp">
@@ -40,6 +43,9 @@
     </ClInclude>
     <ClInclude Include="Precompiled.hpp">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\codec\Huffman.hpp">
+      <Filter>Header Files\codec</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

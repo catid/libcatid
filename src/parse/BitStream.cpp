@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -41,9 +41,6 @@ static const int FLOAT_BITS = FLOAT_BYTES * 8;
 
 // minimum size of the buffer before reads will shrink it
 static const int SHRINK_MINSIZE = 512;
-
-
-//// ctors
 
 BitStream::BitStream(u32 bytes, void *vbuffer)
 {
@@ -101,7 +98,7 @@ void BitStream::grow(u32 bits)
     if (write_offset + bits <= buffer_bytes * 8)
         return;
 
-    u32 new_buffer_bytes = 1 << (BSR32(buffer_bytes + CAT_CEIL_UNIT(bits, 8)) + 1);
+    u32 new_buffer_bytes = NextHighestPow2(buffer_bytes + CAT_CEIL_UNIT(bits, 8));
 
     u8 *new_buffer = new u8[new_buffer_bytes];
     if (!new_buffer) return;
@@ -140,7 +137,7 @@ void BitStream::shrink()
         return;
     }
 
-    u32 new_buffer_bytes = 1 << (BSR32((write_offset - read_offset + (read_offset % 8) + 7) / 8) + 1);
+    u32 new_buffer_bytes = NextHighestPow2((write_offset - read_offset + (read_offset % 8) + 7) / 8);
 
     u8 *new_buffer = new u8[new_buffer_bytes];
     if (!new_buffer) return;
@@ -199,12 +196,12 @@ void BitStream::writeBits(u32 data, int bits)
     switch ((remaining_bits + 7) / 8)
     {
     case 4:
-        *(u32*)(buffer + byte_offset) = data;
+        *(u32*)(buffer + byte_offset) = getLE32(data);
         break;
     case 3:
         buffer[byte_offset + 2] = (u8)(data >> 16);
     case 2:
-        *(u16*)(buffer + byte_offset) = (u16)data;
+        *(u16*)(buffer + byte_offset) = getLE16((u16)data);
         break;
     case 1:
         buffer[byte_offset] = (u8)data;
@@ -233,7 +230,7 @@ void BitStream::writeBytes(const void *vdata, u32 byte_count)
         while (remaining >= 5)
         {
             next = data[4];
-            *(u32*)out = (*(u32*)data >> (8 - shift)) | (next << (shift + 24));
+            *(u32*)out = getLE32((*(u32*)data >> (8 - shift)) | (next << (shift + 24)));
             out += 4;
             data += 4;
             remaining -= 4;
@@ -297,16 +294,16 @@ u32 BitStream::readBits(u32 bits)
     switch ((shift + bits + 7) / 8)
     {
     case 5:
-        data = (buffer[byte_offset + 4] << (32 - shift)) | (*(u32*)(buffer + byte_offset) >> shift);
+        data = getLE32((buffer[byte_offset + 4] << (32 - shift)) | (*(u32*)(buffer + byte_offset) >> shift));
         break;
     case 4:
-        data = *(u32*)(buffer + byte_offset) >> shift;
+        data = getLE32(*(u32*)(buffer + byte_offset) >> shift);
         break;
     case 3:
-        data = ((buffer[byte_offset + 2] << 16) | *(u16*)(buffer + byte_offset)) >> shift;
+        data = getLE16(((buffer[byte_offset + 2] << 16) | *(u16*)(buffer + byte_offset)) >> shift);
         break;
     case 2:
-        data = *(u16*)(buffer + byte_offset) >> shift;
+        data = getLE16(*(u16*)(buffer + byte_offset) >> shift);
         break;
     case 1:
         data = buffer[byte_offset] >> shift;
@@ -345,7 +342,7 @@ void BitStream::readBytes(void *vdata, u32 byte_count)
         {
             do {
                 next = in[4];
-                *(u32*)out = (*(u32*)in >> shift) | (next << (32 - shift));
+                *(u32*)out = getLE32((*(u32*)in >> shift) | (next << (32 - shift)));
                 out += 4;
                 in += 4;
                 remaining -= 4;
@@ -373,4 +370,76 @@ void BitStream::readBytes(void *vdata, u32 byte_count)
     }
 
     read_offset += byte_count * 8;
+}
+
+
+//// Stream insertion
+
+BitStream &BitStream::operator<<(const BitStream &rhs)
+{
+	grow(rhs.write_offset);
+
+	u32 byte_offset = write_offset / 8;
+	u32 shift = write_offset % 8;
+
+	if (shift)
+	{
+		u8 *data = (u8*)rhs.buffer;
+		u8 *out = buffer + byte_offset;
+
+		u32 remaining = rhs.write_offset / 8;
+		if (remaining > 0)
+		{
+			u8 next = data[0];
+
+			*out++ |= next << shift;
+
+			while (remaining >= 5)
+			{
+				next = data[4];
+				*(u32*)out = getLE32((*(u32*)data >> (8 - shift)) | (next << (shift + 24)));
+				out += 4;
+				data += 4;
+				remaining -= 4;
+			}
+
+			while (remaining >= 2)
+			{
+				u8 last = next;
+				next = data[1];
+				*out++ = (last >> (8 - shift)) | (next << shift);
+				++data;
+				--remaining;
+			}
+
+			if (remaining > 0)
+			{
+				*out = next >> (8 - shift);
+			}
+		}
+
+		u32 remaining_bits = rhs.write_offset % 8;
+		if (remaining_bits > 0)
+		{
+			u32 byte_offset = write_offset / 8;
+			u32 bits = data[0];
+
+			*out++ |= bits << shift;
+			bits >>= 8 - shift;
+			remaining_bits -= 8 - shift;
+
+			if (remaining_bits > 0)
+			{
+				*out = bits;
+			}
+		}
+	}
+	else
+	{
+		memcpy(buffer + byte_offset, rhs.buffer, CAT_CEIL_UNIT(rhs.write_offset, 8));
+	}
+
+	write_offset += rhs.write_offset;
+
+	return *this;
 }

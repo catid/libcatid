@@ -61,15 +61,31 @@ void FileTransferSource::ClearHeap()
 
 bool FileTransferSource::StartTransfer(QueuedFile *file, Transport *transport)
 {
-	// Write the informational message to the bulk stream first
-	transport->WriteReliableZeroCopy(STREAM_BULK, file->msg, file->msg_bytes);
+	// Grab the message and remove its reference from the file object
+	u8 *msg = file->msg;
+	file->msg = 0;
 
-	// Then kick off huge fragments
-	transport->WriteHuge(STREAM_BULK);
+	return transport->WriteReliableZeroCopy(STREAM_BULK, msg, file->msg_bytes) &&
+		   transport->WriteHuge(STREAM_BULK);
 }
 
 bool FileTransferSource::WriteFile(u8 opcode, const std::string &source_path, const std::string &sink_path, Transport *transport, u32 priority)
 {
+	// Build a queued file object
+	QueuedFile *file = new QueuedFile;
+	if (!file)
+	{
+		WARN("FileTransferSource") << "Out of memory: Unable to allocate queued file";
+		return false;
+	}
+
+	// If source file could not be opened,
+	if (!file->reader.Open(source_path.c_str()))
+	{
+		WARN("FileTransferSource") << "Unable to open specified file " << source_path;
+		return false;
+	}
+
 	u32 sink_path_len = (u32)sink_path.length();
 	u32 msg_bytes = 1 + sizeof(u64) + sink_path_len;
 
@@ -77,6 +93,7 @@ bool FileTransferSource::WriteFile(u8 opcode, const std::string &source_path, co
 	if (!msg)
 	{
 		WARN("FileTransferSource") << "Out of memory: Unable to allocate outgoing message bytes = " << msg_bytes;
+		delete file;
 		return false;
 	}
 
@@ -85,29 +102,10 @@ bool FileTransferSource::WriteFile(u8 opcode, const std::string &source_path, co
 	*(u64*)(msg + 1) = getLE(file->reader.GetLength());
 	memcpy(msg + 1 + 8, sink_path.c_str(), sink_path_len);
 
-	// Build a queued file object
-	QueuedFile *file = new QueuedFile;
-	if (!file)
-	{
-		WARN("FileTransferSource") << "Out of memory: Unable to allocate queued file";
-		OutgoingMessage::Release(msg);
-		return false;
-	}
-
-	// Configure it
-	file->sink_path = sink_path;
+	// Configure file object
 	file->priority = priority;
 	file->msg = msg;
 	file->msg_bytes = msg_bytes;
-
-	// If source file could not be opened,
-	if (!file->reader.Open(source_path.c_str()))
-	{
-		WARN("FileTransferSource") << "Unable to open specified file " << source_path;
-		OutgoingMessage::Release(msg);
-		delete file;
-		return false;
-	}
 
 	// Push it on the heap
 	_lock.Enter();
@@ -118,10 +116,12 @@ bool FileTransferSource::WriteFile(u8 opcode, const std::string &source_path, co
 
 u32 FileTransferSource::OnWriteHugeRequest(StreamMode stream, u8 *data, u32 space)
 {
+	if (stream != STREAM_BULK) return 0;
 }
 
 u32 FileTransferSource::OnWriteHugeNext(StreamMode stream, Transport *transport)
 {
+	if (stream != STREAM_BULK) return 0;
 }
 
 

@@ -33,9 +33,12 @@ using namespace cat;
 
 int main(int argc, const char **argv)
 {
-    if (!InitializeFramework("TextCompress.txt"))
+	CommonLayer layer;
+
+	if (!layer.Startup("TextCompress.cfg"))
 	{
 		FatalStop("Unable to initialize framework!");
+		return -1;
 	}
 
 #ifndef GENERATING_TABLE
@@ -260,7 +263,7 @@ int main(int argc, const char **argv)
     while (!getch())
         Sleep(100);
 
-	ShutdownFramework(true);
+	layer.Shutdown();
 
     return 0;
 }

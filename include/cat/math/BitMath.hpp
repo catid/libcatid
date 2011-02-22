@@ -38,27 +38,6 @@
 namespace cat {
 
 
-// Next highest power of two (e.g. 13 -> 16)
-CAT_INLINE u32 NextHighestPow2(u32 n)
-{
-	n |= n >> 1;
-	n |= n >> 2;
-	n |= n >> 4;
-	n |= n >> 8;
-	n |= n >> 16;
-	return n + 1;
-}
-CAT_INLINE u64 NextHighestPow2(u64 n)
-{
-	n |= n >> 1;
-	n |= n >> 2;
-	n |= n >> 4;
-	n |= n >> 8;
-	n |= n >> 16;
-	n |= n >> 32;
-	return n + 1;
-}
-
 // Returns the count of bits set in the input for types up to 128 bits
 template<typename T> CAT_INLINE T BitCount(T v)
 {
@@ -175,6 +154,7 @@ CAT_INLINE bool BTS64(u64 *x, u32 bit);
 
 extern const int MultiplyDeBruijnBitPosition2[32];
 
+
 CAT_INLINE u32 BSF32(u32 x)
 {
 #if defined(CAT_COMPILER_MSVC) && !defined(CAT_DEBUG)
@@ -204,10 +184,52 @@ CAT_INLINE u32 BSF32(u32 x)
 
 #else
 
+#define CAT_NO_INTRINSIC_BSF32
+
 	u32 lsb = CAT_LSB32(x);
 
 	// Adapted from the Stanford Bit Twiddling Hacks collection
 	return MultiplyDeBruijnBitPosition2[(u32)(lsb * 0x077CB531) >> 27];
+
+#endif
+}
+
+
+CAT_INLINE u32 BSF64(u64 x)
+{
+#if defined(CAT_COMPILER_MSVC) && !defined(CAT_DEBUG) && defined(CAT_WORD_64)
+
+	u32 index;
+	_BitScanForward64((unsigned long*)&index, x);
+	return index;
+
+#elif defined(CAT_ASM_ATT) && defined(CAT_WORD_64) && defined(CAT_ISA_X86)
+
+	u32 retval;
+
+	CAT_ASM_BEGIN
+		"BSFq %1, %%rax"
+		: "=a" (retval)
+		: "r" (x)
+		: "cc"
+		CAT_ASM_END
+
+		return retval;
+
+#else
+
+#define CAT_NO_INTRINSIC_BSF64
+
+	u64 lsb = CAT_LSB64(x);
+
+	// Adapted from the Stanford Bit Twiddling Hacks collection
+	u32 r = (lsb & 0xAAAAAAAAAAAAAAAAULL) != 0;
+	r |= ((lsb & 0xFFFFFFFF00000000ULL) != 0) << 5;
+	r |= ((lsb & 0xFFFF0000FFFF0000ULL) != 0) << 4;
+	r |= ((lsb & 0xFF00FF00FF00FF00ULL) != 0) << 3;
+	r |= ((lsb & 0xF0F0F0F0F0F0F0F0ULL) != 0) << 2;
+	r |= ((lsb & 0xCCCCCCCCCCCCCCCCULL) != 0) << 1;
+	return r;
 
 #endif
 }
@@ -242,6 +264,8 @@ CAT_INLINE u32 BSR32(u32 x)
 
 #else
 
+#define CAT_NO_INTRINSIC_BSR32
+
 	// Adapted from the Stanford Bit Twiddling Hacks collection
     u32 shift, r;
 
@@ -251,44 +275,6 @@ CAT_INLINE u32 BSR32(u32 x)
     shift = (x > 0x3) << 1; x >>= shift; r |= shift;
     r |= (x >> 1);
     return r;
-
-#endif
-}
-
-
-CAT_INLINE u32 BSF64(u64 x)
-{
-#if defined(CAT_COMPILER_MSVC) && !defined(CAT_DEBUG) && defined(CAT_WORD_64)
-
-	u32 index;
-    _BitScanForward64((unsigned long*)&index, x);
-    return index;
-
-#elif defined(CAT_ASM_ATT) && defined(CAT_WORD_64) && defined(CAT_ISA_X86)
-
-	u32 retval;
-
-    CAT_ASM_BEGIN
-		"BSFq %1, %%rax"
-		: "=a" (retval)
-		: "r" (x)
-		: "cc"
-    CAT_ASM_END
-
-    return retval;
-
-#else
-
-	u64 lsb = CAT_LSB64(x);
-
-	// Adapted from the Stanford Bit Twiddling Hacks collection
-	u32 r = (lsb & 0xAAAAAAAAAAAAAAAAULL) != 0;
-	r |= ((lsb & 0xFFFFFFFF00000000ULL) != 0) << 5;
-	r |= ((lsb & 0xFFFF0000FFFF0000ULL) != 0) << 4;
-	r |= ((lsb & 0xFF00FF00FF00FF00ULL) != 0) << 3;
-	r |= ((lsb & 0xF0F0F0F0F0F0F0F0ULL) != 0) << 2;
-	r |= ((lsb & 0xCCCCCCCCCCCCCCCCULL) != 0) << 1;
-	return r;
 
 #endif
 }
@@ -316,6 +302,8 @@ CAT_INLINE u32 BSR64(u64 x)
     return retval;
 
 #else
+
+#define CAT_NO_INTRINSIC_BSR64
 
 	// Adapted from the Stanford Bit Twiddling Hacks collection
     register u32 shift, r;
@@ -364,6 +352,8 @@ CAT_INLINE bool BTS32(u32 *x, u32 bit)
 
 #else
 
+#define CAT_NO_INTRINSIC_BTS32
+
 	u32 mask = 1 << bit;
 	if (*x & mask) return 1;
 	*x |= mask;
@@ -395,11 +385,47 @@ CAT_INLINE bool BTS64(u64 *x, u32 bit)
 
 #else
 
+#define CAT_NO_INTRINSIC_BTS64
+
 	u64 mask = (u64)1 << bit;
 	if (*x & mask) return 1;
 	*x |= mask;
 	return 0;
 
+#endif
+}
+
+
+// Next highest power of two (e.g. 13 -> 16)
+// Zero input gives undefined output
+CAT_INLINE u32 NextHighestPow2(u32 n)
+{
+#if defined(CAT_NO_INTRINSIC_BSR32)
+	n |= n >> 1;
+	n |= n >> 2;
+	n |= n >> 4;
+	n |= n >> 8;
+	n |= n >> 16;
+	return n + 1;
+#else
+	return 1 << (BSR32(n) + 1);
+#endif
+}
+
+// Next highest power of two (e.g. 13 -> 16)
+// Zero input gives undefined output
+CAT_INLINE u64 NextHighestPow2(u64 n)
+{
+#if defined(CAT_NO_INTRINSIC_BSR64)
+	n |= n >> 1;
+	n |= n >> 2;
+	n |= n >> 4;
+	n |= n >> 8;
+	n |= n >> 16;
+	n |= n >> 32;
+	return n + 1;
+#else
+	return (u64)1 << (BSR64(n) + 1);
 #endif
 }
 

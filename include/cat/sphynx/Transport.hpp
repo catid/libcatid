@@ -437,10 +437,9 @@ protected:
 		return WriteDatagrams(buffer);
 	}
 
-	virtual u32 OnRequestPartialHuge(StreamMode stream, void *data, u32 bytes_requested) = 0;
 	virtual void OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count) = 0;
 	virtual u32 OnWriteHugeRequest(StreamMode stream, u8 *data, u32 space) = 0; // Returns the number of bytes copied, 0 for done
-	virtual u32 OnWriteHugeNext(StreamMode stream) = 0; // Called when next huge transfer is ready, 0 for no more transfers
+	virtual u32 OnWriteHugeNext(StreamMode stream, Transport *transport) = 0; // Called when next huge transfer is ready, 0 for no more transfers
 	virtual void OnReadHuge(StreamMode stream, BufferStream data, u32 size) = 0; // Sets size = 0 on end of data
 	virtual void OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes) = 0; // precondition: bytes > 0
 	virtual void OnDisconnectReason(u8 reason) = 0; // Called to help explain why a disconnect is happening

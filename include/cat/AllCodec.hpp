@@ -28,5 +28,8 @@
 
 // Include all libcat Codec headers
 
+#include <cat/AllCommon.hpp>
+
+#include <cat/codec/Huffman.hpp>
 #include <cat/codec/RangeCoder.hpp>
 #include <cat/codec/ReedSolomon.hpp>

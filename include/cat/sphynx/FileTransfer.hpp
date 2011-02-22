@@ -65,7 +65,7 @@ class FileTransferSource
 	QueuedFile *_active;
 
 	void ClearHeap();
-	void StartTransfer(QueuedFile *file, Transport *transport);
+	bool StartTransfer(QueuedFile *file, Transport *transport);
 
 public:
 	FileTransferSource();
