@@ -112,16 +112,19 @@ bool FileTransferSource::WriteFile(u8 opcode, const std::string &source_path, co
 	_heap.push(file);
 	_lock.Leave();
 
+	return true;
 }
 
 u32 FileTransferSource::OnWriteHugeRequest(StreamMode stream, u8 *data, u32 space)
 {
 	if (stream != STREAM_BULK) return 0;
+	return 0;
 }
 
 u32 FileTransferSource::OnWriteHugeNext(StreamMode stream, Transport *transport)
 {
 	if (stream != STREAM_BULK) return 0;
+	return 0;
 }
 
 
@@ -137,6 +140,7 @@ FileTransferSink::~FileTransferSink()
 
 bool FileTransferSink::OnFileStart(BufferStream msg, u32 bytes)
 {
+	return true;
 }
 
 void FileTransferSink::OnReadHuge(StreamMode stream, BufferStream data, u32 size)

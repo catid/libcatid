@@ -47,56 +47,65 @@ void RunHuffmanTests()
 	// Over 10k trials,
 	for (u32 ii = 0; ii < 10000; ++ii)
 	{
-		// For 1 to 255 symbols,
-		for (u32 kk = 1; kk < 256; ++kk)
+		HuffmanTreeFactory factory;
+
+		u8 data[10000];
+		mt.Generate(data, sizeof(data));
+
+		// Compute symbol likelihoods
+		u32 symbol_likelihood[256] = { 0 };
+		for (u32 jj = 0; jj < sizeof(data); ++jj)
 		{
-			HuffmanTreeFactory factory;
-
-			// Add each symbol with random probability
-			for (u32 jj = 0; jj < kk; ++jj)
-			{
-				u32 symbol = ii;
-				ProbabilityType probability = mt.Generate();
-
-				factory.AddSymbol(symbol, probability);
-			}
-
-			HuffmanTree *tree = factory.BuildTree();
-
-			if (!tree)
-			{
-				WARN("Huffman") << "Unable to build tree!";
-				return;
-			}
-
-			u8 data[10000];
-			mt.Generate(data, sizeof(data));
-
-			u8 _compressed[400];
-			BitStream compressed(400, _compressed);
-
-			if (!tree->Encode(data, sizeof(data), compressed))
-			{
-				WARN("Huffman") << "Unable to encode!";
-				return;
-			}
-
-			u8 decompressed[sizeof(data)];
-
-			u32 bytes = tree->Decode(compressed, decompressed, sizeof(decompressed));
-
-			if (bytes != sizeof(data))
-			{
-				WARN("Huffman") << "Unable to decode!";
-				return;
-			}
-
-			if (0 != memcmp(decompressed, data, sizeof(data)))
-			{
-				WARN("Huffman") << "Decode corrupted!";
-				return;
-			}
+			symbol_likelihood[data[jj]]++;
 		}
+
+		for (u32 jj = 0; jj < 256; ++jj)
+		{
+			symbol_likelihood[jj] = symbol_likelihood[jj] * jj / 256;
+		}
+
+		// For each symbol,
+		for (u32 jj = 0; jj < 256; ++jj)
+		{
+			u32 symbol = jj;
+			ProbabilityType probability = symbol_likelihood[jj];
+
+			factory.AddSymbol(symbol, probability);
+		}
+
+		HuffmanTree *tree = factory.BuildTree();
+
+		if (!tree)
+		{
+			WARN("Huffman") << "Unable to build tree!";
+			return;
+		}
+
+		BitStream compressed;
+
+		if (!tree->Encode(data, sizeof(data), compressed))
+		{
+			WARN("Huffman") << "Unable to encode!";
+			return;
+		}
+
+		u8 decompressed[sizeof(data)];
+
+		u32 bytes = tree->Decode(compressed, decompressed, sizeof(decompressed));
+
+		if (bytes != sizeof(data))
+		{
+			WARN("Huffman") << "Unable to decode!";
+			return;
+		}
+
+		if (0 != memcmp(decompressed, data, sizeof(data)))
+		{
+			WARN("Huffman") << "Decode corrupted!";
+			return;
+		}
+
+		INFO("Huffman") << "Compression success!  Compressed size was " << compressed.get_write_offset();
 	}
 }
 

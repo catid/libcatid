@@ -31,6 +31,7 @@
 
 #include <cat/Platform.hpp>
 #include <cstring>
+#include <ostream>
 
 namespace cat {
 
@@ -89,29 +90,37 @@ public:
 
 public:
     BitStream(u32 bits = 0, void *vbuffer = 0);
-    ~BitStream();
+	BitStream(const BitStream &rhs);
+	BitStream &operator=(BitStream &rhs);
+	~BitStream();
 
     // free unused buffer space
     void shrink();
 
 public:
-    u8 *get() { return buffer; }
+	CAT_INLINE u8 *get() { return buffer; }
+	CAT_INLINE const u8 *get() const { return buffer; }
 
-    bool aligned() { return read_offset % 8 == 0; }
-    u8 *peek() { return buffer + read_offset / 8; }
+    CAT_INLINE bool aligned() { return read_offset % 8 == 0; }
+	CAT_INLINE u8 *peek() { return buffer + read_offset / 8; }
 
 public:
     // returns true iff the buffer is valid
-    bool valid() { return buffer != 0; }
+    CAT_INLINE bool valid() const { return buffer != 0; }
 
     // returns count of remaining readable bits
-    int unread() { return write_offset - read_offset; }
+    CAT_INLINE int unread() const { return write_offset - read_offset; }
+
+	CAT_INLINE u32 get_write_offset() const { return write_offset; }
+	CAT_INLINE void reset_read() { read_offset = 0; }
 
     // returns true if a recent read operation would have overrun the buffer
     bool underrun();
 
     // skip ahead a number of bits
     void skip(u32 bits);
+
+	CAT_INLINE void back(u32 bits) { write_offset -= bits; }
 
 public:
     // insertion
@@ -188,6 +197,9 @@ public:
 
     CAT_INLINE BitStream &operator>>(const bs_byte::get &n) { readBytes(n.ref, n.bytes); return *this; }
 };
+
+// For printing out the stream in binary text
+std::ostream &operator<<(std::ostream &os, const BitStream &rhs);
 
 // helpful specializations
 

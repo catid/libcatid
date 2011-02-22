@@ -40,23 +40,30 @@ void HuffmanTree::Kill(HuffmanTreeNode *node)
 	delete node;
 }
 
-void HuffmanTree::FillEncodings(HuffmanTreeNode *node, const BitStream &encoding)
+void HuffmanTree::FillEncodings(HuffmanTreeNode *node, BitStream &encoding)
 {
 	if (!node) return;
 
 	node->encoding = encoding;
 
+	u32 code_symbol_bits = _code_symbol_bits;
+
 	for (u32 ii = 0; ii < CODE_SYMBOLS; ++ii)
 	{
-		BitStream leaf(encoding);
-		leaf.writeBits(ii, CODE_SYMBOL_BITS);
+		encoding.writeBits(ii, code_symbol_bits);
 
-		FillEncodings(node->children[ii], leaf);
+		if (node->letter)
+			WARN("HuffmanTree") << node->letter << " = " << encoding;
+
+		FillEncodings(node->children[ii], encoding);
+
+		encoding.back(code_symbol_bits);
 	}
 }
 
 HuffmanTree::HuffmanTree()
 {
+	_code_symbol_bits = BSR32(CODE_SYMBOLS - 1) + 1;
 }
 
 void HuffmanTree::Initialize(HuffmanTreeNode *root)
@@ -92,12 +99,13 @@ u32 HuffmanTree::Decode(BitStream &bs, u8 *data, u32 max_bytes)
 	if (!bs.valid()) return 0;
 
 	HuffmanTreeNode *node = _root;
+	u32 code_symbol_bits = _code_symbol_bits;
 	u32 ii = 0;
 
 	// While there are more bits to read,
 	while (bs.unread() > 0)
 	{
-		u32 bits = bs.readBits(CODE_SYMBOL_BITS);
+		u32 bits = bs.readBits(code_symbol_bits);
 
 		HuffmanTreeNode *next = node->children[bits];
 
@@ -124,6 +132,11 @@ u32 HuffmanTree::Decode(BitStream &bs, u8 *data, u32 max_bytes)
 	if (node != _root) return 0;
 
 	return ii;
+}
+
+HuffmanTreeFactory::HuffmanTreeFactory()
+{
+	_tree = 0;
 }
 
 HuffmanTreeFactory::~HuffmanTreeFactory()
@@ -169,6 +182,8 @@ bool HuffmanTreeFactory::AddSymbol(u32 letter, ProbabilityType probability)
 
 HuffmanTree *HuffmanTreeFactory::BuildTree()
 {
+	if (_heap.size() < 1) return 0;
+
 	while (_heap.size() > 1)
 	{
 		HuffmanTreeNode *branch = new HuffmanTreeNode;

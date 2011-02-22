@@ -49,9 +49,6 @@ namespace cat {
 // Number of symbols in the encoded form (usually 2 for binary encoding)
 static const u32 CODE_SYMBOLS = 2;
 
-// Number of bits per encoded symbol (usually 1 for binary encoding)
-static const u32 CODE_SYMBOL_BITS = BSR32(CODE_SYMBOLS - 1);
-
 typedef double ProbabilityType;
 
 // Uses STL log10() to compute the base-2 logarithm of a double
@@ -79,14 +76,6 @@ struct HuffmanTreeNode
 			return lhs->probability > rhs->probability;
 		}
 	};
-
-	struct MapGreater
-	{
-		CAT_INLINE bool operator()(u32 lhs, u32 rhs)
-		{
-			return lhs > rhs;
-		}
-	};
 };
 
 
@@ -95,7 +84,10 @@ class HuffmanTree
 {
 	friend class HuffmanTreeFactory;
 
-	typedef std::map<u32, HuffmanTreeNode*, HuffmanTreeNode::MapGreater > Map;
+	// Number of bits per encoded symbol (usually 1 for binary encoding)
+	u32 _code_symbol_bits;
+
+	typedef std::map<u32, HuffmanTreeNode*> Map;
 
 	HuffmanTreeNode *_root;
 	Map _encoding_map;
@@ -104,7 +96,7 @@ class HuffmanTree
 	void Kill(HuffmanTreeNode *node);
 
 	// Fill in encodings for the whole tree
-	void FillEncodings(HuffmanTreeNode *node, const BitStream &encoding);
+	void FillEncodings(HuffmanTreeNode *node, BitStream &encoding);
 
 	// Hidden constructor so only the factory can create these
 	HuffmanTree();
@@ -137,6 +129,8 @@ class HuffmanTreeFactory
 	HuffmanTree *_tree;
 
 public:
+	HuffmanTreeFactory();
+
 	// Free memory for the dynamically allocated nodes in the heap
 	~HuffmanTreeFactory();
 
