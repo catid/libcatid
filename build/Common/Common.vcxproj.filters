@@ -84,9 +84,6 @@
     <ClCompile Include="..\..\src\io\Logging.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\io\MMapFile.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\mem\AlignedAllocator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -121,6 +118,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\parse\Base64.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\io\MappedFile.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -179,9 +179,6 @@
     <ClInclude Include="..\..\include\cat\io\Logging.hpp">
       <Filter>Header Files\io</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\cat\io\MMapFile.hpp">
-      <Filter>Header Files\io</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\include\cat\mem\BufferAllocator.hpp">
       <Filter>Header Files\mem</Filter>
     </ClInclude>
@@ -232,6 +229,9 @@
     </ClInclude>
     <ClInclude Include="..\..\include\cat\mem\ResizableBuffer.hpp">
       <Filter>Header Files\mem</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\io\MappedFile.hpp">
+      <Filter>Header Files\io</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

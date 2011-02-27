@@ -29,7 +29,6 @@
 #include <cat/io/Settings.hpp>
 #include <cat/parse/BufferTok.hpp>
 #include <cat/threads/AutoMutex.hpp>
-#include <cat/io/MMapFile.hpp>
 #include <cat/io/Logging.hpp>
 #include <cstring>
 #include <cat/hash/Murmur.hpp>
@@ -177,12 +176,13 @@ void Settings::readSettingsFromFile(const char *file_path, const char *override_
 
 	_settings_file = file_path;
 
-    SequentialFileReader sfile;
-    if (!sfile.Open(file_path))
-    {
-        WARN("Settings") << "Read: Unable to open " << file_path;
-        return;
-    }
+	SequentialFileReader sfile;
+
+	if (!sfile.Open(file_path))
+	{
+		WARN("Settings") << "Read: Unable to open " << file_path;
+		return;
+	}
 
 #ifdef SETTINGS_VERBOSE
     INANE("Settings") << "Read: " << file_path;
@@ -190,14 +190,14 @@ void Settings::readSettingsFromFile(const char *file_path, const char *override_
 
     readSettingsFromBuffer(sfile);
 
-    SequentialFileReader ofile;
-    if (ofile.Open(file_path))
+	// If override file exists,
+    if (sfile.Open(file_path))
     {
 #ifdef SETTINGS_VERBOSE
         INANE("Settings") << "Read: " << override_file;
 #endif
 
-        readSettingsFromBuffer(ofile);
+        readSettingsFromBuffer(sfile);
     }
 
     // Delete the override settings file if settings request it

@@ -897,15 +897,16 @@ bool Transport::WriteReliableZeroCopy(StreamMode stream, u8 *msg, u32 msg_bytes,
 	return true;
 }
 
-bool Transport::WriteHuge(StreamMode stream)
+bool Transport::WriteHuge(StreamMode stream, HugeSource *source)
 {
 	// Fill the object
-	SendQueue *node = StdAllocator::ii->AcquireTrailing<SendQueue>(0);
+	SendHuge *node = StdAllocator::ii->AcquireObject<SendHuge>();
 	node->bytes = FRAG_HUGE;
 	node->frag_count = 0;
 	node->sop = SOP_DATA;
 	node->sent_bytes = 0;
 	node->next = 0;
+	node->source = source;
 
 	// Add to back of send queue
 
@@ -1647,369 +1648,423 @@ void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 	_send_flow.OnACK(now, avg_trip_time, loss_count);
 }
 
-void Transport::WriteQueuedReliable()
+SendQueue *Transport::DequeueBandwidth(SendQueue *node, s32 available_bytes, s32 &used_bytes, s32 &partial_last_bytes)
 {
-	// ACK-ID compression thresholds
-	const u32 ACK_ID_1_THRESH = 16;
-	const u32 ACK_ID_2_THRESH = 2048;
+	s32 remaining = available_bytes;
+	s32 partial = partial_last_bytes;
 
-	// If there is no more room in the channel,
-	s32 send_epoch_remaining = _send_flow.GetRemainingBytes();
-	if (send_epoch_remaining <= 0)
+	// For each node in the list,
+	for (; node; node = node->next)
 	{
-		// Stop sending here
-		return;
-	}
+		s32 used = node->bytes;
 
-	// Use the same ts_firstsend for all messages delivered now, to insure they are clustered on retransmission
-	u32 now = Clock::msec();
-	u32 max_payload_bytes = _max_payload_bytes;
-
-	AutoMutex send_queue_lock(_send_queue_lock);
-	AutoMutex send_buffer_lock(_send_buffer_lock);
-
-	// Cache send buffer
-	u32 send_buffer_bytes = _send_buffer_bytes;
-	u8 *send_buffer = _send_buffer;
-
-	// For each round,
-	bool data_remains;
-	u32 stream_limit = NUM_STREAMS - 1;
-	do
-	{
-		data_remains = false;
-
-		// For each reliable stream,
-		for (int stream = 0; stream < NUM_STREAMS; ++stream)
+		// If node is variable length,
+		if (used == FRAG_HUGE)
 		{
-			SendQueue *node = _send_queue_head[stream];
-			if (!node) continue;
+			SendHuge *huge_node = reinterpret_cast<SendHuge*>( node );
+			HugeSource *source = huge_node->source;
 
-			u32 stream_sent = 0; // Used to limit the number of bytes sent by a stream per round
+			u64 source_remaining = source->GetRemaining();
+			source_remaining -= partial;
 
-			u32 ack_id = _next_send_id[stream];
-			u32 remote_expected = _send_next_remote_expected[stream];
-			u32 ack_id_overhead = 0;
-
-			// If ACK-ID needs to be sent,
-			if (_send_buffer_ack_id != ack_id ||
-				_send_buffer_stream != stream)
+			// If this node ate the last of the bandwidth,
+			if (source_remaining >= remaining + FRAG_THRESHOLD)
 			{
-				u32 diff = ack_id - remote_expected;
-				if (diff < ACK_ID_1_THRESH)			ack_id_overhead = 1;
-				else if (diff < ACK_ID_2_THRESH)	ack_id_overhead = 2;
-				else								ack_id_overhead = 3;
+				partial_last_bytes = partial + remaining;
+				used_bytes = available_bytes;
+
+				return node;
 			}
 
-			// For each message ready to go,
-			while (node)
+			used = (s32)source_remaining;
+		}
+		else
+		{
+			// Subtract off bytes already sent
+			used -= node->sent_bytes + partial;
+
+			// If this node ate the last of the bandwidth,
+			if (used >= remaining + FRAG_THRESHOLD)
 			{
-				INFO("Transport") << "Delivering queued message # " << ack_id;
+				partial_last_bytes = partial + remaining;
+				used_bytes = available_bytes;
 
-				// Cache next pointer since node will be modified
-				SendQueue *next = node->next;
-				bool fragmented = (node->frag_count != 0);
-				u32 sent_bytes = node->sent_bytes, total_bytes = node->bytes;
+				return node;
+			}
+		}
 
-				do {
-					u32 remaining_data_bytes = total_bytes - sent_bytes;
-					u32 remaining_send_buffer = max_payload_bytes - send_buffer_bytes;
-					u32 frag_overhead = 0;
+		// Add one for average header size (only need a rough estimate)
+		remaining -= used + 1;
 
-					// If message would be fragmented,
-					if (2 + ack_id_overhead + remaining_data_bytes > remaining_send_buffer)
-					{
-						/*
-							When to Fragment?
+		// Reset partial so it is only effective on the first node
+		partial = 0;
+	}
 
-							The goal of the transport protocol is to deliver data as quickly and reliably as possible.
-							Fragmentation has additional processing overhead that should be avoided at the expense of
-							about FRAG_THRESHOLD bytes of lost bandwidth per packet.  If more bytes than that can fit
-							in a packet then it is time to fragment.
-						*/
+	// Report number of bytes used
+	used_bytes = available_bytes - remaining;
 
-						// If it is worth fragmentation,
-						if (remaining_send_buffer >= FRAG_THRESHOLD)
-						{
-							if (!fragmented)
-							{
-								frag_overhead = 2;
-								fragmented = true;
-							}
-						}
-						else if (send_buffer_bytes > 0) // Not worth fragmentation, dump current send buffer
-						{
-							QueueWriteDatagram(send_buffer, send_buffer_bytes);
+	// If we got here then all nodes were consumed
+	partial_last_bytes = 0;
+	return 0;
+}
 
-							// Update send epoch bytes
-							send_epoch_remaining -= send_buffer_bytes + _overhead_bytes;
+void Transport::WriteQueuedReliable()
+{
+	// Use the same ts_firstsend for all messages delivered now, to insure they are clustered on retransmission
+	u32 now = Clock::msec();
 
-							// If there is no more room in the channel,
-							if (send_epoch_remaining <= 0)
-							{
-								// Does not need to update _send_buffer_ack_id and _send_buffer_stream
-								// since those members are updated whenever the send buffer is appended
+	// Calculate bandwidth available for this transmission
+	s32 bandwidth = _send_flow.GetRemainingBytes(now);
 
-								//WARN("Transport") << "Exceeded bandwidth limit";
+	// If there is no more room in the channel,
+	if (bandwidth <= 0) return;
 
-								// Update node sent bytes
-								node->sent_bytes = sent_bytes;
+	// Generate a list of messages to transmit based on the bandwidth available
+	SendQueue *out_head[NUM_STREAMS], *out_tail[NUM_STREAMS];
+	s32 out_partial[NUM_STREAMS];
 
-								// Next time we send a message in this stream, use the same ack id
-								_next_send_id[stream] = ack_id;
+	_send_queue_lock.Enter();
 
-								// Unlink previous node from node and leave the rest on the send queue
-								_send_queue_head[stream] = node;
-								node->prev = 0;
+	// Split bandwidth evenly between normal streams
+	for (u32 stream = 0; stream < NUM_STREAMS - 1; ++stream)
+	{
+		SendQueue *node = _send_queue_head[stream];
+		out_head[stream] = node;
 
-								// Clear send buffer state since the send buffer is now being emptied out
-								_send_buffer = 0;
-								_send_buffer_bytes = 0;
-								_send_buffer_stream = NUM_STREAMS;
+		if (!node)
+		{
+			out_tail[stream] = 0;
+			continue;
+		}
 
-								return;
-							}
+		s32 stream_used, partial = 0;
+		out_tail[stream] = DequeueBandwidth(node, bandwidth / (NUM_STREAMS - 1 - stream), stream_used, partial);
+		out_partial[stream] = partial;
 
-							// Reset state for empty send buffer
-							send_buffer = 0;
-							send_buffer_bytes = 0;
-							remaining_send_buffer = max_payload_bytes;
+		bandwidth -= stream_used;
+	}
 
-							// If it is time to stripe the next stream,
-							if (stream < STREAM_BULK &&
-								stream_sent + FRAG_THRESHOLD >= max_payload_bytes)
-							{
-								data_remains = true;
+	// All streams may claim remaining bandwidth with stream 0 as highest priority
+	for (u32 stream = 0; bandwidth > 0 && stream < NUM_STREAMS; ++stream)
+	{
+		SendQueue *node = out_tail[stream];
+		if (!node) continue;
 
-								// Update node sent bytes
-								node->sent_bytes = sent_bytes;
+		s32 stream_used;
+		out_tail[stream] = DequeueBandwidth(node, bandwidth, stream_used, out_partial[stream]);
 
-								// Keep it as the head
-								_send_queue_head[stream] = node;
-								node->prev = 0;
+		bandwidth -= stream_used;
+	}
 
-								_send_buffer_stream = NUM_STREAMS;
+	// Relink the send queue for the remaining nodes
+	for (u32 stream = 0; stream < NUM_STREAMS; ++stream)
+	{
+		SendQueue *node = out_tail[stream];
 
-								// Break out of walking send queue
-								goto BreakStreamEarly;
-							}
+		// If node will only be partially sent,
+		if (node && !out_partial[stream]) node = node->next;
 
-							// Recalculate how many bytes it would take to represent
-							u32 diff = ack_id - remote_expected;
-							if (diff < ACK_ID_1_THRESH)			ack_id_overhead = 1;
-							else if (diff < ACK_ID_2_THRESH)	ack_id_overhead = 2;
-							else								ack_id_overhead = 3;
+		// Fix list links
+		_send_queue_head[stream] = node;
+		if (node) node->prev = 0;
+		else _send_queue_tail[stream] = 0;
+	}
 
-							if (!fragmented)
-							{
-								// If the message is still fragmented after emptying the send buffer,
-								if (2 + ack_id_overhead + remaining_data_bytes > remaining_send_buffer)
-								{
-									frag_overhead = 2;
-									fragmented = true;
-								}
-							}
-						}
-						else
-						{
-							if (!fragmented)
-							{
-								frag_overhead = 2;
-								fragmented = true;
-							}
-						}
-					}
+	_send_queue_lock.Leave();
 
-					// Calculate total bytes to write to the send buffer on this pass
-					u32 overhead = 2 + ack_id_overhead + frag_overhead;
-					u32 msg_bytes = overhead + remaining_data_bytes;
-					u32 write_bytes = min(msg_bytes, remaining_send_buffer);
+	u32 max_payload_bytes = _max_payload_bytes;
 
-					// Limit size to allow ACK-ID decompression during retransmission
-					u32 retransmit_limit = max_payload_bytes - (3 - ack_id_overhead);
-					if (write_bytes > retransmit_limit) write_bytes = retransmit_limit;
+	// Grab whatever is currently in the send buffer
+	AutoMutex send_buffer_lock(_send_buffer_lock);
 
-					u32 data_bytes_to_copy = write_bytes - overhead;
+	u8 *send_buffer = _send_buffer; // Front of send buffer pointer
+	u32 send_buffer_bytes = _send_buffer_bytes; // Number of bytes already written to send buffer
+	u32 send_buffer_ack_id = _send_buffer_ack_id; // Next ACK-ID expected in sequence for send buffer
+	u32 send_buffer_stream = _send_buffer_stream; // Current stream or NUM_STREAMS if no ACK-IDs written yet
 
-					// Link to the end of the sent list (Expectation is that acks will be received for nodes close to the head first)
-					SendQueue *tail = _sent_list_tail[stream];
-					if (fragmented)
-					{
-						SendFrag *frag;
-						do frag = reinterpret_cast<SendFrag*>( StdAllocator::ii->Acquire(sizeof(SendFrag)) );
-						while (!frag);
+	// Write each stream together so that the ACK-ID field rarely needs to be written
+	for (u32 stream = 0; stream < NUM_STREAMS; ++stream)
+	{
+		SendQueue *node = out_head[stream];
+		if (!node) continue;
 
-						// Fill fragment object
-						frag->id = ack_id;
-						frag->next = 0;
-						frag->prev = tail;
-						frag->bytes = data_bytes_to_copy;
-						frag->offset = sent_bytes;
-						frag->ts_firstsend = now;
-						frag->ts_lastsend = now;
-						frag->full_data = node;
-						frag->frag_count = 1;
+		u32 ack_id = _next_send_id[stream];
+		u32 remote_expected = _send_next_remote_expected[stream];
+		u32 ack_id_overhead = 0;
 
-						// Link fragment at the end of the sent list
-						if (tail) tail->next = reinterpret_cast<SendQueue*>( frag );
-						else _sent_list_head[stream] = reinterpret_cast<SendQueue*>( frag );
-						_sent_list_tail[stream] = reinterpret_cast<SendQueue*>( frag );
+		// If ACK-ID needs to be sent,
+		if (send_buffer_ack_id != ack_id ||
+			send_buffer_stream != stream)
+		{
+			u32 diff = ack_id - remote_expected;
+			if (diff < ACK_ID_1_THRESH)			ack_id_overhead = 1;
+			else if (diff < ACK_ID_2_THRESH)	ack_id_overhead = 2;
+			else								ack_id_overhead = 3;
+		}
 
-						/*
-							How do we know when to deallocate the master node for fragments?
+		// For each message to send,
+		while (node)
+		{
+			// Cache next pointer since node may be relinked into sent list
+			SendQueue *next = node->next;
 
-							node->frag_count is used to know when to deallocate a master node.
-							When all of the fragments are acknowledged, the master node can be
-							deallocated.  Each fragment decreases frag_count by 1 until it
-							reaches zero, signaling that all fragments have been acknowledged.
+			bool fragmented = (node->frag_count != 0);
+			u32 sent_bytes = node->sent_bytes, total_bytes = node->bytes;
 
-							Since we're sending fragments while they're being received, and the
-							rate may be very low, node->frag_count could conceivably be reduced
-							to zero before all fragments are transmitted.  This would cause the
-							trigger condition for deleting the master node prematurely.
+			do {
+				u32 remaining_data_bytes = total_bytes - sent_bytes;
+				u32 remaining_send_buffer = max_payload_bytes - send_buffer_bytes;
+				u32 frag_overhead = 0;
 
-							To avoid the above problem, I begin by setting node->frag_count to
-							to 2 instead of 1 for the first fragment.  For the final fragment,
-							node->frag_count is not incremented, allowing the master node to
-							be deallocated at the correct time.
-						*/
-
-						// For first fragment,
-						if (sent_bytes == 0)
-						{
-							// Set master node frag count to 2
-							node->frag_count = 2;
-
-							// Mark node as a master node so that it can be ignored for
-							// RTT determination OnACK()
-							node->ts_firstsend = 1;
-							node->ts_lastsend = 0;
-						}
-						// And for all other fragments until the final one,
-						else if (sent_bytes + data_bytes_to_copy < total_bytes)
-						{
-							// Increment the frag count
-							node->frag_count++;
-						}
-					}
-					else
-					{
-						// Fill message node
-						node->id = ack_id;
-						node->next = 0;
-						node->prev = tail;
-						node->ts_firstsend = now;
-						node->ts_lastsend = now;
-						//node->frag_count = 0;  Set during reliable write
-
-						// Link message at the end of the sent list
-						if (tail) tail->next = node;
-						else _sent_list_head[stream] = node;
-						_sent_list_tail[stream] = node;
-					}
-
-					send_buffer = SendBuffer::Resize(send_buffer, send_buffer_bytes + write_bytes + TRANSPORT_OVERHEAD + AuthenticatedEncryption::OVERHEAD_BYTES);
-					if (!send_buffer)
-					{
-						send_buffer_bytes = 0;
-
-						do send_buffer = SendBuffer::Resize(send_buffer, write_bytes + TRANSPORT_OVERHEAD + AuthenticatedEncryption::OVERHEAD_BYTES);
-						while (!send_buffer);
-					}
-
-					// Write header
-					u8 *msg = send_buffer + send_buffer_bytes;
-					u32 data_bytes = data_bytes_to_copy + frag_overhead - 1;
-
-					u8 hdr = R_MASK;
-					hdr |= (fragmented ? SOP_FRAG : node->sop) << SOP_SHIFT;
-					if (ack_id_overhead) hdr |= I_MASK;
-
-					if (data_bytes <= BLO_MASK)
-					{
-						msg[0] = (u8)data_bytes | hdr;
-						++msg;
-						send_buffer_bytes += write_bytes - 1; // Turns out we can cut out a byte
-
-						// This could have been taken into account above but I don't think it's worth the processing time.
-						// The purpose of cutting out the second byte is to help in the case of many small messages,
-						// and this case is handled well as it is written now.
-					}
-					else
-					{
-						msg[0] = (u8)(data_bytes & BLO_MASK) | C_MASK | hdr;
-						msg[1] = (u8)(data_bytes >> BHI_SHIFT);
-						msg += 2;
-						send_buffer_bytes += write_bytes;
-					}
-
-					// Write optional ACK-ID
-					if (ack_id_overhead)
-					{
-						// ACK-ID compression
-						if (ack_id_overhead == 1)
-						{
-							*msg++ = (u8)(((ack_id & 31) << 2) | stream);
-						}
-						else if (ack_id_overhead == 2)
-						{
-							msg[1] = (u8)((ack_id >> 5) & 0x7f);
-							msg[0] = (u8)((ack_id << 2) | 0x80 | stream);
-							msg += 2;
-						}
-						else // if (ack_id_overhead == 3)
-						{
-							msg[2] = (u8)(ack_id >> 12);
-							msg[1] = (u8)((ack_id >> 5) | 0x80);
-							msg[0] = (u8)((ack_id << 2) | 0x80 | stream);
-							msg += 3;
-						}
-
-						ack_id_overhead = 0; // Don't write ACK-ID next time around
-					}
-
-					// Increment ACK-ID
-					++ack_id;
-
-					// Write optional fragment word
-					if (frag_overhead)
-					{
-						*(u16*)msg = getLE((u16)node->bytes);
-						frag_overhead = 0;
-						msg += 2;
-					}
-
-					// Copy data bytes
-					memcpy(msg, GetTrailingBytes(node) + sent_bytes, data_bytes_to_copy);
-
-					stream_sent += data_bytes_to_copy;
-					sent_bytes += data_bytes_to_copy;
-
-					// Update send buffer ack id and stream to minimize overhead
-					_send_buffer_ack_id = ack_id;
-					_send_buffer_stream = stream;
-
-					INFO("Transport") << "Wrote " << stream << ":" << sent_bytes << " / " << total_bytes;
-				} while (sent_bytes < total_bytes);
-
-				if (sent_bytes > total_bytes)
+				// If message would be fragmented,
+				if (2 + ack_id_overhead + remaining_data_bytes > remaining_send_buffer)
 				{
-					WARN("Transport") << "Node offset somehow escaped";
+					/*
+						When to Fragment?
+
+						The goal of the transport protocol is to deliver data as quickly and reliably as possible.
+						Fragmentation has additional processing overhead that should be avoided at the expense of
+						about FRAG_THRESHOLD bytes of lost bandwidth per packet.  If more bytes than that can fit
+						in a packet then it is time to fragment.
+					*/
+
+					// If it is worth fragmentation,
+					if (remaining_send_buffer >= FRAG_THRESHOLD)
+					{
+						if (!fragmented)
+						{
+							frag_overhead = 2;
+							fragmented = true;
+						}
+					}
+					else if (send_buffer_bytes > 0) // Not worth fragmentation, dump current send buffer
+					{
+						QueueWriteDatagram(send_buffer, send_buffer_bytes);
+
+						// NOTE: Cannot drop send buffer lock here because it protects QueueWriteDatagram() also
+
+						// Reset state for empty send buffer
+						send_buffer = 0;
+						send_buffer_bytes = 0;
+						remaining_send_buffer = max_payload_bytes;
+
+						// Recalculate how many bytes it would take to represent
+						u32 diff = ack_id - remote_expected;
+						if (diff < ACK_ID_1_THRESH)			ack_id_overhead = 1;
+						else if (diff < ACK_ID_2_THRESH)	ack_id_overhead = 2;
+						else								ack_id_overhead = 3;
+
+						if (!fragmented)
+						{
+							// If the message is still fragmented after emptying the send buffer,
+							if (2 + ack_id_overhead + remaining_data_bytes > remaining_send_buffer)
+							{
+								frag_overhead = 2;
+								fragmented = true;
+							}
+						}
+					}
+					else
+					{
+						if (!fragmented)
+						{
+							frag_overhead = 2;
+							fragmented = true;
+						}
+					}
 				}
 
-				node = next;
-			} // walking send queue
+				// Calculate total bytes to write to the send buffer on this pass
+				u32 overhead = 2 + ack_id_overhead + frag_overhead;
+				u32 msg_bytes = overhead + remaining_data_bytes;
+				u32 write_bytes = min(msg_bytes, remaining_send_buffer);
 
-			// Update send queue state for this stream
-			_send_queue_head[stream] = 0;
-			_send_queue_tail[stream] = 0;
-BreakStreamEarly:
-			_next_send_id[stream] = ack_id;
-		} // walking streams
+				// Limit size to allow ACK-ID decompression during retransmission
+				u32 retransmit_limit = max_payload_bytes - (3 - ack_id_overhead);
+				if (write_bytes > retransmit_limit) write_bytes = retransmit_limit;
 
-		if (!data_remains) stream_limit = NUM_STREAMS;
-	} while (data_remains && stream_limit < NUM_STREAMS); // end of round
+				u32 data_bytes_to_copy = write_bytes - overhead;
 
+				// Link to the end of the sent list (Expectation is that acks will be received for nodes close to the head first)
+				SendQueue *tail = _sent_list_tail[stream];
+				if (fragmented)
+				{
+					SendFrag *frag;
+					do frag = StdAllocator::ii->AcquireObject<SendFrag>();
+					while (!frag);
+
+					// Fill fragment object
+					frag->id = ack_id;
+					frag->next = 0;
+					frag->prev = tail;
+					frag->bytes = data_bytes_to_copy;
+					frag->offset = sent_bytes;
+					frag->ts_firstsend = now;
+					frag->ts_lastsend = now;
+					frag->full_data = node;
+					frag->frag_count = 1;
+
+					// Link fragment at the end of the sent list
+					if (tail) tail->next = reinterpret_cast<SendQueue*>( frag );
+					else _sent_list_head[stream] = reinterpret_cast<SendQueue*>( frag );
+					_sent_list_tail[stream] = reinterpret_cast<SendQueue*>( frag );
+
+					/*
+						How do we know when to deallocate the master node for fragments?
+
+						node->frag_count is used to know when to deallocate a master node.
+						When all of the fragments are acknowledged, the master node can be
+						deallocated.  Each fragment decreases frag_count by 1 until it
+						reaches zero, signaling that all fragments have been acknowledged.
+
+						Since we're sending fragments while they're being received, and the
+						rate may be very low, node->frag_count could conceivably be reduced
+						to zero before all fragments are transmitted.  This would cause the
+						trigger condition for deleting the master node prematurely.
+
+						To avoid the above problem, I begin by setting node->frag_count to
+						to 2 instead of 1 for the first fragment.  For the final fragment,
+						node->frag_count is not incremented, allowing the master node to
+						be deallocated at the correct time.
+					*/
+
+					// For first fragment,
+					if (sent_bytes == 0)
+					{
+						// Set master node frag count to 2
+						node->frag_count = 2;
+
+						// Mark node as a master node so that it can be ignored for
+						// RTT determination OnACK()
+						node->ts_firstsend = 1;
+						node->ts_lastsend = 0;
+					}
+					// And for all other fragments until the final one,
+					else if (sent_bytes + data_bytes_to_copy < total_bytes)
+					{
+						// Increment the frag count
+						node->frag_count++;
+					}
+				}
+				else
+				{
+					// Fill message node
+					node->id = ack_id;
+					node->next = 0;
+					node->prev = tail;
+					node->ts_firstsend = now;
+					node->ts_lastsend = now;
+					//node->frag_count = 0;  Set during reliable write
+
+					// Link message at the end of the sent list
+					if (tail) tail->next = node;
+					else _sent_list_head[stream] = node;
+					_sent_list_tail[stream] = node;
+				}
+
+				send_buffer = SendBuffer::Resize(send_buffer, send_buffer_bytes + write_bytes + TRANSPORT_OVERHEAD + AuthenticatedEncryption::OVERHEAD_BYTES);
+				if (!send_buffer)
+				{
+					// TODO: This doesn't quite do it, we also lost compression of ACK-ID and need to fix that
+					send_buffer_bytes = 0;
+
+					do send_buffer = SendBuffer::Resize(send_buffer, write_bytes + TRANSPORT_OVERHEAD + AuthenticatedEncryption::OVERHEAD_BYTES);
+					while (!send_buffer);
+				}
+
+				// Write header
+				u8 *msg = send_buffer + send_buffer_bytes;
+				u32 data_bytes = data_bytes_to_copy + frag_overhead - 1;
+
+				u8 hdr = R_MASK;
+				hdr |= (fragmented ? SOP_FRAG : node->sop) << SOP_SHIFT;
+				if (ack_id_overhead) hdr |= I_MASK;
+
+				if (data_bytes <= BLO_MASK)
+				{
+					msg[0] = (u8)data_bytes | hdr;
+					++msg;
+					send_buffer_bytes += write_bytes - 1; // Turns out we can cut out a byte
+
+					// This could have been taken into account above but I don't think it's worth the processing time.
+					// The purpose of cutting out the second byte is to help in the case of many small messages,
+					// and this case is handled well as it is written now.
+				}
+				else
+				{
+					msg[0] = (u8)(data_bytes & BLO_MASK) | C_MASK | hdr;
+					msg[1] = (u8)(data_bytes >> BHI_SHIFT);
+					msg += 2;
+					send_buffer_bytes += write_bytes;
+				}
+
+				// Write optional ACK-ID
+				if (ack_id_overhead)
+				{
+					// ACK-ID compression
+					if (ack_id_overhead == 1)
+					{
+						*msg++ = (u8)(((ack_id & 31) << 2) | stream);
+					}
+					else if (ack_id_overhead == 2)
+					{
+						msg[1] = (u8)((ack_id >> 5) & 0x7f);
+						msg[0] = (u8)((ack_id << 2) | 0x80 | stream);
+						msg += 2;
+					}
+					else // if (ack_id_overhead == 3)
+					{
+						msg[2] = (u8)(ack_id >> 12);
+						msg[1] = (u8)((ack_id >> 5) | 0x80);
+						msg[0] = (u8)((ack_id << 2) | 0x80 | stream);
+						msg += 3;
+					}
+
+					ack_id_overhead = 0; // Don't write ACK-ID next time around
+				}
+
+				// Increment ACK-ID
+				++ack_id;
+
+				// Write optional fragment word
+				if (frag_overhead)
+				{
+					*(u16*)msg = getLE((u16)node->bytes);
+					frag_overhead = 0;
+					msg += 2;
+				}
+
+				// Copy data bytes
+				memcpy(msg, GetTrailingBytes(node) + sent_bytes, data_bytes_to_copy);
+
+				sent_bytes += data_bytes_to_copy;
+
+				// Update send buffer ACK-ID and stream to reduce overhead for next message
+				send_buffer_ack_id = ack_id;
+				send_buffer_stream = stream;
+
+				INFO("Transport") << "Wrote " << stream << ": " << sent_bytes << " / " << total_bytes << " ack_id = " << (ack_id - 1);
+			} while (sent_bytes < total_bytes);
+
+			if (sent_bytes > total_bytes)
+			{
+				WARN("Transport") << "Node offset somehow escaped";
+			}
+
+			// NOTE: This is needed because the last node might remain in the send list
+			// If node is the last one to be sent,
+			if (node == out_tail[stream])
+				break;
+
+			node = next;
+		} // walking send queue
+
+		_next_send_id[stream] = ack_id;
+	}
+
+	// Update global send buffer
 	_send_buffer = send_buffer;
 	_send_buffer_bytes = send_buffer_bytes;
+	_send_buffer_ack_id = send_buffer_ack_id;
+	_send_buffer_stream = send_buffer_stream;
 }
