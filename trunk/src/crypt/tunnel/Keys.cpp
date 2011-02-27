@@ -89,9 +89,7 @@ bool TunnelKeyPair::LoadFile(const char *file_path)
 {
 	_valid = false;
 
-	// Attempt to map key file
 	SequentialFileReader file;
-
 	if (!file.Open(file_path)) return false;
 
 	u32 bytes = (u32)file.GetLength();

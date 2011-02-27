@@ -31,6 +31,7 @@
 
 #include <cat/Singleton.hpp>
 #include <cat/threads/Mutex.hpp>
+#include <cat/io/MappedFile.hpp>
 #include <fstream>
 
 namespace cat {

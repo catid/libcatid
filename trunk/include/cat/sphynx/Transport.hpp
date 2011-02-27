@@ -260,6 +260,9 @@ private:
 	static const u32 SOP_SHIFT = 5;
 	static const u32 SOP_MASK = 3;
 
+	static const u32 ACK_ID_1_THRESH = 16; // Compression threshold for 1 byte ACK-ID
+	static const u32 ACK_ID_2_THRESH = 2048; // Compression threshold for 2 byte ACK-ID
+
 	static const u32 MIN_RTT = 2; // Minimum milliseconds for RTT
 	static const int INITIAL_RTT = 1500; // milliseconds
 
@@ -272,7 +275,7 @@ private:
 	static const u32 UDP_HEADER_BYTES = 8;
 
 	static const u16 FRAG_HUGE = 0xffff; // Huge fragment marker
-	static const u32 FRAG_THRESHOLD = 32; // Fragment if FRAG_THRESHOLD bytes would be in each fragment
+	static const u32 FRAG_THRESHOLD = 32; // Minimum fragment size; used elsewhere as a kind of "fuzz factor" for edges of packets
 
 	// This is 4 times larger than the encryption out of order limit to match max expectations
 	static const u32 OUT_OF_ORDER_LIMIT = 4096; // Stop acknowledging out of order packets after caching this many
@@ -350,6 +353,10 @@ private:
 	void RunReliableReceiveQueue(SphynxTLS *tls, u32 recv_time, u32 ack_id, u32 stream);
 	void StoreReliableOutOfOrder(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *data, u32 bytes, u32 ack_id, u32 stream, u32 super_opcode);
 
+	// Starting at a given node, walk the send queue forward until available bytes of bandwidth are expended
+	// Returns the last node to send or 0 if no nodes remain
+	static SendQueue *DequeueBandwidth(SendQueue *head, s32 available_bytes, s32 &used_bytes, s32 &partial_last_bytes);
+
 	void WriteQueuedReliable();
 	void Retransmit(u32 stream, SendQueue *node, u32 now); // Does not hold the send lock!
 	void WriteACK();
@@ -373,8 +380,8 @@ public:
 	// msg_bytes: Includes message opcode byte at offset 0
 	bool WriteReliableZeroCopy(StreamMode stream, u8 *msg, u32 msg_bytes, SuperOpcode super_opcode = SOP_DATA);
 
-	// Queue up a huge data transfer, OnWriteHugeRequest() will be called when data is needed
-	bool WriteHuge(StreamMode stream);
+	// Queue up a huge data transfer
+	bool WriteHuge(StreamMode stream, HugeSource *source);
 
 	// Flush send buffer after processing the current message from the remote host
 	CAT_INLINE void FlushAfter() { _send_flush_after_processing = true; }
@@ -438,8 +445,6 @@ protected:
 	}
 
 	virtual void OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count) = 0;
-	virtual u32 OnWriteHugeRequest(StreamMode stream, u8 *data, u32 space) = 0; // Returns the number of bytes copied, 0 for done
-	virtual u32 OnWriteHugeNext(StreamMode stream, Transport *transport) = 0; // Called when next huge transfer is ready, 0 for no more transfers
 	virtual void OnReadHuge(StreamMode stream, BufferStream data, u32 size) = 0; // Sets size = 0 on end of data
 	virtual void OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes) = 0; // precondition: bytes > 0
 	virtual void OnDisconnectReason(u8 reason) = 0; // Called to help explain why a disconnect is happening

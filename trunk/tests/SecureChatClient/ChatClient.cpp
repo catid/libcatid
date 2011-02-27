@@ -72,18 +72,6 @@ public:
 			}
 		}
 	}
-	virtual u32 OnWriteHugeRequest(StreamMode stream, u8 *data, u32 space)
-	{
-		WARN("Client") << "Huge write request stream " << stream << " space = " << space;
-
-		return _fsource.OnWriteHugeRequest(stream, data, space);
-	}
-	virtual u32 OnWriteHugeNext(StreamMode stream, Transport *transport)
-	{
-		WARN("Client") << "Huge write next stream " << stream;
-
-		return _fsource.OnWriteHugeNext(stream, transport);
-	}
 	virtual void OnReadHuge(StreamMode stream, BufferStream data, u32 size)
 	{
 		WARN("Client") << "Huge read stream " << stream << " of size = " << size;

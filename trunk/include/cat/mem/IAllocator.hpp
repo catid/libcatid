@@ -97,6 +97,12 @@ public:
 	}
 
 	template<class T>
+	CAT_INLINE T *AcquireObject()
+	{
+		return reinterpret_cast<T*>( Acquire(sizeof(T)) );
+	}
+
+	template<class T>
 	CAT_INLINE T *AcquireTrailing(u32 trailing_bytes)
 	{
 		return reinterpret_cast<T*>( Acquire(sizeof(T) + trailing_bytes) );

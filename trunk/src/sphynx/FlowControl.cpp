@@ -47,11 +47,9 @@ FlowControl::FlowControl()
 	_stats_ack_ii = 0;
 }
 
-s32 FlowControl::GetRemainingBytes()
+s32 FlowControl::GetRemainingBytes(u32 now)
 {
 	_lock.Enter();
-
-	u32 now = Clock::msec();
 
 	u32 elapsed = now - _last_bw_update;
 	_last_bw_update = now;

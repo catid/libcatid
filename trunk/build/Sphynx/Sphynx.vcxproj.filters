@@ -61,9 +61,6 @@
     <ClInclude Include="..\..\include\cat\sphynx\Server.hpp">
       <Filter>Header Files\sphynx</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\cat\sphynx\Transport.hpp">
-      <Filter>Header Files\sphynx</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\include\cat\sphynx\Client.hpp">
       <Filter>Header Files\sphynx</Filter>
     </ClInclude>
@@ -83,6 +80,9 @@
       <Filter>Header Files\sphynx</Filter>
     </ClInclude>
     <ClInclude Include="..\..\include\cat\sphynx\FileTransfer.hpp">
+      <Filter>Header Files\sphynx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\sphynx\Transport.hpp">
       <Filter>Header Files\sphynx</Filter>
     </ClInclude>
   </ItemGroup>

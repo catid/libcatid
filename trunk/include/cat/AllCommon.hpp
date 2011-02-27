@@ -54,7 +54,7 @@
 #include <cat/lang/Strings.hpp>
 
 #include <cat/io/Logging.hpp>
-#include <cat/io/MMapFile.hpp>
+#include <cat/io/MappedFile.hpp>
 #include <cat/io/Settings.hpp>
 
 #include <cat/parse/BufferTok.hpp>

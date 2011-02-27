@@ -163,7 +163,7 @@
   <ItemGroup>
     <ClCompile Include="..\..\src\CommonLayer.cpp" />
     <ClCompile Include="..\..\src\io\Logging.cpp" />
-    <ClCompile Include="..\..\src\io\MMapFile.cpp" />
+    <ClCompile Include="..\..\src\io\MappedFile.cpp" />
     <ClCompile Include="..\..\src\io\Settings.cpp" />
     <ClCompile Include="..\..\src\math\BitMath.cpp" />
     <ClCompile Include="..\..\src\mem\AlignedAllocator.cpp" />
@@ -198,7 +198,7 @@
     <ClInclude Include="..\..\include\cat\CommonLayer.hpp" />
     <ClInclude Include="..\..\include\cat\Config.hpp" />
     <ClInclude Include="..\..\include\cat\io\Logging.hpp" />
-    <ClInclude Include="..\..\include\cat\io\MMapFile.hpp" />
+    <ClInclude Include="..\..\include\cat\io\MappedFile.hpp" />
     <ClInclude Include="..\..\include\cat\io\Settings.hpp" />
     <ClInclude Include="..\..\include\cat\mem\AlignedAllocator.hpp" />
     <ClInclude Include="..\..\include\cat\mem\BufferAllocator.hpp" />

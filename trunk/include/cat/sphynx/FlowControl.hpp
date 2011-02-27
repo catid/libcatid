@@ -121,7 +121,7 @@ public:
 	CAT_INLINE void SetBandwidthHighLimit(u32 limit) { _bandwidth_high_limit = limit; }
 
 	// The whole purpose of this class is to calculate this value
-	s32 GetRemainingBytes();
+	s32 GetRemainingBytes(u32 now);
 
 	// Report number of bytes for each successfully sent packet, including overhead bytes
 	void OnPacketSend(u32 bytes_with_overhead);

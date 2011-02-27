@@ -161,6 +161,15 @@ static const u32 IOP_DISCO_LEN = 1 + 1;
 
 //// sphynx::Transport
 
+class HugeSource
+{
+	friend class Transport;
+
+protected:
+	virtual u64 GetRemaining() = 0;
+	virtual u32 Read(u8 *dest, u32 bytes) = 0;
+};
+
 #if defined(CAT_PACK_TRANSPORT_STATE_STRUCTURES)
 # pragma pack(push)
 # pragma pack(1)
@@ -247,6 +256,11 @@ struct SendFrag : public SendQueue
 {
 	SendQueue *full_data;	// Object containing message data
 	u16 offset;				// Fragment data offset
+};
+
+struct SendHuge : public SendQueue
+{
+	HugeSource *source;	// Object containing source data
 };
 
 #if defined(CAT_PACK_TRANSPORT_STATE_STRUCTURES)

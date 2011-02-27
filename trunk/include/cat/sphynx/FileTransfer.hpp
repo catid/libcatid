@@ -30,7 +30,7 @@
 #define CAT_SPHYNX_FILE_TRANSFER_HPP
 
 #include <cat/sphynx/Transport.hpp>
-#include <cat/io/MMapFile.hpp>
+#include <cat/io/MappedFile.hpp>
 #include <vector>
 #include <queue> // priority_queue<>
 
@@ -39,6 +39,11 @@ namespace cat {
 
 namespace sphynx {
 
+
+class FileTransferCache
+{
+public:
+};
 
 class FileTransferSource
 {
