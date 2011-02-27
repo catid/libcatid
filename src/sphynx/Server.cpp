@@ -29,7 +29,6 @@
 #include <cat/sphynx/Server.hpp>
 #include <cat/mem/AlignedAllocator.hpp>
 #include <cat/io/Logging.hpp>
-#include <cat/io/MMapFile.hpp>
 #include <cat/io/Settings.hpp>
 #include <cat/time/Clock.hpp>
 #include <cat/hash/Murmur.hpp>

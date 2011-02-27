@@ -1668,7 +1668,7 @@ SendQueue *Transport::DequeueBandwidth(SendQueue *node, s32 available_bytes, s32
 			source_remaining -= partial;
 
 			// If this node ate the last of the bandwidth,
-			if (source_remaining >= remaining + FRAG_THRESHOLD)
+			if (source_remaining >= remaining + (s32)FRAG_THRESHOLD)
 			{
 				partial_last_bytes = partial + remaining;
 				used_bytes = available_bytes;
@@ -1684,7 +1684,7 @@ SendQueue *Transport::DequeueBandwidth(SendQueue *node, s32 available_bytes, s32
 			used -= node->sent_bytes + partial;
 
 			// If this node ate the last of the bandwidth,
-			if (used >= remaining + FRAG_THRESHOLD)
+			if (used >= remaining + (s32)FRAG_THRESHOLD)
 			{
 				partial_last_bytes = partial + remaining;
 				used_bytes = available_bytes;
@@ -1817,7 +1817,7 @@ void Transport::WriteQueuedReliable()
 				u32 frag_overhead = 0;
 
 				// If message would be fragmented,
-				if (2 + ack_id_overhead + remaining_data_bytes > remaining_send_buffer)
+				if (MAX_MESSAGE_HEADER_BYTES + ack_id_overhead + remaining_data_bytes > remaining_send_buffer)
 				{
 					/*
 						When to Fragment?
@@ -1833,7 +1833,7 @@ void Transport::WriteQueuedReliable()
 					{
 						if (!fragmented)
 						{
-							frag_overhead = 2;
+							frag_overhead = FRAG_HEADER_BYTES;
 							fragmented = true;
 						}
 					}
@@ -1841,12 +1841,13 @@ void Transport::WriteQueuedReliable()
 					{
 						QueueWriteDatagram(send_buffer, send_buffer_bytes);
 
-						// NOTE: Cannot drop send buffer lock here because it protects QueueWriteDatagram() also
-
 						// Reset state for empty send buffer
 						send_buffer = 0;
 						send_buffer_bytes = 0;
+						send_buffer_stream = NUM_STREAMS;
 						remaining_send_buffer = max_payload_bytes;
+
+						// NOTE: Cannot drop send buffer lock here because it protects QueueWriteDatagram() also
 
 						// Recalculate how many bytes it would take to represent
 						u32 diff = ack_id - remote_expected;
@@ -1857,9 +1858,9 @@ void Transport::WriteQueuedReliable()
 						if (!fragmented)
 						{
 							// If the message is still fragmented after emptying the send buffer,
-							if (2 + ack_id_overhead + remaining_data_bytes > remaining_send_buffer)
+							if (MAX_MESSAGE_HEADER_BYTES + ack_id_overhead + remaining_data_bytes > remaining_send_buffer)
 							{
-								frag_overhead = 2;
+								frag_overhead = FRAG_HEADER_BYTES;
 								fragmented = true;
 							}
 						}
@@ -1868,19 +1869,19 @@ void Transport::WriteQueuedReliable()
 					{
 						if (!fragmented)
 						{
-							frag_overhead = 2;
+							frag_overhead = FRAG_HEADER_BYTES;
 							fragmented = true;
 						}
 					}
 				}
 
 				// Calculate total bytes to write to the send buffer on this pass
-				u32 overhead = 2 + ack_id_overhead + frag_overhead;
+				u32 overhead = MAX_MESSAGE_HEADER_BYTES + ack_id_overhead + frag_overhead;
 				u32 msg_bytes = overhead + remaining_data_bytes;
 				u32 write_bytes = min(msg_bytes, remaining_send_buffer);
 
 				// Limit size to allow ACK-ID decompression during retransmission
-				u32 retransmit_limit = max_payload_bytes - (3 - ack_id_overhead);
+				u32 retransmit_limit = max_payload_bytes - (MAX_ACK_ID_BYTES - ack_id_overhead);
 				if (write_bytes > retransmit_limit) write_bytes = retransmit_limit;
 
 				u32 data_bytes_to_copy = write_bytes - overhead;
@@ -1934,6 +1935,7 @@ void Transport::WriteQueuedReliable()
 						// Set master node frag count to 2
 						node->frag_count = 2;
 
+						// TODO: Is this used?
 						// Mark node as a master node so that it can be ignored for
 						// RTT determination OnACK()
 						node->ts_firstsend = 1;
@@ -2004,27 +2006,24 @@ void Transport::WriteQueuedReliable()
 					// ACK-ID compression
 					if (ack_id_overhead == 1)
 					{
-						*msg++ = (u8)(((ack_id & 31) << 2) | stream);
+						msg[0] = (u8)(((ack_id & 31) << 2) | stream);
 					}
 					else if (ack_id_overhead == 2)
 					{
-						msg[1] = (u8)((ack_id >> 5) & 0x7f);
 						msg[0] = (u8)((ack_id << 2) | 0x80 | stream);
-						msg += 2;
+						msg[1] = (u8)((ack_id >> 5) & 0x7f);
 					}
 					else // if (ack_id_overhead == 3)
 					{
-						msg[2] = (u8)(ack_id >> 12);
-						msg[1] = (u8)((ack_id >> 5) | 0x80);
 						msg[0] = (u8)((ack_id << 2) | 0x80 | stream);
-						msg += 3;
+						msg[1] = (u8)((ack_id >> 5) | 0x80);
+						msg[2] = (u8)(ack_id >> 12);
 					}
+
+					msg += ack_id_overhead;
 
 					ack_id_overhead = 0; // Don't write ACK-ID next time around
 				}
-
-				// Increment ACK-ID
-				++ack_id;
 
 				// Write optional fragment word
 				if (frag_overhead)
@@ -2040,7 +2039,7 @@ void Transport::WriteQueuedReliable()
 				sent_bytes += data_bytes_to_copy;
 
 				// Update send buffer ACK-ID and stream to reduce overhead for next message
-				send_buffer_ack_id = ack_id;
+				send_buffer_ack_id = ++ack_id;
 				send_buffer_stream = stream;
 
 				INFO("Transport") << "Wrote " << stream << ": " << sent_bytes << " / " << total_bytes << " ack_id = " << (ack_id - 1);
