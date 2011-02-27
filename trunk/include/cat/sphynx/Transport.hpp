@@ -262,6 +262,9 @@ private:
 
 	static const u32 ACK_ID_1_THRESH = 16; // Compression threshold for 1 byte ACK-ID
 	static const u32 ACK_ID_2_THRESH = 2048; // Compression threshold for 2 byte ACK-ID
+	static const u32 MAX_ACK_ID_BYTES = 3;
+
+	static const u32 MAX_MESSAGE_HEADER_BYTES = 2;
 
 	static const u32 MIN_RTT = 2; // Minimum milliseconds for RTT
 	static const int INITIAL_RTT = 1500; // milliseconds
@@ -276,6 +279,7 @@ private:
 
 	static const u16 FRAG_HUGE = 0xffff; // Huge fragment marker
 	static const u32 FRAG_THRESHOLD = 32; // Minimum fragment size; used elsewhere as a kind of "fuzz factor" for edges of packets
+	static const u32 FRAG_HEADER_BYTES = 2;
 
 	// This is 4 times larger than the encryption out of order limit to match max expectations
 	static const u32 OUT_OF_ORDER_LIMIT = 4096; // Stop acknowledging out of order packets after caching this many
@@ -285,7 +289,7 @@ private:
 	u32 _next_recv_expected_id[NUM_STREAMS];
 
 	// Receive state: Synchronization objects
-	volatile bool _got_reliable[NUM_STREAMS];
+	bool _got_reliable[NUM_STREAMS];
 
 	// Receive state: Fragmentation
 	RecvFrag _fragments[NUM_STREAMS]; // Fragments for each stream
@@ -305,7 +309,7 @@ private:
 	// Send state: Next ack id to use
 	u32 _next_send_id[NUM_STREAMS];
 
-	// Send statE: Flush after processing incoming data
+	// Send state: Flush after processing incoming data
 	volatile bool _send_flush_after_processing;
 
 	// Send state: Last rollup ack id from remote receiver
