@@ -41,7 +41,7 @@ namespace sphynx {
 
 
 // Base class for a Sphynx client
-class CAT_EXPORT Client : public UDPEndpoint, public Transport, public WorkerCallbacks
+class CAT_EXPORT Client : public UDPEndpoint, public Transport, public IWorkerCallbacks, public IDNSResultCallback
 {
 	static const int HANDSHAKE_TICK_RATE = 100; // milliseconds
 	static const int INITIAL_HELLO_POST_INTERVAL = 200; // milliseconds
@@ -97,7 +97,7 @@ class CAT_EXPORT Client : public UDPEndpoint, public Transport, public WorkerCal
 	bool WriteTimePing();
 
 	// Return false to remove resolve from cache
-	bool OnResolve(const char *hostname, const NetAddr *array, int array_length);
+	bool OnDNSResolve(const char *hostname, const NetAddr *array, int array_length);
 
 	virtual bool WriteDatagrams(const BatchSet &buffers);
 	virtual void OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes);

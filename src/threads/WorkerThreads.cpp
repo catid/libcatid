@@ -46,7 +46,7 @@ WorkerThread::~WorkerThread()
 {
 }
 
-void WorkerThread::Associate(WorkerCallbacks *callbacks)
+void WorkerThread::Associate(IWorkerCallbacks *callbacks)
 {
 	_new_workers_lock.Enter();
 
@@ -86,7 +86,7 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 	u32 tick_interval = master->_tick_interval;
 	u32 next_tick = 0; // Tick right away
 
-	WorkerCallbacks *head = 0, *tail = 0;
+	IWorkerCallbacks *head = 0, *tail = 0;
 
 	while (!_kill_flag)
 	{
@@ -151,10 +151,10 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 		// If tick interval is up,
 		if ((s32)(now - next_tick) >= 0)
 		{
-			WorkerCallbacks *prev = 0, *next;
+			IWorkerCallbacks *prev = 0, *next;
 
 			// For each session,
-			for (WorkerCallbacks *node = head; node; node = next)
+			for (IWorkerCallbacks *node = head; node; node = next)
 			{
 				next = node->_worker_next;
 
@@ -203,7 +203,7 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 		// If new workers have been added,
 		if (_new_head)
 		{
-			WorkerCallbacks *new_head;
+			IWorkerCallbacks *new_head;
 
 			_new_workers_lock.Enter();
 			new_head = _new_head;

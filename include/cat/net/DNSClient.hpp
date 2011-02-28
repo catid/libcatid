@@ -38,7 +38,6 @@
 
 #include <cat/io/IOLayer.hpp>
 #include <cat/threads/WaitableFlag.hpp>
-#include <cat/port/FastDelegate.h>
 #include <cat/crypt/rand/Fortuna.hpp>
 
 namespace cat {
@@ -54,8 +53,11 @@ static const int DNSCACHE_TIMEOUT = 60000; // Time until a cached response is dr
 
 static const int DNS_THREAD_KILL_TIMEOUT = 10000; // 10 seconds
 
-// Prototype: bool MyResultCallback(const char *, const NetAddr*, int);
-typedef fastdelegate::FastDelegate3<const char *, const NetAddr*, int, bool> DNSResultCallback;
+class IDNSResultCallback
+{
+public:
+	virtual bool OnDNSResolve(const char *hostname, const NetAddr *addrs, int count) = 0;
+};
 
 
 //// DNSRequest
@@ -64,7 +66,7 @@ struct DNSCallback
 {
 	DNSCallback *next;
 
-	DNSResultCallback cb;
+	IDNSResultCallback *cb;
 	RefObject *ref;
 };
 
@@ -88,7 +90,7 @@ struct DNSRequest
 
 //// DNSClient
 
-class DNSClient : public UDPEndpoint, public WorkerCallbacks
+class DNSClient : public UDPEndpoint, public IWorkerCallbacks
 {
 	NetAddr _server_addr;
 	bool _initialized;
@@ -151,7 +153,7 @@ public:
 
 		If Resolve() returns false, no callback will be generated.
 	*/
-	bool Resolve(IOLayer *iolayer, const char *hostname, DNSResultCallback, RefObject *holdRef = 0);
+	bool Resolve(IOLayer *iolayer, const char *hostname, IDNSResultCallback*, RefObject *holdRef = 0);
 
 protected:
 	virtual void OnShutdownRequest();

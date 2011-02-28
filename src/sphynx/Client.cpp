@@ -477,7 +477,7 @@ bool Client::Connect(SphynxLayer *layer, SphynxTLS *tls, const char *hostname, P
 
 	_server_addr.SetPort(port);
 
-	if (!layer->GetDNSClient()->Resolve(layer, hostname, fastdelegate::MakeDelegate(this, &Client::OnResolve), this))
+	if (!layer->GetDNSClient()->Resolve(layer, hostname, this, this))
 	{
 		ConnectFail(ERR_CLIENT_SERVER_ADDR);
 		return false;
@@ -497,7 +497,7 @@ bool Client::Connect(SphynxLayer *layer, SphynxTLS *tls, const NetAddr &addr, Tu
 	return true;
 }
 
-bool Client::OnResolve(const char *hostname, const NetAddr *addrs, int count)
+bool Client::OnDNSResolve(const char *hostname, const NetAddr *addrs, int count)
 {
 	// If resolve failed,
 	if (count <= 0)

@@ -47,7 +47,7 @@ struct RecvBuffer : public BatchHead
 		// Worker layer specific overhead
 		struct 
 		{
-			WorkerCallbacks *callback;
+			IWorkerCallbacks *callback;
 			NetAddr addr;
 
 			// TODO: Sphynx specific

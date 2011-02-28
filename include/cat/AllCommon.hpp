@@ -49,7 +49,6 @@
 
 #include <cat/port/SystemInfo.hpp>
 #include <cat/port/EndianNeutral.hpp>
-#include <cat/port/FastDelegate.h>
 
 #include <cat/lang/Strings.hpp>
 
