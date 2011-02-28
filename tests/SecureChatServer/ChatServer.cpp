@@ -18,7 +18,7 @@ public:
 	{
 		WARN("Connexion") << "-- Shutdown Requested";
 
-		Connexion::OnZeroReferences();
+		Connexion::OnShutdownRequest();
 	}
 	virtual bool OnZeroReferences()
 	{
@@ -80,15 +80,31 @@ public:
 	}
 };
 
-class GameServer : public sphynx::Server
+class GameServer : public Server
 {
-public:
+protected:
+	virtual void OnShutdownRequest()
+	{
+		WARN("Server") << "-- Shutdown Requested";
+
+		Server::OnShutdownRequest();
+	}
+	virtual bool OnZeroReferences()
+	{
+		WARN("Server") << "-- Zero References";
+
+		return Server::OnZeroReferences();
+	}
 	virtual sphynx::Connexion *NewConnexion()
 	{
+		WARN("Server") << "-- Allocating a new Connexion";
+
 		return new GameConnexion;
 	}
 	virtual bool AcceptNewConnexion(const NetAddr &src)
 	{
+		WARN("Server") << "-- Accepting a connexion from " << src.IPToString() << " : " << src.GetPort();
+
 		return true; // allow all
 	}
 };

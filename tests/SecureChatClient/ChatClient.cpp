@@ -37,15 +37,6 @@ public:
 	virtual void OnConnect(SphynxTLS *tls)
 	{
 		WARN("Client") << "-- CONNECTED";
-
-		if (_fsource.WriteFile(OP_FILE_UPLOAD_START, "source_file.txt", "sink_file.txt", this))
-		{
-			WARN("Client") << "-- File upload starting";
-		}
-		else
-		{
-			WARN("Client") << "-- File upload FAILED";
-		}
 	}
 	virtual void OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count)
 	{

@@ -1348,7 +1348,7 @@ bool Transport::PostMTUProbe(SphynxTLS *tls, u32 mtu)
 	//	C = 1 (large packet size)
 	//	SOP = IOP_C2S_MTU_PROBE
 	u32 data_bytes = payload_bytes - 3;
-	pkt[0] = (u8)((IOP_C2S_MTU_PROBE << SOP_SHIFT) | C_MASK | (data_bytes & BLO_MASK));
+	pkt[0] = (u8)((SOP_INTERNAL << SOP_SHIFT) | C_MASK | (data_bytes & BLO_MASK));
 	pkt[1] = (u8)(data_bytes >> BHI_SHIFT);
 	pkt[2] = IOP_C2S_MTU_PROBE;
 	tls->csprng->Generate(pkt + 3, data_bytes);
@@ -1732,6 +1732,8 @@ void Transport::WriteQueuedReliable()
 
 		out_tail[stream] = DequeueBandwidth(node, bandwidth / (NUM_STREAMS - 1 - stream), bandwidth);
 	}
+
+	out_head[STREAM_BULK] = out_tail[STREAM_BULK] = 0;
 
 	// All streams may claim remaining bandwidth with stream 0 as highest priority
 	for (u32 stream = 0; bandwidth > 0 && stream < NUM_STREAMS; ++stream)

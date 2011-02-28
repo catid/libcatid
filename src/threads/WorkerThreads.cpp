@@ -161,6 +161,8 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 				// If session is shutting down,
 				if (node->_parent->IsShutdown())
 				{
+					WARN("WorkerThreads") << "Removing shutdown worker " << node;
+
 					// Unlink from list
 					if (prev) prev->_worker_next = next;
 					else head = next;

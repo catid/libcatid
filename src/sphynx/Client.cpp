@@ -169,9 +169,6 @@ void Client::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 					_key_agreement_initiator.KeyEncryption(&key_hash, &_auth_enc, _session_key) &&
 					InitializeTransportSecurity(true, _auth_enc))
 				{
-					_connected = true;
-					OnConnect(tls);
-
 					_last_recv_tsc = _next_sync_time = _mtu_discovery_time = Clock::msec();
 					_mtu_discovery_attempts = 2;
 					_sync_attempts = 0;
@@ -189,6 +186,9 @@ void Client::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 					{
 						WARN("Client") << "Unable to detect MTU: First probe post failure";
 					}
+
+					_connected = true;
+					OnConnect(tls);
 
 					// If we have already received the first encrypted message, keep processing
 					node = node->batch_next;

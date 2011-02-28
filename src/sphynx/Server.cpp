@@ -41,6 +41,8 @@ using namespace sphynx;
 
 void Server::OnShutdownRequest()
 {
+	_conn_map.ShutdownAll();
+
 	UDPEndpoint::OnShutdownRequest();
 }
 
@@ -95,6 +97,8 @@ void Server::OnReadRouting(const BatchSet &buffers)
 				// If connection matched address,
 				if (conn)
 				{
+					WARN("Server") << "Found connexion matching address";
+
 					worker_id = conn->GetServerWorkerID();
 					buffer->callback = conn;
 				}
@@ -114,7 +118,9 @@ void Server::OnReadRouting(const BatchSet &buffers)
 		}
 		else if (conn)
 		{
-			// Another packet from the same connection
+			// Another packet from the same connexion
+			WARN("Server") << "Another packet from the same connexion";
+
 			conn->AddRef();
 			buffer->callback = conn;
 		}
@@ -227,6 +233,13 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 				continue;
 			}
 
+			if (IsShutdown())
+			{
+				WARN("Server") << "Ignoring challenge: Server is shutting down";
+				PostConnectionError(buffer->addr, ERR_SHUTDOWN);
+				continue;
+			}
+
 			// If the derived server object does not like this address,
 			if (!AcceptNewConnexion(buffer->addr))
 			{
@@ -245,8 +258,9 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 
 			u8 *pkt = SendBuffer::Acquire(S2C_ANSWER_LEN);
 			u8 *challenge = data + 1 + 4 + 4;
+
 			Skein key_hash;
-			AutoRef<Connexion> conn;
+			AutoShutdown<Connexion> conn;
 
 			// Verify that post buffer could be allocated
 			if (!pkt)
@@ -316,21 +330,23 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 				{
 					WARN("Server") << "Ignoring challenge: Same client already connected (race condition)";
 				}
-				else
+				// If server is still not shutting down,
+				else if (!IsShutdown())
 				{
 					WARN("Server") << "Accepted challenge and posted answer.  Client connected";
 
+					// Add a reference to the server on behalf of the Connexion
+					// When the Connexion dies, it will release this reference
+					AddRef();
+
 					conn->OnConnect(tls);
 
-					// Forget the object so it will not go out of scope and die
+					// Do not shutdown the object
 					conn.Forget();
-
-					continue;
 				}
 			}
 
-			// Only get here if connection failed
-			// AutoRef for the connexion will go out of scope here and destroy the object
+			// If execution gets here, the Connexion object will be shutdown
 		}
 	}
 

@@ -39,16 +39,15 @@ namespace cat {
 namespace sphynx {
 
 
-// Base class for a Sphynx server
 class Server : public UDPEndpoint, public WorkerCallbacks
 {
+	friend class Connexion;
+
 	static const int SESSION_KEY_BYTES = 32;
 	char _session_key[SESSION_KEY_BYTES];
 
 	ConnexionMap _conn_map;
-
 	CookieJar _cookie_jar;
-
 	KeyAgreementResponder _key_agreement_responder;
 	TunnelPublicKey _public_key;
 
