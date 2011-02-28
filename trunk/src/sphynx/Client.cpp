@@ -329,7 +329,7 @@ void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)
 						}
 
 						if (_max_payload_bytes < MEDIUM_MTU - _overhead_bytes &&
-							!PostMTUProbe(tls, MAXIMUM_MTU))
+							!PostMTUProbe(tls, MEDIUM_MTU))
 						{
 							WARN("Client") << "Unable to detect MTU: Probe post failure";
 						}

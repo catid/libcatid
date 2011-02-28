@@ -67,7 +67,7 @@ class MappedFileReader;
 // Read-only memory mapped file
 class MappedFile
 {
-	friend class MMapView;
+	friend class MappedView;
 
 #if defined(CAT_OS_WINDOWS)
 	HANDLE _file;
@@ -153,7 +153,7 @@ class SequentialFileReader : public MappedSequentialReader
 	MappedFile _file;
 
 public:
-	CAT_INLINE bool Open(const char *path) { return _file.Open(path) && MappedSequentialReader::Open(&_file); }
+	CAT_INLINE bool Open(const char *path) { MappedSequentialReader::Close(); return _file.Open(path) && MappedSequentialReader::Open(&_file); }
 	CAT_INLINE void Close() { MappedSequentialReader::Close(); _file.Close(); }
 };
 
