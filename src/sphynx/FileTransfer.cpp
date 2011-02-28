@@ -40,6 +40,22 @@ FileTransferSource::~FileTransferSource()
 	ClearHeap();
 }
 
+u64 FileTransferSource::GetRemaining(StreamMode stream)
+{
+	if (stream != STREAM_BULK)
+		return 0;
+
+	return 0;
+}
+
+u32 FileTransferSource::Read(StreamMode stream, u8 *dest, u32 bytes, Transport *transport)
+{
+	if (stream != STREAM_BULK)
+		return 0;
+
+	return 0;
+}
+
 void FileTransferSource::ClearHeap()
 {
 	AutoMutex lock(_lock);
@@ -66,7 +82,7 @@ bool FileTransferSource::StartTransfer(QueuedFile *file, Transport *transport)
 	file->msg = 0;
 
 	return transport->WriteReliableZeroCopy(STREAM_BULK, msg, file->msg_bytes) &&
-		   transport->WriteHuge(STREAM_BULK);
+		   transport->WriteHuge(STREAM_BULK, this);
 }
 
 bool FileTransferSource::WriteFile(u8 opcode, const std::string &source_path, const std::string &sink_path, Transport *transport, u32 priority)
@@ -113,18 +129,6 @@ bool FileTransferSource::WriteFile(u8 opcode, const std::string &source_path, co
 	_lock.Leave();
 
 	return true;
-}
-
-u32 FileTransferSource::OnWriteHugeRequest(StreamMode stream, u8 *data, u32 space)
-{
-	if (stream != STREAM_BULK) return 0;
-	return 0;
-}
-
-u32 FileTransferSource::OnWriteHugeNext(StreamMode stream, Transport *transport)
-{
-	if (stream != STREAM_BULK) return 0;
-	return 0;
 }
 
 

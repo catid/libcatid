@@ -133,7 +133,8 @@ public:
 	void OnTick(u32 now, u32 timeout_loss_count);
 
 	// Called when an acknowledgment is received
-	void OnACK(u32 now, u32 avg_one_way_time, u32 nack_loss_count);
+	void OnACK(u32 now, SendQueue *node);
+	void OnACKDone(u32 now, u32 avg_one_way_time, u32 nack_loss_count, u32 data_bytes);
 };
 
 
