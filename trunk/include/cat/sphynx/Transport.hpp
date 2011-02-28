@@ -359,7 +359,7 @@ private:
 
 	// Starting at a given node, walk the send queue forward until available bytes of bandwidth are expended
 	// Returns the last node to send or 0 if no nodes remain
-	static SendQueue *DequeueBandwidth(SendQueue *head, s32 available_bytes, s32 &used_bytes, s32 &partial_last_bytes);
+	static SendQueue *DequeueBandwidth(SendQueue *head, s32 available_bytes, s32 &used_bytes);
 
 	void WriteQueuedReliable();
 	void Retransmit(u32 stream, SendQueue *node, u32 now); // Does not hold the send lock!
@@ -385,7 +385,7 @@ public:
 	bool WriteReliableZeroCopy(StreamMode stream, u8 *msg, u32 msg_bytes, SuperOpcode super_opcode = SOP_DATA);
 
 	// Queue up a huge data transfer
-	bool WriteHuge(StreamMode stream, HugeSource *source);
+	bool WriteHuge(StreamMode stream, IHugeSource *source);
 
 	// Flush send buffer after processing the current message from the remote host
 	CAT_INLINE void FlushAfter() { _send_flush_after_processing = true; }

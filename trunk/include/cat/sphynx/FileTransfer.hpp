@@ -45,7 +45,7 @@ class FileTransferCache
 public:
 };
 
-class FileTransferSource
+class FileTransferSource : public IHugeSource
 {
 	struct QueuedFile
 	{
@@ -72,18 +72,21 @@ class FileTransferSource
 	void ClearHeap();
 	bool StartTransfer(QueuedFile *file, Transport *transport);
 
+protected:
+	// IHugeSource: Get number of bytes remaining in current transfer
+	u64 GetRemaining(StreamMode stream);
+
+	// IHugeSource: Read a number of bytes from cache (without blocking)
+	// May return less than the number requested, which indicates that the cache
+	// has fallen behind demand.  Any number down to zero is accepted.
+	u32 Read(StreamMode stream, u8 *dest, u32 bytes, Transport *transport);
+
 public:
 	FileTransferSource();
 	~FileTransferSource();
 
 	// Queue up a file transfer
 	bool WriteFile(u8 opcode, const std::string &source_path, const std::string &sink_path, Transport *transport, u32 priority = 0);
-
-	// Takes over u32 OnWriteHugeRequest(StreamMode stream, u8 *data, u32 space)
-	u32 OnWriteHugeRequest(StreamMode stream, u8 *data, u32 space);
-
-	// Takes over u32 OnWriteHugeNext(StreamMode stream)
-	u32 OnWriteHugeNext(StreamMode stream, Transport *transport);
 };
 
 class FileTransferSink

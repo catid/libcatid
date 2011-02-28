@@ -161,13 +161,13 @@ static const u32 IOP_DISCO_LEN = 1 + 1;
 
 //// sphynx::Transport
 
-class HugeSource
+class IHugeSource
 {
 	friend class Transport;
 
 protected:
-	virtual u64 GetRemaining() = 0;
-	virtual u32 Read(u8 *dest, u32 bytes) = 0;
+	virtual u64 GetRemaining(StreamMode stream) = 0;
+	virtual u32 Read(StreamMode stream, u8 *dest, u32 bytes, Transport *transport) = 0;
 };
 
 #if defined(CAT_PACK_TRANSPORT_STATE_STRUCTURES)
@@ -230,14 +230,16 @@ struct SendQueue
 		// In send queue:
 		struct
 		{
-			u32 sent_bytes;	// Number of sent bytes while fragmenting a large message
+			u64 sent_bytes;		// Number of bytes sent so far in this transfer
+			u64 remaining;		// Number of bytes remaining in transfer
+			u32 send_bytes;		// Number of bytes to send this time, calculated in DequeueBandwidth()
 		};
 
 		// In sent list:
 		struct
 		{
-			u32 id;				// Acknowledgment id
 			SendQueue *prev;	// Previous in queue
+			u32 id;				// Acknowledgment id
 			u32 ts_firstsend;	// Millisecond-resolution timestamp when it was first sent
 			u32 ts_lastsend;	// Millisecond-resolution timestamp when it was last sent
 			u32 frag_count;		// Number of fragments remaining to be delivered
@@ -245,8 +247,8 @@ struct SendQueue
 	};
 
 	// Shared members:
-	u32 bytes;			// Data bytes
 	SendQueue *next;	// Next in queue
+	u16 bytes;			// Data bytes
 	u8 sop;				// Super opcode of message
 
 	// Message contents follow
@@ -255,12 +257,12 @@ struct SendQueue
 struct SendFrag : public SendQueue
 {
 	SendQueue *full_data;	// Object containing message data
-	u16 offset;				// Fragment data offset
+	u64 offset;				// Fragment data offset, large enough for huge files
 };
 
 struct SendHuge : public SendQueue
 {
-	HugeSource *source;	// Object containing source data
+	IHugeSource *source;	// Object containing message data
 };
 
 #if defined(CAT_PACK_TRANSPORT_STATE_STRUCTURES)

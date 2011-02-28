@@ -98,7 +98,12 @@ void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 	_lock.Leave();
 }
 
-void FlowControl::OnACK(u32 now, u32 avg_one_way_time, u32 nack_loss_count)
+void FlowControl::OnACK(u32 now, SendQueue *node)
+{
+	u32 rtt = now - node->ts_firstsend;
+}
+
+void FlowControl::OnACKDone(u32 now, u32 avg_one_way_time, u32 nack_loss_count, u32 data_bytes)
 {
 	_stats_trip[_stats_ack_ii] = avg_one_way_time;
 	_stats_nack[_stats_ack_ii] = nack_loss_count;
