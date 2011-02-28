@@ -34,6 +34,11 @@
 #include <cat/AllTunnel.hpp>
 #include <cat/AllAsyncIO.hpp>
 
+#if defined(CAT_COMPILER_MSVC) && defined(CAT_BUILD_DLL)
+# pragma warning(push)
+# pragma warning(disable:4251) // Remove "not exported" warning from STL
+#endif
+
 #include <cat/net/DNSClient.hpp>
 
 #include <cat/sphynx/Common.hpp>
@@ -45,3 +50,7 @@
 #include <cat/sphynx/Server.hpp>
 #include <cat/sphynx/Transport.hpp>
 #include <cat/sphynx/FileTransfer.hpp>
+
+#if defined(CAT_COMPILER_MSVC) && defined(CAT_BUILD_DLL)
+# pragma warning(pop)
+#endif

@@ -30,7 +30,16 @@
 
 #include <cat/AllCommon.hpp>
 
+#if defined(CAT_COMPILER_MSVC) && defined(CAT_BUILD_DLL)
+# pragma warning(push)
+# pragma warning(disable:4251) // Remove "not exported" warning from STL
+#endif
+
 #include <cat/gfx/Scalar.hpp>
 #include <cat/gfx/Vector.hpp>
 #include <cat/gfx/Matrix.hpp>
 #include <cat/gfx/Quaternion.hpp>
+
+#if defined(CAT_COMPILER_MSVC) && defined(CAT_BUILD_DLL)
+# pragma warning(pop)
+#endif

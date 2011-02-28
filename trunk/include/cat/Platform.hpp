@@ -247,7 +247,7 @@ namespace cat {
 # define CAT_ISA_PPC
 
 #elif defined(__i386__) || defined(i386) || defined(intel) || defined(_M_IX86) || \
-      defined(__ia64) || defined(__ia64__) || defined(__x86_64) || defined(_M_IA64) || \
+	  defined(__ia64) || defined(__ia64__) || defined(__x86_64) || defined(_M_IA64) || \
 	  defined(_M_X64)
 # define CAT_ISA_X86
 
@@ -418,14 +418,14 @@ namespace cat {
 #if defined(CAT_COMPILER_MSVC)
 
 	// MSVC does not ship with stdint.h (C99 standard...)
-    typedef unsigned __int8  u8;
-    typedef signed __int8    s8;
-    typedef unsigned __int16 u16;
-    typedef signed __int16   s16;
-    typedef unsigned __int32 u32;
-    typedef signed __int32   s32;
-    typedef unsigned __int64 u64;
-    typedef signed __int64   s64;
+	typedef unsigned __int8  u8;
+	typedef signed __int8	 s8;
+	typedef unsigned __int16 u16;
+	typedef signed __int16   s16;
+	typedef unsigned __int32 u32;
+	typedef signed __int32   s32;
+	typedef unsigned __int64 u64;
+	typedef signed __int64   s64;
 
 #else
 
@@ -448,8 +448,8 @@ namespace cat {
 #if defined(CAT_COMPILER_GCC) && defined(CAT_WORD_64)
 
 	// GCC also adds 128-bit types :D
-    typedef __uint128_t u128;
-    typedef __int128_t  s128;
+	typedef __uint128_t u128;
+	typedef __int128_t  s128;
 
 #endif
 
@@ -457,11 +457,11 @@ typedef float f32;
 typedef double f64;
 
 union Float32 {
-    float f;
-    u32 i;
+	float f;
+	u32 i;
 
-    Float32(float n) { f = n; }
-    Float32(u32 n) { i = n; }
+	Float32(float n) { f = n; }
+	Float32(u32 n) { i = n; }
 };
 
 
@@ -625,6 +625,13 @@ template<typename T> CAT_INLINE T Bound(const T &minimum, const T &maximum, cons
 #define CAT_BOSWAP64(n) _byteswap_uint64(n)
 
 #endif
+
+
+//// No Copy ////
+
+#define CAT_NO_COPY(T) \
+	CAT_INLINE T(const T&) {} \
+	CAT_INLINE T& operator=(const T&) { return *this; }
 
 
 } // namespace cat

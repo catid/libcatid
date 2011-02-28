@@ -58,7 +58,6 @@ void EasyHandshake::Shutdown()
 	if (handshake_references > 0 && !--handshake_references)
 	{
 		FortunaFactory::ref()->Shutdown();
-		FortunaFactory::deallocate();
 		Clock::Shutdown();
 	}
 }
@@ -117,7 +116,7 @@ bool ServerEasyHandshake::Initialize(TunnelKeyPair &key_pair)
 	if (!key_pair.Valid()) return false;
 
 	// Initialize the tunnel server object using the provided key
-    return tun_server.Initialize(tls_math, tls_csprng, key_pair);
+	return tun_server.Initialize(tls_math, tls_csprng, key_pair);
 }
 
 bool ServerEasyHandshake::ProcessChallenge(const void *in_challenge, void *out_answer, AuthenticatedEncryption *auth_enc)
@@ -188,7 +187,7 @@ bool ClientEasyHandshake::GenerateChallenge(void *out_challenge)
 	u8 *challenge = reinterpret_cast<u8*>( out_challenge );
 
 	// Generate a challenge
-    return tun_client.GenerateChallenge(tls_math, tls_csprng, challenge, CHALLENGE_BYTES);
+	return tun_client.GenerateChallenge(tls_math, tls_csprng, challenge, CHALLENGE_BYTES);
 }
 
 bool ClientEasyHandshake::ProcessAnswer(const void *in_answer, AuthenticatedEncryption *auth_enc)

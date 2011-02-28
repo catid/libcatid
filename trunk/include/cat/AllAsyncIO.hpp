@@ -30,8 +30,17 @@
 
 #include <cat/AllCommon.hpp>
 
+#if defined(CAT_COMPILER_MSVC) && defined(CAT_BUILD_DLL)
+# pragma warning(push)
+# pragma warning(disable:4251) // Remove "not exported" warning from STL
+#endif
+
 #include <cat/io/IOLayer.hpp>
 
 #include <cat/net/Sockets.hpp>
 #include <cat/net/RecvBuffer.hpp>
 #include <cat/net/SendBuffer.hpp>
+
+#if defined(CAT_COMPILER_MSVC) && defined(CAT_BUILD_DLL)
+# pragma warning(pop)
+#endif

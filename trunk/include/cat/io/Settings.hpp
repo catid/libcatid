@@ -29,7 +29,6 @@
 #ifndef CAT_SETTINGS_HPP
 #define CAT_SETTINGS_HPP
 
-#include <cat/Singleton.hpp>
 #include <cat/threads/Mutex.hpp>
 #include <cat/io/MappedFile.hpp>
 #include <fstream>
@@ -39,77 +38,80 @@ namespace cat {
 
 enum SettingsValueFlags
 {
-    CAT_SETTINGS_FILLED = 1, // s[] array has been set
-    CAT_SETTINGS_INT = 2,    // value has been promoted to int 'i'
+	CAT_SETTINGS_FILLED = 1, // s[] array has been set
+	CAT_SETTINGS_INT = 2,	// value has been promoted to int 'i'
 };
 
 struct SettingsValue
 {
-    u8 flags;    // sum of SettingsValueFlags
-    char s[256]; // always nul-terminated
-    int i;
+	u8 flags;	// sum of SettingsValueFlags
+	char s[256]; // always nul-terminated
+	int i;
 };
 
 
 class CAT_EXPORT SettingsKey
 {
-public:
-    SettingsKey(SettingsKey *lnode, SettingsKey *gnode, const char *name);
-    ~SettingsKey();
+	CAT_NO_COPY(SettingsKey);
 
 public:
-    SettingsKey *lnode, *gnode;
-
-    char name[64]; // not necessarily nul-terminated
-
-    SettingsValue value;
+	SettingsKey(SettingsKey *lnode, SettingsKey *gnode, const char *name);
+	~SettingsKey();
 
 public:
-    void write(std::ofstream &file);
+	SettingsKey *lnode, *gnode;
+
+	char name[64]; // not necessarily nul-terminated
+
+	SettingsValue value;
+
+public:
+	void write(std::ofstream &file);
 };
 
 
 // User settings manager
-class CAT_EXPORT Settings : public Singleton<Settings>
+class CAT_EXPORT Settings
 {
-    CAT_SINGLETON(Settings);
+	CAT_NO_COPY(Settings);
 
 	Mutex _lock;
 
-protected:
 	static const u32 KEY_HASH_SALT = 0xbaddecaf;
-    static const int SETTINGS_HASH_BINS = 256;
+	static const int SETTINGS_HASH_BINS = 256;
 
-    SettingsKey *hbtrees[SETTINGS_HASH_BINS]; // hash table of binary trees
+	SettingsKey *hbtrees[SETTINGS_HASH_BINS]; // hash table of binary trees
 
-    bool readSettings; // Flag set when settings have been read from disk
-    bool modified;     // Flag set when settings have been modified since last write
+	bool readSettings; // Flag set when settings have been read from disk
+	bool modified;	 // Flag set when settings have been modified since last write
 
 	std::string _settings_file;
 
-protected:
-    SettingsKey *addKey(const char *name);
-    SettingsKey *getKey(const char *name);
+	SettingsKey *addKey(const char *name);
+	SettingsKey *getKey(const char *name);
 
-    SettingsKey *initInt(const char *name, int n, bool overwrite);
-    SettingsKey *initStr(const char *name, const char *value, bool overwrite);
+	SettingsKey *initInt(const char *name, int n, bool overwrite);
+	SettingsKey *initStr(const char *name, const char *value, bool overwrite);
 
-    void clear();
-    
+	void clear();
+	
 public:
-    void readSettingsFromFile(const char *file_path = "settings.txt", const char *override_file = "override.txt");
-    void readSettingsFromBuffer(SequentialFileReader &sfile);
-    void write();
+	Settings();
 
-public:
-    int getInt(const char *name);
-    const char *getStr(const char *name);
+	static Settings *ref();
 
-    int getInt(const char *name, int init);
-    const char *getStr(const char *name, const char *init);
+	void readSettingsFromFile(const char *file_path = "settings.txt", const char *override_file = "override.txt");
+	void readSettingsFromBuffer(SequentialFileReader &sfile);
+	void write();
 
-    void setInt(const char *name, int n);
-    void setStr(const char *name, const char *value);
+	int getInt(const char *name);
+	const char *getStr(const char *name);
+
+	int getInt(const char *name, int init);
+	const char *getStr(const char *name, const char *init);
+
+	void setInt(const char *name, int n);
+	void setStr(const char *name, const char *value);
 };
 
 

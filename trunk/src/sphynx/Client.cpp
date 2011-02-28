@@ -412,11 +412,11 @@ bool Client::InitialConnect(SphynxLayer *layer, SphynxTLS *tls, TunnelPublicKey 
 	_server_public_key = public_key;
 
 	// Get SupportIPv6 flag from settings
-	bool only_ipv4 = Settings::ii->getInt("Sphynx.Client.SupportIPv6", 0) == 0;
+	bool only_ipv4 = Settings::ref()->getInt("Sphynx.Client.SupportIPv6", 0) == 0;
 
 	// Get kernel receive buffer size
 	int kernelReceiveBufferBytes =
-		Settings::ii->getInt("Sphynx.Client.KernelReceiveBuffer", 1000000);
+		Settings::ref()->getInt("Sphynx.Client.KernelReceiveBuffer", 1000000);
 
 	// Attempt to bind to any port and accept ICMP errors initially
 	if (!Bind(layer, only_ipv4, 0, false, kernelReceiveBufferBytes))

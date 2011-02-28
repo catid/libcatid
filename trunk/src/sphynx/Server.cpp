@@ -395,10 +395,10 @@ bool Server::StartServer(SphynxLayer *layer, SphynxTLS *tls, Port port, TunnelKe
 	_public_key = key_pair;
 
 	// Get SupportIPv6 flag from settings
-	bool only_ipv4 = Settings::ii->getInt("Sphynx.Server.SupportIPv6", 0) == 0;
+	bool only_ipv4 = Settings::ref()->getInt("Sphynx.Server.SupportIPv6", 0) == 0;
 
 	// Get kernel receive buffer size
-	int kernelReceiveBufferBytes = Settings::ii->getInt("Sphynx.Server.KernelReceiveBuffer", 8000000);
+	int kernelReceiveBufferBytes = Settings::ref()->getInt("Sphynx.Server.KernelReceiveBuffer", 8000000);
 
 	// Attempt to bind to the server port
 	if (!Bind(layer, only_ipv4, port, true, kernelReceiveBufferBytes))
