@@ -97,8 +97,6 @@ void Server::OnReadRouting(const BatchSet &buffers)
 				// If connection matched address,
 				if (conn)
 				{
-					WARN("Server") << "Found connexion matching address";
-
 					worker_id = conn->GetServerWorkerID();
 					buffer->callback = conn;
 				}
@@ -119,8 +117,6 @@ void Server::OnReadRouting(const BatchSet &buffers)
 		else if (conn)
 		{
 			// Another packet from the same connexion
-			WARN("Server") << "Another packet from the same connexion";
-
 			conn->AddRef();
 			buffer->callback = conn;
 		}

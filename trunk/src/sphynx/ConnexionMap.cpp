@@ -123,8 +123,6 @@ bool ConnexionMap::LookupCheckFlood(Connexion * &connexion, const NetAddr &addr)
 		// If the slot is used and the user address matches,
 		if (conn && conn->_client_addr == addr)
 		{
-			WARN("ConnexionMap") << "Found Connexion in map by address";
-
 			conn->AddRef();
 
 			connexion = conn;
@@ -162,8 +160,6 @@ Connexion *ConnexionMap::Lookup(u32 key)
 
 	if (conn)
 	{
-		WARN("ConnexionMap") << "Found Connexion in map by key";
-
 		conn->AddRef();
 
 		return conn;
@@ -180,8 +176,6 @@ bool ConnexionMap::Insert(Connexion *conn)
 
 	// Grab the slot
 	Slot *slot = &_map_table[key];
-
-	WARN("ConnexionMap") << "Inserting Connexion";
 
 	// Add a reference to the Connexion
 	conn->AddRef();
