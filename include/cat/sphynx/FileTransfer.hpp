@@ -45,8 +45,11 @@ class FileTransferCache
 public:
 };
 
+
 class FileTransferSource : public IHugeSource
 {
+	static const u32 SIMULTANEOUS_FILES = 3;
+
 	struct QueuedFile
 	{
 		u32 priority; // lower = lower priority
@@ -64,13 +67,16 @@ class FileTransferSource : public IHugeSource
 	};
 
 	typedef std::priority_queue<QueuedFile*, std::vector<QueuedFile*>, QueuedFile> FileHeap;
+	typedef std::vector<QueuedFile*> FileVector;
 
 	Mutex _lock;
 	FileHeap _heap;
-	QueuedFile *_active;
+	FileVector _active_list;
 
 	void ClearHeap();
-	bool StartTransfer(QueuedFile *file, Transport *transport);
+	void StartTransfer(QueuedFile *file, Transport *transport);
+
+	void OnTransferDone(Transport *transport);
 
 protected:
 	// IHugeSource: Get number of bytes remaining in current transfer
@@ -88,6 +94,7 @@ public:
 	// Queue up a file transfer
 	bool WriteFile(u8 opcode, const std::string &source_path, const std::string &sink_path, Transport *transport, u32 priority = 0);
 };
+
 
 class FileTransferSink
 {

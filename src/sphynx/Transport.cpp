@@ -905,6 +905,8 @@ bool Transport::WriteHuge(StreamMode stream, IHugeSource *source)
 {
 	// Fill the object
 	SendHuge *node = StdAllocator::ii->AcquireObject<SendHuge>();
+	if (!node) return false;
+
 	node->bytes = FRAG_HUGE;
 	node->remaining = source->GetRemaining(stream);
 	node->frag_count = 0;

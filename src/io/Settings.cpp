@@ -191,7 +191,7 @@ void Settings::readSettingsFromFile(const char *file_path, const char *override_
     readSettingsFromBuffer(sfile);
 
 	// If override file exists,
-    if (sfile.Open(file_path))
+    if (sfile.Open(override_file))
     {
 #ifdef SETTINGS_VERBOSE
         INANE("Settings") << "Read: " << override_file;

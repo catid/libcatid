@@ -67,13 +67,13 @@ bool MappedFile::Open(const char *path, bool random_access)
 	_file = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, access_pattern, 0);
 	if (_file == INVALID_HANDLE_VALUE)
 	{
-		WARN("MMapFile") << "CreateFileA error " << GetLastError() << " for " << path;
+		WARN("MappedFile") << "CreateFileA error " << GetLastError() << " for " << path;
 		return false;
 	}
 
 	if (!GetFileSizeEx(_file, (LARGE_INTEGER*)&_len))
 	{
-		WARN("MMapFile") << "GetFileSizeEx error " << GetLastError() << " for " << path;
+		WARN("MappedFile") << "GetFileSizeEx error " << GetLastError() << " for " << path;
 		return false;
 	}
 
@@ -111,6 +111,8 @@ void MappedFile::Close()
 MappedView::MappedView()
 {
 	_data = 0;
+	_length = 0;
+	_offset = 0;
 
 #if defined(CAT_OS_WINDOWS)
 
@@ -131,16 +133,16 @@ bool MappedView::Open(MappedFile *file)
 {
 	Close();
 
-	if (!file->IsValid()) return false;
+	if (!file || !file->IsValid()) return false;
 
 	_file = file;
 
 #if defined(CAT_OS_WINDOWS)
 
-	_map = CreateFileMapping(file, 0, PAGE_READONLY, 0, 0, 0);
+	_map = CreateFileMapping(file->_file, 0, PAGE_READONLY, 0, 0, 0);
 	if (!_map)
 	{
-		WARN("MMapFile") << "CreateFileMapping error " << GetLastError();
+		WARN("MappedView") << "CreateFileMapping error " << GetLastError();
 		return false;
 	}
 
@@ -158,13 +160,13 @@ u8 *MappedView::MapView(u64 offset, u32 length)
 
 	if (_data && !UnmapViewOfFile(_data))
 	{
-		INANE("MMapFile") << "UnmapViewOfFile error " << GetLastError();
+		INANE("MappedView") << "UnmapViewOfFile error " << GetLastError();
 	}
 
 	_data = (u8*)MapViewOfFile(_map, FILE_MAP_READ, (u32)(offset >> 32), (u32)offset, length);
 	if (!_data)
 	{
-		WARN("MMapFile") << "MapViewOfFile error " << GetLastError();
+		WARN("MappedView") << "MapViewOfFile error " << GetLastError();
 		return 0;
 	}
 
@@ -181,6 +183,9 @@ u8 *MappedView::MapView(u64 offset, u32 length)
 
 void MappedView::Close()
 {
+	_length = 0;
+	_offset = 0;
+
 #if defined(CAT_OS_WINDOWS)
 
 	if (_data)

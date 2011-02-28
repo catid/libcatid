@@ -32,7 +32,6 @@ using namespace sphynx;
 
 FileTransferSource::FileTransferSource()
 {
-	_active = 0;
 }
 
 FileTransferSource::~FileTransferSource()
@@ -42,18 +41,68 @@ FileTransferSource::~FileTransferSource()
 
 u64 FileTransferSource::GetRemaining(StreamMode stream)
 {
-	if (stream != STREAM_BULK)
-		return 0;
+	AutoMutex lock(_lock);
 
-	return 0;
+	if (stream != STREAM_BULK)
+	{
+		WARN("FileTransferSource") << "Stream is not bulk";
+		return 0;
+	}
+
+	if (_active_list.size() <= 0)
+	{
+		WARN("FileTransferSource") << "Read request on empty queue";
+		return 0;
+	}
+
+	return _active_list[0]->reader.GetRemaining();
+}
+
+void FileTransferSource::OnTransferDone(Transport *transport)
+{
+	if (_heap.size() > 0)
+	{
+		QueuedFile *file = _heap.top();
+		_heap.pop();
+
+		StartTransfer(file, transport);
+	}
 }
 
 u32 FileTransferSource::Read(StreamMode stream, u8 *dest, u32 bytes, Transport *transport)
 {
 	if (stream != STREAM_BULK)
+	{
+		WARN("FileTransferSource") << "Stream is not bulk";
 		return 0;
+	}
 
-	return 0;
+	AutoMutex lock(_lock);
+
+	if (_active_list.size() <= 0)
+	{
+		WARN("FileTransferSource") << "Read request on empty queue";
+		return 0;
+	}
+
+	QueuedFile *active = _active_list[0];
+
+	u8 *src = active->reader.Read(bytes);
+	if (!src)
+	{
+		WARN("FileTransferSource") << "Unable to read!";
+		return 0;
+	}
+
+	if (active->reader.GetRemaining() == 0)
+	{
+		INFO("FileTransferSource") << "Reached end of file";
+		OnTransferDone(transport);
+	}
+
+	memcpy(dest, src, bytes);
+
+	return bytes;
 }
 
 void FileTransferSource::ClearHeap()
@@ -75,14 +124,24 @@ void FileTransferSource::ClearHeap()
 	}
 }
 
-bool FileTransferSource::StartTransfer(QueuedFile *file, Transport *transport)
+void FileTransferSource::StartTransfer(QueuedFile *file, Transport *transport)
 {
 	// Grab the message and remove its reference from the file object
 	u8 *msg = file->msg;
 	file->msg = 0;
 
-	return transport->WriteReliableZeroCopy(STREAM_BULK, msg, file->msg_bytes) &&
-		   transport->WriteHuge(STREAM_BULK, this);
+	AutoMutex lock(_lock);
+
+	_active_list.push_back(file);
+
+	if (!transport->WriteReliableZeroCopy(STREAM_BULK, msg, file->msg_bytes))
+	{
+		WARN("FileTransferSource") << "Unable to write reliable with " << file->msg_bytes;
+		return;
+	}
+
+	// Retry writing the huge message until it succeeds
+	while (!transport->WriteHuge(STREAM_BULK, this));
 }
 
 bool FileTransferSource::WriteFile(u8 opcode, const std::string &source_path, const std::string &sink_path, Transport *transport, u32 priority)
@@ -123,10 +182,16 @@ bool FileTransferSource::WriteFile(u8 opcode, const std::string &source_path, co
 	file->msg = msg;
 	file->msg_bytes = msg_bytes;
 
-	// Push it on the heap
-	_lock.Enter();
-	_heap.push(file);
-	_lock.Leave();
+	// If there is room for more simultaneous file transfers,
+	if (_active_list.size() < SIMULTANEOUS_FILES)
+		StartTransfer(file, transport);
+	else
+	{
+		// Push it on the heap
+		_lock.Enter();
+		_heap.push(file);
+		_lock.Leave();
+	}
 
 	return true;
 }
@@ -144,9 +209,11 @@ FileTransferSink::~FileTransferSink()
 
 bool FileTransferSink::OnFileStart(BufferStream msg, u32 bytes)
 {
+	WARN("FileTransferSink") << "Got file start " << bytes;
 	return true;
 }
 
 void FileTransferSink::OnReadHuge(StreamMode stream, BufferStream data, u32 size)
 {
+	WARN("FileTransferSink") << "Got file part " << size;
 }
