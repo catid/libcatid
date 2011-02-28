@@ -39,7 +39,7 @@ namespace cat {
 namespace sphynx {
 
 
-class CAT_EXPORT Server : public UDPEndpoint, public WorkerCallbacks
+class CAT_EXPORT Server : public UDPEndpoint, public IWorkerCallbacks
 {
 	friend class Connexion;
 

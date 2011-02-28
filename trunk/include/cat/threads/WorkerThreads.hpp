@@ -45,7 +45,7 @@ namespace cat {
 
 class IWorkerTLS;
 class IWorkerTLSBuilder;
-class WorkerCallbacks;
+class IWorkerCallbacks;
 class WorkerThread;
 class WorkerThreads;
 
@@ -83,16 +83,16 @@ public:
 // A buffer specialized for handling by the worker threads
 struct WorkerBuffer : public BatchHead
 {
-	WorkerCallbacks *callback;
+	IWorkerCallbacks *callback;
 };
 
 
-class CAT_EXPORT WorkerCallbacks
+class CAT_EXPORT IWorkerCallbacks
 {
 	friend class WorkerThread;
 
 	RefObject *_parent;
-	WorkerCallbacks *_worker_prev, *_worker_next;
+	IWorkerCallbacks *_worker_prev, *_worker_next;
 
 protected:
 	CAT_INLINE void InitializeWorkerCallbacks(RefObject *obj) { _parent = obj; }
@@ -113,7 +113,7 @@ class CAT_EXPORT WorkerThread : public Thread
 
 	// Protected list of new workers to add to the running list
 	Mutex _new_workers_lock;
-	WorkerCallbacks *_new_head;
+	IWorkerCallbacks *_new_head;
 
 	// Queue of buffers waiting to be processed
 	Mutex _workqueue_lock;
@@ -128,7 +128,7 @@ public:
 	CAT_INLINE void SetKillFlag() { _kill_flag = true; }
 
 	void DeliverBuffers(const BatchSet &buffers);
-	void Associate(WorkerCallbacks *callbacks);
+	void Associate(IWorkerCallbacks *callbacks);
 };
 
 
@@ -171,7 +171,7 @@ public:
 
 	bool Shutdown();
 
-	CAT_INLINE u32 AssignWorker(WorkerCallbacks *callbacks)
+	CAT_INLINE u32 AssignWorker(IWorkerCallbacks *callbacks)
 	{
 #if !defined(CAT_NO_ATOMIC_POPCOUNT)
 		Atomic::Add(&_population, 1);
