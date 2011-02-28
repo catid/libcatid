@@ -46,7 +46,7 @@ namespace cat {
 */
 
 // Tokenize a buffer
-class BufferTok
+class CAT_EXPORT BufferTok
 {
     const char *buffer;
     int len;

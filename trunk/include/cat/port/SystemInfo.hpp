@@ -35,7 +35,7 @@ namespace cat {
 
 
 // Call InitializeSystemInfo() before using system_info global
-void InitializeSystemInfo();
+CAT_EXPORT void InitializeSystemInfo();
 
 struct SystemInfo
 {

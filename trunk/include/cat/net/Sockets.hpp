@@ -207,26 +207,26 @@ public:
 //// Helper Functions
 
 // Run startup and cleanup functions needed under some OS
-bool StartupSockets(); // returns false on error
-void CleanupSockets();
+CAT_EXPORT bool StartupSockets(); // returns false on error
+CAT_EXPORT void CleanupSockets();
 
 // inout_OnlyIPv4: Indicates that only IPv4 is requested by caller
 // Sets OnlyIPv4 if IPv6 will be unsupported
 // Returns true on success
-bool CreateSocket(int type, int protocol, bool SupportIPv4, Socket &out_s, bool &inout_OnlyIPv4);
+CAT_EXPORT bool CreateSocket(int type, int protocol, bool SupportIPv4, Socket &out_s, bool &inout_OnlyIPv4);
 
 // Returns true on success
-bool NetBind(Socket s, Port port, bool OnlyIPv4);
+CAT_EXPORT bool NetBind(Socket s, Port port, bool OnlyIPv4);
 
 // Returns 0 on failure
-Port GetBoundPort(Socket s);
+CAT_EXPORT Port GetBoundPort(Socket s);
 
 
 //// Error Codes
 
 // Returns a string describing the last error from Winsock2 API
-std::string SocketGetLastErrorString();
-std::string SocketGetErrorString(int code);
+CAT_EXPORT std::string SocketGetLastErrorString();
+CAT_EXPORT std::string SocketGetErrorString(int code);
 
 
 } // namespace cat

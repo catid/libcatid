@@ -45,7 +45,7 @@ namespace cat {
 
 
 // Convert from signed 32-bit number to string (up to 12 bytes including '\0')
-int DecToString(s32 x, char *outs);
+int CAT_EXPORT DecToString(s32 x, char *outs);
 
 
 // iStrEqual(): Returns true if strings match.  Case-insensitive
@@ -73,32 +73,32 @@ int DecToString(s32 x, char *outs);
 
 
 // Get length of string that has a maximum length (potentially no trailing nul)
-u32 GetFixedStrLen(const char *str, u32 max_len);
+u32 CAT_EXPORT GetFixedStrLen(const char *str, u32 max_len);
 
 
 // Set a fixed string buffer (zero-padded) from a variable-length string,
 // both either zero or length-terminated.  Returns length of copied string
-u32 SetFixedStr(char *dest, u32 dest_len, const char *src, u32 src_max_len);
+u32 CAT_EXPORT SetFixedStr(char *dest, u32 dest_len, const char *src, u32 src_max_len);
 
 
 // Returns true if buffer contains any non-zero bytes
-bool IsZeroFixedBuffer(const void *buffer, u32 bytes);
+bool CAT_EXPORT IsZeroFixedBuffer(const void *buffer, u32 bytes);
 
 
 // Replaces all similar-looking glyphs with a common character
-char DesimilarizeCharacter(char ch);
+char CAT_EXPORT DesimilarizeCharacter(char ch);
 
 // Replaces all similar-looking glyphs with common characters while copying a string
-void CopyDesimilarizeString(const char *from, char *to);
+void CAT_EXPORT CopyDesimilarizeString(const char *from, char *to);
 
 // Replaces all similar-looking glyphs with common characters in a fixed string
-u32 DesimilarizeFixedString(char *str, u32 max_len);
+u32 CAT_EXPORT DesimilarizeFixedString(char *str, u32 max_len);
 
 // Copies the input string to an output string replacing lowercase letters with their uppercase equivalents
-void CopyToUppercaseString(const char *from, char *to);
+void CAT_EXPORT CopyToUppercaseString(const char *from, char *to);
 
 // Copies the input string to an output string replacing uppercase letters with their lowercase equivalents
-void CopyToLowercaseString(const char *from, char *to);
+void CAT_EXPORT CopyToLowercaseString(const char *from, char *to);
 
 
 } // namespace cat

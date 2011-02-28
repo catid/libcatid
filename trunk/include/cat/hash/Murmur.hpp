@@ -41,7 +41,7 @@
 namespace cat {
 
 
-class MurmurHash
+class CAT_EXPORT MurmurHash
 {
 protected:
 	u64 _c1, _c2, _h1, _h2, _bytes;
@@ -79,7 +79,7 @@ public:
 
 
 // Use Murmur hash to generate an unbiased random number within a given inclusive range
-u32 MurmurGenerateUnbiased(const void *key, u64 bytes, u32 range_low, u32 range_high);
+u32 CAT_EXPORT MurmurGenerateUnbiased(const void *key, u64 bytes, u32 range_low, u32 range_high);
 
 
 } // namespace cat
