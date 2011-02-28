@@ -158,9 +158,6 @@
     <ClInclude Include="..\..\include\cat\port\EndianNeutral.hpp">
       <Filter>Header Files\port</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\cat\port\FastDelegate.h">
-      <Filter>Header Files\port</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\include\cat\lang\Strings.hpp">
       <Filter>Header Files\lang</Filter>
     </ClInclude>
