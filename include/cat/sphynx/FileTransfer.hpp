@@ -40,13 +40,7 @@ namespace cat {
 namespace sphynx {
 
 
-class FileTransferCache
-{
-public:
-};
-
-
-class FileTransferSource : public IHugeSource
+class CAT_EXPORT FileTransferSource : public IHugeSource
 {
 	static const u32 SIMULTANEOUS_FILES = 3;
 
@@ -96,7 +90,7 @@ public:
 };
 
 
-class FileTransferSink
+class CAT_EXPORT FileTransferSink
 {
 	// TODO: Thread safety
 public:

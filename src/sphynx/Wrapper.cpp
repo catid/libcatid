@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -26,68 +26,46 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_RW_LOCK_HPP
-#define CAT_RW_LOCK_HPP
+#include <cat/sphynx/Wrapper.hpp>
+using namespace cat;
+using namespace sphynx;
 
-#include <cat/threads/Mutex.hpp>
+static SphynxLayer layer;
 
-namespace cat {
-
-
-//// RWLock
-
-class CAT_EXPORT RWLock
+SphynxLayer *cat::GetSphynxLayer()
 {
-#if defined(CAT_OS_WINDOWS)
-	volatile u32 _rd_count;
-	volatile u32 _wr_count;
-	HANDLE _rd_event;
-	Mutex _wr_lock;
-#else
-	int init_failure;
-	pthread_rwlock_t rw;
-#endif
+	return &layer;
+}
 
-public:
-	RWLock();
-	~RWLock();
-
-	void ReadLock();
-	void ReadUnlock();
-
-	void WriteLock();
-	void WriteUnlock();
-};
-
-
-//// AutoReadLock
-
-class CAT_EXPORT AutoReadLock
+BOOL WINAPI DllMain(
+	HINSTANCE hinstDLL,  // handle to DLL module
+	DWORD fdwReason,     // reason for calling function
+	LPVOID lpReserved )  // reserved
 {
-	RWLock *_lock;
+	// Perform actions based on the reason for calling.
+	switch( fdwReason ) 
+	{ 
+	case DLL_PROCESS_ATTACH:
+		// Initialize once for each new process.
+		// Return FALSE to fail DLL load.
+		if (!layer.Startup("Sphynx.cfg"))
+		{
+			FatalStop("Unable to initialize framework!");
+		}
+		break;
 
-public:
-	AutoReadLock(RWLock &lock);
-	~AutoReadLock();
+	case DLL_THREAD_ATTACH:
+		// Do thread-specific initialization.
+		break;
 
-    bool Release();
-};
+	case DLL_THREAD_DETACH:
+		// Do thread-specific cleanup.
+		break;
 
-
-//// AutoWriteLock
-
-class CAT_EXPORT AutoWriteLock
-{
-	RWLock *_lock;
-
-public:
-	AutoWriteLock(RWLock &lock);
-	~AutoWriteLock();
-
-    bool Release();
-};
-
-
-} // namespace cat
-
-#endif // CAT_RW_LOCK_HPP
+	case DLL_PROCESS_DETACH:
+		// Perform any necessary cleanup.
+		layer.Shutdown();
+		break;
+	}
+	return TRUE;  // Successful DLL_PROCESS_ATTACH.
+}

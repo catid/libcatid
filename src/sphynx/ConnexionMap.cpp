@@ -292,7 +292,7 @@ void ConnexionMap::ShutdownAll()
 	lock.Release();
 
 	// For each Connexion object to release,
-	for (u32 ii = 0, size = connexions.size(); ii < size; ++ii)
+	for (u32 ii = 0, size = (u32)connexions.size(); ii < size; ++ii)
 	{
 		Connexion *conn = connexions[ii];
 

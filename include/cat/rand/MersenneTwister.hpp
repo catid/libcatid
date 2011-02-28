@@ -40,7 +40,7 @@ namespace cat {
 
 
 // Noncryptographic pseudo-random number generator
-class MersenneTwister : public IRandom
+class CAT_EXPORT MersenneTwister : public IRandom
 {
     static const u32 MEXP = 19937;
     static const u32 N128 = MEXP/128 + 1;

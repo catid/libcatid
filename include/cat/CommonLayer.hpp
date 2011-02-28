@@ -35,7 +35,7 @@
 namespace cat {
 
 
-class CommonLayer
+class CAT_EXPORT CommonLayer
 {
 	WorkerThreads _worker_threads;
 	RefObjectWatcher _watcher;

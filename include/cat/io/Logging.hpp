@@ -68,7 +68,7 @@ void DefaultLogCallback(EventSeverity severity, const char *source, std::ostring
 
 typedef void (*LogCallback)(EventSeverity severity, const char *source, std::ostringstream &msg);
 
-class Logging : public Singleton<Logging>
+class CAT_EXPORT Logging : public Singleton<Logging>
 {
     CAT_SINGLETON(Logging);
 
@@ -105,7 +105,7 @@ public:
 
 //// Recorder
 
-class Recorder
+class CAT_EXPORT Recorder
 {
 	friend class Logging;
 	EventSeverity _severity;
@@ -141,7 +141,7 @@ public:
 
 //// Enforcer
 
-class Enforcer
+class CAT_EXPORT Enforcer
 {
 protected:
     std::ostringstream oss;

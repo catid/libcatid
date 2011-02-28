@@ -42,7 +42,7 @@ class SphynxLayer;
 
 
 // Sphynx thread-local storage
-class SphynxTLS : public IWorkerTLS
+class CAT_EXPORT SphynxTLS : public IWorkerTLS
 {
 public:
 	static const u32 DELIVERY_QUEUE_DEPTH = 128;
@@ -66,7 +66,7 @@ public:
 };
 
 // Application layer for Sphynx library
-class SphynxLayer : public IOLayer
+class CAT_EXPORT SphynxLayer : public IOLayer
 {
 	DNSClient *_dns_client;
 

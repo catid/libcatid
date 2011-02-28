@@ -54,7 +54,7 @@ static const u32 MAX_WORKER_THREADS = 32;
 static const u32 INVALID_WORKER_ID = ~(u32)0;
 
 // Interface for worker thread-local storage
-class IWorkerTLS
+class CAT_EXPORT IWorkerTLS
 {
 public:
 	CAT_INLINE virtual ~IWorkerTLS() {}
@@ -62,7 +62,7 @@ public:
 	virtual bool Valid() = 0;
 };
 
-class IWorkerTLSBuilder
+class CAT_EXPORT IWorkerTLSBuilder
 {
 public:
 	CAT_INLINE virtual ~IWorkerTLSBuilder() {}
@@ -71,7 +71,7 @@ public:
 };
 
 template<class LocalStorageT>
-class WorkerTLSBuilder : public IWorkerTLSBuilder
+class CAT_EXPORT WorkerTLSBuilder : public IWorkerTLSBuilder
 {
 public:
 	CAT_INLINE virtual ~WorkerTLSBuilder() {}
@@ -87,7 +87,7 @@ struct WorkerBuffer : public BatchHead
 };
 
 
-class WorkerCallbacks
+class CAT_EXPORT WorkerCallbacks
 {
 	friend class WorkerThread;
 
@@ -102,7 +102,7 @@ protected:
 };
 
 
-class WorkerThread : public Thread
+class CAT_EXPORT WorkerThread : public Thread
 {
 	virtual bool ThreadFunction(void *master);
 
@@ -132,7 +132,7 @@ public:
 };
 
 
-class WorkerThreads
+class CAT_EXPORT WorkerThreads
 {
 	friend class WorkerThread;
 

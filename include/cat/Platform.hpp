@@ -380,7 +380,7 @@ namespace cat {
 
 # if defined(CAT_NEUTER_EXPORT)
 #  define CAT_EXPORT /* Do not import or export any symbols */
-# elif defined(CAT_BUILD_DLL)
+# elif defined(CAT_BUILD_DLL) || defined(_WINDLL)
 #  define CAT_EXPORT CAT_DLL_EXPORT /* Implementing a DLL so export this symbol */
 # else
 #  define CAT_EXPORT CAT_DLL_IMPORT /* Using a DLL so import this symbol, faster on Windows */

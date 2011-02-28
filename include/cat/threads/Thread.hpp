@@ -45,7 +45,7 @@ namespace cat {
 
 	Derive from this class and implement ThreadFunction().
 */
-class Thread
+class CAT_EXPORT Thread
 {
 protected:
 	void *caller_param;

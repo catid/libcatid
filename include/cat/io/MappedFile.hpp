@@ -65,7 +65,7 @@ class MappedFileReader;
 
 
 // Read-only memory mapped file
-class MappedFile
+class CAT_EXPORT MappedFile
 {
 	friend class MappedView;
 
@@ -97,7 +97,7 @@ public:
 
 
 // View of a portion of the memory mapped file
-class MappedView
+class CAT_EXPORT MappedView
 {
 	friend class MappedSequentialReader;
 
@@ -127,7 +127,7 @@ public:
 
 
 // Memory mapped file sequential reader
-class MappedSequentialReader
+class CAT_EXPORT MappedSequentialReader
 {
 	MappedView _view;
 	u32 _offset;
@@ -148,7 +148,7 @@ public:
 
 
 // Simplified version that does not allow for caching between views of a file
-class SequentialFileReader : public MappedSequentialReader
+class CAT_EXPORT SequentialFileReader : public MappedSequentialReader
 {
 	MappedFile _file;
 

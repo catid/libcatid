@@ -38,7 +38,7 @@ namespace cat {
 
 
 // Large-size aligned heap allocator
-class LargeAllocator : public IAllocator
+class CAT_EXPORT LargeAllocator : public IAllocator
 {
 public:
 	CAT_INLINE virtual ~LargeAllocator() {}

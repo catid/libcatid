@@ -87,7 +87,7 @@ namespace sphynx {
 
 // TODO: Check for thread safety
 
-class FlowControl
+class CAT_EXPORT FlowControl
 {
 public:
 	static const int EPOCH_INTERVAL = 500; // Milliseconds per epoch

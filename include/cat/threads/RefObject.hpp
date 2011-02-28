@@ -51,7 +51,7 @@ class RefObjectWatcher;
 
 // Classes that derive from RefObject have asynchronously managed lifetimes
 // Never delete a RefObject directly.  Use the RequestShutdown() member instead
-class RefObject
+class CAT_EXPORT RefObject
 {
 	friend class WatchedRefObject;
 
@@ -150,13 +150,14 @@ protected:
 
 // This is a RefObject that can be watched using a RefObjectWatcher
 // I separated these out so that the basic RefObject can be very lightweight
-class WatchedRefObject : public RefObject
+class CAT_EXPORT WatchedRefObject : public RefObject
 {
 	friend class RefObjectWatcher;
 
 #if !defined(CAT_NO_ATOMIC_REF_OBJECT)
 	Mutex _lock;
 #endif
+
 	std::vector<RefObjectWatcher*> _watchers;
 	typedef std::vector<RefObjectWatcher*>::iterator VectorIterator;
 
@@ -171,7 +172,7 @@ public:
 
 
 // Mechanism to wait for reference-counted objects to finish shutting down
-class RefObjectWatcher
+class CAT_EXPORT RefObjectWatcher
 {
 	friend class WatchedRefObject;
 

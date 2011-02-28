@@ -50,7 +50,7 @@ struct BatchHead
 
 // When passing around a batch of allocated space, use this object to represent
 // the two ends of the batch for O(1) concatenation to other batches
-class BatchSet
+class CAT_EXPORT BatchSet
 {
 public:
 	BatchHead *head, *tail;
@@ -78,7 +78,7 @@ public:
 
 
 // Allocator interface
-class IAllocator
+class CAT_EXPORT IAllocator
 {
 public:
 	CAT_INLINE virtual ~IAllocator() {}

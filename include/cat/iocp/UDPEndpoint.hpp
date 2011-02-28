@@ -65,7 +65,7 @@ static const u32 SIMULTANEOUS_SENDS = 128;
 
 
 // Object that represents a UDP endpoint bound to a single port
-class UDPEndpoint : public WatchedRefObject
+class CAT_EXPORT UDPEndpoint : public WatchedRefObject
 {
 	friend class IOThread;
 
