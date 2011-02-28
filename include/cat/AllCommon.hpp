@@ -28,6 +28,13 @@
 
 // Include all libcat Common headers
 
+#include <cat/Platform.hpp>
+
+#if defined(CAT_COMPILER_MSVC) && defined(CAT_BUILD_DLL)
+# pragma warning(push)
+# pragma warning(disable:4251) // Remove "not exported" warning from STL
+#endif
+
 #include <cat/time/Clock.hpp>
 
 #include <cat/rand/IRandom.hpp>
@@ -67,3 +74,7 @@
 #include <cat/mem/BufferAllocator.hpp>
 
 #include <cat/CommonLayer.hpp>
+
+#if defined(CAT_COMPILER_MSVC) && defined(CAT_BUILD_DLL)
+# pragma warning(pop)
+#endif

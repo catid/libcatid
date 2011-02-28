@@ -415,7 +415,7 @@ bool DNSClient::BindToRandomPort(IOLayer *iolayer, bool ignoreUnreachable)
 	const int RANDOM_BIND_ATTEMPTS_MAX = 16;
 
 	// Get SupportIPv6 flag from settings
-	bool only_ipv4 = Settings::ii->getInt("DNS.Client.SupportIPv6", 0) == 0;
+	bool only_ipv4 = Settings::ref()->getInt("DNS.Client.SupportIPv6", 0) == 0;
 
 	// Try to use a more random port
 	int tries = RANDOM_BIND_ATTEMPTS_MAX;

@@ -61,54 +61,58 @@ static const char *const EVENT_NAME[5] = { "Inane", "Info", "Warn", "Oops", "Fat
 static const char *const SHORT_EVENT_NAME[5] = { ".", "I", "W", "!", "F" };
 
 
+static Logging singleton;
+Logging *Logging::ref() { return &singleton; }
+
+
 //// Free functions
 
 std::string cat::HexDumpString(const void *vdata, u32 bytes)
 {
-    /* xxxx  xx xx xx xx xx xx xx xx  xx xx xx xx xx xx xx xx   aaaaaaaaaaaaaaaa*/
+	/* xxxx  xx xx xx xx xx xx xx xx  xx xx xx xx xx xx xx xx   aaaaaaaaaaaaaaaa*/
 
-    const u8 *data = (const u8*)vdata;
-    u32 ii, offset;
+	const u8 *data = (const u8*)vdata;
+	u32 ii, offset;
 
-    char ascii[17];
-    ascii[16] = 0;
+	char ascii[17];
+	ascii[16] = 0;
 
-    std::ostringstream oss;
+	std::ostringstream oss;
 
-    for (offset = 0; offset < bytes; offset += 16)
-    {
-        oss << endl << setfill('0') << hex << setw(4) << offset << "  ";
+	for (offset = 0; offset < bytes; offset += 16)
+	{
+		oss << endl << setfill('0') << hex << setw(4) << offset << "  ";
 
-        for (ii = 0; ii < 16; ++ii)
-        {
-            if (ii == 8)
-                oss << ' ';
+		for (ii = 0; ii < 16; ++ii)
+		{
+			if (ii == 8)
+				oss << ' ';
 
-            if (offset + ii < bytes)
-            {
-                u8 ch = data[offset + ii];
+			if (offset + ii < bytes)
+			{
+				u8 ch = data[offset + ii];
 
-                oss << setw(2) << (u32)ch << ' ';
-                ascii[ii] = (ch >= ' ' && ch <= '~') ? ch : '.';
-            }
-            else
-            {
-                oss << "   ";
-                ascii[ii] = 0;
-            }
-        }
+				oss << setw(2) << (u32)ch << ' ';
+				ascii[ii] = (ch >= ' ' && ch <= '~') ? ch : '.';
+			}
+			else
+			{
+				oss << "   ";
+				ascii[ii] = 0;
+			}
+		}
 
-        oss << " " << ascii;
-    }
+		oss << " " << ascii;
+	}
 
-    return oss.str();
+	return oss.str();
 }
 
 void cat::FatalStop(const char *message)
 {
-	if (Logging::ii->IsService())
+	if (Logging::ref()->IsService())
 	{
-		Logging::ii->WriteServiceLog(LVL_FATAL, message);
+		Logging::ref()->WriteServiceLog(LVL_FATAL, message);
 	}
 	else
 	{
@@ -126,14 +130,14 @@ void cat::FatalStop(const char *message)
 
 void cat::DefaultLogCallback(EventSeverity severity, const char *source, std::ostringstream &msg)
 {
-	if (Logging::ii->IsService())
+	if (Logging::ref()->IsService())
 	{
 		std::ostringstream oss;
 		oss << "<" << source << "> " << msg.str() << endl;
 
 		std::string result = oss.str();
 
-		Logging::ii->WriteServiceLog(severity, result.c_str());
+		Logging::ref()->WriteServiceLog(severity, result.c_str());
 	}
 	else
 	{
@@ -155,19 +159,19 @@ void cat::DefaultLogCallback(EventSeverity severity, const char *source, std::os
 
 Logging::Logging()
 {
-    _callback = &DefaultLogCallback;
-    _log_threshold = LVL_INANE;
+	_callback = &DefaultLogCallback;
+	_log_threshold = LVL_INANE;
 	_service = false;
 }
 
 void Logging::Initialize(EventSeverity min_severity)
 {
-    _log_threshold = min_severity;
+	_log_threshold = min_severity;
 }
 
 void Logging::ReadSettings()
 {
-    _log_threshold = Settings::ii->getInt("Log.Threshold", _log_threshold);
+	_log_threshold = Settings::ref()->getInt("Log.Threshold", _log_threshold);
 }
 
 void Logging::LogEvent(Recorder *recorder)
@@ -190,13 +194,14 @@ void Logging::WriteServiceLog(EventSeverity severity, const char *line)
 	if (_event_source)
 	{
 		WORD mode;
+
 		switch (severity)
 		{
-		case LVL_INANE: mode = EVENTLOG_SUCCESS; break;
-		case LVL_INFO: mode = EVENTLOG_INFORMATION_TYPE; break;
+		case LVL_INANE:	mode = EVENTLOG_SUCCESS; break;
+		case LVL_INFO:	mode = EVENTLOG_INFORMATION_TYPE; break;
 		case LVL_OOPS:
-		case LVL_WARN: mode = EVENTLOG_WARNING_TYPE; break;
-		case LVL_FATAL: mode = EVENTLOG_ERROR_TYPE; break;
+		case LVL_WARN:	mode = EVENTLOG_WARNING_TYPE; break;
+		case LVL_FATAL:	mode = EVENTLOG_ERROR_TYPE; break;
 		default: return;
 		}
 
@@ -216,7 +221,7 @@ Recorder::Recorder(const char *subsystem, EventSeverity severity)
 
 Recorder::~Recorder()
 {
-	Logging::ii->LogEvent(this);
+	Logging::ref()->LogEvent(this);
 }
 
 
@@ -224,7 +229,7 @@ Recorder::~Recorder()
 
 Enforcer::Enforcer(const char *locus)
 {
-    oss << locus;
+	oss << locus;
 }
 
 Enforcer::~Enforcer()

@@ -47,18 +47,18 @@ bool CommonLayer::OnStartup(IWorkerTLSBuilder *tls_builder, const char *settings
 
 	// Initialize logging subsystem with INFO reporting level
 	Logging::ref()->Initialize(LVL_INFO);
-	if (service) Logging::ii->EnableServiceMode(service_name);
+	if (service) Logging::ref()->EnableServiceMode(service_name);
 
 	// Initialize disk settings subsystem
 	Settings::ref()->readSettingsFromFile(settings_file_name);
 
 	// Read logging subsystem settings
-	Logging::ii->ReadSettings();
+	Logging::ref()->ReadSettings();
 
 	if (!PreWorkerThreads()) return false;
 
-	u32 worker_count_override = Settings::ii->getInt("WorkerThreads.Count", 0);
-	u32 worker_tick_interval = Settings::ii->getInt("WorkerThreads.TickInterval", 10);
+	u32 worker_count_override = Settings::ref()->getInt("WorkerThreads.Count", 0);
+	u32 worker_tick_interval = Settings::ref()->getInt("WorkerThreads.TickInterval", 10);
 
 	// Start the Worker threads if requested to by the caller
 	if (tls_builder && !_worker_threads.Startup(worker_tick_interval, tls_builder, worker_count_override))

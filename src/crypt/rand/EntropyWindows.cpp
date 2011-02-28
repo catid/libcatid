@@ -76,7 +76,7 @@ bool FortunaFactory::ThreadFunction(void *)
             // Keep track of entropy in pool 0 and reseed when it is ready
             if (fast_pool == 0 && ++pool0_entropy >= POOL0_RESEED_RATE)
             {
-                FortunaFactory::ii->Reseed();
+                FortunaFactory::ref()->Reseed();
                 pool0_entropy = 0;
             }
         }

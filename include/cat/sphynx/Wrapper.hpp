@@ -34,7 +34,7 @@
 namespace cat {
 
 
-CAT_EXPORT SphynxLayer *GetSphynxLayer();
+//
 
 
 } // namespace cat

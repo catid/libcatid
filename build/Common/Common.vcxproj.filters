@@ -224,9 +224,6 @@
     <ClInclude Include="..\..\include\cat\Platform.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\cat\Singleton.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\include\cat\Config.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>

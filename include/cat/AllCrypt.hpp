@@ -30,6 +30,11 @@
 
 #include <cat/AllMath.hpp>
 
+#if defined(CAT_COMPILER_MSVC) && defined(CAT_BUILD_DLL)
+# pragma warning(push)
+# pragma warning(disable:4251) // Remove "not exported" warning from STL
+#endif
+
 #include <cat/crypt/symmetric/ChaCha.hpp>
 
 #include <cat/crypt/hash/ICryptHash.hpp>
@@ -43,3 +48,7 @@
 #include <cat/crypt/rand/Fortuna.hpp>
 
 #include <cat/crypt/pass/Passwords.hpp>
+
+#if defined(CAT_COMPILER_MSVC) && defined(CAT_BUILD_DLL)
+# pragma warning(pop)
+#endif

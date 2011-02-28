@@ -30,6 +30,15 @@
 
 #include <cat/AllCommon.hpp>
 
+#if defined(CAT_COMPILER_MSVC) && defined(CAT_BUILD_DLL)
+# pragma warning(push)
+# pragma warning(disable:4251) // Remove "not exported" warning from STL
+#endif
+
 #include <cat/codec/Huffman.hpp>
 #include <cat/codec/RangeCoder.hpp>
 #include <cat/codec/ReedSolomon.hpp>
+
+#if defined(CAT_COMPILER_MSVC) && defined(CAT_BUILD_DLL)
+# pragma warning(pop)
+#endif

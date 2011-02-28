@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -29,7 +29,6 @@
 #ifndef CAT_LOGGING_HPP
 #define CAT_LOGGING_HPP
 
-#include <cat/Singleton.hpp>
 #include <string>
 #include <sstream>
 
@@ -44,13 +43,13 @@ namespace cat {
 
 enum EventSeverity
 {
-    LVL_INANE,
-    LVL_INFO,
-    LVL_WARN,
-    LVL_OOPS,
-    LVL_FATAL,
+	LVL_INANE,
+	LVL_INFO,
+	LVL_WARN,
+	LVL_OOPS,
+	LVL_FATAL,
 
-    LVL_SILENT, // invalid for an actual event's level, valid value for a threshold
+	LVL_SILENT, // invalid for an actual event's level, valid value for a threshold
 };
 
 
@@ -68,38 +67,39 @@ void CAT_EXPORT DefaultLogCallback(EventSeverity severity, const char *source, s
 
 typedef void (*LogCallback)(EventSeverity severity, const char *source, std::ostringstream &msg);
 
-class CAT_EXPORT Logging : public Singleton<Logging>
+class CAT_EXPORT Logging
 {
-    CAT_SINGLETON(Logging);
+	CAT_NO_COPY(Logging);
 
-    LogCallback _callback;
+	friend class Recorder;
 
-    friend class Recorder;
-	void LogEvent(Recorder *recorder);
+	LogCallback _callback;
 
-public:
-    int _log_threshold;
-
-public:
-	void Initialize(EventSeverity min_severity = LVL_INANE);
-	CAT_INLINE void SetThreshold(EventSeverity min_severity) { _log_threshold = min_severity; }
-	void ReadSettings();
-    void Shutdown();
-
-protected:
 	bool _service;
 #if defined(CAT_OS_WINDOWS)
 	HANDLE _event_source;
 #endif
 
+	void LogEvent(Recorder *recorder);
+
 public:
+	Logging();
+	int _log_threshold;
+
+	static Logging *ref();
+
+	void Initialize(EventSeverity min_severity = LVL_INANE);
+	CAT_INLINE void SetThreshold(EventSeverity min_severity) { _log_threshold = min_severity; }
+	void ReadSettings();
+	void Shutdown();
+
+	// Service mode
 	CAT_INLINE bool IsService() { return _service; }
 	void EnableServiceMode(const char *service_name);
 	void WriteServiceLog(EventSeverity severity, const char *line);
 
-public:
 	// Not thread-safe
-    CAT_INLINE void SetLogCallback(LogCallback cb) { _callback = cb; }
+	CAT_INLINE void SetLogCallback(LogCallback cb) { _callback = cb; }
 };
 
 
@@ -107,55 +107,60 @@ public:
 
 class CAT_EXPORT Recorder
 {
+	CAT_NO_COPY(Recorder);
+
 	friend class Logging;
+
 	EventSeverity _severity;
 	const char *_subsystem;
 	std::ostringstream _msg;
 
 public:
-    Recorder(const char *subsystem, EventSeverity severity);
-    ~Recorder();
+	Recorder(const char *subsystem, EventSeverity severity);
+	~Recorder();
 
 public:
-    template<class T> inline Recorder &operator<<(const T &t)
-    {
-        _msg << t;
-        return *this;
-    }
+	template<class T> inline Recorder &operator<<(const T &t)
+	{
+		_msg << t;
+		return *this;
+	}
 };
 
 // Because there is an IF statement in the macro, you cannot use the
 // braceless if-else construction:
-//  if (XYZ) WARN("SS") << "ERROR!"; else INFO("SS") << "OK!";       <-- bad
+//  if (XYZ) WARN("SS") << "ERROR!"; else INFO("SS") << "OK!";	   <-- bad
 // Instead use:
 //  if (XYZ) { WARN("SS") << "ERROR!"; } else INFO("SS") << "OK!";   <-- good
 #define RECORD(subsystem, severity) \
-    if (severity >= Logging::ii->_log_threshold) Recorder(subsystem, severity)
+	if (severity >= Logging::ref()->_log_threshold) Recorder(subsystem, severity)
 
-#define INANE(subsystem)    RECORD(subsystem, LVL_INANE)
-#define INFO(subsystem)     RECORD(subsystem, LVL_INFO)
-#define WARN(subsystem)     RECORD(subsystem, LVL_WARN)
-#define OOPS(subsystem)     RECORD(subsystem, LVL_OOPS)
-#define FATAL(subsystem)    RECORD(subsystem, LVL_FATAL)
+#define INANE(subsystem)	RECORD(subsystem, LVL_INANE)
+#define INFO(subsystem)	 RECORD(subsystem, LVL_INFO)
+#define WARN(subsystem)	 RECORD(subsystem, LVL_WARN)
+#define OOPS(subsystem)	 RECORD(subsystem, LVL_OOPS)
+#define FATAL(subsystem)	RECORD(subsystem, LVL_FATAL)
 
 
 //// Enforcer
 
 class CAT_EXPORT Enforcer
 {
+	CAT_NO_COPY(Enforcer);
+
 protected:
-    std::ostringstream oss;
+	std::ostringstream oss;
 
 public:
-    Enforcer(const char *locus);
-    ~Enforcer();
+	Enforcer(const char *locus);
+	~Enforcer();
 
 public:
-    template<class T> inline Enforcer &operator<<(const T &t)
-    {
-        oss << t;
-        return *this;
-    }
+	template<class T> inline Enforcer &operator<<(const T &t)
+	{
+		oss << t;
+		return *this;
+	}
 };
 
 
@@ -177,7 +182,7 @@ public:
 
 // Because there is an IF statement in the macro, you cannot use the
 // braceless if-else construction:
-//  if (XYZ) ENFORCE(A == B) << "ERROR"; else INFO("SS") << "OK";       <-- bad!
+//  if (XYZ) ENFORCE(A == B) << "ERROR"; else INFO("SS") << "OK";	   <-- bad!
 // Instead use:
 //  if (XYZ) { ENFORCE(A == B) << "ERROR"; } else INFO("SS") << "OK";   <-- good!
 
