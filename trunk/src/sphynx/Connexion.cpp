@@ -26,23 +26,18 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/sphynx/Server.hpp>
-#include <cat/mem/AlignedAllocator.hpp>
-#include <cat/io/Logging.hpp>
-#include <cat/io/Settings.hpp>
-#include <cat/time/Clock.hpp>
-#include <cat/hash/Murmur.hpp>
-#include <cat/crypt/SecureCompare.hpp>
-#include <cat/crypt/tunnel/Keys.hpp>
+#include <cat/sphynx/Connexion.hpp>
 using namespace cat;
 using namespace sphynx;
 
 void Connexion::OnShutdownRequest()
 {
+	_parent->_conn_map.Remove(this);
 }
 
 bool Connexion::OnZeroReferences()
 {
+	_parent->ReleaseRef();
 	return true;
 }
 
@@ -125,6 +120,8 @@ void Connexion::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 	}
 
 	_parent->ReleaseRecvBuffers(buffers, buffer_count);
+
+	ReleaseRef(buffer_count);
 }
 
 void Connexion::OnWorkerTick(IWorkerTLS *itls, u32 now)
@@ -154,7 +151,9 @@ void Connexion::OnWorkerTick(IWorkerTLS *itls, u32 now)
 
 Connexion::Connexion()
 {
+	_key = ConnexionMap::INVALID_KEY;
 	_seen_encrypted = false;
+
 	InitializeWorkerCallbacks(this);
 }
 

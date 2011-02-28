@@ -101,6 +101,7 @@ enum HandshakeError
 	ERR_SERVER_FULL = 0xa6,
 	ERR_TAMPERING = 0xcc,
 	ERR_BLOCKED = 0xb7,
+	ERR_SHUTDOWN = 0x3a,
 	ERR_SERVER_ERROR = 0x1f
 };
 

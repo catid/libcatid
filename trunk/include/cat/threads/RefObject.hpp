@@ -199,14 +199,14 @@ public:
 
 // Auto release for RefObjects
 template<class T>
-class AutoRef
+class AutoRelease
 {
 	T *_ref;
 
 public:
-	CAT_INLINE AutoRef(T *ref = 0) throw() { _ref = ref; }
-	CAT_INLINE ~AutoRef() throw() { RefObject::Release(_ref); }
-	CAT_INLINE AutoRef &operator=(T *ref) throw() { Reset(ref); return *this; }
+	CAT_INLINE AutoRelease(T *ref = 0) throw() { _ref = ref; }
+	CAT_INLINE ~AutoRelease() throw() { if (_ref) _ref->ReleaseRef(); }
+	CAT_INLINE AutoRelease &operator=(T *ref) throw() { Reset(ref); return *this; }
 
 	CAT_INLINE T *Get() throw() { return _ref; }
 	CAT_INLINE T *operator->() throw() { return _ref; }
@@ -214,7 +214,28 @@ public:
 	CAT_INLINE operator T*() { return _ref; }
 
 	CAT_INLINE void Forget() throw() { _ref = 0; }
-	CAT_INLINE void Reset(T *ref = 0) throw() { if (_ref) _ref->ReleaseRef(); _ref = ref; }
+	CAT_INLINE void Reset(T *ref = 0) throw() { _ref = ref; }
+};
+
+
+// Auto shutdown for RefObjects
+template<class T>
+class AutoShutdown
+{
+	T *_ref;
+
+public:
+	CAT_INLINE AutoShutdown(T *ref = 0) throw() { _ref = ref; }
+	CAT_INLINE ~AutoShutdown() throw() { if (_ref) _ref->RequestShutdown(); }
+	CAT_INLINE AutoShutdown &operator=(T *ref) throw() { Reset(ref); return *this; }
+
+	CAT_INLINE T *Get() throw() { return _ref; }
+	CAT_INLINE T *operator->() throw() { return _ref; }
+	CAT_INLINE T &operator*() throw() { return *_ref; }
+	CAT_INLINE operator T*() { return _ref; }
+
+	CAT_INLINE void Forget() throw() { _ref = 0; }
+	CAT_INLINE void Reset(T *ref = 0) throw() { _ref = ref; }
 };
 
 

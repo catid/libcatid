@@ -33,6 +33,8 @@
 #include <cat/sphynx/Connexion.hpp>
 #include <cat/threads/RWLock.hpp>
 
+// TODO: Implement a generic growing Dictionary<> class
+
 namespace cat {
 
 
@@ -43,6 +45,7 @@ namespace sphynx {
 class ConnexionMap
 {
 public:
+	static const u32 INVALID_KEY = ~(u32)0;
 	static const int HASH_TABLE_SIZE = 32768; // Power-of-2
 	static const int HASH_TABLE_MASK = HASH_TABLE_SIZE - 1;
 	static const int MAX_POPULATION = HASH_TABLE_SIZE / 2;
@@ -87,11 +90,14 @@ public:
 
 	// May return false if network address in Connexion is already in the map.
 	// This averts a potential race condition but should never happen during
-	// normal operation, so the Connexion allocation by caller won't be wasted.
+	// normal operation, so the Connexion allocation by caller won't be wasted
 	bool Insert(Connexion *conn);
 
 	// Remove Connexion object from the lookup table
 	void Remove(Connexion *conn);
+
+	// Invoke ->RequestShutdown() on all Connexion objects
+	void ShutdownAll();
 };
 
 

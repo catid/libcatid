@@ -97,7 +97,6 @@ ConnexionMap::~ConnexionMap()
 {
 }
 
-// Initialize the hash salt
 void ConnexionMap::Initialize(FortunaOutput *csprng)
 {
 	_ip_salt = csprng->Generate();
@@ -105,8 +104,6 @@ void ConnexionMap::Initialize(FortunaOutput *csprng)
 	_flood_salt = csprng->Generate();
 }
 
-// Lookup client by address
-// Returns true if flood guard triggered
 bool ConnexionMap::LookupCheckFlood(Connexion * &connexion, const NetAddr &addr)
 {
 	// Hash IP:port:salt to get the hash table key
@@ -126,6 +123,8 @@ bool ConnexionMap::LookupCheckFlood(Connexion * &connexion, const NetAddr &addr)
 		// If the slot is used and the user address matches,
 		if (conn && conn->_client_addr == addr)
 		{
+			WARN("ConnexionMap") << "Found Connexion in map by address";
+
 			conn->AddRef();
 
 			connexion = conn;
@@ -153,7 +152,6 @@ bool ConnexionMap::LookupCheckFlood(Connexion * &connexion, const NetAddr &addr)
 	return (_flood_table[flood_key] >= CONNECTION_FLOOD_THRESHOLD);
 }
 
-// Lookup client by key
 Connexion *ConnexionMap::Lookup(u32 key)
 {
 	if (key >= HASH_TABLE_SIZE) return 0;
@@ -164,6 +162,8 @@ Connexion *ConnexionMap::Lookup(u32 key)
 
 	if (conn)
 	{
+		WARN("ConnexionMap") << "Found Connexion in map by key";
+
 		conn->AddRef();
 
 		return conn;
@@ -172,9 +172,6 @@ Connexion *ConnexionMap::Lookup(u32 key)
 	return 0;
 }
 
-// May return false if network address in Connexion is already in the map.
-// This averts a potential race condition but should never happen during
-// normal operation, so the Connexion allocation by caller won't be wasted.
 bool ConnexionMap::Insert(Connexion *conn)
 {
 	// Hash IP:port:salt to get the hash table key
@@ -183,6 +180,8 @@ bool ConnexionMap::Insert(Connexion *conn)
 
 	// Grab the slot
 	Slot *slot = &_map_table[key];
+
+	WARN("ConnexionMap") << "Inserting Connexion";
 
 	// Add a reference to the Connexion
 	conn->AddRef();
@@ -220,16 +219,26 @@ bool ConnexionMap::Insert(Connexion *conn)
 	conn->_key = key;
 	conn->_flood_key = flood_key;
 
+	lock.Release();
+
+	INFO("ConnexionMap") << "Inserted connexion from " << conn->GetAddress().IPToString() << " : " << conn->GetAddress().GetPort() << " id=" << conn->GetKey();
+
 	// Keeps reference held
 	return true;
 }
 
-// Remove Connexion object from the lookup table
 void ConnexionMap::Remove(Connexion *conn)
 {
 	if (!conn) return;
 
 	u32 key = conn->_key;
+
+	// If key is invalid,
+	if (key >= HASH_TABLE_SIZE) return;
+
+	INFO("ConnexionMap") << "Removing connexion from " << conn->GetAddress().IPToString() << " : " << conn->GetAddress().GetPort() << " id=" << conn->GetKey();
+
+	conn->ReleaseRef();
 
 	AutoWriteLock lock(_table_lock);
 
@@ -253,4 +262,41 @@ void ConnexionMap::Remove(Connexion *conn)
 	}
 
 	_flood_table[conn->_flood_key]--;
+}
+
+void ConnexionMap::ShutdownAll()
+{
+	INFO("ConnexionMap") << "Requesting shutdown of all connexions";
+
+	std::vector<Connexion*> connexions;
+
+	AutoWriteLock lock(_table_lock);
+
+	// For each hash table bin,
+	for (int key = 0; key < HASH_TABLE_SIZE; ++key)
+	{
+		Connexion *conn = _map_table[key].conn;
+
+		// If table entry is populated,
+		if (conn)
+		{
+			conn->AddRef();
+			connexions.push_back(conn);
+
+			_map_table[key].conn = 0;
+		}
+
+		_map_table[key].collision = false;
+	}
+
+	lock.Release();
+
+	// For each Connexion object to release,
+	for (u32 ii = 0, size = connexions.size(); ii < size; ++ii)
+	{
+		Connexion *conn = connexions[ii];
+
+		conn->RequestShutdown();
+		conn->ReleaseRef();
+	}
 }
