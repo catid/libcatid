@@ -35,7 +35,7 @@ namespace cat {
 
 
 // Pseudo-random number generators will derive from IRandom and implement its public methods
-class IRandom
+class CAT_EXPORT IRandom
 {
 public:
 	virtual ~IRandom() {}

@@ -34,7 +34,7 @@
 namespace cat {
 
 
-class CookieJar
+class CAT_EXPORT CookieJar
 {
     static const int EXPIRE_TIME = 4000; // ms
     static const int BIN_COUNT = 16; // power of 2

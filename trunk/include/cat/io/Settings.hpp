@@ -51,7 +51,7 @@ struct SettingsValue
 };
 
 
-class SettingsKey
+class CAT_EXPORT SettingsKey
 {
 public:
     SettingsKey(SettingsKey *lnode, SettingsKey *gnode, const char *name);
@@ -70,7 +70,7 @@ public:
 
 
 // User settings manager
-class Settings : public Singleton<Settings>
+class CAT_EXPORT Settings : public Singleton<Settings>
 {
     CAT_SINGLETON(Settings);
 

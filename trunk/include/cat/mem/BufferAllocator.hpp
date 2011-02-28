@@ -53,7 +53,7 @@ namespace cat {
 */
 
 // Aligned buffer array heap allocator
-class BufferAllocator : public IAllocator
+class CAT_EXPORT BufferAllocator : public IAllocator
 {
 	u32 _buffer_bytes, _buffer_count;
 	u8 *_buffers;

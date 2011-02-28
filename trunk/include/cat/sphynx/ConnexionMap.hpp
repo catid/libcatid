@@ -42,7 +42,7 @@ namespace sphynx {
 
 
 // Maps remote address to connected clients
-class ConnexionMap
+class CAT_EXPORT ConnexionMap
 {
 public:
 	static const u32 INVALID_KEY = ~(u32)0;

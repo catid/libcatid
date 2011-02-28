@@ -41,7 +41,7 @@ namespace cat {
 
 
 // Implements a mutex that is NOT reentrant (for speed)
-class Mutex
+class CAT_EXPORT Mutex
 {
 #if defined(CAT_OS_WINDOWS)
     CRITICAL_SECTION cs;

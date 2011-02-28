@@ -90,7 +90,7 @@ typedef BOOL (WINAPI *PtGetQueuedCompletionStatusEx)(
 
 
 // IOCP thread
-class IOThread : public Thread
+class CAT_EXPORT IOThread : public Thread
 {
 	CAT_INLINE bool HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY entries[], u32 count, u32 event_time);
 
@@ -102,7 +102,7 @@ class IOThread : public Thread
 
 
 // IOCP threads
-class IOThreads
+class CAT_EXPORT IOThreads
 {
 	friend class IOThread;
 

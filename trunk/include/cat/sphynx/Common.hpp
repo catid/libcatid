@@ -106,7 +106,7 @@ enum HandshakeError
 };
 
 // Convert handshake error string to user-readable error message
-const char *GetHandshakeErrorString(HandshakeError err);
+CAT_EXPORT const char *GetHandshakeErrorString(HandshakeError err);
 
 // Disconnect reasons
 enum DisconnectReasons

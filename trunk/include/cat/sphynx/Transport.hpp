@@ -235,7 +235,7 @@ namespace sphynx {
 	OnDisconnectReason() callback is invoked.
 */
 
-class Transport
+class CAT_EXPORT Transport
 {
 public:
 	static const u32 MAX_MESSAGE_SIZE = 65534;	// Past this size the messages must go through the WriteHuge() interface

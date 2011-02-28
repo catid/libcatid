@@ -41,7 +41,7 @@ namespace sphynx {
 
 
 // Base class for a Sphynx client
-class Client : public UDPEndpoint, public Transport, public WorkerCallbacks
+class CAT_EXPORT Client : public UDPEndpoint, public Transport, public WorkerCallbacks
 {
 	static const int HANDSHAKE_TICK_RATE = 100; // milliseconds
 	static const int INITIAL_HELLO_POST_INTERVAL = 200; // milliseconds
@@ -62,6 +62,7 @@ class Client : public UDPEndpoint, public Transport, public WorkerCallbacks
 	u32 _last_send_msec;
 	NetAddr _server_addr;
 	bool _connected;
+	bool _timer_active; // true = worker timer callback can start processing
 	u32 _worker_id;
 	AuthenticatedEncryption _auth_enc;
 

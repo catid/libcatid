@@ -38,7 +38,7 @@ namespace cat {
 
 
 // Small to medium -size aligned heap allocator
-class AlignedAllocator : public IAllocator
+class CAT_EXPORT AlignedAllocator : public IAllocator
 {
 public:
 	CAT_INLINE virtual ~AlignedAllocator() {}

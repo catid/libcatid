@@ -35,7 +35,7 @@
 namespace cat {
 
 
-class TunnelKeyPair : KeyAgreementCommon
+class CAT_EXPORT TunnelKeyPair : KeyAgreementCommon
 {
 	u8 _key_pair[KeyAgreementCommon::MAX_BYTES * 3];
 	u32 _key_bytes;
@@ -61,7 +61,7 @@ public:
 };
 
 
-class TunnelPublicKey
+class CAT_EXPORT TunnelPublicKey
 {
 	u8 _public_key[KeyAgreementCommon::MAX_BYTES * 2];
 	u32 _key_bytes;

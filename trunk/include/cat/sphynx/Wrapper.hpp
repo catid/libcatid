@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -26,68 +26,17 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_RW_LOCK_HPP
-#define CAT_RW_LOCK_HPP
+#ifndef CAT_SPHYNX_WRAPPER_HPP
+#define CAT_SPHYNX_WRAPPER_HPP
 
-#include <cat/threads/Mutex.hpp>
+#include <cat/AllSphynx.hpp>
 
 namespace cat {
 
 
-//// RWLock
-
-class CAT_EXPORT RWLock
-{
-#if defined(CAT_OS_WINDOWS)
-	volatile u32 _rd_count;
-	volatile u32 _wr_count;
-	HANDLE _rd_event;
-	Mutex _wr_lock;
-#else
-	int init_failure;
-	pthread_rwlock_t rw;
-#endif
-
-public:
-	RWLock();
-	~RWLock();
-
-	void ReadLock();
-	void ReadUnlock();
-
-	void WriteLock();
-	void WriteUnlock();
-};
-
-
-//// AutoReadLock
-
-class CAT_EXPORT AutoReadLock
-{
-	RWLock *_lock;
-
-public:
-	AutoReadLock(RWLock &lock);
-	~AutoReadLock();
-
-    bool Release();
-};
-
-
-//// AutoWriteLock
-
-class CAT_EXPORT AutoWriteLock
-{
-	RWLock *_lock;
-
-public:
-	AutoWriteLock(RWLock &lock);
-	~AutoWriteLock();
-
-    bool Release();
-};
+CAT_EXPORT SphynxLayer *GetSphynxLayer();
 
 
 } // namespace cat
 
-#endif // CAT_RW_LOCK_HPP
+#endif // CAT_SPHYNX_WRAPPER_HPP

@@ -35,7 +35,7 @@ namespace cat {
 
 
 // Microsoft VC++ 7.0 stdlib srand(), rand(), old RANDU()
-class StandardRand
+class CAT_EXPORT StandardRand
 {
 protected:
     s32 seed;

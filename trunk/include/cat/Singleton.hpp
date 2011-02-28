@@ -48,7 +48,7 @@ template<class T> class Singleton
 protected:
     Singleton<T>() {}
     Singleton<T>(Singleton<T> &) {}
-    Singleton<T> &operator=(Singleton<T> &) {}
+    Singleton<T> &operator=(Singleton<T> &) { return *this; }
 
 public:
     static T *ii;

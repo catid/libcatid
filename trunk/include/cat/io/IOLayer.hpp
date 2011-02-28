@@ -42,7 +42,7 @@ TODO
 namespace cat {
 
 
-class IOLayer : public CommonLayer
+class CAT_EXPORT IOLayer : public CommonLayer
 {
 	IOThreads _io_threads;
 

@@ -109,7 +109,7 @@ class FortunaFactory;
 
 
 // Factory for constructing FortunaOutput objects
-class FortunaFactory : public Singleton<FortunaFactory>
+class CAT_EXPORT FortunaFactory : public Singleton<FortunaFactory>
 #if !defined(CAT_NO_ENTROPY_THREAD)
 	, public Thread
 #endif
@@ -186,7 +186,7 @@ public:
 
 
 // LoopThread-safe output object for Fortuna
-class FortunaOutput : public IRandom
+class CAT_EXPORT FortunaOutput : public IRandom
 {
     friend class FortunaFactory;
 

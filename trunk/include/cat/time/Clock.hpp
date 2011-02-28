@@ -36,7 +36,7 @@
 namespace cat {
 
 
-class Clock
+class CAT_EXPORT Clock
 {
 #ifdef CAT_OS_WINDOWS
 	static Mutex init_lock;

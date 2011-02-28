@@ -53,7 +53,7 @@ namespace cat {
 	Designed to synchronize threads:
 		One thread can wait for this flag to be raised by another thread before continuing.
 */
-class WaitableFlag
+class CAT_EXPORT WaitableFlag
 {
 #if defined(CAT_OS_WINDOWS)
 	HANDLE _event;
