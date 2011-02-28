@@ -105,7 +105,7 @@ namespace cat {
 
 #elif defined(CAT_ENDIAN_UNKNOWN)
 
-	class RuntimeEndianDetector
+	class CAT_EXPORT RuntimeEndianDetector
 	{
 	public:
 		bool _big_endian, _little_endian;

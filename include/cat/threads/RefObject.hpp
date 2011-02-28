@@ -48,7 +48,6 @@ class RefObject;
 class WatchedRefObject;
 class RefObjectWatcher;
 
-
 // Classes that derive from RefObject have asynchronously managed lifetimes
 // Never delete a RefObject directly.  Use the RequestShutdown() member instead
 class CAT_EXPORT RefObject

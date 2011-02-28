@@ -50,9 +50,6 @@
     <ClInclude Include="..\..\include\cat\gfx\Vector.hpp">
       <Filter>Header Files\gfx</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\cat\gfx\Cheshire.hpp">
-      <Filter>Header Files\gfx</Filter>
-    </ClInclude>
     <ClInclude Include="Precompiled.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>

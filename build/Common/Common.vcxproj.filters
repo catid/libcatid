@@ -43,6 +43,9 @@
     <Filter Include="Header Files\parse">
       <UniqueIdentifier>{7856b8fc-5136-40b6-95e0-0f7fe03d7053}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\types">
+      <UniqueIdentifier>{91959efb-4573-4b13-bd52-01def324c8ae}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\time\Clock.cpp">
@@ -232,6 +235,9 @@
     </ClInclude>
     <ClInclude Include="..\..\include\cat\io\MappedFile.hpp">
       <Filter>Header Files\io</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\types\List.hpp">
+      <Filter>Header Files\types</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

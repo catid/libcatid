@@ -56,12 +56,12 @@ enum EventSeverity
 
 //// Utility
 
-std::string HexDumpString(const void *vdata, u32 bytes);
+std::string CAT_EXPORT HexDumpString(const void *vdata, u32 bytes);
 
 // Write to console (and debug log in windows) then trigger a breakpoint and exit
-void FatalStop(const char *message);
+void CAT_EXPORT FatalStop(const char *message);
 
-void DefaultLogCallback(EventSeverity severity, const char *source, std::ostringstream &msg);
+void CAT_EXPORT DefaultLogCallback(EventSeverity severity, const char *source, std::ostringstream &msg);
 
 
 //// Logging

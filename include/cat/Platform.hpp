@@ -375,12 +375,14 @@ namespace cat {
 # define CAT_CYGWIN
 #endif
 
-// DLL import/export macros based on OS
+
+//// Dynamic Linkage ////
+
 #if defined(CAT_OS_WINDOWS) || defined(CAT_CYGWIN)
 
 # if defined(CAT_NEUTER_EXPORT)
 #  define CAT_EXPORT /* Do not import or export any symbols */
-# elif defined(CAT_BUILD_DLL) || defined(_WINDLL)
+# elif defined(CAT_BUILD_DLL)
 #  define CAT_EXPORT CAT_DLL_EXPORT /* Implementing a DLL so export this symbol */
 # else
 #  define CAT_EXPORT CAT_DLL_IMPORT /* Using a DLL so import this symbol, faster on Windows */
@@ -395,6 +397,20 @@ namespace cat {
 # define CAT_EXPORT
 
 #endif
+
+// Extern tag for dynamic linkage:
+
+#if defined(CAT_NEUTER_EXPORT)
+# define CAT_EXPORT_EXTERN
+#elif defined(CAT_BUILD_DLL)
+# define CAT_EXPORT_EXTERN
+#else
+# define CAT_EXPORT_EXTERN extern
+#endif
+
+// Export statically-linked templates: CAT_EXPORT_TEMPLATE(cat::Dictionary<int, int>);
+
+#define CAT_EXPORT_TEMPLATE(T) CAT_EXPORT_EXTERN template class CAT_EXPORT T;
 
 
 //// Basic types ////
