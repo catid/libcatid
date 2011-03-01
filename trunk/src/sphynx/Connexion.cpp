@@ -66,10 +66,10 @@ void Connexion::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 		INFO("Connexion") << "Decrypting " << data_bytes << " bytes";
 
 		// If the data could be decrypted,
-		if (data_bytes > (AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD) &&
+		if (data_bytes > SPHYNX_OVERHEAD &&
 			_auth_enc.Decrypt(data, data_bytes))
 		{
-			data_bytes -= AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD;
+			data_bytes -= SPHYNX_OVERHEAD;
 			buffer->send_time = decodeClientTimestamp(buffer->event_msec, getLE(*(u16*)(data + data_bytes)));
 			buffer->data_bytes = data_bytes;
 			delivery.PushBack(buffer);
@@ -157,8 +157,11 @@ Connexion::Connexion()
 	InitializeWorkerCallbacks(this);
 }
 
-bool Connexion::WriteDatagrams(const BatchSet &buffers)
+bool Connexion::WriteDatagrams(const BatchSet &buffers, u32 count)
 {
+	u64 iv = _auth_enc.GrabIVRange(count);
+
+	// Generate timestamp
 	u32 now = getLocalTime();
 	u16 timestamp = getLE(encodeServerTimestamp(now));
 
@@ -175,11 +178,9 @@ bool Connexion::WriteDatagrams(const BatchSet &buffers)
 	*/
 
 	// For each datagram to send,
-	u32 count = 0;
 	for (BatchHead *node = buffers.head; node; node = node->batch_next)
 	{
 		// Unwrap the message data
-		++count;
 		SendBuffer *buffer = reinterpret_cast<SendBuffer*>( node );
 		u8 *msg_data = GetTrailingBytes(buffer);
 		u32 msg_bytes = buffer->bytes;
@@ -187,10 +188,10 @@ bool Connexion::WriteDatagrams(const BatchSet &buffers)
 		// Write timestamp right before the encryption overhead
 		*(u16*)(msg_data + msg_bytes) = timestamp;
 
-		msg_bytes += Transport::TRANSPORT_OVERHEAD + AuthenticatedEncryption::OVERHEAD_BYTES;
+		msg_bytes += SPHYNX_OVERHEAD;
 
 		// Encrypt the message
-		_auth_enc.Encrypt(msg_data, msg_bytes);
+		_auth_enc.Encrypt(iv, msg_data, msg_bytes);
 		buffer->bytes = msg_bytes;
 	}
 

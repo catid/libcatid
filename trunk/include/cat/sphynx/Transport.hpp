@@ -108,13 +108,13 @@ namespace sphynx {
 		---------------------------------
 
 		TOTAL_BYTES: Total bytes in this and following data fragments.
-			0xFFFF means that the overall message is Huge and should go
+			0 means that the overall message is Huge and should go
 			through the OnPartialHuge() callback on the receiving side
 			instead of being reassembled in the transport layer.
 
 		As a result, normal message transmission is limited to messages
-		that are up to 65534 bytes.  This includes the message type byte
-		so the payload part of messages can be as long as 65533 bytes.
+		that are up to 65535 bytes.  This includes the message type byte
+		so the payload part of messages can be as long as 65534 bytes.
 */
 
 /*
@@ -237,17 +237,6 @@ namespace sphynx {
 
 class CAT_EXPORT Transport
 {
-public:
-	static const u32 MAX_MESSAGE_SIZE = 65534;	// Past this size the messages must go through the WriteHuge() interface
-	static const int TIMEOUT_DISCONNECT = 15000; // milliseconds; NOTE: If this changes, the timestamp compression will stop working
-	static const u32 NUM_STREAMS = 4; // Number of reliable streams
-	static const u32 TRANSPORT_OVERHEAD = 2; // Number of bytes added to each packet for the transport layer
-
-	static const u32 MINIMUM_MTU = 576; // Dial-up
-	static const u32 MEDIUM_MTU = 1400; // Highspeed with unexpected overhead, maybe VPN
-	static const u32 MAXIMUM_MTU = 1500; // Highspeed
-
-private:
 	static const int TS_COMPRESS_FUTURE_TOLERANCE = 1000; // Milliseconds of time synch error before errors may occur in timestamp compression
 
 	static const u8 SHUTDOWN_TICK_COUNT = 3; // Number of ticks before shutting down the object
@@ -259,9 +248,8 @@ private:
 	static const u8 C_MASK = 1 << 7;
 	static const u32 SOP_SHIFT = 5;
 	static const u32 SOP_MASK = 3;
+	static const u32 SOP_HUGE = 0x80 | SOP_FRAG; // Super opcode for a huge fragment
 
-	static const u32 ACK_ID_1_THRESH = 16; // Compression threshold for 1 byte ACK-ID
-	static const u32 ACK_ID_2_THRESH = 2048; // Compression threshold for 2 byte ACK-ID
 	static const u32 MAX_ACK_ID_BYTES = 3;
 
 	static const u32 MAX_MESSAGE_HEADER_BYTES = 2;
@@ -277,7 +265,7 @@ private:
 
 	static const u32 UDP_HEADER_BYTES = 8;
 
-	static const u16 FRAG_HUGE = 0xffff; // Huge fragment marker
+	static const u16 FRAG_HUGE = 0; // Huge fragment marker
 	static const u32 FRAG_THRESHOLD = 32; // Minimum fragment size; used elsewhere as a kind of "fuzz factor" for edges of packets
 	static const u32 FRAG_HEADER_BYTES = 2;
 
@@ -301,7 +289,7 @@ private:
 	u32 _recv_trip_time_sum, _recv_trip_count;
 
 	// Serializes writes to the send buffer
-	Mutex _send_buffer_lock;
+	Mutex _send_cluster_lock;
 
 	// Serializes changes to the send queue for reliable messages going out
 	Mutex _send_queue_lock;
@@ -315,10 +303,8 @@ private:
 	// Send state: Last rollup ack id from remote receiver
 	u32 _send_next_remote_expected[NUM_STREAMS];
 
-	// Send state: Combined writes
-	u8 *_send_buffer;
-	u32 _send_buffer_bytes;
-	u32 _send_buffer_stream, _send_buffer_ack_id; // Used to compress ACK-ID by setting I=0 after the first reliable message
+	// Send state: Writes combined into a send cluster
+	SendCluster _send_cluster;
 
 	// Send state: Queue of messages that are waiting to be sent
 	SendQueue *_send_queue_head[NUM_STREAMS], *_send_queue_tail[NUM_STREAMS];
@@ -326,16 +312,20 @@ private:
 	// Send state: List of messages that are waiting to be acknowledged
 	SendQueue *_sent_list_head[NUM_STREAMS], *_sent_list_tail[NUM_STREAMS];
 
+	static void FreeSentNode(SendQueue *node);
+
 	// Queue of outgoing datagrams for batched output
 	BatchSet _outgoing_datagrams;
+	u32 _outgoing_datagrams_count;
+	u32 _outgoing_datagrams_bytes;
 
 	CAT_INLINE void QueueWriteDatagram(u8 *data, u32 data_bytes)
 	{
 		SendBuffer *buffer = SendBuffer::Promote(data);
 		buffer->bytes = data_bytes;
 		_outgoing_datagrams.PushBack(buffer);
-
-		_send_flow.OnPacketSend(data_bytes + _overhead_bytes);
+		_outgoing_datagrams_count++;
+		_outgoing_datagrams_bytes += _udpip_bytes + data_bytes + SPHYNX_OVERHEAD;
 	}
 
 	// true = no longer connected
@@ -435,8 +425,8 @@ protected:
 	// Maximum transfer unit (MTU) in UDP payload bytes, excluding anything included in _overhead_bytes
 	u32 _max_payload_bytes;
 
-	// Overhead bytes: UDP/IP headers, encryption and transport overhead
-	u32 _overhead_bytes;
+	// Overhead bytes: UDP/IP headers
+	u32 _udpip_bytes;
 
 	// Send state: Flow control
 	FlowControl _send_flow;
@@ -445,13 +435,13 @@ protected:
 
 	virtual void OnDisconnectComplete() = 0;
 
-	virtual bool WriteDatagrams(const BatchSet &buffers) = 0;
+	virtual bool WriteDatagrams(const BatchSet &buffers, u32 count) = 0;
 
 	CAT_INLINE bool WriteDatagrams(u8 *single, u32 data_bytes)
 	{
 		SendBuffer *buffer = SendBuffer::Promote(single);
 		buffer->bytes = data_bytes;
-		return WriteDatagrams(buffer);
+		return WriteDatagrams(buffer, 1);
 	}
 
 	virtual void OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count) = 0;
@@ -460,6 +450,8 @@ protected:
 	virtual void OnDisconnectReason(u8 reason) = 0; // Called to help explain why a disconnect is happening
 
 	bool PostMTUProbe(SphynxTLS *tls, u32 mtu);
+
+	void OnFlowControlWrite(u32 bytes);
 };
 
 

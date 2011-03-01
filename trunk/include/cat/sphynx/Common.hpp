@@ -159,9 +159,21 @@ static const u32 IOP_C2S_TIME_PING_LEN = 1 + 4;
 static const u32 IOP_S2C_TIME_PONG_LEN = 1 + 4 + 4 + 4;
 static const u32 IOP_DISCO_LEN = 1 + 1;
 
+// MTU discovery guesses
+static const u32 MINIMUM_MTU = 576; // Dial-up
+static const u32 MEDIUM_MTU = 1400; // Highspeed with unexpected overhead, maybe VPN
+static const u32 MAXIMUM_MTU = 1500; // Highspeed
+
 
 //// sphynx::Transport
 
+static const u32 MAX_MESSAGE_SIZE = 65535;	// Past this size the messages must go through the WriteHuge() interface
+static const int TIMEOUT_DISCONNECT = 15000; // milliseconds; NOTE: If this changes, the timestamp compression will stop working
+static const u32 NUM_STREAMS = 4; // Number of reliable streams
+static const u32 TRANSPORT_OVERHEAD = 2; // Number of bytes added to each packet for the transport layer
+static const u32 SPHYNX_OVERHEAD = AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD;
+
+// Interface for a huge data source > MAX_MESSAGE_SIZE
 class IHugeSource
 {
 	friend class Transport;
@@ -231,9 +243,10 @@ struct SendQueue
 		// In send queue:
 		struct
 		{
-			u64 remaining;		// Number of bytes remaining in transfer
+			u64 huge_remaining;	// Number of bytes remaining in a huge transfer
+			u32 frag_count;		// Number of fragments remaining to be delivered
 			u32 send_bytes;		// Number of bytes to send this time, calculated in DequeueBandwidth()
-			u16 sent_bytes;		// Number of bytes sent so far in this transfer
+			u16 sent_bytes;		// Number of bytes sent so far in a small fragmented message
 		};
 
 		// In sent list:
@@ -243,7 +256,6 @@ struct SendQueue
 			u32 id;				// Acknowledgment id
 			u32 ts_firstsend;	// Millisecond-resolution timestamp when it was first sent
 			u32 ts_lastsend;	// Millisecond-resolution timestamp when it was last sent
-			u32 frag_count;		// Number of fragments remaining to be delivered
 		};
 	};
 
@@ -264,6 +276,36 @@ struct SendFrag : public SendQueue
 struct SendHuge : public SendQueue
 {
 	IHugeSource *source;	// Object containing message data
+};
+
+struct SendCluster
+{
+	u8 *front;	// Pointer to front of the send cluster
+	u32 ack_id;	// Next ACK-ID: Used to compress ACK-ID by setting I=0 after the first reliable message
+	u16 bytes;	// Number of bytes written to the send cluster so far
+	u8 stream;	// Active stream
+
+	CAT_INLINE void Clear()
+	{
+		front = 0;
+		bytes = 0;
+		stream = NUM_STREAMS;
+	}
+
+	CAT_INLINE u8 *Grow(u32 added)
+	{
+		bytes += added;
+
+		front = SendBuffer::Resize(front, bytes + SPHYNX_OVERHEAD);
+		if (!front)
+		{
+			bytes = 0;
+			stream = NUM_STREAMS;
+			return 0;
+		}
+
+		return front + bytes - added;
+	}
 };
 
 #if defined(CAT_PACK_TRANSPORT_STATE_STRUCTURES)

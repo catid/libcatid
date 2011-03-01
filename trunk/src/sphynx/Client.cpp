@@ -225,10 +225,10 @@ void Client::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 				Disconnect(ERR_CLIENT_BROKEN_PIPE);
 				break;
 			}
-			else if (data_bytes > (TRANSPORT_OVERHEAD + AuthenticatedEncryption::OVERHEAD_BYTES) &&
+			else if (data_bytes > SPHYNX_OVERHEAD &&
 					 _auth_enc.Decrypt(data, data_bytes))
 			{
-				data_bytes -= TRANSPORT_OVERHEAD + AuthenticatedEncryption::OVERHEAD_BYTES;
+				data_bytes -= SPHYNX_OVERHEAD;
 				buffer->send_time = decodeServerTimestamp(buffer->event_msec, getLE(*(u16*)(data + data_bytes)));
 
 				buffer->data_bytes = data_bytes;
@@ -311,7 +311,7 @@ void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)
 				if ((s32)(now - _mtu_discovery_time) >= MTU_PROBE_INTERVAL)
 				{
 					// If payload bytes already maxed out,
-					if (_max_payload_bytes >= MAXIMUM_MTU - _overhead_bytes ||
+					if (_max_payload_bytes >= MAXIMUM_MTU - _udpip_bytes - SPHYNX_OVERHEAD ||
 						_mtu_discovery_attempts <= 0)
 					{
 						// Stop posting probes
@@ -322,13 +322,12 @@ void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)
 					}
 					else
 					{
-						if (/*_max_payload_bytes < MAXIMUM_MTU - _overhead_bytes &&*/
-							!PostMTUProbe(tls, MAXIMUM_MTU))
+						if (!PostMTUProbe(tls, MAXIMUM_MTU))
 						{
 							WARN("Client") << "Unable to detect MTU: Probe post failure";
 						}
 
-						if (_max_payload_bytes < MEDIUM_MTU - _overhead_bytes &&
+						if (_max_payload_bytes < MEDIUM_MTU - _udpip_bytes - SPHYNX_OVERHEAD &&
 							!PostMTUProbe(tls, MEDIUM_MTU))
 						{
 							WARN("Client") << "Unable to detect MTU: Probe post failure";
@@ -571,8 +570,10 @@ bool Client::WriteTimePing()
 	return WriteOOB(IOP_C2S_TIME_PING, &timestamp, 4, SOP_INTERNAL);
 }
 
-bool Client::WriteDatagrams(const BatchSet &buffers)
+bool Client::WriteDatagrams(const BatchSet &buffers, u32 count)
 {
+	u64 iv = _auth_enc.GrabIVRange(count);
+
 	u32 now = getLocalTime();
 	u16 timestamp = getLE(encodeClientTimestamp(now));
 
@@ -589,11 +590,9 @@ bool Client::WriteDatagrams(const BatchSet &buffers)
 	*/
 
 	// For each datagram to send,
-	u32 count = 0;
 	for (BatchHead *node = buffers.head; node; node = node->batch_next)
 	{
 		// Unwrap the message data
-		++count;
 		SendBuffer *buffer = reinterpret_cast<SendBuffer*>( node );
 		u8 *msg_data = GetTrailingBytes(buffer);
 		u32 msg_bytes = buffer->bytes;
@@ -601,10 +600,10 @@ bool Client::WriteDatagrams(const BatchSet &buffers)
 		// Write timestamp right before the encryption overhead
 		*(u16*)(msg_data + msg_bytes) = timestamp;
 
-		msg_bytes += Transport::TRANSPORT_OVERHEAD + AuthenticatedEncryption::OVERHEAD_BYTES;
+		msg_bytes += SPHYNX_OVERHEAD;
 
 		// Encrypt the message
-		_auth_enc.Encrypt(msg_data, msg_bytes);
+		_auth_enc.Encrypt(iv, msg_data, msg_bytes);
 		buffer->bytes = msg_bytes;
 
 		//INFO("Client") << "Transmitting datagram with " << msg_bytes << " data bytes";

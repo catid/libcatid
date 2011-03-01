@@ -355,14 +355,28 @@ bool AuthenticatedEncryption::Decrypt(u8 *buffer, u32 buf_bytes)
     return true;
 }
 
-// Encrypt a packet to send to the remote host
-bool AuthenticatedEncryption::Encrypt(u8 *buffer, u32 buf_bytes)
+u64 AuthenticatedEncryption::GrabIVRange(u32 count)
+{
+	u64 iv;
+
+	_local_iv_lock.Enter();
+
+	iv = local_iv;
+	local_iv = iv + count;
+
+	_local_iv_lock.Leave();
+
+	return iv;
+}
+
+bool AuthenticatedEncryption::Encrypt(u64 &next_iv, u8 *buffer, u32 buf_bytes)
 {
 	u32 msg_bytes = buf_bytes - OVERHEAD_BYTES;
     u8 *overhead = buffer + buf_bytes - OVERHEAD_BYTES;
 
 	// Outgoing IV increments by one each time, and starts one ahead of remotely generated IV
-	u64 iv = ++local_iv;
+	u64 iv = next_iv;
+	next_iv = iv + 1;
 
 #ifdef CAT_AUDIT
 	printf("AUDIT: Encrypting message with IV ");
