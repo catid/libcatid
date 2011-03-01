@@ -950,8 +950,6 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 	*/
 
 	u8 *data;
-	u16 data_bytes = node->bytes;
-	u8 hdr = R_MASK;
 	u32 frag_overhead = 0;
 	u16 frag_total_bytes;
 
@@ -968,8 +966,6 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 		else
 			data = GetTrailingBytes(full_node) + frag->offset;
 
-		hdr |= SOP_FRAG << SOP_SHIFT;
-
 		// If this is the first fragment of the message,
 		if (frag->offset == 0)
 		{
@@ -980,83 +976,40 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 	else
 	{
 		data = GetTrailingBytes(node);
-		hdr |= node->sop << SOP_SHIFT;
 	}
 
-	// Include fragment header length in data bytes field
-	u32 data_bytes_with_overhead = frag_overhead + data_bytes;
-	u32 hdr_bytes = (data_bytes_with_overhead - 1) > BLO_MASK ? 2 : 1;
-	u32 msg_bytes = hdr_bytes + data_bytes_with_overhead;
-
-	// Fail on invalid input
-	u32 max_payload_bytes = _max_payload_bytes;
-	if (msg_bytes + MAX_ACK_ID_BYTES > max_payload_bytes)
-	{
-		WARN("Transport") << "Retransmit failure: Reliable message too large";
-		return;
-	}
-
+	// Calculate message length
+	u16 copy_bytes = node->bytes;
+	u32 data_bytes = frag_overhead + copy_bytes - 1;
+	u32 hdr_bytes = (data_bytes <= BLO_MASK) ? 1 : 2;
 	u32 ack_id = node->id;
 
 	_send_cluster_lock.Enter();
 	SendCluster cluster = _send_cluster;
 
+	// Calculate ack_id_overhead
+	u32 ack_id_overhead = (cluster.stream != stream || cluster.ack_id != ack_id) ? MAX_ACK_ID_BYTES : 0;
+	u32 msg_bytes = hdr_bytes + ack_id_overhead + hdr_bytes + 1;
+
 	// If the growing send buffer cannot contain the new message,
-	if (cluster.bytes + msg_bytes > max_payload_bytes)
+	if (cluster.bytes + msg_bytes > _max_payload_bytes)
 	{
 		QueueWriteDatagram(cluster.front, cluster.bytes);
 		cluster.Clear();
 
-		hdr |= I_MASK;
-		msg_bytes += MAX_ACK_ID_BYTES;
-	}
-	else if (cluster.stream != stream ||
-			 cluster.ack_id != ack_id)
-	{
-		hdr |= I_MASK;
-		msg_bytes += MAX_ACK_ID_BYTES;
+		// Recalculate message length
+		msg_bytes += MAX_ACK_ID_BYTES - ack_id_overhead;
+		ack_id_overhead = MAX_ACK_ID_BYTES;
 	}
 
 	// Create or grow buffer and write into it
 	u8 *pkt;
 	while (!(pkt = cluster.Grow(msg_bytes)));
 
-	u32 hdr_data_bytes = data_bytes_with_overhead - 1;
-	if (hdr_data_bytes <= BLO_MASK)
-		pkt[0] = (u8)hdr_data_bytes | hdr;
-	else
-	{
-		pkt[0] = (u8)(hdr_data_bytes & BLO_MASK) | C_MASK | hdr;
-		pkt[1] = (u8)(hdr_data_bytes >> BHI_SHIFT);
-	}
-	pkt += hdr_bytes;
+	ClusterReliableAppend(stream, ack_id, pkt, ack_id_overhead, frag_overhead,
+		cluster, node->sop, data, copy_bytes, frag_total_bytes);
 
-	// If ACK-ID needs to be written, do not use compression since we
-	// cannot predict receiver state on retransmission
-	if (hdr & I_MASK)
-	{
-		pkt[0] = (u8)(stream | ((ack_id & 31) << 2) | 0x80);
-		pkt[1] = (u8)((ack_id >> 5) | 0x80);
-		pkt[2] = (u8)(ack_id >> 12);
-		pkt += 3;
-
-		// Set the stream if it is being written out
-		cluster.stream = stream;
-	}
-
-	// Send buffer ACK ID gets updated regardless of whether or not it is in sequence
-	cluster.ack_id = ack_id + 1;
 	_send_cluster = cluster;
-
-	// If fragment header needs to be written,
-	if (frag_overhead)
-	{
-		*(u16*)pkt = getLE16((u16)frag_total_bytes);
-		pkt += FRAG_HEADER_BYTES;
-	}
-
-	memcpy(pkt, data, data_bytes);
-
 	_send_cluster_lock.Leave();
 
 	node->ts_lastsend = now;
@@ -1682,6 +1635,68 @@ static CAT_INLINE u32 GetACKIDOverhead(u32 ack_id, u32 remote_expected)
 	return ack_id_overhead;
 }
 
+CAT_INLINE void Transport::ClusterReliableAppend(u32 stream, u32 &ack_id, u8 *pkt, u32 &ack_id_overhead, u32 &frag_overhead, SendCluster &cluster, u8 sop, const u8 *copy_src, u32 copy_bytes, u16 frag_total_bytes)
+{
+	// Write header
+	u32 data_bytes = copy_bytes + frag_overhead - 1; // -1 since data bytes is 1-indexed
+	u8 hdr = R_MASK | (sop << SOP_SHIFT);
+	if (ack_id_overhead) hdr |= I_MASK;
+
+	if (data_bytes <= BLO_MASK)
+	{
+		pkt[0] = (u8)data_bytes | hdr;
+		++pkt;
+		cluster.bytes--; // Turns out we can cut out a byte
+	}
+	else
+	{
+		pkt[0] = (u8)(data_bytes & BLO_MASK) | C_MASK | hdr;
+		pkt[1] = (u8)(data_bytes >> BHI_SHIFT);
+		pkt += 2;
+	}
+
+	// Write optional ACK-ID
+	if (ack_id_overhead)
+	{
+		// ACK-ID compression
+		if (ack_id_overhead == 1)
+		{
+			pkt[0] = (u8)(((ack_id & 31) << 2) | stream);
+		}
+		else if (ack_id_overhead == 2)
+		{
+			pkt[0] = (u8)((ack_id << 2) | 0x80 | stream);
+			pkt[1] = (u8)((ack_id >> 5) & 0x7f);
+		}
+		else // if (ack_id_overhead == 3)
+		{
+			pkt[0] = (u8)((ack_id << 2) | 0x80 | stream);
+			pkt[1] = (u8)((ack_id >> 5) | 0x80);
+			pkt[2] = (u8)(ack_id >> 12);
+		}
+
+		pkt += ack_id_overhead;
+
+		cluster.stream = stream;
+
+		ack_id_overhead = 0; // Don't write ACK-ID next time around
+	}
+
+	cluster.ack_id = ++ack_id;
+
+	// Write optional fragment header
+	if (frag_overhead)
+	{
+		*(u16*)pkt = getLE16(frag_total_bytes);
+		pkt += FRAG_HEADER_BYTES;
+
+		frag_overhead = 0;
+	}
+
+	// Copy data bytes
+	memcpy(pkt, copy_src, copy_bytes);
+}
+
 void Transport::WriteSendQueueNode(SendQueue *node, u32 now, u32 stream)
 {
 	u32 max_payload_bytes = _max_payload_bytes;
@@ -1800,74 +1815,14 @@ void Transport::WriteSendQueueNode(SendQueue *node, u32 now, u32 stream)
 			continue;
 		}
 
-		// Write header
-		u32 data_bytes = data_bytes_to_copy + frag_overhead - 1; // -1 since data bytes is 1-indexed
-		u8 hdr = R_MASK;
-		hdr |= (fragmented ? SOP_FRAG : node->sop) << SOP_SHIFT;
-		if (ack_id_overhead) hdr |= I_MASK;
-
-		if (data_bytes <= BLO_MASK)
-		{
-			msg[0] = (u8)data_bytes | hdr;
-			++msg;
-			cluster.bytes--; // Turns out we can cut out a byte
-
-			// This could have been taken into account above but I don't think it's worth the processing time.
-			// The purpose of cutting out the second byte is to help in the case of many small messages,
-			// and this case is handled well as it is written now.
-		}
-		else
-		{
-			msg[0] = (u8)(data_bytes & BLO_MASK) | C_MASK | hdr;
-			msg[1] = (u8)(data_bytes >> BHI_SHIFT);
-			msg += 2;
-		}
-
-		// Write optional ACK-ID
-		if (ack_id_overhead)
-		{
-			// ACK-ID compression
-			if (ack_id_overhead == 1)
-			{
-				msg[0] = (u8)(((ack_id & 31) << 2) | stream);
-			}
-			else if (ack_id_overhead == 2)
-			{
-				msg[0] = (u8)((ack_id << 2) | 0x80 | stream);
-				msg[1] = (u8)((ack_id >> 5) & 0x7f);
-			}
-			else // if (ack_id_overhead == 3)
-			{
-				msg[0] = (u8)((ack_id << 2) | 0x80 | stream);
-				msg[1] = (u8)((ack_id >> 5) | 0x80);
-				msg[2] = (u8)(ack_id >> 12);
-			}
-
-			msg += ack_id_overhead;
-
-			ack_id_overhead = 0; // Don't write ACK-ID next time around
-		}
-
-		// Write optional fragment header
-		if (frag_overhead)
-		{
-			*(u16*)msg = getLE((u16)node->bytes);
-			msg += FRAG_HEADER_BYTES;
-
-			frag_overhead = 0;
-		}
-
-		// Copy data bytes
-		memcpy(msg, GetTrailingBytes(node) + sent_bytes, data_bytes_to_copy);
+		ClusterReliableAppend(stream, ack_id, msg, ack_id_overhead, frag_overhead,
+			cluster, node->sop, GetTrailingBytes(node) + sent_bytes,
+			data_bytes_to_copy, node->bytes);
 
 		sent_bytes += data_bytes_to_copy;
 		bytes_to_send -= data_bytes_to_copy;
 
 		INFO("Transport") << "Wrote " << stream << ": bytes=" << data_bytes_to_copy << " ack_id=" << ack_id;
-
-		// Update send buffer ACK-ID and stream to reduce overhead for next message
-		cluster.ack_id = ++ack_id;
-		cluster.stream = stream;
 
 	} while (bytes_to_send > 0); // end while sending message fragments
 
@@ -1929,10 +1884,9 @@ void Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream)
 		SendFrag *frag;
 		do frag = StdAllocator::ii->AcquireTrailing<SendFrag>(copy_bytes);
 		while (!frag);
-		u8 *frag_pkt = GetTrailingBytes(frag);
 
 		// Read data into fragment
-		u32 copied = node->source->Read((StreamMode)stream, frag_pkt, copy_bytes, this);
+		u32 copied = node->source->Read((StreamMode)stream, GetTrailingBytes(frag), copy_bytes, this);
 
 		// TODO: Handle end of stream
 
@@ -1984,72 +1938,13 @@ void Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream)
 			while (!(pkt = cluster.Grow(total_bytes)));
 		}
 
-		// Write header
-		u32 data_bytes = copy_bytes + frag_overhead - 1; // -1 since data bytes is 1-indexed
-		u8 hdr = R_MASK | (SOP_FRAG << SOP_SHIFT);
-		if (ack_id_overhead) hdr |= I_MASK;
-
-		if (data_bytes <= BLO_MASK)
-		{
-			pkt[0] = (u8)data_bytes | hdr;
-			++pkt;
-			cluster.bytes--; // Turns out we can cut out a byte
-
-			// This could have been taken into account above but I don't think it's worth the processing time.
-			// The purpose of cutting out the second byte is to help in the case of many small messages,
-			// and this case is handled well as it is written now.
-		}
-		else
-		{
-			pkt[0] = (u8)(data_bytes & BLO_MASK) | C_MASK | hdr;
-			pkt[1] = (u8)(data_bytes >> BHI_SHIFT);
-			pkt += 2;
-		}
-
-		// Write optional ACK-ID
-		if (ack_id_overhead)
-		{
-			// ACK-ID compression
-			if (ack_id_overhead == 1)
-			{
-				pkt[0] = (u8)(((ack_id & 31) << 2) | stream);
-			}
-			else if (ack_id_overhead == 2)
-			{
-				pkt[0] = (u8)((ack_id << 2) | 0x80 | stream);
-				pkt[1] = (u8)((ack_id >> 5) & 0x7f);
-			}
-			else // if (ack_id_overhead == 3)
-			{
-				pkt[0] = (u8)((ack_id << 2) | 0x80 | stream);
-				pkt[1] = (u8)((ack_id >> 5) | 0x80);
-				pkt[2] = (u8)(ack_id >> 12);
-			}
-
-			pkt += ack_id_overhead;
-
-			ack_id_overhead = 0; // Don't write ACK-ID next time around
-		}
-
-		// Write optional fragment header
-		if (frag_overhead)
-		{
-			*(u16*)pkt = getLE((u16)node->bytes);
-			pkt += FRAG_HEADER_BYTES;
-			sent_bytes = 1;
-
-			frag_overhead = 0;
-		}
-
-		// Copy data bytes
-		memcpy(pkt, GetTrailingBytes(frag), copy_bytes);
+		ClusterReliableAppend(stream, ack_id, pkt, ack_id_overhead,
+			frag_overhead, cluster, SOP_FRAG, GetTrailingBytes(frag),
+			copy_bytes, node->bytes);
 
 		INFO("Transport") << "Wrote Huge " << stream << ": bytes=" << copy_bytes << " ack_id=" << ack_id;
 
-		// Update send buffer ACK-ID and stream to reduce overhead for next message
-		cluster.ack_id = ++ack_id;
-		cluster.stream = stream;
-
+		sent_bytes = 1;
 		total_copied_bytes += copy_bytes;
 		send_limit -= copy_bytes;
 

@@ -350,6 +350,10 @@ class CAT_EXPORT Transport
 	// Returns the last node to send or 0 if no nodes remain
 	static SendQueue *DequeueBandwidth(SendQueue *head, s32 available_bytes, s32 &used_bytes);
 
+	static CAT_INLINE void ClusterReliableAppend(u32 stream, u32 &ack_id, u8 *pkt,
+		u32 &ack_id_overhead, u32 &frag_overhead, SendCluster &cluster, u8 sop,
+		const u8 *copy_src, u32 copy_bytes, u16 frag_total_bytes);
+
 	// Write one SendQueue node into the send buffer
 	void WriteSendQueueNode(SendQueue *node, u32 now, u32 stream);
 
