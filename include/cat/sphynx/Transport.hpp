@@ -361,6 +361,12 @@ private:
 	// Returns the last node to send or 0 if no nodes remain
 	static SendQueue *DequeueBandwidth(SendQueue *head, s32 available_bytes, s32 &used_bytes);
 
+	// Write one SendQueue node into the send buffer
+	void WriteSendQueueNode(SendQueue *node, u32 now, u32 stream);
+
+	// Write one SendHuge node into the send buffer
+	void WriteSendHugeNode(SendHuge *node, u32 now, u32 stream);
+
 	void WriteQueuedReliable();
 	void Retransmit(u32 stream, SendQueue *node, u32 now); // Does not hold the send lock!
 	void WriteACK();

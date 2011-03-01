@@ -231,9 +231,9 @@ struct SendQueue
 		// In send queue:
 		struct
 		{
-			u64 sent_bytes;		// Number of bytes sent so far in this transfer
 			u64 remaining;		// Number of bytes remaining in transfer
 			u32 send_bytes;		// Number of bytes to send this time, calculated in DequeueBandwidth()
+			u16 sent_bytes;		// Number of bytes sent so far in this transfer
 		};
 
 		// In sent list:
@@ -258,7 +258,7 @@ struct SendQueue
 struct SendFrag : public SendQueue
 {
 	SendQueue *full_data;	// Object containing message data
-	u64 offset;				// Fragment data offset, large enough for huge files
+	u16 offset;				// Fragment data offset
 };
 
 struct SendHuge : public SendQueue

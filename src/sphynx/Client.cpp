@@ -254,8 +254,6 @@ void Client::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 
 void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)
 {
-	if (!_timer_active) return;
-
 	SphynxTLS *tls = reinterpret_cast<SphynxTLS*>( itls );
 
 	if (!_connected)
@@ -365,7 +363,6 @@ void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)
 Client::Client()
 {
 	_connected = false;
-	_timer_active = false;
 	_last_send_msec = 0;
 
 	// Clock synchronization
@@ -461,8 +458,6 @@ bool Client::FinalConnect(const NetAddr &addr)
 	// Assign to a worker
 	SphynxLayer *layer = reinterpret_cast<SphynxLayer*>( GetIOLayer() );
 	_worker_id = layer->GetWorkerThreads()->AssignWorker(this);
-
-	_timer_active = true;
 
 	return true;
 }

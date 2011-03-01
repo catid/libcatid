@@ -62,7 +62,6 @@ class CAT_EXPORT Client : public UDPEndpoint, public Transport, public IWorkerCa
 	u32 _last_send_msec;
 	NetAddr _server_addr;
 	bool _connected;
-	bool _timer_active; // true = worker timer callback can start processing
 	u32 _worker_id;
 	AuthenticatedEncryption _auth_enc;
 
