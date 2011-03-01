@@ -56,12 +56,10 @@ u32 IAllocator::AcquireBatch(BatchSet &set, u32 count, u32 bytes)
 
 void IAllocator::ReleaseBatch(const BatchSet &batch)
 {
-	BatchHead *next, *node = batch.head;
-
-	while (node)
+	for (BatchHead *next, *node = batch.head; node; node = next)
 	{
 		next = node->batch_next;
+
 		Release(node);
-		node = next;
 	}
 }

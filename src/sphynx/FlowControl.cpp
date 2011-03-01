@@ -99,7 +99,7 @@ void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 	_lock.Leave();
 }
 
-void FlowControl::OnACK(u32 now, SendQueue *node)
+void FlowControl::OnACK(u32 now, OutgoingMessage *node)
 {
 	u32 rtt = now - node->ts_firstsend;
 }

@@ -50,13 +50,13 @@ const char *cat::sphynx::GetHandshakeErrorString(HandshakeError err)
 	}
 }
 
-void Transport::FreeSentNode(SendQueue *node)
+void Transport::FreeSentNode(OutgoingMessage *node)
 {
 	// If node is a fragment,
 	if (node->sop == SOP_FRAG)
 	{
 		SendFrag *frag = reinterpret_cast<SendFrag*>( node );
-		SendQueue *full_data_node = frag->full_data;
+		OutgoingMessage *full_data_node = frag->full_data;
 
 		// If no more fragments exist for the full data node,
 		if (!--full_data_node->frag_count)
@@ -82,6 +82,88 @@ void Transport::FreeSentNode(SendQueue *node)
 	}
 
 	StdAllocator::ii->Release(node);
+}
+
+CAT_INLINE void SendQueue::FreeMemory()
+{
+	for (OutgoingMessage *node = head, *next; node; node = next)
+	{
+		next = node->next;
+		StdAllocator::ii->Release(node);
+	}
+}
+
+CAT_INLINE void SendQueue::Append(OutgoingMessage *node)
+{
+	if (node)
+	{
+		if (tail) tail->next = node;
+		else head = node;
+
+		node->next = 0;
+
+		tail = node;
+	}
+}
+
+CAT_INLINE void SendQueue::Steal(SendQueue &queue)
+{
+	if (queue.head)
+	{
+		if (tail) tail->next = queue.head;
+		else head = queue.head;
+
+		tail = queue.tail;
+	}
+}
+
+CAT_INLINE void SentList::FreeMemory()
+{
+	for (OutgoingMessage *node = head, *next; node; node = next)
+	{
+		next = node->next;
+		Transport::FreeSentNode(node);
+	}
+}
+
+CAT_INLINE void SentList::Append(OutgoingMessage *node)
+{
+	if (node)
+	{
+		if (tail) tail->next = node;
+		else head = node;
+
+		node->prev = tail;
+		node->next = 0;
+
+		tail = node;
+	}
+}
+
+CAT_INLINE void SentList::RemoveBefore(OutgoingMessage *node)
+{
+	if (node) node->prev = 0;
+	else tail = 0;
+
+	head = node;
+}
+
+CAT_INLINE void SentList::RemoveBetween(OutgoingMessage *prev, OutgoingMessage *next)
+{
+	if (prev) prev->next = next;
+	else head = next;
+
+	if (next) next->prev = prev;
+	else tail = prev;
+}
+
+CAT_INLINE void OutOfOrderQueue::FreeMemory()
+{
+	for (RecvQueue *node = head, *next; node; node = next)
+	{
+		next = node->next;
+		StdAllocator::ii->Release(node);
+	}
 }
 
 CAT_INLINE void Transport::QueueFragFree(SphynxTLS *tls, u8 *data)
@@ -144,11 +226,9 @@ Transport::Transport()
 	_send_cluster.Clear();
 	_send_flush_after_processing = false;
 
-	CAT_OBJCLR(_send_queue_head);
-	CAT_OBJCLR(_send_queue_tail);
-
-	CAT_OBJCLR(_sent_list_head);
-	CAT_OBJCLR(_sent_list_tail);
+	CAT_OBJCLR(_send_queue);
+	CAT_OBJCLR(_sending_queue);
+	CAT_OBJCLR(_sent_list);
 
 	// Just clear these for now.  When security is initialized these will be filled in
 	CAT_OBJCLR(_next_send_id);
@@ -178,36 +258,14 @@ Transport::~Transport()
 	// For each stream,
 	for (int stream = 0; stream < NUM_STREAMS; ++stream)
 	{
-		// Release memory for receive queue
-		RecvQueue *recv_node = _recv_wait[stream].head;
-		while (recv_node)
-		{
-			RecvQueue *next = recv_node->next;
-			StdAllocator::ii->Release(recv_node);
-			recv_node = next;
-		}
-
 		// Release memory for fragment buffer
 		if (_fragments[stream].length)
 			delete []_fragments[stream].buffer;
 
-		// Release memory for sent list
-		SendQueue *sent_node = _sent_list_head[stream];
-		while (sent_node)
-		{
-			SendQueue *next = sent_node->next;
-			FreeSentNode(sent_node);
-			sent_node = next;
-		}
-
-		// Release memory for send queue
-		SendQueue *send_node = _send_queue_head[stream];
-		while (send_node)
-		{
-			SendQueue *next = send_node->next;
-			StdAllocator::ii->Release(send_node);
-			send_node = next;
-		}
+		_recv_wait[stream].FreeMemory();
+		_sent_list[stream].FreeMemory();
+		_send_queue[stream].FreeMemory();
+		_sending_queue[stream].FreeMemory();
 	}
 }
 
@@ -286,7 +344,7 @@ void Transport::TickTransport(SphynxTLS *tls, u32 now)
 	// Retransmit lost messages
 	for (int stream = 0; stream < NUM_STREAMS; ++stream)
 	{
-		if (_sent_list_head[stream])
+		if (_sent_list[stream].head)
 		{
 			loss_count = RetransmitLost(now);
 			break;
@@ -298,7 +356,7 @@ void Transport::TickTransport(SphynxTLS *tls, u32 now)
 	// Avoid locking to transmit queued if no queued exist
 	for (int stream = 0; stream < NUM_STREAMS; ++stream)
 	{
-		if (_send_queue_head[stream])
+		if (_send_queue[stream].head || _sending_queue[stream].head)
 		{
 			WriteQueuedReliable();
 			break;
@@ -888,14 +946,7 @@ bool Transport::WriteReliableZeroCopy(StreamMode stream, u8 *msg, u32 msg_bytes,
 	// Add to back of send queue
 
 	_send_queue_lock.Enter();
-
-	SendQueue *tail = _send_queue_tail[stream];
-
-	if (tail) tail->next = node;
-	else _send_queue_head[stream] = node;
-
-	_send_queue_tail[stream] = node;
-
+	_send_queue[stream].Append(node);
 	_send_queue_lock.Leave();
 
 	INFO("Transport") << "Appended reliable message with " << msg_bytes << " bytes to stream " << stream;
@@ -921,14 +972,7 @@ bool Transport::WriteHuge(StreamMode stream, IHugeSource *source)
 	// Add to back of send queue
 
 	_send_queue_lock.Enter();
-
-	SendQueue *tail = _send_queue_tail[stream];
-
-	if (tail) tail->next = node;
-	else _send_queue_head[stream] = node;
-
-	_send_queue_tail[stream] = node;
-
+	_send_queue[stream].Append(node);
 	_send_queue_lock.Leave();
 
 	INFO("Transport") << "Appended huge message placeholder to stream " << stream;
@@ -936,7 +980,7 @@ bool Transport::WriteHuge(StreamMode stream, IHugeSource *source)
 	return true;
 }
 
-void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
+void Transport::Retransmit(u32 stream, OutgoingMessage *node, u32 now)
 {
 	/*
 		On retransmission we cannot use ACK-ID compression
@@ -957,7 +1001,7 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 	if (node->sop == SOP_FRAG)
 	{
 		SendFrag *frag = reinterpret_cast<SendFrag*>( node );
-		SendQueue *full_node = frag->full_data;
+		OutgoingMessage *full_node = frag->full_data;
 		frag_total_bytes = full_node->bytes;
 
 		// If the fragment is from a huge message,
@@ -1227,20 +1271,25 @@ void Transport::WriteACK()
 
 u32 Transport::RetransmitLost(u32 now)
 {
-	u32 timeout = _send_flow.GetLossTimeout();
 	u32 loss_count = 0, last_mia_time = 0;
 
 	// Retransmit lost packets
 	for (int stream = 0; stream < NUM_STREAMS; ++stream)
 	{
-		SendQueue *node = _sent_list_head[stream];
+		OutgoingMessage *node = _sent_list[stream].head;
+		if (!node) continue;
+
+		u32 timeout = _send_flow.GetHeadTimeout(stream);
 
 		// For each node that might be ready for a retransmission,
-		while (node)
+		do
 		{
 			u32 mia_time = now - node->ts_lastsend;
 
-			if (mia_time >= timeout + (node->ts_lastsend - node->ts_firstsend))
+			u32 backoff = node->ts_lastsend - node->ts_firstsend;
+			if (backoff > 4 * timeout) backoff = 4 * timeout;
+
+			if (mia_time >= timeout + backoff)
 			{
 				Retransmit(stream, node, now);
 
@@ -1256,7 +1305,7 @@ u32 Transport::RetransmitLost(u32 now)
 			}
 
 			node = node->next;
-		}
+		} while (node);
 	}
 
 	return loss_count;
@@ -1298,6 +1347,41 @@ bool Transport::PostMTUProbe(SphynxTLS *tls, u32 mtu)
 	return success;
 }
 
+CAT_INLINE void Transport::RetransmitNegative(u32 recv_time, u32 stream, u32 last_ack_id, u32 &last_mia_time, u32 &loss_count)
+{
+	// Just saw the end of a stream's ACK list.
+	// We can now detect losses: Any node that is under
+	// last_ack_id that still remains in the sent list
+	// is probably lost.
+
+	OutgoingMessage *rnode = _sent_list[stream].head;
+
+	if (rnode)
+	{
+		u32 timeout = _send_flow.GetNACKTimeout(stream);
+
+		while ((s32)(last_ack_id - rnode->id) > 0)
+		{
+			s32 mia_time = recv_time - rnode->ts_lastsend;
+
+			u32 backoff = rnode->ts_lastsend - rnode->ts_firstsend;
+			if (backoff > 4 * timeout) backoff = 4 * timeout;
+
+			if (mia_time >= (s32)(timeout + backoff))
+			{
+				Retransmit(stream, rnode, recv_time);
+
+				// Only record one loss per millisecond
+				if (mia_time != last_mia_time) ++loss_count;
+				last_mia_time = mia_time;
+			}
+
+			rnode = rnode->next;
+			if (!rnode) break;
+		}
+	}
+}
+
 void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 {
 	if (data_bytes < 2) return;
@@ -1320,9 +1404,8 @@ void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 	}
 
 	u32 stream = NUM_STREAMS, last_ack_id = 0;
-	SendQueue *node = 0;
+	OutgoingMessage *node = 0;
 	u32 loss_count = 0, last_mia_time = 0;
-	u32 timeout = _send_flow.GetLossTimeout();
 	u32 acknowledged_data_sum = 0;
 
 	INANE("Transport") << "Got ACK with " << data_bytes << " bytes of data to decode ----";
@@ -1344,39 +1427,12 @@ void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 
 				// Retransmit lost packets
 				if (stream < NUM_STREAMS)
-				{
-					// Just saw the end of a stream's ACK list.
-					// We can now detect losses: Any node that is under
-					// last_ack_id that still remains in the sent list
-					// is probably lost.
-
-					SendQueue *rnode = _sent_list_head[stream];
-
-					if (rnode)
-					{
-						while ((s32)(last_ack_id - rnode->id) > 0)
-						{
-							s32 mia_time = recv_time - rnode->ts_lastsend;
-
-							if (mia_time >= (s32)(timeout + (rnode->ts_lastsend - rnode->ts_firstsend)))
-							{
-								Retransmit(stream, rnode, recv_time);
-
-								// Only record one loss per millisecond
-								if (mia_time != last_mia_time) ++loss_count;
-								last_mia_time = mia_time;
-							}
-
-							rnode = rnode->next;
-							if (!rnode) break;
-						}
-					}
-				}
+					RetransmitNegative(recv_time, stream, last_ack_id, last_mia_time, loss_count);
 
 				stream = (ida >> 1) & 3;
 				u32 ack_id = ((u32)idc << 13) | ((u16)idb << 5) | (ida >> 3);
 
-				node = _sent_list_head[stream];
+				node = _sent_list[stream].head;
 
 				if (node)
 				{
@@ -1398,15 +1454,12 @@ void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 							_send_flow.OnACK(recv_time, node);
 							acknowledged_data_sum += node->bytes;
 
-							SendQueue *next = node->next;
+							OutgoingMessage *next = node->next;
 							FreeSentNode(node);
 							node = next;
 						} while (node && (s32)(ack_id - node->id) > 0);
 
-						// Update list
-						if (node) node->prev = 0;
-						else _sent_list_tail[stream] = 0;
-						_sent_list_head[stream] = node;
+						_sent_list[stream].RemoveBefore(node);
 					}
 				}
 			}
@@ -1525,7 +1578,7 @@ void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 				// If next node is within the range,
 				if (node && (s32)(end_ack_id - ack_id) >= 0)
 				{
-					SendQueue *prev = node->prev;
+					OutgoingMessage *prev = node->prev;
 
 					// While nodes are in range,
 					do 
@@ -1533,16 +1586,12 @@ void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 						_send_flow.OnACK(recv_time, node);
 						acknowledged_data_sum += node->bytes;
 
-						SendQueue *next = node->next;
+						OutgoingMessage *next = node->next;
 						FreeSentNode(node);
 						node = next;
 					} while (node && (s32)(end_ack_id - node->id) >= 0);
 
-					// Remove killed from sent list
-					if (prev) prev->next = node;
-					else _sent_list_head[stream] = node;
-					if (node) node->prev = prev;
-					else _sent_list_tail[stream] = prev;
+					_sent_list[stream].RemoveBetween(prev, node);
 				}
 
 				// Next range start is offset from the end of this range
@@ -1554,36 +1603,13 @@ void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 
 	// Retransmit lost packets
 	if (stream < NUM_STREAMS)
-	{
-		SendQueue *rnode = _sent_list_head[stream];
-
-		if (rnode)
-		{
-			// While node ACK-IDs are under the final END range,
-			while ((s32)(last_ack_id - rnode->id) > 0)
-			{
-				u32 mia_time = recv_time - rnode->ts_lastsend;
-
-				if (mia_time >= timeout + (rnode->ts_lastsend - rnode->ts_firstsend))
-				{
-					Retransmit(stream, rnode, recv_time);
-
-					// Only record one loss per millisecond
-					if (mia_time != last_mia_time) ++loss_count;
-					last_mia_time = mia_time;
-				}
-
-				rnode = rnode->next;
-				if (!rnode) break;
-			}
-		}
-	}
+		RetransmitNegative(recv_time, stream, last_ack_id, last_mia_time, loss_count);
 
 	// Inform the flow control algorithm
 	_send_flow.OnACKDone(recv_time, avg_trip_time, loss_count, acknowledged_data_sum);
 }
 
-SendQueue *Transport::DequeueBandwidth(SendQueue *node, s32 available_bytes, s32 &bandwidth)
+OutgoingMessage *Transport::DequeueBandwidth(OutgoingMessage *node, s32 available_bytes, s32 &bandwidth)
 {
 	s32 buffer_remaining;
 
@@ -1697,7 +1723,7 @@ CAT_INLINE void Transport::ClusterReliableAppend(u32 stream, u32 &ack_id, u8 *pk
 	memcpy(pkt, copy_src, copy_bytes);
 }
 
-void Transport::WriteSendQueueNode(SendQueue *node, u32 now, u32 stream)
+void Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream)
 {
 	u32 max_payload_bytes = _max_payload_bytes;
 	SendCluster cluster = _send_cluster;
@@ -1741,7 +1767,7 @@ void Transport::WriteSendQueueNode(SendQueue *node, u32 now, u32 stream)
 				cluster.Clear();
 				remaining_send_buffer = max_payload_bytes;
 
-				// NOTE: Cannot drop send buffer lock here because it protects QueueWriteDatagram() also
+				// NOTE: Cannot drop cluster lock here because it protects QueueWriteDatagram() also
 
 				ack_id_overhead = GetACKIDOverhead(ack_id, remote_expected);
 
@@ -1772,7 +1798,7 @@ void Transport::WriteSendQueueNode(SendQueue *node, u32 now, u32 stream)
 		if (write_bytes > retransmit_limit) write_bytes = retransmit_limit;
 
 		u32 data_bytes_to_copy = write_bytes - overhead;
-		SendQueue *add_node = node;
+		OutgoingMessage *add_node = node;
 
 		if (fragmented)
 		{
@@ -1789,22 +1815,18 @@ void Transport::WriteSendQueueNode(SendQueue *node, u32 now, u32 stream)
 			// Increment fragment count on the source node
 			++node->frag_count;
 
-			add_node = reinterpret_cast<SendQueue*>( frag );
+			add_node = reinterpret_cast<OutgoingMessage*>( frag );
 		}
 
 		// Write common data
-		SendQueue *tail = _sent_list_tail[stream];
 		add_node->id = ack_id;
-		add_node->next = 0;
-		add_node->prev = tail;
 		add_node->ts_firstsend = now;
 		add_node->ts_lastsend = now;
 
 		// Link to the end of the sent list
-		if (tail) tail->next = add_node;
-		else _sent_list_head[stream] = add_node;
-		_sent_list_tail[stream] = add_node;
+		_sent_list[stream].Append(add_node);
 
+		// Grow the cluster
 		u8 *msg = cluster.Grow(write_bytes);
 		if (!msg)
 		{
@@ -1812,6 +1834,7 @@ void Transport::WriteSendQueueNode(SendQueue *node, u32 now, u32 stream)
 			continue;
 		}
 
+		// Append to cluster
 		ClusterReliableAppend(stream, ack_id, msg, ack_id_overhead, frag_overhead,
 			cluster, node->sop, GetTrailingBytes(node) + sent_bytes,
 			data_bytes_to_copy, node->bytes);
@@ -1901,10 +1924,7 @@ void Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream)
 		}
 
 		// Write common data
-		SendQueue *tail = _sent_list_tail[stream];
 		frag->id = ack_id;
-		frag->next = 0;
-		frag->prev = tail;
 		frag->ts_firstsend = now;
 		frag->ts_lastsend = now;
 		frag->sop = SOP_FRAG;
@@ -1914,10 +1934,7 @@ void Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream)
 
 		node->frag_count++;
 
-		// Link to the end of the sent list
-		if (tail) tail->next = frag;
-		else _sent_list_head[stream] = frag;
-		_sent_list_tail[stream] = frag;
+		_sent_list[stream].Append(frag);
 
 		// Grow the cluster
 		u8 *pkt = cluster.Grow(total_bytes);
@@ -1963,15 +1980,21 @@ void Transport::WriteQueuedReliable()
 	// If there is no more room in the channel,
 	if (bandwidth <= 0) return;
 
-	// Generate a list of messages to transmit based on the bandwidth available
-	SendQueue *out_head[NUM_STREAMS], *out_tail[NUM_STREAMS];
-
 	_send_queue_lock.Enter();
+
+	// Steal all work from each stream's send queue
+	for (u32 stream = 0; stream < NUM_STREAMS; ++stream)
+		_sending_queue[stream].Steal(_send_queue[stream]);
+
+	_send_queue_lock.Leave();
+
+	// Generate a list of messages to transmit based on the bandwidth available
+	OutgoingMessage *out_head[NUM_STREAMS], *out_tail[NUM_STREAMS];
 
 	// Split bandwidth evenly between normal streams
 	for (u32 stream = 0; stream < NUM_STREAMS - 1; ++stream)
 	{
-		SendQueue *node = _send_queue_head[stream];
+		OutgoingMessage *node = _send_queue_head[stream];
 		out_head[stream] = node;
 
 		if (!node)
@@ -1990,27 +2013,25 @@ void Transport::WriteQueuedReliable()
 	// All streams may claim remaining bandwidth with stream 0 as highest priority
 	for (u32 stream = 0; bandwidth > 0 && stream < NUM_STREAMS - 1; ++stream)
 	{
-		SendQueue *node = out_tail[stream];
+		OutgoingMessage *node = out_tail[stream];
 		if (node) out_tail[stream] = DequeueBandwidth(node, bandwidth, bandwidth);
 	}
 
 	// If any bandwidth remains, give it to the bulk stream
-	SendQueue *node = (bandwidth > 0) ? _send_queue_head[STREAM_BULK] : 0;
+	OutgoingMessage *node = (bandwidth > 0) ? _send_queue_head[STREAM_BULK] : 0;
 	out_head[STREAM_BULK] = node;
 	out_tail[STREAM_BULK] = node ? DequeueBandwidth(node, bandwidth, bandwidth) : 0;
 
 	// Relink the send queue for the remaining nodes
 	for (u32 stream = 0; stream < NUM_STREAMS; ++stream)
 	{
-		SendQueue *node = out_tail[stream];
+		OutgoingMessage *node = out_tail[stream];
 
 		// Fix list links
 		_send_queue_head[stream] = node;
 		if (node) node->prev = 0;
 		else _send_queue_tail[stream] = 0;
 	}
-
-	_send_queue_lock.Leave();
 
 	// Now done with the send queue, work on the send buffer:
 
@@ -2019,11 +2040,11 @@ void Transport::WriteQueuedReliable()
 	// For each stream,
 	for (u32 stream = 0; stream < NUM_STREAMS; ++stream)
 	{
-		SendQueue *node = out_head[stream];
+		OutgoingMessage *node = out_head[stream];
 		if (!node) continue;
 
 		// For each message to send,
-		SendQueue *next;
+		OutgoingMessage *next;
 		do
 		{
 			// Cache next pointer since node may be relinked into sent list

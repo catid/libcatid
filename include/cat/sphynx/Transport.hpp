@@ -235,8 +235,62 @@ namespace sphynx {
 	OnDisconnectReason() callback is invoked.
 */
 
+
+// A queue of messages to transmit
+struct SendQueue
+{
+	OutgoingMessage *head, *tail;
+
+	CAT_INLINE void FreeMemory();
+	CAT_INLINE void Append(OutgoingMessage *node);
+	CAT_INLINE void Steal(SendQueue &queue);
+};
+
+
+// A doubly-linked version of the above queue for the sent list
+struct SentList : SendQueue
+{
+	CAT_INLINE void FreeMemory();
+	CAT_INLINE void Append(OutgoingMessage *node);
+	CAT_INLINE void RemoveBefore(OutgoingMessage *node);
+	CAT_INLINE void RemoveBetween(OutgoingMessage *prev, OutgoingMessage *next);
+};
+
+
+// Receive state: Out of order wait queue
+struct OutOfOrderQueue
+{
+	/*
+		An alternative to a skip list is a huge preallocated
+		circular buffer.  The memory space required for this
+		is really prohibitive.  It would be 1 GB for 1k users
+		for a window of 32k packets.  With this skip list
+		approach I can achieve good average case efficiency
+		with just 48 bytes overhead.
+
+		If the circular buffer grows with demand, then it
+		requires a lot of additional overhead for allocation.
+		And the advantage over a skip list becomes less clear.
+
+		In the worst case it may take longer to walk the list
+		on insert and an attacker may be able to slow down the
+		server by sending a lot of swiss cheese.  So I limit
+		the number of loops allowed through the wait list to
+		bound the processing time.
+	*/
+	RecvQueue *head;	// Head of skip list
+	u32 size;			// Number of elements
+
+	CAT_INLINE void FreeMemory();
+};
+
+
+// The transport layer
 class CAT_EXPORT Transport
 {
+	friend struct SendQueue;
+	friend struct SentList;
+
 	static const int TS_COMPRESS_FUTURE_TOLERANCE = 1000; // Milliseconds of time synch error before errors may occur in timestamp compression
 
 	static const u8 SHUTDOWN_TICK_COUNT = 3; // Number of ticks before shutting down the object
@@ -303,17 +357,24 @@ class CAT_EXPORT Transport
 	u32 _send_next_remote_expected[NUM_STREAMS];
 
 	// Send state: Writes combined into a send cluster
+	// Protected by _send_cluster_lock
 	SendCluster _send_cluster;
 
 	// Send state: Queue of messages that are waiting to be sent
-	SendQueue *_send_queue_head[NUM_STREAMS], *_send_queue_tail[NUM_STREAMS];
+	// Protected by _send_queue_lock
+	SendQueue _send_queue[NUM_STREAMS];
+
+	// Send state: Queue of messages that are being sent
+	SendQueue _sending_queue[NUM_STREAMS];
 
 	// Send state: List of messages that are waiting to be acknowledged
-	SendQueue *_sent_list_head[NUM_STREAMS], *_sent_list_tail[NUM_STREAMS];
+	SentList _sent_list[NUM_STREAMS];
 
-	static void FreeSentNode(SendQueue *node);
+	CAT_INLINE void RetransmitNegative(u32 recv_time, u32 stream, u32 last_ack_id, u32 &last_mia_time, u32 &loss_count);
+	static void FreeSentNode(OutgoingMessage *node);
 
 	// Queue of outgoing datagrams for batched output
+	// Protected by _send_cluster_lock
 	BatchSet _outgoing_datagrams;
 	u32 _outgoing_datagrams_count;
 	u32 _outgoing_datagrams_bytes;
@@ -348,20 +409,20 @@ class CAT_EXPORT Transport
 
 	// Starting at a given node, walk the send queue forward until available bytes of bandwidth are expended
 	// Returns the last node to send or 0 if no nodes remain
-	static SendQueue *DequeueBandwidth(SendQueue *head, s32 available_bytes, s32 &used_bytes);
+	static OutgoingMessage *DequeueBandwidth(OutgoingMessage *head, s32 available_bytes, s32 &used_bytes);
 
 	static CAT_INLINE void ClusterReliableAppend(u32 stream, u32 &ack_id, u8 *pkt,
 		u32 &ack_id_overhead, u32 &frag_overhead, SendCluster &cluster, u8 sop,
 		const u8 *copy_src, u32 copy_bytes, u16 frag_total_bytes);
 
 	// Write one SendQueue node into the send buffer
-	void WriteSendQueueNode(SendQueue *node, u32 now, u32 stream);
+	void WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream);
 
 	// Write one SendHuge node into the send buffer
 	void WriteSendHugeNode(SendHuge *node, u32 now, u32 stream);
 
 	void WriteQueuedReliable();
-	void Retransmit(u32 stream, SendQueue *node, u32 now); // Does not hold the send lock!
+	void Retransmit(u32 stream, OutgoingMessage *node, u32 now); // Does not hold the send lock!
 	void WriteACK();
 	void OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes);
 	void OnFragment(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *data, u32 bytes, u32 stream);

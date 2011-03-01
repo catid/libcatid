@@ -210,34 +210,11 @@ struct RecvQueue
 	// Message contents follow
 };
 
-// Receive state: Out of order wait queue
-struct OutOfOrderQueue
-{
-	/*
-		An alternative to a skip list is a huge preallocated
-		circular buffer.  The memory space required for this
-		is really prohibitive.  It would be 1 GB for 1k users
-		for a window of 32k packets.  With this skip list
-		approach I can achieve good average case efficiency
-		with just 48 bytes overhead.
-
-		If the circular buffer grows with demand, then it
-		requires a lot of additional overhead for allocation.
-		And the advantage over a skip list becomes less clear.
-
-		In the worst case it may take longer to walk the list
-		on insert and an attacker may be able to slow down the
-		server by sending a lot of swiss cheese.  So I limit
-		the number of loops allowed through the wait list to
-		bound the processing time.
-	*/
-	RecvQueue *head;	// Head of skip list
-	u32 size;			// Number of elements
-};
-
 // Send state: Send queue
-struct SendQueue
+struct OutgoingMessage : ResizableBuffer<OutgoingMessage>
 {
+	OutgoingMessage *next;	// Next in queue
+
 	union
 	{
 		// In send queue:
@@ -252,7 +229,7 @@ struct SendQueue
 		// In sent list:
 		struct
 		{
-			SendQueue *prev;	// Previous in queue
+			OutgoingMessage *prev;	// Previous in queue
 			u32 id;				// Acknowledgment id
 			u32 ts_firstsend;	// Millisecond-resolution timestamp when it was first sent
 			u32 ts_lastsend;	// Millisecond-resolution timestamp when it was last sent
@@ -260,20 +237,17 @@ struct SendQueue
 	};
 
 	// Shared members:
-	SendQueue *next;	// Next in queue
 	u16 bytes;			// Data bytes
 	u8 sop;				// Super opcode of message
-
-	// Message contents follow
 };
 
-struct SendFrag : public SendQueue
+struct SendFrag : public OutgoingMessage
 {
-	SendQueue *full_data;	// Object containing message data
+	OutgoingMessage *full_data;	// Object containing message data
 	u16 offset;				// Fragment data offset
 };
 
-struct SendHuge : public SendQueue
+struct SendHuge : public OutgoingMessage
 {
 	IHugeSource *source;	// Object containing message data
 };
@@ -311,12 +285,6 @@ struct SendCluster
 #if defined(CAT_PACK_TRANSPORT_STATE_STRUCTURES)
 # pragma pack(pop)
 #endif
-
-// Outgoing message data from user layer
-class OutgoingMessage : public SendQueue, public ResizableBuffer<OutgoingMessage>
-{
-public:
-};
 
 // Incoming message data passed to user layer
 struct IncomingMessage

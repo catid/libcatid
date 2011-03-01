@@ -126,14 +126,17 @@ public:
 	// Report number of bytes for each successfully sent packet, including overhead bytes
 	void OnPacketSend(u32 bytes_with_overhead);
 
-	// Get timeout for reliable message delivery before considering it lost
-	CAT_INLINE u32 GetLossTimeout() { return _loss_timeout; }
+	// Get timeout for reliable message with negative acknowledgment
+	CAT_INLINE u32 GetNACKTimeout(u32 stream) { return _loss_timeout; }
+
+	// Get timeout for reliable message with no negative acknowledgment
+	CAT_INLINE u32 GetHeadTimeout(u32 stream) { return _loss_timeout; }
 
 	// Called when a transport layer tick occurs
 	void OnTick(u32 now, u32 timeout_loss_count);
 
 	// Called when an acknowledgment is received
-	void OnACK(u32 now, SendQueue *node);
+	void OnACK(u32 now, OutgoingMessage *node);
 	void OnACKDone(u32 now, u32 avg_one_way_time, u32 nack_loss_count, u32 data_bytes);
 };
 
