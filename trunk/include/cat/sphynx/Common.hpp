@@ -137,7 +137,7 @@ enum SuperOpcode
 	SOP_INTERNAL,	// 0=Internal (reliable or unreliable)
 	SOP_DATA,		// 1=Data (reliable or unreliable)
 	SOP_FRAG,		// 2=Fragment (reliable)
-	SOP_ACK,		// 3=ACK (unreliable)
+	SOP_ACK			// 3=ACK (unreliable)
 };
 
 // Internal opcodes
