@@ -1707,11 +1707,8 @@ void Transport::WriteSendQueueNode(SendQueue *node, u32 now, u32 stream)
 	u32 ack_id_overhead = 0;
 
 	// Calculate ack_id_overhead
-	if (cluster.ack_id != ack_id ||
-		cluster.stream != stream)
-	{
+	if (cluster.ack_id != ack_id || cluster.stream != stream)
 		ack_id_overhead = GetACKIDOverhead(ack_id, remote_expected);
-	}
 
 	// If node is already fragmented then we have sent some data before
 	bool fragmented = node->sent_bytes > 0;
@@ -1844,11 +1841,8 @@ void Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream)
 	u32 ack_id_overhead = 0;
 
 	// Calculate ack_id_overhead
-	if (cluster.ack_id != ack_id ||
-		cluster.stream != stream)
-	{
+	if (cluster.ack_id != ack_id || cluster.stream != stream)
 		ack_id_overhead = GetACKIDOverhead(ack_id, remote_expected);
-	}
 
 	// If this is the first time it is being sent, add fragment header
 	u16 sent_bytes = node->sent_bytes;
