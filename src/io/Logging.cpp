@@ -232,6 +232,10 @@ Enforcer::Enforcer(const char *locus)
 	oss << locus;
 }
 
+#if defined(CAT_COMPILER_MSVC)
+#pragma warning(disable:4722) // Dtor never returns
+#endif
+
 Enforcer::~Enforcer()
 {
 	std::string result = oss.str();
