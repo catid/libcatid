@@ -248,7 +248,6 @@ class CAT_EXPORT Transport
 	static const u8 C_MASK = 1 << 7;
 	static const u32 SOP_SHIFT = 5;
 	static const u32 SOP_MASK = 3;
-	static const u32 SOP_HUGE = 0x80 | SOP_FRAG; // Super opcode for a huge fragment
 
 	static const u32 MAX_ACK_ID_BYTES = 3;
 

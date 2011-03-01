@@ -53,7 +53,7 @@ const char *cat::sphynx::GetHandshakeErrorString(HandshakeError err)
 void Transport::FreeSentNode(SendQueue *node)
 {
 	// If node is a fragment,
-	if ((node->sop & SOP_MASK) == SOP_FRAG)
+	if (node->sop == SOP_FRAG)
 	{
 		SendFrag *frag = reinterpret_cast<SendFrag*>( node );
 		SendQueue *full_data_node = frag->full_data;
@@ -949,20 +949,25 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 		copy 2 fewer bytes on initial transmission.
 	*/
 
-	// TODO: Rewrite this with the new fragment system
-
 	u8 *data;
 	u16 data_bytes = node->bytes;
 	u8 hdr = R_MASK;
 	u32 frag_overhead = 0;
-	u32 frag_total_bytes;
+	u16 frag_total_bytes;
 
 	// If node is a fragment,
-	if (node->frag_count)
+	if (node->sop == SOP_FRAG)
 	{
 		SendFrag *frag = reinterpret_cast<SendFrag*>( node );
+		SendQueue *full_node = frag->full_data;
+		frag_total_bytes = full_node->bytes;
 
-		data = GetTrailingBytes(frag->full_data) + frag->offset;
+		// If the fragment is from a huge message,
+		if (frag_total_bytes == FRAG_HUGE)
+			data = GetTrailingBytes(frag);
+		else
+			data = GetTrailingBytes(full_node) + frag->offset;
+
 		hdr |= SOP_FRAG << SOP_SHIFT;
 
 		// If this is the first fragment of the message,
@@ -970,7 +975,6 @@ void Transport::Retransmit(u32 stream, SendQueue *node, u32 now)
 		{
 			// Prepare to insert overhead
 			frag_overhead = FRAG_HEADER_BYTES;
-			frag_total_bytes = frag->full_data->bytes;
 		}
 	}
 	else
