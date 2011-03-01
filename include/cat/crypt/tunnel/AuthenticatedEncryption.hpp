@@ -32,6 +32,7 @@
 #include <cat/crypt/symmetric/ChaCha.hpp>
 #include <cat/crypt/hash/Skein.hpp>
 #include <cat/crypt/hash/HMAC_MD5.hpp>
+#include <cat/threads/Mutex.hpp>
 
 namespace cat {
 
@@ -78,7 +79,7 @@ class KeyAgreementResponder;
 class KeyAgreementInitiator;
 
 
-// This class is NOT THREAD-SAFE.
+// NOTE: Only the encryption is thread safe
 class CAT_EXPORT AuthenticatedEncryption
 {
     friend class KeyAgreementResponder;
@@ -89,7 +90,10 @@ class CAT_EXPORT AuthenticatedEncryption
 
     HMAC_MD5 local_mac_key, remote_mac_key;
     ChaChaKey local_cipher_key, remote_cipher_key;
-    u64 local_iv, remote_iv;
+    u64 remote_iv;
+
+	Mutex _local_iv_lock;
+	u64 local_iv;
 
     // 1024-bit anti-replay sliding window
     static const int BITMAP_BITS = 1024;
@@ -132,11 +136,18 @@ public:
 	void AllowOutOfOrder(bool allowed = true) { _accept_out_of_order = allowed; }
 
 public:
-	// buf_bytes: Number of bytes in the buffer, including OVERHEAD_BYTES at the end of the packet
+	// buf_bytes: Number of bytes in the buffer,
+	//            including OVERHEAD_BYTES at the end of the packet
     bool Decrypt(u8 *buffer, u32 buf_bytes);
 
-	// buf_bytes: Number of bytes in the buffer, including OVERHEAD_BYTES at the end of the packet
-    bool Encrypt(u8 *buffer, u32 buf_bytes);
+	// Grab a range of IVs so that locking only needs to be done once
+	u64 GrabIVRange(u32 count);
+
+	// To encrypt messages, first grab an IV range.
+	// Then call Encrypt(), incrementing the IV each time.
+	// buf_bytes: Number of bytes in the buffer,
+	//            including OVERHEAD_BYTES at the end of the packet
+    bool Encrypt(u64 &iv, u8 *buffer, u32 buf_bytes);
 };
 
 
