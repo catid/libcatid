@@ -248,13 +248,13 @@ struct OutgoingMessage : ResizableBuffer<OutgoingMessage>
 	u8 sop;				// Super opcode of message
 };
 
-struct SendFrag : public OutgoingMessage
+struct SendFrag : OutgoingMessage
 {
 	OutgoingMessage *full_data;	// Object containing message data
 	u16 offset;				// Fragment data offset
 };
 
-struct SendHuge : public OutgoingMessage
+struct SendHuge : OutgoingMessage
 {
 	IHugeSource *source;	// Object containing message data
 };
