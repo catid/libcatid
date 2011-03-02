@@ -30,7 +30,7 @@ public:
 	{
 		WARN("Connexion") << "-- CONNECTED";
 
-		if (_fsource.WriteFile(OP_FILE_UPLOAD_START, "Server.cfg", "sink_file.txt", this))
+		if (_fsource.WriteFile(OP_FILE_UPLOAD_START, "test.tmp", "sink_file.txt", this))
 		{
 			WARN("Connexion") << "-- File upload starting";
 		}
