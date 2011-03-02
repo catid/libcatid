@@ -279,7 +279,7 @@ Transport::~Transport()
 	for (int stream = 0; stream < NUM_STREAMS; ++stream)
 	{
 		// Release memory for fragment buffer
-		if (_fragments[stream].length)
+		if (_fragments[stream].buffer)
 			delete []_fragments[stream].buffer;
 
 		_recv_wait[stream].FreeMemory();
@@ -750,11 +750,12 @@ void Transport::OnFragment(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *dat
 	//INFO("Transport") << "OnFragment " << bytes << ":" << HexDumpString(data, bytes);
 
 	u16 frag_length = _fragments[stream].length;
+	u16 frag_offset = _fragments[stream].offset;
 
 	// If fragment is starting,
-	if (!frag_length)
+	if (!frag_offset)
 	{
-		if (bytes < FRAG_HEADER_BYTES)
+		if (bytes < FRAG_HEADER_BYTES + 1)
 		{
 			WARN("Transport") << "Truncated message fragment head ignored";
 			return;
@@ -767,7 +768,7 @@ void Transport::OnFragment(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *dat
 
 			// If message is huge,
 			if (frag_length == FRAG_HUGE)
-				_fragments[stream].length = 1;
+				_fragments[stream].offset = 1;
 			else
 			{
 				// Allocate fragment buffer
@@ -798,7 +799,7 @@ void Transport::OnFragment(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *dat
 		if (bytes == 0)
 		{
 			// Stop delivering fragments via this callback now
-			_fragments[stream].length = 0;
+			_fragments[stream].offset = 0;
 			WARN("Transport") << "Aborted huge fragment transfer in stream " << stream;
 		}
 
@@ -1736,8 +1737,9 @@ CAT_INLINE void Transport::ClusterReliableAppend(u32 stream, u32 &ack_id, u8 *pk
 	memcpy(pkt, copy_src, copy_bytes);
 }
 
-void Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream)
+bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s32 remaining)
 {
+	bool success = true;
 	u32 max_payload_bytes = _max_payload_bytes;
 	SendCluster cluster = _send_cluster;
 
@@ -1776,12 +1778,18 @@ void Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream)
 			}
 			else if (cluster.bytes > 0) // Not worth fragmentation, dump current send buffer
 			{
+				// If no more room remaining within bandwidth limit,
+				remaining -= cluster.bytes;
+				if (remaining <= 0)
+				{
+					success = false;
+					break;
+				}
+
 				QueueWriteDatagram(cluster.front, cluster.bytes);
 				cluster.Clear();
+
 				remaining_send_buffer = max_payload_bytes;
-
-				// NOTE: Cannot drop cluster lock here because it protects QueueWriteDatagram() also
-
 				ack_id_overhead = GetACKIDOverhead(ack_id, remote_expected);
 
 				if (!fragmented)
@@ -1865,9 +1873,11 @@ void Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream)
 	// Update state
 	_next_send_id[stream] = ack_id;
 	_send_cluster = cluster;
+
+	return success;
 }
 
-bool Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream)
+bool Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream, s32 remaining)
 {
 	bool success = true;
 
@@ -1895,6 +1905,14 @@ bool Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream)
 		u32 remaining_send_buffer = max_payload_bytes - cluster.bytes;
 		if (remaining_send_buffer < FRAG_THRESHOLD)
 		{
+			// If no more room remaining within bandwidth limit,
+			remaining -= cluster.bytes;
+			if (remaining <= 0)
+			{
+				success = false;
+				break;
+			}
+
 			QueueWriteDatagram(cluster.front, cluster.bytes);
 			cluster.Clear();
 
@@ -2006,8 +2024,10 @@ void Transport::WriteQueuedReliable()
 	// If there is no more room in the channel,
 	if (bandwidth <= 0) return;
 
-	// Always try to fit messages within a single payload
-	if (bandwidth < _max_payload_bytes) bandwidth = _max_payload_bytes;
+	// Try to align messages to a MTU boundary for efficiency
+	u32 max_payload_bytes = _max_payload_bytes;
+	if (bandwidth < (s32)max_payload_bytes) bandwidth = max_payload_bytes;
+	else bandwidth = (bandwidth / max_payload_bytes) * max_payload_bytes;
 
 	// Steal all work from each stream's send queue
 	_send_queue_lock.Enter();
@@ -2017,11 +2037,12 @@ void Transport::WriteQueuedReliable()
 
 	// Generate a list of messages to transmit based on the bandwidth available
 	OutgoingMessage *out_head[NUM_STREAMS], *out_tail[NUM_STREAMS];
+	s32 remaining = bandwidth;
 
 	// Split bandwidth evenly between normal streams
 	for (u32 stream = 0; stream < NUM_STREAMS - 1; ++stream)
 	{
-		OutgoingMessage *node = bandwidth > 0 ? _sending_queue[stream].head : 0;
+		OutgoingMessage *node = remaining > 0 ? _sending_queue[stream].head : 0;
 		out_head[stream] = node;
 
 		if (!node)
@@ -2034,18 +2055,18 @@ void Transport::WriteQueuedReliable()
 		// have been retained from the previous timer tick
 		node->send_bytes = 0;
 
-		out_tail[stream] = DequeueBandwidth(node, bandwidth / (NUM_STREAMS - 1 - stream), bandwidth);
+		out_tail[stream] = DequeueBandwidth(node, remaining / (NUM_STREAMS - 1 - stream), remaining);
 	}
 
 	// All streams may claim remaining bandwidth with stream 0 as highest priority
-	for (u32 stream = 0; bandwidth > 0 && stream < NUM_STREAMS - 1; ++stream)
+	for (u32 stream = 0; remaining > 0 && stream < NUM_STREAMS - 1; ++stream)
 	{
 		OutgoingMessage *node = out_tail[stream];
-		if (node) out_tail[stream] = DequeueBandwidth(node, bandwidth, bandwidth);
+		if (node) out_tail[stream] = DequeueBandwidth(node, remaining, remaining);
 	}
 
 	// If any bandwidth remains, give it to the bulk stream
-	OutgoingMessage *node = bandwidth > 0 ? _sending_queue[STREAM_BULK].head : 0;
+	OutgoingMessage *node = remaining > 0 ? _sending_queue[STREAM_BULK].head : 0;
 	out_head[STREAM_BULK] = node;
 	if (!node)
 		out_tail[STREAM_BULK] = 0;
@@ -2055,15 +2076,19 @@ void Transport::WriteQueuedReliable()
 		// have been retained from the previous timer tick
 		node->send_bytes = 0;
 
-		out_tail[STREAM_BULK] = DequeueBandwidth(node, bandwidth, bandwidth);
+		out_tail[STREAM_BULK] = DequeueBandwidth(node, remaining, remaining);
 	}
 
 	// NOTE: What we have now is a *best guess* at how much data can fit into
 	// the bandwidth allowed by the rate limiter.  Due to message headers, the
 	// actual amount of data we can send is somewhat lower.
+	// There may also be messages in the send cluster that greatly reduce the
+	// amount of bandwidth remaining.
+	remaining = bandwidth;
 
 	// Write dequeued messages to the send cluster
 	_send_cluster_lock.Enter();
+	remaining -= _send_cluster.bytes;
 
 	// For each stream,
 	for (u32 stream = 0; stream < NUM_STREAMS; ++stream)
@@ -2078,18 +2103,17 @@ void Transport::WriteQueuedReliable()
 			// Cache next pointer since node may be relinked into sent list
 			next = node->next;
 
-			if (node->bytes == FRAG_HUGE)
+			bool success = (node->bytes == FRAG_HUGE) ?
+				WriteSendHugeNode(reinterpret_cast<SendHuge*>( node ), now, stream, remaining) :
+				WriteSendQueueNode(node, now, stream, remaining);
+
+			// If node aborted early,
+			if (!success)
 			{
-				// If node could not be written,
-				if (!WriteSendHugeNode(reinterpret_cast<SendHuge*>( node ), now, stream))
-				{
-					// Stop tail here
-					out_tail[stream] = node;
-					break;
-				}
+				// Stop tail here
+				out_tail[stream] = node;
+				break;
 			}
-			else
-				WriteSendQueueNode(node, now, stream);
 
 		} while (node != out_tail[stream] && (node = next));
 	}

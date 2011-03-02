@@ -68,15 +68,19 @@ public:
 		bool collision;
 	};
 
-protected:
+private:
 	u32 _flood_salt, _ip_salt, _port_salt;
+	bool _is_shutdown;
+
+	RWLock _table_lock;
 	Slot _map_table[HASH_TABLE_SIZE];
 	u8 _flood_table[HASH_TABLE_SIZE];
-	RWLock _table_lock;
 
 public:
 	ConnexionMap();
 	virtual ~ConnexionMap();
+
+	CAT_INLINE bool IsShutdown() { return _is_shutdown; }
 
 	// Initialize the hash salt
 	void Initialize(FortunaOutput *csprng);

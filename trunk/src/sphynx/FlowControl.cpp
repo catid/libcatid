@@ -85,7 +85,7 @@ static u32 trip_ii = 0;
 static u32 bw_ii = 80;
 
 void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
-{
+{/*
 	_lock.Enter();
 
 	if (++trip_ii >= 500)
@@ -96,7 +96,7 @@ void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 		WARN("FlowControl") << "Setting BW to " << _bps;
 	}
 
-	_lock.Leave();
+	_lock.Leave();*/
 }
 
 void FlowControl::OnACK(u32 now, OutgoingMessage *node)
