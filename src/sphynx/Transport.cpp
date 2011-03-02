@@ -114,6 +114,8 @@ CAT_INLINE void SendQueue::Steal(SendQueue &queue)
 		else head = queue.head;
 
 		tail = queue.tail;
+
+		queue.head = queue.tail = 0;
 	}
 }
 
@@ -484,15 +486,15 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 				// If message is next expected,
 				if (diff == 0)
 				{
-					// Process it immediately
-					if (data_bytes > 0)
-					{
-						u32 super_opcode = (hdr >> SOP_SHIFT) & SOP_MASK;
+					u32 super_opcode = (hdr >> SOP_SHIFT) & SOP_MASK;
 
+					// Process it immediately
+					if (super_opcode == SOP_FRAG)
+						OnFragment(tls, send_time, recv_time, data, data_bytes, stream);
+					else if (data_bytes > 0)
+					{
 						if (super_opcode == SOP_DATA)
 							QueueDelivery(tls, data, data_bytes, send_time);
-						else if (super_opcode == SOP_FRAG)
-							OnFragment(tls, send_time, recv_time, data, data_bytes, stream);
 						else if (super_opcode == SOP_INTERNAL)
 							OnInternal(tls, send_time, recv_time, data, data_bytes);
 						else WARN("Transport") << "Invalid reliable super opcode ignored";
@@ -745,8 +747,10 @@ void Transport::OnFragment(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *dat
 			data += FRAG_HEADER_BYTES;
 			bytes -= FRAG_HEADER_BYTES;
 
-			// If fragment length field does not indicate that it is oversized,
-			if (frag_length != FRAG_HUGE)
+			// If message is huge,
+			if (frag_length == FRAG_HUGE)
+				_fragments[stream].length = 1;
+			else
 			{
 				// Allocate fragment buffer
 				_fragments[stream].buffer = new u8[frag_length];
@@ -990,7 +994,7 @@ void Transport::Retransmit(u32 stream, OutgoingMessage *node, u32 now)
 
 	u8 *data;
 	u32 frag_overhead = 0;
-	u16 frag_total_bytes;
+	u16 frag_total_bytes = 0;
 
 	// If node is a fragment,
 	if (node->sop == SOP_FRAG)
@@ -1006,11 +1010,7 @@ void Transport::Retransmit(u32 stream, OutgoingMessage *node, u32 now)
 			data = GetTrailingBytes(full_node) + frag->offset;
 
 		// If this is the first fragment of the message,
-		if (frag->offset == 0)
-		{
-			// Prepare to insert overhead
-			frag_overhead = FRAG_HEADER_BYTES;
-		}
+		if (frag->offset == 0) frag_overhead = FRAG_HEADER_BYTES;
 	}
 	else
 	{
@@ -1638,7 +1638,7 @@ OutgoingMessage *Transport::DequeueBandwidth(OutgoingMessage *node, s32 availabl
 
 	// Report number of bytes used
 	bandwidth -= available_bytes - buffer_remaining;
-	return 0;
+	return node;
 }
 
 static CAT_INLINE u32 GetACKIDOverhead(u32 ack_id, u32 remote_expected)
@@ -1994,7 +1994,7 @@ void Transport::WriteQueuedReliable()
 	// Split bandwidth evenly between normal streams
 	for (u32 stream = 0; stream < NUM_STREAMS - 1; ++stream)
 	{
-		OutgoingMessage *node = _sending_queue[stream].head;
+		OutgoingMessage *node = bandwidth > 0 ? _sending_queue[stream].head : 0;
 		out_head[stream] = node;
 
 		if (!node)
@@ -2018,7 +2018,7 @@ void Transport::WriteQueuedReliable()
 	}
 
 	// If any bandwidth remains, give it to the bulk stream
-	OutgoingMessage *node = (bandwidth > 0) ? _sending_queue[STREAM_BULK].head : 0;
+	OutgoingMessage *node = bandwidth > 0 ? _sending_queue[STREAM_BULK].head : 0;
 	out_head[STREAM_BULK] = node;
 	out_tail[STREAM_BULK] = node ? DequeueBandwidth(node, bandwidth, bandwidth) : 0;
 

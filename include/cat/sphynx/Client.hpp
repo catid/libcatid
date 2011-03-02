@@ -70,7 +70,7 @@ class CAT_EXPORT Client : public UDPEndpoint, public Transport, public IWorkerCa
 
 	u32 _first_hello_post;
 	u32 _last_hello_post;
-	u32 _hello_post_interval;
+	s32 _hello_post_interval;
 
 	u32 _mtu_discovery_time;
 	int _mtu_discovery_attempts;

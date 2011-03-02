@@ -258,14 +258,14 @@ void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)
 
 	if (!_connected)
 	{
-		if (now - _first_hello_post >= CONNECT_TIMEOUT)
+		if ((s32)(now - _first_hello_post) >= CONNECT_TIMEOUT)
 		{
 			// NOTE: Connection can complete before or after OnConnectFail()
 			ConnectFail(ERR_CLIENT_TIMEOUT);
 			return;
 		}
 
-		if (now - _last_hello_post >= _hello_post_interval)
+		if ((s32)(now - _last_hello_post) >= _hello_post_interval)
 		{
 			if (!WriteHello())
 			{
