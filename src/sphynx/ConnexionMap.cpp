@@ -91,6 +91,7 @@ ConnexionMap::ConnexionMap()
 {
 	CAT_OBJCLR(_map_table);
 	CAT_OBJCLR(_flood_table);
+	_is_shutdown = false;
 }
 
 ConnexionMap::~ConnexionMap()
@@ -111,6 +112,12 @@ bool ConnexionMap::LookupCheckFlood(Connexion * &connexion, const NetAddr &addr)
 	u32 flood_key = flood_hash_addr(addr, _flood_salt) & HASH_TABLE_MASK;
 
 	AutoReadLock lock(_table_lock);
+
+	if (IsShutdown())
+	{
+		connexion = 0;
+		return false;
+	}
 
 	// Forever,
 	for (;;)
@@ -156,6 +163,9 @@ Connexion *ConnexionMap::Lookup(u32 key)
 
 	AutoReadLock lock(_table_lock);
 
+	if (IsShutdown())
+		return 0;
+
 	Connexion *conn = _map_table[key].conn;
 
 	if (conn)
@@ -182,6 +192,13 @@ bool ConnexionMap::Insert(Connexion *conn)
 
 	AutoWriteLock lock(_table_lock);
 
+	if (IsShutdown())
+	{
+		lock.Release();
+		conn->ReleaseRef();
+		return false;
+	}
+
 	// While collision keys are marked used,
 	while (slot->conn)
 	{
@@ -189,10 +206,7 @@ bool ConnexionMap::Insert(Connexion *conn)
 		if (slot->conn->_client_addr == conn->_client_addr)
 		{
 			lock.Release();
-
-			// Release the reference
 			conn->ReleaseRef();
-
 			return false;
 		}
 
@@ -236,6 +250,9 @@ void ConnexionMap::Remove(Connexion *conn)
 
 	AutoWriteLock lock(_table_lock);
 
+	// Remove connexion
+	_map_table[key].conn = 0;
+
 	// If at a leaf in the collision list,
 	if (!_map_table[key].collision)
 	{
@@ -265,6 +282,8 @@ void ConnexionMap::ShutdownAll()
 	std::vector<Connexion*> connexions;
 
 	AutoWriteLock lock(_table_lock);
+
+	_is_shutdown = true;
 
 	// For each hash table bin,
 	for (int key = 0; key < HASH_TABLE_SIZE; ++key)

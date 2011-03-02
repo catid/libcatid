@@ -419,11 +419,11 @@ class CAT_EXPORT Transport
 		const u8 *copy_src, u32 copy_bytes, u16 frag_total_bytes);
 
 	// Write one SendQueue node into the send buffer
-	void WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream);
+	bool WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s32 remaining);
 
 	// Write one SendHuge node into the send buffer
 	// Returns true if requested parts of node are completely moved to sent list
-	bool WriteSendHugeNode(SendHuge *node, u32 now, u32 stream);
+	bool WriteSendHugeNode(SendHuge *node, u32 now, u32 stream, s32 remaining);
 
 	void WriteQueuedReliable();
 	void Retransmit(u32 stream, OutgoingMessage *node, u32 now); // Does not hold the send lock!
