@@ -191,12 +191,16 @@ CAT_INLINE void Transport::QueueFragFree(SphynxTLS *tls, u8 *data)
 	tls->free_list_count = ++count;
 }
 
-void Transport::QueueDelivery(SphynxTLS *tls, u8 *data, u32 data_bytes, u32 send_time)
+void Transport::QueueDelivery(SphynxTLS *tls, u32 stream, u8 *data, u32 data_bytes, u32 send_time, bool huge_fragment)
 {
 	u32 depth = tls->delivery_queue_depth;
-	tls->delivery_queue[depth].msg = data;
-	tls->delivery_queue[depth].bytes = data_bytes;
-	tls->delivery_queue[depth].send_time = send_time;
+
+	IncomingMessage *msg = &tls->delivery_queue[depth];
+	msg->stream = (StreamMode)stream;
+	msg->data = data;
+	msg->bytes = data_bytes;
+	msg->send_time = send_time;
+	msg->huge_fragment = huge_fragment;
 
 	if (++depth < SphynxTLS::DELIVERY_QUEUE_DEPTH)
 		tls->delivery_queue_depth = depth;
@@ -512,7 +516,7 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 					else if (data_bytes > 0)
 					{
 						if (super_opcode == SOP_DATA)
-							QueueDelivery(tls, data, data_bytes, send_time);
+							QueueDelivery(tls, stream, data, data_bytes, send_time, false);
 						else if (super_opcode == SOP_INTERNAL)
 							OnInternal(tls, send_time, recv_time, data, data_bytes);
 						else WARN("Transport") << "Invalid reliable super opcode ignored";
@@ -540,7 +544,7 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 				u32 super_opcode = (hdr >> SOP_SHIFT) & SOP_MASK;
 
 				if (super_opcode == SOP_DATA)
-					QueueDelivery(tls, data, data_bytes, send_time);
+					QueueDelivery(tls, stream, data, data_bytes, send_time, false);
 				else if (super_opcode == SOP_ACK)
 					OnACK(send_time, recv_time, data, data_bytes);
 				else if (super_opcode == SOP_INTERNAL)
@@ -610,7 +614,7 @@ void Transport::RunReliableReceiveQueue(SphynxTLS *tls, u32 recv_time, u32 ack_i
 			WARN("Transport") << "Running queued message # " << stream << ":" << ack_id;
 
 			if (super_opcode == SOP_DATA)
-				QueueDelivery(tls, old_data, old_data_bytes, node->send_time);
+				QueueDelivery(tls, stream, old_data, old_data_bytes, node->send_time, false);
 			else if (super_opcode == SOP_INTERNAL)
 				OnInternal(tls, node->send_time, recv_time, old_data, old_data_bytes);
 
@@ -697,7 +701,7 @@ void Transport::StoreReliableOutOfOrder(SphynxTLS *tls, u32 send_time, u32 recv_
 		else if (data_bytes > 0)
 		{
 			if (super_opcode == SOP_DATA)
-				QueueDelivery(tls, data, data_bytes, send_time);
+				QueueDelivery(tls, stream, data, data_bytes, send_time, false);
 			else if (super_opcode == SOP_INTERNAL)
 				OnInternal(tls, send_time, recv_time, data, data_bytes);
 
@@ -793,7 +797,8 @@ void Transport::OnFragment(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *dat
 	// If fragment length is huge,
 	if (frag_length == FRAG_HUGE)
 	{
-		OnReadHuge((StreamMode)stream, data, bytes);
+		// Deliver this buffer
+		QueueDelivery(tls, stream, data, bytes, send_time, true);
 
 		// If got final part,
 		if (bytes == 0)
@@ -836,7 +841,7 @@ void Transport::OnFragment(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *dat
 		QueueFragFree(tls, buffer);
 
 		// Deliver this buffer
-		QueueDelivery(tls, buffer, _fragments[stream].length, _fragments[stream].send_time);
+		QueueDelivery(tls, stream, buffer, _fragments[stream].length, _fragments[stream].send_time, false);
 
 		_fragments[stream].length = 0;
 	}

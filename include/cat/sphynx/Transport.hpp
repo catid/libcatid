@@ -379,8 +379,7 @@ class CAT_EXPORT Transport
 	// Queue of outgoing datagrams for batched output
 	// Protected by _send_cluster_lock
 	BatchSet _outgoing_datagrams;
-	u32 _outgoing_datagrams_count;
-	u32 _outgoing_datagrams_bytes;
+	u32 _outgoing_datagrams_count, _outgoing_datagrams_bytes;
 
 	CAT_INLINE void QueueWriteDatagram(u8 *data, u32 data_bytes)
 	{
@@ -402,7 +401,7 @@ class CAT_EXPORT Transport
 	CAT_INLINE void QueueFragFree(SphynxTLS *tls, u8 *data);
 
 	// Queue received data for user processing
-	void QueueDelivery(SphynxTLS *tls, u8 *data, u32 data_bytes, u32 send_time);
+	void QueueDelivery(SphynxTLS *tls, u32 stream, u8 *data, u32 data_bytes, u32 send_time, bool huge_fragment);
 
 	// Deliver messages to user in one big batch
 	CAT_INLINE void DeliverQueued(SphynxTLS *tls);
@@ -513,7 +512,6 @@ protected:
 	}
 
 	virtual void OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count) = 0;
-	virtual void OnReadHuge(StreamMode stream, BufferStream data, u32 size) = 0; // Sets size = 0 on end of data
 	virtual void OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes) = 0; // precondition: bytes > 0
 	virtual void OnDisconnectReason(u8 reason) = 0; // Called to help explain why a disconnect is happening
 
