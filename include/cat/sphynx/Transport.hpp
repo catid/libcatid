@@ -244,6 +244,7 @@ struct SendQueue
 	CAT_INLINE void FreeMemory();
 	CAT_INLINE void Append(OutgoingMessage *node);
 	CAT_INLINE void Steal(SendQueue &queue);
+	CAT_INLINE void RemoveBefore(OutgoingMessage *node);
 };
 
 

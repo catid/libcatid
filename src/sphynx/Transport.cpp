@@ -32,7 +32,106 @@
 using namespace cat;
 using namespace sphynx;
 
-// Convert handshake error string to user-readable error message
+CAT_INLINE void SendQueue::FreeMemory()
+{
+	for (OutgoingMessage *node = head, *next; node; node = next)
+	{
+		next = node->next;
+		StdAllocator::ii->Release(node);
+	}
+}
+
+CAT_INLINE void SendQueue::Append(OutgoingMessage *node)
+{
+	if (node)
+	{
+		if (tail) tail->next = node;
+		else head = node;
+
+		node->next = 0;
+
+		tail = node;
+	}
+}
+
+CAT_INLINE void SendQueue::Steal(SendQueue &queue)
+{
+	if (queue.head)
+	{
+		if (tail) tail->next = queue.head;
+		else head = queue.head;
+
+		tail = queue.tail;
+
+		queue.head = queue.tail = 0;
+	}
+}
+
+CAT_INLINE void SendQueue::RemoveBefore(OutgoingMessage *node)
+{
+	if (!node) tail = 0;
+
+	head = node;
+}
+
+
+//// SentList
+
+CAT_INLINE void SentList::FreeMemory()
+{
+	for (OutgoingMessage *node = head, *next; node; node = next)
+	{
+		next = node->next;
+		Transport::FreeSentNode(node);
+	}
+}
+
+CAT_INLINE void SentList::Append(OutgoingMessage *node)
+{
+	if (node)
+	{
+		if (tail) tail->next = node;
+		else head = node;
+
+		node->prev = tail;
+		node->next = 0;
+
+		tail = node;
+	}
+}
+
+CAT_INLINE void SentList::RemoveBefore(OutgoingMessage *node)
+{
+	if (node) node->prev = 0;
+	else tail = 0;
+
+	head = node;
+}
+
+CAT_INLINE void SentList::RemoveBetween(OutgoingMessage *prev, OutgoingMessage *next)
+{
+	if (prev) prev->next = next;
+	else head = next;
+
+	if (next) next->prev = prev;
+	else tail = prev;
+}
+
+
+//// OutOfOrderQueue
+
+CAT_INLINE void OutOfOrderQueue::FreeMemory()
+{
+	for (RecvQueue *node = head, *next; node; node = next)
+	{
+		next = node->next;
+		StdAllocator::ii->Release(node);
+	}
+}
+
+
+//// Helpers
+
 const char *cat::sphynx::GetHandshakeErrorString(HandshakeError err)
 {
 	switch (err)
@@ -84,90 +183,6 @@ void Transport::FreeSentNode(OutgoingMessage *node)
 	StdAllocator::ii->Release(node);
 }
 
-CAT_INLINE void SendQueue::FreeMemory()
-{
-	for (OutgoingMessage *node = head, *next; node; node = next)
-	{
-		next = node->next;
-		StdAllocator::ii->Release(node);
-	}
-}
-
-CAT_INLINE void SendQueue::Append(OutgoingMessage *node)
-{
-	if (node)
-	{
-		if (tail) tail->next = node;
-		else head = node;
-
-		node->next = 0;
-
-		tail = node;
-	}
-}
-
-CAT_INLINE void SendQueue::Steal(SendQueue &queue)
-{
-	if (queue.head)
-	{
-		if (tail) tail->next = queue.head;
-		else head = queue.head;
-
-		tail = queue.tail;
-
-		queue.head = queue.tail = 0;
-	}
-}
-
-CAT_INLINE void SentList::FreeMemory()
-{
-	for (OutgoingMessage *node = head, *next; node; node = next)
-	{
-		next = node->next;
-		Transport::FreeSentNode(node);
-	}
-}
-
-CAT_INLINE void SentList::Append(OutgoingMessage *node)
-{
-	if (node)
-	{
-		if (tail) tail->next = node;
-		else head = node;
-
-		node->prev = tail;
-		node->next = 0;
-
-		tail = node;
-	}
-}
-
-CAT_INLINE void SentList::RemoveBefore(OutgoingMessage *node)
-{
-	if (node) node->prev = 0;
-	else tail = 0;
-
-	head = node;
-}
-
-CAT_INLINE void SentList::RemoveBetween(OutgoingMessage *prev, OutgoingMessage *next)
-{
-	if (prev) prev->next = next;
-	else head = next;
-
-	if (next) next->prev = prev;
-	else tail = prev;
-}
-
-CAT_INLINE void OutOfOrderQueue::FreeMemory()
-{
-	for (RecvQueue *node = head, *next; node; node = next)
-	{
-		next = node->next;
-		StdAllocator::ii->Release(node);
-	}
-}
-
 CAT_INLINE void Transport::QueueFragFree(SphynxTLS *tls, u8 *data)
 {
 	// Add to the free frag list
@@ -211,6 +226,9 @@ void Transport::DeliverQueued(SphynxTLS *tls)
 		tls->free_list_count = 0;
 	}
 }
+
+
+//// Transport
 
 Transport::Transport()
 {
@@ -1613,7 +1631,7 @@ OutgoingMessage *Transport::DequeueBandwidth(OutgoingMessage *node, s32 availabl
 	{
 		s32 send_bytes = node->send_bytes;
 
-		u64 send_remaining = (node->bytes == FRAG_HUGE) ? node->huge_remaining : node->bytes;
+		u64 send_remaining = (node->bytes == FRAG_HUGE) ? node->huge_remaining : (node->bytes - node->sent_bytes);
 		send_remaining -= send_bytes;
 
 		// If this node ate the last of the bandwidth,
@@ -1908,12 +1926,20 @@ bool Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream)
 		if (copied < copy_bytes)
 		{
 			// If no data could be copied,
-			if (copied == 0 && !complete)
+			if (copied == 0)
 			{
-				// Abort transmit for now
-				StdAllocator::ii->Release(frag);
-				success = false;
-				break;
+				if (complete)
+				{
+					// Allow this final transfer
+					send_limit = 0;
+				}
+				else
+				{
+					// Abort transmit for now
+					StdAllocator::ii->Release(frag);
+					success = false;
+					break;
+				}
 			}
 
 			// Update the byte counts to reflect the number actually copied
@@ -1980,12 +2006,13 @@ void Transport::WriteQueuedReliable()
 	// If there is no more room in the channel,
 	if (bandwidth <= 0) return;
 
-	_send_queue_lock.Enter();
+	// Always try to fit messages within a single payload
+	if (bandwidth < _max_payload_bytes) bandwidth = _max_payload_bytes;
 
 	// Steal all work from each stream's send queue
+	_send_queue_lock.Enter();
 	for (u32 stream = 0; stream < NUM_STREAMS; ++stream)
 		_sending_queue[stream].Steal(_send_queue[stream]);
-
 	_send_queue_lock.Leave();
 
 	// Generate a list of messages to transmit based on the bandwidth available
@@ -2020,10 +2047,18 @@ void Transport::WriteQueuedReliable()
 	// If any bandwidth remains, give it to the bulk stream
 	OutgoingMessage *node = bandwidth > 0 ? _sending_queue[STREAM_BULK].head : 0;
 	out_head[STREAM_BULK] = node;
-	out_tail[STREAM_BULK] = node ? DequeueBandwidth(node, bandwidth, bandwidth) : 0;
+	if (!node)
+		out_tail[STREAM_BULK] = 0;
+	else
+	{
+		// Reset the send bytes of the head node on the first pass since it may
+		// have been retained from the previous timer tick
+		node->send_bytes = 0;
 
-	// Now done with the send queue, work on the send buffer:
+		out_tail[STREAM_BULK] = DequeueBandwidth(node, bandwidth, bandwidth);
+	}
 
+	// Write dequeued messages to the send cluster
 	_send_cluster_lock.Enter();
 
 	// For each stream,
@@ -2059,9 +2094,5 @@ void Transport::WriteQueuedReliable()
 
 	// Update the sending queue to contain only remaining messages
 	for (u32 stream = 0; stream < NUM_STREAMS; ++stream)
-	{
-		OutgoingMessage *tail = out_tail[stream];
-		_sending_queue[stream].head = tail;
-		if (!tail) _sending_queue[stream].tail = 0;
-	}
+		_sending_queue[stream].RemoveBefore(out_tail[stream]);
 }
