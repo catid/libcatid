@@ -87,19 +87,29 @@ bool FileTransferSource::Read(StreamMode stream, u8 *dest, u32 &bytes, Transport
 
 	QueuedFile *active = _active_list[0];
 
+	u64 remaining = active->reader.GetRemaining();
+
+	// If no more remaining,
+	if (remaining <= 0)
+	{
+		bytes = 0;
+		return true;
+	}
+
 	u8 *src = active->reader.Read(bytes);
 	if (!src)
 	{
 		WARN("FileTransferSource") << "Reached end of data";
-		bytes = 0;
 
 		OnTransferDone(transport);
+
+		bytes = 0;
 		return true;
 	}
 
 	memcpy(dest, src, bytes);
 
-	return active->reader.GetRemaining() == 0;
+	return remaining <= bytes;
 }
 
 void FileTransferSource::ClearHeap()
