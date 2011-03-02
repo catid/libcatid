@@ -2058,6 +2058,10 @@ void Transport::WriteQueuedReliable()
 		out_tail[STREAM_BULK] = DequeueBandwidth(node, bandwidth, bandwidth);
 	}
 
+	// NOTE: What we have now is a *best guess* at how much data can fit into
+	// the bandwidth allowed by the rate limiter.  Due to message headers, the
+	// actual amount of data we can send is somewhat lower.
+
 	// Write dequeued messages to the send cluster
 	_send_cluster_lock.Enter();
 
