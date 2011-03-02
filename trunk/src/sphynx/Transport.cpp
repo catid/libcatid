@@ -1100,9 +1100,10 @@ void Transport::FlushWrites()
 
 	BatchSet outgoing_datagrams = _outgoing_datagrams;
 	_outgoing_datagrams.Clear();
-	_outgoing_datagrams_count = 0;
 
-	_send_flow.OnPacketSend(_outgoing_datagrams_bytes);
+	_send_flow.OnPacketSend(_outgoing_datagrams_bytes + _outgoing_datagrams_count * _udpip_bytes);
+
+	_outgoing_datagrams_count = 0;
 	_outgoing_datagrams_bytes = 0;
 
 	_send_cluster_lock.Leave();
@@ -1780,7 +1781,7 @@ bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s
 			{
 				// If no more room remaining within bandwidth limit,
 				remaining -= cluster.bytes;
-				if (remaining <= 0)
+				if (remaining <= FRAG_THRESHOLD)
 				{
 					success = false;
 					break;
@@ -1907,7 +1908,7 @@ bool Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream, s32 remai
 		{
 			// If no more room remaining within bandwidth limit,
 			remaining -= cluster.bytes;
-			if (remaining <= 0)
+			if (remaining <= FRAG_THRESHOLD)
 			{
 				success = false;
 				break;
@@ -2088,7 +2089,9 @@ void Transport::WriteQueuedReliable()
 
 	// Write dequeued messages to the send cluster
 	_send_cluster_lock.Enter();
-	remaining -= _send_cluster.bytes;
+
+	// Subtract off the number of bytes already queued up for sending
+	remaining -= _outgoing_datagrams_bytes;
 
 	// For each stream,
 	for (u32 stream = 0; stream < NUM_STREAMS; ++stream)

@@ -388,7 +388,7 @@ class CAT_EXPORT Transport
 		buffer->bytes = data_bytes;
 		_outgoing_datagrams.PushBack(buffer);
 		_outgoing_datagrams_count++;
-		_outgoing_datagrams_bytes += _udpip_bytes + data_bytes + SPHYNX_OVERHEAD;
+		_outgoing_datagrams_bytes += data_bytes + SPHYNX_OVERHEAD;
 	}
 
 	// true = no longer connected
