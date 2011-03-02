@@ -85,7 +85,6 @@ protected:
 
 	virtual void OnConnect(SphynxTLS *tls) = 0;
 	virtual void OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count) = 0;
-	virtual void OnReadHuge(StreamMode stream, BufferStream data, u32 size) = 0; // Sets size = 0 on end of data
 	virtual void OnTick(SphynxTLS *tls, u32 now) = 0;
 	virtual void OnDisconnectReason(u8 reason) = 0; // Called to help explain why a disconnect is happening
 };

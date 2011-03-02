@@ -296,9 +296,11 @@ struct SendCluster
 // Incoming message data passed to user layer
 struct IncomingMessage
 {
-	BufferStream msg;
+	BufferStream data;
 	u32 bytes;
+	StreamMode stream;
 	u32 send_time;
+	bool huge_fragment; // true = part of a huge transfer, last fragment will have bytes = 0
 };
 
 

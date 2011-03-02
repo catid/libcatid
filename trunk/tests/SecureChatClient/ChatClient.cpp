@@ -42,10 +42,17 @@ public:
 	{
 		for (u32 ii = 0; ii < count; ++ii)
 		{
-			BufferStream msg = msgs[ii].msg;
+			BufferStream msg = msgs[ii].data;
 			u32 bytes = msgs[ii].bytes;
 			u32 send_time = msgs[ii].send_time;
 
+			if (msgs[ii].huge_fragment)
+			{
+				WARN("Client") << "Huge read stream " << msgs[ii].stream << " of size = " << bytes;
+
+				_fsink.OnReadHuge(msgs[ii].stream, msg, bytes);
+			}
+			else
 			switch (msg[0])
 			{
 			case OP_FILE_UPLOAD_START:
@@ -62,12 +69,6 @@ public:
 				WARN("Client") << "-- Got unknown message with " << bytes << " bytes" << HexDumpString(msg, min(16, bytes));
 			}
 		}
-	}
-	virtual void OnReadHuge(StreamMode stream, BufferStream data, u32 size)
-	{
-		WARN("Client") << "Huge read stream " << stream << " of size = " << size;
-
-		_fsink.OnReadHuge(stream, data, size);
 	}
 	virtual void OnDisconnectReason(u8 reason)
 	{

@@ -37,7 +37,7 @@ FlowControl::FlowControl()
 {
 	_bandwidth_low_limit = 10000;
 	_bandwidth_high_limit = 100000000;
-	_bps = _bandwidth_low_limit;
+	_bps = _bandwidth_high_limit;
 
 	_loss_timeout = 1500;
 
