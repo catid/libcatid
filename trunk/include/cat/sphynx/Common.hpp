@@ -179,8 +179,15 @@ class IHugeSource
 	friend class Transport;
 
 protected:
+	// Get number of bytes remaining in current transfer
 	virtual u64 GetRemaining(StreamMode stream) = 0;
-	virtual u32 Read(StreamMode stream, u8 *dest, u32 bytes, Transport *transport) = 0;
+
+	// Read a number of bytes from cache (without blocking!)
+	// May return less than the number requested, which indicates that the cache
+	// has fallen behind demand.  Zero indicates no data was available.
+	// Return true iff all data is sent in the current transfer.
+	// Return true and set bytes = 0 to indicate the start of a new huge transfer.
+	virtual bool Read(StreamMode stream, u8 *dest, u32 &bytes, Transport *transport) = 0;
 };
 
 #if defined(CAT_PACK_TRANSPORT_STATE_STRUCTURES)

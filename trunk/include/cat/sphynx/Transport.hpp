@@ -67,7 +67,7 @@ namespace sphynx {
 		| BLO |I|R|SOP|C|      BHI      |
 		---------------------------------
 
-		DATA_BYTES: BHI | BLO = Number of bytes in data part of message - 1
+		DATA_BYTES: BHI | BLO = Number of bytes in data part of message
 		I: 1=Followed by ACK-ID field. 0=ACK-ID is one higher than the last.
 		R: 1=Reliable. 0=Unreliable.
 		SOP: Super opcodes:
@@ -322,6 +322,8 @@ class CAT_EXPORT Transport
 	static const u32 FRAG_THRESHOLD = 32; // Minimum fragment size; used elsewhere as a kind of "fuzz factor" for edges of packets
 	static const u32 FRAG_HEADER_BYTES = 2;
 
+	static const u32 AVG_TRIP_BYTES = 2; // Number of bytes in ACK message for AVG_TRIP field
+
 	// This is 4 times larger than the encryption out of order limit to match max expectations
 	static const u32 OUT_OF_ORDER_LIMIT = 4096; // Stop acknowledging out of order packets after caching this many
 	static const u32 OUT_OF_ORDER_LOOPS = 32; // Max number of loops looking for the insertion point for out of order arrivals
@@ -419,7 +421,8 @@ class CAT_EXPORT Transport
 	void WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream);
 
 	// Write one SendHuge node into the send buffer
-	void WriteSendHugeNode(SendHuge *node, u32 now, u32 stream);
+	// Returns true if requested parts of node are completely moved to sent list
+	bool WriteSendHugeNode(SendHuge *node, u32 now, u32 stream);
 
 	void WriteQueuedReliable();
 	void Retransmit(u32 stream, OutgoingMessage *node, u32 now); // Does not hold the send lock!
@@ -435,9 +438,9 @@ public:
 	bool InitializeTransportSecurity(bool is_initiator, AuthenticatedEncryption &auth_enc);
 
 	// Copy data directly to the send buffer, no need to acquire an OutgoingMessage
-	bool WriteOOB(u8 msg_opcode, const void *msg_data = 0, u32 data_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
-	bool WriteUnreliable(u8 msg_opcode, const void *msg_data = 0, u32 data_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
-	bool WriteReliable(StreamMode stream, u8 msg_opcode, const void *msg_data = 0, u32 data_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
+	bool WriteOOB(u8 msg_opcode, const void *msg_data = 0, u32 msg_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
+	bool WriteUnreliable(u8 msg_opcode, const void *msg_data = 0, u32 msg_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
+	bool WriteReliable(StreamMode stream, u8 msg_opcode, const void *msg_data = 0, u32 msg_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
 
 	// Queue up a reliable message for delivery without copy overhead
 	// msg: Allocate with OutgoingMessage::Acquire(msg_bytes)

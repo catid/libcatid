@@ -73,13 +73,8 @@ class CAT_EXPORT FileTransferSource : public IHugeSource
 	void OnTransferDone(Transport *transport);
 
 protected:
-	// IHugeSource: Get number of bytes remaining in current transfer
 	u64 GetRemaining(StreamMode stream);
-
-	// IHugeSource: Read a number of bytes from cache (without blocking)
-	// May return less than the number requested, which indicates that the cache
-	// has fallen behind demand.  Any number down to zero is accepted.
-	u32 Read(StreamMode stream, u8 *dest, u32 bytes, Transport *transport);
+	bool Read(StreamMode stream, u8 *dest, u32 &bytes, Transport *transport);
 
 public:
 	FileTransferSource();

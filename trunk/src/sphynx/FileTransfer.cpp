@@ -69,7 +69,7 @@ void FileTransferSource::OnTransferDone(Transport *transport)
 	}
 }
 
-u32 FileTransferSource::Read(StreamMode stream, u8 *dest, u32 bytes, Transport *transport)
+bool FileTransferSource::Read(StreamMode stream, u8 *dest, u32 &bytes, Transport *transport)
 {
 	if (stream != STREAM_BULK)
 	{
@@ -90,19 +90,16 @@ u32 FileTransferSource::Read(StreamMode stream, u8 *dest, u32 bytes, Transport *
 	u8 *src = active->reader.Read(bytes);
 	if (!src)
 	{
-		WARN("FileTransferSource") << "Unable to read!";
-		return 0;
-	}
+		WARN("FileTransferSource") << "Reached end of data";
+		bytes = 0;
 
-	if (active->reader.GetRemaining() == 0)
-	{
-		INFO("FileTransferSource") << "Reached end of file";
 		OnTransferDone(transport);
+		return true;
 	}
 
 	memcpy(dest, src, bytes);
 
-	return bytes;
+	return active->reader.GetRemaining() == 0;
 }
 
 void FileTransferSource::ClearHeap()
@@ -129,8 +126,6 @@ void FileTransferSource::StartTransfer(QueuedFile *file, Transport *transport)
 	// Grab the message and remove its reference from the file object
 	u8 *msg = file->msg;
 	file->msg = 0;
-
-	AutoMutex lock(_lock);
 
 	_active_list.push_back(file);
 
@@ -182,16 +177,13 @@ bool FileTransferSource::WriteFile(u8 opcode, const std::string &source_path, co
 	file->msg = msg;
 	file->msg_bytes = msg_bytes;
 
+	AutoMutex lock(_lock);
+
 	// If there is room for more simultaneous file transfers,
 	if (_active_list.size() < SIMULTANEOUS_FILES)
 		StartTransfer(file, transport);
 	else
-	{
-		// Push it on the heap
-		_lock.Enter();
 		_heap.push(file);
-		_lock.Leave();
-	}
 
 	return true;
 }

@@ -468,10 +468,6 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 				++ack_id;
 			}
 
-			// Actual data bytes is one more than the field indicates, since
-			// there is always at least one byte of data following a header.
-			++data_bytes;
-
 			if (bytes < (s32)data_bytes)
 			{
 				WARN("Transport") << "Truncated transport message ignored";
@@ -828,9 +824,10 @@ void Transport::OnFragment(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *dat
 	}
 }
 
-bool Transport::WriteOOB(u8 msg_opcode, const void *msg_data, u32 data_bytes, SuperOpcode super_opcode)
+bool Transport::WriteOOB(u8 msg_opcode, const void *msg_data, u32 msg_bytes, SuperOpcode super_opcode)
 {
-	u32 needed = MAX_MESSAGE_HEADER_BYTES + 1 + data_bytes + SPHYNX_OVERHEAD;
+	u32 data_bytes = 1 + msg_bytes;
+	u32 needed = MAX_MESSAGE_HEADER_BYTES + data_bytes + SPHYNX_OVERHEAD;
 
 	u8 *pkt = SendBuffer::Acquire(needed);
 	if (!pkt)
@@ -853,9 +850,9 @@ bool Transport::WriteOOB(u8 msg_opcode, const void *msg_data, u32 data_bytes, Su
 
 	// Write data
 	pkt[offset++] = msg_opcode;
-	memcpy(pkt + offset, msg_data, data_bytes);
+	memcpy(pkt + offset, msg_data, msg_bytes);
 
-	bool success = WriteDatagrams(pkt, offset + data_bytes);
+	bool success = WriteDatagrams(pkt, offset + msg_bytes);
 
 	_send_cluster_lock.Enter();
 	_send_flow.OnPacketSend(_udpip_bytes + needed);
@@ -864,16 +861,17 @@ bool Transport::WriteOOB(u8 msg_opcode, const void *msg_data, u32 data_bytes, Su
 	return success;
 }
 
-bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_bytes, SuperOpcode super_opcode)
+bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 msg_bytes, SuperOpcode super_opcode)
 {
 	const u8 *msg_data = reinterpret_cast<const u8*>( vmsg_data );
 
 	u32 max_payload_bytes = _max_payload_bytes;
+	u32 data_bytes = msg_bytes + 1;
 	u32 header_bytes = data_bytes > BLO_MASK ? 2 : 1;
-	u32 msg_bytes = header_bytes + 1 + data_bytes;
+	u32 needed = header_bytes + data_bytes;
 
 	// Fail on invalid input
-	if (msg_bytes > max_payload_bytes)
+	if (needed > max_payload_bytes)
 	{
 		WARN("Transport") << "Invalid input: Unreliable buffer size request too large";
 		return false;
@@ -882,7 +880,7 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 	_send_cluster_lock.Enter();
 
 	// If growing the send buffer cannot contain the new message,
-	if (_send_cluster.bytes + msg_bytes > max_payload_bytes)
+	if (_send_cluster.bytes + needed > max_payload_bytes)
 	{
 		QueueWriteDatagram(_send_cluster.front, _send_cluster.bytes);
 		_send_cluster.Clear();
@@ -890,7 +888,7 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 
 	// Create or grow buffer and write into it
 	u8 *pkt;
-	while (!(pkt = _send_cluster.Grow(msg_bytes)));
+	while (!(pkt = _send_cluster.Grow(needed)));
 
 	// Write header
 	if (data_bytes <= BLO_MASK)
@@ -904,7 +902,7 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 
 	// Write data
 	pkt[0] = msg_opcode;
-	memcpy(pkt + 1, msg_data, data_bytes);
+	memcpy(pkt + 1, msg_data, msg_bytes);
 
 	_send_cluster_lock.Leave();
 
@@ -913,16 +911,16 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 data_b
 	return true;
 }
 
-bool Transport::WriteReliable(StreamMode stream, u8 msg_opcode, const void *msg_data, u32 data_bytes, SuperOpcode super_opcode)
+bool Transport::WriteReliable(StreamMode stream, u8 msg_opcode, const void *msg_data, u32 msg_bytes, SuperOpcode super_opcode)
 {
-	u32 msg_bytes = 1 + data_bytes;
-	u8 *msg = OutgoingMessage::Acquire(msg_bytes);
+	u32 data_bytes = 1 + msg_bytes;
+	u8 *msg = OutgoingMessage::Acquire(data_bytes);
 	if (!msg) return false;
 
 	msg[0] = msg_opcode;
-	memcpy(msg + 1, msg_data, data_bytes);
+	memcpy(msg + 1, msg_data, msg_bytes);
 
-	return WriteReliableZeroCopy(stream, msg, msg_bytes, super_opcode);
+	return WriteReliableZeroCopy(stream, msg, data_bytes, super_opcode);
 }
 
 bool Transport::WriteReliableZeroCopy(StreamMode stream, u8 *msg, u32 msg_bytes, SuperOpcode super_opcode)
@@ -941,10 +939,8 @@ bool Transport::WriteReliableZeroCopy(StreamMode stream, u8 *msg, u32 msg_bytes,
 	node->sop = super_opcode;
 	node->send_bytes = 0;
 	node->sent_bytes = 0;
-	node->next = 0;
 
 	// Add to back of send queue
-
 	_send_queue_lock.Enter();
 	_send_queue[stream].Append(node);
 	_send_queue_lock.Leave();
@@ -956,10 +952,10 @@ bool Transport::WriteReliableZeroCopy(StreamMode stream, u8 *msg, u32 msg_bytes,
 
 bool Transport::WriteHuge(StreamMode stream, IHugeSource *source)
 {
-	// Fill the object
 	SendHuge *node = StdAllocator::ii->AcquireObject<SendHuge>();
 	if (!node) return false;
 
+	// Fill the object
 	node->bytes = FRAG_HUGE;
 	node->huge_remaining = source->GetRemaining(stream);
 	node->frag_count = 0;
@@ -970,7 +966,6 @@ bool Transport::WriteHuge(StreamMode stream, IHugeSource *source)
 	node->source = source;
 
 	// Add to back of send queue
-
 	_send_queue_lock.Enter();
 	_send_queue[stream].Append(node);
 	_send_queue_lock.Leave();
@@ -1024,7 +1019,7 @@ void Transport::Retransmit(u32 stream, OutgoingMessage *node, u32 now)
 
 	// Calculate message length
 	u16 copy_bytes = node->bytes;
-	u32 data_bytes = frag_overhead + copy_bytes - 1;
+	u32 data_bytes = frag_overhead + copy_bytes;
 	u32 hdr_bytes = (data_bytes <= BLO_MASK) ? 1 : 2;
 	u32 ack_id = node->id;
 
@@ -1033,7 +1028,7 @@ void Transport::Retransmit(u32 stream, OutgoingMessage *node, u32 now)
 
 	// Calculate ack_id_overhead
 	u32 ack_id_overhead = (cluster.stream != stream || cluster.ack_id != ack_id) ? MAX_ACK_ID_BYTES : 0;
-	u32 msg_bytes = hdr_bytes + ack_id_overhead + hdr_bytes + 1;
+	u32 msg_bytes = hdr_bytes + ack_id_overhead + data_bytes;
 
 	// If the growing send buffer cannot contain the new message,
 	if (cluster.bytes + msg_bytes > _max_payload_bytes)
@@ -1101,9 +1096,9 @@ void Transport::FlushWrites()
 void Transport::WriteACK()
 {
 	u8 packet[MAXIMUM_MTU];
-	u8 *offset = packet + 2 + 2; // 2 for header field, 2 for trip time field
+	u8 *offset = packet + MAX_MESSAGE_HEADER_BYTES + AVG_TRIP_BYTES;
 	u32 max_payload_bytes = _max_payload_bytes;
-	u32 remaining = max_payload_bytes - 2 - 2;
+	u32 remaining = max_payload_bytes - MAX_MESSAGE_HEADER_BYTES - AVG_TRIP_BYTES;
 
 	// Calculate trip time average
 	u32 trip_time_avg = (_recv_trip_count > 0) ? (_recv_trip_time_sum / _recv_trip_count) : 0;
@@ -1235,7 +1230,7 @@ void Transport::WriteACK()
 	u8 *packet_copy_source = packet;
 
 	// Write header
-	u32 data_bytes = msg_bytes - 2 - 1;
+	u32 data_bytes = msg_bytes - MAX_MESSAGE_HEADER_BYTES;
 	if (data_bytes <= BLO_MASK)
 	{
 		// Eat first byte and skip sending BHI if possible
@@ -1320,7 +1315,7 @@ bool Transport::PostMTUProbe(SphynxTLS *tls, u32 mtu)
 
 	u32 payload_bytes = mtu - _udpip_bytes - SPHYNX_OVERHEAD;
 
-	u8 *pkt = SendBuffer::Acquire(payload_bytes + TRANSPORT_OVERHEAD + AuthenticatedEncryption::OVERHEAD_BYTES);
+	u8 *pkt = SendBuffer::Acquire(payload_bytes + SPHYNX_OVERHEAD);
 	if (!pkt)
 	{
 		WARN("Transport") << "Out of memory error while posting MTU probe";
@@ -1332,11 +1327,11 @@ bool Transport::PostMTUProbe(SphynxTLS *tls, u32 mtu)
 	//	R = 0 (unreliable)
 	//	C = 1 (large packet size)
 	//	SOP = IOP_C2S_MTU_PROBE
-	u32 data_bytes = payload_bytes - 3;
+	u32 data_bytes = payload_bytes - MAX_MESSAGE_HEADER_BYTES;
 	pkt[0] = (u8)((SOP_INTERNAL << SOP_SHIFT) | C_MASK | (data_bytes & BLO_MASK));
 	pkt[1] = (u8)(data_bytes >> BHI_SHIFT);
 	pkt[2] = IOP_C2S_MTU_PROBE;
-	tls->csprng->Generate(pkt + 3, data_bytes);
+	tls->csprng->Generate(pkt + 3, data_bytes + 1);
 
 	bool success = WriteDatagrams(pkt, payload_bytes);
 
@@ -1664,7 +1659,7 @@ static CAT_INLINE u32 GetACKIDOverhead(u32 ack_id, u32 remote_expected)
 CAT_INLINE void Transport::ClusterReliableAppend(u32 stream, u32 &ack_id, u8 *pkt, u32 &ack_id_overhead, u32 &frag_overhead, SendCluster &cluster, u8 sop, const u8 *copy_src, u32 copy_bytes, u16 frag_total_bytes)
 {
 	// Write header
-	u32 data_bytes = copy_bytes + frag_overhead - 1; // -1 since data bytes is 1-indexed
+	u32 data_bytes = copy_bytes + frag_overhead;
 	u8 hdr = R_MASK | (sop << SOP_SHIFT);
 	if (ack_id_overhead) hdr |= I_MASK;
 
@@ -1854,8 +1849,10 @@ void Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream)
 	_send_cluster = cluster;
 }
 
-void Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream)
+bool Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream)
 {
+	bool success = true;
+
 	u32 max_payload_bytes = _max_payload_bytes;
 	SendCluster cluster = _send_cluster;
 
@@ -1872,7 +1869,8 @@ void Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream)
 	u32 frag_overhead = (sent_bytes == 0) ? FRAG_HEADER_BYTES : 0;
 
 	// For each fragment of the message,
-	u32 total_copied_bytes = 0, send_limit = node->send_bytes;
+	u32 copy_bytes, total_copied_bytes = 0, send_limit = node->send_bytes;
+	bool complete;
 	do
 	{
 		// If there is not enough room to write anything,
@@ -1886,9 +1884,9 @@ void Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream)
 			continue;
 		}
 
-		// Apply send limit 
+		// Apply send limit
 		u32 overhead = MAX_MESSAGE_HEADER_BYTES + ack_id_overhead + frag_overhead;
-		u32 copy_bytes = remaining_send_buffer - overhead;
+		copy_bytes = remaining_send_buffer - overhead;
 		if (copy_bytes > send_limit) copy_bytes = send_limit;
 		u32 total_bytes = overhead + copy_bytes;
 
@@ -1903,18 +1901,18 @@ void Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream)
 		while (!frag);
 
 		// Read data into fragment
-		u32 copied = node->source->Read((StreamMode)stream, GetTrailingBytes(frag), copy_bytes, this);
-
-		// TODO: Handle end of stream
+		u32 copied = copy_bytes;
+		complete = node->source->Read((StreamMode)stream, GetTrailingBytes(frag), copied, this);
 
 		// If data source has failed us,
 		if (copied < copy_bytes)
 		{
 			// If no data could be copied,
-			if (copied == 0)
+			if (copied == 0 && !complete)
 			{
 				// Abort transmit for now
 				StdAllocator::ii->Release(frag);
+				success = false;
 				break;
 			}
 
@@ -1959,7 +1957,7 @@ void Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream)
 		total_copied_bytes += copy_bytes;
 		send_limit -= copy_bytes;
 
-	} while (send_limit > 0);
+	} while (send_limit > 0 || (complete && copy_bytes > 0));
 
 	node->sent_bytes = sent_bytes;
 	node->huge_remaining -= total_copied_bytes;
@@ -1967,6 +1965,8 @@ void Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream)
 	// Update state
 	_next_send_id[stream] = ack_id;
 	_send_cluster = cluster;
+
+	return success;
 }
 
 void Transport::WriteQueuedReliable()
@@ -1994,7 +1994,7 @@ void Transport::WriteQueuedReliable()
 	// Split bandwidth evenly between normal streams
 	for (u32 stream = 0; stream < NUM_STREAMS - 1; ++stream)
 	{
-		OutgoingMessage *node = _send_queue_head[stream];
+		OutgoingMessage *node = _sending_queue[stream].head;
 		out_head[stream] = node;
 
 		if (!node)
@@ -2018,20 +2018,9 @@ void Transport::WriteQueuedReliable()
 	}
 
 	// If any bandwidth remains, give it to the bulk stream
-	OutgoingMessage *node = (bandwidth > 0) ? _send_queue_head[STREAM_BULK] : 0;
+	OutgoingMessage *node = (bandwidth > 0) ? _sending_queue[STREAM_BULK].head : 0;
 	out_head[STREAM_BULK] = node;
 	out_tail[STREAM_BULK] = node ? DequeueBandwidth(node, bandwidth, bandwidth) : 0;
-
-	// Relink the send queue for the remaining nodes
-	for (u32 stream = 0; stream < NUM_STREAMS; ++stream)
-	{
-		OutgoingMessage *node = out_tail[stream];
-
-		// Fix list links
-		_send_queue_head[stream] = node;
-		if (node) node->prev = 0;
-		else _send_queue_tail[stream] = 0;
-	}
 
 	// Now done with the send queue, work on the send buffer:
 
@@ -2051,7 +2040,15 @@ void Transport::WriteQueuedReliable()
 			next = node->next;
 
 			if (node->bytes == FRAG_HUGE)
-				WriteSendHugeNode(reinterpret_cast<SendHuge*>( node ), now, stream);
+			{
+				// If node could not be written,
+				if (!WriteSendHugeNode(reinterpret_cast<SendHuge*>( node ), now, stream))
+				{
+					// Stop tail here
+					out_tail[stream] = node;
+					break;
+				}
+			}
 			else
 				WriteSendQueueNode(node, now, stream);
 
@@ -2059,4 +2056,12 @@ void Transport::WriteQueuedReliable()
 	}
 
 	_send_cluster_lock.Leave();
+
+	// Update the sending queue to contain only remaining messages
+	for (u32 stream = 0; stream < NUM_STREAMS; ++stream)
+	{
+		OutgoingMessage *tail = out_tail[stream];
+		_sending_queue[stream].head = tail;
+		if (!tail) _sending_queue[stream].tail = 0;
+	}
 }
