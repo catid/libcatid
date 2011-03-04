@@ -88,7 +88,7 @@ static const u32 S2C_ANSWER_LEN = 1 + ANSWER_BYTES;
 static const u32 S2C_ERROR_LEN = 1 + 1;
 
 // Handshake errors
-enum HandshakeError
+enum SphynxError
 {
 	ERR_CLIENT_OUT_OF_MEMORY,
 	ERR_CLIENT_INVALID_KEY,
@@ -106,7 +106,7 @@ enum HandshakeError
 };
 
 // Convert handshake error string to user-readable error message
-CAT_EXPORT const char *GetHandshakeErrorString(HandshakeError err);
+CAT_EXPORT const char *GetSphynxErrorString(SphynxError err);
 
 // Disconnect reasons
 enum DisconnectReasons
@@ -293,15 +293,22 @@ struct SendCluster
 # pragma pack(pop)
 #endif
 
+// The following are always packed on a byte boundary so that they will be compatible
+// with other languages like C#:
+#pragma pack(push)
+#pragma pack(1)
+
 // Incoming message data passed to user layer
 struct IncomingMessage
 {
 	BufferStream data;
 	u32 bytes;
-	StreamMode stream;
+	u32 stream;
 	u32 send_time;
-	bool huge_fragment; // true = part of a huge transfer, last fragment will have bytes = 0
+	u8 huge_fragment; // true = part of a huge transfer, last fragment will have bytes = 0
 };
+
+#pragma pack(pop)
 
 
 } // namespace sphynx

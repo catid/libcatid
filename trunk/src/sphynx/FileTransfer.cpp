@@ -215,7 +215,7 @@ bool FileTransferSink::OnFileStart(BufferStream msg, u32 bytes)
 	return true;
 }
 
-void FileTransferSink::OnReadHuge(StreamMode stream, BufferStream data, u32 size)
+void FileTransferSink::OnReadHuge(u32 stream, BufferStream data, u32 size)
 {
 	WARN("FileTransferSink") << "Got file part " << size;
 }

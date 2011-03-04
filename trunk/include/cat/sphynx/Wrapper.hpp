@@ -31,12 +31,115 @@
 
 #include <cat/AllSphynx.hpp>
 
-namespace cat {
+class EasySphynxClient
+{
+	class InternalSphynxClient : public cat::sphynx::Client
+	{
+		EasySphynxClient *_parent;
 
+		void OnShutdownRequest();
+		bool OnZeroReferences();
+		void OnConnectFail(cat::sphynx::SphynxError err);
+		void OnConnect(cat::SphynxTLS *tls);
+		void OnMessages(cat::SphynxTLS *tls, cat::sphynx::IncomingMessage msgs[], cat::u32 count);
+		void OnDisconnectReason(cat::u8 reason);
+		void OnTick(cat::SphynxTLS *tls, cat::u32 now);
 
-//
+	public:
+		InternalSphynxClient(EasySphynxClient *parent);
+	};
 
+	InternalSphynxClient *_client;
+	cat::RefObjectWatcher _watcher;
 
-} // namespace cat
+public:
+	EasySphynxClient();
+	virtual ~EasySphynxClient();
+
+	// Copy data directly to the send buffer, no need to acquire an OutgoingMessage
+	inline bool WriteOOB(unsigned char msg_opcode, const unsigned char *msg_data, unsigned int msg_bytes)
+	{
+		return _client->WriteOOB(msg_opcode, msg_data, msg_bytes);
+	}
+
+	inline bool WriteUnreliable(unsigned char msg_opcode, const unsigned char *msg_data, unsigned int msg_bytes)
+	{
+		return _client->WriteUnreliable(msg_opcode, msg_data, msg_bytes);
+	}
+	inline bool WriteReliable(unsigned int stream, unsigned char msg_opcode, const unsigned char *msg_data, unsigned int msg_bytes)
+	{
+		return _client->WriteReliable((cat::sphynx::StreamMode)stream, msg_opcode, msg_data, msg_bytes);
+	}
+
+	// TODO: Queue up a huge data transfer
+	//inline bool WriteHuge(StreamMode stream, IHugeSource *source);
+
+	// Flush send buffer after processing the current message from the remote host
+	inline void FlushAfter()
+	{
+		_client->FlushAfter();
+	}
+
+	// Flush send buffer immediately, don't try to blob.
+	// Try to use FlushAfter() unless you really see benefit from this!
+	inline void FlushImmediately()
+	{
+		_client->FlushImmediately();
+	}
+
+	// Current local time
+	inline unsigned int getLocalTime()
+	{
+		return _client->getLocalTime();
+	}
+
+	// Convert from local time to server time
+	inline unsigned int toServerTime(unsigned int local_time)
+	{
+		return _client->toServerTime(local_time);
+	}
+
+	// Convert from server time to local time
+	inline unsigned int fromServerTime(unsigned int server_time)
+	{
+		return _client->fromServerTime(server_time);
+	}
+
+	// Current server time
+	inline unsigned int getServerTime()
+	{
+		return _client->getServerTime();
+	}
+
+	// Compress timestamp on client for delivery to server; byte order must be fixed before writing to message
+	inline unsigned short encodeClientTimestamp(unsigned int local_time)
+	{
+		return _client->encodeClientTimestamp(local_time);
+	}
+
+	// Decompress a timestamp on server from client; high two bits are unused; byte order must be fixed before decoding
+	inline unsigned int decodeClientTimestamp(unsigned int local_time, unsigned short timestamp)
+	{
+		return _client->decodeClientTimestamp(local_time, timestamp);
+	}
+
+	// Compress timestamp on server for delivery to client; high two bits are unused; byte order must be fixed before writing to message
+	inline unsigned short encodeServerTimestamp(unsigned int local_time)
+	{
+		return _client->encodeServerTimestamp(local_time);
+	}
+
+	// Decompress a timestamp on client from server; high two bits are unused; byte order must be fixed before decoding
+	inline unsigned int decodeServerTimestamp(unsigned int local_time, unsigned short timestamp)
+	{
+		return _client->decodeServerTimestamp(local_time, timestamp);
+	}
+
+	// Override these methods:
+	virtual void OnDisconnect(const char *reason) {}
+	virtual void OnConnectFailure(const char *reason) {}
+	virtual void OnConnectSuccess() {}
+	virtual void OnMessageArrivals(void *msgs, int count) {}
+};
 
 #endif // CAT_SPHYNX_WRAPPER_HPP

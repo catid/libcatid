@@ -96,7 +96,7 @@ public:
 	bool OnFileStart(BufferStream msg, u32 bytes);
 
 	// Takes over void OnReadHuge(StreamMode stream, BufferStream data, u32 size)
-	void OnReadHuge(StreamMode stream, BufferStream data, u32 size);
+	void OnReadHuge(u32 stream, BufferStream data, u32 size);
 };
 
 

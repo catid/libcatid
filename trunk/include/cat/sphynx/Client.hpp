@@ -102,7 +102,7 @@ class CAT_EXPORT Client : public UDPEndpoint, public Transport, public IWorkerCa
 	virtual void OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes);
 	virtual void OnDisconnectComplete();
 
-	void ConnectFail(HandshakeError err);
+	void ConnectFail(SphynxError err);
 
 	bool InitialConnect(SphynxLayer *layer, SphynxTLS *tls, TunnelPublicKey &public_key, const char *session_key);
 	bool FinalConnect(const NetAddr &addr);
@@ -126,7 +126,7 @@ protected:
 
 	CAT_INLINE bool IsConnected() { return _connected; }
 
-	virtual void OnConnectFail(sphynx::HandshakeError err) = 0;
+	virtual void OnConnectFail(sphynx::SphynxError err) = 0;
 	virtual void OnConnect(SphynxTLS *tls) = 0;
 	virtual void OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count) = 0;
 	virtual void OnTick(SphynxTLS *tls, u32 now) = 0;

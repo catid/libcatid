@@ -428,7 +428,7 @@ bool Server::PostConnectionCookie(const NetAddr &dest)
 	return Write(pkt, S2C_COOKIE_LEN, dest);
 }
 
-bool Server::PostConnectionError(const NetAddr &dest, HandshakeError err)
+bool Server::PostConnectionError(const NetAddr &dest, SphynxError err)
 {
 	u8 *pkt = SendBuffer::Acquire(S2C_ERROR_LEN);
 	if (!pkt)

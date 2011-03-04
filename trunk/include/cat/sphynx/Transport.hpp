@@ -500,6 +500,8 @@ protected:
 
 	u32 _ts_delta; // Milliseconds clock difference between server and client: server_time = client_time + _ts_delta
 
+	CAT_INLINE u8 GetDisconnectReason() { return _disconnect_reason; }
+
 	virtual void OnDisconnectComplete() = 0;
 
 	virtual bool WriteDatagrams(const BatchSet &buffers, u32 count) = 0;

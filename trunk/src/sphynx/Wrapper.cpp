@@ -29,3 +29,91 @@
 #include <cat/sphynx/Wrapper.hpp>
 using namespace cat;
 using namespace sphynx;
+
+
+static SphynxLayer layer;
+static Mutex layer_mutex;
+static u32 layer_counter = 0;
+static bool layer_active = false;
+
+static void StartLayer()
+{
+	AutoMutex lock(layer_mutex);
+
+	if (++layer_counter == 1)
+	{
+		layer_active = layer.Startup();
+	}
+}
+
+static void EndLayer()
+{
+	AutoMutex lock(layer_mutex);
+
+	if (--layer_counter == 0)
+	{
+		layer_active = false;
+		layer.Shutdown();
+	}
+}
+
+
+EasySphynxClient::InternalSphynxClient::InternalSphynxClient(EasySphynxClient *parent)
+{
+	_parent = parent;
+}
+
+void EasySphynxClient::InternalSphynxClient::OnShutdownRequest()
+{
+	Client::OnShutdownRequest();
+
+	_parent->OnDisconnect(GetSphynxErrorString((SphynxError)GetDisconnectReason()));
+}
+
+bool EasySphynxClient::InternalSphynxClient::OnZeroReferences()
+{
+	return Client::OnZeroReferences();
+}
+
+void EasySphynxClient::InternalSphynxClient::OnConnectFail(cat::sphynx::SphynxError err)
+{
+	_parent->OnConnectFailure(GetSphynxErrorString(err));
+}
+
+void EasySphynxClient::InternalSphynxClient::OnConnect(cat::SphynxTLS *tls)
+{
+	_parent->OnConnectSuccess();
+}
+
+void EasySphynxClient::InternalSphynxClient::OnMessages(cat::SphynxTLS *tls, cat::sphynx::IncomingMessage msgs[], cat::u32 count)
+{
+	_parent->OnMessageArrivals((int*)msgs, count);
+}
+
+void EasySphynxClient::InternalSphynxClient::OnDisconnectReason(cat::u8 reason)
+{
+
+}
+
+void EasySphynxClient::InternalSphynxClient::OnTick(cat::SphynxTLS *tls, cat::u32 now)
+{
+
+}
+
+
+//// EasySphynxClient
+
+EasySphynxClient::EasySphynxClient()
+{
+	StartLayer();
+
+	_client = new InternalSphynxClient(this);
+	_watcher.Watch(_client);
+}
+
+EasySphynxClient::~EasySphynxClient()
+{
+	_watcher.WaitForShutdown();
+
+	EndLayer();
+}
