@@ -201,7 +201,7 @@ void Client::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 			}
 			else if (bytes == S2C_ERROR_LEN && data[0] == S2C_ERROR)
 			{
-				ConnectFail((HandshakeError)data[1]);
+				ConnectFail((SphynxError)data[1]);
 			}
 		}
 	}
@@ -678,7 +678,7 @@ void Client::OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStre
 	}
 }
 
-void Client::ConnectFail(HandshakeError err)
+void Client::ConnectFail(SphynxError err)
 {
 	OnConnectFail(err);
 	RequestShutdown();

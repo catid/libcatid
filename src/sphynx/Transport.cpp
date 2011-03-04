@@ -132,19 +132,21 @@ CAT_INLINE void OutOfOrderQueue::FreeMemory()
 
 //// Helpers
 
-const char *cat::sphynx::GetHandshakeErrorString(HandshakeError err)
+const char *cat::sphynx::GetSphynxErrorString(SphynxError err)
 {
 	switch (err)
 	{
 	case ERR_CLIENT_OUT_OF_MEMORY:	return "Out of memory";
+	case ERR_CLIENT_INVALID_KEY:	return "Invalid key";
+	case ERR_CLIENT_SERVER_ADDR:	return "Bad server address";
 	case ERR_CLIENT_BROKEN_PIPE:	return "Broken pipe";
 	case ERR_CLIENT_TIMEOUT:		return "Connect timeout";
-
 	case ERR_WRONG_KEY:				return "Wrong key";
 	case ERR_SERVER_FULL:			return "Server full";
 	case ERR_TAMPERING:				return "Tampering detected";
+	case ERR_BLOCKED:				return "Blocked";
+	case ERR_SHUTDOWN:				return "Server shutdown";
 	case ERR_SERVER_ERROR:			return "Server error";
-
 	default:						return "Unknown error";
 	}
 }

@@ -58,7 +58,7 @@ class CAT_EXPORT Server : public UDPEndpoint, public IWorkerCallbacks
 	u32 _connect_worker;
 
 	bool PostConnectionCookie(const NetAddr &dest);
-	bool PostConnectionError(const NetAddr &dest, HandshakeError err);
+	bool PostConnectionError(const NetAddr &dest, SphynxError err);
 
 public:
 	Server();

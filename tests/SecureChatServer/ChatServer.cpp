@@ -10,7 +10,8 @@ class GameConnexion : public Connexion
 
 	enum
 	{
-		OP_FILE_UPLOAD_START
+		OP_FILE_UPLOAD_START,
+		OP_TEST_FRAGMENTS
 	};
 
 public:
@@ -30,6 +31,9 @@ public:
 	{
 		WARN("Connexion") << "-- CONNECTED";
 
+		u8 test_msg[50000];
+		WriteReliable(STREAM_UNORDERED, OP_TEST_FRAGMENTS, test_msg, sizeof(test_msg));
+		/*
 		if (_fsource.WriteFile(OP_FILE_UPLOAD_START, "test.tmp", "sink_file.txt", this))
 		{
 			WARN("Connexion") << "-- File upload starting";
@@ -37,7 +41,7 @@ public:
 		else
 		{
 			WARN("Connexion") << "-- File upload FAILED";
-		}
+		}*/
 	}
 	virtual void OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count)
 	{
@@ -56,6 +60,9 @@ public:
 			else
 			switch (msg[0])
 			{
+			case OP_TEST_FRAGMENTS:
+				WARN("Connexion") << "Successfully received test fragments";
+				break;
 			case OP_FILE_UPLOAD_START:
 				if (_fsink.OnFileStart(msg, bytes))
 				{

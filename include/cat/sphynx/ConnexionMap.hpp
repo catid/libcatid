@@ -65,7 +65,7 @@ public:
 	struct Slot
 	{
 		Connexion *conn;
-		bool collision;
+		u8 collision;
 	};
 
 private:

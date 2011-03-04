@@ -21,6 +21,9 @@
     <ClCompile Include="..\..\src\sphynx\Wrapper.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Sphynx_wrap.cxx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Precompiled.hpp">
@@ -29,5 +32,10 @@
     <ClInclude Include="..\..\include\cat\sphynx\Wrapper.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="Sphynx.i">
+      <Filter>Resource Files</Filter>
+    </CustomBuild>
   </ItemGroup>
 </Project>

@@ -14,29 +14,21 @@ class GameClient : public Client
 
 	enum
 	{
-		OP_FILE_UPLOAD_START
+		OP_FILE_UPLOAD_START,
+		OP_TEST_FRAGMENTS
 	};
 
 public:
-	virtual void OnShutdownRequest()
+	virtual void OnConnectFail(sphynx::SphynxError err)
 	{
-		WARN("Client") << "-- Shutdown Requested";
-
-		Client::OnShutdownRequest();
-	}
-	virtual bool OnZeroReferences()
-	{
-		WARN("Client") << "-- Zero References";
-
-		return Client::OnZeroReferences();
-	}
-	virtual void OnConnectFail(sphynx::HandshakeError err)
-	{
-		WARN("Client") << "-- CONNECT FAIL ERROR " << GetHandshakeErrorString(err);
+		WARN("Client") << "-- CONNECT FAIL ERROR " << GetSphynxErrorString(err);
 	}
 	virtual void OnConnect(SphynxTLS *tls)
 	{
 		WARN("Client") << "-- CONNECTED";
+
+		u8 test_msg[50000];
+		WriteReliable(STREAM_UNORDERED, OP_TEST_FRAGMENTS, test_msg, sizeof(test_msg));
 	}
 	virtual void OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count)
 	{
@@ -55,6 +47,9 @@ public:
 			else
 			switch (msg[0])
 			{
+			case OP_TEST_FRAGMENTS:
+				WARN("Client") << "Successfully received test fragments";
+				break;
 			case OP_FILE_UPLOAD_START:
 				if (_fsink.OnFileStart(msg, bytes))
 				{
