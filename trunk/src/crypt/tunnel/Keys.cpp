@@ -206,7 +206,6 @@ bool TunnelPublicKey::LoadMemory(const void *key, u32 bytes)
 
 	memcpy(_public_key, key, bytes);
 
-	_key_bytes = bytes;
 	_valid = true;
 	return true;
 }
