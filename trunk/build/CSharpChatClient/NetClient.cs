@@ -33,6 +33,9 @@ namespace CSharpChatClient
             Sphynx.IncomingMessage []messages = Sphynx.GetMessages(msgs, count);
 
             System.Windows.Forms.MessageBox.Show("msg");
+
+            byte[] msg = new byte[50];
+            WriteReliable(2, 1, msg, (uint)msg.Length);
         }
     }
 }
