@@ -56,6 +56,9 @@ public:
 	EasySphynxClient();
 	virtual ~EasySphynxClient();
 
+	// Connect to server, specifying hostname, port, public key, and session key
+	bool Connect(const char *hostname, unsigned short port, const unsigned char *public_key, int public_key_bytes, const char *session_key);
+
 	// Copy data directly to the send buffer, no need to acquire an OutgoingMessage
 	inline bool WriteOOB(unsigned char msg_opcode, const unsigned char *msg_data, unsigned int msg_bytes)
 	{

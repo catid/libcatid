@@ -44,6 +44,15 @@ public class EasySphynxClient : IDisposable {
     SwigDirectorConnect();
   }
 
+  public unsafe bool Connect(string hostname, ushort port, byte[] public_key, int public_key_bytes, string session_key) {
+    fixed ( byte* swig_ptrTo_public_key = public_key ) {
+    {
+      bool ret = SphynxPINVOKE.EasySphynxClient_Connect(swigCPtr, hostname, port, (IntPtr)swig_ptrTo_public_key, public_key_bytes, session_key);
+      return ret;
+    }
+    }
+  }
+
   public unsafe bool WriteOOB(byte msg_opcode, byte[] msg_data, uint msg_bytes) {
     fixed ( byte* swig_ptrTo_msg_data = msg_data ) {
     {
@@ -166,7 +175,7 @@ public class EasySphynxClient : IDisposable {
   }
 
   private void SwigDirectorOnMessageArrivals(IntPtr msgs, int count) {
-    OnMessageArrivals((msgs == IntPtr.Zero) ? null : new SWIGTYPE_p_void(msgs, false), count);
+    //OnMessageArrivals((msgs == IntPtr.Zero) ? null : new SWIGTYPE_p_void(msgs, false), count);
   }
 
   public delegate void SwigDelegateEasySphynxClient_0(string reason);

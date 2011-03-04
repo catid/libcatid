@@ -43,6 +43,22 @@ TunnelKeyPair::~TunnelKeyPair()
 	CAT_SECURE_OBJCLR(_key_pair);
 }
 
+TunnelKeyPair::TunnelKeyPair(const void *key, u32 bytes)
+{
+	_valid = LoadMemory(key, bytes);
+}
+
+bool TunnelKeyPair::LoadMemory(const void *key, u32 bytes)
+{
+	if (bytes > sizeof(_key_pair)) return false;
+
+	memcpy(_key_pair, key, bytes);
+
+	_key_bytes = bytes;
+	_valid = true;
+	return true;
+}
+
 bool TunnelKeyPair::LoadBase64(const char *base64_encoded)
 {
 	_valid = false;
@@ -164,6 +180,22 @@ TunnelPublicKey::TunnelPublicKey()
 
 TunnelPublicKey::~TunnelPublicKey()
 {
+}
+
+TunnelPublicKey::TunnelPublicKey(const void *key, u32 bytes)
+{
+	_valid = LoadMemory(key, bytes);
+}
+
+bool TunnelPublicKey::LoadMemory(const void *key, u32 bytes)
+{
+	if (bytes > sizeof(_public_key)) return false;
+
+	memcpy(_public_key, key, bytes);
+
+	_key_bytes = bytes;
+	_valid = true;
+	return true;
 }
 
 TunnelPublicKey::TunnelPublicKey(TunnelKeyPair &pair)

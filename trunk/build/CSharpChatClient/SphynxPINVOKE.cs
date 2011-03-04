@@ -194,6 +194,9 @@ class SphynxPINVOKE {
   [DllImport("Sphynx", EntryPoint="CSharp_delete_EasySphynxClient")]
   public static extern void delete_EasySphynxClient(HandleRef jarg1);
 
+  [DllImport("Sphynx", EntryPoint="CSharp_EasySphynxClient_Connect")]
+  public static extern bool EasySphynxClient_Connect(HandleRef jarg1, string jarg2, ushort jarg3, IntPtr jarg4, int jarg5, string jarg6);
+
   [DllImport("Sphynx", EntryPoint="CSharp_EasySphynxClient_WriteOOB")]
   public static extern bool EasySphynxClient_WriteOOB(HandleRef jarg1, byte jarg2, IntPtr jarg3, uint jarg4);
 
