@@ -59,12 +59,14 @@
 
 %feature("director") EasySphynxClient;
 
+%csmethodmodifiers Connect "public unsafe";
 %csmethodmodifiers WriteOOB "public unsafe";
 %csmethodmodifiers WriteUnreliable "public unsafe";
 %csmethodmodifiers WriteReliable "public unsafe";
 
 %include "arrays_csharp.i"
 %apply unsigned char FIXED[] {unsigned char *msg_data}
+%apply unsigned char FIXED[] {unsigned char *public_key}
 
 %define %cs_custom_cast(TYPE, CSTYPE)
 	%typemap(ctype) TYPE, TYPE& "void*"

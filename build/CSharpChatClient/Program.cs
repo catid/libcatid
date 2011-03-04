@@ -11,6 +11,10 @@ namespace CSharpChatClient
         {
             NetClient nc = new NetClient();
 
+            byte[] public_key = System.IO.File.ReadAllBytes("PublicKey.bin");
+
+            nc.Connect("127.0.0.1", 22000, public_key, public_key.Length, "Chat");
+
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new ChatForm());

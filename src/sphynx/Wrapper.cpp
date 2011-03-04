@@ -109,11 +109,28 @@ EasySphynxClient::EasySphynxClient()
 
 	_client = new InternalSphynxClient(this);
 	_watcher.Watch(_client);
+
+	_client->AddRef();
 }
 
 EasySphynxClient::~EasySphynxClient()
 {
+	_client->ReleaseRef();
+
 	_watcher.WaitForShutdown();
 
 	EndLayer();
+}
+
+bool EasySphynxClient::Connect(const char *hostname, unsigned short port, const unsigned char *public_key, int public_key_bytes, const char *session_key)
+{
+	SphynxTLS tls;
+
+	if (!tls.Valid()) return false;
+
+	TunnelPublicKey tunnel_public_key(public_key, public_key_bytes);
+
+	if (!tunnel_public_key.Valid()) return false;
+
+	return _client->Connect(&layer, &tls, hostname, port, tunnel_public_key, session_key);
 }

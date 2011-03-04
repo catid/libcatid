@@ -51,6 +51,10 @@ public:
 	TunnelKeyPair();
 	~TunnelKeyPair();
 
+	TunnelKeyPair(const void *key, u32 bytes);
+
+	bool LoadMemory(const void *key, u32 bytes);
+
 	bool LoadBase64(const char *base64_encoded);
 	std::string SaveBase64();
 
@@ -77,6 +81,10 @@ public:
 
 	TunnelPublicKey(TunnelKeyPair &pair); // Copy from key pair
 	TunnelPublicKey &operator=(TunnelKeyPair &pair); // Copy from key pair
+
+	TunnelPublicKey(const void *key, u32 bytes);
+
+	bool LoadMemory(const void *key, u32 bytes);
 
 	bool LoadBase64(const char *base64_encoded);
 	std::string SaveBase64();

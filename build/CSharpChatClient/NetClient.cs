@@ -15,12 +15,12 @@ namespace CSharpChatClient
 
         public override void OnDisconnect(string reason)
         {
-            System.Windows.Forms.MessageBox.Show("disco");
+            System.Windows.Forms.MessageBox.Show("disconnected: " + reason);
         }
 
         public override void OnConnectFailure(string reason)
         {
-            System.Windows.Forms.MessageBox.Show("fail");
+            System.Windows.Forms.MessageBox.Show("failure: " + reason);
         }
 
         public override void OnConnectSuccess()
