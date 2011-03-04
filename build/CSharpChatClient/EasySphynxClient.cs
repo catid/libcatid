@@ -175,7 +175,7 @@ public class EasySphynxClient : IDisposable {
   }
 
   private void SwigDirectorOnMessageArrivals(IntPtr msgs, int count) {
-    //OnMessageArrivals((msgs == IntPtr.Zero) ? null : new SWIGTYPE_p_void(msgs, false), count);
+    OnMessageArrivals((msgs == IntPtr.Zero) ? null : new SWIGTYPE_p_void(msgs, false), count);
   }
 
   public delegate void SwigDelegateEasySphynxClient_0(string reason);

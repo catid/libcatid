@@ -50,11 +50,17 @@ TunnelKeyPair::TunnelKeyPair(const void *key, u32 bytes)
 
 bool TunnelKeyPair::LoadMemory(const void *key, u32 bytes)
 {
-	if (bytes > sizeof(_key_pair)) return false;
+	if (bytes != (256 / 8) * 3 &&
+		bytes != (384 / 8) * 3 &&
+		bytes != (512 / 8) * 3)
+	{
+		return false;
+	}
+
+	_key_bytes = bytes / 3;
 
 	memcpy(_key_pair, key, bytes);
 
-	_key_bytes = bytes;
 	_valid = true;
 	return true;
 }
@@ -189,7 +195,14 @@ TunnelPublicKey::TunnelPublicKey(const void *key, u32 bytes)
 
 bool TunnelPublicKey::LoadMemory(const void *key, u32 bytes)
 {
-	if (bytes > sizeof(_public_key)) return false;
+	if (bytes != (256 / 8) * 2 &&
+		bytes != (384 / 8) * 2 &&
+		bytes != (512 / 8) * 2)
+	{
+		return false;
+	}
+
+	_key_bytes = bytes / 2;
 
 	memcpy(_public_key, key, bytes);
 
