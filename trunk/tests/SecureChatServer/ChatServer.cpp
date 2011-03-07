@@ -34,13 +34,13 @@ public:
 	{
 		WARN("Connexion") << "-- Shutdown Requested";
 
+		GetServer<GameServer>()->_collexion.Remove(this);
+
 		Connexion::OnShutdownRequest();
 	}
 	virtual bool OnZeroReferences()
 	{
 		WARN("Connexion") << "-- Zero References";
-
-		GetServer<GameServer>()->_collexion.Remove(this);
 
 		return Connexion::OnZeroReferences();
 	}
