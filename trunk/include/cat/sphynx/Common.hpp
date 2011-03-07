@@ -173,6 +173,18 @@ static const u32 NUM_STREAMS = 4; // Number of reliable streams
 static const u32 TRANSPORT_OVERHEAD = 2; // Number of bytes added to each packet for the transport layer
 static const u32 SPHYNX_OVERHEAD = AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD;
 
+// (multiplier-1) divisible by all prime factors of table size
+// (multiplier-1) is a multiple of 4 if table size is a multiple of 4
+// These constants are from Press, Teukolsky, Vetterling and Flannery's
+// "Numerical Recipes in FORTRAN: The Art of Scientific Computing"
+static const u32 COLLISION_MULTIPLIER = 71*5861 * 4 + 1;
+static const u32 COLLISION_INCREMENTER = 1013904223;
+
+// If multiplier changes, this needs to be recalculated (multiplicative inverse of above)
+static const u32 COLLISION_MULTINVERSE = 4276115653;
+static const u32 COLLISION_INCRINVERSE = 0 - COLLISION_INCREMENTER;
+
+
 // Interface for a huge data source > MAX_MESSAGE_SIZE
 class IHugeSource
 {

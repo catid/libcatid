@@ -49,8 +49,8 @@ class CAT_EXPORT Connexion : public Transport, public RefObject, public IWorkerC
 	Server *_parent; // Server object that owns this one
 
 	NetAddr _client_addr;
-	u32 _flood_key; // Flood key based on IP address, not necessarily unique
-	u32 _key; // Map hash table index, unique for each active connection
+	u16 _flood_key; // Flood key based on IP address, not necessarily unique
+	u16 _key; // Map hash table index, unique for each active connection
 	u32 _server_worker_id; // Worker thread index servicing reads and timer events
 
 	u8 _first_challenge[64]; // First challenge seen from this client address
@@ -75,11 +75,13 @@ public:
 	CAT_INLINE virtual ~Connexion() {}
 
 	CAT_INLINE const NetAddr &GetAddress() { return _client_addr; }
-	CAT_INLINE u32 GetKey() { return _key; }
-	CAT_INLINE u32 GetFloodKey() { return _flood_key; }
+	CAT_INLINE u16 GetKey() { return _key; }
+	CAT_INLINE u16 GetFloodKey() { return _flood_key; }
 	CAT_INLINE u32 GetServerWorkerID() { return _server_worker_id; }
 
 protected:
+	template<class T> CAT_INLINE T *GetServer() { return reinterpret_cast<T*>( _parent ); }
+
 	virtual void OnShutdownRequest();
 	virtual bool OnZeroReferences();
 
