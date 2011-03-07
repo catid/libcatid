@@ -3,6 +3,19 @@
 using namespace cat;
 using namespace sphynx;
 
+class GameServer : public Server
+{
+	friend class GameConnexion;
+
+	Collexion<GameConnexion> _collexion;
+
+protected:
+	virtual void OnShutdownRequest();
+	virtual bool OnZeroReferences();
+	virtual Connexion *NewConnexion();
+	virtual bool AcceptNewConnexion(const NetAddr &src);
+};
+
 class GameConnexion : public Connexion
 {
 	FileTransferSource _fsource;
@@ -11,7 +24,9 @@ class GameConnexion : public Connexion
 	enum
 	{
 		OP_FILE_UPLOAD_START,
-		OP_TEST_FRAGMENTS
+		OP_TEST_FRAGMENTS,
+		OP_USER_JOIN,
+		OP_USER_PART
 	};
 
 public:
@@ -25,14 +40,16 @@ public:
 	{
 		WARN("Connexion") << "-- Zero References";
 
+		GetServer<GameServer>()->_collexion.Remove(this);
+
 		return Connexion::OnZeroReferences();
 	}
 	virtual void OnConnect(SphynxTLS *tls)
 	{
 		WARN("Connexion") << "-- CONNECTED";
 
-		u8 test_msg[50000];
-		WriteReliable(STREAM_UNORDERED, OP_TEST_FRAGMENTS, test_msg, sizeof(test_msg));
+		//u8 test_msg[50000];
+		//WriteReliable(STREAM_UNORDERED, OP_TEST_FRAGMENTS, test_msg, sizeof(test_msg));
 		/*
 		if (_fsource.WriteFile(OP_FILE_UPLOAD_START, "test.tmp", "sink_file.txt", this))
 		{
@@ -42,6 +59,13 @@ public:
 		{
 			WARN("Connexion") << "-- File upload FAILED";
 		}*/
+
+		u16 key = getLE(GetKey());
+
+		for (sphynx::CollexionIterator<GameConnexion> ii = GetServer<GameServer>()->_collexion; ii; ++ii)
+			ii->WriteReliable(STREAM_1, OP_USER_JOIN, &key, sizeof(key));
+
+		GetServer<GameServer>()->_collexion.Insert(this);
 	}
 	virtual void OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count)
 	{
@@ -81,6 +105,10 @@ public:
 	virtual void OnDisconnectReason(u8 reason)
 	{
 		WARN("Connexion") << "-- DISCONNECTED REASON " << (int)reason;
+
+		u16 key = getLE(GetKey());
+		for (sphynx::CollexionIterator<GameConnexion> ii = GetServer<GameServer>()->_collexion; ii; ++ii)
+			ii->WriteReliable(STREAM_1, OP_USER_PART, &key, sizeof(key));
 	}
 	virtual void OnTick(SphynxTLS *tls, u32 now)
 	{
@@ -88,34 +116,30 @@ public:
 	}
 };
 
-class GameServer : public Server
+void GameServer::OnShutdownRequest()
 {
-protected:
-	virtual void OnShutdownRequest()
-	{
-		WARN("Server") << "-- Shutdown Requested";
+	WARN("Server") << "-- Shutdown Requested";
 
-		Server::OnShutdownRequest();
-	}
-	virtual bool OnZeroReferences()
-	{
-		WARN("Server") << "-- Zero References";
+	Server::OnShutdownRequest();
+}
+bool GameServer::OnZeroReferences()
+{
+	WARN("Server") << "-- Zero References";
 
-		return Server::OnZeroReferences();
-	}
-	virtual sphynx::Connexion *NewConnexion()
-	{
-		WARN("Server") << "-- Allocating a new Connexion";
+	return Server::OnZeroReferences();
+}
+Connexion *GameServer::NewConnexion()
+{
+	WARN("Server") << "-- Allocating a new Connexion";
 
-		return new GameConnexion;
-	}
-	virtual bool AcceptNewConnexion(const NetAddr &src)
-	{
-		WARN("Server") << "-- Accepting a connexion from " << src.IPToString() << " : " << src.GetPort();
+	return new GameConnexion;
+}
+bool GameServer::AcceptNewConnexion(const NetAddr &src)
+{
+	WARN("Server") << "-- Accepting a connexion from " << src.IPToString() << " : " << src.GetPort();
 
-		return true; // allow all
-	}
-};
+	return true; // allow all
+}
 
 int main()
 {

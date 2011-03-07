@@ -15,7 +15,9 @@ class GameClient : public Client
 	enum
 	{
 		OP_FILE_UPLOAD_START,
-		OP_TEST_FRAGMENTS
+		OP_TEST_FRAGMENTS,
+		OP_USER_JOIN,
+		OP_USER_PART
 	};
 
 public:
@@ -27,8 +29,8 @@ public:
 	{
 		WARN("Client") << "-- CONNECTED";
 
-		u8 test_msg[50000];
-		WriteReliable(STREAM_UNORDERED, OP_TEST_FRAGMENTS, test_msg, sizeof(test_msg));
+		//u8 test_msg[50000];
+		//WriteReliable(STREAM_UNORDERED, OP_TEST_FRAGMENTS, test_msg, sizeof(test_msg));
 	}
 	virtual void OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count)
 	{
@@ -60,8 +62,14 @@ public:
 					WARN("Client") << "-- File upload from remote peer NOT ACCEPTED";
 				}
 				break;
+			case OP_USER_JOIN:
+				WARN("Client") << "-- User joined: " << getLE(*(u16*)(msg + 1));
+				break;
+			case OP_USER_PART:
+				WARN("Client") << "-- User quit: " << getLE(*(u16*)(msg + 1));
+				break;
 			default:
-				WARN("Client") << "-- Got unknown message with " << bytes << " bytes" << HexDumpString(msg, min(16, bytes));
+				WARN("Client") << "-- Got unknown message type " << (int)msg[0] << " with " << bytes << " bytes";
 			}
 		}
 	}

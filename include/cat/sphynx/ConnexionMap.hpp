@@ -45,22 +45,11 @@ namespace sphynx {
 class CAT_EXPORT ConnexionMap
 {
 public:
-	static const u32 INVALID_KEY = ~(u32)0;
+	static const u16 INVALID_KEY = ~(u16)0;
 	static const int HASH_TABLE_SIZE = 32768; // Power-of-2
 	static const int HASH_TABLE_MASK = HASH_TABLE_SIZE - 1;
 	static const int MAX_POPULATION = HASH_TABLE_SIZE / 2;
 	static const int CONNECTION_FLOOD_THRESHOLD = 10;
-
-	// (multiplier-1) divisible by all prime factors of table size
-	// (multiplier-1) is a multiple of 4 if table size is a multiple of 4
-	// These constants are from Press, Teukolsky, Vetterling and Flannery's
-	// "Numerical Recipes in FORTRAN: The Art of Scientific Computing"
-	static const u32 COLLISION_MULTIPLIER = 71*5861 * 4 + 1;
-	static const u32 COLLISION_INCREMENTER = 1013904223;
-
-	// If multiplier changes, this needs to be recalculated (multiplicative inverse of above)
-	static const u32 COLLISION_MULTINVERSE = 4276115653;
-	static const u32 COLLISION_INCRINVERSE = 0 - COLLISION_INCREMENTER;
 
 	struct Slot
 	{
