@@ -409,8 +409,6 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
 		u8 *data = GetTrailingBytes(buffer);
 		s32 bytes = buffer->data_bytes;
-
-		// Decode the timestamp from the end of the buffer
 		u32 recv_time = buffer->event_msec;
 		u32 send_time = buffer->send_time;
 
@@ -537,7 +535,6 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 
 					INANE("Transport") << "Rel dump " << bytes << ":" << HexDumpString(data, bytes);
 
-					// Don't bother locking here: It's okay if we lose a race with this.
 					_got_reliable[stream] = true;
 				}
 			}
@@ -597,7 +594,7 @@ void Transport::RunReliableReceiveQueue(SphynxTLS *tls, u32 recv_time, u32 ack_i
 	}
 
 	// For each queued message that is now ready to go,
-	u32 initial_ack_id = ack_id;
+	u32 next_ack_id = ack_id;
 	do
 	{
 		// Grab the queued message
@@ -613,7 +610,7 @@ void Transport::RunReliableReceiveQueue(SphynxTLS *tls, u32 recv_time, u32 ack_i
 		}
 		else if (old_data_bytes > 0)
 		{
-			WARN("Transport") << "Running queued message # " << stream << ":" << ack_id;
+			WARN("Transport") << "Running queued message # " << stream << ":" << next_ack_id;
 
 			if (super_opcode == SOP_DATA)
 				QueueDelivery(tls, stream, old_data, old_data_bytes, node->send_time, false);
@@ -626,17 +623,17 @@ void Transport::RunReliableReceiveQueue(SphynxTLS *tls, u32 recv_time, u32 ack_i
 		}
 
 		// And proceed on to next message
-		++ack_id;
+		++next_ack_id;
 
 		RecvQueue *next = node->next;
 		StdAllocator::ii->Release(node);
 		node = next;
-	} while (node && node->id == ack_id);
+	} while (node && node->id == next_ack_id);
 
 	// Reduce the size of the wait queue
-	_recv_wait[stream].size -= ack_id - initial_ack_id;
+	_recv_wait[stream].size -= next_ack_id - ack_id;
 	_recv_wait[stream].head = node;
-	_next_recv_expected_id[stream] = ack_id;
+	_next_recv_expected_id[stream] = next_ack_id;
 	_got_reliable[stream] = true;
 }
 
@@ -805,7 +802,7 @@ void Transport::OnFragment(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *dat
 		// If got final part,
 		if (bytes == 0)
 		{
-			// Stop delivering fragments via this callback now
+			// Reset the stream's fragment offset to prepare for the next fragmented message
 			_fragments[stream].offset = 0;
 			WARN("Transport") << "Aborted huge fragment transfer in stream " << stream;
 		}

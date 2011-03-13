@@ -31,10 +31,10 @@
 
 #include <cat/threads/Atomic.hpp>
 #include <cat/threads/WaitableFlag.hpp>
+#include <cat/threads/Mutex.hpp>
 //#include <cat/io/Logging.hpp>
 
 #if defined(CAT_NO_ATOMIC_ADD) || defined(CAT_NO_ATOMIC_SET)
-#include <cat/threads/Mutex.hpp>
 #define CAT_NO_ATOMIC_REF_OBJECT
 #endif
 

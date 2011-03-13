@@ -31,7 +31,6 @@
 
 #include <cat/net/Sockets.hpp>
 
-// TODO: SendQueue needs callback for file transfer and support for large external data array
 // TODO: periodically reset the average trip time to avoid skewing statistics
 // TODO: make debug output optional with preprocessor flag
 // TODO: evaluate all places that allocate memory to see if retry would help
@@ -222,9 +221,9 @@ struct RecvQueue
 	RecvQueue *next;	// Next message in list
 	RecvQueue *eos;		// End of current sequence (forward)
 	u32 id;				// Acknowledgment id
-	u16 sop;			// Super Opcode
-	u16 bytes;			// Data Bytes
 	u32 send_time;		// Timestamp attached to packet
+	u16 bytes;			// Data Bytes
+	u8 sop;				// Super Opcode
 
 	// Message contents follow
 };

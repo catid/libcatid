@@ -28,6 +28,7 @@
 
 #include <cat/hash/Murmur.hpp>
 #include <cat/port/EndianNeutral.hpp>
+#include <cat/math/BitMath.hpp>
 using namespace cat;
 
 static CAT_INLINE void Seed(const u64 seed, u64 &c1, u64 &c2, u64 &h1, u64 &h2)

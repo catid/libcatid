@@ -32,6 +32,7 @@ using namespace cat;
 #if defined(CAT_OS_WINDOWS)
 
 # include <cat/port/WindowsInclude.hpp>
+# include <cat/threads/AutoMutex.hpp>
 
 # if defined(CAT_COMPILER_MSVC)
 #  pragma warning(push)
