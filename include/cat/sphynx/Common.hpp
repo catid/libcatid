@@ -255,7 +255,6 @@ struct OutgoingMessage : ResizableBuffer<OutgoingMessage>
 	};
 
 	// Shared members:
-	u16 bytes;			// Data bytes
 	u8 sop;				// Super opcode of message
 };
 

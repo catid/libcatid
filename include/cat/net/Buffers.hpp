@@ -26,11 +26,12 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_NET_SEND_BUFFER_HPP
-#define CAT_NET_SEND_BUFFER_HPP
+#ifndef CAT_NET_BUFFERS_HPP
+#define CAT_NET_BUFFERS_HPP
 
 #include <cat/io/IOLayer.hpp>
 #include <cat/mem/ResizableBuffer.hpp>
+#include <cat/threads/WorkerThreads.hpp>
 
 namespace cat {
 
@@ -38,14 +39,37 @@ namespace cat {
 // A buffer specialized for writing to a socket
 struct SendBuffer : public BatchHead, public ResizableBuffer<SendBuffer>
 {
-	// Shared data
-	u32 bytes;
-
 	// IO layer specific overhead pimpl
 	IOLayerSendOverhead iointernal;
 };
 
 
+// A buffer specialized for reading data from a socket
+// Compatible with WorkerBuffer object
+struct RecvBuffer : public BatchHead
+{
+	union
+	{
+		// IO layer specific overhead pimpl
+		IOLayerRecvOverhead iointernal;
+
+		// Worker layer specific overhead
+		struct 
+		{
+			IWorkerCallbacks *callback;
+			NetAddr addr;
+
+			// TODO: Sphynx specific
+			u32 send_time;
+		};
+	};
+
+	// Shared overhead
+	u32 data_bytes;
+	u32 event_msec;
+};
+
+
 } // namespace cat
 
-#endif // CAT_NET_SEND_BUFFER_HPP
+#endif // CAT_NET_BUFFERS_HPP

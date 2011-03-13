@@ -47,8 +47,6 @@ class IOThread;
 class IOThreads;
 class UDPEndpoint;
 
-//#define CAT_ALLOW_UNBOUNDED_RECV_BUFFERS
-
 enum IOType
 {
 	IOTYPE_UDP_SEND,
@@ -79,13 +77,13 @@ typedef IOCPOverlappedSendTo IOLayerSendOverhead;
 static const u32 IOTHREADS_BUFFER_READ_BYTES = 1450;
 static const u32 IOTHREADS_BUFFER_COUNT = 10000;
 
-typedef BOOL (WINAPI *PtGetQueuedCompletionStatusEx)(
-	__in   HANDLE CompletionPort,
-	__out  LPOVERLAPPED_ENTRY lpCompletionPortEntries,
-	__in   ULONG ulCount,
-	__out  PULONG ulNumEntriesRemoved,
-	__in   DWORD dwMilliseconds,
-	__in   BOOL fAlertable
+typedef BOOL (WINAPI *PGetQueuedCompletionStatusEx)(
+	HANDLE CompletionPort,
+	LPOVERLAPPED_ENTRY lpCompletionPortEntries,
+	ULONG ulCount,
+	PULONG ulNumEntriesRemoved,
+	DWORD dwMilliseconds,
+	BOOL fAlertable
 	);
 
 
@@ -109,7 +107,7 @@ class CAT_EXPORT IOThreads
 	u32 _worker_count;
 	IOThread *_workers;
 
-	PtGetQueuedCompletionStatusEx _GetQueuedCompletionStatusEx;
+	PGetQueuedCompletionStatusEx _GetQueuedCompletionStatusEx;
 	HANDLE _io_port;
 
 	BufferAllocator *_recv_allocator;

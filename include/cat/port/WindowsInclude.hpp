@@ -40,6 +40,15 @@
 
 //// Include definitions that MinGW lacks
 
+#if !defined(OVERLAPPED_ENTRY)
+typedef struct _OVERLAPPED_ENTRY {
+  ULONG_PTR    lpCompletionKey;
+  LPOVERLAPPED lpOverlapped;
+  ULONG_PTR    Internal;
+  DWORD        dwNumberOfBytesTransferred;
+} OVERLAPPED_ENTRY, *LPOVERLAPPED_ENTRY;
+#endif
+
 #if !defined(SYSTEM_LOGICAL_PROCESSOR_INFORMATION)
 
 typedef enum _LOGICAL_PROCESSOR_RELATIONSHIP {

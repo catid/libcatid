@@ -137,7 +137,7 @@ public:
 	bool Wrap(const sockaddr_in &addr);
 	bool Wrap(const sockaddr *addr);
 
-	CAT_INLINE bool NetAddr::Wrap(const sockaddr_in6 &addr)
+	CAT_INLINE bool Wrap(const sockaddr_in6 &addr)
 	{
 		// May be IPv4 that has been stuffed into an IPv6 sockaddr
 		return Wrap(reinterpret_cast<const sockaddr*>( &addr ));

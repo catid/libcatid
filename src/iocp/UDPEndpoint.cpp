@@ -283,7 +283,7 @@ bool UDPEndpoint::Write(const BatchSet &buffers, u32 count, const NetAddr &addr)
 
 		WSABUF wsabuf;
 		wsabuf.buf = reinterpret_cast<CHAR*>( GetTrailingBytes(buffer) );
-		wsabuf.len = buffer->bytes;
+		wsabuf.len = buffer->GetBytes();
 
 		CAT_OBJCLR(buffer->iointernal.ov);
 		buffer->iointernal.io_type = IOTYPE_UDP_SEND;
