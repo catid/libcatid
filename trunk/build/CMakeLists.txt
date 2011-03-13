@@ -113,6 +113,14 @@ ${TESTS}/ECC_Test/ecc_unit_test.cpp
 ${TESTS}/ECC_Test/SecureClientDemo.cpp
 ${TESTS}/ECC_Test/SecureServerDemo.cpp)
 
+# ChatServer Test
+add_executable(ChatServer
+${TESTS}/SecureChatServer/ChatServer.cpp)
+
+# ChatClient Test
+add_executable(ChatClient
+${TESTS}/SecureChatClient/ChatClient.cpp)
+
 # Library linkage
 target_link_libraries(libcatasyncio libcatcommon)
 target_link_libraries(libcatcodec libcatcommon)
@@ -121,6 +129,8 @@ target_link_libraries(libcatmath libcatcommon)
 target_link_libraries(libcattunnel libcatcrypt libcatmath)
 target_link_libraries(libcatsphynx libcattunnel libcatasyncio)
 target_link_libraries(TEST_ECC libcattunnel)
+target_link_libraries(ChatServer libcatsphynx)
+target_link_libraries(ChatClient libcatsphynx)
 
 # OS-dependent linkage
 if (WIN32)
