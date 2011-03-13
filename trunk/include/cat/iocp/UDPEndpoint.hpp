@@ -30,8 +30,8 @@
 #define CAT_IOCP_UDP_ENDPOINT_HPP
 
 #include <cat/net/Sockets.hpp>
-#include <cat/net/SendBuffer.hpp>
-#include <cat/net/RecvBuffer.hpp>
+#include <cat/net/Buffers.hpp>
+#include <cat/io/IOLayer.hpp>
 
 /*
 	To get maximum performance from the UDP sockets, be sure to adjust your
@@ -53,10 +53,6 @@
 */
 
 namespace cat {
-
-
-struct SendBuffer;
-class IOLayer;
 
 
 // Number of IO outstanding on a UDP endpoint
@@ -113,7 +109,7 @@ public:
 	CAT_INLINE bool Write(u8 *data, u32 data_bytes, const NetAddr &addr)
 	{
 		SendBuffer *buffer = SendBuffer::Promote(data);
-		buffer->bytes = data_bytes;
+		buffer->SetBytes(data_bytes);
 		return Write(buffer, 1, addr);
 	}
 

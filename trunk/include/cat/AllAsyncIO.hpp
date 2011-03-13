@@ -38,8 +38,7 @@
 #include <cat/io/IOLayer.hpp>
 
 #include <cat/net/Sockets.hpp>
-#include <cat/net/RecvBuffer.hpp>
-#include <cat/net/SendBuffer.hpp>
+#include <cat/net/Buffers.hpp>
 
 #if defined(CAT_COMPILER_MSVC) && defined(CAT_BUILD_DLL)
 # pragma warning(pop)

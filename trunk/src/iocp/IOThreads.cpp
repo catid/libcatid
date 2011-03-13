@@ -27,8 +27,7 @@
 */
 
 #include <cat/iocp/IOThreads.hpp>
-#include <cat/net/RecvBuffer.hpp>
-#include <cat/net/SendBuffer.hpp>
+#include <cat/net/Buffers.hpp>
 #include <cat/time/Clock.hpp>
 #include <cat/port/SystemInfo.hpp>
 #include <cat/io/Logging.hpp>
@@ -36,14 +35,14 @@ using namespace cat;
 
 CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY entries[], u32 count, u32 event_msec)
 {
+	bool exit_flag = false;
+
 	BatchSet sendq, recvq;
 	sendq.Clear();
 	recvq.Clear();
 
 	UDPEndpoint *prev_recv_endpoint = 0;
 	u32 recv_count = 0;
-
-	bool exit_flag = false;
 
 	// For each entry,
 	for (u32 ii = 0; ii < count; ++ii)
@@ -85,7 +84,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 				buffer->data_bytes = bytes;
 				buffer->event_msec = event_msec;
 
-				// If the same allocator was used twice in a row and there is space,
+				// If the same UDP endpoint got the last request too,
 				if (prev_recv_endpoint == udp_endpoint)
 				{
 					// Append to recvq
@@ -133,7 +132,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 
 void IOThread::UseVistaAPI(IOThreads *master)
 {
-	PtGetQueuedCompletionStatusEx pGetQueuedCompletionStatusEx = master->_GetQueuedCompletionStatusEx;
+	PGetQueuedCompletionStatusEx pGetQueuedCompletionStatusEx = master->_GetQueuedCompletionStatusEx;
 	HANDLE port = master->_io_port;
 
 	static const u32 MAX_IO_GATHER = 32;
@@ -191,8 +190,6 @@ bool IOThread::ThreadFunction(void *vmaster)
 {
 	IOThreads *master = reinterpret_cast<IOThreads*>( vmaster );
 
-	// TODO: Test both of these
-
 	if (master->_GetQueuedCompletionStatusEx)
 		UseVistaAPI(master);
 	else
@@ -212,7 +209,7 @@ IOThreads::IOThreads()
 	_recv_allocator = 0;
 
 	// Attempt to use Vista+ API
-	_GetQueuedCompletionStatusEx = (PtGetQueuedCompletionStatusEx)GetProcAddress(GetModuleHandleA("kernel32.dll"), "GetQueuedCompletionStatusEx");
+	_GetQueuedCompletionStatusEx = (PGetQueuedCompletionStatusEx)GetProcAddress(GetModuleHandleA("kernel32.dll"), "GetQueuedCompletionStatusEx");
 }
 
 IOThreads::~IOThreads()

@@ -40,10 +40,12 @@ class ResizableBuffer
 {
 	static const u32 RESIZABLE_BUFFER_PREALLOCATION = 200;
 
-	// Derived class must define u32 "bytes" member
+protected:
+	u32 _bytes;
 
 public:
-	u32 GetAllocatedBytes() { return bytes; }
+	u32 GetBytes() { return _bytes; }
+	void SetBytes(u32 bytes) { _bytes = bytes; }
 
 	static u8 *Acquire(u32 trailing_bytes)
 	{
