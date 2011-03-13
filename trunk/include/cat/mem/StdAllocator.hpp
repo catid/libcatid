@@ -30,6 +30,7 @@
 #define CAT_STD_ALLOCATOR_HPP
 
 #include <cat/mem/IAllocator.hpp>
+#include <cstdlib>
 
 namespace cat {
 

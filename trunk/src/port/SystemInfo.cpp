@@ -33,21 +33,23 @@ using namespace std;
 using namespace cat;
 
 #if defined(CAT_OS_WINDOWS)
-#include <cat/port/WindowsInclude.hpp>
+# include <cat/port/WindowsInclude.hpp>
+# include <cat/math/BitMath.hpp>
+	typedef BOOL (WINAPI* PGetLogicalProcessorInformation)(PSYSTEM_LOGICAL_PROCESSOR_INFORMATION, PDWORD);
 #elif defined(CAT_OS_LINUX) || defined(CAT_OS_AIX) || defined(CAT_OS_SOLARIS) || defined(CAT_OS_IRIX)
-#include <unistd.h>
+# include <unistd.h>
 #elif defined(CAT_OS_OSX) || defined(CAT_OS_BSD)
-#include <sys/sysctl.h>
+# include <sys/sysctl.h>
 #elif defined(CAT_OS_HPUX)
-#include <sys/mpctl.h>
+# include <sys/mpctl.h>
 #endif
 
 // Add your compiler here if it supports aligned malloc
 #if defined(CAT_COMPILER_MSVC)
-#define CAT_HAS_ALIGNED_ALLOC
-#define aligned_malloc _aligned_malloc
-#define aligned_realloc _aligned_realloc
-#define aligned_free _aligned_free
+# define CAT_HAS_ALIGNED_ALLOC
+# define aligned_malloc _aligned_malloc
+# define aligned_realloc _aligned_realloc
+# define aligned_free _aligned_free
 #endif
 
 static bool system_info_initialized = false;
@@ -77,25 +79,31 @@ static u32 GetCacheLineBytes()
 
 	DWORD buffer_size = 0;
 	SYSTEM_LOGICAL_PROCESSOR_INFORMATION *buffer = 0;
+	PGetLogicalProcessorInformation pGetLogicalProcessorInformation;
 
-	GetLogicalProcessorInformation(0, &buffer_size);
+	pGetLogicalProcessorInformation = (PGetLogicalProcessorInformation)GetProcAddress(GetModuleHandleA("kernel32.dll"), "pGetLogicalProcessorInformation");
 
-	if (buffer_size > 0)
+	if (pGetLogicalProcessorInformation)
 	{
-		buffer = (SYSTEM_LOGICAL_PROCESSOR_INFORMATION *)malloc(buffer_size);
-		GetLogicalProcessorInformation(&buffer[0], &buffer_size);
+		pGetLogicalProcessorInformation(0, &buffer_size);
 
-		for (int i = 0; i < (int)(buffer_size / sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION)); ++i)
+		if (buffer_size > 0)
 		{
-			if (buffer[i].Relationship == RelationCache &&
-				buffer[i].Cache.Level == 1)
-			{
-				discovered_cache_line_size = (u32)buffer[i].Cache.LineSize;
-				break;
-			}
-		}
+			buffer = (SYSTEM_LOGICAL_PROCESSOR_INFORMATION *)malloc(buffer_size);
+			pGetLogicalProcessorInformation(&buffer[0], &buffer_size);
 
-		free(buffer);
+			for (int i = 0; i < (int)(buffer_size / sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION)); ++i)
+			{
+				if (buffer[i].Relationship == RelationCache &&
+					buffer[i].Cache.Level == 1)
+				{
+					discovered_cache_line_size = (u32)buffer[i].Cache.LineSize;
+					break;
+				}
+			}
+
+			free(buffer);
+		}
 	}
 
 #elif defined(CAT_OS_LINUX)

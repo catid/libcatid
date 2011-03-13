@@ -29,6 +29,7 @@
 #ifndef CAT_LOGGING_HPP
 #define CAT_LOGGING_HPP
 
+#include <cat/Platform.hpp>
 #include <string>
 #include <sstream>
 
@@ -37,6 +38,11 @@
 #endif
 
 namespace cat {
+
+
+class Logging;
+class Recorder;
+class Enforcer;
 
 
 //// Enumerations

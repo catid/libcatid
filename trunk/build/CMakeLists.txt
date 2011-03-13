@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 2.6) # or other version
 
 project(LIBCAT)
 
+OPTION(BUILD_ECC_TEST "Build Elliptic Curve Cryptography Test" ON)
+OPTION(BUILD_NETCODE_TEST "Build MMO NetCode Test" ON)
+
 # Define some shortcuts
 SET(SRC ../src/)
 SET(LIB ../lib/)
@@ -37,10 +40,16 @@ ${SRC}/parse/BufferTok.cpp
 ${SRC}/parse/Base64.cpp
 ${SRC}/CommonLayer.cpp
 ${SRC}/hash/Murmur.cpp)
+if (WIN32)
+    target_link_libraries(libcatcommon winmm.lib)
+else (WIN32)
+    target_link_libraries(libcatcommon pthread)
+endif (WIN32)
 
 # Codec
 add_library(libcatcodec STATIC
 ${SRC}/codec/RangeCoder.cpp)
+target_link_libraries(libcatcodec libcatcommon)
 
 # Crypt
 add_library(libcatcrypt STATIC
@@ -56,6 +65,10 @@ ${SRC}/crypt/hash/Skein.cpp
 ${SRC}/crypt/hash/Skein256.cpp
 ${SRC}/crypt/hash/Skein512.cpp
 ${SRC}/crypt/SecureCompare.cpp)
+target_link_libraries(libcatcrypt libcatcommon)
+if (WIN32)
+    target_link_libraries(libcatcrypt rpcrt4.lib iphlpapi.lib psapi.lib advapi32.lib)
+endif (WIN32)
 
 # Math
 add_library(libcatmath STATIC
@@ -64,6 +77,7 @@ ${SRC}/math/BigPseudoMersenne.cpp
 ${SRC}/math/BigTwistedEdwards.cpp
 ${SRC}/math/BigBinaryExtension.cpp
 ${SRC}/math/BigMontgomery.cpp)
+target_link_libraries(libcatmath libcatcommon)
 
 if (NOT CMAKE_SIZEOF_VOID_P EQUAL 4)
 
@@ -91,51 +105,51 @@ ${SRC}/crypt/tunnel/KeyAgreementInitiator.cpp
 ${SRC}/crypt/tunnel/KeyAgreementResponder.cpp
 ${SRC}/crypt/tunnel/EasyHandshake.cpp
 ${SRC}/crypt/tunnel/AuthenticatedEncryption.cpp)
+target_link_libraries(libcattunnel libcatcrypt libcatmath)
 
 # AsyncIO
 add_library(libcatasyncio STATIC
-
-if (WIN32)
-    ${SRC}/iocp/IOThreads.cpp
-    ${SRC}/iocp/UDPEndpoint.cpp
-else (WIN32)
-    ${SRC}/net/IOThreads.cpp
-    ${SRC}/net/UDPEndpoint.cpp
-endif (WIN32)
-
+${SRC}/iocp/IOThreads.cpp
+${SRC}/iocp/UDPEndpoint.cpp
 ${SRC}/net/Sockets.cpp
 ${SRC}/io/IOLayer.cpp
 ${SRC}/crypt/tunnel/AuthenticatedEncryption.cpp)
+target_link_libraries(libcatasyncio libcatcommon)
+
+# Sphynx
+add_library(libcatsphynx STATIC
+${SRC}/net/DNSClient.cpp
+${SRC}/sphynx/FlowControl.cpp
+${SRC}/sphynx/Server.cpp
+${SRC}/sphynx/Transport.cpp
+${SRC}/sphynx/Client.cpp
+${SRC}/sphynx/ConnexionMap.cpp
+${SRC}/sphynx/Connexion.cpp
+${SRC}/sphynx/SphynxLayer.cpp
+${SRC}/sphynx/FileTransfer.cpp)
+target_link_libraries(libcatsphynx libcattunnel libcatasyncio)
+
+if (BUILD_ECC_TEST)
 
 # ECC Test
 add_executable(TEST_ECC
 ${TESTS}/ECC_Test/ecc_unit_test.cpp
 ${TESTS}/ECC_Test/SecureClientDemo.cpp
 ${TESTS}/ECC_Test/SecureServerDemo.cpp)
+target_link_libraries(TEST_ECC libcattunnel)
+
+endif (BUILD_ECC_TEST)
+
+if (BUILD_NETCODE_TEST)
 
 # ChatServer Test
 add_executable(ChatServer
 ${TESTS}/SecureChatServer/ChatServer.cpp)
+target_link_libraries(ChatServer libcatsphynx)
 
 # ChatClient Test
 add_executable(ChatClient
 ${TESTS}/SecureChatClient/ChatClient.cpp)
-
-# Library linkage
-target_link_libraries(libcatasyncio libcatcommon)
-target_link_libraries(libcatcodec libcatcommon)
-target_link_libraries(libcatcrypt libcatcommon)
-target_link_libraries(libcatmath libcatcommon)
-target_link_libraries(libcattunnel libcatcrypt libcatmath)
-target_link_libraries(libcatsphynx libcattunnel libcatasyncio)
-target_link_libraries(TEST_ECC libcattunnel)
-target_link_libraries(ChatServer libcatsphynx)
 target_link_libraries(ChatClient libcatsphynx)
 
-# OS-dependent linkage
-if (WIN32)
-  target_link_libraries(libcatcommon winmm.lib)
-  target_link_libraries(libcatcrypt rpcrt4.lib iphlpapi.lib psapi.lib advapi32.lib)
-else (WIN32)
-  target_link_libraries(libcatcommon pthread)
-endif (WIN32)
+endif (BUILD_NETCODE_TEST)
