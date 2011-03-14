@@ -33,6 +33,7 @@
 #include <cat/port/EndianNeutral.hpp>
 #include <cat/io/Settings.hpp>
 #include <cat/threads/AutoMutex.hpp>
+#include <cat/net/Buffers.hpp>
 #include <cstdio>
 #include <fstream>
 using namespace cat;

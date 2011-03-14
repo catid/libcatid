@@ -28,6 +28,7 @@
 
 #include <cat/sphynx/ConnexionMap.hpp>
 #include <cat/hash/Murmur.hpp>
+#include <cat/io/Logging.hpp>
 using namespace cat;
 using namespace sphynx;
 

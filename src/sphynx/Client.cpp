@@ -34,6 +34,7 @@
 #include <cat/parse/BufferStream.hpp>
 #include <cat/time/Clock.hpp>
 #include <cat/crypt/SecureCompare.hpp>
+#include <cat/hash/Murmur.hpp>
 #include <fstream>
 using namespace std;
 using namespace cat;
@@ -595,7 +596,7 @@ bool Client::WriteDatagrams(const BatchSet &buffers, u32 count)
 		// Unwrap the message data
 		SendBuffer *buffer = reinterpret_cast<SendBuffer*>( node );
 		u8 *msg_data = GetTrailingBytes(buffer);
-		u32 msg_bytes = buffer->bytes;
+		u32 msg_bytes = buffer->GetBytes();
 
 		// Write timestamp right before the encryption overhead
 		*(u16*)(msg_data + msg_bytes) = timestamp;
@@ -604,7 +605,7 @@ bool Client::WriteDatagrams(const BatchSet &buffers, u32 count)
 
 		// Encrypt the message
 		_auth_enc.Encrypt(iv, msg_data, msg_bytes);
-		buffer->bytes = msg_bytes;
+		buffer->SetBytes(msg_bytes);
 
 		//INFO("Client") << "Transmitting datagram with " << msg_bytes << " data bytes";
 	}

@@ -30,7 +30,8 @@
 #define CAT_IOCP_UDP_ENDPOINT_HPP
 
 #include <cat/net/Sockets.hpp>
-#include <cat/net/Buffers.hpp>
+#include <cat/threads/RefObject.hpp>
+#include <cat/mem/IAllocator.hpp>
 
 /*
 	To get maximum performance from the UDP sockets, be sure to adjust your
@@ -55,6 +56,8 @@ namespace cat {
 
 
 class IOLayer;
+struct RecvBuffer;
+struct SendBuffer;
 
 
 // Number of IO outstanding on a UDP endpoint
@@ -107,12 +110,7 @@ public:
 	// This function takes approximately 1 ms per ~20 buffers
 	bool Write(const BatchSet &buffers, u32 count, const NetAddr &addr);
 
-	CAT_INLINE bool Write(u8 *data, u32 data_bytes, const NetAddr &addr)
-	{
-		SendBuffer *buffer = SendBuffer::Promote(data);
-		buffer->SetBytes(data_bytes);
-		return Write(buffer, 1, addr);
-	}
+	CAT_INLINE bool Write(u8 *data, u32 data_bytes, const NetAddr &addr);
 
 	// When done with read buffers, call this function to add them back to the available pool
 	void ReleaseRecvBuffers(BatchSet buffers, u32 count);
@@ -120,10 +118,7 @@ public:
 protected:
 	CAT_INLINE IOLayer *GetIOLayer() { return _iolayer; }
 
-	CAT_INLINE void SetRemoteAddress(RecvBuffer *buffer)
-	{
-		buffer->addr.Wrap(buffer->iointernal.addr);
-	}
+	CAT_INLINE void SetRemoteAddress(RecvBuffer *buffer);
 
 	virtual void OnShutdownRequest();
 	virtual bool OnZeroReferences();

@@ -67,6 +67,8 @@ struct RecvBuffer : BatchHead
 	// Shared overhead
 	u32 data_bytes;
 	u32 event_msec;
+
+	CAT_INLINE NetAddr &GetAddr() { return (NetAddr&)addr; }
 };
 
 

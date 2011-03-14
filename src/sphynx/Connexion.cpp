@@ -27,6 +27,8 @@
 */
 
 #include <cat/sphynx/Connexion.hpp>
+#include <cat/sphynx/Server.hpp>
+#include <cat/io/Logging.hpp>
 using namespace cat;
 using namespace sphynx;
 

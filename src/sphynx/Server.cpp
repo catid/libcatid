@@ -79,13 +79,13 @@ void Server::OnReadRouting(const BatchSet &buffers)
 		SetRemoteAddress(buffer);
 
 		// If source address has changed,
-		if (!prev_buffer || buffer->addr != prev_buffer->addr)
+		if (!prev_buffer || buffer->GetAddr() != prev_buffer->GetAddr())
 		{
 			// If close signal is received,
 			if (buffer->data_bytes == 0)
 				RequestShutdown();
 
-			if (_conn_map.LookupCheckFlood(conn, buffer->addr))
+			if (_conn_map.LookupCheckFlood(conn, buffer->GetAddr()))
 			{
 				// Flood detected on unconnected client, insert into garbage list
 				garbage.PushBack(buffer);
@@ -199,13 +199,13 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 			if (!SecureEqual(data + 1 + 4, _public_key.GetPublicKey(), PUBLIC_KEY_BYTES))
 			{
 				WARN("Server") << "Failing hello: Client public key does not match";
-				PostConnectionError(buffer->addr, ERR_WRONG_KEY);
+				PostConnectionError(buffer->GetAddr(), ERR_WRONG_KEY);
 				continue;
 			}
 
 			WARN("Server") << "Accepted hello and posted cookie";
 
-			PostConnectionCookie(buffer->addr);
+			PostConnectionCookie(buffer->GetAddr());
 		}
 		else if (bytes == C2S_CHALLENGE_LEN && data[0] == C2S_CHALLENGE)
 		{
@@ -219,9 +219,9 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 
 			// If cookie is invalid, ignore packet
 			u32 *cookie = reinterpret_cast<u32*>( data + 1 + 4 );
-			bool good_cookie = buffer->addr.Is6() ?
-				_cookie_jar.Verify(&buffer->addr, sizeof(buffer->addr), *cookie) :
-				_cookie_jar.Verify(buffer->addr.GetIP4(), buffer->addr.GetPort(), *cookie);
+			bool good_cookie = buffer->GetAddr().Is6() ?
+				_cookie_jar.Verify(&buffer->GetAddr(), sizeof(buffer->GetAddr()), *cookie) :
+				_cookie_jar.Verify(buffer->GetAddr().GetIP4(), buffer->GetAddr().GetPort(), *cookie);
 
 			if (!good_cookie)
 			{
@@ -232,15 +232,15 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 			if (IsShutdown())
 			{
 				WARN("Server") << "Ignoring challenge: Server is shutting down";
-				PostConnectionError(buffer->addr, ERR_SHUTDOWN);
+				PostConnectionError(buffer->GetAddr(), ERR_SHUTDOWN);
 				continue;
 			}
 
 			// If the derived server object does not like this address,
-			if (!AcceptNewConnexion(buffer->addr))
+			if (!AcceptNewConnexion(buffer->GetAddr()))
 			{
 				WARN("Server") << "Ignoring challenge: Source address is blocked";
-				PostConnectionError(buffer->addr, ERR_BLOCKED);
+				PostConnectionError(buffer->GetAddr(), ERR_BLOCKED);
 				continue;
 			}
 
@@ -248,7 +248,7 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 			if (GetIOLayer()->GetWorkerThreads()->GetTotalPopulation() >= ConnexionMap::MAX_POPULATION)
 			{
 				WARN("Server") << "Ignoring challenge: Server is full";
-				PostConnectionError(buffer->addr, ERR_SERVER_FULL);
+				PostConnectionError(buffer->GetAddr(), ERR_SERVER_FULL);
 				continue;
 			}
 
@@ -272,7 +272,7 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 
 				pkt[0] = S2C_ERROR;
 				pkt[1] = (u8)(ERR_TAMPERING);
-				Write(pkt, S2C_ERROR_LEN, buffer->addr);
+				Write(pkt, S2C_ERROR_LEN, buffer->GetAddr());
 			}
 			// If out of memory for Connexion objects,
 			else if (!(conn = NewConnexion()))
@@ -281,7 +281,7 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 
 				pkt[0] = S2C_ERROR;
 				pkt[1] = (u8)(ERR_SERVER_ERROR);
-				Write(pkt, S2C_ERROR_LEN, buffer->addr);
+				Write(pkt, S2C_ERROR_LEN, buffer->GetAddr());
 			}
 			// If unable to key encryption from session key,
 			else if (!_key_agreement_responder.KeyEncryption(&key_hash, &conn->_auth_enc, _session_key))
@@ -290,7 +290,7 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 
 				pkt[0] = S2C_ERROR;
 				pkt[1] = (u8)(ERR_SERVER_ERROR);
-				Write(pkt, S2C_ERROR_LEN, buffer->addr);
+				Write(pkt, S2C_ERROR_LEN, buffer->GetAddr());
 			}
 			else if (!conn->InitializeTransportSecurity(false, conn->_auth_enc))
 			{
@@ -298,7 +298,7 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 
 				pkt[0] = S2C_ERROR;
 				pkt[1] = (u8)(ERR_SERVER_ERROR);
-				Write(pkt, S2C_ERROR_LEN, buffer->addr);
+				Write(pkt, S2C_ERROR_LEN, buffer->GetAddr());
 			}
 			else // Good so far:
 			{
@@ -308,7 +308,7 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 				// Initialize Connexion object
 				memcpy(conn->_first_challenge, challenge, CHALLENGE_BYTES);
 				memcpy(conn->_cached_answer, pkt + 1 + 2, ANSWER_BYTES);
-				conn->_client_addr = buffer->addr;
+				conn->_client_addr = buffer->GetAddr();
 				conn->_last_recv_tsc = buffer->event_msec;
 				conn->_parent = this;
 				conn->InitializePayloadBytes(Is6());
@@ -317,7 +317,7 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 				SphynxLayer *layer = reinterpret_cast<SphynxLayer*>( GetIOLayer() );
 				conn->_server_worker_id = layer->GetWorkerThreads()->AssignWorker(conn);
 
-				if (!Write(pkt, S2C_ANSWER_LEN, buffer->addr))
+				if (!Write(pkt, S2C_ANSWER_LEN, buffer->GetAddr()))
 				{
 					WARN("Server") << "Ignoring challenge: Unable to post packet";
 				}

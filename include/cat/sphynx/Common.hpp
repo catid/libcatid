@@ -33,6 +33,7 @@
 #include <cat/crypt/tunnel/AuthenticatedEncryption.hpp>
 #include <cat/mem/ResizableBuffer.hpp>
 #include <cat/net/Buffers.hpp>
+#include <cat/parse/BufferStream.hpp>
 
 // TODO: periodically reset the average trip time to avoid skewing statistics
 // TODO: make debug output optional with preprocessor flag

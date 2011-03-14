@@ -29,6 +29,7 @@
 #include <cat/sphynx/Transport.hpp>
 #include <cat/port/EndianNeutral.hpp>
 #include <cat/io/Logging.hpp>
+using namespace std;
 using namespace cat;
 using namespace sphynx;
 
@@ -163,7 +164,7 @@ void Transport::FreeSentNode(OutgoingMessage *node)
 		if (!--full_data_node->frag_count)
 		{
 			// If it is a huge message,
-			if (full_data_node->bytes == FRAG_HUGE)
+			if (full_data_node->GetBytes() == FRAG_HUGE)
 			{
 				// If message has completed sending,
 				if (full_data_node->huge_remaining == 0)
@@ -174,7 +175,7 @@ void Transport::FreeSentNode(OutgoingMessage *node)
 			else
 			{
 				// If message has completed sending,
-				if (full_data_node->sent_bytes >= full_data_node->bytes)
+				if (full_data_node->sent_bytes >= full_data_node->GetBytes())
 				{
 					StdAllocator::ii->Release(full_data_node);
 				}
@@ -961,7 +962,7 @@ bool Transport::WriteReliableZeroCopy(StreamMode stream, u8 *msg, u32 msg_bytes,
 
 	// Fill the object
 	OutgoingMessage *node = OutgoingMessage::Promote(msg);
-	node->bytes = msg_bytes;
+	node->SetBytes(msg_bytes);
 	node->frag_count = 0;
 	node->sop = super_opcode;
 	node->send_bytes = 0;
@@ -983,7 +984,7 @@ bool Transport::WriteHuge(StreamMode stream, IHugeSource *source)
 	if (!node) return false;
 
 	// Fill the object
-	node->bytes = FRAG_HUGE;
+	node->SetBytes(FRAG_HUGE);
 	node->huge_remaining = source->GetRemaining(stream);
 	node->frag_count = 0;
 	node->sop = SOP_DATA;
@@ -1024,7 +1025,7 @@ void Transport::Retransmit(u32 stream, OutgoingMessage *node, u32 now)
 	{
 		SendFrag *frag = reinterpret_cast<SendFrag*>( node );
 		OutgoingMessage *full_node = frag->full_data;
-		frag_total_bytes = full_node->bytes;
+		frag_total_bytes = full_node->GetBytes();
 
 		// If the fragment is from a huge message,
 		if (frag_total_bytes == FRAG_HUGE)
@@ -1041,7 +1042,7 @@ void Transport::Retransmit(u32 stream, OutgoingMessage *node, u32 now)
 	}
 
 	// Calculate message length
-	u16 copy_bytes = node->bytes;
+	u16 copy_bytes = node->GetBytes();
 	u32 data_bytes = frag_overhead + copy_bytes;
 	u32 hdr_bytes = (data_bytes <= BLO_MASK) ? 1 : 2;
 	u32 ack_id = node->id;
@@ -1471,7 +1472,7 @@ void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 						do
 						{
 							_send_flow.OnACK(recv_time, node);
-							acknowledged_data_sum += node->bytes;
+							acknowledged_data_sum += node->GetBytes();
 
 							OutgoingMessage *next = node->next;
 							FreeSentNode(node);
@@ -1603,7 +1604,7 @@ void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 					do 
 					{
 						_send_flow.OnACK(recv_time, node);
-						acknowledged_data_sum += node->bytes;
+						acknowledged_data_sum += node->GetBytes();
 
 						OutgoingMessage *next = node->next;
 						FreeSentNode(node);
@@ -1637,7 +1638,7 @@ OutgoingMessage *Transport::DequeueBandwidth(OutgoingMessage *node, s32 availabl
 	{
 		s32 send_bytes = node->send_bytes;
 
-		u64 send_remaining = (node->bytes == FRAG_HUGE) ? node->huge_remaining : (node->bytes - node->sent_bytes);
+		u64 send_remaining = (node->GetBytes() == FRAG_HUGE) ? node->huge_remaining : (node->GetBytes() - node->sent_bytes);
 		send_remaining -= send_bytes;
 
 		// If this node ate the last of the bandwidth,
@@ -1833,7 +1834,7 @@ bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s
 			while (!frag);
 
 			// Fill fragment object
-			frag->bytes = data_bytes_to_copy;
+			frag->SetBytes(data_bytes_to_copy);
 			frag->offset = sent_bytes;
 			frag->full_data = node;
 			frag->sop = SOP_FRAG;
@@ -1863,7 +1864,7 @@ bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s
 		// Append to cluster
 		ClusterReliableAppend(stream, ack_id, msg, ack_id_overhead, frag_overhead,
 			cluster, node->sop, GetTrailingBytes(node) + sent_bytes,
-			data_bytes_to_copy, node->bytes);
+			data_bytes_to_copy, node->GetBytes());
 
 		sent_bytes += data_bytes_to_copy;
 		bytes_to_send -= data_bytes_to_copy;
@@ -1975,7 +1976,7 @@ bool Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream, s32 remai
 		frag->ts_firstsend = now;
 		frag->ts_lastsend = now;
 		frag->sop = SOP_FRAG;
-		frag->bytes = copy_bytes;
+		frag->SetBytes(copy_bytes);
 		frag->full_data = node;
 		frag->offset = sent_bytes;
 
@@ -1998,7 +1999,7 @@ bool Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream, s32 remai
 
 		ClusterReliableAppend(stream, ack_id, pkt, ack_id_overhead,
 			frag_overhead, cluster, SOP_FRAG, GetTrailingBytes(frag),
-			copy_bytes, node->bytes);
+			copy_bytes, node->GetBytes());
 
 		INFO("Transport") << "Wrote Huge " << stream << ": bytes=" << copy_bytes << " ack_id=" << ack_id;
 
@@ -2110,7 +2111,7 @@ void Transport::WriteQueuedReliable()
 			// Cache next pointer since node may be relinked into sent list
 			next = node->next;
 
-			bool success = (node->bytes == FRAG_HUGE) ?
+			bool success = (node->GetBytes() == FRAG_HUGE) ?
 				WriteSendHugeNode(reinterpret_cast<SendHuge*>( node ), now, stream, remaining) :
 				WriteSendQueueNode(node, now, stream, remaining);
 
