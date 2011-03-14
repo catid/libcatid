@@ -80,7 +80,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 
 		case IOTYPE_UDP_RECV:
 			{
-				RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( (u8*)ov_iocp - offsetof(RecvBuffer, event_msec) );
+				RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( (u8*)ov_iocp - offsetof(RecvBuffer, iointernal.ov) );
 
 				// Write event completion results to buffer
 				buffer->data_bytes = bytes;

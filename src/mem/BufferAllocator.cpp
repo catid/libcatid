@@ -29,6 +29,7 @@
 #include <cat/mem/BufferAllocator.hpp>
 #include <cat/mem/LargeAllocator.hpp>
 #include <cat/port/SystemInfo.hpp>
+#include <cat/io/Logging.hpp>
 using namespace cat;
 
 BufferAllocator::BufferAllocator(u32 buffer_min_size, u32 buffer_count)
@@ -44,7 +45,11 @@ BufferAllocator::BufferAllocator(u32 buffer_min_size, u32 buffer_count)
 	_buffer_count = buffer_count;
 	_buffers = buffers;
 
-	if (!buffers) return;
+	if (!buffers)
+	{
+		FATAL("BufferAllocator") << "Unable to allocate " << buffer_count << " buffers of " << buffer_min_size;
+		return;
+	}
 
 	// Construct linked list of free nodes
 	BatchHead *tail = reinterpret_cast<BatchHead*>( buffers );
@@ -62,10 +67,14 @@ BufferAllocator::BufferAllocator(u32 buffer_min_size, u32 buffer_count)
 	}
 
 	tail->batch_next = 0;
+
+	INFO("BufferAllocator") << "Allocated and marked " << buffer_count << " buffers of " << buffer_min_size;
 }
 
 BufferAllocator::~BufferAllocator()
 {
+	INFO("BufferAllocator") << "Releasing buffers";
+
 	LargeAllocator::ii->Release(_buffers);
 }
 
