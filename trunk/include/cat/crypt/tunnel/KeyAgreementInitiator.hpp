@@ -31,19 +31,20 @@
 
 #include <cat/crypt/tunnel/KeyAgreement.hpp>
 #include <cat/crypt/tunnel/AuthenticatedEncryption.hpp>
+#include <cat/crypt/tunnel/Keys.hpp>
 
 namespace cat {
 
 
 class CAT_EXPORT KeyAgreementInitiator : public KeyAgreementCommon
 {
-    Leg *B; // Responder's public key (pre-shared with initiator)
-    Leg *a; // Initiator's private key (kept secret)
-    Leg *A; // Initiator's public key (shared with responder in Challenge message)
-    Leg *hB; // h*B
-    Leg *G_MultPrecomp; // Precomputed table for multiplication
-    Leg *B_MultPrecomp; // Precomputed table for multiplication
-    Leg *Y_MultPrecomp; // Precomputed table for multiplication
+	Leg *B; // Responder's public key (pre-shared with initiator)
+	Leg *a; // Initiator's private key (kept secret)
+	Leg *A; // Initiator's public key (shared with responder in Challenge message)
+	Leg *hB; // h*B
+	Leg *G_MultPrecomp; // Precomputed table for multiplication
+	Leg *B_MultPrecomp; // Precomputed table for multiplication
+	Leg *Y_MultPrecomp; // Precomputed table for multiplication
 	Leg *A_neutral; // Endian-neutral A
 	Leg *B_neutral; // Endian-neutral B
 
@@ -51,28 +52,28 @@ class CAT_EXPORT KeyAgreementInitiator : public KeyAgreementCommon
 	Leg *I_private; // Initiator's identity private key
 	Leg *I_public; // Endian-neutral initiator's identity public key
 
-    bool AllocateMemory();
-    void FreeMemory();
+	bool AllocateMemory();
+	void FreeMemory();
 
 public:
-    KeyAgreementInitiator();
-    ~KeyAgreementInitiator();
+	KeyAgreementInitiator();
+	~KeyAgreementInitiator();
 
-    bool Initialize(BigTwistedEdwards *math, TunnelPublicKey &public_key);
+	bool Initialize(BigTwistedEdwards *math, TunnelPublicKey &public_key);
 
 	// Call after Initialize()
 	bool SetIdentity(BigTwistedEdwards *math, TunnelKeyPair &key_pair);
 
 public:
-    bool GenerateChallenge(BigTwistedEdwards *math, FortunaOutput *csprng,
+	bool GenerateChallenge(BigTwistedEdwards *math, FortunaOutput *csprng,
 						   u8 *initiator_challenge, int challenge_bytes);
 
-    bool ProcessAnswer(BigTwistedEdwards *math,
+	bool ProcessAnswer(BigTwistedEdwards *math,
 					   const u8 *responder_answer, int answer_bytes,
-                       Skein *key_hash);
+					   Skein *key_hash);
 
 	// Will fail if SetIdentity() has not been called
-    bool ProcessAnswerWithIdentity(BigTwistedEdwards *math, FortunaOutput *csprng,
+	bool ProcessAnswerWithIdentity(BigTwistedEdwards *math, FortunaOutput *csprng,
 								   const u8 *responder_answer, int answer_bytes,
 								   Skein *key_hash,
 								   u8 *identity_proof, int proof_bytes);

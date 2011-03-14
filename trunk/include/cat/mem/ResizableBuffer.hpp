@@ -57,7 +57,7 @@ public:
 		if (!buffer) return 0;
 
 		//buffer->allocated_bytes = trailing_bytes;
-		buffer->bytes = allocated;
+		buffer->SetBytes(allocated);
 		return GetTrailingBytes(buffer);
 	}
 
@@ -71,7 +71,7 @@ public:
 	{
 		if (!buffer) return Acquire(new_trailing_bytes);
 
-		if (new_trailing_bytes <= buffer->bytes)
+		if (new_trailing_bytes <= buffer->GetBytes())
 			return GetTrailingBytes(buffer);
 
 		// Grow buffer ahead of requested bytes according to golden ratio
@@ -80,7 +80,7 @@ public:
 		buffer = StdAllocator::ii->ResizeTrailing(buffer, new_trailing_bytes);
 		if (!buffer) return 0;
 
-		buffer->bytes = new_trailing_bytes;
+		buffer->SetBytes(new_trailing_bytes);
 
 		return GetTrailingBytes(buffer);
 	}

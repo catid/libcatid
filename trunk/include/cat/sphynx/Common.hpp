@@ -30,6 +30,9 @@
 #define CAT_SPHYNX_COMMON_HPP
 
 #include <cat/net/Sockets.hpp>
+#include <cat/crypt/tunnel/AuthenticatedEncryption.hpp>
+#include <cat/mem/ResizableBuffer.hpp>
+#include <cat/net/Buffers.hpp>
 
 // TODO: periodically reset the average trip time to avoid skewing statistics
 // TODO: make debug output optional with preprocessor flag
@@ -180,7 +183,7 @@ static const u32 COLLISION_MULTIPLIER = 71*5861 * 4 + 1;
 static const u32 COLLISION_INCREMENTER = 1013904223;
 
 // If multiplier changes, this needs to be recalculated (multiplicative inverse of above)
-static const u32 COLLISION_MULTINVERSE = 4276115653;
+static const u32 COLLISION_MULTINVERSE = 0xfee058c5;
 static const u32 COLLISION_INCRINVERSE = 0 - COLLISION_INCREMENTER;
 
 

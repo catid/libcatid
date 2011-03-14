@@ -37,8 +37,12 @@ namespace cat {
 //// Compiler ////
 
 // Mac OS X additional compilation flags
-#ifdef __APPLE__
+#if defined(__APPLE__)
 # include <TargetConditionals.h>
+#endif
+
+#if defined(__MINGW32__)
+# define CAT_COMPILER_MINGW
 #endif
 
 //-----------------------------------------------------------------------------
@@ -482,14 +486,14 @@ union Float32 {
 #define CAT_OBJCLR(obj) CAT_CLR((void*)&(obj), sizeof(obj))
 
 // More secure memory clearing
-#if defined(CAT_OS_WINDOWS) && !defined(CAT_OS_WINDOWS_CE)
+#if defined(CAT_OS_WINDOWS) && !defined(CAT_OS_WINDOWS_CE) && !defined(CAT_COMPILER_MINGW)
 # define CAT_SECURE_CLR(dest, size) SecureZeroMemory(dest, size)
 #else
 
 	// From https://www.securecoding.cert.org/confluence/display/cplusplus/MSC06-CPP.+Be+aware+of+compiler+optimization+when+dealing+with+sensitive+data
-	CAT_INLINE void *cat_memset_s(void *v, int c, size_t n)
+	CAT_INLINE void *cat_memset_s(void *v, int c, unsigned int n)
 	{
-		volatile unsigned char *p = v;
+		volatile unsigned char *p = (volatile unsigned char *)v;
 
 		while (n--)
 			*p++ = c;

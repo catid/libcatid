@@ -32,6 +32,7 @@
 #include <cat/lang/Strings.hpp>
 #include <cat/port/EndianNeutral.hpp>
 #include <cat/io/Settings.hpp>
+#include <cat/threads/AutoMutex.hpp>
 #include <cstdio>
 #include <fstream>
 using namespace cat;
@@ -288,7 +289,7 @@ bool DNSClient::GetServerAddr()
 
 	// Open Tcpip Interfaces key
 	HKEY key;
-	LSTATUS err = RegOpenKeyA(HKEY_LOCAL_MACHINE,
+	LONG err = RegOpenKeyA(HKEY_LOCAL_MACHINE,
 		"SYSTEM\\ControlSet001\\Services\\Tcpip\\Parameters\\Interfaces", &key);
 
 	// Handle errors opening the key
