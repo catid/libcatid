@@ -28,7 +28,7 @@
 
 #include <cat/crypt/tunnel/KeyAgreementResponder.hpp>
 #include <cat/crypt/tunnel/AuthenticatedEncryption.hpp>
-#include <cat/crypt/SecureCompare.hpp>
+#include <cat/crypt/SecureEqual.hpp>
 #include <cat/mem/AlignedAllocator.hpp>
 #include <cat/time/Clock.hpp>
 using namespace cat;
