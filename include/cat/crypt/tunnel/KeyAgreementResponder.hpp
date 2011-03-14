@@ -32,6 +32,7 @@
 #include <cat/crypt/tunnel/KeyAgreement.hpp>
 #include <cat/crypt/tunnel/AuthenticatedEncryption.hpp>
 #include <cat/threads/Atomic.hpp>
+#include <cat/crypt/tunnel/Keys.hpp>
 
 #if defined(CAT_NO_ATOMIC_ADD) || defined(CAT_NO_ATOMIC_SET)
 # include <cat/threads/Mutex.hpp>

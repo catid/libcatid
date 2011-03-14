@@ -29,6 +29,7 @@
 #include <cat/crypt/rand/Fortuna.hpp>
 #include <cat/time/Clock.hpp>
 #include <cat/threads/Atomic.hpp>
+#include <cat/threads/AutoMutex.hpp>
 using namespace cat;
 
 static FortunaFactory singleton;
