@@ -27,6 +27,7 @@
 */
 
 #include <cat/io/IOLayer.hpp>
+#include <cat/io/Logging.hpp>
 using namespace cat;
 
 bool IOLayer::OnStartup(IWorkerTLSBuilder *tls_builder, const char *settings_file_name, bool service, const char *service_name)
