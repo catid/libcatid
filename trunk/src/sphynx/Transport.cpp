@@ -310,7 +310,11 @@ void Transport::Disconnect(u8 reason)
 
 void Transport::InitializePayloadBytes(bool ip6)
 {
-	_udpip_bytes = (ip6 ? IPV6_HEADER_BYTES : IPV4_HEADER_BYTES) + UDP_HEADER_BYTES;
+	_udpip_bytes = UDP_HEADER_BYTES;
+
+	if (ip6) _udpip_bytes += IPV6_HEADER_BYTES;
+	else 	 _udpip_bytes += IPV4_HEADER_BYTES;
+
 	_max_payload_bytes = MINIMUM_MTU - _udpip_bytes - SPHYNX_OVERHEAD;
 }
 

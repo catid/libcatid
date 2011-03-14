@@ -24,6 +24,7 @@ ${SRC}/threads/Thread.cpp
 ${SRC}/threads/Mutex.cpp
 ${SRC}/threads/RWLock.cpp
 ${SRC}/threads/WaitableFlag.cpp
+${SRC}/threads/RefObject.cpp
 ${SRC}/time/Clock.cpp
 ${SRC}/lang/Strings.cpp
 ${SRC}/io/Settings.cpp

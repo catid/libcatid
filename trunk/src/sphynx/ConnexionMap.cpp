@@ -67,7 +67,7 @@ static CAT_INLINE u32 map_hash_addr(const NetAddr &addr, u32 ip_salt, u32 port_s
 	if (addr.Is6())
 	{
 		// Hash full address because this function is not for flood detection
-		key = MurmurHash(addr.GetIP6(), (addr.CanDemoteTo4() ? NetAddr::IP6_BYTES : NetAddr::IP6_BYTES), ip_salt).Get32();
+		key = MurmurHash(addr.GetIP6(), NetAddr::IP6_BYTES, ip_salt).Get32();
 	}
 	else // assuming IPv4 and address is not invalid
 	{

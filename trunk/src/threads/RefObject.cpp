@@ -27,6 +27,7 @@
 */
 
 #include <cat/threads/RefObject.hpp>
+#include <cat/threads/AutoMutex.hpp>
 using namespace cat;
 
 #include <algorithm>
