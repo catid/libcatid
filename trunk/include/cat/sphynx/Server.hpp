@@ -29,9 +29,10 @@
 #ifndef CAT_SPHYNX_SERVER_HPP
 #define CAT_SPHYNX_SERVER_HPP
 
-#include <cat/io/IOLayer.hpp>
 #include <cat/crypt/cookie/CookieJar.hpp>
 #include <cat/crypt/tunnel/KeyAgreementResponder.hpp>
+#include <cat/sphynx/ConnexionMap.hpp>
+#include <cat/sphynx/SphynxLayer.hpp>
 
 namespace cat {
 

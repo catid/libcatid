@@ -29,6 +29,8 @@
 #include <cat/iocp/UDPEndpoint.hpp>
 #include <cat/io/Logging.hpp>
 #include <cat/io/Settings.hpp>
+#include <cat/io/IOLayer.hpp>
+#include <cat/net/Buffers.hpp>
 #include <MSWSock.h>
 using namespace std;
 using namespace cat;
@@ -335,6 +337,18 @@ bool UDPEndpoint::Write(const BatchSet &buffers, u32 count, const NetAddr &addr)
 	}
 
 	return count == write_count;
+}
+
+CAT_INLINE bool UDPEndpoint::Write(u8 *data, u32 data_bytes, const NetAddr &addr)
+{
+	SendBuffer *buffer = SendBuffer::Promote(data);
+	buffer->SetBytes(data_bytes);
+	return Write(buffer, 1, addr);
+}
+
+CAT_INLINE void UDPEndpoint::SetRemoteAddress(RecvBuffer *buffer)
+{
+	buffer->addr.Wrap(buffer->iointernal.addr);
 }
 
 

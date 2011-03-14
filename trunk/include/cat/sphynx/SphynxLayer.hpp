@@ -33,6 +33,7 @@
 #include <cat/io/IOLayer.hpp>
 #include <cat/math/BigTwistedEdwards.hpp>
 #include <cat/crypt/rand/Fortuna.hpp>
+#include <cat/net/DNSClient.hpp>
 
 namespace cat {
 
@@ -50,7 +51,7 @@ public:
 	// Used internally by the Sphynx Transport layer to queue up messages for delivery
 	sphynx::IncomingMessage delivery_queue[DELIVERY_QUEUE_DEPTH];
 	u32 delivery_queue_depth;
-	void *free_list[DELIVERY_QUEUE_DEPTH];
+	u8 *free_list[DELIVERY_QUEUE_DEPTH];
 	u32 free_list_count;
 
 	// A cryptographically secure random number generator, if you need random numbers

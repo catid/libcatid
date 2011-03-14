@@ -384,7 +384,7 @@ class CAT_EXPORT Transport
 	CAT_INLINE void QueueWriteDatagram(u8 *data, u32 data_bytes)
 	{
 		SendBuffer *buffer = SendBuffer::Promote(data);
-		buffer->bytes = data_bytes;
+		buffer->SetBytes(data_bytes);
 		_outgoing_datagrams.PushBack(buffer);
 		_outgoing_datagrams_count++;
 		_outgoing_datagrams_bytes += data_bytes + SPHYNX_OVERHEAD;
@@ -509,7 +509,7 @@ protected:
 	CAT_INLINE bool WriteDatagrams(u8 *single, u32 data_bytes)
 	{
 		SendBuffer *buffer = SendBuffer::Promote(single);
-		buffer->bytes = data_bytes;
+		buffer->SetBytes(data_bytes);
 		return WriteDatagrams(buffer, 1);
 	}
 
