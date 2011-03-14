@@ -46,7 +46,7 @@ struct SendBuffer : public BatchHead, public ResizableBuffer<SendBuffer>
 
 // A buffer specialized for reading data from a socket
 // Compatible with WorkerBuffer object
-struct RecvBuffer : public BatchHead
+struct RecvBuffer : BatchHead
 {
 	union
 	{
@@ -54,10 +54,10 @@ struct RecvBuffer : public BatchHead
 		IOLayerRecvOverhead iointernal;
 
 		// Worker layer specific overhead
-		struct 
+		struct
 		{
 			IWorkerCallbacks *callback;
-			NetAddr addr;
+			UNetAddr addr;
 
 			// TODO: Sphynx specific
 			u32 send_time;

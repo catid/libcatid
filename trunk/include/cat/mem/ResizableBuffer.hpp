@@ -44,8 +44,8 @@ protected:
 	u32 _bytes;
 
 public:
-	u32 GetBytes() { return _bytes; }
-	void SetBytes(u32 bytes) { _bytes = bytes; }
+	CAT_INLINE u32 GetBytes() { return _bytes; }
+	CAT_INLINE void SetBytes(u32 bytes) { _bytes = bytes; }
 
 	static u8 *Acquire(u32 trailing_bytes)
 	{

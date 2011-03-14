@@ -31,7 +31,6 @@
 
 #include <cat/net/Sockets.hpp>
 #include <cat/net/Buffers.hpp>
-#include <cat/io/IOLayer.hpp>
 
 /*
 	To get maximum performance from the UDP sockets, be sure to adjust your
@@ -55,9 +54,11 @@
 namespace cat {
 
 
+class IOLayer;
+
+
 // Number of IO outstanding on a UDP endpoint
 static const u32 SIMULTANEOUS_READS = 128;
-static const u32 SIMULTANEOUS_SENDS = 128;
 
 
 // Object that represents a UDP endpoint bound to a single port

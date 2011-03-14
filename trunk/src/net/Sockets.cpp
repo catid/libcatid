@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -31,8 +31,13 @@
 using namespace std;
 using namespace cat;
 
-#if defined (CAT_COMPILER_MSVC)
+#if defined(CAT_COMPILER_MSVC)
 #pragma comment(lib, "ws2_32.lib")
+#endif
+
+// Fix missing definition for MinGW
+#if !defined(IPV6_V6ONLY)
+#define IPV6_V6ONLY 27
 #endif
 
 
@@ -247,7 +252,10 @@ void cat::CleanupSockets()
 #endif
 }
 
-bool NetAddr::Wrap(const sockaddr_in &addr)
+
+//// UNetAddr
+
+bool UNetAddr::Wrap(const sockaddr_in &addr)
 {
 	// Can only fit IPv4 in this address structure
 	if (addr.sin_family == AF_INET)
@@ -267,7 +275,7 @@ bool NetAddr::Wrap(const sockaddr_in &addr)
 	}
 }
 
-bool NetAddr::Wrap(const sockaddr *addr)
+bool UNetAddr::Wrap(const sockaddr *addr)
 {
 	u16 family = addr->sa_family;
 
@@ -302,7 +310,7 @@ bool NetAddr::Wrap(const sockaddr *addr)
 	}
 }
 
-bool NetAddr::EqualsIPOnly(const NetAddr &addr) const
+bool UNetAddr::EqualsIPOnly(const UNetAddr &addr) const
 {
 	// If one is IPv4 and the other is IPv6,
 	if (_family != addr._family)
@@ -328,7 +336,7 @@ bool NetAddr::EqualsIPOnly(const NetAddr &addr) const
 	}
 }
 
-bool NetAddr::IsInternetRoutable()
+bool UNetAddr::IsInternetRoutable()
 {
 	if (_family == AF_INET)
 	{
@@ -385,7 +393,7 @@ bool NetAddr::IsInternetRoutable()
 	}
 }
 
-bool NetAddr::IsRoutable()
+bool UNetAddr::IsRoutable()
 {
 	if (_family == AF_INET)
 	{
@@ -431,7 +439,7 @@ bool NetAddr::IsRoutable()
 	}
 }
 
-bool NetAddr::SetFromString(const char *ip_str, Port port)
+bool UNetAddr::SetFromString(const char *ip_str, Port port)
 {
 	// Try to convert from IPv6 address first
 	sockaddr_in6 addr6;
@@ -470,7 +478,7 @@ bool NetAddr::SetFromString(const char *ip_str, Port port)
 	}
 }
 
-bool NetAddr::SetFromRawIP(const u8 *ip_binary, int bytes)
+bool UNetAddr::SetFromRawIP(const u8 *ip_binary, int bytes)
 {
 	if (bytes == IP4_BYTES)
 	{
@@ -496,7 +504,7 @@ bool NetAddr::SetFromRawIP(const u8 *ip_binary, int bytes)
 	}
 }
 
-bool NetAddr::SetFromDotDecimals(int a, int b, int c, int d, Port port)
+bool UNetAddr::SetFromDotDecimals(int a, int b, int c, int d, Port port)
 {
 	if ((a | b | c | d) & 0xFFFFFF00)
 	{
@@ -513,7 +521,7 @@ bool NetAddr::SetFromDotDecimals(int a, int b, int c, int d, Port port)
 	}
 }
 
-std::string NetAddr::IPToString() const
+std::string UNetAddr::IPToString() const
 {
 	if (_family == AF_INET6)
 	{
@@ -560,7 +568,7 @@ std::string NetAddr::IPToString() const
 	}
 }
 
-bool NetAddr::Unwrap(SockAddr &addr, int &addr_len, bool PromoteToIP6) const
+bool UNetAddr::Unwrap(SockAddr &addr, int &addr_len, bool PromoteToIP6) const
 {
 	if (_family == AF_INET)
 	{
@@ -578,15 +586,15 @@ bool NetAddr::Unwrap(SockAddr &addr, int &addr_len, bool PromoteToIP6) const
 			// If loopback,
 			if ((ipv4 & 0xFF000000) == 0x7F000000)
 			{
-				addr6->sin6_addr.u.Byte[15] = 1;
+				addr6->sin6_addr.s6_addr[15] = 1;
 			}
 			else
 			{
-				addr6->sin6_addr.u.Word[5] = 0xFFFF;
-				addr6->sin6_addr.u.Byte[12] = (u8)(ipv4 >> 24);
-				addr6->sin6_addr.u.Byte[13] = (u8)(ipv4 >> 16);
-				addr6->sin6_addr.u.Byte[14] = (u8)(ipv4 >> 8);
-				addr6->sin6_addr.u.Byte[15] = (u8)(ipv4);
+				addr6->sin6_addr.s6_addr16[5] = 0xFFFF;
+				addr6->sin6_addr.s6_addr[12] = (u8)(ipv4 >> 24);
+				addr6->sin6_addr.s6_addr[13] = (u8)(ipv4 >> 16);
+				addr6->sin6_addr.s6_addr[14] = (u8)(ipv4 >> 8);
+				addr6->sin6_addr.s6_addr[15] = (u8)(ipv4);
 			}
 
 			addr_len = sizeof(sockaddr_in6);
@@ -624,7 +632,7 @@ bool NetAddr::Unwrap(SockAddr &addr, int &addr_len, bool PromoteToIP6) const
 	}
 }
 
-bool NetAddr::PromoteTo6()
+bool UNetAddr::PromoteTo6()
 {
 	if (_family == AF_INET6)
 	{
@@ -664,7 +672,7 @@ bool NetAddr::PromoteTo6()
 	}
 }
 
-bool NetAddr::CanDemoteTo4() const
+bool UNetAddr::CanDemoteTo4() const
 {
 	if (_family == AF_INET)
 	{
@@ -700,7 +708,7 @@ bool NetAddr::CanDemoteTo4() const
 	}
 }
 
-bool NetAddr::DemoteTo4()
+bool UNetAddr::DemoteTo4()
 {
 	if (_family == AF_INET)
 	{

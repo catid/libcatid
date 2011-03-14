@@ -61,8 +61,8 @@ typedef u16 Port;
 #pragma pack(push)
 #pragma pack(1)
 
-// Wrapper for IPv4 and IPv6 addresses
-class CAT_EXPORT NetAddr
+// Base version of NetAddr that has no ctors so that it can be used in a union
+struct CAT_EXPORT UNetAddr
 {
 	union
 	{
@@ -84,12 +84,83 @@ class CAT_EXPORT NetAddr
 		};
 	};
 
-public:
 	static const int IP4_BYTES = 4;
 	static const int IP6_BYTES = 16;
 
 	typedef sockaddr_in6 SockAddr;
 
+	// These functions are designed to support when this object overlaps the
+	// memory space of the input
+	bool Wrap(const sockaddr_in &addr);
+	bool Wrap(const sockaddr *addr);
+
+	CAT_INLINE bool Wrap(const sockaddr_in6 &addr)
+	{
+		// May be IPv4 that has been stuffed into an IPv6 sockaddr
+		return Wrap(reinterpret_cast<const sockaddr*>( &addr ));
+	}
+
+	// Promote an IPv4 address to an IPv6 address if needed
+	bool PromoteTo6();
+
+	// Check if an IPv6 address can be demoted to IPv4 address
+	bool CanDemoteTo4() const;
+
+	// Demote an IPv6 address to an IPv4 address if possible,
+	// otherwise marks address as invalid and returns false
+	bool DemoteTo4();
+
+	CAT_INLINE bool Convert(bool To6) { if (To6) return PromoteTo6(); else return DemoteTo4(); }
+
+	CAT_INLINE bool Valid() const { return _valid != 0; }
+	CAT_INLINE bool Is6() const { return _family == AF_INET6; }
+
+	CAT_INLINE const u32 GetIP4() const { return _ip.v4; }
+	CAT_INLINE const u64 *GetIP6() const { return _ip.v6; }
+
+	CAT_INLINE Port GetPort() const { return _port; }
+	CAT_INLINE void SetPort(Port port) { _port = port; }
+
+	// Mark the address as invalid
+	CAT_INLINE void Invalidate() { _valid = 0; }
+
+	bool EqualsIPOnly(const UNetAddr &addr) const;
+
+	CAT_INLINE bool operator==(const UNetAddr &addr) const
+	{
+		// Check port
+		if (addr._port != _port)
+			return false; // "not equal"
+
+		// Tail call IP checking function
+		return EqualsIPOnly(addr);
+	}
+
+	CAT_INLINE bool operator!=(const UNetAddr &addr) const
+	{
+		return !(*this == addr);
+	}
+
+	// To validate external input; don't want clients connecting
+	// to their local network instead of the actual game server.
+	bool IsInternetRoutable();
+
+	// Returns true if the address is routable on local network or Internet.
+	// Returns false if the address is IPv4 multicast, loopback, or weird.
+	bool IsRoutable();
+
+	bool SetFromString(const char *ip_str, Port port = 0);
+	std::string IPToString() const;
+
+	bool SetFromRawIP(const u8 *ip_binary, int bytes);
+	bool SetFromDotDecimals(int a, int b, int c, int d, Port port = 0);
+
+	bool Unwrap(SockAddr &addr, int &addr_len, bool PromoteToIP6 = false) const;
+};
+
+// Wrapper for IPv4 and IPv6 addresses
+struct CAT_EXPORT NetAddr : UNetAddr
+{
 	CAT_INLINE NetAddr() {}
 
 	CAT_INLINE NetAddr(const char *ip_str, Port port = 0)
@@ -131,74 +202,6 @@ public:
 		_ip.v6[1] = addr._ip.v6[1];
 		return *this;
 	}
-
-	// These functions are designed to support when this object overlaps the
-	// memory space of the input
-	bool Wrap(const sockaddr_in &addr);
-	bool Wrap(const sockaddr *addr);
-
-	CAT_INLINE bool Wrap(const sockaddr_in6 &addr)
-	{
-		// May be IPv4 that has been stuffed into an IPv6 sockaddr
-		return Wrap(reinterpret_cast<const sockaddr*>( &addr ));
-	}
-
-	// Promote an IPv4 address to an IPv6 address if needed
-	bool PromoteTo6();
-
-	// Check if an IPv6 address can be demoted to IPv4 address
-	bool CanDemoteTo4() const;
-
-	// Demote an IPv6 address to an IPv4 address if possible,
-	// otherwise marks address as invalid and returns false
-	bool DemoteTo4();
-
-	CAT_INLINE bool Convert(bool To6) { if (To6) return PromoteTo6(); else return DemoteTo4(); }
-
-	CAT_INLINE bool Valid() const { return _valid != 0; }
-	CAT_INLINE bool Is6() const { return _family == AF_INET6; }
-
-	CAT_INLINE const u32 GetIP4() const { return _ip.v4; }
-	CAT_INLINE const u64 *GetIP6() const { return _ip.v6; }
-
-	CAT_INLINE Port GetPort() const { return _port; }
-	CAT_INLINE void SetPort(Port port) { _port = port; }
-
-	// Mark the address as invalid
-	CAT_INLINE void Invalidate() { _valid = 0; }
-
-	bool EqualsIPOnly(const NetAddr &addr) const;
-
-	CAT_INLINE bool operator==(const NetAddr &addr) const
-	{
-		// Check port
-		if (addr._port != _port)
-			return false; // "not equal"
-
-		// Tail call IP checking function
-		return EqualsIPOnly(addr);
-	}
-
-	CAT_INLINE bool operator!=(const NetAddr &addr) const
-	{
-		return !(*this == addr);
-	}
-
-	// To validate external input; don't want clients connecting
-	// to their local network instead of the actual game server.
-	bool IsInternetRoutable();
-
-	// Returns true if the address is routable on local network or Internet.
-	// Returns false if the address is IPv4 multicast, loopback, or weird.
-	bool IsRoutable();
-
-	bool SetFromString(const char *ip_str, Port port = 0);
-	std::string IPToString() const;
-
-	bool SetFromRawIP(const u8 *ip_binary, int bytes);
-	bool SetFromDotDecimals(int a, int b, int c, int d, Port port = 0);
-
-	bool Unwrap(SockAddr &addr, int &addr_len, bool PromoteToIP6 = false) const;
 };
 
 #pragma pack(pop)
