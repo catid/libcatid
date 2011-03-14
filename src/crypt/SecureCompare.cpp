@@ -26,7 +26,7 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/crypt/SecureCompare.hpp>
+#include <cat/crypt/SecureEqual.hpp>
 
 namespace cat {
 

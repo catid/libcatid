@@ -32,7 +32,7 @@
 #include <cat/io/Settings.hpp>
 #include <cat/time/Clock.hpp>
 #include <cat/hash/Murmur.hpp>
-#include <cat/crypt/SecureCompare.hpp>
+#include <cat/crypt/SecureEqual.hpp>
 #include <cat/crypt/tunnel/Keys.hpp>
 #include <cat/sphynx/SphynxLayer.hpp>
 using namespace std;

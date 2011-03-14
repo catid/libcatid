@@ -27,7 +27,7 @@
 */
 
 #include <cat/crypt/tunnel/KeyAgreementInitiator.hpp>
-#include <cat/crypt/SecureCompare.hpp>
+#include <cat/crypt/SecureEqual.hpp>
 #include <cat/mem/AlignedAllocator.hpp>
 using namespace cat;
 

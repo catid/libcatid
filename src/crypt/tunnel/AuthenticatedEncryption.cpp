@@ -28,7 +28,7 @@
 
 #include <cat/crypt/tunnel/AuthenticatedEncryption.hpp>
 #include <cat/port/EndianNeutral.hpp>
-#include <cat/crypt/SecureCompare.hpp>
+#include <cat/crypt/SecureEqual.hpp>
 #include <cat/crypt/tunnel/KeyAgreement.hpp>
 #include <cat/math/BitMath.hpp>
 using namespace cat;

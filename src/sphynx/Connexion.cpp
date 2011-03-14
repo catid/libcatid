@@ -29,6 +29,7 @@
 #include <cat/sphynx/Connexion.hpp>
 #include <cat/sphynx/Server.hpp>
 #include <cat/io/Logging.hpp>
+#include <cat/crypt/SecureEqual.hpp>
 using namespace cat;
 using namespace sphynx;
 
@@ -106,7 +107,7 @@ void Connexion::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 
 				memcpy(pkt + 1, _cached_answer, ANSWER_BYTES);
 
-				_parent->Write(pkt, S2C_ANSWER_LEN, buffer->addr);
+				_parent->Write(pkt, S2C_ANSWER_LEN, buffer->GetAddr());
 
 				INANE("Connexion") << "Replayed lost answer to client challenge";
 			}
@@ -185,7 +186,7 @@ bool Connexion::WriteDatagrams(const BatchSet &buffers, u32 count)
 		// Unwrap the message data
 		SendBuffer *buffer = reinterpret_cast<SendBuffer*>( node );
 		u8 *msg_data = GetTrailingBytes(buffer);
-		u32 msg_bytes = buffer->bytes;
+		u32 msg_bytes = buffer->GetBytes();
 
 		// Write timestamp right before the encryption overhead
 		*(u16*)(msg_data + msg_bytes) = timestamp;
@@ -194,7 +195,7 @@ bool Connexion::WriteDatagrams(const BatchSet &buffers, u32 count)
 
 		// Encrypt the message
 		_auth_enc.Encrypt(iv, msg_data, msg_bytes);
-		buffer->bytes = msg_bytes;
+		buffer->SetBytes(msg_bytes);
 	}
 
 	// Do not need to update a "last send" timestamp here because the client is responsible for sending keep-alives

@@ -43,7 +43,7 @@
 
 #include <cat/crypt/cookie/CookieJar.hpp>
 
-#include <cat/crypt/SecureCompare.hpp>
+#include <cat/crypt/SecureEqual.hpp>
 
 #include <cat/crypt/rand/Fortuna.hpp>
 

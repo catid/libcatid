@@ -34,7 +34,7 @@
 #include <cat/io/Settings.hpp>
 #include <cat/parse/BufferStream.hpp>
 #include <cat/time/Clock.hpp>
-#include <cat/crypt/SecureCompare.hpp>
+#include <cat/crypt/SecureEqual.hpp>
 #include <fstream>
 using namespace std;
 using namespace cat;

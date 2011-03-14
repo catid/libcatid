@@ -115,6 +115,9 @@ ${SRC}/net/Sockets.cpp
 ${SRC}/io/IOLayer.cpp
 ${SRC}/crypt/tunnel/AuthenticatedEncryption.cpp)
 target_link_libraries(libcatasyncio libcatcommon)
+if (WIN32)
+    target_link_libraries(libcatasyncio ws2_32.lib)
+endif (WIN32)
 
 # Sphynx
 add_library(libcatsphynx STATIC

@@ -29,6 +29,8 @@
 #include <cat/sphynx/SphynxLayer.hpp>
 #include <cat/crypt/rand/Fortuna.hpp>
 #include <cat/sphynx/Transport.hpp>
+#include <cat/crypt/tunnel/KeyAgreement.hpp>
+#include <cat/io/Logging.hpp>
 using namespace cat;
 
 SphynxTLS::SphynxTLS()
