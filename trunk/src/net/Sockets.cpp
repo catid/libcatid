@@ -590,7 +590,8 @@ bool UNetAddr::Unwrap(SockAddr &addr, int &addr_len, bool PromoteToIP6) const
 			}
 			else
 			{
-				addr6->sin6_addr.s6_addr16[5] = 0xFFFF;
+				addr6->sin6_addr.s6_addr[10] = 0xFF;
+				addr6->sin6_addr.s6_addr[11] = 0xFF;
 				addr6->sin6_addr.s6_addr[12] = (u8)(ipv4 >> 24);
 				addr6->sin6_addr.s6_addr[13] = (u8)(ipv4 >> 16);
 				addr6->sin6_addr.s6_addr[14] = (u8)(ipv4 >> 8);
