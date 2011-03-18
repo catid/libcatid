@@ -28,7 +28,6 @@
 
 #ifndef CAT_I_ALLOCATOR_HPP
 #define CAT_I_ALLOCATOR_HPP
-
 #include <cat/Platform.hpp>
 #include <new>
 
@@ -63,16 +62,44 @@ public:
 		single->batch_next = 0;
 	}
 
+	CAT_INLINE BatchSet(const BatchSet &t)
+	{
+		head = t.head;
+		tail = t.tail;
+	}
+
+	CAT_INLINE BatchSet &operator=(const BatchSet &t)
+	{
+		head = t.head;
+		tail = t.tail;
+		return *this;
+	}
+
 	CAT_INLINE void Clear()
 	{
 		head = tail = 0;
 	}
+
 	CAT_INLINE void PushBack(BatchHead *single)
 	{
 		if (tail) tail->batch_next = single;
 		else head = single;
 		tail = single;
 		single->batch_next = 0;
+	}
+
+	CAT_INLINE void PushBack(const BatchSet &t)
+	{
+		// If parameter is the empty set,
+		if (!t.head) return;
+
+		// If we are an empty set,
+		if (!head)
+			head = t.head;
+		else
+			tail->batch_next = t.head;
+
+		tail = t.tail;
 	}
 };
 
