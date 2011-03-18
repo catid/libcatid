@@ -40,16 +40,14 @@
 
 //// Include definitions that MinGW lacks
 
-#if !defined(OVERLAPPED_ENTRY)
+#if defined(CAT_COMPILER_MINGW)
+
 typedef struct _OVERLAPPED_ENTRY {
   ULONG_PTR    lpCompletionKey;
   LPOVERLAPPED lpOverlapped;
   ULONG_PTR    Internal;
   DWORD        dwNumberOfBytesTransferred;
 } OVERLAPPED_ENTRY, *LPOVERLAPPED_ENTRY;
-#endif
-
-#if !defined(SYSTEM_LOGICAL_PROCESSOR_INFORMATION)
 
 typedef enum _LOGICAL_PROCESSOR_RELATIONSHIP {
   RelationProcessorCore,
@@ -90,7 +88,7 @@ typedef struct _SYSTEM_LOGICAL_PROCESSOR_INFORMATION {
   } ;
 } SYSTEM_LOGICAL_PROCESSOR_INFORMATION, *PSYSTEM_LOGICAL_PROCESSOR_INFORMATION;
 
-#endif // SYSTEM_LOGICAL_PROCESSOR_INFORMATION
+#endif // CAT_COMPILER_MINGW
 
 
 #endif // CAT_WINDOWS_INCLUDE_HPP
