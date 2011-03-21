@@ -384,17 +384,6 @@ void Transport::TickTransport(SphynxTLS *tls, u32 now)
 
 	_send_flow.OnTick(now, loss_count);
 
-	// Avoid locking to transmit queued if no queued exist
-	for (int stream = 0; stream < NUM_STREAMS; ++stream)
-	{
-		if (_send_queue[stream].head || _sending_queue[stream].head)
-		{
-			WriteQueuedReliable();
-			break;
-		}
-	}
-
-	// Post whatever is left in the send buffer
 	FlushWrites();
 }
 
@@ -580,7 +569,7 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 	// If flush was requested,
 	if (_send_flush_after_processing)
 	{
-		FlushImmediately();
+		FlushWrites();
 		_send_flush_after_processing = false;
 	}
 }
@@ -1084,14 +1073,10 @@ void Transport::Retransmit(u32 stream, OutgoingMessage *node, u32 now)
 	INFO("Transport") << "Retransmitted stream " << stream << " # " << ack_id;
 }
 
-void Transport::FlushImmediately()
-{
-	WriteQueuedReliable();
-	FlushWrites();
-}
-
 void Transport::FlushWrites()
 {
+	WriteQueuedReliable();
+
 	// If no data to flush (common),
 	if (_send_cluster.bytes == 0 && _outgoing_datagrams_count == 0)
 		return;
@@ -2025,6 +2010,14 @@ bool Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream, s32 remai
 
 void Transport::WriteQueuedReliable()
 {
+	// Avoid locking to transmit queued if no queued exist
+	int stream;
+	for (stream = 0; stream < NUM_STREAMS; ++stream)
+		if (_send_queue[stream].head || _sending_queue[stream].head)
+			break;
+	if (stream >= NUM_STREAMS)
+		return;
+
 	// Use the same ts_firstsend for all messages delivered now, to insure they are clustered on retransmission
 	u32 now = Clock::msec();
 
