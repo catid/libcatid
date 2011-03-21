@@ -72,8 +72,8 @@
 	%typemap(ctype) TYPE, TYPE& "void*"
 	%typemap(in) TYPE  %{ $1 = (TYPE)$input; %} 
 	%typemap(in) TYPE& %{ $1 = (TYPE*)&$input; %} 
-	%typemap(imtype, out="IntPtr") TYPE, TYPE& "CSTYPE" 
-	%typemap(cstype, out="IntPtr") TYPE, TYPE& "CSTYPE" 
+	%typemap(imtype, out="CSTYPE") TYPE, TYPE& "CSTYPE" 
+	%typemap(cstype, out="CSTYPE") TYPE, TYPE& "CSTYPE" 
 	%typemap(csin) TYPE, TYPE& "$csinput" 
 %enddef
 

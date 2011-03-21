@@ -58,7 +58,7 @@ s32 FlowControl::GetRemainingBytes(u32 now)
 	u32 bytes = (u32)(((u64)elapsed * _bps) / 1000);
 
 	s32 bytes_per_tick_max = _bps * 10 / 1000;
-	if ((s32)bytes > bytes_per_tick_max)
+	if (bytes > (u32)bytes_per_tick_max)
 		bytes = bytes_per_tick_max;
 
 	s32 available = _available_bw + bytes;
