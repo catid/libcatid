@@ -39,7 +39,8 @@ FlowControl::FlowControl()
 	_bandwidth_high_limit = 100000000;
 	_bps = _bandwidth_low_limit;
 
-	_loss_timeout = 1500;
+	_nack_timeout = 1500;
+	_head_timeout = 1500;
 
 	_last_bw_update = 0;
 	_available_bw = 0;
@@ -57,7 +58,7 @@ s32 FlowControl::GetRemainingBytes(u32 now)
 	// Need to use 64-bit here because this number can exceed 4 MB
 	u32 bytes = (u32)(((u64)elapsed * _bps) / 1000);
 
-	s32 bytes_per_tick_max = _bps * 10 / 1000;
+	s32 bytes_per_tick_max = _bps / 100;
 	if (bytes > (u32)bytes_per_tick_max)
 		bytes = bytes_per_tick_max;
 
@@ -99,12 +100,12 @@ void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 	_lock.Leave();*/
 }
 
-void FlowControl::OnACK(u32 now, OutgoingMessage *node)
+void FlowControl::OnACK(u32 recv_time, OutgoingMessage *node)
 {
-	u32 rtt = now - node->ts_firstsend;
+	u32 rtt = recv_time - node->ts_firstsend;
 }
 
-void FlowControl::OnACKDone(u32 now, u32 avg_one_way_time, u32 nack_loss_count, u32 data_bytes)
+void FlowControl::OnACKDone(u32 recv_time, u32 avg_one_way_time, u32 nack_loss_count, u32 data_bytes)
 {
 	_stats_trip[_stats_ack_ii] = avg_one_way_time;
 	_stats_nack[_stats_ack_ii] = nack_loss_count;
