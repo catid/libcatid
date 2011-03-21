@@ -74,7 +74,8 @@
 	%typemap(in) TYPE& %{ $1 = (TYPE*)&$input; %} 
 	%typemap(imtype, out="CSTYPE") TYPE, TYPE& "CSTYPE" 
 	%typemap(cstype, out="CSTYPE") TYPE, TYPE& "CSTYPE" 
-	%typemap(csin) TYPE, TYPE& "$csinput" 
+	%typemap(csin) TYPE, TYPE& "$csinput"
+	%typemap(csdirectorin) TYPE, TYPE& "$iminput"
 %enddef
 
 %cs_custom_cast(void*, IntPtr)

@@ -85,14 +85,12 @@ namespace sphynx {
 			- Cuts channel capacity estimation down to a perceived safe level
 */
 
-// TODO: Check for thread safety
+/*
+	
+*/
 
 class CAT_EXPORT FlowControl
 {
-public:
-	static const int EPOCH_INTERVAL = 500; // Milliseconds per epoch
-
-protected:
 	Mutex _lock;
 
 	// BPS low and high limits
@@ -104,8 +102,8 @@ protected:
 	s32 _available_bw;
 	u32 _last_bw_update;
 
-	// Milliseconds without receiving acknowledgment that a message will be considered lost
-	u32 _loss_timeout;
+	// Milliseconds receiving negative acknowledgment before a message will be considered lost
+	u32 _nack_timeout, _head_timeout;
 
 	static const int IIMAX = 20;
 	u32 _stats_trip[IIMAX];
@@ -120,24 +118,24 @@ public:
 	CAT_INLINE u32 GetBandwidthHighLimit() { return _bandwidth_high_limit; }
 	CAT_INLINE void SetBandwidthHighLimit(u32 limit) { _bandwidth_high_limit = limit; }
 
-	// The whole purpose of this class is to calculate this value
+	// Number of bytes remaining in available bandwidth at this instant
 	s32 GetRemainingBytes(u32 now);
 
 	// Report number of bytes for each successfully sent packet, including overhead bytes
 	void OnPacketSend(u32 bytes_with_overhead);
 
 	// Get timeout for reliable message with negative acknowledgment
-	CAT_INLINE u32 GetNACKTimeout(u32 stream) { return _loss_timeout; }
+	CAT_INLINE u32 GetNACKTimeout(u32 stream) { return _nack_timeout; }
 
 	// Get timeout for reliable message with no negative acknowledgment
-	CAT_INLINE u32 GetHeadTimeout(u32 stream) { return _loss_timeout; }
+	CAT_INLINE u32 GetHeadTimeout(u32 stream) { return _head_timeout; }
 
 	// Called when a transport layer tick occurs
 	void OnTick(u32 now, u32 timeout_loss_count);
 
 	// Called when an acknowledgment is received
-	void OnACK(u32 now, OutgoingMessage *node);
-	void OnACKDone(u32 now, u32 avg_one_way_time, u32 nack_loss_count, u32 data_bytes);
+	void OnACK(u32 recv_time, OutgoingMessage *node);
+	void OnACKDone(u32 recv_time, u32 avg_one_way_time, u32 nack_loss_count, u32 data_bytes);
 };
 
 
