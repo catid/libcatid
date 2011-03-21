@@ -394,7 +394,6 @@ class CAT_EXPORT Transport
 	u8 _disconnect_countdown; // When it hits zero, will called RequestShutdown() and close the socket
 	u8 _disconnect_reason; // DISCO_CONNECTED = still connected
 
-	void FlushWrites();
 	u32 RetransmitLost(u32 now); // Returns estimated number of lost packets (granularity is 1 ms)
 
 	// Queue a fragment for freeing
@@ -455,7 +454,7 @@ public:
 
 	// Flush send buffer immediately, don't try to blob.
 	// Try to use FlushAfter() unless you really see benefit from this!
-	void FlushImmediately();
+	void FlushWrites();
 
 	// Current local time
 	CAT_INLINE u32 getLocalTime() { return Clock::msec(); }

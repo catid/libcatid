@@ -209,8 +209,8 @@ class SphynxPINVOKE {
   [DllImport("Sphynx", EntryPoint="CSharp_EasySphynxClient_FlushAfter")]
   public static extern void EasySphynxClient_FlushAfter(HandleRef jarg1);
 
-  [DllImport("Sphynx", EntryPoint="CSharp_EasySphynxClient_FlushImmediately")]
-  public static extern void EasySphynxClient_FlushImmediately(HandleRef jarg1);
+  [DllImport("Sphynx", EntryPoint="CSharp_EasySphynxClient_FlushWrites")]
+  public static extern void EasySphynxClient_FlushWrites(HandleRef jarg1);
 
   [DllImport("Sphynx", EntryPoint="CSharp_EasySphynxClient_getLocalTime")]
   public static extern uint EasySphynxClient_getLocalTime(HandleRef jarg1);

@@ -84,8 +84,8 @@ public class EasySphynxClient : IDisposable {
     SphynxPINVOKE.EasySphynxClient_FlushAfter(swigCPtr);
   }
 
-  public void FlushImmediately() {
-    SphynxPINVOKE.EasySphynxClient_FlushImmediately(swigCPtr);
+  public void FlushWrites() {
+    SphynxPINVOKE.EasySphynxClient_FlushWrites(swigCPtr);
   }
 
   public uint getLocalTime() {

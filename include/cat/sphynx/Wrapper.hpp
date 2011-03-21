@@ -85,9 +85,9 @@ public:
 
 	// Flush send buffer immediately, don't try to blob.
 	// Try to use FlushAfter() unless you really see benefit from this!
-	inline void FlushImmediately()
+	inline void FlushWrites()
 	{
-		_client->FlushImmediately();
+		_client->FlushWrites();
 	}
 
 	// Current local time
