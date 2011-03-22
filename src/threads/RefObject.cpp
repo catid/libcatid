@@ -34,11 +34,19 @@ using namespace cat;
 
 void RefObject::ShutdownComplete(bool delete_this)
 {
+#if defined(CAT_TRACE_REFOBJECT)
+	WARN("RefObject") << this << " ShutdownComplete";
+#endif
+
 	if (delete_this) delete this;
 }
 
 void RefObject::RequestShutdown()
 {
+#if defined(CAT_TRACE_REFOBJECT)
+	WARN("RefObject") << this << " RequestShutdown";
+#endif
+
 	// Raise shutdown flag
 #if defined(CAT_NO_ATOMIC_REF_OBJECT)
 	u32 shutdown;

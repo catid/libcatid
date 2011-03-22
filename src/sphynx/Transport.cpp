@@ -1293,7 +1293,7 @@ u32 Transport::RetransmitLost(u32 now)
 		// For each node that might be ready for a retransmission,
 		do
 		{
-			u32 mia_time = now - node->ts_lastsend;
+			s32 mia_time = now - node->ts_lastsend;
 
 			u32 backoff = node->ts_lastsend - node->ts_firstsend;
 			if (backoff > 4 * timeout) backoff = 4 * timeout;
@@ -1306,7 +1306,7 @@ u32 Transport::RetransmitLost(u32 now)
 				if (mia_time != last_mia_time) ++loss_count;
 				last_mia_time = mia_time;
 			}
-			else if (now - node->ts_firstsend < timeout)
+			else if ((s32)(now - node->ts_firstsend) < (s32)timeout)
 			{
 				// Nodes are added to the end of the sent list, so as soon as it
 				// finds one that cannot possibly be retransmitted it is done

@@ -63,7 +63,7 @@ void GameConnexion::OnConnect(SphynxTLS *tls)
 
 	//u8 test_msg[50000];
 	//WriteReliable(STREAM_UNORDERED, OP_TEST_FRAGMENTS, test_msg, sizeof(test_msg));
-	/*
+
 	if (_fsource.WriteFile(OP_FILE_UPLOAD_START, "test.tmp", "sink_file.txt", this))
 	{
 		WARN("Connexion") << "-- File upload starting";
@@ -71,7 +71,7 @@ void GameConnexion::OnConnect(SphynxTLS *tls)
 	else
 	{
 		WARN("Connexion") << "-- File upload FAILED";
-	}*/
+	}
 
 	u16 key = getLE(GetKey());
 

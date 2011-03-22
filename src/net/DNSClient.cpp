@@ -138,8 +138,10 @@ void DNSClient::OnReadRouting(const BatchSet &buffers)
 
 void DNSClient::OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers)
 {
+	u32 buffer_count = 0;
 	for (BatchHead *node = buffers.head; node; node = node->batch_next)
 	{
+		++buffer_count;
 		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
 
 		SetRemoteAddress(buffer);
@@ -147,11 +149,17 @@ void DNSClient::OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers)
 
 		// If packet source is not the server, ignore this packet
 		if (_server_addr != buffer->addr)
-			return;
+		{
+			INANE("DNSClient") << "Received DNS from unexpected source address " << buffer->addr.IPToString() << " : " << buffer->addr.GetPort();
+			continue;
+		}
 
 		// If packet is truncated, ignore this packet
 		if (buffer->data_bytes < DNS_HDRLEN)
-			return;
+		{
+			WARN("DNSClient") << "DNS server sent truncated response bytes=" << buffer->data_bytes;
+			continue;
+		}
 
 		u16 *hdr_words = reinterpret_cast<u16*>( GetTrailingBytes(buffer) );
 
@@ -163,7 +171,11 @@ void DNSClient::OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers)
 		u16 opcode = (hdr >> DNSHDR_OPCODE) & 0x000F; // Opcode
 
 		// If header is invalid, ignore this packet
-		if (!qr || opcode != 0) return;
+		if (!qr || opcode != 0)
+		{
+			WARN("DNSClient") << "DNS server sent invalid response: qr=" << qr << " opcode=" << opcode;
+			continue;
+		}
 
 		// Extract ID; endian agnostic
 		u16 id = hdr_words[DNS_ID];
@@ -174,7 +186,11 @@ void DNSClient::OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers)
 		DNSRequest *req = PullRequest(id);
 
 		// If request was not found to match ID,
-		if (!req) return;
+		if (!req)
+		{
+			WARN("DNSClient") << "DNS server sent response with unmatched id " << id;
+			continue;
+		}
 
 		// Initialize number of responses to zero
 		req->num_responses = 0;
@@ -196,9 +212,15 @@ void DNSClient::OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers)
 
 			ProcessDNSResponse(req, qdcount, ancount, GetTrailingBytes(buffer), buffer->data_bytes);
 		}
+		else
+		{
+			WARN("DNSClient") << "DNS server sent response with error result: rcode=" << rcode;
+		}
 
 		NotifyRequesters(req);
 	}
+
+	ReleaseRecvBuffers(buffers, buffer_count);
 }
 
 void DNSClient::OnWorkerTick(IWorkerTLS *tls, u32 now)
@@ -211,8 +233,8 @@ void DNSClient::OnWorkerTick(IWorkerTLS *tls, u32 now)
 		req_next = req->next; // cached for deletion
 
 		// If the request has timed out or reposting failed,
-		if ((now - req->first_post_time >= DNSREQ_TIMEOUT) ||
-			(now - req->last_post_time >= DNSREQ_REPOST_TIME && !PostDNSPacket(req, now)))
+		if (((s32)(now - req->first_post_time) >= DNSREQ_TIMEOUT) ||
+			((s32)(now - req->last_post_time) >= DNSREQ_REPOST_TIME && !PostDNSPacket(req, now)))
 		{
 			// Unlink from doubly-linked list
 			DNSRequest *next = req->next;
@@ -549,7 +571,7 @@ DNSRequest *DNSClient::CacheGet(const char *hostname)
 	for (DNSRequest *req = _cache_head; req; req = req->next)
 	{
 		// If the cache has not expired,
-		if (now - req->last_post_time < DNSCACHE_TIMEOUT)
+		if ((s32)(now - req->last_post_time) < DNSCACHE_TIMEOUT)
 		{
 			// If hostname of cached request equals the new request,
 			if (iStrEqual(req->hostname, hostname))
@@ -769,9 +791,11 @@ bool DNSClient::Resolve(IOLayer *iolayer, const char *hostname, IDNSResultCallba
 	u16 id;
 	if (!GetUnusedID(id))
 	{
-		WARN("DNS") << "Too many DNS requests pending";
+		WARN("DNSClient") << "Too many DNS requests pending";
 		return false;
 	}
+
+	INANE("DNSClient") << "Transmitting DNS request with id " << id;
 
 	// Create a new request
 	DNSRequest *request = new DNSRequest;
@@ -783,6 +807,7 @@ bool DNSClient::Resolve(IOLayer *iolayer, const char *hostname, IDNSResultCallba
 	request->callback_head.cb = callback;
 	request->callback_head.next = 0;
 	request->id = id;
+	request->num_responses = 0;
 
 	if (holdRef) holdRef->AddRef();
 

@@ -56,6 +56,9 @@ namespace cat {
 // Enable leak debug mode of the common runtime heap allocator
 //#define CAT_DEBUG_LEAKS
 
+// Enable RefObject debug trace mode
+//#define CAT_TRACE_REFOBJECT
+
 
 } // namespace cat
 
