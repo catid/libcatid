@@ -32,7 +32,10 @@
 #include <cat/threads/Atomic.hpp>
 #include <cat/threads/WaitableFlag.hpp>
 #include <cat/threads/Mutex.hpp>
-//#include <cat/io/Logging.hpp>
+
+#if defined(CAT_TRACE_REFOBJECT)
+#include <cat/io/Logging.hpp>
+#endif
 
 #if defined(CAT_NO_ATOMIC_ADD) || defined(CAT_NO_ATOMIC_SET)
 #define CAT_NO_ATOMIC_REF_OBJECT
@@ -82,7 +85,9 @@ public:
 
 	CAT_INLINE void AddRef(s32 times = 1)
 	{
-		//WARN("RefObject") << this << " add " << times;
+#if defined(CAT_TRACE_REFOBJECT)
+		WARN("RefObject") << this << " add " << times << " fuzzy refcount = " << _ref_count;
+#endif
 
 #if defined(CAT_NO_ATOMIC_REF_OBJECT)
 		_lock.Enter();
@@ -96,7 +101,9 @@ public:
 
 	CAT_INLINE void ReleaseRef(s32 times = 1)
 	{
-		//WARN("RefObject") << this << " release " << times;
+#if defined(CAT_TRACE_REFOBJECT)
+		WARN("RefObject") << this << " release " << times << " fuzzy refcount = " << _ref_count;
+#endif
 
 		// Decrement reference count by # of times
 		// If all references are gone,
