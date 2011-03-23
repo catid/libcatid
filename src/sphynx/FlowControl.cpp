@@ -35,7 +35,7 @@ using namespace sphynx;
 
 FlowControl::FlowControl()
 {
-	_bandwidth_low_limit = 10000;
+	_bandwidth_low_limit = 100000;
 	_bandwidth_high_limit = 100000000;
 	_bps = _bandwidth_low_limit;
 
@@ -83,10 +83,10 @@ void FlowControl::OnPacketSend(u32 bytes_with_overhead)
 }
 
 static u32 trip_ii = 0;
-static u32 bw_ii = 80;
+static u32 bw_ii = 10;
 
 void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
-{/*
+{
 	_lock.Enter();
 
 	if (++trip_ii >= 500)
@@ -97,7 +97,7 @@ void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 		WARN("FlowControl") << "Setting BW to " << _bps;
 	}
 
-	_lock.Leave();*/
+	_lock.Leave();
 }
 
 void FlowControl::OnACK(u32 recv_time, OutgoingMessage *node)

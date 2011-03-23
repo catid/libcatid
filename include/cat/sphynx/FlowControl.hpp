@@ -85,10 +85,6 @@ namespace sphynx {
 			- Cuts channel capacity estimation down to a perceived safe level
 */
 
-/*
-	
-*/
-
 class CAT_EXPORT FlowControl
 {
 	Mutex _lock;

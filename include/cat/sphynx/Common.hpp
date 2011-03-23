@@ -252,25 +252,63 @@ struct OutgoingMessage : ResizableBuffer<OutgoingMessage>
 		struct
 		{
 			OutgoingMessage *prev;	// Previous in queue
-			u32 id;				// Acknowledgment id
-			u32 ts_firstsend;	// Millisecond-resolution timestamp when it was first sent
-			u32 ts_lastsend;	// Millisecond-resolution timestamp when it was last sent
+			u32 id;					// Acknowledgment id
+			u32 ts_firstsend;		// Millisecond-resolution timestamp when it was first sent
+			u32 ts_lastsend;		// Millisecond-resolution timestamp when it was last sent
 		};
 	};
 
 	// Shared members:
-	u8 sop;				// Super opcode of message
+	u8 sop;		// Super opcode of message
+	u8 loss_on;	// 1=Represents a packet loss on retransmit, 0=Not representative, other values invalid
+
+	/*
+		loss_on : Converting messageloss to packetloss 1:1
+		Only one reliable message in each packet has loss_on=1.
+
+		When retransmits occur, the loss_on method of detecting
+		packetloss from messageloss breaks down.  For instance,
+		if an unreliable message is present in the original
+		packet it will not be retransmitted.  This may draw in
+		the first reliable message from the next packet if the
+		second packet is also lost.  If the retransmitted packet
+		gets lost too, then two packetloss events are recorded
+		instead of one.
+
+		However, this method works great when a packet is only
+		lost once and even in most cases when a packet is lost
+		several times.  Plus it just adds one byte overhead to
+		the outgoing message data.
+
+		An alternative method to using loss_on flag would be to
+		acknowledge the encryption IV of each packet instead of
+		the message ids.  I have seen this approach used in
+		several "my first game protocol" types of articles.
+		The problem is that it takes a lot more ACK bandwidth
+		because you would have to send all of the recent ACKs
+		with each new ACK instead of a simple roll-up if there
+		are no holes in the sequence.  Additionally, mapping
+		from IV to message sequence number per stream would be
+		simply hideous to code.
+
+		Another alternative is to use the millisecond transmit
+		time to group clustered messages and detect loss of
+		each timestamp group separately.  This is unacceptably
+		inaccurate since this netcode intentionally batches
+		outgoing packet transmission, so would under-represent
+		real loss rates.
+	*/
 };
 
 struct SendFrag : OutgoingMessage
 {
 	OutgoingMessage *full_data;	// Object containing message data
-	u16 offset;				// Fragment data offset
+	u16 offset;					// Fragment data offset
 };
 
 struct SendHuge : OutgoingMessage
 {
-	IHugeSource *source;	// Object containing message data
+	IHugeSource *source;		// Object containing message data
 };
 
 struct SendCluster
@@ -279,12 +317,14 @@ struct SendCluster
 	u32 ack_id;	// Next ACK-ID: Used to compress ACK-ID by setting I=0 after the first reliable message
 	u16 bytes;	// Number of bytes written to the send cluster so far
 	u8 stream;	// Active stream
+	u8 loss_on;	// Loss representation flag is set already?  Used to mark just one message as a loss rep
 
 	CAT_INLINE void Clear()
 	{
 		front = 0;
 		bytes = 0;
 		stream = NUM_STREAMS;
+		loss_on = 0;
 	}
 
 	CAT_INLINE u8 *Grow(u32 added)
