@@ -1280,7 +1280,7 @@ void Transport::WriteACK()
 
 u32 Transport::RetransmitLost(u32 now)
 {
-	u32 loss_count = 0, last_mia_time = 0;
+	u32 loss_count = 0;
 
 	// Retransmit lost packets
 	for (int stream = 0; stream < NUM_STREAMS; ++stream)
@@ -1298,13 +1298,12 @@ u32 Transport::RetransmitLost(u32 now)
 			u32 backoff = node->ts_lastsend - node->ts_firstsend;
 			if (backoff > 4 * timeout) backoff = 4 * timeout;
 
-			if (mia_time >= timeout + backoff)
+			if (mia_time >= (s32)(timeout + backoff))
 			{
 				Retransmit(stream, node, now);
 
-				// Only record one loss per millisecond
-				if (mia_time != last_mia_time) ++loss_count;
-				last_mia_time = mia_time;
+				// Record a loss if the node is representative of loss
+				loss_count += node->loss_on;
 			}
 			else if ((s32)(now - node->ts_firstsend) < (s32)timeout)
 			{
@@ -1356,7 +1355,7 @@ bool Transport::PostMTUProbe(SphynxTLS *tls, u32 mtu)
 	return success;
 }
 
-CAT_INLINE void Transport::RetransmitNegative(u32 recv_time, u32 stream, u32 last_ack_id, u32 &last_mia_time, u32 &loss_count)
+CAT_INLINE void Transport::RetransmitNegative(u32 recv_time, u32 stream, u32 last_ack_id, u32 &loss_count)
 {
 	// Just saw the end of a stream's ACK list.
 	// We can now detect losses: Any node that is under
@@ -1380,9 +1379,8 @@ CAT_INLINE void Transport::RetransmitNegative(u32 recv_time, u32 stream, u32 las
 			{
 				Retransmit(stream, rnode, recv_time);
 
-				// Only record one loss per millisecond
-				if (mia_time != last_mia_time) ++loss_count;
-				last_mia_time = mia_time;
+				// Record a loss if the node is representative of loss
+				loss_count += rnode->loss_on;
 			}
 
 			rnode = rnode->next;
@@ -1414,7 +1412,7 @@ void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 
 	u32 stream = NUM_STREAMS, last_ack_id = 0;
 	OutgoingMessage *node = 0;
-	u32 loss_count = 0, last_mia_time = 0;
+	u32 loss_count = 0;
 	u32 acknowledged_data_sum = 0;
 
 	INANE("Transport") << "Got ACK with " << data_bytes << " bytes of data to decode ----";
@@ -1436,7 +1434,7 @@ void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 
 				// Retransmit lost packets
 				if (stream < NUM_STREAMS)
-					RetransmitNegative(recv_time, stream, last_ack_id, last_mia_time, loss_count);
+					RetransmitNegative(recv_time, stream, last_ack_id, loss_count);
 
 				stream = (ida >> 1) & 3;
 				u32 ack_id = ((u32)idc << 13) | ((u16)idb << 5) | (ida >> 3);
@@ -1612,7 +1610,7 @@ void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 
 	// Retransmit lost packets
 	if (stream < NUM_STREAMS)
-		RetransmitNegative(recv_time, stream, last_ack_id, last_mia_time, loss_count);
+		RetransmitNegative(recv_time, stream, last_ack_id, loss_count);
 
 	// Inform the flow control algorithm
 	_send_flow.OnACKDone(recv_time, avg_trip_time, loss_count, acknowledged_data_sum);
@@ -1839,6 +1837,15 @@ bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s
 		add_node->ts_firstsend = now;
 		add_node->ts_lastsend = now;
 
+		// If this node will represent loss,
+		if (cluster.loss_on)
+			add_node->loss_on = 0;
+		else
+		{
+			add_node->loss_on = 1;
+			cluster.loss_on = 1;
+		}
+
 		// Link to the end of the sent list
 		_sent_list[stream].Append(add_node);
 
@@ -1968,6 +1975,15 @@ bool Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream, s32 remai
 		frag->SetBytes(copy_bytes);
 		frag->full_data = node;
 		frag->offset = sent_bytes;
+
+		// If this node will represent loss,
+		if (cluster.loss_on)
+			frag->loss_on = 0;
+		else
+		{
+			frag->loss_on = 1;
+			cluster.loss_on = 1;
+		}
 
 		node->frag_count++;
 

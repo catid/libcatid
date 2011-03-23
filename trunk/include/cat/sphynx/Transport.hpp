@@ -373,7 +373,7 @@ class CAT_EXPORT Transport
 	// Send state: List of messages that are waiting to be acknowledged
 	SentList _sent_list[NUM_STREAMS];
 
-	CAT_INLINE void RetransmitNegative(u32 recv_time, u32 stream, u32 last_ack_id, u32 &last_mia_time, u32 &loss_count);
+	CAT_INLINE void RetransmitNegative(u32 recv_time, u32 stream, u32 last_ack_id, u32 &loss_count);
 	static void FreeSentNode(OutgoingMessage *node);
 
 	// Queue of outgoing datagrams for batched output
@@ -394,7 +394,7 @@ class CAT_EXPORT Transport
 	u8 _disconnect_countdown; // When it hits zero, will called RequestShutdown() and close the socket
 	u8 _disconnect_reason; // DISCO_CONNECTED = still connected
 
-	u32 RetransmitLost(u32 now); // Returns estimated number of lost packets (granularity is 1 ms)
+	u32 RetransmitLost(u32 now); // Returns estimated number of lost packets
 
 	// Queue a fragment for freeing
 	CAT_INLINE void QueueFragFree(SphynxTLS *tls, u8 *data);
