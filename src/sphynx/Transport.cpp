@@ -1404,7 +1404,11 @@ void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 						// For each rolled node,
 						do
 						{
-							if (node->loss_on) _send_flow.OnACK(recv_time, node);
+							if (node->loss_on)
+							{
+								_send_flow.OnACK(recv_time, node);
+								acknowledged_data_sum += _udpip_bytes;
+							}
 							acknowledged_data_sum += 2 + node->GetBytes();
 
 							OutgoingMessage *next = node->next;
@@ -1536,7 +1540,11 @@ void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 					// While nodes are in range,
 					do 
 					{
-						if (node->loss_on) _send_flow.OnACK(recv_time, node);
+						if (node->loss_on)
+						{
+							_send_flow.OnACK(recv_time, node);
+							acknowledged_data_sum += _udpip_bytes;
+						}
 						acknowledged_data_sum += 2 + node->GetBytes();
 
 						OutgoingMessage *next = node->next;
@@ -1990,9 +1998,9 @@ void Transport::WriteQueuedReliable()
 	if (bandwidth <= 0) return;
 
 	// Try to align messages to a MTU boundary for efficiency
-	u32 max_payload_bytes = _max_payload_bytes;
-	if (bandwidth < (s32)max_payload_bytes) bandwidth = max_payload_bytes;
-	else bandwidth = (bandwidth / max_payload_bytes) * max_payload_bytes;
+	//u32 max_payload_bytes = _max_payload_bytes;
+	//if (bandwidth < (s32)max_payload_bytes) bandwidth = max_payload_bytes;
+	//else bandwidth = (bandwidth / max_payload_bytes) * max_payload_bytes;
 
 	// Steal all work from each stream's send queue
 	_send_queue_lock.Enter();
