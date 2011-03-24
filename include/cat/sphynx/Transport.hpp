@@ -121,27 +121,7 @@ namespace sphynx {
 	ACK message format:
 
 	Header: I=0, R=0, SOP=SOP_ACK
-	Data: AVGTRIP(2) || ROLLUP(3) || RANGE1 || RANGE2 || ... ROLLUP(3) || RANGE1 || RANGE2 || ...
-
-	AVGTRIP:
-		Average one-way transmit time based on the timestamps written at the end
-		of the encrypted data within each outgoing datagram.  On receipt the
-		timestamps are converted to local time and trip time is calculated.
-
-		Trip time is accumulated between ACK responses and the average trip time
-		is reported to the sender in the next ACK response.  The sender uses the
-		trip time statistics to do congestion avoidance flow control.
-
-	---- AVGTRIP Field (16 bits) ----
-	 0 1 2 3 4 5 6 7 8 9 a b c d e f
-	<-- LSB --------------- MSB ---->
-	|     TLO     |C|      THI      |
-	---------------------------------
-
-	C: 0=Omit the high byte (field is just one byte), 1=Followed by high byte
-	T: THI | TLO (15 bits)
-
-	T is the average one-way transmit time since the last ACK.
+	Data: ROLLUP(3) || RANGE1 || RANGE2 || ... ROLLUP(3) || RANGE1 || RANGE2 || ...
 
 	ROLLUP = Next expected ACK-ID.  Acknowledges every ID before this one.
 
@@ -323,8 +303,6 @@ class CAT_EXPORT Transport
 	static const u32 FRAG_THRESHOLD = 32; // Minimum fragment size; used elsewhere as a kind of "fuzz factor" for edges of packets
 	static const u32 FRAG_HEADER_BYTES = 2;
 
-	static const u32 AVG_TRIP_BYTES = 2; // Number of bytes in ACK message for AVG_TRIP field
-
 	// This is 4 times larger than the encryption out of order limit to match max expectations
 	static const u32 OUT_OF_ORDER_LIMIT = 4096; // Stop acknowledging out of order packets after caching this many
 	static const u32 OUT_OF_ORDER_LOOPS = 32; // Max number of loops looking for the insertion point for out of order arrivals
@@ -340,9 +318,6 @@ class CAT_EXPORT Transport
 
 	// Receive state: Out of order packets waiting for an earlier ACK_ID to be processed
 	OutOfOrderQueue _recv_wait[NUM_STREAMS];
-
-	// Receive state: Statistics for flow control report in ACK response
-	u32 _recv_trip_time_sum, _recv_trip_count;
 
 	// Serializes writes to the send buffer
 	Mutex _send_cluster_lock;
