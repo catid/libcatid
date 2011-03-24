@@ -391,8 +391,8 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 	tls->free_list_count = 0;
 
 	// TODO: Remove this packet loss generator
-	if (tls->csprng->GenerateUnbiased(0, 19) == 2)
-		return;
+	//if (tls->csprng->GenerateUnbiased(0, 19) == 2)
+	//	return;
 
 	// For each buffer in the batch,
 	for (BatchHead *node = delivery.head; !IsDisconnected() && node; node = node->batch_next)

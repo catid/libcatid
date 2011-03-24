@@ -156,6 +156,17 @@ bool MappedView::Open(MappedFile *file)
 
 u8 *MappedView::MapView(u64 offset, u32 length)
 {
+	DEBUG_ENFORCE(CAT_IS_POWER_OF_2(system_info.AllocationGranularity)) << "Allocation granularity is not a power of 2!";
+
+	// Bring offset back to the previous allocation granularity
+	u32 mask = system_info.AllocationGranularity - 1;
+	u32 masked = (u32)offset & mask;
+	if (masked)
+	{
+		offset -= masked;
+		length += masked;
+	}
+
 #if defined(CAT_OS_WINDOWS)
 
 	if (_data && !UnmapViewOfFile(_data))
