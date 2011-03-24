@@ -90,7 +90,7 @@ class CAT_EXPORT FlowControl
 	Mutex _lock;
 
 	// BPS low and high limits
-	u32 _bandwidth_low_limit, _bandwidth_high_limit;
+	s32 _bandwidth_low_limit, _bandwidth_high_limit;
 
 	// Current BPS limit
 	s32 _bps;
@@ -99,12 +99,11 @@ class CAT_EXPORT FlowControl
 	u32 _last_bw_update;
 
 	// Milliseconds receiving negative acknowledgment before a message will be considered lost
-	u32 _nack_timeout, _head_timeout;
+	u32 _rtt;
 
-	static const int IIMAX = 20;
-	u32 _stats_trip[IIMAX];
-	u32 _stats_nack[IIMAX];
-	u32 _stats_ack_ii;
+	// Statistics
+	u32 _last_stats_update;
+	u32 _stats_rtt_acc, _stats_rtt_count, _stats_loss_count, _stats_goodput;
 
 public:
 	FlowControl();
@@ -121,17 +120,17 @@ public:
 	void OnPacketSend(u32 bytes_with_overhead);
 
 	// Get timeout for reliable message with negative acknowledgment
-	CAT_INLINE u32 GetNACKTimeout(u32 stream) { return _nack_timeout; }
+	CAT_INLINE u32 GetNACKTimeout(u32 stream) { return _rtt * 3 / 2; }
 
 	// Get timeout for reliable message with no negative acknowledgment
-	CAT_INLINE u32 GetHeadTimeout(u32 stream) { return _head_timeout; }
+	CAT_INLINE u32 GetHeadTimeout(u32 stream) { return _rtt * 2; }
 
 	// Called when a transport layer tick occurs
 	void OnTick(u32 now, u32 timeout_loss_count);
 
 	// Called when an acknowledgment is received
 	void OnACK(u32 recv_time, OutgoingMessage *node);
-	void OnACKDone(u32 recv_time, u32 avg_one_way_time, u32 nack_loss_count, u32 data_bytes);
+	void OnACKDone(u32 recv_time, u32 nack_loss_count, u32 data_bytes);
 };
 
 

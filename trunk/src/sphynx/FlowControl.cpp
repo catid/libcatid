@@ -35,17 +35,21 @@ using namespace sphynx;
 
 FlowControl::FlowControl()
 {
-	_bandwidth_low_limit = 100000;
+	_bandwidth_low_limit = 3000;
 	_bandwidth_high_limit = 100000000;
 	_bps = _bandwidth_low_limit;
 
-	_nack_timeout = 1500;
-	_head_timeout = 1500;
+	_rtt = 3000;
 
 	_last_bw_update = 0;
 	_available_bw = 0;
 
-	_stats_ack_ii = 0;
+	// Statistics
+	_last_stats_update = 0;
+	_stats_rtt_acc = 0;
+	_stats_rtt_count = 0;
+	_stats_loss_count = 0;
+	_stats_goodput = 0;
 }
 
 s32 FlowControl::GetRemainingBytes(u32 now)
@@ -83,18 +87,58 @@ void FlowControl::OnPacketSend(u32 bytes_with_overhead)
 }
 
 static u32 trip_ii = 0;
-static u32 bw_ii = 10;
+static u32 bw_ii = 2;
 
 void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 {
 	_lock.Enter();
 
-	if (++trip_ii >= 500)
-	{
-		trip_ii = 0;
+	_stats_loss_count += timeout_loss_count;
 
-		_bps = ++bw_ii * 10000;
-		WARN("FlowControl") << "Setting BW to " << _bps;
+	// Tick statistics at a period of RTT * 2
+	s32 elapsed = now - _last_stats_update;
+	s32 period = _rtt;// * 4;
+	if (elapsed >= period || elapsed < 10)
+	{
+		u32 rtt_avg = _stats_rtt_count ? (_stats_rtt_acc / _stats_rtt_count) : 0;
+		u32 loss_count = _stats_loss_count;
+		u32 goodput = _stats_goodput;
+
+		// If all of the reliable messages were retransmissions but data was
+		// delivered successfully,
+		if (rtt_avg == 0 && goodput > 0)
+		{
+			// Double RTT since it seems to have jumped fast!
+			_rtt *= 2;
+
+			FATAL("FlowControl") << "Doubled RTT since RTTavg == 0 && goodput > 0";
+		}
+
+		_last_stats_update = now;
+		_stats_rtt_acc = 0;
+		_stats_rtt_count = 0;
+		_stats_loss_count = 0;
+		_stats_goodput = 0;
+
+		// If we get a loss,
+		if (loss_count >= 2)
+		{
+			// Halve the bandwidth
+			_bps /= 2;
+
+			if (_bps < _bandwidth_low_limit)
+				_bps = _bandwidth_low_limit;
+		}
+		else
+		{
+			// Increase the bandwidth by the goodput over the period
+			_bps += goodput * 100 / period;
+
+			if (_bps > _bandwidth_high_limit)
+				_bps = _bandwidth_high_limit;
+		}
+
+		FATAL("FlowControl") << "Statistics: RTTavg=" << rtt_avg << " losses=" << loss_count << " goodput=" << goodput << " BPS=" << _bps << " RTT=" << _rtt;
 	}
 
 	_lock.Leave();
@@ -102,40 +146,30 @@ void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 
 void FlowControl::OnACK(u32 recv_time, OutgoingMessage *node)
 {
-	u32 rtt = recv_time - node->ts_firstsend;
+	// If no retransmission,
+	if (node->ts_firstsend == node->ts_lastsend)
+	{
+		u32 rtt = recv_time - node->ts_firstsend;
+
+		_lock.Enter();
+
+		// Update estimate of RTT
+		_rtt = (_rtt * 9 + rtt) / 10;
+
+		// Update statistics
+		_stats_rtt_acc += rtt;
+		_stats_rtt_count++;
+
+		_lock.Leave();
+	}
 }
 
-void FlowControl::OnACKDone(u32 recv_time, u32 avg_one_way_time, u32 nack_loss_count, u32 data_bytes)
+void FlowControl::OnACKDone(u32 recv_time, u32 nack_loss_count, u32 data_bytes)
 {
-	_stats_trip[_stats_ack_ii] = avg_one_way_time;
-	_stats_nack[_stats_ack_ii] = nack_loss_count;
-	_stats_ack_ii++;
+	_lock.Enter();
 
-	if (_stats_ack_ii == IIMAX)
-	{
-		u32 avg_trip, min_trip, max_trip, nack_count = 0;
-		avg_trip = min_trip = max_trip = _stats_trip[0];
+	_stats_goodput += data_bytes;
+	_stats_loss_count += nack_loss_count;
 
-		for (int ii = 1; ii < IIMAX; ++ii)
-		{
-			u32 trip = _stats_trip[ii];
-			avg_trip += trip;
-			if (min_trip > trip) min_trip = trip;
-			if (max_trip < trip) max_trip = trip;
-			nack_count += _stats_nack[ii];
-		}
-
-		avg_trip /= IIMAX;
-		FATAL("FlowControl") << "AvgTrip=" << avg_trip << " MinTrip=" << min_trip << " MaxTrip=" << max_trip << " NACK=" << nack_count;
-		_stats_ack_ii = 0;
-	}
-/*
-	if (avg_one_way_time > 300)
-	{
-		FATAL("FlowControl") << "Halving transmit rate since one way time shot up to " << avg_one_way_time;
-
-		_bps /= 2;
-		if (_bps < (s32)_bandwidth_low_limit)
-			_bps = (s32)_bandwidth_low_limit;
-	} */
+	_lock.Leave();
 }

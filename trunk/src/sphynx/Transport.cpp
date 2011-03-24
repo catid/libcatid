@@ -246,9 +246,6 @@ Transport::Transport()
 
 	CAT_OBJCLR(_recv_wait);
 
-	_recv_trip_time_sum = 0;
-	_recv_trip_count = 0;
-
 	// Send state
 	_send_cluster.Clear();
 	_send_flush_after_processing = false;
@@ -394,8 +391,8 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 	tls->free_list_count = 0;
 
 	// TODO: Remove this packet loss generator
-	//if (tls->csprng->GenerateUnbiased(0, 9) == 2)
-	//	return;
+	if (tls->csprng->GenerateUnbiased(0, 19) == 2)
+		return;
 
 	// For each buffer in the batch,
 	for (BatchHead *node = delivery.head; !IsDisconnected() && node; node = node->batch_next)
@@ -546,22 +543,8 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 
 			bytes -= data_bytes;
 			data += data_bytes;
-		}
-
-		// Calculate and accumulate transit time into statistics for flow control
-		u32 transit_time = recv_time - send_time;
-
-		// If transit time is in the future, clamp it into sanity
-		if ((s32)transit_time < 1) transit_time = 1;
-
-		// If transit time makes sense,
-		if (transit_time < TIMEOUT_DISCONNECT)
-		{
-			// Accumulate latest transit time
-			_recv_trip_time_sum += transit_time;
-			++_recv_trip_count;
-		}
-	}
+		} // while bytes >= 1
+	} // end for each buffer
 
 	// Deliver any messages that are queued up
 	DeliverQueued(tls);
@@ -1110,27 +1093,9 @@ void Transport::FlushWrites()
 void Transport::WriteACK()
 {
 	u8 packet[MAXIMUM_MTU];
-	u8 *offset = packet + MAX_MESSAGE_HEADER_BYTES + AVG_TRIP_BYTES;
+	u8 *offset = packet + MAX_MESSAGE_HEADER_BYTES;
 	u32 max_payload_bytes = _max_payload_bytes;
-	u32 remaining = max_payload_bytes - MAX_MESSAGE_HEADER_BYTES - AVG_TRIP_BYTES;
-
-	// Calculate trip time average
-	u32 trip_time_avg = (_recv_trip_count > 0) ? (_recv_trip_time_sum / _recv_trip_count) : 0;
-	_recv_trip_time_sum = 0;
-	_recv_trip_count = 0;
-
-	// Write average trip time
-	if (trip_time_avg < C_MASK)
-	{
-		packet[2] = (u8)trip_time_avg;
-		--offset;
-		++remaining;
-	}
-	else
-	{
-		packet[2] = (u8)(trip_time_avg | C_MASK);
-		packet[3] = (u8)(trip_time_avg >> 7);
-	}
+	u32 remaining = max_payload_bytes - MAX_MESSAGE_HEADER_BYTES;
 
 	// Prioritizes ACKs for unordered stream, then 1, 2 and 3 in that order.
 	for (int stream = 0; stream < NUM_STREAMS; ++stream)
@@ -1391,25 +1356,6 @@ CAT_INLINE void Transport::RetransmitNegative(u32 recv_time, u32 stream, u32 las
 
 void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 {
-	if (data_bytes < 2) return;
-
-	u32 avg_trip_time = data[0] & 0x7f;
-
-	// If trip time is two bytes,
-	if (data[0] & C_MASK)
-	{
-		// Bring in the high byte
-		avg_trip_time |= (u32)data[1] << 7;
-
-		data += 2;
-		data_bytes -= 2;
-	}
-	else
-	{
-		++data;
-		--data_bytes;
-	}
-
 	u32 stream = NUM_STREAMS, last_ack_id = 0;
 	OutgoingMessage *node = 0;
 	u32 loss_count = 0;
@@ -1458,8 +1404,8 @@ void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 						// For each rolled node,
 						do
 						{
-							_send_flow.OnACK(recv_time, node);
-							acknowledged_data_sum += node->GetBytes();
+							if (node->loss_on) _send_flow.OnACK(recv_time, node);
+							acknowledged_data_sum += 2 + node->GetBytes();
 
 							OutgoingMessage *next = node->next;
 							FreeSentNode(node);
@@ -1590,8 +1536,8 @@ void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 					// While nodes are in range,
 					do 
 					{
-						_send_flow.OnACK(recv_time, node);
-						acknowledged_data_sum += node->GetBytes();
+						if (node->loss_on) _send_flow.OnACK(recv_time, node);
+						acknowledged_data_sum += 2 + node->GetBytes();
 
 						OutgoingMessage *next = node->next;
 						FreeSentNode(node);
@@ -1613,7 +1559,7 @@ void Transport::OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes)
 		RetransmitNegative(recv_time, stream, last_ack_id, loss_count);
 
 	// Inform the flow control algorithm
-	_send_flow.OnACKDone(recv_time, avg_trip_time, loss_count, acknowledged_data_sum);
+	_send_flow.OnACKDone(recv_time, loss_count, acknowledged_data_sum);
 }
 
 OutgoingMessage *Transport::DequeueBandwidth(OutgoingMessage *node, s32 available_bytes, s32 &bandwidth)
