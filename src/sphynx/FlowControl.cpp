@@ -136,10 +136,10 @@ void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 			if (goodrate >= _bps * 0.8)
 			{
 				_bps += 1000;
-			}
 
-			if (_bps > _bandwidth_high_limit)
-				_bps = _bandwidth_high_limit;
+				if (_bps > _bandwidth_high_limit)
+					_bps = _bandwidth_high_limit;
+			}
 		}
 
 		static int ii = 0;
