@@ -142,8 +142,6 @@ void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 			}
 		}
 
-		static int ii = 0;
-		if (++ii % 10 == 0)
 		FATAL("FlowControl") << "Statistics: RTTavg=" << rtt_avg << " losses=" << loss_count << " goodput=" << goodput << " goodrate=" << goodrate << " BPS=" << _bps << " RTT=" << _rtt;
 	}
 
