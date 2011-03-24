@@ -1995,12 +1995,7 @@ void Transport::WriteQueuedReliable()
 	s32 bandwidth = _send_flow.GetRemainingBytes(now);
 
 	// If there is no more room in the channel,
-	if (bandwidth <= 0) return;
-
-	// Try to align messages to a MTU boundary for efficiency
-	//u32 max_payload_bytes = _max_payload_bytes;
-	//if (bandwidth < (s32)max_payload_bytes) bandwidth = max_payload_bytes;
-	//else bandwidth = (bandwidth / max_payload_bytes) * max_payload_bytes;
+	if (bandwidth < 0) return;
 
 	// Steal all work from each stream's send queue
 	_send_queue_lock.Enter();
