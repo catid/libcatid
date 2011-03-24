@@ -103,6 +103,7 @@ void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 		u32 rtt_avg = _stats_rtt_count ? (_stats_rtt_acc / _stats_rtt_count) : 0;
 		u32 loss_count = _stats_loss_count;
 		u32 goodput = _stats_goodput;
+		u32 goodrate = goodput * 1000 / period;
 
 		// If all of the reliable messages were retransmissions but data was
 		// delivered successfully,
@@ -132,13 +133,18 @@ void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 		else
 		{
 			// Increase the bandwidth by the goodput over the period
-			_bps += goodput * 100 / period;
+			if (goodrate >= _bps * 0.8)
+			{
+				_bps += 1000;
+			}
 
 			if (_bps > _bandwidth_high_limit)
 				_bps = _bandwidth_high_limit;
 		}
 
-		FATAL("FlowControl") << "Statistics: RTTavg=" << rtt_avg << " losses=" << loss_count << " goodput=" << goodput << " BPS=" << _bps << " RTT=" << _rtt;
+		static int ii = 0;
+		if (++ii % 10 == 0)
+		FATAL("FlowControl") << "Statistics: RTTavg=" << rtt_avg << " losses=" << loss_count << " goodput=" << goodput << " goodrate=" << goodrate << " BPS=" << _bps << " RTT=" << _rtt;
 	}
 
 	_lock.Leave();

@@ -44,6 +44,12 @@ struct SystemInfo
 
 	// Number of processors
 	u32 ProcessorCount;
+
+	// Page size
+	u32 PageSize;
+
+	// Allocation granularity
+	u32 AllocationGranularity;
 } extern system_info;
 
 

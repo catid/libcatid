@@ -40,6 +40,7 @@ using namespace cat;
 # include <unistd.h>
 #elif defined(CAT_OS_OSX) || defined(CAT_OS_BSD)
 # include <sys/sysctl.h>
+# include <unistd.h>
 #elif defined(CAT_OS_HPUX)
 # include <sys/mpctl.h>
 #endif
@@ -56,7 +57,9 @@ static bool system_info_initialized = false;
 
 SystemInfo cat::system_info = {
 	CAT_DEFAULT_CACHE_LINE_SIZE, // From Config.hpp
-	1
+	CAT_DEFAULT_CPU_COUNT,
+	CAT_DEFAULT_PAGE_SIZE,
+	CAT_DEFAULT_ALLOCATION_GRANULARITY
 };
 
 static u32 GetCacheLineBytes()
@@ -181,12 +184,56 @@ static u32 GetProcessorCount()
 	return processor_count > 1 ? processor_count : 1;
 }
 
+static u32 GetPageSize()
+{
+	u32 page_size = 0;
+
+#if defined(CAT_OS_WINDOWS)
+
+	SYSTEM_INFO sys_info;
+	GetSystemInfo(&sys_info);
+	page_size = sys_info.dwPageSize;
+
+#elif defined(CAT_OS_OSX) || defined(CAT_OS_BSD)
+
+	page_size = (u32)getpagesize();
+
+#else
+
+	page_size = (u32)sysconf(_SC_PAGE_SIZE);
+
+#endif
+
+	return page_size > 0 ? page_size : CAT_DEFAULT_PAGE_SIZE;
+}
+
+static u32 GetAllocationGranularity()
+{
+	u32 alloc_gran = 0;
+
+#if defined(CAT_OS_WINDOWS)
+
+	SYSTEM_INFO sys_info;
+	GetSystemInfo(&sys_info);
+	alloc_gran = sys_info.dwAllocationGranularity;
+
+#else
+
+	return GetPageSize();
+
+#endif
+
+	return alloc_gran > 0 ? alloc_gran : CAT_DEFAULT_ALLOCATION_GRANULARITY;
+}
+
 void cat::InitializeSystemInfo()
 {
 	if (system_info_initialized) return;
 
 	system_info.CacheLineBytes = GetCacheLineBytes();
 	system_info.ProcessorCount = GetProcessorCount();
+	system_info.PageSize = GetPageSize();
+	system_info.AllocationGranularity = GetAllocationGranularity();
 
 	CAT_FENCE_COMPILER
 	system_info_initialized = true;
