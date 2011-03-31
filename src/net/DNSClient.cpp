@@ -33,7 +33,7 @@
 #include <cat/port/EndianNeutral.hpp>
 #include <cat/io/Settings.hpp>
 #include <cat/threads/AutoMutex.hpp>
-#include <cat/net/Buffers.hpp>
+#include <cat/io/Buffers.hpp>
 #include <cstdio>
 #include <fstream>
 using namespace cat;
@@ -122,7 +122,7 @@ bool DNSClient::OnZeroReferences()
 	return UDPEndpoint::OnZeroReferences();
 }
 
-void DNSClient::OnReadRouting(const BatchSet &buffers)
+void DNSClient::OnRecvRouting(const BatchSet &buffers)
 {
 	// For each message,
 	for (BatchHead *node = buffers.head; node; node = node->batch_next)
@@ -136,7 +136,7 @@ void DNSClient::OnReadRouting(const BatchSet &buffers)
 	GetIOLayer()->GetWorkerThreads()->DeliverBuffers(_worker_id, buffers);
 }
 
-void DNSClient::OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers)
+void DNSClient::OnWorkerRecv(IWorkerTLS *tls, const BatchSet &buffers)
 {
 	u32 buffer_count = 0;
 	for (BatchHead *node = buffers.head; node; node = node->batch_next)

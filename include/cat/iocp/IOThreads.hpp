@@ -50,7 +50,9 @@ class UDPEndpoint;
 enum IOType
 {
 	IOTYPE_UDP_SEND,
-	IOTYPE_UDP_RECV
+	IOTYPE_UDP_RECV,
+	IOTYPE_FILE_WRITE,
+	IOTYPE_FILE_READ
 };
 
 struct IOCPOverlapped
@@ -73,6 +75,17 @@ struct IOCPOverlappedSendTo : IOCPOverlapped
 
 typedef IOCPOverlappedRecvFrom IOLayerRecvOverhead;
 typedef IOCPOverlappedSendTo IOLayerSendOverhead;
+
+struct IOCPOverlappedReadFile : IOCPOverlapped
+{
+};
+
+struct IOCPOverlappedWriteFile : IOCPOverlapped
+{
+};
+
+typedef IOCPOverlappedReadFile IOLayerReadOverhead;
+typedef IOCPOverlappedWriteFile IOLayerWriteOverhead;
 
 static const u32 IOTHREADS_BUFFER_READ_BYTES = 1450;
 static const u32 IOTHREADS_BUFFER_COUNT = 10000;

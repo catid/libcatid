@@ -1887,6 +1887,13 @@ bool Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream, s32 remai
 		if (total_bytes > retransmit_limit) total_bytes = retransmit_limit;
 		copy_bytes = total_bytes - overhead;
 
+		// If this drops the number of copy bytes to zero, then abort here
+		if (copy_bytes <= 0)
+		{
+			success = false;
+			break;
+		}
+
 		// Acquire a fragment
 		SendFrag *frag;
 		do frag = StdAllocator::ii->AcquireTrailing<SendFrag>(copy_bytes);

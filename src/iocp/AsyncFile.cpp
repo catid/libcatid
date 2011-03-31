@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2011 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -26,20 +26,35 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-// Include all libcat AsyncIO headers
-
-#include <cat/AllCommon.hpp>
-
-#if defined(CAT_COMPILER_MSVC) && defined(CAT_BUILD_DLL)
-# pragma warning(push)
-# pragma warning(disable:4251) // Remove "not exported" warning from STL
-#endif
-
+#include <cat/iocp/AsyncFile.hpp>
+#include <cat/io/Logging.hpp>
+#include <cat/io/Settings.hpp>
 #include <cat/io/IOLayer.hpp>
-#include <cat/io/Buffers.hpp>
+#include <cat/net/Buffers.hpp>
+using namespace std;
+using namespace cat;
 
-#include <cat/net/Sockets.hpp>
+void AsyncFile::OnShutdownRequest()
+{
+	if (_file != INVALID_HANDLE_VALUE)
+	{
+		CloseHandle(_file);
+		_file = INVALID_HANDLE_VALUE;
+	}
+}
 
-#if defined(CAT_COMPILER_MSVC) && defined(CAT_BUILD_DLL)
-# pragma warning(pop)
-#endif
+bool AsyncFile::OnZeroReferences()
+{
+	return true;
+}
+
+AsyncFile::AsyncFile()
+{
+    _file = INVALID_HANDLE_VALUE;
+}
+
+AsyncFile::~AsyncFile()
+{
+    if (_file != INVALID_HANDLE_VALUE)
+        CloseHandle(_file);
+}

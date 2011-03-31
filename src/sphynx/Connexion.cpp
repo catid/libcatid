@@ -49,7 +49,7 @@ void Connexion::OnDisconnectComplete()
 	RequestShutdown();
 }
 
-void Connexion::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
+void Connexion::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 {
 	SphynxTLS *tls = reinterpret_cast<SphynxTLS*>( itls );
 	u32 buffer_count = 0;

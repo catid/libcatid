@@ -98,6 +98,7 @@ protected:
 	CAT_INLINE void InitializeWorkerCallbacks(RefObject *obj) { _parent = obj; }
 
 	virtual void OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers) = 0;
+	virtual void OnWorkerRecv(IWorkerTLS *tls, const BatchSet &buffers) = 0;
 	virtual void OnWorkerTick(IWorkerTLS *tls, u32 now) = 0;
 };
 
