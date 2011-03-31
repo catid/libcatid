@@ -164,6 +164,7 @@
     </ProjectReference>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\src\iocp\AsyncFile.cpp" />
     <ClCompile Include="..\..\src\io\IOLayer.cpp" />
     <ClCompile Include="..\..\src\iocp\IOThreads.cpp" />
     <ClCompile Include="..\..\src\net\Sockets.cpp" />
@@ -177,11 +178,11 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\cat\AllAsyncIO.hpp" />
+    <ClInclude Include="..\..\include\cat\iocp\AsyncFile.hpp" />
     <ClInclude Include="..\..\include\cat\iocp\IOThreads.hpp" />
     <ClInclude Include="..\..\include\cat\iocp\UDPEndpoint.hpp" />
+    <ClInclude Include="..\..\include\cat\io\Buffers.hpp" />
     <ClInclude Include="..\..\include\cat\io\IOLayer.hpp" />
-    <ClInclude Include="..\..\include\cat\net\RecvBuffer.hpp" />
-    <ClInclude Include="..\..\include\cat\net\SendBuffer.hpp" />
     <ClInclude Include="..\..\include\cat\net\Sockets.hpp" />
     <ClInclude Include="Precompiled.hpp" />
   </ItemGroup>

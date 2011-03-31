@@ -28,7 +28,7 @@
 
 #include <cat/iocp/IOThreads.hpp>
 #include <cat/io/IOLayer.hpp>
-#include <cat/net/Buffers.hpp>
+#include <cat/io/Buffers.hpp>
 #include <cat/time/Clock.hpp>
 #include <cat/port/SystemInfo.hpp>
 #include <cat/io/Logging.hpp>
@@ -49,7 +49,6 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 	// For each entry,
 	for (u32 ii = 0; ii < count; ++ii)
 	{
-		UDPEndpoint *udp_endpoint = reinterpret_cast<UDPEndpoint*>( entries[ii].lpCompletionKey );
 		IOCPOverlapped *ov_iocp = reinterpret_cast<IOCPOverlapped*>( entries[ii].lpOverlapped );
 		u32 bytes = entries[ii].dwNumberOfBytesTransferred;
 
@@ -65,6 +64,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 		{
 		case IOTYPE_UDP_SEND:
 			{
+				UDPEndpoint *udp_endpoint = reinterpret_cast<UDPEndpoint*>( entries[ii].lpCompletionKey );
 				SendBuffer *buffer = reinterpret_cast<SendBuffer*>( (u8*)ov_iocp - offsetof(SendBuffer, iointernal.ov) );
 
 				// Link to sendq
@@ -80,6 +80,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 
 		case IOTYPE_UDP_RECV:
 			{
+				UDPEndpoint *udp_endpoint = reinterpret_cast<UDPEndpoint*>( entries[ii].lpCompletionKey );
 				RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( (u8*)ov_iocp - offsetof(RecvBuffer, iointernal.ov) );
 
 				// Write event completion results to buffer
@@ -101,7 +102,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 					{
 						// Finalize the recvq and post it
 						recvq.tail->batch_next = 0;
-						prev_recv_endpoint->OnReadCompletion(recvq, recv_count);
+						prev_recv_endpoint->OnRecvCompletion(recvq, recv_count);
 					}
 
 					// Reset recvq
@@ -109,6 +110,29 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 					recv_count = 1;
 					prev_recv_endpoint = udp_endpoint;
 				}
+			}
+			break;
+
+		case IOTYPE_FILE_WRITE:
+			{
+				AsyncFile *async_file = reinterpret_cast<AsyncFile*>( entries[ii].lpCompletionKey );
+				WriteBuffer *buffer = reinterpret_cast<WriteBuffer*>( (u8*)ov_iocp - offsetof(WriteBuffer, iointernal.ov) );
+
+				// Link to sendq
+				if (sendq.tail) sendq.tail->batch_next = buffer;
+				else sendq.head = buffer;
+
+				sendq.tail = buffer;
+				buffer->batch_next = 0;
+
+				async_file->ReleaseRef();
+			}
+			break;
+
+		case IOTYPE_FILE_READ:
+			{
+				AsyncFile *async_file = reinterpret_cast<AsyncFile*>( entries[ii].lpCompletionKey );
+				ReadBuffer *buffer = reinterpret_cast<ReadBuffer*>( (u8*)ov_iocp - offsetof(ReadBuffer, iointernal.ov) );
 			}
 			break;
 		}
@@ -119,7 +143,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 	{
 		// Finalize the recvq and post it
 		recvq.tail->batch_next = 0;
-		prev_recv_endpoint->OnReadCompletion(recvq, recv_count);
+		prev_recv_endpoint->OnRecvCompletion(recvq, recv_count);
 	}
 
 	// If sendq is not empty,

@@ -137,7 +137,7 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 						buffers.tail = last;
 						last->batch_next = 0;
 
-						last->callback->OnWorkerRead(tls, buffers);
+						last->callback->OnWorkerRecv(tls, buffers);
 
 						// Start a new one
 						buffers.head = next;

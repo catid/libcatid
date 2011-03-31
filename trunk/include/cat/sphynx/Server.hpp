@@ -84,9 +84,9 @@ protected:
 	virtual void OnShutdownRequest();
 	virtual bool OnZeroReferences();
 
-	virtual void OnReadRouting(const BatchSet &buffers);
+	virtual void OnRecvRouting(const BatchSet &buffers);
 
-	virtual void OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers);
+	virtual void OnWorkerRecv(IWorkerTLS *tls, const BatchSet &buffers);
 	virtual void OnWorkerTick(IWorkerTLS *tls, u32 now);
 };
 

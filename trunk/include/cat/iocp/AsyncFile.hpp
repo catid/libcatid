@@ -26,52 +26,58 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_NET_BUFFERS_HPP
-#define CAT_NET_BUFFERS_HPP
+#ifndef CAT_IOCP_ASYNCFILE_HPP
+#define CAT_IOCP_ASYNCFILE_HPP
 
-#include <cat/io/IOLayer.hpp>
-#include <cat/mem/ResizableBuffer.hpp>
-#include <cat/threads/WorkerThreads.hpp>
+#include <cat/threads/RefObject.hpp>
 
 namespace cat {
 
 
-// A buffer specialized for writing to a socket
-struct SendBuffer : public BatchHead, public ResizableBuffer<SendBuffer>
+enum AsyncFileModes
 {
-	// IO layer specific overhead pimpl
-	IOLayerSendOverhead iointernal;
+	ASYNCFILE_READ = 1,
+	ASYNCFILE_WRITE = 2,
+	ASYNCFILE_RANDOM = 4
 };
 
 
-// A buffer specialized for reading data from a socket
-// Compatible with WorkerBuffer object
-struct RecvBuffer : BatchHead
+class CAT_EXPORT AsyncFile : public WatchedRefObject
 {
-	union
-	{
-		// IO layer specific overhead pimpl
-		IOLayerRecvOverhead iointernal;
+	friend class IOThread;
 
-		// Worker layer specific overhead
-		struct
-		{
-			IWorkerCallbacks *callback;
-			UNetAddr addr;
+	IOLayer *_iolayer;
+	HANDLE _file;
 
-			// TODO: Sphynx specific
-			u32 send_time;
-		};
-	};
+	void OnReadCompletion(const BatchSet &buffers, u32 count);
 
-	// Shared overhead
-	u32 data_bytes;
-	u32 event_msec;
+public:
+    AsyncFile();
+    virtual ~AsyncFile();
 
-	CAT_INLINE NetAddr &GetAddr() { return (NetAddr&)addr; }
+	CAT_INLINE bool Valid() { return _file != INVALID_HANDLE_VALUE; }
+
+	/*
+		In read mode, Open() will fail if the file does not exist.
+		In write mode, Open() will create the file if it does not exist.
+	*/
+	bool Open(const char *file_path, u32 async_file_modes);
+	void Close();
+
+	bool SetSize(u64 bytes);
+	u64 GetSize();
+
+	bool Read(ReadBuffer *buffer, u64 offset);
+	bool Write(WriteBuffer *buffer, u64 offset);
+
+protected:
+	CAT_INLINE IOLayer *GetIOLayer() { return _iolayer; }
+
+	virtual void OnShutdownRequest();
+	virtual bool OnZeroReferences();
 };
 
 
 } // namespace cat
 
-#endif // CAT_NET_BUFFERS_HPP
+#endif // CAT_IOCP_ASYNCFILE_HPP

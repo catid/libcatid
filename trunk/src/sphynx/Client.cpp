@@ -55,7 +55,7 @@ void Client::OnDisconnectComplete()
 	RequestShutdown();
 }
 
-void Client::OnReadRouting(const BatchSet &buffers)
+void Client::OnRecvRouting(const BatchSet &buffers)
 {
 	u32 garbage_count = 0;
 
@@ -105,7 +105,7 @@ void Client::OnReadRouting(const BatchSet &buffers)
 		ReleaseRecvBuffers(garbage, garbage_count);
 }
 
-void Client::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
+void Client::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 {
 	SphynxTLS *tls = reinterpret_cast<SphynxTLS*>( itls );
 	u32 buffer_count = 0;

@@ -26,38 +26,83 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_IO_LAYER_HPP
-#define CAT_IO_LAYER_HPP
+#ifndef CAT_IO_BUFFERS_HPP
+#define CAT_IO_BUFFERS_HPP
 
-#include <cat/CommonLayer.hpp>
-#include <cat/net/Sockets.hpp>
-
-#if defined(CAT_OS_WINDOWS)
-#include <cat/iocp/IOThreads.hpp>
-#include <cat/iocp/UDPEndpoint.hpp>
-#include <cat/iocp/AsyncFile.hpp>
-#else
-TODO
-#endif
+#include <cat/io/IOLayer.hpp>
+#include <cat/mem/ResizableBuffer.hpp>
+#include <cat/threads/WorkerThreads.hpp>
 
 namespace cat {
 
 
-class CAT_EXPORT IOLayer : public CommonLayer
+// A buffer specialized for writing to a socket
+struct SendBuffer : public BatchHead, public ResizableBuffer<SendBuffer>
 {
-	IOThreads _io_threads;
+	// IO layer specific overhead pimpl
+	IOLayerSendOverhead iointernal;
+};
 
-public:
-	CAT_INLINE virtual ~IOLayer() {}
 
-	CAT_INLINE IOThreads *GetIOThreads() { return &_io_threads; }
+// A buffer specialized for reading data from a socket
+// Compatible with WorkerBuffer object
+struct RecvBuffer : BatchHead
+{
+	union
+	{
+		// IO layer specific overhead pimpl
+		IOLayerRecvOverhead iointernal;
 
-protected:
-	virtual bool OnStartup(IWorkerTLSBuilder *tls, const char *settings_file_name, bool service, const char *service_name);
-	virtual void OnShutdown(bool watched_shutdown);
+		// Worker layer specific overhead
+		struct
+		{
+			IWorkerCallbacks *callback;
+			UNetAddr addr;
+
+			// TODO: Sphynx specific
+			u32 send_time;
+		};
+	};
+
+	// Shared overhead
+	u32 data_bytes;
+	u32 event_msec;
+
+	CAT_INLINE NetAddr &GetAddr() { return (NetAddr&)addr; }
+};
+
+
+// A buffer specialized for writing to a file
+struct WriteBuffer : public BatchHead, public ResizableBuffer<WriteBuffer>
+{
+	// IO layer specific overhead pimpl
+	IOLayerWriteOverhead iointernal;
+};
+
+
+// A buffer specialized for reading from a file
+struct ReadBuffer : public BatchHead, public ResizableBuffer<ReadBuffer>
+{
+	union
+	{
+		// IO layer specific overhead pimpl
+		IOLayerReadOverhead iointernal;
+
+		// Worker layer specific overhead
+		struct
+		{
+			IWorkerCallbacks *callback;
+
+			u64 offset;
+		};
+	};
+
+	// Shared overhead
+	u32 data_bytes;
+	void *context;
 };
 
 
 } // namespace cat
 
-#endif // CAT_IO_LAYER_HPP
+#endif // CAT_IO_BUFFERS_HPP

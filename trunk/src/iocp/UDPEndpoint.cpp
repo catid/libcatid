@@ -30,7 +30,7 @@
 #include <cat/io/Logging.hpp>
 #include <cat/io/Settings.hpp>
 #include <cat/io/IOLayer.hpp>
-#include <cat/net/Buffers.hpp>
+#include <cat/io/Buffers.hpp>
 #include <MSWSock.h>
 using namespace std;
 using namespace cat;
@@ -393,7 +393,7 @@ void UDPEndpoint::ReleaseRecvBuffers(BatchSet buffers, u32 count)
 	ReleaseRef(count);
 }
 
-void UDPEndpoint::OnReadCompletion(const BatchSet &buffers, u32 count)
+void UDPEndpoint::OnRecvCompletion(const BatchSet &buffers, u32 count)
 {
 	// If reads completed during shutdown,
 	if (IsShutdown())
@@ -404,7 +404,7 @@ void UDPEndpoint::OnReadCompletion(const BatchSet &buffers, u32 count)
 	}
 
 	// Notify derived class about new buffers
-	OnReadRouting(buffers);
+	OnRecvRouting(buffers);
 
 	// Check if new posts need to be made
 	u32 perceived_deficiency = SIMULTANEOUS_READS - _buffers_posted;

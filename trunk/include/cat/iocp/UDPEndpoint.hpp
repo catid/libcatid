@@ -81,7 +81,7 @@ class CAT_EXPORT UDPEndpoint : public WatchedRefObject
 	// Returns the number of reads posted
 	u32 PostReads(u32 count);
 
-	void OnReadCompletion(const BatchSet &buffers, u32 count);
+	void OnRecvCompletion(const BatchSet &buffers, u32 count);
 
 public:
     UDPEndpoint();
@@ -123,7 +123,7 @@ protected:
 	virtual void OnShutdownRequest();
 	virtual bool OnZeroReferences();
 
-	virtual void OnReadRouting(const BatchSet &buffers) = 0;
+	virtual void OnRecvRouting(const BatchSet &buffers) = 0;
 };
 
 

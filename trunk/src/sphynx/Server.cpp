@@ -51,7 +51,7 @@ bool Server::OnZeroReferences()
 	return UDPEndpoint::OnZeroReferences();
 }
 
-void Server::OnReadRouting(const BatchSet &buffers)
+void Server::OnRecvRouting(const BatchSet &buffers)
 {
 	u32 connect_worker = _connect_worker;
 	u32 worker_count = GetIOLayer()->GetWorkerThreads()->GetWorkerCount();
@@ -172,7 +172,7 @@ void Server::OnReadRouting(const BatchSet &buffers)
 		ReleaseRecvBuffers(garbage, garbage_count);
 }
 
-void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
+void Server::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 {
 	SphynxTLS *tls = reinterpret_cast<SphynxTLS*>( itls );
 	u32 buffer_count = 0;
@@ -351,7 +351,7 @@ void Server::OnWorkerRead(IWorkerTLS *itls, const BatchSet &buffers)
 
 void Server::OnWorkerTick(IWorkerTLS *tls, u32 now)
 {
-	// Not synchronous with OnWorkerRead() callback because offline events are distributed between threads
+	// Not synchronous with OnWorkerRecv() callback because offline events are distributed between threads
 }
 
 Server::Server()

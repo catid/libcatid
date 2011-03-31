@@ -29,7 +29,7 @@ public:
 	{
 		WARN("Client") << "-- CONNECTED";
 
-		if (_fsource.WriteFile(OP_FILE_UPLOAD_START, "test.tmp", "sink_file.txt", this))
+		if (_fsource.WriteFile(OP_FILE_UPLOAD_START, "c:\\test.tmp", "sink_file.txt", this))
 		{
 			WARN("Client") << "-- File upload starting";
 		}

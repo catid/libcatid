@@ -107,10 +107,10 @@ class CAT_EXPORT Client : public UDPEndpoint, public Transport, public IWorkerCa
 	bool InitialConnect(SphynxLayer *layer, SphynxTLS *tls, TunnelPublicKey &public_key, const char *session_key);
 	bool FinalConnect(const NetAddr &addr);
 
-	virtual void OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers);
+	virtual void OnWorkerRecv(IWorkerTLS *tls, const BatchSet &buffers);
 	virtual void OnWorkerTick(IWorkerTLS *tls, u32 now);
 
-	virtual void OnReadRouting(const BatchSet &buffers);
+	virtual void OnRecvRouting(const BatchSet &buffers);
 
 public:
 	Client();
