@@ -46,6 +46,7 @@ struct IOTLS;
 class IOThread;
 class IOThreads;
 class UDPEndpoint;
+class AsyncFile;
 
 enum IOType
 {
@@ -134,6 +135,7 @@ public:
 	bool Startup();
 	bool Shutdown();
 	bool Associate(UDPEndpoint *udp_endpoint);
+	bool Associate(AsyncFile *file);
 };
 
 

@@ -376,3 +376,22 @@ bool IOThreads::Associate(UDPEndpoint *udp_endpoint)
 
 	return true;
 }
+
+bool IOThreads::Associate(AsyncFile *file)
+{
+	if (!_io_port)
+	{
+		FATAL("IOThreads") << "Unable to associate handle since completion port was never created";
+		return false;
+	}
+
+	HANDLE result = CreateIoCompletionPort(file->GetHandle(), _io_port, (ULONG_PTR)file, 0);
+
+	if (result != _io_port)
+	{
+		FATAL("IOThreads") << "Associating UDPEndpoint error " << GetLastError();
+		return false;
+	}
+
+	return true;
+}
