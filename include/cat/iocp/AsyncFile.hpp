@@ -30,6 +30,7 @@
 #define CAT_IOCP_ASYNCFILE_HPP
 
 #include <cat/threads/RefObject.hpp>
+#include <cat/io/Buffers.hpp>
 
 namespace cat {
 
@@ -56,12 +57,13 @@ public:
     virtual ~AsyncFile();
 
 	CAT_INLINE bool Valid() { return _file != INVALID_HANDLE_VALUE; }
+	CAT_INLINE HANDLE GetHandle() { return _file; }
 
 	/*
 		In read mode, Open() will fail if the file does not exist.
 		In write mode, Open() will create the file if it does not exist.
 	*/
-	bool Open(const char *file_path, u32 async_file_modes);
+	bool Open(IOThreads *threads, const char *file_path, u32 async_file_modes);
 	void Close();
 
 	bool SetSize(u64 bytes);
