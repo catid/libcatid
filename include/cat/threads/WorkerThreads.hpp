@@ -88,6 +88,41 @@ struct WorkerBuffer : public BatchHead
 };
 
 
+class Delegate
+{
+	typedef void (*Member)(void *, IWorkerTLS *tl, const BatchSet &);
+
+	void *_object;
+	Member _member;
+
+	template <class T, void (T::*Method)(IWorkerTLS *, const BatchSet &)>
+	static CAT_INLINE Member GetMethod(void *object, IWorkerTLS *tls, const BatchSet &batch)
+	{
+		T *p = static_cast<T*>(object_ptr);
+		return (p->*Method)(tls, batch);
+	}
+
+public:
+	CAT_INLINE void operator()(IWorkerTLS *tls, const BatchSet &buffers) const
+	{
+		(*_member)(_object, tls, buffers);
+	}
+
+	CAT_INLINE operator bool () const
+	{
+		return _member != 0;
+	}
+
+	template <class T, void (T::*Method)(IWorkerTLS *, const BatchSet &)>
+	CAT_INLINE void Set(T *object)
+	{
+		_object = object;
+		_member = &GetMethod<T, Method>;
+	}
+};
+
+
+
 class CAT_EXPORT IWorkerCallbacks
 {
 	friend class WorkerThread;
