@@ -60,7 +60,7 @@ void Client::OnRecvRouting(const BatchSet &buffers)
 	u32 garbage_count = 0;
 
 	// If worker id is not assigned yet,
-	u32 worker_id = _worker_id;
+	u32 worker_id = GetWorkerID();
 	if (worker_id == INVALID_WORKER_ID)
 	{
 		// For each buffer in the set,
@@ -98,7 +98,7 @@ void Client::OnRecvRouting(const BatchSet &buffers)
 
 	// If delivery set is not empty,
 	if (delivery.head)
-		GetIOLayer()->GetWorkerThreads()->DeliverBuffers(worker_id, delivery);
+		GetIOLayer()->GetWorkerThreads()->DeliverBuffers(this, delivery);
 
 	// If free set is not empty,
 	if (garbage_count > 0)
@@ -361,6 +361,7 @@ void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)
 }
 
 Client::Client()
+	: IWorkerCallbacks(this)
 {
 	_connected = false;
 	_last_send_msec = 0;
@@ -368,9 +369,6 @@ Client::Client()
 	// Clock synchronization
 	_ts_next_index = 0;
 	_ts_sample_count = 0;
-	_worker_id = INVALID_WORKER_ID;
-
-	InitializeWorkerCallbacks(this);
 }
 
 bool Client::InitialConnect(SphynxLayer *layer, SphynxTLS *tls, TunnelPublicKey &public_key, const char *session_key)

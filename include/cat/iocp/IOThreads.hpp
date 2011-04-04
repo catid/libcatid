@@ -104,7 +104,9 @@ typedef BOOL (WINAPI *PGetQueuedCompletionStatusEx)(
 // IOCP thread
 class CAT_EXPORT IOThread : public Thread
 {
-	CAT_INLINE bool HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY entries[], u32 count, u32 event_time);
+	CAT_INLINE bool HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY entries[], u32 count,
+		u32 event_msec, BatchSet &sendq, BatchSet &recvq,
+		UDPEndpoint *&prev_recv_endpoint, u32 &recv_count);
 
 	void UseVistaAPI(IOThreads *master);
 	void UsePreVistaAPI(IOThreads *master);

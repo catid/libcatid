@@ -52,12 +52,6 @@ class CAT_EXPORT Server : public UDPEndpoint, public IWorkerCallbacks
 	KeyAgreementResponder _key_agreement_responder;
 	TunnelPublicKey _public_key;
 
-	// Yes to really insure fairness this should be synchronized,
-	// but I am trying hard to eliminate locks everywhere and this
-	// should still round-robin spin pretty well without locks.
-	// TODO: Revisit this
-	u32 _connect_worker;
-
 	bool PostConnectionCookie(const NetAddr &dest);
 	bool PostConnectionError(const NetAddr &dest, SphynxError err);
 
