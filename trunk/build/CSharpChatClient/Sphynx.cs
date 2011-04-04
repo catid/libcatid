@@ -31,7 +31,6 @@ public class Sphynx {
         public IntPtr data;
         public UInt32 bytes;
         public UInt32 stream;
-        public UInt32 send_time;
         public byte huge_fragment; // true = part of a huge transfer, last fragment will have bytes = 0
     }
 
@@ -39,7 +38,6 @@ public class Sphynx {
     {
         public byte[] data;
         public bool is_huge;
-        public uint send_time;
         public uint stream;
     }
 
@@ -56,7 +54,6 @@ public class Sphynx {
             Marshal.Copy(ptr[ii].data, array[ii].data, 0, (int)ptr[ii].bytes);
 
             array[ii].is_huge = ptr[ii].huge_fragment != 0;
-            array[ii].send_time = ptr[ii].send_time;
             array[ii].stream= ptr[ii].stream;
         }
 
