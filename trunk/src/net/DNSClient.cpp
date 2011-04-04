@@ -133,7 +133,7 @@ void DNSClient::OnRecvRouting(const BatchSet &buffers)
 		buffer->callback = this;
 	}
 
-	GetIOLayer()->GetWorkerThreads()->DeliverBuffers(_worker_id, buffers);
+	GetIOLayer()->GetWorkerThreads()->DeliverBuffersWorker(this, buffers);
 }
 
 void DNSClient::OnWorkerRecv(IWorkerTLS *tls, const BatchSet &buffers)
@@ -283,7 +283,7 @@ bool DNSClient::Initialize(IOLayer *iolayer)
 	}
 
 	// Assign to a worker
-	_worker_id = iolayer->GetWorkerThreads()->AssignWorker(this);
+	iolayer->GetWorkerThreads()->AssignWorker(this);
 
 	// Attempt to get server address from operating system
 	if (!GetServerAddr())

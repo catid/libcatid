@@ -362,7 +362,7 @@ class CAT_EXPORT Transport
 		buffer->SetBytes(data_bytes);
 		_outgoing_datagrams.PushBack(buffer);
 		_outgoing_datagrams_count++;
-		_outgoing_datagrams_bytes += data_bytes + SPHYNX_OVERHEAD;
+		_outgoing_datagrams_bytes += data_bytes + AuthenticatedEncryption::OVERHEAD_BYTES;
 	}
 
 	// true = no longer connected
@@ -375,13 +375,13 @@ class CAT_EXPORT Transport
 	CAT_INLINE void QueueFragFree(SphynxTLS *tls, u8 *data);
 
 	// Queue received data for user processing
-	void QueueDelivery(SphynxTLS *tls, u32 stream, u8 *data, u32 data_bytes, u32 send_time, bool huge_fragment);
+	void QueueDelivery(SphynxTLS *tls, u32 stream, u8 *data, u32 data_bytes, bool huge_fragment);
 
 	// Deliver messages to user in one big batch
 	CAT_INLINE void DeliverQueued(SphynxTLS *tls);
 
 	void RunReliableReceiveQueue(SphynxTLS *tls, u32 recv_time, u32 ack_id, u32 stream);
-	void StoreReliableOutOfOrder(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *data, u32 bytes, u32 ack_id, u32 stream, u32 super_opcode);
+	void StoreReliableOutOfOrder(SphynxTLS *tls, u32 recv_time, u8 *data, u32 bytes, u32 ack_id, u32 stream, u32 super_opcode);
 
 	// Starting at a given node, walk the send queue forward until available bytes of bandwidth are expended
 	// Returns the last node to send or 0 if no nodes remain
@@ -401,8 +401,8 @@ class CAT_EXPORT Transport
 	void WriteQueuedReliable();
 	void Retransmit(u32 stream, OutgoingMessage *node, u32 now); // Does not hold the send lock!
 	void WriteACK();
-	void OnACK(u32 send_time, u32 recv_time, u8 *data, u32 data_bytes);
-	void OnFragment(SphynxTLS *tls, u32 send_time, u32 recv_time, u8 *data, u32 bytes, u32 stream);
+	void OnACK(u32 recv_time, u8 *data, u32 data_bytes);
+	void OnFragment(SphynxTLS *tls, u32 recv_time, u8 *data, u32 bytes, u32 stream);
 
 public:
 	Transport();
@@ -488,7 +488,7 @@ protected:
 	}
 
 	virtual void OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count) = 0;
-	virtual void OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream msg, u32 bytes) = 0; // precondition: bytes > 0
+	virtual void OnInternal(SphynxTLS *tls, u32 recv_time, BufferStream msg, u32 bytes) = 0; // precondition: bytes > 0
 	virtual void OnDisconnectReason(u8 reason) = 0; // Called to help explain why a disconnect is happening
 
 	bool PostMTUProbe(SphynxTLS *tls, u32 mtu);

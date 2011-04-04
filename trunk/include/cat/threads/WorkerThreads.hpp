@@ -175,7 +175,12 @@ public:
 	CAT_INLINE u32 GetTotalPopulation() { return _population; }
 #endif // CAT_NO_ATOMIC_POPCOUNT
 
-	CAT_INLINE void DeliverBuffers(IWorkerCallbacks *worker, const BatchSet &buffers)
+	CAT_INLINE void DeliverBuffers(u32 worker_id, const BatchSet &buffers)
+	{
+		_workers[worker_id].DeliverBuffers(buffers);
+	}
+
+	CAT_INLINE void DeliverBuffersWorker(IWorkerCallbacks *worker, const BatchSet &buffers)
 	{
 		_workers[worker->GetWorkerID()].DeliverBuffers(buffers);
 	}
@@ -203,6 +208,7 @@ public:
 #endif // CAT_NO_ATOMIC_POPCOUNT
 
 		u32 worker_id = FindLeastPopulatedWorker();
+		callbacks->_worker_id = worker_id;
 
 		_workers[worker_id].Associate(callbacks);
 
