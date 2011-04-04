@@ -97,8 +97,6 @@ class DNSClient : public UDPEndpoint, public IWorkerCallbacks
 
 	FortunaOutput *_csprng;
 
-	u32 _worker_id;
-
 	Mutex _request_lock;
 	DNSRequest *_request_head;
 	DNSRequest *_request_tail;

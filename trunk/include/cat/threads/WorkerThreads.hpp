@@ -48,6 +48,7 @@ class IWorkerTLSBuilder;
 class IWorkerCallbacks;
 class WorkerThread;
 class WorkerThreads;
+struct ReadBuffer;
 
 
 static const u32 MAX_WORKER_THREADS = 32;
@@ -90,12 +91,21 @@ struct WorkerBuffer : public BatchHead
 class CAT_EXPORT IWorkerCallbacks
 {
 	friend class WorkerThread;
+	friend class WorkerThreads;
 
+	u32 _worker_id;
 	RefObject *_parent;
 	IWorkerCallbacks *_worker_prev, *_worker_next;
 
 protected:
-	CAT_INLINE void InitializeWorkerCallbacks(RefObject *obj) { _parent = obj; }
+	CAT_INLINE IWorkerCallbacks(RefObject *parent)
+	{
+		_worker_id = INVALID_WORKER_ID;
+		_parent = parent;
+	}
+	CAT_INLINE virtual ~IWorkerCallbacks() {}
+
+	CAT_INLINE u32 GetWorkerID() { return _worker_id; }
 
 	virtual void OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers) {}
 	virtual void OnWorkerRecv(IWorkerTLS *tls, const BatchSet &buffers) {}
@@ -147,6 +157,8 @@ class CAT_EXPORT WorkerThreads
 	u32 _worker_count;
 	WorkerThread *_workers;
 
+	u32 _round_robin_worker_id;
+
 	IWorkerTLSBuilder *_tls_builder;
 
 public:
@@ -163,8 +175,20 @@ public:
 	CAT_INLINE u32 GetTotalPopulation() { return _population; }
 #endif // CAT_NO_ATOMIC_POPCOUNT
 
-	CAT_INLINE void DeliverBuffers(u32 worker_id, const BatchSet &buffers)
+	CAT_INLINE void DeliverBuffers(IWorkerCallbacks *worker, const BatchSet &buffers)
 	{
+		_workers[worker->GetWorkerID()].DeliverBuffers(buffers);
+	}
+
+	CAT_INLINE void DeliverBuffersRoundRobin(const BatchSet &buffers)
+	{
+		// Yes to really insure fairness this should be synchronized,
+		// but I am trying hard to eliminate locks everywhere and this
+		// should still round-robin spin pretty well without locks.
+		u32 worker_id = _round_robin_worker_id + 1;
+		if (worker_id >= _worker_count) worker_id = 0;
+		_round_robin_worker_id = worker_id;
+
 		_workers[worker_id].DeliverBuffers(buffers);
 	}
 

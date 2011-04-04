@@ -97,7 +97,7 @@ void Server::OnRecvRouting(const BatchSet &buffers)
 				// If connection matched address,
 				if (conn)
 				{
-					worker_id = conn->GetServerWorkerID();
+					worker_id = conn->GetWorkerID();
 					buffer->callback = conn;
 				}
 				else
@@ -315,7 +315,7 @@ void Server::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 
 				// Assign to a worker
 				SphynxLayer *layer = reinterpret_cast<SphynxLayer*>( GetIOLayer() );
-				conn->_server_worker_id = layer->GetWorkerThreads()->AssignWorker(conn);
+				layer->GetWorkerThreads()->AssignWorker(conn);
 
 				if (!Write(pkt, S2C_ANSWER_LEN, buffer->GetAddr()))
 				{
@@ -355,9 +355,9 @@ void Server::OnWorkerTick(IWorkerTLS *tls, u32 now)
 }
 
 Server::Server()
+	: IWorkerCallbacks(this)
 {
 	_connect_worker = 0;
-	InitializeWorkerCallbacks(this);
 }
 
 Server::~Server()

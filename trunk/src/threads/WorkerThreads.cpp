@@ -36,6 +36,7 @@ WorkerThread::WorkerThread()
 {
 	_kill_flag = false;
 	_workqueue.Clear();
+	_readqueue.Clear();
 
 	_new_head = 0;
 
@@ -59,15 +60,11 @@ void WorkerThread::Associate(IWorkerCallbacks *callbacks)
 	callbacks->_parent->AddRef();
 }
 
-void WorkerThread::DeliverBuffers(const BatchSet &buffers)
+void WorkerThread::DeliverReadBuffers(const BatchSet &buffers)
 {
-	_workqueue_lock.Enter();
-
-	if (_workqueue.tail) _workqueue.tail->batch_next = buffers.head;
-	else _workqueue.head = buffers.head;
-	_workqueue.tail = buffers.tail;
-
-	_workqueue_lock.Leave();
+	_readqueue_lock.Enter();
+	_readqueue.PushBack(buffers);
+	_readqueue_lock.Leave();
 
 	_event_flag.Set();
 }
@@ -114,39 +111,82 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 		// Grab queue if event is flagged
 		if (check_events)
 		{
-			_workqueue_lock.Enter();
-			BatchSet queue = _workqueue;
-			_workqueue.Clear();
-			_workqueue_lock.Leave();
-
-			// If there is anything in the queue,
-			if (queue.head)
+			if (_workqueue.head)
 			{
-				BatchSet buffers;
-				buffers.head = queue.head;
+				_workqueue_lock.Enter();
+				BatchSet queue = _workqueue;
+				_workqueue.Clear();
+				_workqueue_lock.Leave();
 
-				WorkerBuffer *last = reinterpret_cast<WorkerBuffer*>( queue.head );
-
-				while (last)
+				// If there is anything in the queue,
+				if (queue.head)
 				{
-					WorkerBuffer *next = reinterpret_cast<WorkerBuffer*>( last->batch_next );
+					BatchSet buffers;
+					buffers.head = queue.head;
 
-					if (!next || next->callback != last->callback)
+					WorkerBuffer *last = reinterpret_cast<WorkerBuffer*>( queue.head );
+
+					for (;;)
 					{
-						// Close out the previous buffer group
-						buffers.tail = last;
-						last->batch_next = 0;
+						WorkerBuffer *next = reinterpret_cast<WorkerBuffer*>( last->batch_next );
 
-						last->callback->OnWorkerRecv(tls, buffers);
+						if (!next || next->callback != last->callback)
+						{
+							// Close out the previous buffer group
+							buffers.tail = last;
+							last->batch_next = 0;
 
-						// Start a new one
-						buffers.head = next;
+							last->callback->OnWorkerRecv(tls, buffers);
+
+							if (!next) break;
+
+							// Start a new one
+							buffers.head = next;
+						}
+
+						last = next;
 					}
+				} // end if queue.head
+			} // end if recvqueue
 
-					last = next;
-				}
-			}
-		}
+			if (_readqueue.head)
+			{
+				_readqueue_lock.Enter();
+				BatchSet queue = _readqueue;
+				_readqueue.Clear();
+				_readqueue_lock.Leave();
+
+				// If there is anything in the queue,
+				if (queue.head)
+				{
+					BatchSet buffers;
+					buffers.head = queue.head;
+
+					WorkerBuffer *last = reinterpret_cast<WorkerBuffer*>( queue.head );
+
+					for (;;)
+					{
+						WorkerBuffer *next = reinterpret_cast<WorkerBuffer*>( last->batch_next );
+
+						if (!next || next->callback != last->callback)
+						{
+							// Close out the previous buffer group
+							buffers.tail = last;
+							last->batch_next = 0;
+
+							last->callback->OnWorkerRead(tls, buffers);
+
+							if (!next) break;
+
+							// Start a new one
+							buffers.head = next;
+						}
+
+						last = next;
+					}
+				} // end if queue.head
+			} // end if readqueue
+		} // end if check_events
 
 		// If tick interval is up,
 		if ((s32)(now - next_tick) >= 0)
@@ -230,6 +270,7 @@ WorkerThreads::WorkerThreads()
 	_worker_count = 0;
 	_workers = 0;
 	_tls_builder = 0;
+	_round_robin_worker_id = 0;
 }
 
 WorkerThreads::~WorkerThreads()

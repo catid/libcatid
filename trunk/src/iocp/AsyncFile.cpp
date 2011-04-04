@@ -53,7 +53,7 @@ AsyncFile::~AsyncFile()
     Close();
 }
 
-bool AsyncFile::Open(IOThreads *threads, const char *file_path, u32 async_file_modes)
+bool AsyncFile::Open(IOLayer *layer, const char *file_path, u32 async_file_modes)
 {
 	Close();
 
@@ -75,6 +75,8 @@ bool AsyncFile::Open(IOThreads *threads, const char *file_path, u32 async_file_m
 	_file = CreateFile(file_path, modes, 0, 0, creation, flags, 0);
 	if (!_file) return false;
 
+	_iolayer = layer;
+	IOThreads *threads = layer->GetIOThreads();
 	if (!threads->Associate(this))
 	{
 		Close();

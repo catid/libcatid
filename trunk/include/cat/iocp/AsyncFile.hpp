@@ -34,6 +34,8 @@
 
 namespace cat {
 
+struct ReadBuffer;
+
 
 enum AsyncFileModes
 {
@@ -50,20 +52,19 @@ class CAT_EXPORT AsyncFile : public WatchedRefObject
 	IOLayer *_iolayer;
 	HANDLE _file;
 
-	void OnReadCompletion(const BatchSet &buffers, u32 count);
-
 public:
     AsyncFile();
     virtual ~AsyncFile();
 
 	CAT_INLINE bool Valid() { return _file != INVALID_HANDLE_VALUE; }
 	CAT_INLINE HANDLE GetHandle() { return _file; }
+	CAT_INLINE IOLayer *GetIOLayer() { return _iolayer; }
 
 	/*
 		In read mode, Open() will fail if the file does not exist.
 		In write mode, Open() will create the file if it does not exist.
 	*/
-	bool Open(IOThreads *threads, const char *file_path, u32 async_file_modes);
+	bool Open(IOLayer *layer, const char *file_path, u32 async_file_modes);
 	void Close();
 
 	bool SetSize(u64 bytes);
@@ -73,8 +74,6 @@ public:
 	bool Write(WriteBuffer *buffer, u64 offset);
 
 protected:
-	CAT_INLINE IOLayer *GetIOLayer() { return _iolayer; }
-
 	virtual void OnShutdownRequest();
 	virtual bool OnZeroReferences();
 };

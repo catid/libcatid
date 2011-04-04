@@ -35,16 +35,9 @@
 #include <cat/io/Settings.hpp>
 using namespace cat;
 
-CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY entries[], u32 count, u32 event_msec)
+CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY entries[], u32 count, u32 event_msec, BatchSet &sendq, BatchSet &recvq, UDPEndpoint *&prev_recv_endpoint, u32 &recv_count)
 {
 	bool exit_flag = false;
-
-	BatchSet sendq, recvq;
-	sendq.Clear();
-	recvq.Clear();
-
-	UDPEndpoint *prev_recv_endpoint = 0;
-	u32 recv_count = 0;
 
 	// For each entry,
 	for (u32 ii = 0; ii < count; ++ii)
@@ -133,6 +126,16 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 			{
 				AsyncFile *async_file = reinterpret_cast<AsyncFile*>( entries[ii].lpCompletionKey );
 				ReadBuffer *buffer = reinterpret_cast<ReadBuffer*>( (u8*)ov_iocp - offsetof(ReadBuffer, iointernal.ov) );
+
+				// Write event completion results to buffer
+				buffer->data_bytes = bytes;
+
+				IOLayer *layer = async_file->GetIOLayer();
+				WorkerThreads *workers = layer->GetWorkerThreads();
+
+				workers->DeliverReadBuffers();
+
+				async_file->ReleaseRef();
 			}
 			break;
 		}
@@ -144,6 +147,10 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 		// Finalize the recvq and post it
 		recvq.tail->batch_next = 0;
 		prev_recv_endpoint->OnRecvCompletion(recvq, recv_count);
+
+		recvq.Clear();
+		prev_recv_endpoint = 0;
+		recv_count = 0;
 	}
 
 	// If sendq is not empty,
@@ -151,6 +158,8 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 	{
 		sendq.tail->batch_next = 0;
 		StdAllocator::ii->ReleaseBatch(sendq);
+
+		sendq.Clear();
 	}
 
 	return exit_flag;
@@ -165,12 +174,19 @@ void IOThread::UseVistaAPI(IOThreads *master)
 	OVERLAPPED_ENTRY entries[MAX_IO_GATHER];
 	unsigned long ulEntriesRemoved;
 
+	BatchSet sendq, recvq;
+	sendq.Clear();
+	recvq.Clear();
+
+	UDPEndpoint *prev_recv_endpoint = 0;
+	u32 recv_count = 0;
+
 	while (pGetQueuedCompletionStatusEx(port, entries, MAX_IO_GATHER, &ulEntriesRemoved, INFINITE, FALSE))
 	{
 		u32 event_time = Clock::msec();
 
 		// Quit if we received the quit signal
-		if (HandleCompletion(master, entries, ulEntriesRemoved, event_time))
+		if (HandleCompletion(master, entries, ulEntriesRemoved, event_time, sendq, recvq, prev_recv_endpoint, recv_count))
 			break;
 	}
 }
@@ -186,6 +202,13 @@ void IOThread::UsePreVistaAPI(IOThreads *master)
 	static const u32 MAX_IO_GATHER = 4;
 	OVERLAPPED_ENTRY entries[MAX_IO_GATHER];
 	u32 count = 0;
+
+	BatchSet sendq, recvq;
+	sendq.Clear();
+	recvq.Clear();
+
+	UDPEndpoint *prev_recv_endpoint = 0;
+	u32 recv_count = 0;
 
 	for (;;)
 	{
@@ -205,7 +228,7 @@ void IOThread::UsePreVistaAPI(IOThreads *master)
 		} while (bResult || ov);
 
 		// Quit if we received the quit signal
-		if (HandleCompletion(master, entries, count, event_time))
+		if (HandleCompletion(master, entries, count, event_time, sendq, recvq, prev_recv_endpoint, recv_count))
 			break;
 
 		count = 0;
