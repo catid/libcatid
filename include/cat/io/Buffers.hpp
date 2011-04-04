@@ -58,9 +58,6 @@ struct RecvBuffer : BatchHead
 		{
 			IWorkerCallbacks *callback;
 			UNetAddr addr;
-
-			// TODO: Sphynx specific
-			u32 send_time;
 		};
 	};
 

@@ -36,7 +36,6 @@ WorkerThread::WorkerThread()
 {
 	_kill_flag = false;
 	_workqueue.Clear();
-	_readqueue.Clear();
 
 	_new_head = 0;
 

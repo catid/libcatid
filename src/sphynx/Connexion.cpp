@@ -73,7 +73,6 @@ void Connexion::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 			_auth_enc.Decrypt(data, data_bytes))
 		{
 			data_bytes -= SPHYNX_OVERHEAD;
-			buffer->send_time = decodeClientTimestamp(buffer->event_msec, getLE(*(u16*)(data + data_bytes)));
 			buffer->data_bytes = data_bytes;
 			delivery.PushBack(buffer);
 		}
@@ -163,20 +162,14 @@ bool Connexion::WriteDatagrams(const BatchSet &buffers, u32 count)
 {
 	u64 iv = _auth_enc.GrabIVRange(count);
 
-	// Generate timestamp
-	u32 now = getLocalTime();
-	u16 timestamp = getLE(encodeServerTimestamp(now));
-
 	/*
 		The format of each buffer:
 
-		[TRANSPORT(X)] [TIMESTAMP(2)] [ENCRYPTION(11)]
+		[TRANSPORT(X)] [ENCRYPTION(11)]
 
-		At this point, the timestamp has not been written.
-		The encryption overhead is also not filled in yet.
-
+		The encryption overhead is not filled in yet.
 		Each buffer's data_bytes is the transport layer data length.
-		We need to add the 13 bytes of overhead to this before writing it.
+		We need to add the 11 bytes of overhead to this before writing it.
 	*/
 
 	// For each datagram to send,
@@ -186,9 +179,6 @@ bool Connexion::WriteDatagrams(const BatchSet &buffers, u32 count)
 		SendBuffer *buffer = reinterpret_cast<SendBuffer*>( node );
 		u8 *msg_data = GetTrailingBytes(buffer);
 		u32 msg_bytes = buffer->GetBytes();
-
-		// Write timestamp right before the encryption overhead
-		*(u16*)(msg_data + msg_bytes) = timestamp;
 
 		msg_bytes += SPHYNX_OVERHEAD;
 
@@ -201,7 +191,7 @@ bool Connexion::WriteDatagrams(const BatchSet &buffers, u32 count)
 	return _parent->Write(buffers, count, _client_addr);
 }
 
-void Connexion::OnInternal(SphynxTLS *tls, u32 send_time, u32 recv_time, BufferStream data, u32 bytes)
+void Connexion::OnInternal(SphynxTLS *tls, u32 recv_time, BufferStream data, u32 bytes)
 {
 	switch (data[0])
 	{

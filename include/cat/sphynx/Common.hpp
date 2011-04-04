@@ -72,6 +72,7 @@ static const int PUBLIC_KEY_BYTES = 64;
 static const int PRIVATE_KEY_BYTES = 32;
 static const int CHALLENGE_BYTES = PUBLIC_KEY_BYTES;
 static const int ANSWER_BYTES = PUBLIC_KEY_BYTES*2;
+static const int SPHYNX_OVERHEAD = AuthenticatedEncryption::OVERHEAD_BYTES;
 
 // Handshake types
 enum HandshakeType
@@ -173,8 +174,6 @@ static const u32 MAXIMUM_MTU = 1500; // Highspeed
 static const u32 MAX_MESSAGE_SIZE = 65535;	// Past this size the messages must go through the WriteHuge() interface
 static const int TIMEOUT_DISCONNECT = 15000; // milliseconds; NOTE: If this changes, the timestamp compression will stop working
 static const u32 NUM_STREAMS = 4; // Number of reliable streams
-static const u32 TRANSPORT_OVERHEAD = 2; // Number of bytes added to each packet for the transport layer
-static const u32 SPHYNX_OVERHEAD = AuthenticatedEncryption::OVERHEAD_BYTES + TRANSPORT_OVERHEAD;
 
 // (multiplier-1) divisible by all prime factors of table size
 // (multiplier-1) is a multiple of 4 if table size is a multiple of 4
@@ -216,7 +215,6 @@ struct RecvFrag
 	u8 *buffer; // Buffer for accumulating fragment
 	u16 length; // Number of bytes in fragment buffer
 	u16 offset; // Current write offset in buffer
-	u32 send_time; // Timestamp on first fragment piece
 };
 
 // Receive state: Receive queue
@@ -225,7 +223,6 @@ struct RecvQueue
 	RecvQueue *next;	// Next message in list
 	RecvQueue *eos;		// End of current sequence (forward)
 	u32 id;				// Acknowledgment id
-	u32 send_time;		// Timestamp attached to packet
 	u16 bytes;			// Data Bytes
 	u8 sop;				// Super Opcode
 
@@ -358,7 +355,6 @@ struct IncomingMessage
 	BufferStream data;
 	u32 bytes;
 	u32 stream;
-	u32 send_time;
 	u8 huge_fragment; // true = part of a huge transfer, last fragment will have bytes = 0
 };
 

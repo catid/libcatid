@@ -78,7 +78,6 @@ void GameConnexion::OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count
 	{
 		BufferStream msg = msgs[ii].data;
 		u32 bytes = msgs[ii].bytes;
-		u32 send_time = msgs[ii].send_time;
 
 		if (msgs[ii].huge_fragment)
 		{
