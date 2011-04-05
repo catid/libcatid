@@ -49,7 +49,6 @@ class IWorkerTLSBuilder;
 class IWorkerTimer;
 class WorkerThread;
 class WorkerThreads;
-struct ReadBuffer;
 
 
 static const u32 MAX_WORKER_THREADS = 32;
@@ -112,13 +111,13 @@ protected:
 
 enum WorkQueuePriorities
 {
-	WQPRIO_HIGH = 0,
-	WQPRIO_LOW = 1,
+	WQPRIO_HI = 0,
+	WQPRIO_LO = 1,
 	WQPRIO_COUNT = 2
 };
 
 // Queue of buffers waiting to be processed
-struct WorkQueue
+struct WorkerThreadQueue
 {
 	Mutex lock;
 	BatchSet queued;
@@ -137,7 +136,7 @@ class CAT_EXPORT WorkerThread : public Thread
 	Mutex _new_workers_lock;
 	IWorkerTimer *_new_head;
 
-	WorkQueue _workqueues[WQPRIO_COUNT];
+	WorkerThreadQueue _workqueues[WQPRIO_COUNT];
 
 public:
 	WorkerThread();
@@ -147,7 +146,7 @@ public:
 	CAT_INLINE void FlagEvent() { _event_flag.Set(); }
 	CAT_INLINE void SetKillFlag() { _kill_flag = true; }
 
-	void DeliverBuffers(const BatchSet &buffers);
+	void DeliverBuffers(u32 priority, const BatchSet &buffers);
 	void Associate(IWorkerTimer *callbacks);
 };
 

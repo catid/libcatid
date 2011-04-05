@@ -35,11 +35,15 @@ using namespace cat;
 WorkerThread::WorkerThread()
 {
 	_kill_flag = false;
-	_workqueue.Clear();
 
 	_new_head = 0;
 
 	_session_count = 0;
+
+	for (u32 ii = 0; ii < WQPRIO_COUNT; ++ii)
+	{
+		_workqueues[ii].queued.Clear();
+	}
 }
 
 WorkerThread::~WorkerThread()
@@ -59,11 +63,11 @@ void WorkerThread::Associate(IWorkerTimer *callbacks)
 	callbacks->_parent->AddRef();
 }
 
-void WorkerThread::DeliverReadBuffers(const BatchSet &buffers)
+void WorkerThread::DeliverBuffers(u32 priority, const BatchSet &buffers)
 {
-	_readqueue_lock.Enter();
-	_readqueue.PushBack(buffers);
-	_readqueue_lock.Leave();
+	_workqueues[priority].lock.Enter();
+	_workqueues[priority].queued.PushBack(buffers);
+	_workqueues[priority].lock.Leave();
 
 	_event_flag.Set();
 }
@@ -90,11 +94,18 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 
 		// Check if an event is waiting or the timer interval is up
 		bool check_events = false;
-		if (_workqueue.head != 0)
+
+		for (u32 ii = 0; ii < WQPRIO_COUNT; ++ii)
 		{
-			check_events = true;
+			if (_workqueues[ii].queued.head)
+			{
+				check_events = true;
+				break;
+			}
 		}
-		else
+
+		// If no events occurred,
+		if (!check_events)
 		{
 			u32 wait_time = next_tick - now;
 
@@ -110,81 +121,47 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 		// Grab queue if event is flagged
 		if (check_events)
 		{
-			if (_workqueue.head)
+			for (u32 ii = 0; ii < WQPRIO_COUNT; ++ii)
 			{
-				_workqueue_lock.Enter();
-				BatchSet queue = _workqueue;
-				_workqueue.Clear();
-				_workqueue_lock.Leave();
-
-				// If there is anything in the queue,
-				if (queue.head)
+				if (_workqueues[ii].queued.head)
 				{
-					BatchSet buffers;
-					buffers.head = queue.head;
+					_workqueues[ii].lock.Enter();
+					BatchSet queue = _workqueues[ii].queued;
+					_workqueues[ii].queued.Clear();
+					_workqueues[ii].lock.Leave();
 
-					WorkerBuffer *last = reinterpret_cast<WorkerBuffer*>( queue.head );
-
-					for (;;)
+					// If there is anything in the queue,
+					if (queue.head)
 					{
-						WorkerBuffer *next = reinterpret_cast<WorkerBuffer*>( last->batch_next );
+						BatchSet buffers;
+						buffers.head = queue.head;
 
-						if (!next || next->callback != last->callback)
+						WorkerBuffer *last = reinterpret_cast<WorkerBuffer*>( queue.head );
+
+						for (;;)
 						{
-							// Close out the previous buffer group
-							buffers.tail = last;
-							last->batch_next = 0;
+							WorkerBuffer *next = reinterpret_cast<WorkerBuffer*>( last->batch_next );
 
-							last->callback->OnWorkerRecv(tls, buffers);
+							if (!next || next->callback != last->callback)
+							{
+								// Close out the previous buffer group
+								buffers.tail = last;
+								last->batch_next = 0;
 
-							if (!next) break;
+								if (!!last->callback)
+									last->callback(tls, buffers);
 
-							// Start a new one
-							buffers.head = next;
+								if (!next) break;
+
+								// Start a new one
+								buffers.head = next;
+							}
+
+							last = next;
 						}
-
-						last = next;
-					}
-				} // end if queue.head
-			} // end if recvqueue
-
-			if (_readqueue.head)
-			{
-				_readqueue_lock.Enter();
-				BatchSet queue = _readqueue;
-				_readqueue.Clear();
-				_readqueue_lock.Leave();
-
-				// If there is anything in the queue,
-				if (queue.head)
-				{
-					BatchSet buffers;
-					buffers.head = queue.head;
-
-					WorkerBuffer *last = reinterpret_cast<WorkerBuffer*>( queue.head );
-
-					for (;;)
-					{
-						WorkerBuffer *next = reinterpret_cast<WorkerBuffer*>( last->batch_next );
-
-						if (!next || next->callback != last->callback)
-						{
-							// Close out the previous buffer group
-							buffers.tail = last;
-							last->batch_next = 0;
-
-							last->callback->OnWorkerRead(tls, buffers);
-
-							if (!next) break;
-
-							// Start a new one
-							buffers.head = next;
-						}
-
-						last = next;
-					}
-				} // end if queue.head
-			} // end if readqueue
+					} // end if queue.head
+				} // end if queue seems full
+			} // next priority level
 		} // end if check_events
 
 		// If tick interval is up,

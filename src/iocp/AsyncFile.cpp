@@ -126,8 +126,9 @@ u64 AsyncFile::GetSize()
 	return size.QuadPart;
 }
 
-bool AsyncFile::Read(ReadBuffer *buffer, u64 offset)
+bool AsyncFile::Read(ReadBuffer *buffer, u64 offset, void *data, u32 bytes)
 {
+	buffer->data = data;
 	buffer->iointernal.ov.Internal = 0;
 	buffer->iointernal.ov.InternalHigh = 0;
 	buffer->iointernal.ov.Offset = (u32)offset;
@@ -137,7 +138,7 @@ bool AsyncFile::Read(ReadBuffer *buffer, u64 offset)
 
 	AddRef();
 
-	BOOL result = ReadFile(_file, GetTrailingBytes(buffer), buffer->GetBytes(), 0, &buffer->iointernal.ov);
+	BOOL result = ReadFile(_file, data, bytes, 0, &buffer->iointernal.ov);
 
 	if (!result && GetLastError() != ERROR_IO_PENDING)
 	{
@@ -149,7 +150,7 @@ bool AsyncFile::Read(ReadBuffer *buffer, u64 offset)
 	return true;
 }
 
-bool AsyncFile::Write(WriteBuffer *buffer, u64 offset)
+bool AsyncFile::Write(WriteBuffer *buffer, u64 offset, void *data, u32 bytes)
 {
 	buffer->iointernal.ov.Internal = 0;
 	buffer->iointernal.ov.InternalHigh = 0;
@@ -160,7 +161,7 @@ bool AsyncFile::Write(WriteBuffer *buffer, u64 offset)
 
 	AddRef();
 
-	BOOL result = WriteFile(_file, GetTrailingBytes(buffer), buffer->GetBytes(), 0, &buffer->iointernal.ov);
+	BOOL result = WriteFile(_file, data, bytes, 0, &buffer->iointernal.ov);
 
 	if (!result && GetLastError() != ERROR_IO_PENDING)
 	{

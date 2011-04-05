@@ -128,12 +128,12 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 				ReadBuffer *buffer = reinterpret_cast<ReadBuffer*>( (u8*)ov_iocp - offsetof(ReadBuffer, iointernal.ov) );
 
 				// Write event completion results to buffer
+				buffer->offset = ((u64)buffer->iointernal.ov.OffsetHigh << 32) | buffer->iointernal.ov.Offset;
 				buffer->data_bytes = bytes;
 
-				IOLayer *layer = async_file->GetIOLayer();
-				WorkerThreads *workers = layer->GetWorkerThreads();
-
-				workers->DeliverReadBuffers();
+				// Deliver the buffer to the worker threads
+				WorkerThreads *workers = async_file->GetIOLayer()->GetWorkerThreads();
+				workers->DeliverBuffersRoundRobin(WQPRIO_LO, buffer);
 
 				async_file->ReleaseRef();
 			}
