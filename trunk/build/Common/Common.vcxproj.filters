@@ -233,5 +233,8 @@
     <ClInclude Include="..\..\include\cat\types\List.hpp">
       <Filter>Header Files\types</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\include\cat\lang\Delegates.hpp">
+      <Filter>Header Files\lang</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

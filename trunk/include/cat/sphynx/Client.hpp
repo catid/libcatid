@@ -41,7 +41,7 @@ namespace sphynx {
 
 
 // Base class for a Sphynx client
-class CAT_EXPORT Client : public UDPEndpoint, public Transport, public IWorkerCallbacks, public IDNSResultCallback
+class CAT_EXPORT Client : public UDPEndpoint, public Transport, public IWorkerTimer, public IDNSResultCallback
 {
 	static const int HANDSHAKE_TICK_RATE = 100; // milliseconds
 	static const int INITIAL_HELLO_POST_INTERVAL = 200; // milliseconds

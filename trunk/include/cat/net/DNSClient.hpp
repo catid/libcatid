@@ -90,7 +90,7 @@ struct DNSRequest
 
 //// DNSClient
 
-class DNSClient : public UDPEndpoint, public IWorkerCallbacks
+class DNSClient : public UDPEndpoint, public IWorkerTimer
 {
 	NetAddr _server_addr;
 	bool _initialized;
