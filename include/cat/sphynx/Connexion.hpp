@@ -41,7 +41,7 @@ namespace sphynx {
 
 
 // Base class for a connexion with a remote Sphynx client
-class CAT_EXPORT Connexion : public Transport, public RefObject, public IWorkerCallbacks
+class CAT_EXPORT Connexion : public Transport, public RefObject, public IWorkerTimer
 {
 	friend class Server;
 	friend class ConnexionMap;

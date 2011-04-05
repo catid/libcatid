@@ -35,6 +35,7 @@
 #include <cat/threads/Mutex.hpp>
 #include <cat/threads/Atomic.hpp>
 #include <cat/mem/IAllocator.hpp>
+#include <cat/lang/Delegates.hpp>
 
 #if defined(CAT_NO_ATOMIC_ADD)
 #define CAT_NO_ATOMIC_POPCOUNT
@@ -45,7 +46,7 @@ namespace cat {
 
 class IWorkerTLS;
 class IWorkerTLSBuilder;
-class IWorkerCallbacks;
+class IWorkerTimer;
 class WorkerThread;
 class WorkerThreads;
 struct ReadBuffer;
@@ -81,72 +82,47 @@ public:
 };
 
 
+typedef Delegate2<void, IWorkerTLS *, const BatchSet &> WorkerDelegate;
+
 // A buffer specialized for handling by the worker threads
 struct WorkerBuffer : public BatchHead
 {
-	IWorkerCallbacks *callback;
+	WorkerDelegate callback;
 };
 
 
-class Delegate
-{
-	typedef void (*Member)(void *, IWorkerTLS *tl, const BatchSet &);
-
-	void *_object;
-	Member _member;
-
-	template <class T, void (T::*Method)(IWorkerTLS *, const BatchSet &)>
-	static CAT_INLINE Member GetMethod(void *object, IWorkerTLS *tls, const BatchSet &batch)
-	{
-		T *p = static_cast<T*>(object_ptr);
-		return (p->*Method)(tls, batch);
-	}
-
-public:
-	CAT_INLINE void operator()(IWorkerTLS *tls, const BatchSet &buffers) const
-	{
-		(*_member)(_object, tls, buffers);
-	}
-
-	CAT_INLINE operator bool () const
-	{
-		return _member != 0;
-	}
-
-	template <class T, void (T::*Method)(IWorkerTLS *, const BatchSet &)>
-	CAT_INLINE void Set(T *object)
-	{
-		_object = object;
-		_member = &GetMethod<T, Method>;
-	}
-};
-
-
-
-class CAT_EXPORT IWorkerCallbacks
+class CAT_EXPORT IWorkerTimer
 {
 	friend class WorkerThread;
 	friend class WorkerThreads;
 
-	u32 _worker_id;
 	RefObject *_parent;
-	IWorkerCallbacks *_worker_prev, *_worker_next;
+	IWorkerTimer *_worker_prev, *_worker_next;
 
 protected:
-	CAT_INLINE IWorkerCallbacks(RefObject *parent)
+	CAT_INLINE IWorkerTimer(RefObject *parent)
 	{
-		_worker_id = INVALID_WORKER_ID;
 		_parent = parent;
 	}
-	CAT_INLINE virtual ~IWorkerCallbacks() {}
+	CAT_INLINE virtual ~IWorkerTimer() {}
 
-	CAT_INLINE u32 GetWorkerID() { return _worker_id; }
-
-	virtual void OnWorkerRead(IWorkerTLS *tls, const BatchSet &buffers) {}
-	virtual void OnWorkerRecv(IWorkerTLS *tls, const BatchSet &buffers) {}
 	virtual void OnWorkerTick(IWorkerTLS *tls, u32 now) {}
 };
 
+
+enum WorkQueuePriorities
+{
+	WQPRIO_HIGH = 0,
+	WQPRIO_LOW = 1,
+	WQPRIO_COUNT = 2
+};
+
+// Queue of buffers waiting to be processed
+struct WorkQueue
+{
+	Mutex lock;
+	BatchSet queued;
+};
 
 class CAT_EXPORT WorkerThread : public Thread
 {
@@ -159,11 +135,9 @@ class CAT_EXPORT WorkerThread : public Thread
 
 	// Protected list of new workers to add to the running list
 	Mutex _new_workers_lock;
-	IWorkerCallbacks *_new_head;
+	IWorkerTimer *_new_head;
 
-	// Queue of buffers waiting to be processed
-	Mutex _workqueue_lock;
-	BatchSet _workqueue;
+	WorkQueue _workqueues[WQPRIO_COUNT];
 
 public:
 	WorkerThread();
@@ -174,7 +148,7 @@ public:
 	CAT_INLINE void SetKillFlag() { _kill_flag = true; }
 
 	void DeliverBuffers(const BatchSet &buffers);
-	void Associate(IWorkerCallbacks *callbacks);
+	void Associate(IWorkerTimer *callbacks);
 };
 
 
@@ -210,17 +184,12 @@ public:
 	CAT_INLINE u32 GetTotalPopulation() { return _population; }
 #endif // CAT_NO_ATOMIC_POPCOUNT
 
-	CAT_INLINE void DeliverBuffers(u32 worker_id, const BatchSet &buffers)
+	CAT_INLINE void DeliverBuffers(u32 priority, u32 worker_id, const BatchSet &buffers)
 	{
-		_workers[worker_id].DeliverBuffers(buffers);
+		_workers[worker_id].DeliverBuffers(priority, buffers);
 	}
 
-	CAT_INLINE void DeliverBuffersWorker(IWorkerCallbacks *worker, const BatchSet &buffers)
-	{
-		_workers[worker->GetWorkerID()].DeliverBuffers(buffers);
-	}
-
-	CAT_INLINE void DeliverBuffersRoundRobin(const BatchSet &buffers)
+	CAT_INLINE void DeliverBuffersRoundRobin(u32 priority, const BatchSet &buffers)
 	{
 		// Yes to really insure fairness this should be synchronized,
 		// but I am trying hard to eliminate locks everywhere and this
@@ -229,21 +198,20 @@ public:
 		if (worker_id >= _worker_count) worker_id = 0;
 		_round_robin_worker_id = worker_id;
 
-		_workers[worker_id].DeliverBuffers(buffers);
+		DeliverBuffers(priority, worker_id, buffers);
 	}
 
 	bool Startup(u32 worker_tick_interval, IWorkerTLSBuilder *tls_builder, u32 worker_count_override);
 
 	bool Shutdown();
 
-	CAT_INLINE u32 AssignWorker(IWorkerCallbacks *callbacks)
+	CAT_INLINE u32 AssignWorker(IWorkerTimer *callbacks)
 	{
 #if !defined(CAT_NO_ATOMIC_POPCOUNT)
 		Atomic::Add(&_population, 1);
 #endif // CAT_NO_ATOMIC_POPCOUNT
 
 		u32 worker_id = FindLeastPopulatedWorker();
-		callbacks->_worker_id = worker_id;
 
 		_workers[worker_id].Associate(callbacks);
 

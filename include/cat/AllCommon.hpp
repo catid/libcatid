@@ -58,6 +58,7 @@
 #include <cat/port/EndianNeutral.hpp>
 
 #include <cat/lang/Strings.hpp>
+#include <cat/lang/Delegates.hpp>
 
 #include <cat/io/Logging.hpp>
 #include <cat/io/MappedFile.hpp>

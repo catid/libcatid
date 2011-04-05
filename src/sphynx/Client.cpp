@@ -360,7 +360,7 @@ void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)
 }
 
 Client::Client()
-	: IWorkerCallbacks(this)
+	: IWorkerTimer(this)
 {
 	_connected = false;
 	_last_send_msec = 0;

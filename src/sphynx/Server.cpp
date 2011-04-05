@@ -355,7 +355,7 @@ void Server::OnWorkerTick(IWorkerTLS *tls, u32 now)
 }
 
 Server::Server()
-	: IWorkerCallbacks(this)
+	: IWorkerTimer(this)
 {
 	_connect_worker = 0;
 }

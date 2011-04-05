@@ -152,7 +152,7 @@ void Connexion::OnWorkerTick(IWorkerTLS *itls, u32 now)
 }
 
 Connexion::Connexion()
-	: IWorkerCallbacks(this)
+	: IWorkerTimer(this)
 {
 	_key = ConnexionMap::INVALID_KEY;
 	_seen_encrypted = false;

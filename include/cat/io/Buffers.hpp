@@ -56,7 +56,7 @@ struct RecvBuffer : BatchHead
 		// Worker layer specific overhead
 		struct
 		{
-			IWorkerCallbacks *callback;
+			IWorkerTimer *callback;
 			UNetAddr addr;
 		};
 	};
@@ -88,7 +88,7 @@ struct ReadBuffer : public BatchHead, public ResizableBuffer<ReadBuffer>
 		// Worker layer specific overhead
 		struct
 		{
-			IWorkerCallbacks *callback;
+			IWorkerTimer *callback;
 
 			u64 offset;
 		};
