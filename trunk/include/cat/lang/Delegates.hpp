@@ -34,7 +34,7 @@
 /*
 	Usage:
 
-	Declare a delegate with a signature of void (int), also known as a
+	Declare a delegate with a void (int) signature, also known as a
 	function that returns void and has one parameter that is an int:
 		Delegate1<void, int> d;
 
@@ -55,6 +55,11 @@
 
 	Invoke the function via the delegate:
 		d(1000);
+
+	This implementation is nicer than FastDelegates in my opinion
+	because it is simple and easy to read.  It is a little slower
+	for virtual functions, but the size of the delegate is small,
+	and it will only get better as compilers improve.
 */
 
 #ifndef CAT_DELEGATES_HPP
@@ -102,6 +107,16 @@ public:
 	CAT_INLINE bool operator!() const
 	{
 		return _stub == 0;
+	}
+
+	CAT_INLINE bool operator==(const Delegate0<ret_type> &rhs) const
+	{
+		return _stub == rhs._stub && _object == rhs._object;
+	}
+
+	CAT_INLINE bool operator!=(const Delegate0<ret_type> &rhs) const
+	{
+		return !operator==(rhs);
 	}
 
 	template <ret_type (*F)()>
@@ -166,6 +181,16 @@ public:
 		return _stub == 0;
 	}
 
+	CAT_INLINE bool operator==(const Delegate1<ret_type, arg1_type> &rhs) const
+	{
+		return _stub == rhs._stub && _object == rhs._object;
+	}
+
+	CAT_INLINE bool operator!=(const Delegate1<ret_type, arg1_type> &rhs) const
+	{
+		return !operator==(rhs);
+	}
+
 	template <ret_type (*F)(arg1_type)>
 	CAT_INLINE void SetFree()
 	{
@@ -218,7 +243,7 @@ class Delegate2
 	}
 
 public:
-	CAT_INLINE ret_type operator()(arg1_type a1, arg1_type a2) const
+	CAT_INLINE ret_type operator()(arg1_type a1, arg2_type a2) const
 	{
 		return (*_stub)(_object, a1, a2);
 	}
@@ -226,6 +251,16 @@ public:
 	CAT_INLINE bool operator!() const
 	{
 		return _stub == 0;
+	}
+
+	CAT_INLINE bool operator==(const Delegate2<ret_type, arg1_type, arg2_type> &rhs) const
+	{
+		return _stub == rhs._stub && _object == rhs._object;
+	}
+
+	CAT_INLINE bool operator!=(const Delegate2<ret_type, arg1_type, arg2_type> &rhs) const
+	{
+		return !operator==(rhs);
 	}
 
 	template <ret_type (*F)(arg1_type, arg2_type)>
@@ -280,7 +315,7 @@ class Delegate3
 	}
 
 public:
-	CAT_INLINE ret_type operator()(arg1_type a1, arg1_type a2, arg3_type a3) const
+	CAT_INLINE ret_type operator()(arg1_type a1, arg2_type a2, arg3_type a3) const
 	{
 		return (*_stub)(_object, a1, a2, a3);
 	}
@@ -288,6 +323,16 @@ public:
 	CAT_INLINE bool operator!() const
 	{
 		return _stub == 0;
+	}
+
+	CAT_INLINE bool operator==(const Delegate3<ret_type, arg1_type, arg2_type, arg3_type> &rhs) const
+	{
+		return _stub == rhs._stub && _object == rhs._object;
+	}
+
+	CAT_INLINE bool operator!=(const Delegate3<ret_type, arg1_type, arg2_type, arg3_type> &rhs) const
+	{
+		return !operator==(rhs);
 	}
 
 	template <ret_type (*F)(arg1_type, arg2_type, arg3_type)>
@@ -342,7 +387,7 @@ class Delegate4
 	}
 
 public:
-	CAT_INLINE ret_type operator()(arg1_type a1, arg1_type a2, arg3_type a3, arg4_type a4) const
+	CAT_INLINE ret_type operator()(arg1_type a1, arg2_type a2, arg3_type a3, arg4_type a4) const
 	{
 		return (*_stub)(_object, a1, a2, a3, a4);
 	}
@@ -350,6 +395,16 @@ public:
 	CAT_INLINE bool operator!() const
 	{
 		return _stub == 0;
+	}
+
+	CAT_INLINE bool operator==(const Delegate4<ret_type, arg1_type, arg2_type, arg3_type, arg4_type> &rhs) const
+	{
+		return _stub == rhs._stub && _object == rhs._object;
+	}
+
+	CAT_INLINE bool operator!=(const Delegate4<ret_type, arg1_type, arg2_type, arg3_type, arg4_type> &rhs) const
+	{
+		return !operator==(rhs);
 	}
 
 	template <ret_type (*F)(arg1_type, arg2_type, arg3_type, arg4_type)>
@@ -373,6 +428,9 @@ public:
 		_stub = &ConstMemberStub<T, F>;
 	}
 };
+
+// Add more here if needed, but keep in mind that a short, simple interface
+// is rewarded by making the delegates faster...
 
 
 } // namespace cat

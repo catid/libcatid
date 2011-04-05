@@ -56,7 +56,7 @@ struct RecvBuffer : BatchHead
 		// Worker layer specific overhead
 		struct
 		{
-			IWorkerTimer *callback;
+			WorkerDelegate callback;
 			UNetAddr addr;
 		};
 	};
@@ -78,8 +78,12 @@ struct WriteBuffer : public BatchHead, public ResizableBuffer<WriteBuffer>
 
 
 // A buffer specialized for reading from a file
-struct ReadBuffer : public BatchHead, public ResizableBuffer<ReadBuffer>
+struct ReadBuffer : public BatchHead
 {
+	// Shared overhead
+	WorkerDelegate callback;
+	void *data;
+
 	union
 	{
 		// IO layer specific overhead pimpl
@@ -88,15 +92,10 @@ struct ReadBuffer : public BatchHead, public ResizableBuffer<ReadBuffer>
 		// Worker layer specific overhead
 		struct
 		{
-			IWorkerTimer *callback;
-
 			u64 offset;
+			u32 data_bytes;
 		};
 	};
-
-	// Shared overhead
-	u32 data_bytes;
-	void *context;
 };
 
 

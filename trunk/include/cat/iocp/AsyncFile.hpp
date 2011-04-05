@@ -70,8 +70,9 @@ public:
 	bool SetSize(u64 bytes);
 	u64 GetSize();
 
-	bool Read(ReadBuffer *buffer, u64 offset);
-	bool Write(WriteBuffer *buffer, u64 offset);
+	// Note that the data buffers must be pinned in memory until the read/write completes
+	bool Read(ReadBuffer *buffer, u64 offset, void *data, u32 bytes);
+	bool Write(WriteBuffer *buffer, u64 offset, void *data, u32 bytes);
 
 protected:
 	virtual void OnShutdownRequest();
