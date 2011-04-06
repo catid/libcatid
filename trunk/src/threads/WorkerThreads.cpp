@@ -72,6 +72,92 @@ void WorkerThread::DeliverBuffers(u32 priority, const BatchSet &buffers)
 	_event_flag.Set();
 }
 
+static CAT_INLINE void ExecuteWorkQueue(IWorkerTLS *tls, const BatchSet &queue)
+{
+	// If there is nothing in the queue,
+	if (!queue.head) return;
+
+	BatchSet buffers;
+	buffers.head = queue.head;
+
+	WorkerBuffer *last = reinterpret_cast<WorkerBuffer*>( queue.head );
+
+#if defined(CAT_WORKER_THREADS_REORDER_EVENTS)
+
+	WorkerDelegate lastlast;
+	lastlast.Clear();
+
+	for (;;)
+	{
+		WorkerBuffer *next = reinterpret_cast<WorkerBuffer*>( last->batch_next );
+
+		if (!next) break;
+
+		if (last->callback != next->callback)
+		{
+			if (lastlast == next->callback)
+			{
+				// run last now
+				last->callback(tls, last);
+			}
+			else
+			{
+				// run lastlast now
+				if (!lastlast.IsClear())
+					lastlast(tls, buffers);
+
+				// start new batch with last
+			}
+		}
+		else
+		{
+			// add last to batch
+		}
+
+		if (next->callback != last->callback)
+		{
+			// Close out the previous buffer group
+			buffers.tail = last;
+			last->batch_next = 0;
+
+			last->callback(tls, buffers);
+
+			if (!next) break;
+
+			// Start a new one
+			buffers.head = next;
+		}
+
+		lastlast = last;
+		last = next;
+	}
+
+#else // CAT_WORKER_THREADS_REORDER_EVENTS
+
+	for (;;)
+	{
+		WorkerBuffer *next = reinterpret_cast<WorkerBuffer*>( last->batch_next );
+
+		if (!next || next->callback != last->callback)
+		{
+			// Close out the previous buffer group
+			buffers.tail = last;
+			last->batch_next = 0;
+
+			last->callback(tls, buffers);
+
+			if (!next) break;
+
+			// Start a new one
+			buffers.head = next;
+		}
+
+		last = next;
+	}
+
+#endif // CAT_WORKER_THREADS_REORDER_EVENTS
+}
+
 bool WorkerThread::ThreadFunction(void *vmaster)
 {
 	WorkerThreads *master = (WorkerThreads*)vmaster;
@@ -130,36 +216,7 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 					_workqueues[ii].queued.Clear();
 					_workqueues[ii].lock.Leave();
 
-					// If there is anything in the queue,
-					if (queue.head)
-					{
-						BatchSet buffers;
-						buffers.head = queue.head;
-
-						WorkerBuffer *last = reinterpret_cast<WorkerBuffer*>( queue.head );
-
-						for (;;)
-						{
-							WorkerBuffer *next = reinterpret_cast<WorkerBuffer*>( last->batch_next );
-
-							if (!next || next->callback != last->callback)
-							{
-								// Close out the previous buffer group
-								buffers.tail = last;
-								last->batch_next = 0;
-
-								if (!!last->callback)
-									last->callback(tls, buffers);
-
-								if (!next) break;
-
-								// Start a new one
-								buffers.head = next;
-							}
-
-							last = next;
-						}
-					} // end if queue.head
+					ExecuteWorkQueue(tls, queue);
 				} // end if queue seems full
 			} // next priority level
 		} // end if check_events
@@ -290,6 +347,8 @@ bool WorkerThreads::Startup(u32 worker_tick_interval, IWorkerTLSBuilder *tls_bui
 			FATAL("WorkerThreads") << "StartThread error " << GetLastError();
 			return false;
 		}
+
+		_workers[ii].SetIdealCore(ii);
 	}
 
 	return true;

@@ -61,6 +61,7 @@ protected:
 
 public:
 	bool StartThread(void *param = 0);
+	void SetIdealCore(u32 index);
 	bool WaitForThread(int milliseconds = -1); // < 0 = infinite wait
 	void AbortThread();
 
