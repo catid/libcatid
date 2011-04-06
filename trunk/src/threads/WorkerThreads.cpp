@@ -77,15 +77,26 @@ static CAT_INLINE void ExecuteWorkQueue(IWorkerTLS *tls, const BatchSet &queue)
 	// If there is nothing in the queue,
 	if (!queue.head) return;
 
-	BatchSet buffers;
-	buffers.head = queue.head;
-
-	WorkerBuffer *last = reinterpret_cast<WorkerBuffer*>( queue.head );
-
 #if defined(CAT_WORKER_THREADS_REORDER_EVENTS)
 
-	WorkerDelegate lastlast;
-	lastlast.Clear();
+	/*
+		This version performs a median filter on the events in the queue
+		so that events that specify the same callback tend to be batched
+		together even when other callbacks also speckle the input queue.
+		This improves overall throughput but causes re-ordering.
+
+		For a network workload the speckles would be intermittent messages
+		such as time synchronization pings or other events that should get
+		a low-latency treatment.  And the large batch that is de-speckled
+		would be file transfer or some other flood of bulk packets that are
+		not so important to handle with low latency.  So the median filter
+		is essentially helping prioritize packets properly.
+	*/
+
+	BatchSet buffers;
+	buffers.Clear();
+
+	WorkerBuffer *last = reinterpret_cast<WorkerBuffer*>( queue.head );
 
 	for (;;)
 	{
@@ -95,44 +106,48 @@ static CAT_INLINE void ExecuteWorkQueue(IWorkerTLS *tls, const BatchSet &queue)
 
 		if (last->callback != next->callback)
 		{
-			if (lastlast == next->callback)
-			{
-				// run last now
-				last->callback(tls, last);
-			}
-			else
-			{
-				// run lastlast now
-				if (!lastlast.IsClear())
-					lastlast(tls, buffers);
+			WorkerBuffer *buffer_head = reinterpret_cast<WorkerBuffer*>( buffers.head );
 
-				// start new batch with last
+			if (buffer_head)
+			{
+				if (buffer_head->callback == next->callback)
+				{
+					// run last now
+					last->callback(tls, last);
+				}
+				else
+				{
+					// run lastlast now
+					buffer_head->callback(tls, buffers);
+
+					// start new batch with last
+					buffers = last;
+				}
 			}
 		}
 		else
 		{
 			// add last to batch
+			buffers.PushBack(last);
 		}
 
-		if (next->callback != last->callback)
-		{
-			// Close out the previous buffer group
-			buffers.tail = last;
-			last->batch_next = 0;
-
-			last->callback(tls, buffers);
-
-			if (!next) break;
-
-			// Start a new one
-			buffers.head = next;
-		}
-
-		lastlast = last;
 		last = next;
 	}
 
+	// Run final batch
+	if (last)
+	{
+		buffers.PushBack(last);
+
+		last->callback(tls, buffers);
+	}
+
 #else // CAT_WORKER_THREADS_REORDER_EVENTS
+
+	BatchSet buffers;
+	buffers.head = queue.head;
+
+	WorkerBuffer *last = reinterpret_cast<WorkerBuffer*>( queue.head );
 
 	for (;;)
 	{
