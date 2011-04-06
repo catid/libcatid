@@ -47,11 +47,12 @@
 	Point the delegate to a free function:
 		d.SetFree<&FreeFunctionX>();
 
-	Check if the delegate is unset:
-		if (!d) { // unset
-
-	Use double-bang to check if the delegate is set:
-		if (!!d) { // is set
+	By default the delegates are uninitialized.
+	To mark a delegate as clear:
+		d.Clear();
+	To check if a delegate is clear:
+		if (d.IsClear()) { // Unset
+	To clear an array of delegates quickly just zero the memory.
 
 	Invoke the function via the delegate:
 		d(1000);
@@ -104,10 +105,8 @@ public:
 		return (*_stub)(_object);
 	}
 
-	CAT_INLINE bool operator!() const
-	{
-		return _stub == 0;
-	}
+	CAT_INLINE void Clear() { _stub = 0; }
+	CAT_INLINE bool IsClear() const { return _stub == 0; }
 
 	CAT_INLINE bool operator==(const Delegate0<ret_type> &rhs) const
 	{
@@ -176,10 +175,8 @@ public:
 		return (*_stub)(_object, a1);
 	}
 
-	CAT_INLINE bool operator!() const
-	{
-		return _stub == 0;
-	}
+	CAT_INLINE void Clear() { _stub = 0; }
+	CAT_INLINE bool IsClear() const { return _stub == 0; }
 
 	CAT_INLINE bool operator==(const Delegate1<ret_type, arg1_type> &rhs) const
 	{
@@ -248,10 +245,8 @@ public:
 		return (*_stub)(_object, a1, a2);
 	}
 
-	CAT_INLINE bool operator!() const
-	{
-		return _stub == 0;
-	}
+	CAT_INLINE void Clear() { _stub = 0; }
+	CAT_INLINE bool IsClear() const { return _stub == 0; }
 
 	CAT_INLINE bool operator==(const Delegate2<ret_type, arg1_type, arg2_type> &rhs) const
 	{
@@ -320,10 +315,8 @@ public:
 		return (*_stub)(_object, a1, a2, a3);
 	}
 
-	CAT_INLINE bool operator!() const
-	{
-		return _stub == 0;
-	}
+	CAT_INLINE void Clear() { _stub = 0; }
+	CAT_INLINE bool IsClear() const { return _stub == 0; }
 
 	CAT_INLINE bool operator==(const Delegate3<ret_type, arg1_type, arg2_type, arg3_type> &rhs) const
 	{
@@ -392,10 +385,8 @@ public:
 		return (*_stub)(_object, a1, a2, a3, a4);
 	}
 
-	CAT_INLINE bool operator!() const
-	{
-		return _stub == 0;
-	}
+	CAT_INLINE void Clear() { _stub = 0; }
+	CAT_INLINE bool IsClear() const { return _stub == 0; }
 
 	CAT_INLINE bool operator==(const Delegate4<ret_type, arg1_type, arg2_type, arg3_type, arg4_type> &rhs) const
 	{

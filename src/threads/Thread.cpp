@@ -105,6 +105,16 @@ bool Thread::StartThread(void *param)
 #endif
 }
 
+void Thread::SetIdealCore(u32 index)
+{
+#if defined(CAT_OS_WINDOWS)
+
+	if (_thread)
+		SetThreadIdealProcessor(_thread, index);
+
+#endif
+}
+
 void Thread::AbortThread()
 {
 	if (!_thread_running)
