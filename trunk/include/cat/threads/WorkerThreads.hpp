@@ -139,7 +139,7 @@ public:
 	CAT_INLINE void SetKillFlag() { _kill_flag = true; }
 
 	void DeliverBuffers(u32 priority, const BatchSet &buffers);
-	bool Associate(RefObject *object, WorkerTimerDelegate timer);
+	bool Associate(RefObject *object, WorkerTimerDelegate callback);
 };
 
 

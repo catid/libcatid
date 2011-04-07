@@ -56,17 +56,21 @@ WorkerThread::~WorkerThread()
 {
 }
 
-bool WorkerThread::Associate(RefObject *object, WorkerTimerDelegate timer)
+bool WorkerThread::Associate(RefObject *object, WorkerTimerDelegate callback)
 {
-	if (!object || !timer)
+	if (!object || !callback)
 		return false;
+
+	//WARN("WorkerThreads") << "Adding timer " << object;
 
 	AutoMutex lock(_new_timers_lock);
 
 	u32 new_timers_count = _new_timers_count + 1;
 	if (new_timers_count > _new_timers_allocated)
 	{
-		WorkerTimer *new_timers = new WorkerTimer[new_timers_count * 2];
+		u32 new_allocated = new_timers_count * 2;
+
+		WorkerTimer *new_timers = new WorkerTimer[new_allocated];
 		if (!new_timers) return false;
 
 		memcpy(new_timers, _new_timers, _new_timers_count * sizeof(WorkerTimer));
@@ -74,7 +78,10 @@ bool WorkerThread::Associate(RefObject *object, WorkerTimerDelegate timer)
 		delete []_new_timers;
 
 		_new_timers = new_timers;
+		_new_timers_allocated = new_allocated;
 	}
+	_new_timers[_new_timers_count].callback = callback;
+	_new_timers[_new_timers_count].object = object;
 	_new_timers_count = new_timers_count;
 
 	lock.Release();
@@ -104,7 +111,7 @@ void WorkerThread::TickTimers(IWorkerTLS *tls, u32 now)
 		// If session is shutting down,
 		if (timer->object->IsShutdown())
 		{
-			WARN("WorkerThreads") << "Removing shutdown timer " << timer->object;
+			//WARN("WorkerThreads") << "Removing shutdown timer " << timer->object;
 
 			timer->object->ReleaseRef();
 		}
@@ -123,17 +130,20 @@ void WorkerThread::TickTimers(IWorkerTLS *tls, u32 now)
 
 		if (combined_count > _timers_allocated)
 		{
-			WorkerTimer *timers = new WorkerTimer[combined_count * 2];
+			u32 allocated = combined_count * 2;
+
+			WorkerTimer *timers = new WorkerTimer[allocated];
 			if (!timers) return;
 
 			memcpy(timers, _timers, _timers_count * sizeof(WorkerTimer));
-			memcpy(timers + _timers_count, _new_timers, _new_timers_count * sizeof(WorkerTimer));
 
 			delete []_timers;
 
 			_timers = timers;
+			_timers_allocated = allocated;
 		}
 
+		memcpy(_timers + _timers_count, _new_timers, _new_timers_count * sizeof(WorkerTimer));
 		_timers_count = combined_count;
 		_new_timers_count = 0;
 	}
