@@ -64,8 +64,6 @@ public:
 
 	bool StartServer(SphynxLayer *layer, SphynxTLS *tls, Port port, TunnelKeyPair &key_pair, const char *session_key);
 
-	CAT_INLINE u32 GetTotalPopulation() { return GetIOLayer()->GetWorkerThreads()->GetTotalPopulation(); }
-
 protected:
 	// Must return a new instance of your Connexion derivation
 	virtual Connexion *NewConnexion() = 0;

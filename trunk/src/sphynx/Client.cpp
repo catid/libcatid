@@ -368,7 +368,6 @@ Client::Client()
 	_ts_next_index = 0;
 	_ts_sample_count = 0;
 
-	SetTimerRefObject(this);
 	_worker_id = INVALID_WORKER_ID;
 }
 
@@ -456,7 +455,7 @@ bool Client::FinalConnect(const NetAddr &addr)
 
 	// Assign to a worker
 	SphynxLayer *layer = reinterpret_cast<SphynxLayer*>( GetIOLayer() );
-	_worker_id = layer->GetWorkerThreads()->AssignWorker(this);
+	_worker_id = layer->GetWorkerThreads()->AssignTimer(this, WorkerTimerDelegate::FromMember<Client, &Client::OnWorkerTick>(this));
 
 	return true;
 }
@@ -471,7 +470,7 @@ bool Client::Connect(SphynxLayer *layer, SphynxTLS *tls, const char *hostname, P
 
 	_server_addr.SetPort(port);
 
-	if (!layer->GetDNSClient()->Resolve(layer, hostname, this, this))
+	if (!layer->GetDNSClient()->Resolve(layer, hostname, DNSDelegate::FromMember<Client, &Client::OnDNSResolve>(this), this))
 	{
 		ConnectFail(ERR_CLIENT_SERVER_ADDR);
 		return false;

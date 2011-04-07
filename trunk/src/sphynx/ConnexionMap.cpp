@@ -221,6 +221,8 @@ bool ConnexionMap::Insert(Connexion *conn)
 		// NOTE: This will loop forever if every table key is marked used
 	}
 
+	_count++;
+
 	_flood_table[flood_key]++;
 
 	// Mark used
@@ -273,6 +275,8 @@ void ConnexionMap::Remove(Connexion *conn)
 		} while (!_map_table[key].conn);
 	}
 
+	_count--;
+
 	_flood_table[conn->_flood_key]--;
 }
 
@@ -302,6 +306,8 @@ void ConnexionMap::ShutdownAll()
 
 		_map_table[key].collision = false;
 	}
+
+	_count = 0;
 
 	lock.Release();
 

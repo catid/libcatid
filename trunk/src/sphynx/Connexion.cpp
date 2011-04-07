@@ -156,7 +156,6 @@ Connexion::Connexion()
 	_key = ConnexionMap::INVALID_KEY;
 	_seen_encrypted = false;
 
-	SetTimerRefObject(this);
 	_worker_id = INVALID_WORKER_ID;
 }
 

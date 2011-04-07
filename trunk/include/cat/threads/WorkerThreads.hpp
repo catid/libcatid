@@ -33,13 +33,8 @@
 #include <cat/threads/Thread.hpp>
 #include <cat/threads/WaitableFlag.hpp>
 #include <cat/threads/Mutex.hpp>
-#include <cat/threads/Atomic.hpp>
 #include <cat/mem/IAllocator.hpp>
 #include <cat/lang/Delegates.hpp>
-
-#if defined(CAT_NO_ATOMIC_ADD)
-#define CAT_NO_ATOMIC_POPCOUNT
-#endif
 
 namespace cat {
 
@@ -97,7 +92,7 @@ typedef Delegate2<void, IWorkerTLS *, u32> WorkerTimerDelegate;
 struct WorkerTimer
 {
 	RefObject *object;
-	WorkerTimerDelegate timer;
+	WorkerTimerDelegate callback;
 };
 
 
@@ -133,7 +128,7 @@ class CAT_EXPORT WorkerThread : public Thread
 	WorkerTimer *_timers;
 	u32 _timers_count, _timers_allocated;
 
-	void TickTimers(); // locks if needed
+	void TickTimers(IWorkerTLS *tls, u32 now); // locks if needed
 
 public:
 	WorkerThread();
@@ -152,11 +147,6 @@ class CAT_EXPORT WorkerThreads
 {
 	friend class WorkerThread;
 
-#if !defined(CAT_NO_ATOMIC_POPCOUNT)
-	volatile u32 _population;
-	u8 _padding[CAT_DEFAULT_CACHE_LINE_SIZE];
-#endif // CAT_NO_ATOMIC_POPCOUNT
-
 	u32 _tick_interval;
 
 	u32 _worker_count;
@@ -173,12 +163,6 @@ public:
 	CAT_INLINE u32 GetWorkerCount() { return _worker_count; }
 
 	u32 FindLeastPopulatedWorker();
-
-#if defined(CAT_NO_ATOMIC_POPCOUNT)
-	u32 GetTotalPopulation();
-#else
-	CAT_INLINE u32 GetTotalPopulation() { return _population; }
-#endif // CAT_NO_ATOMIC_POPCOUNT
 
 	CAT_INLINE void DeliverBuffers(u32 priority, u32 worker_id, const BatchSet &buffers)
 	{
@@ -201,12 +185,8 @@ public:
 
 	bool Shutdown();
 
-	CAT_INLINE u32 AssignWorker(RefObject *object, WorkerTimerDelegate timer)
+	CAT_INLINE u32 AssignTimer(RefObject *object, WorkerTimerDelegate timer)
 	{
-#if !defined(CAT_NO_ATOMIC_POPCOUNT)
-		Atomic::Add(&_population, 1);
-#endif // CAT_NO_ATOMIC_POPCOUNT
-
 		u32 worker_id = FindLeastPopulatedWorker();
 
 		if (!_workers[worker_id].Associate(object, timer))

@@ -261,7 +261,6 @@ DNSClient::DNSClient()
 	_request_head = _request_tail = 0;
 	_request_queue_size = 0;
 
-	SetTimerRefObject(this);
 	_worker_id = INVALID_WORKER_ID;
 }
 
@@ -284,7 +283,7 @@ bool DNSClient::Initialize(IOLayer *iolayer)
 	}
 
 	// Assign to a worker
-	iolayer->GetWorkerThreads()->AssignWorker(this);
+	iolayer->GetWorkerThreads()->AssignTimer(this, WorkerTimerDelegate::FromMember<DNSClient, &DNSClient::OnWorkerTick>(this));
 
 	// Attempt to get server address from operating system
 	if (!GetServerAddr())

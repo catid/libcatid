@@ -118,7 +118,17 @@ public:
 		return (*_stub)(_object);
 	}
 
-	// Use stub pointer as a validity flag
+	// Use stub pointer as a validity flag and equality checker
+
+	CAT_INLINE bool operator==(const this_type &rhs) const
+	{
+		return _object == rhs._object && _stub == rhs._stub;
+	}
+
+	CAT_INLINE bool operator!=(const this_type &rhs) const
+	{
+		return _object != rhs._object || _stub != rhs._stub;
+	}
 
 	CAT_INLINE bool IsValid() const
 	{
@@ -224,7 +234,17 @@ public:
 		return (*_stub)(_object, a1);
 	}
 
-	// Use stub pointer as a validity flag
+	// Use stub pointer as a validity flag and equality checker
+
+	CAT_INLINE bool operator==(const this_type &rhs) const
+	{
+		return _object == rhs._object && _stub == rhs._stub;
+	}
+
+	CAT_INLINE bool operator!=(const this_type &rhs) const
+	{
+		return _object != rhs._object || _stub != rhs._stub;
+	}
 
 	CAT_INLINE bool IsValid() const
 	{
@@ -330,7 +350,17 @@ public:
 		return (*_stub)(_object, a1, a2);
 	}
 
-	// Use stub pointer as a validity flag
+	// Use stub pointer as a validity flag and equality checker
+
+	CAT_INLINE bool operator==(const this_type &rhs) const
+	{
+		return _object == rhs._object && _stub == rhs._stub;
+	}
+
+	CAT_INLINE bool operator!=(const this_type &rhs) const
+	{
+		return _object != rhs._object || _stub != rhs._stub;
+	}
 
 	CAT_INLINE bool IsValid() const
 	{
@@ -436,7 +466,17 @@ public:
 		return (*_stub)(_object, a1, a2, a3);
 	}
 
-	// Use stub pointer as a validity flag
+	// Use stub pointer as a validity flag and equality checker
+
+	CAT_INLINE bool operator==(const this_type &rhs) const
+	{
+		return _object == rhs._object && _stub == rhs._stub;
+	}
+
+	CAT_INLINE bool operator!=(const this_type &rhs) const
+	{
+		return _object != rhs._object || _stub != rhs._stub;
+	}
 
 	CAT_INLINE bool IsValid() const
 	{
