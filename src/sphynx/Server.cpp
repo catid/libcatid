@@ -98,7 +98,7 @@ void Server::OnRecvRouting(const BatchSet &buffers)
 				if (conn)
 				{
 					worker_id = conn->GetWorkerID();
-					buffer->callback = conn;
+					buffer->callback.SetMember<Connexion, &Connexion::OnWorkerRecv>(conn);
 				}
 				else
 				{
@@ -107,7 +107,7 @@ void Server::OnRecvRouting(const BatchSet &buffers)
 						connect_worker = 0;
 
 					worker_id = connect_worker;
-					buffer->callback = this;
+					buffer->callback.SetMember<Server, &Server::OnWorkerRecv>(this);
 				}
 
 				// Compare to this buffer next time
@@ -118,7 +118,7 @@ void Server::OnRecvRouting(const BatchSet &buffers)
 		{
 			// Another packet from the same connexion
 			conn->AddRef();
-			buffer->callback = conn;
+			buffer->callback.SetMember<Connexion, &Connexion::OnWorkerRecv>(conn);
 		}
 		else
 		{
@@ -157,7 +157,7 @@ void Server::OnRecvRouting(const BatchSet &buffers)
 			u32 bin = offset + BSF32(v);
 
 			// Deliver all buffers for this worker at once
-			GetIOLayer()->GetWorkerThreads()->DeliverBuffers(bin, bins[bin]);
+			GetIOLayer()->GetWorkerThreads()->DeliverBuffers(WQPRIO_HI, bin, bins[bin]);
 
 			// Clear LSB
 			v ^= CAT_LSB32(v);
@@ -177,6 +177,7 @@ void Server::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 	SphynxTLS *tls = reinterpret_cast<SphynxTLS*>( itls );
 	u32 buffer_count = 0;
 
+	// For each buffer received,
 	for (BatchHead *node = buffers.head; node; node = node->batch_next, ++buffer_count)
 	{
 		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
@@ -355,9 +356,10 @@ void Server::OnWorkerTick(IWorkerTLS *tls, u32 now)
 }
 
 Server::Server()
-	: IWorkerTimer(this)
 {
 	_connect_worker = 0;
+
+	SetTimerRefObject(this);
 }
 
 Server::~Server()

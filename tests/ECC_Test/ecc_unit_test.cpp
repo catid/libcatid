@@ -155,7 +155,7 @@ int TestDivide()
 	MersenneTwister mtprng;
 	mtprng.Initialize();
 
-	for (;;)
+	CAT_FOREVER
 	{
 		mtprng.Generate(a, x.RegBytes());
 		mtprng.Generate(b, x.RegBytes());
@@ -225,7 +225,7 @@ int TestModularInverse()
 	MersenneTwister mtprng;
 	mtprng.Initialize();
 
-	for (;;)
+	CAT_FOREVER
 	{
 		mtprng.Generate(a, x.RegBytes());
 
@@ -255,7 +255,7 @@ int TestSquareRoot()
 	MersenneTwister mtprng;
 	mtprng.Initialize();
 
-	for (;;)
+	CAT_FOREVER
 	{
 		mtprng.Generate(a, x.RegBytes());
 

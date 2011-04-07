@@ -48,7 +48,7 @@ class ReadJob : public Thread
 public:
 	bool ThreadFunction(void *)
 	{
-		for (;;)
+		CAT_FOREVER
 		{
 			TestData *data = q->DequeueWait();
 

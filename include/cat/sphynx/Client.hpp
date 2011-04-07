@@ -41,7 +41,7 @@ namespace sphynx {
 
 
 // Base class for a Sphynx client
-class CAT_EXPORT Client : public UDPEndpoint, public Transport, public IWorkerTimer, public IDNSResultCallback
+class CAT_EXPORT Client : public UDPEndpoint, public Transport
 {
 	static const int HANDSHAKE_TICK_RATE = 100; // milliseconds
 	static const int INITIAL_HELLO_POST_INTERVAL = 200; // milliseconds
@@ -63,6 +63,7 @@ class CAT_EXPORT Client : public UDPEndpoint, public Transport, public IWorkerTi
 	NetAddr _server_addr;
 	bool _connected;
 	AuthenticatedEncryption _auth_enc;
+	u32 _worker_id;
 
 	// Last time a packet was received from the server -- for disconnect timeouts
 	u32 _last_recv_tsc;
@@ -124,6 +125,7 @@ protected:
 	virtual bool OnZeroReferences();
 
 	CAT_INLINE bool IsConnected() { return _connected; }
+	CAT_INLINE u32 GetWorkerID() { return _worker_id; }
 
 	virtual void OnConnectFail(sphynx::SphynxError err) = 0;
 	virtual void OnConnect(SphynxTLS *tls) = 0;

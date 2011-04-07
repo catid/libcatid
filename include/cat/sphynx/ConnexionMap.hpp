@@ -65,11 +65,14 @@ private:
 	Slot _map_table[HASH_TABLE_SIZE];
 	u8 _flood_table[HASH_TABLE_SIZE];
 
+	u32 _count;
+
 public:
 	ConnexionMap();
 	virtual ~ConnexionMap();
 
 	CAT_INLINE bool IsShutdown() { return _is_shutdown; }
+	CAT_INLINE u32 GetCount() { return _count; }
 
 	// Initialize the hash salt
 	void Initialize(FortunaOutput *csprng);

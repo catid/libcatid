@@ -848,7 +848,7 @@ int main(int argc, const char **argv)
         u32 linect = 0;
         int findex = 0;
         int longest = 0;
-        for (;;)
+        CAT_FOREVER
         {
             const char *fname = Files[findex++];
             if (!fname) break;

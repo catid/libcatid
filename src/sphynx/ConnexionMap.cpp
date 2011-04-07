@@ -93,6 +93,7 @@ ConnexionMap::ConnexionMap()
 	CAT_OBJCLR(_map_table);
 	CAT_OBJCLR(_flood_table);
 	_is_shutdown = false;
+	_count = 0;
 }
 
 ConnexionMap::~ConnexionMap()
@@ -120,8 +121,7 @@ bool ConnexionMap::LookupCheckFlood(Connexion * &connexion, const NetAddr &addr)
 		return false;
 	}
 
-	// Forever,
-	for (;;)
+	CAT_FOREVER
 	{
 		// Grab the slot
 		Slot *slot = &_map_table[key];

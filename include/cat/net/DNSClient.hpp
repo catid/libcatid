@@ -39,6 +39,7 @@
 #include <cat/io/IOLayer.hpp>
 #include <cat/threads/WaitableFlag.hpp>
 #include <cat/crypt/rand/Fortuna.hpp>
+#include <cat/lang/Delegates.hpp>
 
 namespace cat {
 
@@ -53,11 +54,9 @@ static const int DNSCACHE_TIMEOUT = 60000; // Time until a cached response is dr
 
 static const int DNS_THREAD_KILL_TIMEOUT = 10000; // 10 seconds
 
-class IDNSResultCallback
-{
-public:
-	virtual bool OnDNSResolve(const char *hostname, const NetAddr *addrs, int count) = 0;
-};
+// DNS resolve completion delegate
+// bool OnDNSResolveComplete(const char *hostname, const NetAddr *results, int result_count);
+typedef Delegate3<bool, const char *, const NetAddr *, int> DNSDelegate;
 
 
 //// DNSRequest
@@ -66,7 +65,7 @@ struct DNSCallback
 {
 	DNSCallback *next;
 
-	IDNSResultCallback *cb;
+	DNSDelegate cb;
 	RefObject *ref;
 };
 
@@ -90,10 +89,11 @@ struct DNSRequest
 
 //// DNSClient
 
-class DNSClient : public UDPEndpoint, public IWorkerTimer
+class DNSClient : public UDPEndpoint
 {
 	NetAddr _server_addr;
 	bool _initialized;
+	u32 _worker_id;
 
 	FortunaOutput *_csprng;
 
@@ -130,6 +130,8 @@ public:
 	DNSClient();
 	CAT_INLINE virtual ~DNSClient() {}
 
+	CAT_INLINE u32 GetWorkerID() { return _worker_id; }
+
 	/*
 		If hostname is numeric or in the cache, the callback function will be invoked
 		immediately from the requesting thread, rather than from another thread.
@@ -151,7 +153,7 @@ public:
 
 		If Resolve() returns false, no callback will be generated.
 	*/
-	bool Resolve(IOLayer *iolayer, const char *hostname, IDNSResultCallback*, RefObject *holdRef = 0);
+	bool Resolve(IOLayer *iolayer, const char *hostname, DNSDelegate callback, RefObject *holdRef = 0);
 
 protected:
 	virtual void OnShutdownRequest();
