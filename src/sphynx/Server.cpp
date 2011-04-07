@@ -246,7 +246,7 @@ void Server::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 			}
 
 			// If server is overpopulated,
-			if (GetIOLayer()->GetWorkerThreads()->GetTotalPopulation() >= ConnexionMap::MAX_POPULATION)
+			if (_conn_map.GetCount() >= ConnexionMap::MAX_POPULATION)
 			{
 				WARN("Server") << "Ignoring challenge: Server is full";
 				PostConnectionError(buffer->GetAddr(), ERR_SERVER_FULL);
@@ -316,7 +316,7 @@ void Server::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 
 				// Assign to a worker
 				SphynxLayer *layer = reinterpret_cast<SphynxLayer*>( GetIOLayer() );
-				layer->GetWorkerThreads()->AssignWorker(conn);
+				conn->_worker_id = layer->GetWorkerThreads()->AssignTimer(conn, WorkerTimerDelegate::FromMember<Connexion, &Connexion::OnWorkerTick>(conn));
 
 				if (!Write(pkt, S2C_ANSWER_LEN, buffer->GetAddr()))
 				{
@@ -358,8 +358,6 @@ void Server::OnWorkerTick(IWorkerTLS *tls, u32 now)
 Server::Server()
 {
 	_connect_worker = 0;
-
-	SetTimerRefObject(this);
 }
 
 Server::~Server()

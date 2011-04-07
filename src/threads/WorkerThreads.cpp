@@ -92,7 +92,7 @@ void WorkerThread::DeliverBuffers(u32 priority, const BatchSet &buffers)
 	_event_flag.Set();
 }
 
-void WorkerThread::TickTimers()
+void WorkerThread::TickTimers(IWorkerTLS *tls, u32 now)
 {
 	u32 timers_count = _timers_count;
 
@@ -104,20 +104,13 @@ void WorkerThread::TickTimers()
 		// If session is shutting down,
 		if (timer->object->IsShutdown())
 		{
-			WARN("WorkerThreads") << "Removing shutdown worker " << timer->object;
+			WARN("WorkerThreads") << "Removing shutdown timer " << timer->object;
 
-			// Release reference
 			timer->object->ReleaseRef();
-
-#if !defined(CAT_NO_ATOMIC_POPCOUNT)
-			Atomic::Add(&master->_population, -1);
-#endif // CAT_NO_ATOMIC_POPCOUNT
 		}
 		else
 		{
-			node->OnWorkerTick(tls, now);
-
-			prev = node;
+			timer->callback(tls, now);
 		}
 	}
 
@@ -312,7 +305,7 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 		// If tick interval is up,
 		if ((s32)(now - next_tick) >= 0)
 		{
-			TickTimers();
+			TickTimers(tls, now);
 
 			// Set up next tick
 			next_tick += tick_interval;
@@ -338,7 +331,6 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 
 WorkerThreads::WorkerThreads()
 {
-	_population = 0;
 	_worker_count = 0;
 	_workers = 0;
 	_tls_builder = 0;
@@ -437,13 +429,13 @@ bool WorkerThreads::Shutdown()
 
 u32 WorkerThreads::FindLeastPopulatedWorker()
 {
-	u32 lowest_session_count = _workers[0].GetSessionCount();
+	u32 lowest_session_count = _workers[0].GetTimerCount();
 	u32 worker_id = 0;
 
 	// For each other worker,
 	for (u32 ii = 1, worker_count = _worker_count; ii < worker_count; ++ii)
 	{
-		u32 session_count = _workers[ii].GetSessionCount();
+		u32 session_count = _workers[ii].GetTimerCount();
 
 		// If the session count is lower,
 		if (session_count < lowest_session_count)
