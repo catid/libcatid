@@ -36,26 +36,26 @@
 
 	Declare a delegate with a void (int) signature, also known as a
 	function that returns void and has one parameter that is an int:
-		Delegate1<void, int> d;
+		typedef Delegate1<void, int> MyDelegate;
+		MyDelegate d;
 
 	Point the delegate to a member function:
 		d.SetMember<A, &A::TestFunctionA>(&a);
+		d = MyDelegate::FromMember<A, &A::TestFunctionA>(&a);
 
 	Point the delegate to a const member function:
 		d.SetConstMember<C, &C::TestFunctionA>(&c);
+		d = MyDelegate::FromConstMember<C, &C::TestFunctionA>(&c);
 
 	Point the delegate to a free function:
 		d.SetFree<&FreeFunctionX>();
+		d = MyDelegate::FromFree<&FreeFunctionX>();
+
+	Invoke the function via the delegate (works for all 3 cases):
+		d(1000);
 
 	By default the delegates are uninitialized.
-	To mark a delegate as clear:
-		d.Clear();
-	To check if a delegate is clear:
-		if (d.IsClear()) { // Unset
 	To clear an array of delegates quickly just zero the memory.
-
-	Invoke the function via the delegate:
-		d(1000);
 
 	This implementation is nicer than FastDelegates in my opinion
 	because it is simple and easy to read.  It is a little slower
