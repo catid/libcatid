@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -39,36 +39,47 @@ class AutoMutex
 	Mutex *_mutex;
 
 public:
-	CAT_INLINE AutoMutex(Mutex &mutex);
-	CAT_INLINE ~AutoMutex();
+	CAT_INLINE AutoMutex()
+	{
+		_mutex = 0;
+	}
 
-	CAT_INLINE bool Release();
+	CAT_INLINE AutoMutex(Mutex &mutex)
+	{
+		_mutex = &mutex;
+		mutex.Enter();
+	}
+
+	CAT_INLINE ~AutoMutex()
+	{
+		Release();
+	}
+
+	// TryEnter can be used to hold a lock conditionally
+	// through a complex routine and release it at the
+	// end only if it was held at some point.
+	CAT_INLINE void TryEnter(Mutex &mutex)
+	{
+		if (!_mutex)
+		{
+			_mutex = &mutex;
+			mutex.Enter();
+		}
+	}
+
+	CAT_INLINE bool Release()
+	{
+		bool success = false;
+
+		if (_mutex)
+		{
+			success = _mutex->Leave();
+			_mutex = 0;
+		}
+
+		return success;
+	}
 };
-
-
-CAT_INLINE AutoMutex::AutoMutex(Mutex &mutex)
-{
-    _mutex = &mutex;
-    mutex.Enter();
-}
-
-CAT_INLINE AutoMutex::~AutoMutex()
-{
-    Release();
-}
-
-CAT_INLINE bool AutoMutex::Release()
-{
-	bool success = false;
-
-    if (_mutex)
-    {
-        success = _mutex->Leave();
-        _mutex = 0;
-    }
-
-	return success;
-}
 
 
 } // namespace cat

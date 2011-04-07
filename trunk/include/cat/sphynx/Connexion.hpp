@@ -41,7 +41,7 @@ namespace sphynx {
 
 
 // Base class for a connexion with a remote Sphynx client
-class CAT_EXPORT Connexion : public Transport, public RefObject, public IWorkerTimer
+class CAT_EXPORT Connexion : public Transport, public RefObject
 {
 	friend class Server;
 	friend class ConnexionMap;
@@ -51,6 +51,7 @@ class CAT_EXPORT Connexion : public Transport, public RefObject, public IWorkerT
 	NetAddr _client_addr;
 	u16 _flood_key; // Flood key based on IP address, not necessarily unique
 	u16 _key; // Map hash table index, unique for each active connection
+	u32 _worker_id; // Worker thread index
 
 	u8 _first_challenge[64]; // First challenge seen from this client address
 	u8 _cached_answer[128]; // Cached answer to this first challenge, to avoid eating server CPU time
@@ -76,6 +77,7 @@ public:
 	CAT_INLINE const NetAddr &GetAddress() { return _client_addr; }
 	CAT_INLINE u16 GetKey() { return _key; }
 	CAT_INLINE u16 GetFloodKey() { return _flood_key; }
+	CAT_INLINE u32 GetWorkerID() { return _worker_id; }
 
 protected:
 	template<class T> CAT_INLINE T *GetServer() { return reinterpret_cast<T*>( _parent ); }

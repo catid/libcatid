@@ -96,7 +96,7 @@ SettingsKey *Settings::addKey(const char *name)
 	if (!key)
 		return hbtrees[treekey] = new SettingsKey(0, 0, name);
 
-	for (;;)
+	CAT_FOREVER
 	{
 		int cmp = strncmp(key->name, name, sizeof(key->name));
 		if (!cmp) return key;

@@ -152,10 +152,12 @@ void Connexion::OnWorkerTick(IWorkerTLS *itls, u32 now)
 }
 
 Connexion::Connexion()
-	: IWorkerTimer(this)
 {
 	_key = ConnexionMap::INVALID_KEY;
 	_seen_encrypted = false;
+
+	SetTimerRefObject(this);
+	_worker_id = INVALID_WORKER_ID;
 }
 
 bool Connexion::WriteDatagrams(const BatchSet &buffers, u32 count)

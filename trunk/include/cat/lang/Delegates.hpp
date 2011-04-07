@@ -75,9 +75,18 @@ template <class ret_type>
 class Delegate0
 {
 	typedef ret_type (*StubPointer)(void *);
+	typedef Delegate0<ret_type> this_type;
 
 	void *_object;
 	StubPointer _stub;
+
+	CAT_INLINE Delegate0(void *object, StubPointer stub)
+	{
+		_object = object;
+		_stub = stub;
+	}
+
+	// Stubs
 
 	template <ret_type (*F)()>
 	static CAT_INLINE ret_type FreeStub(void *object)
@@ -100,43 +109,70 @@ class Delegate0
 	}
 
 public:
+	CAT_INLINE Delegate0() {}
+
+	// Function invocation
+
 	CAT_INLINE ret_type operator()() const
 	{
 		return (*_stub)(_object);
 	}
 
-	CAT_INLINE void Clear() { _stub = 0; }
-	CAT_INLINE bool IsClear() const { return _stub == 0; }
+	// Use stub pointer as a validity flag
 
-	CAT_INLINE bool operator==(const Delegate0<ret_type> &rhs) const
+	CAT_INLINE bool IsValid() const
 	{
-		return _stub == rhs._stub && _object == rhs._object;
+		return _stub != 0;
 	}
 
-	CAT_INLINE bool operator!=(const Delegate0<ret_type> &rhs) const
+	CAT_INLINE bool operator!() const
 	{
-		return !operator==(rhs);
+		return _stub == 0;
 	}
+
+	CAT_INLINE void Invalidate()
+	{
+		_stub = 0;
+	}
+
+	// Delegate creation from a function
+
+	template <ret_type (*F)()>
+	static CAT_INLINE this_type FromFree()
+	{
+		return this_type(0, &FreeStub<F>);
+	}
+
+	template <class T, ret_type (T::*F)()>
+	static CAT_INLINE this_type FromMember(T *object)
+	{
+		return this_type(object, &MemberStub<T, F>);
+	}
+
+	template <class T, ret_type (T::*F)() const>
+	static CAT_INLINE this_type FromConstMember(T const *object)
+	{
+		return this_type(const_cast<T*>( object ), &ConstMemberStub<T, F>);
+	}
+
+	// In-place assignment to a different function
 
 	template <ret_type (*F)()>
 	CAT_INLINE void SetFree()
 	{
-		_object = 0;
-		_stub = &FreeStub<F>;
+		*this = FromFree<F>();
 	}
 
 	template <class T, ret_type (T::*F)()>
 	CAT_INLINE void SetMember(T *object)
 	{
-		_object = object;
-		_stub = &MemberStub<T, F>;
+		*this = FromMember<T, F>(object);
 	}
 
 	template <class T, ret_type (T::*F)() const>
 	CAT_INLINE void SetConstMember(T const *object)
 	{
-		_object = const_cast<T*>( object );
-		_stub = &ConstMemberStub<T, F>;
+		*this = FromConstMember<T, F>(object);
 	}
 };
 
@@ -145,9 +181,18 @@ template <class ret_type, class arg1_type>
 class Delegate1
 {
 	typedef ret_type (*StubPointer)(void *, arg1_type);
+	typedef Delegate1<ret_type, arg1_type> this_type;
 
 	void *_object;
 	StubPointer _stub;
+
+	CAT_INLINE Delegate1(void *object, StubPointer stub)
+	{
+		_object = object;
+		_stub = stub;
+	}
+
+	// Stubs
 
 	template <ret_type (*F)(arg1_type)>
 	static CAT_INLINE ret_type FreeStub(void *object, arg1_type a1)
@@ -170,43 +215,70 @@ class Delegate1
 	}
 
 public:
+	CAT_INLINE Delegate1() {}
+
+	// Function invocation
+
 	CAT_INLINE ret_type operator()(arg1_type a1) const
 	{
 		return (*_stub)(_object, a1);
 	}
 
-	CAT_INLINE void Clear() { _stub = 0; }
-	CAT_INLINE bool IsClear() const { return _stub == 0; }
+	// Use stub pointer as a validity flag
 
-	CAT_INLINE bool operator==(const Delegate1<ret_type, arg1_type> &rhs) const
+	CAT_INLINE bool IsValid() const
 	{
-		return _stub == rhs._stub && _object == rhs._object;
+		return _stub != 0;
 	}
 
-	CAT_INLINE bool operator!=(const Delegate1<ret_type, arg1_type> &rhs) const
+	CAT_INLINE bool operator!() const
 	{
-		return !operator==(rhs);
+		return _stub == 0;
 	}
+
+	CAT_INLINE void Invalidate()
+	{
+		_stub = 0;
+	}
+
+	// Delegate creation from a function
+
+	template <ret_type (*F)(arg1_type)>
+	static CAT_INLINE this_type FromFree()
+	{
+		return this_type(0, &FreeStub<F>);
+	}
+
+	template <class T, ret_type (T::*F)(arg1_type)>
+	static CAT_INLINE this_type FromMember(T *object)
+	{
+		return this_type(object, &MemberStub<T, F>);
+	}
+
+	template <class T, ret_type (T::*F)(arg1_type) const>
+	static CAT_INLINE this_type FromConstMember(T const *object)
+	{
+		return this_type(const_cast<T*>( object ), &ConstMemberStub<T, F>);
+	}
+
+	// In-place assignment to a different function
 
 	template <ret_type (*F)(arg1_type)>
 	CAT_INLINE void SetFree()
 	{
-		_object = 0;
-		_stub = &FreeStub<F>;
+		*this = FromFree<F>();
 	}
 
 	template <class T, ret_type (T::*F)(arg1_type)>
 	CAT_INLINE void SetMember(T *object)
 	{
-		_object = object;
-		_stub = &MemberStub<T, F>;
+		*this = FromMember<T, F>(object);
 	}
 
 	template <class T, ret_type (T::*F)(arg1_type) const>
 	CAT_INLINE void SetConstMember(T const *object)
 	{
-		_object = const_cast<T*>( object );
-		_stub = &ConstMemberStub<T, F>;
+		*this = FromConstMember<T, F>(object);
 	}
 };
 
@@ -215,9 +287,18 @@ template <class ret_type, class arg1_type, class arg2_type>
 class Delegate2
 {
 	typedef ret_type (*StubPointer)(void *, arg1_type, arg2_type);
+	typedef Delegate2<ret_type, arg1_type, arg2_type> this_type;
 
 	void *_object;
 	StubPointer _stub;
+
+	CAT_INLINE Delegate2(void *object, StubPointer stub)
+	{
+		_object = object;
+		_stub = stub;
+	}
+
+	// Stubs
 
 	template <ret_type (*F)(arg1_type, arg2_type)>
 	static CAT_INLINE ret_type FreeStub(void *object, arg1_type a1, arg2_type a2)
@@ -240,43 +321,70 @@ class Delegate2
 	}
 
 public:
+	CAT_INLINE Delegate2() {}
+
+	// Function invocation
+
 	CAT_INLINE ret_type operator()(arg1_type a1, arg2_type a2) const
 	{
 		return (*_stub)(_object, a1, a2);
 	}
 
-	CAT_INLINE void Clear() { _stub = 0; }
-	CAT_INLINE bool IsClear() const { return _stub == 0; }
+	// Use stub pointer as a validity flag
 
-	CAT_INLINE bool operator==(const Delegate2<ret_type, arg1_type, arg2_type> &rhs) const
+	CAT_INLINE bool IsValid() const
 	{
-		return _stub == rhs._stub && _object == rhs._object;
+		return _stub != 0;
 	}
 
-	CAT_INLINE bool operator!=(const Delegate2<ret_type, arg1_type, arg2_type> &rhs) const
+	CAT_INLINE bool operator!() const
 	{
-		return !operator==(rhs);
+		return _stub == 0;
 	}
+
+	CAT_INLINE void Invalidate()
+	{
+		_stub = 0;
+	}
+
+	// Delegate creation from a function
+
+	template <ret_type (*F)(arg1_type, arg2_type)>
+	static CAT_INLINE this_type FromFree()
+	{
+		return this_type(0, &FreeStub<F>);
+	}
+
+	template <class T, ret_type (T::*F)(arg1_type, arg2_type)>
+	static CAT_INLINE this_type FromMember(T *object)
+	{
+		return this_type(object, &MemberStub<T, F>);
+	}
+
+	template <class T, ret_type (T::*F)(arg1_type, arg2_type) const>
+	static CAT_INLINE this_type FromConstMember(T const *object)
+	{
+		return this_type(const_cast<T*>( object ), &ConstMemberStub<T, F>);
+	}
+
+	// In-place assignment to a different function
 
 	template <ret_type (*F)(arg1_type, arg2_type)>
 	CAT_INLINE void SetFree()
 	{
-		_object = 0;
-		_stub = &FreeStub<F>;
+		*this = FromFree<F>();
 	}
 
 	template <class T, ret_type (T::*F)(arg1_type, arg2_type)>
 	CAT_INLINE void SetMember(T *object)
 	{
-		_object = object;
-		_stub = &MemberStub<T, F>;
+		*this = FromMember<T, F>(object);
 	}
 
 	template <class T, ret_type (T::*F)(arg1_type, arg2_type) const>
 	CAT_INLINE void SetConstMember(T const *object)
 	{
-		_object = const_cast<T*>( object );
-		_stub = &ConstMemberStub<T, F>;
+		*this = FromConstMember<T, F>(object);
 	}
 };
 
@@ -285,9 +393,18 @@ template <class ret_type, class arg1_type, class arg2_type, class arg3_type>
 class Delegate3
 {
 	typedef ret_type (*StubPointer)(void *, arg1_type, arg2_type, arg3_type);
+	typedef Delegate3<ret_type, arg1_type, arg2_type, arg3_type> this_type;
 
 	void *_object;
 	StubPointer _stub;
+
+	CAT_INLINE Delegate3(void *object, StubPointer stub)
+	{
+		_object = object;
+		_stub = stub;
+	}
+
+	// Stubs
 
 	template <ret_type (*F)(arg1_type, arg2_type, arg3_type)>
 	static CAT_INLINE ret_type FreeStub(void *object, arg1_type a1, arg2_type a2, arg3_type a3)
@@ -310,113 +427,70 @@ class Delegate3
 	}
 
 public:
+	CAT_INLINE Delegate3() {}
+
+	// Function invocation
+
 	CAT_INLINE ret_type operator()(arg1_type a1, arg2_type a2, arg3_type a3) const
 	{
 		return (*_stub)(_object, a1, a2, a3);
 	}
 
-	CAT_INLINE void Clear() { _stub = 0; }
-	CAT_INLINE bool IsClear() const { return _stub == 0; }
+	// Use stub pointer as a validity flag
 
-	CAT_INLINE bool operator==(const Delegate3<ret_type, arg1_type, arg2_type, arg3_type> &rhs) const
+	CAT_INLINE bool IsValid() const
 	{
-		return _stub == rhs._stub && _object == rhs._object;
+		return _stub != 0;
 	}
 
-	CAT_INLINE bool operator!=(const Delegate3<ret_type, arg1_type, arg2_type, arg3_type> &rhs) const
+	CAT_INLINE bool operator!() const
 	{
-		return !operator==(rhs);
+		return _stub == 0;
 	}
+
+	CAT_INLINE void Invalidate()
+	{
+		_stub = 0;
+	}
+
+	// Delegate creation from a function
+
+	template <ret_type (*F)(arg1_type, arg2_type, arg3_type)>
+	static CAT_INLINE this_type FromFree()
+	{
+		return this_type(0, &FreeStub<F>);
+	}
+
+	template <class T, ret_type (T::*F)(arg1_type, arg2_type, arg3_type)>
+	static CAT_INLINE this_type FromMember(T *object)
+	{
+		return this_type(object, &MemberStub<T, F>);
+	}
+
+	template <class T, ret_type (T::*F)(arg1_type, arg2_type, arg3_type) const>
+	static CAT_INLINE this_type FromConstMember(T const *object)
+	{
+		return this_type(const_cast<T*>( object ), &ConstMemberStub<T, F>);
+	}
+
+	// In-place assignment to a different function
 
 	template <ret_type (*F)(arg1_type, arg2_type, arg3_type)>
 	CAT_INLINE void SetFree()
 	{
-		_object = 0;
-		_stub = &FreeStub<F>;
+		*this = FromFree<F>();
 	}
 
 	template <class T, ret_type (T::*F)(arg1_type, arg2_type, arg3_type)>
 	CAT_INLINE void SetMember(T *object)
 	{
-		_object = object;
-		_stub = &MemberStub<T, F>;
+		*this = FromMember<T, F>(object);
 	}
 
 	template <class T, ret_type (T::*F)(arg1_type, arg2_type, arg3_type) const>
 	CAT_INLINE void SetConstMember(T const *object)
 	{
-		_object = const_cast<T*>( object );
-		_stub = &ConstMemberStub<T, F>;
-	}
-};
-
-
-template <class ret_type, class arg1_type, class arg2_type, class arg3_type, class arg4_type>
-class Delegate4
-{
-	typedef ret_type (*StubPointer)(void *, arg1_type, arg2_type, arg3_type, arg4_type);
-
-	void *_object;
-	StubPointer _stub;
-
-	template <ret_type (*F)(arg1_type, arg2_type, arg3_type, arg4_type)>
-	static CAT_INLINE ret_type FreeStub(void *object, arg1_type a1, arg2_type a2, arg3_type a3, arg4_type a4)
-	{
-		return (F)(a1, a2, a3, a4);
-	}
-
-	template <class T, ret_type (T::*F)(arg1_type, arg2_type, arg3_type, arg4_type)>
-	static CAT_INLINE ret_type MemberStub(void *object, arg1_type a1, arg2_type a2, arg3_type a3, arg4_type a4)
-	{
-		T *p = static_cast<T*>(object);
-		return (p->*F)(a1, a2, a3, a4);
-	}
-
-	template <class T, ret_type (T::*F)(arg1_type, arg2_type, arg3_type, arg4_type) const>
-	static CAT_INLINE ret_type ConstMemberStub(void *object, arg1_type a1, arg2_type a2, arg3_type a3, arg4_type a4)
-	{
-		T *p = static_cast<T*>(object);
-		return (p->*F)(a1, a2, a3, a4);
-	}
-
-public:
-	CAT_INLINE ret_type operator()(arg1_type a1, arg2_type a2, arg3_type a3, arg4_type a4) const
-	{
-		return (*_stub)(_object, a1, a2, a3, a4);
-	}
-
-	CAT_INLINE void Clear() { _stub = 0; }
-	CAT_INLINE bool IsClear() const { return _stub == 0; }
-
-	CAT_INLINE bool operator==(const Delegate4<ret_type, arg1_type, arg2_type, arg3_type, arg4_type> &rhs) const
-	{
-		return _stub == rhs._stub && _object == rhs._object;
-	}
-
-	CAT_INLINE bool operator!=(const Delegate4<ret_type, arg1_type, arg2_type, arg3_type, arg4_type> &rhs) const
-	{
-		return !operator==(rhs);
-	}
-
-	template <ret_type (*F)(arg1_type, arg2_type, arg3_type, arg4_type)>
-	CAT_INLINE void SetFree()
-	{
-		_object = 0;
-		_stub = &FreeStub<F>;
-	}
-
-	template <class T, ret_type (T::*F)(arg1_type, arg2_type, arg3_type, arg4_type)>
-	CAT_INLINE void SetMember(T *object)
-	{
-		_object = object;
-		_stub = &MemberStub<T, F>;
-	}
-
-	template <class T, ret_type (T::*F)(arg1_type, arg2_type, arg3_type, arg4_type) const>
-	CAT_INLINE void SetConstMember(T const *object)
-	{
-		_object = const_cast<T*>( object );
-		_stub = &ConstMemberStub<T, F>;
+		*this = FromConstMember<T, F>(object);
 	}
 };
 

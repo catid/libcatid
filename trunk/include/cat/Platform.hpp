@@ -471,6 +471,8 @@ union Float32 {
 
 //// String and buffer macros ////
 
+#define CAT_FOREVER for (;;)
+
 // Same as strncpy() in all ways except that the result is guaranteed to
 // be a nul-terminated C string
 #if defined(CAT_COMPILER_MSVC)

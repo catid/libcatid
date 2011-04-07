@@ -32,13 +32,19 @@
 #include <cat/io/Logging.hpp>
 using namespace cat;
 
+static const u32 INITIAL_TIMERS_ALLOCATED = 16;
+
 WorkerThread::WorkerThread()
 {
 	_kill_flag = false;
 
-	_new_head = 0;
+	_timers = new WorkerTimer[INITIAL_TIMERS_ALLOCATED];
+	_timers_count = 0;
+	_timers_allocated = INITIAL_TIMERS_ALLOCATED;
 
-	_session_count = 0;
+	_new_timers = new WorkerTimer[INITIAL_TIMERS_ALLOCATED];
+	_new_timers_count = 0;
+	_new_timers_allocated = INITIAL_TIMERS_ALLOCATED;
 
 	for (u32 ii = 0; ii < WQPRIO_COUNT; ++ii)
 	{
@@ -50,17 +56,31 @@ WorkerThread::~WorkerThread()
 {
 }
 
-void WorkerThread::Associate(IWorkerTimer *callbacks)
+bool WorkerThread::Associate(RefObject *object, WorkerTimerDelegate timer)
 {
-	_new_workers_lock.Enter();
+	if (!object || !timer)
+		return false;
 
-	++_session_count;
-	callbacks->_worker_next = _new_head;
-	_new_head = callbacks;
+	AutoMutex lock(_new_timers_lock);
 
-	_new_workers_lock.Leave();
+	u32 new_timers_count = _new_timers_count + 1;
+	if (new_timers_count > _new_timers_allocated)
+	{
+		WorkerTimer *new_timers = new WorkerTimer[new_timers_count * 2];
+		if (!new_timers) return false;
 
-	callbacks->_parent->AddRef();
+		memcpy(new_timers, _new_timers, _new_timers_count * sizeof(WorkerTimer));
+
+		delete []_new_timers;
+
+		_new_timers = new_timers;
+	}
+	_new_timers_count = new_timers_count;
+
+	lock.Release();
+
+	object->AddRef();
+	return true;
 }
 
 void WorkerThread::DeliverBuffers(u32 priority, const BatchSet &buffers)
@@ -70,6 +90,60 @@ void WorkerThread::DeliverBuffers(u32 priority, const BatchSet &buffers)
 	_workqueues[priority].lock.Leave();
 
 	_event_flag.Set();
+}
+
+void WorkerThread::TickTimers()
+{
+	u32 timers_count = _timers_count;
+
+	// For each timer,
+	for (u32 ii = 0; ii < timers_count; ++ii)
+	{
+		WorkerTimer *timer = &_timers[ii];
+
+		// If session is shutting down,
+		if (timer->object->IsShutdown())
+		{
+			WARN("WorkerThreads") << "Removing shutdown worker " << timer->object;
+
+			// Release reference
+			timer->object->ReleaseRef();
+
+#if !defined(CAT_NO_ATOMIC_POPCOUNT)
+			Atomic::Add(&master->_population, -1);
+#endif // CAT_NO_ATOMIC_POPCOUNT
+		}
+		else
+		{
+			node->OnWorkerTick(tls, now);
+
+			prev = node;
+		}
+	}
+
+	// If new timers have been added,
+	if (_new_timers_count > 0)
+	{
+		AutoMutex lock(_new_timers_lock);
+
+		u32 combined_count = _timers_count + _new_timers_count;
+
+		if (combined_count > _timers_allocated)
+		{
+			WorkerTimer *timers = new WorkerTimer[combined_count * 2];
+			if (!timers) return;
+
+			memcpy(timers, _timers, _timers_count * sizeof(WorkerTimer));
+			memcpy(timers + _timers_count, _new_timers, _new_timers_count * sizeof(WorkerTimer));
+
+			delete []_timers;
+
+			_timers = timers;
+		}
+
+		_timers_count = combined_count;
+		_new_timers_count = 0;
+	}
 }
 
 static CAT_INLINE void ExecuteWorkQueue(IWorkerTLS *tls, const BatchSet &queue)
@@ -98,7 +172,7 @@ static CAT_INLINE void ExecuteWorkQueue(IWorkerTLS *tls, const BatchSet &queue)
 
 	WorkerBuffer *last = reinterpret_cast<WorkerBuffer*>( queue.head );
 
-	for (;;)
+	CAT_FOREVER
 	{
 		WorkerBuffer *next = reinterpret_cast<WorkerBuffer*>( last->batch_next );
 
@@ -148,7 +222,7 @@ static CAT_INLINE void ExecuteWorkQueue(IWorkerTLS *tls, const BatchSet &queue)
 
 	WorkerBuffer *last = reinterpret_cast<WorkerBuffer*>( queue.head );
 
-	for (;;)
+	CAT_FOREVER
 	{
 		WorkerBuffer *next = reinterpret_cast<WorkerBuffer*>( last->batch_next );
 
@@ -238,41 +312,7 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 		// If tick interval is up,
 		if ((s32)(now - next_tick) >= 0)
 		{
-			IWorkerTimer *prev = 0, *next;
-
-			// For each session,
-			for (IWorkerTimer *node = head; node; node = next)
-			{
-				next = node->_worker_next;
-
-				// If session is shutting down,
-				if (node->_parent->IsShutdown())
-				{
-					WARN("WorkerThreads") << "Removing shutdown worker " << node;
-
-					// Unlink from list
-					if (prev) prev->_worker_next = next;
-					else head = next;
-					if (!next) tail = prev;
-
-					// Release reference
-					node->_parent->ReleaseRef();
-
-					_new_workers_lock.Enter();
-					_session_count--;
-					_new_workers_lock.Leave();
-
-#if !defined(CAT_NO_ATOMIC_POPCOUNT)
-					Atomic::Add(&master->_population, -1);
-#endif // CAT_NO_ATOMIC_POPCOUNT
-				}
-				else
-				{
-					node->OnWorkerTick(tls, now);
-
-					prev = node;
-				}
-			}
+			TickTimers();
 
 			// Set up next tick
 			next_tick += tick_interval;
@@ -286,24 +326,9 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 				INANE("WorkerThread") << "Slow worker tick";
 			}
 		}
-
-		// If new workers have been added,
-		if (_new_head)
-		{
-			IWorkerTimer *new_head;
-
-			_new_workers_lock.Enter();
-			new_head = _new_head;
-			_new_head = 0;
-			_new_workers_lock.Leave();
-
-			// Insert at end of linked worker list
-			if (tail) tail->_worker_next = new_head;
-			else head = new_head;
-
-			tail = new_head;
-		}
 	}
+
+	// TODO: Remove references here
 
 	return true;
 }

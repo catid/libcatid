@@ -66,7 +66,7 @@ void RWLock::ReadLock()
 
 #if defined(CAT_OS_WINDOWS)
 
-	for (;;)
+	CAT_FOREVER
 	{
 		if (_wr_count)
 		{

@@ -91,7 +91,7 @@ u32 BufferAllocator::AcquireBatch(BatchSet &set, u32 count, u32 bytes)
 
 	if (last)
 	{
-		for (;;)
+		CAT_FOREVER
 		{
 			BatchHead *next = last->batch_next;
 
@@ -133,7 +133,7 @@ u32 BufferAllocator::AcquireBatch(BatchSet &set, u32 count, u32 bytes)
 
 			last = next;
 
-			for (;;)
+			CAT_FOREVER
 			{
 				next = last->batch_next;
 

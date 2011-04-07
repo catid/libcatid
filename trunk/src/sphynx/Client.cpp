@@ -86,7 +86,7 @@ void Client::OnRecvRouting(const BatchSet &buffers)
 		// If packet source is the server,
 		if (_server_addr == buffer->addr || buffer->data_bytes == 0)
 		{
-			buffer->callback = this;
+			buffer->callback.SetMember<Client, &Client::OnWorkerRecv>(this);
 			delivery.PushBack(buffer);
 		}
 		else
@@ -98,7 +98,7 @@ void Client::OnRecvRouting(const BatchSet &buffers)
 
 	// If delivery set is not empty,
 	if (delivery.head)
-		GetIOLayer()->GetWorkerThreads()->DeliverBuffersWorker(this, delivery);
+		GetIOLayer()->GetWorkerThreads()->DeliverBuffers(WQPRIO_HI, GetWorkerID(), delivery);
 
 	// If free set is not empty,
 	if (garbage_count > 0)
@@ -360,7 +360,6 @@ void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)
 }
 
 Client::Client()
-	: IWorkerTimer(this)
 {
 	_connected = false;
 	_last_send_msec = 0;
@@ -368,6 +367,9 @@ Client::Client()
 	// Clock synchronization
 	_ts_next_index = 0;
 	_ts_sample_count = 0;
+
+	SetTimerRefObject(this);
+	_worker_id = INVALID_WORKER_ID;
 }
 
 bool Client::InitialConnect(SphynxLayer *layer, SphynxTLS *tls, TunnelPublicKey &public_key, const char *session_key)

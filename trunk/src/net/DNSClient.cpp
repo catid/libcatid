@@ -130,10 +130,10 @@ void DNSClient::OnRecvRouting(const BatchSet &buffers)
 		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
 
 		// Set the receive callback
-		buffer->callback = this;
+		buffer->callback.SetMember<DNSClient, &DNSClient::OnWorkerRecv>(this);
 	}
 
-	GetIOLayer()->GetWorkerThreads()->DeliverBuffersWorker(this, buffers);
+	GetIOLayer()->GetWorkerThreads()->DeliverBuffers(WQPRIO_HI, GetWorkerID(), buffers);
 }
 
 void DNSClient::OnWorkerRecv(IWorkerTLS *tls, const BatchSet &buffers)
@@ -145,7 +145,7 @@ void DNSClient::OnWorkerRecv(IWorkerTLS *tls, const BatchSet &buffers)
 		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
 
 		SetRemoteAddress(buffer);
-		buffer->callback = this;
+		buffer->callback.SetMember<DNSClient, &DNSClient::OnWorkerRecv>(this);
 
 		// If packet source is not the server, ignore this packet
 		if (_server_addr != buffer->addr)
@@ -261,7 +261,8 @@ DNSClient::DNSClient()
 	_request_head = _request_tail = 0;
 	_request_queue_size = 0;
 
-	InitializeWorkerCallbacks(this);
+	SetTimerRefObject(this);
+	_worker_id = INVALID_WORKER_ID;
 }
 
 bool DNSClient::Initialize(IOLayer *iolayer)
@@ -725,7 +726,7 @@ bool DNSClient::IsValidHostname(const char *hostname)
 	return true;
 }
 
-bool DNSClient::Resolve(IOLayer *iolayer, const char *hostname, IDNSResultCallback *callback, RefObject *holdRef)
+bool DNSClient::Resolve(IOLayer *iolayer, const char *hostname, DNSDelegate callback, RefObject *holdRef)
 {
 	// Initialize if needed
 	if (!_initialized && !Initialize(iolayer))
@@ -738,7 +739,7 @@ bool DNSClient::Resolve(IOLayer *iolayer, const char *hostname, IDNSResultCallba
 	if (addr.Valid())
 	{
 		// Immediately invoke callback
-		callback->OnDNSResolve(hostname, &addr, 1);
+		callback(hostname, &addr, 1);
 
 		return true;
 	}
@@ -756,7 +757,7 @@ bool DNSClient::Resolve(IOLayer *iolayer, const char *hostname, IDNSResultCallba
 	if (cached_request)
 	{
 		// Immediately invoke callback
-		if (!callback->OnDNSResolve(hostname, cached_request->responses, cached_request->num_responses))
+		if (!callback(hostname, cached_request->responses, cached_request->num_responses))
 		{
 			// Kill cached request when asked
 			CacheKill(cached_request);
@@ -850,7 +851,7 @@ void DNSClient::NotifyRequesters(DNSRequest *req)
 	bool add_to_cache = false;
 
 	// Invoke the callback
-	add_to_cache |= req->callback_head.cb->OnDNSResolve(req->hostname, req->responses, req->num_responses);
+	add_to_cache |= req->callback_head.cb(req->hostname, req->responses, req->num_responses);
 
 	// Release ref if requested
 	RefObject::Release(req->callback_head.ref);
@@ -861,7 +862,7 @@ void DNSClient::NotifyRequesters(DNSRequest *req)
 		cbnext = cb->next; // cache for deletion
 
 		// Invoke the callback
-		add_to_cache |= cb->cb->OnDNSResolve(req->hostname, req->responses, req->num_responses);
+		add_to_cache |= cb->cb(req->hostname, req->responses, req->num_responses);
 
 		// Release ref if requested
 		RefObject::Release(cb->ref);

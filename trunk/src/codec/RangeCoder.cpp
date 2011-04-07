@@ -193,7 +193,7 @@ bool TextStatsCollector::GenerateMinimalStaticTable(const char *TableName, std::
 
         for (jj = 0; jj < SYMBOL_LUT_BYTES; ++jj)
         {
-            for (;;)
+            CAT_FOREVER
             {
                 high = symbol_freqs[symbol] >> SYMBOL_LUT_SHIFT;
 

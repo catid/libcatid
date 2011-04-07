@@ -460,7 +460,7 @@ bool Collexion<T>::Remove(T *conn)
 	u32 key = hash & mask;
 
 	// While target table entry not found,
-	for (;;)
+	CAT_FOREVER
 	{
 		// If target was found,
 		if (_table[key].conn == conn)

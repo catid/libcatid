@@ -210,7 +210,7 @@ void IOThread::UsePreVistaAPI(IOThreads *master)
 	UDPEndpoint *prev_recv_endpoint = 0;
 	u32 recv_count = 0;
 
-	for (;;)
+	CAT_FOREVER
 	{
 		BOOL bResult = GetQueuedCompletionStatus(port, &bytes, &key, &ov, INFINITE);
 

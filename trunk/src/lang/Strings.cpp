@@ -97,8 +97,7 @@ int cat::DecToString(s32 x, char *outs)
 
 bool cat::iStrEqual(const char *A, const char *B)
 {
-	// Forever,
-	for (;;)
+	CAT_FOREVER
 	{
 		// Grab next character from each string
 		char a = *A++;

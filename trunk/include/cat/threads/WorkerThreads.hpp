@@ -54,6 +54,7 @@ class WorkerThreads;
 static const u32 MAX_WORKER_THREADS = 32;
 static const u32 INVALID_WORKER_ID = ~(u32)0;
 
+
 // Interface for worker thread-local storage
 class CAT_EXPORT IWorkerTLS
 {
@@ -81,31 +82,22 @@ public:
 };
 
 
+// A buffer specialized for handling by the worker threads
 typedef Delegate2<void, IWorkerTLS *, const BatchSet &> WorkerDelegate;
 
-// A buffer specialized for handling by the worker threads
 struct WorkerBuffer : public BatchHead
 {
 	WorkerDelegate callback;
 };
 
 
-class CAT_EXPORT IWorkerTimer
+// An element in the timer object array
+typedef Delegate2<void, IWorkerTLS *, u32> WorkerTimerDelegate;
+
+struct WorkerTimer
 {
-	friend class WorkerThread;
-	friend class WorkerThreads;
-
-	RefObject *_parent;
-	IWorkerTimer *_worker_prev, *_worker_next;
-
-protected:
-	CAT_INLINE IWorkerTimer(RefObject *parent)
-	{
-		_parent = parent;
-	}
-	CAT_INLINE virtual ~IWorkerTimer() {}
-
-	virtual void OnWorkerTick(IWorkerTLS *tls, u32 now) {}
+	RefObject *object;
+	WorkerTimerDelegate timer;
 };
 
 
@@ -127,27 +119,32 @@ class CAT_EXPORT WorkerThread : public Thread
 {
 	virtual bool ThreadFunction(void *master);
 
-	u32 _session_count;
-
 	WaitableFlag _event_flag;
 	volatile bool _kill_flag;
 
-	// Protected list of new workers to add to the running list
-	Mutex _new_workers_lock;
-	IWorkerTimer *_new_head;
-
 	WorkerThreadQueue _workqueues[WQPRIO_COUNT];
+
+	// Thread-safe array of new timers to add to the running array
+	Mutex _new_timers_lock;
+	WorkerTimer *_new_timers;
+	u32 _new_timers_count, _new_timers_allocated;
+
+	// Array of running timers
+	WorkerTimer *_timers;
+	u32 _timers_count, _timers_allocated;
+
+	void TickTimers(); // locks if needed
 
 public:
 	WorkerThread();
 	virtual ~WorkerThread();
 
-	CAT_INLINE u32 GetSessionCount() { return _session_count; }
+	CAT_INLINE u32 GetTimerCount() { return _timers_count + _new_timers_count; }
 	CAT_INLINE void FlagEvent() { _event_flag.Set(); }
 	CAT_INLINE void SetKillFlag() { _kill_flag = true; }
 
 	void DeliverBuffers(u32 priority, const BatchSet &buffers);
-	void Associate(IWorkerTimer *callbacks);
+	bool Associate(RefObject *object, WorkerTimerDelegate timer);
 };
 
 
@@ -204,7 +201,7 @@ public:
 
 	bool Shutdown();
 
-	CAT_INLINE u32 AssignWorker(IWorkerTimer *callbacks)
+	CAT_INLINE u32 AssignWorker(RefObject *object, WorkerTimerDelegate timer)
 	{
 #if !defined(CAT_NO_ATOMIC_POPCOUNT)
 		Atomic::Add(&_population, 1);
@@ -212,7 +209,8 @@ public:
 
 		u32 worker_id = FindLeastPopulatedWorker();
 
-		_workers[worker_id].Associate(callbacks);
+		if (!_workers[worker_id].Associate(object, timer))
+			return INVALID_WORKER_ID;
 
 		return worker_id;
 	}

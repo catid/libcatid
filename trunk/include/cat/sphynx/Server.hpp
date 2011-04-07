@@ -40,7 +40,7 @@ namespace cat {
 namespace sphynx {
 
 
-class CAT_EXPORT Server : public UDPEndpoint, public IWorkerTimer
+class CAT_EXPORT Server : public UDPEndpoint
 {
 	friend class Connexion;
 
