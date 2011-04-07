@@ -93,8 +93,8 @@ static CAT_INLINE void ExecuteWorkQueue(IWorkerTLS *tls, const BatchSet &queue)
 		is essentially helping prioritize packets properly.
 	*/
 
-	BatchSet buffers;
-	buffers.Clear();
+	BatchSet batch;
+	batch.Clear();
 
 	WorkerBuffer *last = reinterpret_cast<WorkerBuffer*>( queue.head );
 
@@ -104,31 +104,30 @@ static CAT_INLINE void ExecuteWorkQueue(IWorkerTLS *tls, const BatchSet &queue)
 
 		if (!next) break;
 
-		if (last->callback != next->callback)
+		WorkerBuffer *batch_head = reinterpret_cast<WorkerBuffer*>( batch.head );
+
+		// If batch is not empty or callback has changed,
+		if (batch_head && last->callback != next->callback)
 		{
-			WorkerBuffer *buffer_head = reinterpret_cast<WorkerBuffer*>( buffers.head );
-
-			if (buffer_head)
+			// If batch callback and next callback are the same,
+			if (batch_head->callback == next->callback)
 			{
-				if (buffer_head->callback == next->callback)
-				{
-					// run last now
-					last->callback(tls, last);
-				}
-				else
-				{
-					// run lastlast now
-					buffer_head->callback(tls, buffers);
+				// Run the speckle in between now and keep accumulating to batch
+				last->callback(tls, last);
+			}
+			else
+			{
+				// Otherwise it is time to flush the batch and start anew
+				batch_head->callback(tls, batch);
 
-					// start new batch with last
-					buffers = last;
-				}
+				// Set new batch to oldest one still unprocessed
+				batch = last;
 			}
 		}
 		else
 		{
-			// add last to batch
-			buffers.PushBack(last);
+			// Push the oldest one still unprocessed onto the batch
+			batch.PushBack(last);
 		}
 
 		last = next;
@@ -137,9 +136,9 @@ static CAT_INLINE void ExecuteWorkQueue(IWorkerTLS *tls, const BatchSet &queue)
 	// Run final batch
 	if (last)
 	{
-		buffers.PushBack(last);
+		batch.PushBack(last);
 
-		last->callback(tls, buffers);
+		last->callback(tls, batch);
 	}
 
 #else // CAT_WORKER_THREADS_REORDER_EVENTS
