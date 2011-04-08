@@ -26,21 +26,36 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-// Include all libcat AsyncIO headers
-
-#include <cat/AllCommon.hpp>
-
-#if defined(CAT_COMPILER_MSVC) && defined(CAT_BUILD_DLL)
-# pragma warning(push)
-# pragma warning(disable:4251) // Remove "not exported" warning from STL
-#endif
+#ifndef CAT_ASYNCFILE_READER_HPP
+#define CAT_ASYNCFILE_READER_HPP
 
 #include <cat/io/IOLayer.hpp>
-#include <cat/io/Buffers.hpp>
-#include <cat/io/AsyncFileReader.hpp>
 
-#include <cat/net/Sockets.hpp>
+namespace cat {
 
-#if defined(CAT_COMPILER_MSVC) && defined(CAT_BUILD_DLL)
-# pragma warning(pop)
-#endif
+
+// Reads ahead blocks of data from a file to improve read rates
+class CAT_EXPORT AsyncFileReader
+{
+	AsyncFile *_file;
+
+	u8 *_read_buffers[2];
+	u32 _read_buffer_size;
+	u64 _offset, _size;
+
+	void OnRead(IWorkerTLS *tls, BatchSet &buffers);
+
+public:
+	AsyncFileReader();
+	~AsyncFileReader();
+
+	bool Open(const char *path);
+	void Close();
+
+	bool Poll(u8 *buffer, u32 &bytes);
+};
+
+
+} // namespace cat
+
+#endif // CAT_ASYNCFILE_READER_HPP

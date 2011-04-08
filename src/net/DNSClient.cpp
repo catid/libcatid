@@ -269,7 +269,7 @@ bool DNSClient::Initialize(IOLayer *iolayer)
 	// Attempt to get a CSPRNG
 	if (!(_csprng = new FortunaOutput))
 	{
-		WARN("DNS") << "Out of memory: Unable to get a CSPRNG";
+		WARN("DNSClient") << "Out of memory: Unable to get a CSPRNG";
 		RequestShutdown();
 		return false;
 	}
@@ -277,7 +277,7 @@ bool DNSClient::Initialize(IOLayer *iolayer)
 	// Attempt to bind to any port; ignore ICMP unreachable messages
 	if (!BindToRandomPort(iolayer, true))
 	{
-		WARN("DNS") << "Initialization failure: Unable to bind to any port";
+		WARN("DNSClient") << "Initialization failure: Unable to bind to any port";
 		RequestShutdown();
 		return false;
 	}
@@ -288,7 +288,7 @@ bool DNSClient::Initialize(IOLayer *iolayer)
 	// Attempt to get server address from operating system
 	if (!GetServerAddr())
 	{
-		WARN("DNS") << "Initialization failure: Unable to discover DNS server address";
+		WARN("DNSClient") << "Initialization failure: Unable to discover DNS server address";
 		RequestShutdown();
 		return false;
 	}
@@ -318,7 +318,7 @@ bool DNSClient::GetServerAddr()
 	// Handle errors opening the key
 	if (err != ERROR_SUCCESS)
 	{
-		WARN("DNS") << "Initialization: Unable to open registry key for Tcpip interfaces: " << err;
+		WARN("DNSClient") << "Initialization: Unable to open registry key for Tcpip interfaces: " << err;
 		return false;
 	}
 
@@ -410,19 +410,19 @@ bool DNSClient::GetServerAddr()
 	if (_server_addr.Valid() &&
 		_server_addr.Convert(Is6()))
 	{
-		INANE("DNS") << "Using nameserver at " << _server_addr.IPToString();
+		INANE("DNSClient") << "Using nameserver at " << _server_addr.IPToString();
 	}
 	else
 	{
 		const char *ANYCAST_DNS_SERVER = "4.2.2.1"; // Level 3 / Verizon
 
-		WARN("DNS") << "Unable to determine nameserver from OS.  Using anycast address " << ANYCAST_DNS_SERVER;
+		WARN("DNSClient") << "Unable to determine nameserver from OS.  Using anycast address " << ANYCAST_DNS_SERVER;
 
 		// Attempt to get server address from anycast DNS server string
 		if (!_server_addr.SetFromString(ANYCAST_DNS_SERVER, 53) ||
 			!_server_addr.Convert(Is6()))
 		{
-			FATAL("DNS") << "Unable to resolve anycast address " << ANYCAST_DNS_SERVER;
+			FATAL("DNSClient") << "Unable to resolve anycast address " << ANYCAST_DNS_SERVER;
 			return false;
 		}
 	}
@@ -439,7 +439,7 @@ bool DNSClient::BindToRandomPort(IOLayer *iolayer, bool ignoreUnreachable)
 	const int RANDOM_BIND_ATTEMPTS_MAX = 16;
 
 	// Get SupportIPv6 flag from settings
-	bool only_ipv4 = Settings::ref()->getInt("DNS.Client.SupportIPv6", 0) == 0;
+	bool only_ipv4 = Settings::ref()->getInt("DNSClient.SupportIPv6", 0) == 0;
 
 	// Try to use a more random port
 	int tries = RANDOM_BIND_ATTEMPTS_MAX;
