@@ -30,7 +30,7 @@
 #define CAT_SPHYNX_FILE_TRANSFER_HPP
 
 #include <cat/sphynx/Transport.hpp>
-#include <cat/io/MappedFile.hpp>
+#include <cat/io/IOLayer.hpp>
 #include <vector>
 #include <queue> // priority_queue<>
 
@@ -47,7 +47,7 @@ class CAT_EXPORT FileTransferSource : public IHugeSource
 	struct QueuedFile
 	{
 		u32 priority; // lower = lower priority
-		SequentialFileReader reader;
+		AsyncFile *file;
 
 		// File announcement message
 		u8 *msg;
