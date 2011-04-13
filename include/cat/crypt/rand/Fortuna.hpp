@@ -185,7 +185,7 @@ public:
 };
 
 
-// LoopThread-safe output object for Fortuna
+// Thread-safe output object for Fortuna, just allocate a new one to use
 class CAT_EXPORT FortunaOutput : public IRandom
 {
 	friend class FortunaFactory;

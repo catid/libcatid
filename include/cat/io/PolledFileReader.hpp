@@ -26,36 +26,40 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_ASYNCFILE_READER_HPP
-#define CAT_ASYNCFILE_READER_HPP
+#ifndef CAT_POLLED_FILE_READER_HPP
+#define CAT_POLLED_FILE_READER_HPP
 
 #include <cat/io/IOLayer.hpp>
 
 namespace cat {
 
 
-// Reads ahead blocks of data from a file to improve read rates
-class CAT_EXPORT AsyncFileReader
+class CAT_EXPORT PolledFileReader : public AsyncFile
 {
-	AsyncFile *_file;
-
-	u8 *_read_buffers[2];
-	u32 _read_buffer_size;
-	u64 _offset, _size;
+	u8 *_cache[2];
+	u32 _cache_size;
+	u64 _remaining;
+	ReadBuffer _buffer;
 
 	void OnRead(IWorkerTLS *tls, BatchSet &buffers);
 
 public:
-	AsyncFileReader();
-	~AsyncFileReader();
+	PolledFileReader();
+	virtual ~PolledFileReader();
 
-	bool Open(const char *path);
-	void Close();
+	bool Open(IOLayer *layer, const char *file_path);
 
-	bool Poll(u8 *buffer, u32 &bytes);
+	/*
+		If Read() returns false, then the poll operation failed.
+			The 'bytes' variable is unaffected.
+		Otherwise if it returns true:
+			If Read() sets 'bytes' to zero then the end of file has been reached.
+			Otherwise it will set 'bytes' to the number of bytes read into 'data'.
+	*/
+	bool Read(void *data, u32 &bytes);
 };
 
 
 } // namespace cat
 
-#endif // CAT_ASYNCFILE_READER_HPP
+#endif // CAT_POLLED_FILE_READER_HPP

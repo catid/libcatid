@@ -53,8 +53,8 @@ class CAT_EXPORT AsyncFile : public WatchedRefObject
 	HANDLE _file;
 
 public:
-    AsyncFile();
-    virtual ~AsyncFile();
+	AsyncFile();
+	virtual ~AsyncFile();
 
 	CAT_INLINE bool Valid() { return _file != INVALID_HANDLE_VALUE; }
 	CAT_INLINE HANDLE GetHandle() { return _file; }
