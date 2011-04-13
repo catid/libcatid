@@ -47,7 +47,7 @@ class CAT_EXPORT FileTransferSource : public IHugeSource
 	struct QueuedFile
 	{
 		u32 priority; // lower = lower priority
-		AsyncFile *file;
+		PolledFileReader *reader;
 
 		// File announcement message
 		u8 *msg;
