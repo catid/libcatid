@@ -130,7 +130,7 @@ class DNSClient : public UDPEndpoint
 
 public:
 	DNSClient();
-	CAT_INLINE virtual ~DNSClient() {}
+	CAT_INLINE virtual ~DNSClient();
 
 	CAT_INLINE u32 GetWorkerID() { return _worker_id; }
 
@@ -158,9 +158,6 @@ public:
 	bool Resolve(IOLayer *iolayer, const char *hostname, DNSDelegate callback, RefObject *holdRef = 0);
 
 protected:
-	virtual void OnShutdownRequest();
-	virtual bool OnZeroReferences();
-
 	virtual void OnRecvRouting(const BatchSet &buffers);
 
 	virtual void OnWorkerRecv(IWorkerTLS *tls, const BatchSet &buffers);

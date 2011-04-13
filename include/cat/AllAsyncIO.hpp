@@ -37,7 +37,7 @@
 
 #include <cat/io/IOLayer.hpp>
 #include <cat/io/Buffers.hpp>
-#include <cat/io/AsyncFileReader.hpp>
+#include <cat/io/PolledFileReader.hpp>
 
 #include <cat/net/Sockets.hpp>
 
