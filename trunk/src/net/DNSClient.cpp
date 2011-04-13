@@ -112,18 +112,6 @@ enum QClasses
 
 //// DNSClient
 
-void DNSClient::OnShutdownRequest()
-{
-	UDPEndpoint::OnShutdownRequest();
-}
-
-bool DNSClient::OnZeroReferences()
-{
-	CleanUp();
-
-	return UDPEndpoint::OnZeroReferences();
-}
-
 void DNSClient::CleanUp()
 {
 	// For each cache node,
@@ -283,6 +271,11 @@ DNSClient::DNSClient()
 	_request_queue_size = 0;
 
 	_worker_id = INVALID_WORKER_ID;
+}
+
+DNSClient::~DNSClient()
+{
+	CleanUp();
 }
 
 bool DNSClient::Initialize(IOLayer *iolayer)

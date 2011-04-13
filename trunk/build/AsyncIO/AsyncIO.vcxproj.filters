@@ -42,7 +42,7 @@
     <ClCompile Include="..\..\src\iocp\AsyncFile.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\io\AsyncFileReader.cpp">
+    <ClCompile Include="..\..\src\io\PolledFileReader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -71,7 +71,7 @@
     <ClInclude Include="..\..\include\cat\io\Buffers.hpp">
       <Filter>Header Files\io</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\cat\io\AsyncFileReader.hpp">
+    <ClInclude Include="..\..\include\cat\io\PolledFileReader.hpp">
       <Filter>Header Files\io</Filter>
     </ClInclude>
   </ItemGroup>
