@@ -82,7 +82,7 @@ struct ReadBuffer : public BatchHead
 {
 	// Shared overhead
 	WorkerDelegate callback;
-	void *data;
+	void *data; // Pointer to where the file data will be written
 
 	union
 	{

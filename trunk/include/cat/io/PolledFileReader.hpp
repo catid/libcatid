@@ -36,12 +36,21 @@ namespace cat {
 
 class CAT_EXPORT PolledFileReader : public AsyncFile
 {
+	// Double-buffered cache system
 	u8 *_cache[2];
-	u32 _cache_size;
-	u64 _remaining;
-	ReadBuffer _buffer;
+	u32 _cache_size;		// Bytes in each cache buffer
+	u32 _cache_front_index;	// Buffer index where data is available now
+	u32 _cache_front_bytes;	// Bytes available in front buffer
+	u32 _cache_offset;		// Offset to next unread byte in front buffer
+	u8 _cache_back_done;	// Flag to indicate that the back buffer read completed
+	u8 _cache_front_done;	// Flag to indicate that the front buffer read completed
+	u32 _cache_back_bytes;	// Bytes available in back buffer
 
-	void OnRead(IWorkerTLS *tls, BatchSet &buffers);
+	u64 _offset;			// Next offset for reading from disk
+	ReadBuffer _buffer;		// Read request object for reading from disk
+
+	void OnFirstRead(IWorkerTLS *tls, const BatchSet &buffers);
+	void OnRead(IWorkerTLS *tls, const BatchSet &buffers);
 
 public:
 	PolledFileReader();
@@ -50,13 +59,12 @@ public:
 	bool Open(IOLayer *layer, const char *file_path);
 
 	/*
-		If Read() returns false, then the poll operation failed.
-			The 'bytes' variable is unaffected.
-		Otherwise if it returns true:
-			If Read() sets 'bytes' to zero then the end of file has been reached.
-			Otherwise it will set 'bytes' to the number of bytes read into 'data'.
+		If Read() returns false, then the end of file has been found.
+		Otherwise, 'bytes_read' will be set to the number of bytes read.
+
+		Not thread-safe to read from the same object with multiple threads.
 	*/
-	bool Read(void *data, u32 &bytes);
+	bool Read(u8 *buffer, u32 requested, u32 &bytes_read);
 };
 
 
