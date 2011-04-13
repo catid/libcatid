@@ -114,6 +114,9 @@ void WorkerThread::TickTimers(IWorkerTLS *tls, u32 now)
 			//WARN("WorkerThreads") << "Removing shutdown timer " << timer->object;
 
 			timer->object->ReleaseRef();
+
+			_timers_count = --timers_count;
+			_timers[ii--] = _timers[timers_count];
 		}
 		else
 		{

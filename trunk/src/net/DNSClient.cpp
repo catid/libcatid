@@ -119,7 +119,26 @@ void DNSClient::OnShutdownRequest()
 
 bool DNSClient::OnZeroReferences()
 {
+	CleanUp();
+
 	return UDPEndpoint::OnZeroReferences();
+}
+
+void DNSClient::CleanUp()
+{
+	// For each cache node,
+	for (DNSRequest *node = _cache_head, *next; node; node = next)
+	{
+		next = node->next;
+
+		delete node;
+	}
+
+	// Clear cache
+	_cache_head = _cache_tail = 0;
+	_cache_size = 0;
+
+	ENFORCE(_request_queue_size == 0) << "Request queue not empty during cleanup";
 }
 
 void DNSClient::OnRecvRouting(const BatchSet &buffers)
@@ -231,6 +250,8 @@ void DNSClient::OnWorkerTick(IWorkerTLS *tls, u32 now)
 	for (DNSRequest *req_next, *req = _request_head; req; req = req_next)
 	{
 		req_next = req->next; // cached for deletion
+
+		// NOTE: In the case of a shutdown, the repost time of 300 ms will cause proper cleanup.
 
 		// If the request has timed out or reposting failed,
 		if (((s32)(now - req->first_post_time) >= DNSREQ_TIMEOUT) ||
@@ -727,6 +748,10 @@ bool DNSClient::IsValidHostname(const char *hostname)
 
 bool DNSClient::Resolve(IOLayer *iolayer, const char *hostname, DNSDelegate callback, RefObject *holdRef)
 {
+	// If DNSClient is shutdown,
+	if (IsShutdown())
+		return false;
+
 	// Initialize if needed
 	if (!_initialized && !Initialize(iolayer))
 		return false;

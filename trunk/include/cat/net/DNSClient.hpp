@@ -48,8 +48,8 @@ static const int HOSTNAME_MAXLEN = 63; // Max characters in a hostname request
 static const int DNSREQ_TIMEOUT = 3000; // DNS request timeout interval
 static const int DNSREQ_REPOST_TIME = 300; // Number of milliseconds between retries
 static const int DNSREQ_MAX_SIMUL = 2048; // Maximum number of simultaneous DNS requests
-static const int DNSCACHE_MAX_REQS = 8; // Maximum number of requests to cache
-static const int DNSCACHE_MAX_RESP = 8; // Maximum number of responses to cache
+static const int DNSCACHE_MAX_REQS = 32; // Maximum number of requests to cache
+static const int DNSCACHE_MAX_RESP = 32; // Maximum number of responses to cache
 static const int DNSCACHE_TIMEOUT = 60000; // Time until a cached response is dropped
 
 static const int DNS_THREAD_KILL_TIMEOUT = 10000; // 10 seconds
@@ -125,6 +125,8 @@ class DNSClient : public UDPEndpoint
 
 	void ProcessDNSResponse(DNSRequest *req, int qdcount, int ancount, u8 *data, u32 bytes);
 	void NotifyRequesters(DNSRequest *req);
+
+	void CleanUp();
 
 public:
 	DNSClient();
