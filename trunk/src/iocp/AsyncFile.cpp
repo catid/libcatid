@@ -71,6 +71,11 @@ bool AsyncFile::Open(IOLayer *layer, const char *file_path, u32 async_file_modes
 
 	if (async_file_modes & ASYNCFILE_RANDOM)
 		flags |= FILE_FLAG_RANDOM_ACCESS;
+	else if (async_file_modes & ASYNCFILE_SEQUENTIAL)
+		flags |= FILE_FLAG_SEQUENTIAL_SCAN;
+
+	if (async_file_modes & ASYNCFILE_NOBUFFER)
+		flags |= FILE_FLAG_NO_BUFFERING;
 
 	_file = CreateFile(file_path, modes, 0, 0, creation, flags, 0);
 	if (!_file) return false;
