@@ -142,9 +142,9 @@ public:
 	if (severity >= Logging::ref()->_log_threshold) Recorder(subsystem, severity)
 
 #define INANE(subsystem)	RECORD(subsystem, LVL_INANE)
-#define INFO(subsystem)	 RECORD(subsystem, LVL_INFO)
-#define WARN(subsystem)	 RECORD(subsystem, LVL_WARN)
-#define OOPS(subsystem)	 RECORD(subsystem, LVL_OOPS)
+#define INFO(subsystem)		RECORD(subsystem, LVL_INFO)
+#define WARN(subsystem)		RECORD(subsystem, LVL_WARN)
+#define OOPS(subsystem)		RECORD(subsystem, LVL_OOPS)
 #define FATAL(subsystem)	RECORD(subsystem, LVL_FATAL)
 
 
