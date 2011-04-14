@@ -87,7 +87,7 @@ public:
 		}
 	}
 
-	bool StartReading(IOLayer *layer, u32 parallelism, u32 chunk_size, const char *file_path)
+	bool StartReading(IOLayer *layer, bool no_buffer, bool seq, u32 parallelism, u32 chunk_size, const char *file_path)
 	{
 		// Start timing before file object is created
 
@@ -107,7 +107,7 @@ public:
 
 		layer->Watch(_file);
 
-		if (!_file->Open(layer, file_path, ASYNCFILE_READ | ASYNCFILE_NOBUFFER))
+		if (!_file->Open(layer, file_path, ASYNCFILE_READ | (no_buffer ? ASYNCFILE_NOBUFFER : 0) | (seq ? ASYNCFILE_SEQUENTIAL : 0)))
 		{
 			WARN("AsyncFileBench") << "Unable to open specified file: " << file_path;
 			return false;
@@ -146,16 +146,20 @@ bool Main(IOLayer *layer, Reader *reader, char **argc, int argv)
 	const char *file_path;
 	int chunk_size = 0;
 	int parallelism = 0;
+	int no_buffer = 0;
+	int seq = 0;
 
 	if (argv >= 3)
 	{
-		parallelism = atoi(argc[1]);
-		chunk_size = atoi(argc[2]);
-		file_path = argc[3];
+		no_buffer = atoi(argc[1]);
+		seq = atoi(argc[2]);
+		parallelism = atoi(argc[3]);
+		chunk_size = atoi(argc[4]);
+		file_path = argc[5];
 	}
 	else
 	{
-		WARN("AsyncFileBench") << "Please supply a path to the file to read";
+		WARN("AsyncFileBench") << "Expected arguments: <no_buffer(1/0)> <seq(1/0)> <parallelism> <chunk size> <file path>";
 		return false;
 	}
 
@@ -171,7 +175,7 @@ bool Main(IOLayer *layer, Reader *reader, char **argc, int argv)
 		return false;
 	}
 
-	return reader->StartReading(layer, parallelism, chunk_size, file_path);
+	return reader->StartReading(layer, no_buffer != 0, seq != 0, parallelism, chunk_size, file_path);
 }
 
 int main(char **argc, int argv)
