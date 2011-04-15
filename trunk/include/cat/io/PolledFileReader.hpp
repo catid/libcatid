@@ -31,8 +31,36 @@
 
 #include <cat/io/IOLayer.hpp>
 
+/*
+	This implementation of a polled file reader is designed for maximum
+	throughput.  The access patterns are tuned to work for a wide range
+	of common disk types:
+
+	+ The reads are hinted as sequential access pattern to help the OS.
+	I have noticed this helping ever so slightly.  It cannot hurt anyway.
+
+	+ Each read is not buffered by the OS since that halves the throughput
+	in some cases.  File caching should be implemented by the application
+	to have your cake and eat it too.  Note that this means that the read
+	buffers must be page-aligned, but that is handled internally here.
+
+	+ There are always 2 * (processor count) requests outstanding, and at
+	least 16 even if the processor count is low to allow for very fast
+	RAID arrays of SSDs to perform at their peak.
+	For single mechanical disks, this can be set lower without hurting.
+
+	+ Each read from the disks is 32768 bytes.  It's the magic number.
+	In some cases raising the number will not hurt much.
+	In most cases lowering this number will hurt.
+*/
+
 namespace cat {
 
+
+// See above for rationale of these choices
+static const u32 OPTIMAL_FILE_READ_CHUNK_SIZE = 32768;
+static const u32 OPTIMAL_FILE_MINIMUM_PARALLELISM = 16;
+static const u32 OPTIMAL_FILE_READ_MODE = ASYNCFILE_READ | ASYNCFILE_SEQUENTIAL | ASYNCFILE_NOBUFFER;
 
 class CAT_EXPORT PolledFileReader : public AsyncFile
 {
