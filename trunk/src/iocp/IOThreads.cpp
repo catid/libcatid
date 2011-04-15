@@ -133,7 +133,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 
 				// Deliver the buffer to the worker threads
 				WorkerThreads *workers = async_file->GetIOLayer()->GetWorkerThreads();
-				workers->DeliverBuffersRoundRobin(WQPRIO_LO, buffer);
+				workers->DeliverBuffers(WQPRIO_LO, buffer->worker_id, buffer);
 
 				async_file->ReleaseRef();
 			}
