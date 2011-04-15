@@ -9,19 +9,19 @@ public:
 
 class Reader
 {
-	static u8 m_padding1[CAT_DEFAULT_CACHE_LINE_SIZE];
-	static u32 m_file_offset;
-	static u8 m_padding2[CAT_DEFAULT_CACHE_LINE_SIZE];
-	static u32 m_file_chunk_size;
-	static u8 m_padding3[CAT_DEFAULT_CACHE_LINE_SIZE];
-	static u32 m_file_parallelism;
-	static u8 m_padding4[CAT_DEFAULT_CACHE_LINE_SIZE];
-	static u32 m_file_progress;
-	static u8 m_padding5[CAT_DEFAULT_CACHE_LINE_SIZE];
-	static u32 m_file_total;
-	static u8 m_padding6[CAT_DEFAULT_CACHE_LINE_SIZE];
-	static double m_start_time;
-	static u8 m_padding7[CAT_DEFAULT_CACHE_LINE_SIZE];
+	u8 m_padding1[CAT_DEFAULT_CACHE_LINE_SIZE];
+	u32 m_file_offset;
+	u8 m_padding2[CAT_DEFAULT_CACHE_LINE_SIZE];
+	u32 m_file_chunk_size;
+	u8 m_padding3[CAT_DEFAULT_CACHE_LINE_SIZE];
+	u32 m_file_parallelism;
+	u8 m_padding4[CAT_DEFAULT_CACHE_LINE_SIZE];
+	u32 m_file_progress;
+	u8 m_padding5[CAT_DEFAULT_CACHE_LINE_SIZE];
+	u32 m_file_total;
+	u8 m_padding6[CAT_DEFAULT_CACHE_LINE_SIZE];
+	double m_start_time;
+	u8 m_padding7[CAT_DEFAULT_CACHE_LINE_SIZE];
 
 	AsyncFile *_file;
 
@@ -52,13 +52,23 @@ class Reader
 			{
 				if (AccumulateFilePiece(data_bytes))
 				{
-					WARN("AsyncFileBench") << "File read complete in " << Clock::usec() - m_start_time << " usec";
+					double delta = Clock::usec() - m_start_time;
+
+					double rate = m_file_total / delta;
+
+					u32 s = (u32)(delta / 1000000.0);
+					u32 ms = (u32)(delta / 1000.0) % 1000;
+					delta -= (u32)(delta / 1000.0) * 1000.0;
+
+					WARN("AsyncFileBench") << "Total file size = " << m_file_total;
+					WARN("AsyncFileBench") << "File read complete in " << s << " s : " << ms << " ms : " << delta << " us -- at " << rate << " MBPS";
 					_flag->Set();
 				}
 				else
 				{
 					u32 offset = GetNextFileOffset();
-					if (!_file->Read(buffer, offset, data, m_file_chunk_size))
+
+					if (offset < m_file_total && !_file->Read(buffer, offset, data, m_file_chunk_size))
 					{
 						WARN("AsyncFileBench") << "Unable to read from offset " << offset;
 					}
@@ -85,6 +95,11 @@ public:
 			delete []_buffers;
 			_buffers = 0;
 		}
+		if (_data)
+		{
+			delete []_data;
+			_data = 0;
+		}
 	}
 
 	bool StartReading(IOLayer *layer, bool no_buffer, bool seq, u32 parallelism, u32 chunk_size, const char *file_path)
@@ -97,7 +112,8 @@ public:
 		m_file_parallelism = parallelism;
 
 		_buffers = new ReadBuffer[parallelism];
-		if (!_buffers)
+		_data = new u8*[parallelism];
+		if (!_buffers || !_data)
 		{
 			WARN("AsyncFileBench") << "Out of memory allocating parallel read buffers";
 			return false;
@@ -141,7 +157,146 @@ public:
 };
 
 
-bool Main(IOLayer *layer, Reader *reader, char **argc, int argv)
+
+
+
+
+
+
+
+
+#include <winioctl.h>	// DeviceIoControl()
+
+
+
+void GetHarddiskDump()
+{
+	const int MAX_DRIVES = 16;
+
+	for (int ii = 0; ii < MAX_DRIVES; ++ii)
+	{
+		char device_name[256];
+		sprintf(device_name, "\\\\.\\PhysicalDrive%d", ii);
+
+		// Open device
+		HANDLE device = CreateFileA(device_name, 0, FILE_SHARE_READ | FILE_SHARE_WRITE, 0, OPEN_EXISTING, 0, 0);
+		if (device != INVALID_HANDLE_VALUE)
+		{
+			STORAGE_PROPERTY_QUERY query;
+			CAT_OBJCLR(query);
+			query.PropertyId = StorageDeviceProperty;
+			query.QueryType = PropertyStandardQuery;
+
+			u8 buffer[4096];
+			CAT_OBJCLR(buffer);
+			DWORD bytes;
+
+			// Read storage device descriptor
+			if (DeviceIoControl(device, IOCTL_STORAGE_QUERY_PROPERTY, &query, sizeof(query), buffer, sizeof(buffer), &bytes, 0))
+			{
+				STORAGE_DEVICE_DESCRIPTOR *descrip = (STORAGE_DEVICE_DESCRIPTOR *)buffer;
+
+				const u32 DESCRIP_BYTES = offsetof(STORAGE_DEVICE_DESCRIPTOR, RawDeviceProperties);
+
+				if (bytes >= DESCRIP_BYTES && descrip->Size <= bytes)
+				{
+					u8 gbuffer[4096];
+					CAT_OBJCLR(gbuffer);
+					DWORD gbytes;
+
+					// Read geometry
+					if (DeviceIoControl(device, IOCTL_DISK_GET_DRIVE_GEOMETRY_EX, 0, 0, gbuffer, sizeof(gbuffer), &gbytes, 0))
+					{
+						DISK_GEOMETRY_EX *geometry = (DISK_GEOMETRY_EX*)gbuffer;
+						DISK_PARTITION_INFO *parts = DiskGeometryGetPartition(geometry);
+
+						const u32 GEOMETRY_BYTES = offsetof(DISK_GEOMETRY_EX, Data);
+
+						// Verify that drive is fixed
+						if (geometry->Geometry.MediaType == FixedMedia)
+						{
+							WARN("AsyncFileBench") << "Fixed disk " << ii << ": " << (char*)(buffer + descrip->ProductIdOffset);
+							WARN("AsyncFileBench") << " - Bytes per sector = " << geometry->Geometry.BytesPerSector;
+							WARN("AsyncFileBench") << " - Cylinders = " << (u64)geometry->Geometry.Cylinders.QuadPart;
+							WARN("AsyncFileBench") << " - Sectors per track = " << geometry->Geometry.SectorsPerTrack;
+							WARN("AsyncFileBench") << " - Tracks per cylinder = " << geometry->Geometry.TracksPerCylinder;
+						}
+					}
+				}
+			}
+
+			CloseHandle(device);
+		}
+	}
+}
+
+void GetCdRomDump()
+{
+	// Open device
+	HANDLE device = CreateFileW(L"\\\\.\\CdRom0", 0, FILE_SHARE_READ | FILE_SHARE_WRITE, 0, OPEN_EXISTING, 0, 0);
+	if (device != INVALID_HANDLE_VALUE)
+	{
+		STORAGE_PROPERTY_QUERY query;
+		CAT_OBJCLR(query);
+		query.PropertyId = StorageDeviceProperty;
+		query.QueryType = PropertyExistsQuery;
+
+		u8 buffer[4096];
+		CAT_OBJCLR(buffer);
+		DWORD bytes = sizeof(buffer);
+
+		// Read storage device descriptor
+		if (DeviceIoControl(device, IOCTL_STORAGE_QUERY_PROPERTY, &query, sizeof(query), buffer, sizeof(buffer), &bytes, 0))
+		{
+			STORAGE_DEVICE_DESCRIPTOR *descrip = (STORAGE_DEVICE_DESCRIPTOR *)buffer;
+
+			const u32 DESCRIP_BYTES = offsetof(STORAGE_DEVICE_DESCRIPTOR, RawDeviceProperties);
+
+			// Don't query the geometry for CD-ROM drives since it only exists if a disk is in the drive
+			if (bytes >= DESCRIP_BYTES && descrip->Size <= bytes)
+			{
+				WARN("AsyncFileBench") << "CD-ROM disc 0: " << (char*)(buffer + descrip->ProductIdOffset);
+
+				u8 gbuffer[4096];
+				CAT_OBJCLR(gbuffer);
+				DWORD gbytes;
+
+				// Read geometry
+				if (DeviceIoControl(device, IOCTL_DISK_GET_DRIVE_GEOMETRY_EX, 0, 0, gbuffer, sizeof(gbuffer), &gbytes, 0))
+				{
+					DISK_GEOMETRY_EX *geometry = (DISK_GEOMETRY_EX*)gbuffer;
+					DISK_PARTITION_INFO *parts = DiskGeometryGetPartition(geometry);
+
+					const u32 GEOMETRY_BYTES = offsetof(DISK_GEOMETRY_EX, Data);
+
+					WARN("AsyncFileBench") << " - Bytes per sector = " << geometry->Geometry.BytesPerSector;
+					WARN("AsyncFileBench") << " - Cylinders = " << (u64)geometry->Geometry.Cylinders.QuadPart;
+					WARN("AsyncFileBench") << " - Sectors per track = " << geometry->Geometry.SectorsPerTrack;
+					WARN("AsyncFileBench") << " - Tracks per cylinder = " << geometry->Geometry.TracksPerCylinder;
+				}
+				else
+				{
+					WARN("AsyncFileBench") << " - Unable to get geometry";
+				}
+			}
+		}
+
+		CloseHandle(device);
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+bool Main(IOLayer *layer, Reader *reader, char **argv, int argc)
 {
 	const char *file_path;
 	int chunk_size = 0;
@@ -149,13 +304,13 @@ bool Main(IOLayer *layer, Reader *reader, char **argc, int argv)
 	int no_buffer = 0;
 	int seq = 0;
 
-	if (argv >= 3)
+	if (argc >= 6)
 	{
-		no_buffer = atoi(argc[1]);
-		seq = atoi(argc[2]);
-		parallelism = atoi(argc[3]);
-		chunk_size = atoi(argc[4]);
-		file_path = argc[5];
+		no_buffer = atoi(argv[1]);
+		seq = atoi(argv[2]);
+		parallelism = atoi(argv[3]);
+		chunk_size = atoi(argv[4]);
+		file_path = argv[5];
 	}
 	else
 	{
@@ -178,7 +333,7 @@ bool Main(IOLayer *layer, Reader *reader, char **argc, int argv)
 	return reader->StartReading(layer, no_buffer != 0, seq != 0, parallelism, chunk_size, file_path);
 }
 
-int main(char **argc, int argv)
+int main(int argc, char **argv)
 {
 	IOLayer layer;
 
@@ -188,10 +343,18 @@ int main(char **argc, int argv)
 		return 1;
 	}
 
+	WARN("AsyncFileBench") << "Allocation granularity = " << system_info.AllocationGranularity;
+	WARN("AsyncFileBench") << "Cache line bytes = " << system_info.CacheLineBytes;
+	WARN("AsyncFileBench") << "Page size = " << system_info.PageSize;
+	WARN("AsyncFileBench") << "Processor count = " << system_info.ProcessorCount;
+
+	GetHarddiskDump();
+	GetCdRomDump();
+
 	WaitableFlag flag;
 	Reader reader(&flag);
 
-	if (Main(&layer, &reader, argc, argv))
+	if (Main(&layer, &reader, argv, argc))
 	{
 		flag.Wait();
 	}
