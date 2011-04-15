@@ -136,6 +136,7 @@ public:
 		for (u32 ii = 0; ii < parallelism; ++ii)
 		{
 			_buffers[ii].callback.SetMember<Reader, &Reader::OnRead>(this);
+			_buffers[ii].worker_id = 0;
 
 			_data[ii] = (u8*)LargeAllocator::ii->Acquire(m_file_chunk_size);
 

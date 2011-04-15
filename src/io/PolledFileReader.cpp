@@ -44,8 +44,6 @@ PolledFileReader::PolledFileReader()
 	// Allocate cache space and split it into two buffers
 	_cache[0] = (u8*)LargeAllocator::ii->Acquire(cache_size * 2);
 	_cache[1] = _cache[0] + cache_size;
-
-	_buffer.callback.SetMember<PolledFileReader, &PolledFileReader::OnRead>(this);
 }
 
 PolledFileReader::~PolledFileReader()
@@ -68,6 +66,8 @@ bool PolledFileReader::Open(IOLayer *layer, const char *file_path)
 	_cache_back_bytes = 0;
 	_cache_offset = 0;
 	_cache_back_done = 0;
+
+	_buffer.callback.SetMember<PolledFileReader, &PolledFileReader::OnFirstRead>(this);
 
 	CAT_FENCE_COMPILER
 
@@ -174,6 +174,8 @@ void PolledFileReader::OnFirstRead(IWorkerTLS *tls, const BatchSet &buffers)
 
 		_cache_back_done = 1;
 		_cache_back_bytes = data_bytes;
+
+		_buffer.callback.SetMember<PolledFileReader, &PolledFileReader::OnRead>(this);
 
 		CAT_FENCE_COMPILER
 

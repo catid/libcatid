@@ -74,6 +74,7 @@ class CAT_EXPORT PolledFileReader : public AsyncFile
 	u8 _cache_front_done;	// Flag to indicate that the front buffer read completed
 	u32 _cache_back_bytes;	// Bytes available in back buffer
 
+	u64 _file_size;			// Total file size
 	u64 _offset;			// Next offset for reading from disk
 	ReadBuffer _buffer;		// Read request object for reading from disk
 
