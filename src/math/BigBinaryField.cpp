@@ -26,10 +26,13 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/math/BigBinaryExtension.hpp>
+#include <cat/math/BigBinaryField.hpp>
 using namespace cat;
 
-void CAT_FASTCALL BigBinaryExtension::Multiply(int legs, const Leg *in_a, const Leg *in_b, Leg *out)
-{
-	// TODO
-}
+
+// Strangely enough, including these all in the same source file improves performance
+// in Visual Studio by almost 50%, which is odd because MSVC was one of the first
+// compilers to support "link time optimization."
+
+#include "binfield/addsub/BinAdd.cpp"
+#include "binfield/mul/BinMultiply.cpp"
