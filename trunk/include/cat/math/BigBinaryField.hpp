@@ -26,15 +26,15 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_BIG_BINARY_EXTENSION_HPP
-#define CAT_BIG_BINARY_EXTENSION_HPP
+#ifndef CAT_BIG_BINARY_FIELD_HPP
+#define CAT_BIG_BINARY_FIELD_HPP
 
 #include <cat/math/Legs.hpp>
 
 namespace cat {
 
 
-class BigBinaryExtension
+class BigBinaryField
 {
 public:
 	static void CAT_FASTCALL Add(int legs, const Leg *in_a, const Leg *in_b, Leg *out);
@@ -44,4 +44,4 @@ public:
 
 } // namespace cat
 
-#endif // CAT_BIG_BINARY_EXTENSION_HPP
+#endif // CAT_BIG_BINARY_FIELD_HPP
