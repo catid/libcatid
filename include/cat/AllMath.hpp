@@ -39,7 +39,6 @@
 #include <cat/math/BigMontgomery.hpp>
 #include <cat/math/BigPseudoMersenne.hpp>
 #include <cat/math/BigTwistedEdwards.hpp>
-#include <cat/math/BigBinaryExtension.hpp>
 
 #if defined(CAT_COMPILER_MSVC) && defined(CAT_BUILD_DLL)
 # pragma warning(pop)
