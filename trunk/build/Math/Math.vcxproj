@@ -255,7 +255,6 @@
     <None Include="..\..\src\math\big_x64_mscoff.asm" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\src\math\BigBinaryExtension.cpp" />
     <ClCompile Include="..\..\src\math\BigMontgomery.cpp" />
     <ClCompile Include="..\..\src\math\BigPseudoMersenne.cpp" />
     <ClCompile Include="..\..\src\math\BigRTL.cpp" />
@@ -270,7 +269,6 @@
   <ItemGroup>
     <ClInclude Include="..\..\include\cat\AllMath.hpp" />
     <ClInclude Include="..\..\include\cat\asm\big_x64_asm.hpp" />
-    <ClInclude Include="..\..\include\cat\math\BigBinaryExtension.hpp" />
     <ClInclude Include="..\..\include\cat\math\BigMontgomery.hpp" />
     <ClInclude Include="..\..\include\cat\math\BigPseudoMersenne.hpp" />
     <ClInclude Include="..\..\include\cat\math\BigRTL.hpp" />
