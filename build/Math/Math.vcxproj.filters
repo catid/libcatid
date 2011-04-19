@@ -38,9 +38,6 @@
     <ClCompile Include="..\..\src\math\BigRTL.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\math\BigBinaryExtension.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Precompiled.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -68,9 +65,6 @@
       <Filter>Header Files\math</Filter>
     </ClInclude>
     <ClInclude Include="..\..\include\cat\math\Legs.hpp">
-      <Filter>Header Files\math</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\include\cat\math\BigBinaryExtension.hpp">
       <Filter>Header Files\math</Filter>
     </ClInclude>
     <ClInclude Include="Precompiled.hpp">
