@@ -21,13 +21,13 @@
     <ClCompile Include="..\..\src\codec\RangeCoder.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\codec\ReedSolomon.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Precompiled.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\codec\Huffman.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\codec\RaptorQ.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -38,13 +38,13 @@
     <ClInclude Include="..\..\include\cat\codec\RangeCoder.hpp">
       <Filter>Header Files\codec</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\cat\codec\ReedSolomon.hpp">
-      <Filter>Header Files\codec</Filter>
-    </ClInclude>
     <ClInclude Include="Precompiled.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\include\cat\codec\Huffman.hpp">
+      <Filter>Header Files\codec</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\codec\RaptorQ.hpp">
       <Filter>Header Files\codec</Filter>
     </ClInclude>
   </ItemGroup>

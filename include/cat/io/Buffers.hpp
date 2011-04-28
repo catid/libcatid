@@ -70,18 +70,31 @@ struct RecvBuffer : BatchHead
 
 
 // A buffer specialized for writing to a file
-struct WriteBuffer : public BatchHead, public ResizableBuffer<WriteBuffer>
+struct WriteBuffer : public WorkerBuffer
 {
-	// IO layer specific overhead pimpl
-	IOLayerWriteOverhead iointernal;
+	// Shared overhead
+	void *data; // Pointer to where the file data will be read
+	u32 worker_id;
+
+	union
+	{
+		// IO layer specific overhead pimpl
+		IOLayerWriteOverhead iointernal;
+
+		// Worker layer specific overhead
+		struct
+		{
+			u64 offset;
+			u32 data_bytes;
+		};
+	};
 };
 
 
 // A buffer specialized for reading from a file
-struct ReadBuffer : public BatchHead
+struct ReadBuffer : public WorkerBuffer
 {
 	// Shared overhead
-	WorkerDelegate callback;
 	void *data; // Pointer to where the file data will be written
 	u32 worker_id;
 
