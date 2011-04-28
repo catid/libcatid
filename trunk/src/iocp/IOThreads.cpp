@@ -111,12 +111,13 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 				AsyncFile *async_file = reinterpret_cast<AsyncFile*>( entries[ii].lpCompletionKey );
 				WriteBuffer *buffer = reinterpret_cast<WriteBuffer*>( (u8*)ov_iocp - offsetof(WriteBuffer, iointernal.ov) );
 
-				// Link to sendq
-				if (sendq.tail) sendq.tail->batch_next = buffer;
-				else sendq.head = buffer;
+				// Write event completion results to buffer
+				buffer->offset = ((u64)buffer->iointernal.ov.OffsetHigh << 32) | buffer->iointernal.ov.Offset;
+				buffer->data_bytes = bytes;
 
-				sendq.tail = buffer;
-				buffer->batch_next = 0;
+				// Deliver the buffer to the worker threads
+				WorkerThreads *workers = async_file->GetIOLayer()->GetWorkerThreads();
+				workers->DeliverBuffers(WQPRIO_LO, buffer->worker_id, buffer);
 
 				async_file->ReleaseRef();
 			}

@@ -37,7 +37,7 @@
 
 #include <cat/codec/Huffman.hpp>
 #include <cat/codec/RangeCoder.hpp>
-#include <cat/codec/ReedSolomon.hpp>
+#include <cat/codec/RaptorQ.hpp>
 
 #if defined(CAT_COMPILER_MSVC) && defined(CAT_BUILD_DLL)
 # pragma warning(pop)

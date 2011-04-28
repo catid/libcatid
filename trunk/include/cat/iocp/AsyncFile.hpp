@@ -26,6 +26,17 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
+/*
+	TODO: ASYNCFILE_NOBUFFER might cause problems in some cases
+
+	Technically, you're supposed to detect the sector size and allocate buffers
+	aligned to the sector size.  However, the page size seems to be larger, and
+	they are both powers of two, and the buffer sizes are a multiple of the page
+	size.  So allocating buffers on page boundaries seems to be good enough.
+
+	This saves us from having to determine the alignment for each file...
+*/
+
 #ifndef CAT_IOCP_ASYNCFILE_HPP
 #define CAT_IOCP_ASYNCFILE_HPP
 
@@ -72,7 +83,9 @@ public:
 	bool SetSize(u64 bytes);
 	u64 GetSize();
 
+	// Set the callback and worker_id before invoking these functions
 	// Note that the data buffers must be pinned in memory until the read/write completes
+	// If ASYNCFILE_NOBUFFER is specified, the data buffers must be aligned to a page boundary
 	bool Read(ReadBuffer *buffer, u64 offset, void *data, u32 bytes);
 	bool Write(WriteBuffer *buffer, u64 offset, void *data, u32 bytes);
 
