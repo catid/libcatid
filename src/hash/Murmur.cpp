@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -42,25 +42,25 @@ static CAT_INLINE void Seed(const u64 seed, u64 &c1, u64 &c2, u64 &h1, u64 &h2)
 
 static CAT_INLINE void bmix64(u64 &h1, u64 &h2, u64 &k1, u64 &k2, u64 &c1, u64 &c2)
 {
+	// First part of key
 	k1 *= c1; 
-	k1  = CAT_ROL64(k1, 23); 
+	k1  = CAT_ROL64(k1, 31); 
 	k1 *= c2;
 	h1 ^= k1;
+
+	h1 = CAT_ROL64(h1, 27);
 	h1 += h2;
+	h1 = h1 * 5 + 0x52dce729;
 
-	h2 = CAT_ROL64(h2, 41);
-
+	// Second part of key
 	k2 *= c2; 
-	k2  = CAT_ROL64(k2, 23);
+	k2  = CAT_ROL64(k2, 33); 
 	k2 *= c1;
 	h2 ^= k2;
+
+	h2 = CAT_ROL64(h2, 31);
 	h2 += h1;
-
-	h1 = h1 * 3 + 0x52dce729UL;
-	h2 = h2 * 3 + 0x38495ab5UL;
-
-	c1 = c1 * 5 + 0x7b7d159cUL;
-	c2 = c2 * 5 + 0x6bce6396UL;
+	h2 = h2 * 5 + 0x38495ab5;
 }
 
 static CAT_INLINE u64 fmix64(u64 k)
@@ -135,6 +135,7 @@ static CAT_INLINE void Hash(const void *key, const u64 bytes, u64 &c1, u64 &c2, 
 static CAT_INLINE void FinalMix(const u64 bytes, u64 &h1, u64 &h2)
 {
 	// Mix in number of bytes in key
+	h1 ^= bytes;
 	h2 ^= bytes;
 
 	// Mix together h1, h2
