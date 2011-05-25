@@ -198,7 +198,7 @@ public:
 #if defined(CAT_DEBUG)
 # define DEBUG_ENFORCE(exp) ENFORCE(exp)
 #else
-# define DEBUG_ENFORCE(exp) if (0) ENFORCE(exp) /* hopefully will be optimized out of existence */
+# define DEBUG_ENFORCE(exp) while (false) ENFORCE(exp) /* hopefully will be optimized out of existence */
 #endif
 
 
