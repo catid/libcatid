@@ -46,8 +46,6 @@ namespace cat {
 class CAT_EXPORT IOLayer : public CommonLayer
 {
 public:
-	CAT_INLINE virtual ~IOLayer() {}
-
 	static IOLayer *ref();
 
 protected:
