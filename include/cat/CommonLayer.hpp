@@ -38,8 +38,6 @@ namespace cat {
 class CAT_EXPORT CommonLayer
 {
 public:
-	CAT_INLINE virtual ~CommonLayer() { Shutdown(); }
-
 	static CommonLayer *ref();
 
 	// No worker threads version

@@ -82,6 +82,7 @@ public:
 	{
 		_buffers = 0;
 		_flag = flag;
+		_data = 0;
 	}
 	~Reader()
 	{
@@ -336,9 +337,7 @@ bool Main(Reader *reader, char **argv, int argc)
 
 int main(int argc, char **argv)
 {
-	IOLayer layer;
-
-	if (!layer.Startup<AsyncTestTLS>("AsyncFileBench.cfg"))
+	if (!IOLayer::ref()->Startup<AsyncTestTLS>("AsyncFileBench.cfg"))
 	{
 		FatalStop("Unable to initialize framework!");
 		return 1;
@@ -360,7 +359,7 @@ int main(int argc, char **argv)
 		flag.Wait();
 	}
 
-	layer.Shutdown();
+	IOLayer::ref()->Shutdown();
 
 	return 0;
 }

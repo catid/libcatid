@@ -70,8 +70,6 @@ public:
 class CAT_EXPORT SphynxLayer : public IOLayer
 {
 public:
-	CAT_INLINE virtual ~SphynxLayer() {}
-
 	static SphynxLayer *ref();
 
 	bool Startup(const char *settings_file_name = "Settings.cfg", bool service = false, const char *service_name = "MyService");
