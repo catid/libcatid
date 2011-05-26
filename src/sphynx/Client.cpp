@@ -98,7 +98,7 @@ void Client::OnRecvRouting(const BatchSet &buffers)
 
 	// If delivery set is not empty,
 	if (delivery.head)
-		GetIOLayer()->GetWorkerThreads()->DeliverBuffers(WQPRIO_HI, GetWorkerID(), delivery);
+		WorkerThreads::ref()->DeliverBuffers(WQPRIO_HI, GetWorkerID(), delivery);
 
 	// If free set is not empty,
 	if (garbage_count > 0)
@@ -371,7 +371,7 @@ Client::Client()
 	_worker_id = INVALID_WORKER_ID;
 }
 
-bool Client::InitialConnect(SphynxLayer *layer, SphynxTLS *tls, TunnelPublicKey &public_key, const char *session_key)
+bool Client::InitialConnect(SphynxTLS *tls, TunnelPublicKey &public_key, const char *session_key)
 {
 	if (!tls->Valid())
 	{
@@ -414,7 +414,7 @@ bool Client::InitialConnect(SphynxLayer *layer, SphynxTLS *tls, TunnelPublicKey 
 		Settings::ref()->getInt("Sphynx.Client.KernelReceiveBuffer", 1000000);
 
 	// Attempt to bind to any port and accept ICMP errors initially
-	if (!Bind(layer, only_ipv4, 0, false, kernelReceiveBufferBytes))
+	if (!Bind(only_ipv4, 0, false, kernelReceiveBufferBytes))
 	{
 		WARN("Client") << "Failed to connect: Unable to bind to any port";
 		return false;
@@ -454,15 +454,14 @@ bool Client::FinalConnect(const NetAddr &addr)
 	}
 
 	// Assign to a worker
-	SphynxLayer *layer = reinterpret_cast<SphynxLayer*>( GetIOLayer() );
-	_worker_id = layer->GetWorkerThreads()->AssignTimer(this, WorkerTimerDelegate::FromMember<Client, &Client::OnWorkerTick>(this));
+	_worker_id = WorkerThreads::ref()->AssignTimer(this, WorkerTimerDelegate::FromMember<Client, &Client::OnWorkerTick>(this));
 
 	return true;
 }
 
-bool Client::Connect(SphynxLayer *layer, SphynxTLS *tls, const char *hostname, Port port, TunnelPublicKey &public_key, const char *session_key)
+bool Client::Connect(SphynxTLS *tls, const char *hostname, Port port, TunnelPublicKey &public_key, const char *session_key)
 {
-	if (!InitialConnect(layer, tls, public_key, session_key))
+	if (!InitialConnect(tls, public_key, session_key))
 	{
 		ConnectFail(ERR_CLIENT_INVALID_KEY);
 		return false;
@@ -470,7 +469,7 @@ bool Client::Connect(SphynxLayer *layer, SphynxTLS *tls, const char *hostname, P
 
 	_server_addr.SetPort(port);
 
-	if (!layer->GetDNSClient()->Resolve(layer, hostname, DNSDelegate::FromMember<Client, &Client::OnDNSResolve>(this), this))
+	if (!DNSClient::ref()->Resolve(hostname, DNSDelegate::FromMember<Client, &Client::OnDNSResolve>(this), this))
 	{
 		ConnectFail(ERR_CLIENT_SERVER_ADDR);
 		return false;
@@ -479,9 +478,9 @@ bool Client::Connect(SphynxLayer *layer, SphynxTLS *tls, const char *hostname, P
 	return true;
 }
 
-bool Client::Connect(SphynxLayer *layer, SphynxTLS *tls, const NetAddr &addr, TunnelPublicKey &public_key, const char *session_key)
+bool Client::Connect(SphynxTLS *tls, const NetAddr &addr, TunnelPublicKey &public_key, const char *session_key)
 {
-	if (!InitialConnect(layer, tls, public_key, session_key) ||
+	if (!InitialConnect(tls, public_key, session_key) ||
 		!FinalConnect(addr))
 	{
 		return false;

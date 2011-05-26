@@ -33,6 +33,19 @@
 #include <cat/io/Settings.hpp>
 using namespace cat;
 
+
+//// CommonLayer Singleton
+
+static CommonLayer common_layer;
+
+CommonLayer *CommonLayer::ref()
+{
+	return &common_layer;
+}
+
+
+//// CommonLayer
+
 bool CommonLayer::PreWorkerThreads()
 {
 	return true;
@@ -65,7 +78,7 @@ bool CommonLayer::OnStartup(IWorkerTLSBuilder *tls_builder, const char *settings
 	u32 worker_tick_interval = Settings::ref()->getInt("WorkerThreads.TickInterval", 10);
 
 	// Start the Worker threads if requested to by the caller
-	if (tls_builder && !_worker_threads.Startup(worker_tick_interval, tls_builder, worker_count_override))
+	if (tls_builder && !WorkerThreads::ref()->Startup(worker_tick_interval, tls_builder, worker_count_override))
 	{
 		FATAL("CommonLayer") << "WorkerThreads subsystem failed to initialize";
 		return false;
@@ -82,7 +95,7 @@ void CommonLayer::OnShutdown(bool watched_shutdown)
 	}
 
 	// Terminate Worker threads
-	_worker_threads.Shutdown();
+	WorkerThreads::ref()->Shutdown();
 
 	// Write settings to disk
 	Settings::ref()->write();

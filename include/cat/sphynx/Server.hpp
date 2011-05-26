@@ -62,7 +62,7 @@ public:
 
 	static bool InitializeKey(SphynxTLS *tls, TunnelKeyPair &key_pair, const char *pair_file_path, const char *public_file_path);
 
-	bool StartServer(SphynxLayer *layer, SphynxTLS *tls, Port port, TunnelKeyPair &key_pair, const char *session_key);
+	bool StartServer(SphynxTLS *tls, Port port, TunnelKeyPair &key_pair, const char *session_key);
 
 protected:
 	// Must return a new instance of your Connexion derivation

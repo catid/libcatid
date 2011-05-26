@@ -69,12 +69,10 @@ public:
 // Application layer for Sphynx library
 class CAT_EXPORT SphynxLayer : public IOLayer
 {
-	DNSClient *_dns_client;
-
 public:
 	CAT_INLINE virtual ~SphynxLayer() {}
 
-	CAT_INLINE DNSClient *GetDNSClient() { return _dns_client; }
+	static SphynxLayer *ref();
 
 	bool Startup(const char *settings_file_name = "Settings.cfg", bool service = false, const char *service_name = "MyService");
 

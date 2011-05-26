@@ -881,7 +881,7 @@ static u32 Deg(u32 v, u32 W)
 	u32 d;
 
 	// Find the first entry in the DEG_TABLE f s.t. f[d-1] <= v < f[d]
-	for (d = 1; d < DEG_TABLE_SIZE && v >= DEG_TABLE[ii]; ++d);
+	for (d = 1; d < DEG_TABLE_SIZE && v >= DEG_TABLE[d]; ++d);
 
 	return min(d, W - 2);
 }

@@ -107,7 +107,7 @@ class DNSClient : public UDPEndpoint
 	DNSRequest *_cache_tail;
 	int _cache_size;
 
-	bool Initialize(IOLayer *iolayer);
+	bool Initialize();
 
 	bool GetUnusedID(u16 &id); // not thread-safe, caller must lock
 	bool IsValidHostname(const char *hostname);
@@ -119,7 +119,7 @@ class DNSClient : public UDPEndpoint
 	void CacheKill(DNSRequest *req); // Assumes already in cache
 
 	bool GetServerAddr();
-	bool BindToRandomPort(IOLayer *iolayer, bool ignoreUnreachable);
+	bool BindToRandomPort(bool ignoreUnreachable);
 	bool PostDNSPacket(DNSRequest *req, u32 now);
 	bool PerformLookup(DNSRequest *req); // not thread-safe, caller must lock
 
@@ -131,6 +131,8 @@ class DNSClient : public UDPEndpoint
 public:
 	DNSClient();
 	CAT_INLINE virtual ~DNSClient();
+
+	static DNSClient *ref();
 
 	CAT_INLINE u32 GetWorkerID() { return _worker_id; }
 
@@ -155,7 +157,7 @@ public:
 
 		If Resolve() returns false, no callback will be generated.
 	*/
-	bool Resolve(IOLayer *iolayer, const char *hostname, DNSDelegate callback, RefObject *holdRef = 0);
+	bool Resolve(const char *hostname, DNSDelegate callback, RefObject *holdRef = 0);
 
 protected:
 	virtual void OnRecvRouting(const BatchSet &buffers);

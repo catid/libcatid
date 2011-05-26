@@ -132,5 +132,5 @@ bool EasySphynxClient::Connect(const char *hostname, unsigned short port, const 
 
 	if (!tunnel_public_key.Valid()) return false;
 
-	return _client->Connect(&layer, &tls, hostname, port, tunnel_public_key, session_key);
+	return _client->Connect(&tls, hostname, port, tunnel_public_key, session_key);
 }

@@ -30,6 +30,19 @@
 #include <cat/io/Logging.hpp>
 using namespace cat;
 
+
+//// IOLayer Singleton
+
+static IOLayer io_layer;
+
+IOLayer *IOLayer::ref()
+{
+	return &io_layer;
+}
+
+
+//// IOLayer
+
 bool IOLayer::OnStartup(IWorkerTLSBuilder *tls_builder, const char *settings_file_name, bool service, const char *service_name)
 {
 	if (!CommonLayer::OnStartup(tls_builder, settings_file_name, service, service_name))
@@ -43,7 +56,7 @@ bool IOLayer::OnStartup(IWorkerTLSBuilder *tls_builder, const char *settings_fil
 	}
 
 	// Start the IO threads
-	if (!_io_threads.Startup())
+	if (!IOThreads::ref()->Startup())
 	{
 		FATAL("IOLayer") << "IOThreads subsystem failed to initialize";
 		return false;
@@ -55,7 +68,7 @@ bool IOLayer::OnStartup(IWorkerTLSBuilder *tls_builder, const char *settings_fil
 void IOLayer::OnShutdown(bool watched_shutdown)
 {
 	// Terminate IO threads
-	_io_threads.Shutdown();
+	IOThreads::ref()->Shutdown();
 
 	// Terminate sockets
 	CleanupSockets();

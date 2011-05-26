@@ -51,15 +51,17 @@ PolledFileReader::~PolledFileReader()
 	LargeAllocator::ii->Release(_cache[0]);
 }
 
-bool PolledFileReader::Open(IOLayer *layer, const char *file_path)
+bool PolledFileReader::Open(const char *file_path)
 {
 	// If file could not be opened,
-	if (!AsyncFile::Open(layer, file_path, ASYNCFILE_READ))
+	if (!AsyncFile::Open(file_path, ASYNCFILE_READ))
 	{
 		WARN("PolledFileReader") << "Unable to open " << file_path;
 		return false;
 	}
 
+	// Reset members
+	_file_size = AsyncFile::GetSize();
 	_offset = _cache_size * 2;
 	_cache_front_index = 0;
 	_cache_front_bytes = 0;
@@ -181,6 +183,7 @@ void PolledFileReader::OnFirstRead(IWorkerTLS *tls, const BatchSet &buffers)
 
 		_cache_front_done = 1;
 
+		// Just handle the first response - only ever have one outstanding at a time
 		break;
 	}
 }

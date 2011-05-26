@@ -37,15 +37,10 @@ namespace cat {
 
 class CAT_EXPORT CommonLayer
 {
-	WorkerThreads _worker_threads;
-	RefObjectWatcher _watcher;
-
 public:
 	CAT_INLINE virtual ~CommonLayer() { Shutdown(); }
 
-	CAT_INLINE WorkerThreads *GetWorkerThreads() { return &_worker_threads; }
-
-	CAT_INLINE void Watch(WatchedRefObject *obj) { _watcher.Watch(obj); }
+	static CommonLayer *ref();
 
 	// No worker threads version
 	CAT_INLINE bool Startup(const char *settings_file_name = "Settings.cfg", bool service = false, const char *service_name = "MyService")
@@ -68,7 +63,7 @@ public:
 
 	CAT_INLINE void Shutdown()
 	{
-		OnShutdown(_watcher.WaitForShutdown());
+		OnShutdown(RefObjectWatcher::ref()->WaitForShutdown());
 	}
 
 protected:

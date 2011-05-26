@@ -71,7 +71,6 @@ class CAT_EXPORT UDPEndpoint : public WatchedRefObject
 
 	volatile u32 _buffers_posted; // Number of buffers posted to the socket waiting for data
 
-	IOLayer *_iolayer;
 	Socket _socket;
 	Port _port;
 	bool _ipv6;
@@ -103,7 +102,7 @@ public:
 	// Disabled by default; useful for MTU discovery
 	bool DontFragment(bool df = true);
 
-	bool Bind(IOLayer *iolayer, bool onlySupportIPv4, Port port = 0, bool ignoreUnreachable = true, int kernelReceiveBufferBytes = 0);
+	bool Bind(bool onlySupportIPv4, Port port = 0, bool ignoreUnreachable = true, int kernelReceiveBufferBytes = 0);
 
 	// If Is6() == true, the address must be promoted to IPv6
 	// before calling using addr.PromoteTo6()
@@ -116,8 +115,6 @@ public:
 	void ReleaseRecvBuffers(BatchSet buffers, u32 count);
 
 protected:
-	CAT_INLINE IOLayer *GetIOLayer() { return _iolayer; }
-
 	CAT_INLINE void SetRemoteAddress(RecvBuffer *buffer);
 
 	virtual void OnShutdownRequest();

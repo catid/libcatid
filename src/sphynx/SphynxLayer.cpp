@@ -33,6 +33,19 @@
 #include <cat/io/Logging.hpp>
 using namespace cat;
 
+
+//// SphynxLayer Singleton
+
+static SphynxLayer sphynx_layer;
+
+SphynxLayer *SphynxLayer::ref()
+{
+	return &sphynx_layer;
+}
+
+
+//// SphynxTLS
+
 SphynxTLS::SphynxTLS()
 {
 	csprng = new FortunaOutput;
@@ -77,9 +90,7 @@ bool SphynxLayer::OnStartup(IWorkerTLSBuilder *tls_builder, const char *settings
 	if (!IOLayer::OnStartup(tls_builder, settings_file_name, service, service_name))
 		return false;
 
-	_dns_client = new DNSClient;
-
-	if (!_dns_client)
+	if (!DNSClient::ref())
 	{
 		FATAL("IOLayer") << "DNS subsystem failed to initialize";
 		return false;

@@ -34,6 +34,19 @@ using namespace cat;
 
 static const u32 INITIAL_TIMERS_ALLOCATED = 16;
 
+
+//// WorkerThreads Singleton
+
+static WorkerThreads worker_threads;
+
+WorkerThreads *WorkerThreads::ref()
+{
+	return &worker_threads;
+}
+
+
+//// WorkerThread
+
 WorkerThread::WorkerThread()
 {
 	_kill_flag = false;

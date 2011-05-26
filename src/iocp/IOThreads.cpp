@@ -35,6 +35,19 @@
 #include <cat/io/Settings.hpp>
 using namespace cat;
 
+
+//// IOThreads Singleton
+
+static IOThreads iothreads;
+
+IOThreads *IOThreads::ref()
+{
+	return &iothreads;
+}
+
+
+//// IOThread
+
 CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY entries[], u32 count, u32 event_msec, BatchSet &sendq, BatchSet &recvq, UDPEndpoint *&prev_recv_endpoint, u32 &recv_count)
 {
 	bool exit_flag = false;
@@ -116,8 +129,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 				buffer->data_bytes = bytes;
 
 				// Deliver the buffer to the worker threads
-				WorkerThreads *workers = async_file->GetIOLayer()->GetWorkerThreads();
-				workers->DeliverBuffers(WQPRIO_LO, buffer->worker_id, buffer);
+				WorkerThreads::ref()->DeliverBuffers(WQPRIO_LO, buffer->worker_id, buffer);
 
 				async_file->ReleaseRef();
 			}
@@ -133,8 +145,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 				buffer->data_bytes = bytes;
 
 				// Deliver the buffer to the worker threads
-				WorkerThreads *workers = async_file->GetIOLayer()->GetWorkerThreads();
-				workers->DeliverBuffers(WQPRIO_LO, buffer->worker_id, buffer);
+				WorkerThreads::ref()->DeliverBuffers(WQPRIO_LO, buffer->worker_id, buffer);
 
 				async_file->ReleaseRef();
 			}
