@@ -160,6 +160,8 @@ public:
 	WorkerThreads();
 	virtual ~WorkerThreads();
 
+	static WorkerThreads *ref();
+
 	CAT_INLINE u32 GetWorkerCount() { return _worker_count; }
 
 	u32 FindLeastPopulatedWorker();

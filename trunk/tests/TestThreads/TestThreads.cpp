@@ -17,12 +17,9 @@ public:
 
 class TestWorker
 {
-	WorkerThreads *_threads;
-
 public:
-	TestWorker(WorkerThreads *threads)
+	TestWorker()
 	{
-		_threads = threads;
 	}
 
 	void OnEvents(IWorkerTLS *tls, const BatchSet &buffers)
@@ -37,7 +34,7 @@ public:
 				r->x += MurmurGenerateUnbiased(r, sizeof(RandomBuffer), 0, 1000);
 			}
 
-			_threads->DeliverBuffers(WQPRIO_LO, r->worker_id, r);
+			WorkerThreads::ref()->DeliverBuffers(WQPRIO_LO, r->worker_id, r);
 		}
 	}
 };
@@ -54,11 +51,11 @@ int main()
 
 	INFO("TestThreads") << "TestThreads 1.0";
 
-	WorkerThreads *threads = layer.GetWorkerThreads();
+	TestWorker worker;
 
-	TestWorker worker(threads);
+	WorkerThreads *threads = WorkerThreads::ref();
 
-	for (u32 ii = 0; ii < threads->GetWorkerCount(); ++ii)
+	for (u32 ii = 0, count = threads->GetWorkerCount(); ii < count; ++ii)
 	{
 		RandomBuffer *buffer = new RandomBuffer;
 

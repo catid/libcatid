@@ -197,6 +197,8 @@ public:
 	RefObjectWatcher();
 	virtual ~RefObjectWatcher();
 
+	static RefObjectWatcher *ref();
+
 	// Wait for watched objects to finish shutdown, returns false on timeout
 	bool WaitForShutdown(s32 milliseconds = -1); // < 0 = wait forever
 

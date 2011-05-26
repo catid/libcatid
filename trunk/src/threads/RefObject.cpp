@@ -32,6 +32,19 @@ using namespace cat;
 
 #include <algorithm>
 
+
+//// RefObjectWatcher Singleton
+
+static RefObjectWatcher refobject_watcher;
+
+RefObjectWatcher *RefObjectWatcher::ref()
+{
+	return &refobject_watcher;
+}
+
+
+//// RefObject
+
 void RefObject::ShutdownComplete(bool delete_this)
 {
 #if defined(CAT_TRACE_REFOBJECT)

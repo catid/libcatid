@@ -104,7 +104,7 @@ class CAT_EXPORT Client : public UDPEndpoint, public Transport
 
 	void ConnectFail(SphynxError err);
 
-	bool InitialConnect(SphynxLayer *layer, SphynxTLS *tls, TunnelPublicKey &public_key, const char *session_key);
+	bool InitialConnect(SphynxTLS *tls, TunnelPublicKey &public_key, const char *session_key);
 	bool FinalConnect(const NetAddr &addr);
 
 	virtual void OnWorkerRecv(IWorkerTLS *tls, const BatchSet &buffers);
@@ -117,8 +117,8 @@ public:
 	CAT_INLINE virtual ~Client() {}
 
 	// Once you call Connect(), the object may be deleted at any time.  If you want to keep a reference to it, AddRef() before calling
-	bool Connect(SphynxLayer *layer, SphynxTLS *tls, const char *hostname, Port port, TunnelPublicKey &public_key, const char *session_key);
-	bool Connect(SphynxLayer *layer, SphynxTLS *tls, const NetAddr &addr, TunnelPublicKey &public_key, const char *session_key);
+	bool Connect(SphynxTLS *tls, const char *hostname, Port port, TunnelPublicKey &public_key, const char *session_key);
+	bool Connect(SphynxTLS *tls, const NetAddr &addr, TunnelPublicKey &public_key, const char *session_key);
 
 protected:
 	virtual void OnShutdownRequest();

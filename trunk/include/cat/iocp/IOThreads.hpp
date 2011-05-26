@@ -132,6 +132,8 @@ public:
 	IOThreads();
 	virtual ~IOThreads();
 
+	static IOThreads *ref();
+
 	CAT_INLINE BufferAllocator *GetRecvAllocator() { return _recv_allocator; }
 
 	bool Startup();

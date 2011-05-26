@@ -57,7 +57,7 @@ u64 FileTransferSource::GetRemaining(StreamMode stream)
 		return 0;
 	}
 
-	return _active_list[0]->reader.GetRemaining();
+	return _active_list[0]->reader->Remaining();
 }
 
 void FileTransferSource::OnTransferDone(Transport *transport)
@@ -89,7 +89,7 @@ bool FileTransferSource::Read(StreamMode stream, u8 *dest, u32 &bytes, Transport
 
 	QueuedFile *active = _active_list[0];
 
-	u64 remaining = active->reader.GetRemaining();
+	u64 remaining = active->reader->Remaining();
 
 	// If no more remaining,
 	if (remaining <= 0)
@@ -98,8 +98,7 @@ bool FileTransferSource::Read(StreamMode stream, u8 *dest, u32 &bytes, Transport
 		return true;
 	}
 
-	u8 *src = active->reader.Read(bytes);
-	if (!src)
+	if (!active->reader->Read(dest, bytes, bytes))
 	{
 		WARN("FileTransferSource") << "Reached end of data";
 
@@ -108,8 +107,6 @@ bool FileTransferSource::Read(StreamMode stream, u8 *dest, u32 &bytes, Transport
 		bytes = 0;
 		return true;
 	}
-
-	memcpy(dest, src, bytes);
 
 	return remaining <= bytes;
 }
@@ -162,7 +159,7 @@ bool FileTransferSource::WriteFile(u8 opcode, const std::string &source_path, co
 	}
 
 	// If source file could not be opened,
-	if (!file->reader.Open(source_path.c_str()))
+	if (!file->reader->Open(source_path.c_str()))
 	{
 		WARN("FileTransferSource") << "Unable to open specified file " << source_path;
 		return false;
@@ -181,7 +178,7 @@ bool FileTransferSource::WriteFile(u8 opcode, const std::string &source_path, co
 
 	// Construct message
 	msg[0] = opcode;
-	*(u64*)(msg + 1) = getLE(file->reader.GetLength());
+	*(u64*)(msg + 1) = getLE(file->reader->Size());
 	memcpy(msg + 1 + 8, sink_path.c_str(), sink_path_len);
 
 	// Configure file object

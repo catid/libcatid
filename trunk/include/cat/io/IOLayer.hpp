@@ -45,12 +45,10 @@ namespace cat {
 
 class CAT_EXPORT IOLayer : public CommonLayer
 {
-	IOThreads _io_threads;
-
 public:
 	CAT_INLINE virtual ~IOLayer() {}
 
-	CAT_INLINE IOThreads *GetIOThreads() { return &_io_threads; }
+	static IOLayer *ref();
 
 protected:
 	virtual bool OnStartup(IWorkerTLSBuilder *tls, const char *settings_file_name, bool service, const char *service_name);

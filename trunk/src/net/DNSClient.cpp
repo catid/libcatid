@@ -38,6 +38,19 @@
 #include <fstream>
 using namespace cat;
 
+
+//// DNSClient Singleton
+
+static DNSClient *dns_client = 0;
+
+DNSClient *DNSClient::ref()
+{
+	if (!dns_client)
+		dns_client = new DNSClient;
+
+	return dns_client;
+}
+
 /*
 	DNS protocol:
 
@@ -140,7 +153,7 @@ void DNSClient::OnRecvRouting(const BatchSet &buffers)
 		buffer->callback.SetMember<DNSClient, &DNSClient::OnWorkerRecv>(this);
 	}
 
-	GetIOLayer()->GetWorkerThreads()->DeliverBuffers(WQPRIO_HI, GetWorkerID(), buffers);
+	WorkerThreads::ref()->DeliverBuffers(WQPRIO_HI, GetWorkerID(), buffers);
 }
 
 void DNSClient::OnWorkerRecv(IWorkerTLS *tls, const BatchSet &buffers)
@@ -278,7 +291,7 @@ DNSClient::~DNSClient()
 	CleanUp();
 }
 
-bool DNSClient::Initialize(IOLayer *iolayer)
+bool DNSClient::Initialize()
 {
 	// Attempt to get a CSPRNG
 	if (!(_csprng = new FortunaOutput))
@@ -289,7 +302,7 @@ bool DNSClient::Initialize(IOLayer *iolayer)
 	}
 
 	// Attempt to bind to any port; ignore ICMP unreachable messages
-	if (!BindToRandomPort(iolayer, true))
+	if (!BindToRandomPort(true))
 	{
 		WARN("DNSClient") << "Initialization failure: Unable to bind to any port";
 		RequestShutdown();
@@ -297,7 +310,7 @@ bool DNSClient::Initialize(IOLayer *iolayer)
 	}
 
 	// Assign to a worker
-	_worker_id = iolayer->GetWorkerThreads()->AssignTimer(this, WorkerTimerDelegate::FromMember<DNSClient, &DNSClient::OnWorkerTick>(this));
+	_worker_id = WorkerThreads::ref()->AssignTimer(this, WorkerTimerDelegate::FromMember<DNSClient, &DNSClient::OnWorkerTick>(this));
 
 	// Attempt to get server address from operating system
 	if (!GetServerAddr())
@@ -444,7 +457,7 @@ bool DNSClient::GetServerAddr()
 	return true;
 }
 
-bool DNSClient::BindToRandomPort(IOLayer *iolayer, bool ignoreUnreachable)
+bool DNSClient::BindToRandomPort(bool ignoreUnreachable)
 {
 	// NOTE: Ignores ICMP unreachable errors from DNS server; prefers timeouts
 
@@ -463,12 +476,12 @@ bool DNSClient::BindToRandomPort(IOLayer *iolayer, bool ignoreUnreachable)
 		Port port = (u16)_csprng->Generate();
 
 		// If bind succeeded,
-		if (port >= 1024 && Bind(iolayer, only_ipv4, port, ignoreUnreachable))
+		if (port >= 1024 && Bind(only_ipv4, port, ignoreUnreachable))
 			return true;
 	}
 
 	// Fall back to OS-chosen port
-	return Bind(iolayer, only_ipv4, 0, ignoreUnreachable);
+	return Bind(only_ipv4, 0, ignoreUnreachable);
 }
 
 bool DNSClient::PostDNSPacket(DNSRequest *req, u32 now)
@@ -739,14 +752,14 @@ bool DNSClient::IsValidHostname(const char *hostname)
 	return true;
 }
 
-bool DNSClient::Resolve(IOLayer *iolayer, const char *hostname, DNSDelegate callback, RefObject *holdRef)
+bool DNSClient::Resolve(const char *hostname, DNSDelegate callback, RefObject *holdRef)
 {
 	// If DNSClient is shutdown,
 	if (IsShutdown())
 		return false;
 
 	// Initialize if needed
-	if (!_initialized && !Initialize(iolayer))
+	if (!_initialized && !Initialize())
 		return false;
 
 	// Try to interpret hostname as numeric

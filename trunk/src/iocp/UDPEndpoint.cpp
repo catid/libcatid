@@ -121,7 +121,7 @@ bool UDPEndpoint::DontFragment(bool df)
 	return true;
 }
 
-bool UDPEndpoint::Bind(IOLayer *iolayer, bool onlySupportIPv4, Port port, bool ignoreUnreachable, int rcv_buffsize)
+bool UDPEndpoint::Bind(bool onlySupportIPv4, Port port, bool ignoreUnreachable, int rcv_buffsize)
 {
 	// Create an unbound, overlapped UDP socket for the endpoint
     Socket s;
@@ -165,14 +165,13 @@ bool UDPEndpoint::Bind(IOLayer *iolayer, bool onlySupportIPv4, Port port, bool i
     }
 
 	_port = port;
-	_iolayer = iolayer;
 
 	// Add references for all the reads assuming they will succeed + 1 to keep object alive until function returns
 	AddRef(SIMULTANEOUS_READS + 1);
 	_buffers_posted = SIMULTANEOUS_READS;
 
 	// Associate with IOThreads
-	if (!iolayer->GetIOThreads()->Associate(this))
+	if (!IOThreads::ref()->Associate(this))
 	{
 		FATAL("UDPEndpoint") << "Unable to associate with IOThreads";
 		CloseSocket(s);
@@ -182,7 +181,7 @@ bool UDPEndpoint::Bind(IOLayer *iolayer, bool onlySupportIPv4, Port port, bool i
 	}
 
 	// Now that we're in the IO layer, start watching the object for shutdown
-	iolayer->Watch(this);
+	RefObjectWatcher::ref()->Watch(this);
 
 	// Post reads for this socket
 	u32 read_count = PostReads(SIMULTANEOUS_READS);
@@ -247,7 +246,7 @@ u32 UDPEndpoint::PostReads(u32 count)
 	if (IsShutdown())
 		return 0;
 
-	IAllocator *allocator = GetIOLayer()->GetIOThreads()->GetRecvAllocator();
+	IAllocator *allocator = IOThreads::ref()->GetRecvAllocator();
 
 	BatchSet set;
 	u32 acquire_count = allocator->AcquireBatch(set, count);
@@ -387,7 +386,7 @@ void UDPEndpoint::ReleaseRecvBuffers(BatchSet buffers, u32 count)
 		--count;
 	}
 
-	_iolayer->GetIOThreads()->GetRecvAllocator()->ReleaseBatch(buffers);
+	IOThreads::ref()->GetRecvAllocator()->ReleaseBatch(buffers);
 
 	// Release one reference for each buffer
 	ReleaseRef(count);

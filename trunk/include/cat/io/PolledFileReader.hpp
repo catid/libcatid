@@ -62,7 +62,7 @@ static const u32 OPTIMAL_FILE_READ_CHUNK_SIZE = 32768;
 static const u32 OPTIMAL_FILE_MINIMUM_PARALLELISM = 16;
 static const u32 OPTIMAL_FILE_READ_MODE = ASYNCFILE_READ | ASYNCFILE_SEQUENTIAL | ASYNCFILE_NOBUFFER;
 
-class CAT_EXPORT PolledFileReader : public AsyncFile
+class CAT_EXPORT PolledFileReader : protected AsyncFile
 {
 	// Double-buffered cache system
 	u8 *_cache[2];
@@ -74,6 +74,7 @@ class CAT_EXPORT PolledFileReader : public AsyncFile
 	u8 _cache_front_done;	// Flag to indicate that the front buffer read completed
 	u32 _cache_back_bytes;	// Bytes available in back buffer
 
+	// Read state
 	u64 _file_size;			// Total file size
 	u64 _offset;			// Next offset for reading from disk
 	ReadBuffer _buffer;		// Read request object for reading from disk
@@ -85,7 +86,15 @@ public:
 	PolledFileReader();
 	virtual ~PolledFileReader();
 
-	bool Open(IOLayer *layer, const char *file_path);
+	CAT_INLINE u64 Offset() { return _offset; }
+	CAT_INLINE u64 Size() { return _file_size; }
+	CAT_INLINE u64 Remaining()
+	{
+		s64 remaining = (s64)(_file_size - _offset);
+		return remaining > 0 ? remaining : 0;
+	}
+
+	bool Open(const char *file_path);
 
 	/*
 		If Read() returns false, then the end of file has been found.

@@ -54,7 +54,7 @@ bool Server::OnZeroReferences()
 void Server::OnRecvRouting(const BatchSet &buffers)
 {
 	u32 connect_worker = _connect_worker;
-	u32 worker_count = GetIOLayer()->GetWorkerThreads()->GetWorkerCount();
+	u32 worker_count = WorkerThreads::ref()->GetWorkerCount();
 
 	BatchSet garbage;
 	garbage.Clear();
@@ -157,7 +157,7 @@ void Server::OnRecvRouting(const BatchSet &buffers)
 			u32 bin = offset + BSF32(v);
 
 			// Deliver all buffers for this worker at once
-			GetIOLayer()->GetWorkerThreads()->DeliverBuffers(WQPRIO_HI, bin, bins[bin]);
+			WorkerThreads::ref()->DeliverBuffers(WQPRIO_HI, bin, bins[bin]);
 
 			// Clear LSB
 			v ^= CAT_LSB32(v);
@@ -315,8 +315,7 @@ void Server::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 				conn->InitializePayloadBytes(Is6());
 
 				// Assign to a worker
-				SphynxLayer *layer = reinterpret_cast<SphynxLayer*>( GetIOLayer() );
-				conn->_worker_id = layer->GetWorkerThreads()->AssignTimer(conn, WorkerTimerDelegate::FromMember<Connexion, &Connexion::OnWorkerTick>(conn));
+				conn->_worker_id = WorkerThreads::ref()->AssignTimer(conn, WorkerTimerDelegate::FromMember<Connexion, &Connexion::OnWorkerTick>(conn));
 
 				if (!Write(pkt, S2C_ANSWER_LEN, buffer->GetAddr()))
 				{
@@ -364,7 +363,7 @@ Server::~Server()
 {
 }
 
-bool Server::StartServer(SphynxLayer *layer, SphynxTLS *tls, Port port, TunnelKeyPair &key_pair, const char *session_key)
+bool Server::StartServer(SphynxTLS *tls, Port port, TunnelKeyPair &key_pair, const char *session_key)
 {
 	// If objects were not created,
 	if (!tls->Valid())
@@ -397,7 +396,7 @@ bool Server::StartServer(SphynxLayer *layer, SphynxTLS *tls, Port port, TunnelKe
 	int kernelReceiveBufferBytes = Settings::ref()->getInt("Sphynx.Server.KernelReceiveBuffer", 8000000);
 
 	// Attempt to bind to the server port
-	if (!Bind(layer, only_ipv4, port, true, kernelReceiveBufferBytes))
+	if (!Bind(only_ipv4, port, true, kernelReceiveBufferBytes))
 	{
 		WARN("Server") << "Failed to initialize: Unable to bind handshake port "
 			<< port << ". " << SocketGetLastErrorString();

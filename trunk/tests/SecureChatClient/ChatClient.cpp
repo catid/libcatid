@@ -93,9 +93,7 @@ public:
 
 int main(int argc, char *argv[])
 {
-	SphynxLayer layer;
-
-	if (!layer.Startup("Client.cfg"))
+	if (!SphynxLayer::ref()->Startup("Client.cfg"))
 	{
 		FatalStop("Unable to initialize framework!");
 		return 1;
@@ -125,7 +123,7 @@ int main(int argc, char *argv[])
 	char *hostname = "127.0.0.1";
 	if (argc >= 2) hostname = argv[1];
 
-	if (!client->Connect(&layer, &tls, hostname, 22000, public_key, "Chat"))
+	if (!client->Connect(&tls, hostname, 22000, public_key, "Chat"))
 	{
 		FATAL("Client") << "Unable to connect to server";
 	}
@@ -139,7 +137,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	layer.Shutdown();
+	SphynxLayer::ref()->Shutdown();
 
 	return 0;
 }

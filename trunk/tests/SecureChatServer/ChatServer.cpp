@@ -157,9 +157,7 @@ bool GameServer::AcceptNewConnexion(const NetAddr &src)
 
 int main()
 {
-	SphynxLayer layer;
-
-	if (!layer.Startup("Server.cfg"))
+	if (!SphynxLayer::ref()->Startup("Server.cfg"))
 	{
 		FatalStop("Unable to initialize framework!");
 		return 1;
@@ -178,7 +176,7 @@ int main()
 	{
 		FATAL("Server") << "Unable to get key pair";
 	}
-	else if (!server->StartServer(&layer, &tls, SERVER_PORT, key_pair, "Chat"))
+	else if (!server->StartServer(&tls, SERVER_PORT, key_pair, "Chat"))
 	{
 		FATAL("Server") << "Unable to start server";
 	}
@@ -192,7 +190,7 @@ int main()
 		}
 	}
 
-	layer.Shutdown();
+	SphynxLayer::ref()->Shutdown();
 
 	return 0;
 }

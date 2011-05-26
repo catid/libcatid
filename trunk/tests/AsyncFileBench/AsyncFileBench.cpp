@@ -102,7 +102,7 @@ public:
 		}
 	}
 
-	bool StartReading(IOLayer *layer, bool no_buffer, bool seq, u32 parallelism, u32 chunk_size, const char *file_path)
+	bool StartReading(bool no_buffer, bool seq, u32 parallelism, u32 chunk_size, const char *file_path)
 	{
 		// Start timing before file object is created
 
@@ -121,9 +121,9 @@ public:
 
 		_file = new AsyncFile;
 
-		layer->Watch(_file);
+		RefObjectWatcher::ref()->Watch(_file);
 
-		if (!_file->Open(layer, file_path, ASYNCFILE_READ | (no_buffer ? ASYNCFILE_NOBUFFER : 0) | (seq ? ASYNCFILE_SEQUENTIAL : 0)))
+		if (!_file->Open(file_path, ASYNCFILE_READ | (no_buffer ? ASYNCFILE_NOBUFFER : 0) | (seq ? ASYNCFILE_SEQUENTIAL : 0)))
 		{
 			WARN("AsyncFileBench") << "Unable to open specified file: " << file_path;
 			return false;
@@ -297,7 +297,7 @@ void GetCdRomDump()
 
 
 
-bool Main(IOLayer *layer, Reader *reader, char **argv, int argc)
+bool Main(Reader *reader, char **argv, int argc)
 {
 	const char *file_path;
 	int chunk_size = 0;
@@ -331,7 +331,7 @@ bool Main(IOLayer *layer, Reader *reader, char **argv, int argc)
 		return false;
 	}
 
-	return reader->StartReading(layer, no_buffer != 0, seq != 0, parallelism, chunk_size, file_path);
+	return reader->StartReading(no_buffer != 0, seq != 0, parallelism, chunk_size, file_path);
 }
 
 int main(int argc, char **argv)
@@ -355,7 +355,7 @@ int main(int argc, char **argv)
 	WaitableFlag flag;
 	Reader reader(&flag);
 
-	if (Main(&layer, &reader, argv, argc))
+	if (Main(&reader, argv, argc))
 	{
 		flag.Wait();
 	}
