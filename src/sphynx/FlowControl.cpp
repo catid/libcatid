@@ -95,10 +95,11 @@ void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 
 	_stats_loss_count += timeout_loss_count;
 
-	// Tick statistics at a period of RTT * 2
+	// Tick statistics
 	s32 elapsed = now - _last_stats_update;
-	s32 period = _rtt;// * 4;
-	if (elapsed >= period || elapsed < 10)
+	s32 period = _rtt * 4;
+	if (period < 10) period = 10;
+	if (elapsed >= period)
 	{
 		u32 rtt_avg = _stats_rtt_count ? (_stats_rtt_acc / _stats_rtt_count) : 0;
 		u32 loss_count = _stats_loss_count;
@@ -112,7 +113,7 @@ void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 			// Double RTT since it seems to have jumped fast!
 			_rtt *= 2;
 
-			FATAL("FlowControl") << "Doubled RTT since RTTavg == 0 && goodput > 0";
+			CAT_FATAL("FlowControl") << "Doubled RTT since RTTavg == 0 && goodput > 0";
 		}
 
 		_last_stats_update = now;
@@ -142,7 +143,7 @@ void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 			}
 		}
 
-		FATAL("FlowControl") << "Statistics: RTTavg=" << rtt_avg << " losses=" << loss_count << " goodput=" << goodput << " goodrate=" << goodrate << " BPS=" << _bps << " RTT=" << _rtt;
+		CAT_FATAL("FlowControl") << "Statistics: RTTavg=" << rtt_avg << " losses=" << loss_count << " goodput=" << goodput << " goodrate=" << goodrate << " BPS=" << _bps << " RTT=" << _rtt;
 	}
 
 	_lock.Leave();

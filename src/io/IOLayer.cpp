@@ -51,14 +51,14 @@ bool IOLayer::OnStartup(IWorkerTLSBuilder *tls_builder, const char *settings_fil
 	// Start the socket subsystem
 	if (!StartupSockets())
 	{
-		FATAL("IOLayer") << "Socket subsystem failed to initialize";
+		CAT_FATAL("IOLayer") << "Socket subsystem failed to initialize";
 		return false;
 	}
 
 	// Start the IO threads
 	if (!IOThreads::ref()->Startup())
 	{
-		FATAL("IOLayer") << "IOThreads subsystem failed to initialize";
+		CAT_FATAL("IOLayer") << "IOThreads subsystem failed to initialize";
 		return false;
 	}
 

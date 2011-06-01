@@ -81,7 +81,7 @@ public:
 	~FileTransferSource();
 
 	// Queue up a file transfer
-	bool WriteFile(u8 opcode, const std::string &source_path, const std::string &sink_path, Transport *transport, u32 priority = 0);
+	bool WriteFile(u32 worker_id, u8 opcode, const std::string &source_path, const std::string &sink_path, Transport *transport, u32 priority = 0);
 };
 
 

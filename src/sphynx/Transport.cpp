@@ -404,7 +404,7 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 		// And start peeling out messages from the warm gooey center of the packet
 		u32 ack_id = 0, stream = 0;
 
-		INANE("Transport") << "Datagram dump " << bytes << ":" << HexDumpString(data, bytes);
+		CAT_INANE("Transport") << "Datagram dump " << bytes << ":" << HexDumpString(data, bytes);
 
 		while (bytes >= 1)
 		{
@@ -412,7 +412,7 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 			u8 hdr = data[0];
 			u32 data_bytes = hdr & BLO_MASK;
 
-			INANE("Transport") << " -- Processing subheader " << (int)hdr;
+			CAT_INANE("Transport") << " -- Processing subheader " << (int)hdr;
 
 			// If message length requires another byte to represent,
 			u32 hdr_bytes = 1;
@@ -429,7 +429,7 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 			{
 				if (bytes < 1)
 				{
-					WARN("Transport") << "Truncated message ignored (1)";
+					CAT_WARN("Transport") << "Truncated message ignored (1)";
 					break;
 				}
 
@@ -444,7 +444,7 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 				{
 					if (bytes < 1)
 					{
-						WARN("Transport") << "Truncated message ignored (2)";
+						CAT_WARN("Transport") << "Truncated message ignored (2)";
 						break;
 					}
 
@@ -456,7 +456,7 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 					{
 						if (bytes < 1)
 						{
-							WARN("Transport") << "Truncated message ignored (3)";
+							CAT_WARN("Transport") << "Truncated message ignored (3)";
 							break;
 						}
 
@@ -483,14 +483,14 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 
 			if (bytes < (s32)data_bytes)
 			{
-				WARN("Transport") << "Truncated transport message ignored";
+				CAT_WARN("Transport") << "Truncated transport message ignored";
 				break;
 			}
 
 			// If reliable message,
 			if (hdr & R_MASK)
 			{
-				INFO("Transport") << "Got # " << stream << ":" << ack_id;
+				CAT_INFO("Transport") << "Got # " << stream << ":" << ack_id;
 
 				s32 diff = (s32)(ack_id - _next_recv_expected_id[stream]);
 
@@ -508,9 +508,9 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 							QueueDelivery(tls, stream, data, data_bytes, false);
 						else if (super_opcode == SOP_INTERNAL)
 							OnInternal(tls, recv_time, data, data_bytes);
-						else WARN("Transport") << "Invalid reliable super opcode ignored";
+						else CAT_WARN("Transport") << "Invalid reliable super opcode ignored";
 					}
-					else WARN("Transport") << "Zero-length reliable message ignored";
+					else CAT_WARN("Transport") << "Zero-length reliable message ignored";
 
 					RunReliableReceiveQueue(tls, recv_time, ack_id + 1, stream);
 				}
@@ -520,9 +520,9 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 				}
 				else
 				{
-					INFO("Transport") << "Ignored duplicate rolled reliable message " << stream << ":" << ack_id;
+					CAT_INFO("Transport") << "Ignored duplicate rolled reliable message " << stream << ":" << ack_id;
 
-					INANE("Transport") << "Rel dump " << bytes << ":" << HexDumpString(data, bytes);
+					CAT_INANE("Transport") << "Rel dump " << bytes << ":" << HexDumpString(data, bytes);
 
 					_got_reliable[stream] = true;
 				}
@@ -585,7 +585,7 @@ void Transport::RunReliableReceiveQueue(SphynxTLS *tls, u32 recv_time, u32 ack_i
 		}
 		else if (old_data_bytes > 0)
 		{
-			WARN("Transport") << "Running queued message # " << stream << ":" << next_ack_id;
+			CAT_WARN("Transport") << "Running queued message # " << stream << ":" << next_ack_id;
 
 			if (super_opcode == SOP_DATA)
 				QueueDelivery(tls, stream, old_data, old_data_bytes, false);
@@ -618,7 +618,7 @@ void Transport::StoreReliableOutOfOrder(SphynxTLS *tls, u32 recv_time, u8 *data,
 	u32 count = _recv_wait[stream].size;
 	if (count >= OUT_OF_ORDER_LIMIT)
 	{
-		WARN("Transport") << "Out of room for out-of-order arrivals";
+		CAT_WARN("Transport") << "Out of room for out-of-order arrivals";
 		return;
 	}
 
@@ -642,7 +642,7 @@ void Transport::StoreReliableOutOfOrder(SphynxTLS *tls, u32 recv_time, u8 *data,
 		// If ack_id is contained within the sequence,
 		if (ack_id <= eos->id)
 		{
-			WARN("Transport") << "Ignored duplicate queued reliable message";
+			CAT_WARN("Transport") << "Ignored duplicate queued reliable message";
 			return;
 		}
 
@@ -654,13 +654,13 @@ void Transport::StoreReliableOutOfOrder(SphynxTLS *tls, u32 recv_time, u8 *data,
 		// If too many attempts to find insertion point already,
 		if (++ii >= OUT_OF_ORDER_LOOPS)
 		{
-			WARN("Transport") << "Dropped message due to swiss cheese";
+			CAT_WARN("Transport") << "Dropped message due to swiss cheese";
 			return;
 		}
 	}
 
-	WARN("Transport") << "Queuing out-of-order message # " << stream << ":" << ack_id;
-	INANE("Transport") << "Out-of-order message " << data_bytes << ":" << HexDumpString(data, data_bytes);
+	CAT_WARN("Transport") << "Queuing out-of-order message # " << stream << ":" << ack_id;
+	CAT_INANE("Transport") << "Out-of-order message " << data_bytes << ":" << HexDumpString(data, data_bytes);
 
 	u32 stored_bytes;
 
@@ -683,7 +683,7 @@ void Transport::StoreReliableOutOfOrder(SphynxTLS *tls, u32 recv_time, u8 *data,
 		}
 		else
 		{
-			WARN("Transport") << "Zero-length reliable message ignored";
+			CAT_WARN("Transport") << "Zero-length reliable message ignored";
 			return;
 		}
 	}
@@ -695,7 +695,7 @@ void Transport::StoreReliableOutOfOrder(SphynxTLS *tls, u32 recv_time, u8 *data,
 	RecvQueue *new_node = StdAllocator::ii->AcquireTrailing<RecvQueue>(stored_bytes);
 	if (!new_node)
 	{
-		WARN("Transport") << "Out of memory for incoming packet queue";
+		CAT_WARN("Transport") << "Out of memory for incoming packet queue";
 		return;
 	}
 
@@ -734,7 +734,7 @@ void Transport::OnFragment(SphynxTLS *tls, u32 recv_time, u8 *data, u32 bytes, u
 	{
 		if (bytes < FRAG_HEADER_BYTES + 1)
 		{
-			WARN("Transport") << "Truncated message fragment head ignored";
+			CAT_WARN("Transport") << "Truncated message fragment head ignored";
 			return;
 		}
 		else
@@ -752,7 +752,7 @@ void Transport::OnFragment(SphynxTLS *tls, u32 recv_time, u8 *data, u32 bytes, u
 				_fragments[stream].buffer = new u8[frag_length];
 				if (!_fragments[stream].buffer)
 				{
-					WARN("Transport") << "Out of memory: Unable to allocate fragment buffer";
+					CAT_WARN("Transport") << "Out of memory: Unable to allocate fragment buffer";
 					return;
 				}
 				else
@@ -777,7 +777,7 @@ void Transport::OnFragment(SphynxTLS *tls, u32 recv_time, u8 *data, u32 bytes, u
 		{
 			// Reset the stream's fragment offset to prepare for the next fragmented message
 			_fragments[stream].offset = 0;
-			WARN("Transport") << "Aborted huge fragment transfer in stream " << stream;
+			CAT_WARN("Transport") << "Aborted huge fragment transfer in stream " << stream;
 		}
 
 		return;
@@ -791,7 +791,7 @@ void Transport::OnFragment(SphynxTLS *tls, u32 recv_time, u8 *data, u32 bytes, u
 			delete []_fragments[stream].buffer;
 
 		_fragments[stream].length = 0;
-		WARN("Transport") << "Aborted fragment transfer in stream " << stream;
+		CAT_WARN("Transport") << "Aborted fragment transfer in stream " << stream;
 		return;
 	}
 
@@ -804,7 +804,7 @@ void Transport::OnFragment(SphynxTLS *tls, u32 recv_time, u8 *data, u32 bytes, u
 
 		if (bytes > fragment_remaining)
 		{
-			WARN("Transport") << "Message fragment overflow truncated";
+			CAT_WARN("Transport") << "Message fragment overflow truncated";
 		}
 
 		memcpy(buffer + _fragments[stream].offset, data, fragment_remaining);
@@ -832,7 +832,7 @@ bool Transport::WriteOOB(u8 msg_opcode, const void *msg_data, u32 msg_bytes, Sup
 	u8 *pkt = SendBuffer::Acquire(needed);
 	if (!pkt)
 	{
-		WARN("Transport") << "Out of memory for out-of-band message";
+		CAT_WARN("Transport") << "Out of memory for out-of-band message";
 		return false;
 	}
 
@@ -873,7 +873,7 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 msg_by
 	// Fail on invalid input
 	if (needed > max_payload_bytes)
 	{
-		WARN("Transport") << "Invalid input: Unreliable buffer size request too large";
+		CAT_WARN("Transport") << "Invalid input: Unreliable buffer size request too large";
 		return false;
 	}
 
@@ -906,7 +906,7 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 msg_by
 
 	_send_cluster_lock.Leave();
 
-	INFO("Transport") << "Wrote unreliable message with " << data_bytes << " bytes";
+	CAT_INFO("Transport") << "Wrote unreliable message with " << data_bytes << " bytes";
 
 	return true;
 }
@@ -927,7 +927,7 @@ bool Transport::WriteReliableZeroCopy(StreamMode stream, u8 *msg, u32 msg_bytes,
 {
 	if (msg_bytes > MAX_MESSAGE_SIZE)
 	{
-		WARN("Transport") << "Reliable write request too large " << msg_bytes;
+		CAT_WARN("Transport") << "Reliable write request too large " << msg_bytes;
 		OutgoingMessage::Release(msg);
 		return false;
 	}
@@ -945,7 +945,7 @@ bool Transport::WriteReliableZeroCopy(StreamMode stream, u8 *msg, u32 msg_bytes,
 	_send_queue[stream].Append(node);
 	_send_queue_lock.Leave();
 
-	INFO("Transport") << "Appended reliable message with " << msg_bytes << " bytes to stream " << stream;
+	CAT_INFO("Transport") << "Appended reliable message with " << msg_bytes << " bytes to stream " << stream;
 
 	return true;
 }
@@ -970,7 +970,7 @@ bool Transport::WriteHuge(StreamMode stream, IHugeSource *source)
 	_send_queue[stream].Append(node);
 	_send_queue_lock.Leave();
 
-	INFO("Transport") << "Appended huge message placeholder to stream " << stream;
+	CAT_INFO("Transport") << "Appended huge message placeholder to stream " << stream;
 
 	return true;
 }
@@ -1049,7 +1049,7 @@ void Transport::Retransmit(u32 stream, OutgoingMessage *node, u32 now)
 
 	node->ts_lastsend = now;
 
-	INFO("Transport") << "Retransmitted stream " << stream << " # " << ack_id;
+	CAT_INFO("Transport") << "Retransmitted stream " << stream << " # " << ack_id;
 }
 
 void Transport::FlushWrites()
@@ -1103,7 +1103,7 @@ void Transport::WriteACK()
 			// next tick perhaps the rest of the ACK list can be sent.
 			if (remaining < 3)
 			{
-				WARN("Transport") << "ACK packet truncated due to lack of space(1)";
+				CAT_WARN("Transport") << "ACK packet truncated due to lack of space(1)";
 				break;
 			}
 
@@ -1116,7 +1116,7 @@ void Transport::WriteACK()
 			offset += 3;
 			remaining -= 3;
 
-			INFO("Transport") << "Acknowledging rollup # " << stream << ":" << rollup_ack_id;
+			CAT_INFO("Transport") << "Acknowledging rollup # " << stream << ":" << rollup_ack_id;
 
 			RecvQueue *eos, *node = _recv_wait[stream].head;
 			u32 last_id = rollup_ack_id;
@@ -1128,7 +1128,7 @@ void Transport::WriteACK()
 				// Encode RANGE: START(3) || END(3)
 				if (remaining < 6)
 				{
-					WARN("Transport") << "ACK packet truncated due to lack of space(2)";
+					CAT_WARN("Transport") << "ACK packet truncated due to lack of space(2)";
 					break;
 				}
 
@@ -1139,7 +1139,7 @@ void Transport::WriteACK()
 				u32 end_offset = end_id - start_id;
 				last_id = end_id;
 
-				INFO("Transport") << "Acknowledging range # " << stream << ":" << start_id << " - " << end_id;
+				CAT_INFO("Transport") << "Acknowledging range # " << stream << ":" << start_id << " - " << end_id;
 
 				// Write START
 				u8 ack_hdr = (u8)((end_offset ? 2 : 0) | (start_offset << 2));
@@ -1282,7 +1282,7 @@ u32 Transport::RetransmitLost(u32 now)
 
 bool Transport::PostMTUProbe(SphynxTLS *tls, u32 mtu)
 {
-	INANE("Transport") << "Posting MTU Probe";
+	CAT_INANE("Transport") << "Posting MTU Probe";
 
 	if (mtu < MINIMUM_MTU || mtu > MAXIMUM_MTU)
 		return false;
@@ -1292,7 +1292,7 @@ bool Transport::PostMTUProbe(SphynxTLS *tls, u32 mtu)
 	u8 *pkt = SendBuffer::Acquire(payload_bytes + SPHYNX_OVERHEAD);
 	if (!pkt)
 	{
-		WARN("Transport") << "Out of memory error while posting MTU probe";
+		CAT_WARN("Transport") << "Out of memory error while posting MTU probe";
 		return false;
 	}
 
@@ -1357,7 +1357,7 @@ void Transport::OnACK(u32 recv_time, u8 *data, u32 data_bytes)
 	u32 loss_count = 0;
 	u32 acknowledged_data_sum = 0;
 
-	INANE("Transport") << "Got ACK with " << data_bytes << " bytes of data to decode ----";
+	CAT_INANE("Transport") << "Got ACK with " << data_bytes << " bytes of data to decode ----";
 
 	while (data_bytes > 0)
 	{
@@ -1392,7 +1392,7 @@ void Transport::OnACK(u32 recv_time, u8 *data, u32 data_bytes)
 
 					last_ack_id = ack_id;
 
-					INFO("Transport") << "Got acknowledgment for rollup # " << stream << ":" << ack_id;
+					CAT_INFO("Transport") << "Got acknowledgment for rollup # " << stream << ":" << ack_id;
 
 					// If the id got rolled,
 					if ((s32)(ack_id - node->id) > 0)
@@ -1418,7 +1418,7 @@ void Transport::OnACK(u32 recv_time, u8 *data, u32 data_bytes)
 			}
 			else
 			{
-				WARN("Transport") << "Truncated ACK ignored(1)";
+				CAT_WARN("Transport") << "Truncated ACK ignored(1)";
 				break;
 			}
 		}
@@ -1448,14 +1448,14 @@ void Transport::OnACK(u32 recv_time, u8 *data, u32 data_bytes)
 						}
 						else
 						{
-							WARN("Transport") << "Truncated ACK ignored(2)";
+							CAT_WARN("Transport") << "Truncated ACK ignored(2)";
 							break;
 						}
 					}
 				}
 				else
 				{
-					WARN("Transport") << "Truncated ACK ignored(3)";
+					CAT_WARN("Transport") << "Truncated ACK ignored(3)";
 					break;
 				}
 			}
@@ -1492,26 +1492,26 @@ void Transport::OnACK(u32 recv_time, u8 *data, u32 data_bytes)
 								}
 								else
 								{
-									WARN("Transport") << "Truncated ACK ignored(4)";
+									CAT_WARN("Transport") << "Truncated ACK ignored(4)";
 									break;
 								}
 							}
 						}
 						else
 						{
-							WARN("Transport") << "Truncated ACK ignored(5)";
+							CAT_WARN("Transport") << "Truncated ACK ignored(5)";
 							break;
 						}
 					}
 				}
 				else
 				{
-					WARN("Transport") << "Truncated ACK ignored(6)";
+					CAT_WARN("Transport") << "Truncated ACK ignored(6)";
 					break;
 				}
 			}
 
-			INFO("Transport") << "Got acknowledgment for range # " << stream << ":" << start_ack_id << " - " << end_ack_id;
+			CAT_INFO("Transport") << "Got acknowledgment for range # " << stream << ":" << start_ack_id << " - " << end_ack_id;
 
 			// Handle range:
 			if (node)
@@ -1815,7 +1815,7 @@ bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s
 		sent_bytes += data_bytes_to_copy;
 		bytes_to_send -= data_bytes_to_copy;
 
-		INFO("Transport") << "Wrote " << stream << ": bytes=" << data_bytes_to_copy << " ack_id=" << ack_id;
+		CAT_INFO("Transport") << "Wrote " << stream << ": bytes=" << data_bytes_to_copy << " ack_id=" << ack_id;
 
 	} while (bytes_to_send > 0); // end while sending message fragments
 
@@ -1849,7 +1849,8 @@ bool Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream, s32 remai
 	u32 frag_overhead = (sent_bytes == 0) ? FRAG_HEADER_BYTES : 0;
 
 	// For each fragment of the message,
-	u32 copy_bytes, total_copied_bytes = 0, send_limit = node->send_bytes;
+	u32 copy_bytes, total_copied_bytes = 0;
+	s32 send_limit = node->send_bytes;
 	bool complete;
 	do
 	{
@@ -1875,7 +1876,8 @@ bool Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream, s32 remai
 		// Apply send limit
 		u32 overhead = MAX_MESSAGE_HEADER_BYTES + ack_id_overhead + frag_overhead;
 		copy_bytes = remaining_send_buffer - overhead;
-		if (copy_bytes > send_limit) copy_bytes = send_limit;
+		// Do not limit to bandwidth, just fill up to the next MTU
+		//if (copy_bytes > send_limit) copy_bytes = send_limit;
 		u32 total_bytes = overhead + copy_bytes;
 
 		// Apply retransmit limit
@@ -1963,7 +1965,7 @@ bool Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream, s32 remai
 			frag_overhead, cluster, SOP_FRAG, GetTrailingBytes(frag),
 			copy_bytes, node->GetBytes());
 
-		INFO("Transport") << "Wrote Huge " << stream << ": bytes=" << copy_bytes << " ack_id=" << ack_id;
+		CAT_INFO("Transport") << "Wrote Huge " << stream << ": bytes=" << copy_bytes << " ack_id=" << ack_id;
 
 		sent_bytes = 1;
 		total_copied_bytes += copy_bytes;

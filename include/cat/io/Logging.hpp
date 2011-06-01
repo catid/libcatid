@@ -138,14 +138,14 @@ public:
 //  if (XYZ) WARN("SS") << "ERROR!"; else INFO("SS") << "OK!";	   <-- bad
 // Instead use:
 //  if (XYZ) { WARN("SS") << "ERROR!"; } else INFO("SS") << "OK!";   <-- good
-#define RECORD(subsystem, severity) \
+#define CAT_RECORD(subsystem, severity) \
 	if (severity >= Logging::ref()->_log_threshold) Recorder(subsystem, severity)
 
-#define INANE(subsystem)	RECORD(subsystem, LVL_INANE)
-#define INFO(subsystem)		RECORD(subsystem, LVL_INFO)
-#define WARN(subsystem)		RECORD(subsystem, LVL_WARN)
-#define OOPS(subsystem)		RECORD(subsystem, LVL_OOPS)
-#define FATAL(subsystem)	RECORD(subsystem, LVL_FATAL)
+#define CAT_INANE(subsystem)	CAT_RECORD(subsystem, cat::LVL_INANE)
+#define CAT_INFO(subsystem)		CAT_RECORD(subsystem, cat::LVL_INFO)
+#define CAT_WARN(subsystem)		CAT_RECORD(subsystem, cat::LVL_WARN)
+#define CAT_OOPS(subsystem)		CAT_RECORD(subsystem, cat::LVL_OOPS)
+#define CAT_FATAL(subsystem)	CAT_RECORD(subsystem, cat::LVL_FATAL)
 
 
 //// Enforcer
@@ -170,20 +170,20 @@ public:
 };
 
 
-#define USE_ENFORCE_EXPRESSION_STRING
-#define USE_ENFORCE_FILE_LINE_STRING
+#define CAT_USE_ENFORCE_EXPRESSION_STRING
+#define CAT_USE_ENFORCE_FILE_LINE_STRING
 
 
-#if defined(USE_ENFORCE_EXPRESSION_STRING)
-# define ENFORCE_EXPRESSION_STRING(exp) "Failed assertion (" #exp ")"
+#if defined(CAT_USE_ENFORCE_EXPRESSION_STRING)
+# define CAT_ENFORCE_EXPRESSION_STRING(exp) "Failed assertion (" #exp ")"
 #else
-# define ENFORCE_EXPRESSION_STRING(exp) "Failed assertion"
+# define CAT_ENFORCE_EXPRESSION_STRING(exp) "Failed assertion"
 #endif
 
-#if defined(USE_ENFORCE_FILE_LINE_STRING)
-# define ENFORCE_FILE_LINE_STRING " at " __FILE__ ":" CAT_STRINGIZE(__LINE__)
+#if defined(CAT_USE_ENFORCE_FILE_LINE_STRING)
+# define CAT_ENFORCE_FILE_LINE_STRING " at " __FILE__ ":" CAT_STRINGIZE(__LINE__)
 #else
-# define ENFORCE_FILE_LINE_STRING ""
+# define CAT_ENFORCE_FILE_LINE_STRING ""
 #endif
 
 // Because there is an IF statement in the macro, you cannot use the
@@ -192,13 +192,13 @@ public:
 // Instead use:
 //  if (XYZ) { ENFORCE(A == B) << "ERROR"; } else INFO("SS") << "OK";   <-- good!
 
-#define ENFORCE(exp) if ( (exp) == 0 ) Enforcer(ENFORCE_EXPRESSION_STRING(exp) ENFORCE_FILE_LINE_STRING "\n")
-#define EXCEPTION() Enforcer("Exception" ENFORCE_FILE_LINE_STRING "\n")
+#define CAT_ENFORCE(exp) if ( (exp) == 0 ) Enforcer(CAT_ENFORCE_EXPRESSION_STRING(exp) CAT_ENFORCE_FILE_LINE_STRING "\n")
+#define CAT_EXCEPTION() Enforcer("Exception" CAT_ENFORCE_FILE_LINE_STRING "\n")
 
 #if defined(CAT_DEBUG)
-# define DEBUG_ENFORCE(exp) ENFORCE(exp)
+# define CAT_DEBUG_ENFORCE(exp) CAT_ENFORCE(exp)
 #else
-# define DEBUG_ENFORCE(exp) while (false) ENFORCE(exp) /* hopefully will be optimized out of existence */
+# define CAT_DEBUG_ENFORCE(exp) while (false) CAT_ENFORCE(exp) /* hopefully will be optimized out of existence */
 #endif
 
 

@@ -509,7 +509,7 @@ void RunHuffmanTests()
 
 	if (!mt.Initialize())
 	{
-		WARN("Huffman") << "Failed initialize MT";
+		CAT_WARN("Huffman") << "Failed initialize MT";
 		return;
 	}
 
@@ -524,12 +524,12 @@ void RunHuffmanTests()
 
 		int new_size = Huff_CompressPacket((u8*)test, 0, 500);
 
-		WARN("TEST") << new_size;
+		CAT_WARN("TEST") << new_size;
 	}
 
 	// 5.4 (a) (b)
 	{
-		WARN("Huffman") << "Problem 5.4 (a) (b)";
+		CAT_WARN("Huffman") << "Problem 5.4 (a) (b)";
 
 		HuffmanTreeFactory factory;
 
@@ -543,14 +543,14 @@ void RunHuffmanTests()
 
 		HuffmanTree *tree = factory.BuildTree(2);
 
-		WARN("Huffman") << "Expected length = " << tree->ExpectedLength();
+		CAT_WARN("Huffman") << "Expected length = " << tree->ExpectedLength();
 
 		delete tree;
 	}
 
 	// 5.4 (c)
 	{
-		WARN("Huffman") << "Problem 5.4 (c)";
+		CAT_WARN("Huffman") << "Problem 5.4 (c)";
 
 		HuffmanTreeFactory factory;
 
@@ -564,14 +564,14 @@ void RunHuffmanTests()
 
 		HuffmanTree *tree = factory.BuildTree(3);
 
-		WARN("Huffman") << "Expected length = " << tree->ExpectedLength();
+		CAT_WARN("Huffman") << "Expected length = " << tree->ExpectedLength();
 
 		delete tree;
 	}
 
 	// 5.16 (a)
 	{
-		WARN("Huffman") << "Problem 5.16 (a)";
+		CAT_WARN("Huffman") << "Problem 5.16 (a)";
 
 		HuffmanTreeFactory factory;
 
@@ -584,14 +584,14 @@ void RunHuffmanTests()
 
 		HuffmanTree *tree = factory.BuildTree(2);
 
-		WARN("Huffman") << "Expected length = " << tree->ExpectedLength();
+		CAT_WARN("Huffman") << "Expected length = " << tree->ExpectedLength();
 
 		delete tree;
 	}
 
 	// 5.16 (b)
 	{
-		WARN("Huffman") << "Problem 5.16 (b) (c)";
+		CAT_WARN("Huffman") << "Problem 5.16 (b) (c)";
 
 		HuffmanTreeFactory factory;
 
@@ -605,14 +605,14 @@ void RunHuffmanTests()
 
 		HuffmanTree *tree = factory.BuildTree(4);
 
-		WARN("Huffman") << "Expected length = " << tree->ExpectedLength();
+		CAT_WARN("Huffman") << "Expected length = " << tree->ExpectedLength();
 
 		delete tree;
 	}
 
 	// 5.16 (e)
 	{
-		WARN("Huffman") << "Problem 5.16 (e) binary";
+		CAT_WARN("Huffman") << "Problem 5.16 (e) binary";
 
 		HuffmanTreeFactory factory;
 
@@ -623,12 +623,12 @@ void RunHuffmanTests()
 
 		HuffmanTree *tree = factory.BuildTree(2);
 
-		WARN("Huffman") << "Expected length = " << tree->ExpectedLength();
+		CAT_WARN("Huffman") << "Expected length = " << tree->ExpectedLength();
 
 		delete tree;
 	}
 	{
-		WARN("Huffman") << "Problem 5.16 (e) quaternary";
+		CAT_WARN("Huffman") << "Problem 5.16 (e) quaternary";
 
 		HuffmanTreeFactory factory;
 
@@ -639,14 +639,14 @@ void RunHuffmanTests()
 
 		HuffmanTree *tree = factory.BuildTree(4);
 
-		WARN("Huffman") << "Expected length = " << tree->ExpectedLength();
+		CAT_WARN("Huffman") << "Expected length = " << tree->ExpectedLength();
 
 		delete tree;
 	}
 
 	// 5.16 (f)
 	{
-		WARN("Huffman") << "Problem 5.16 (f) binary";
+		CAT_WARN("Huffman") << "Problem 5.16 (f) binary";
 
 		HuffmanTreeFactory factory;
 
@@ -657,12 +657,12 @@ void RunHuffmanTests()
 
 		HuffmanTree *tree = factory.BuildTree(2);
 
-		WARN("Huffman") << "Expected length = " << tree->ExpectedLength();
+		CAT_WARN("Huffman") << "Expected length = " << tree->ExpectedLength();
 
 		delete tree;
 	}
 	{
-		WARN("Huffman") << "Problem 5.16 (f) quaternary";
+		CAT_WARN("Huffman") << "Problem 5.16 (f) quaternary";
 
 		HuffmanTreeFactory factory;
 
@@ -673,7 +673,7 @@ void RunHuffmanTests()
 
 		HuffmanTree *tree = factory.BuildTree(4);
 
-		WARN("Huffman") << "Expected length = " << tree->ExpectedLength();
+		CAT_WARN("Huffman") << "Expected length = " << tree->ExpectedLength();
 
 		delete tree;
 	}
@@ -755,7 +755,7 @@ void RunHuffmanTests()
 
 		if (!tree)
 		{
-			WARN("Huffman") << "Unable to build tree!";
+			CAT_WARN("Huffman") << "Unable to build tree!";
 			return;
 		}
 
@@ -763,7 +763,7 @@ void RunHuffmanTests()
 
 		if (!tree->Encode(data, sizeof(data), compressed))
 		{
-			WARN("Huffman") << "Unable to encode!";
+			CAT_WARN("Huffman") << "Unable to encode!";
 			return;
 		}
 
@@ -773,17 +773,17 @@ void RunHuffmanTests()
 
 		if (bytes != sizeof(data))
 		{
-			WARN("Huffman") << "Unable to decode!";
+			CAT_WARN("Huffman") << "Unable to decode!";
 			return;
 		}
 
 		if (0 != memcmp(decompressed, data, sizeof(data)))
 		{
-			WARN("Huffman") << "Decode corrupted!";
+			CAT_WARN("Huffman") << "Decode corrupted!";
 			return;
 		}
 
-		INFO("Huffman") << "Compression success!  Compressed size was " << compressed.length();
+		CAT_INFO("Huffman") << "Compression success!  Compressed size was " << compressed.length();
 
 		delete tree;
 	}
@@ -802,7 +802,7 @@ int main(int argc, const char **argv)
 #ifndef GENERATING_TABLE
     if (!TextStatsCollector::VerifyTableIntegrity(ChatText))
     {
-        WARN("Text Compression Test") << "Table integrity check failed";
+        CAT_WARN("Text Compression Test") << "Table integrity check failed";
     }
 /*    else if (argc <= 1)
     {
@@ -857,7 +857,7 @@ int main(int argc, const char **argv)
             std::ifstream file(fname);
             if (!file)
             {
-                WARN("Text Compression Test") << "File error";
+                CAT_WARN("Text Compression Test") << "File error";
             }
             else
             {
@@ -890,8 +890,8 @@ int main(int argc, const char **argv)
                     ctime += Clock::usec() - start;
                     if (re.Fail())
                     {
-                        WARN("Text Compression Test") << "Compression failure!";
-                        WARN("Text Compression Test") << "txt: " << chars;
+                        CAT_WARN("Text Compression Test") << "Compression failure!";
+                        CAT_WARN("Text Compression Test") << "txt: " << chars;
                     }
                     else
                     {
@@ -905,14 +905,14 @@ int main(int argc, const char **argv)
 
                         if (rd.Remaining() > 0)
                         {
-                            WARN("Text Compression Test") << "ERROR: Unread bytes remaining";
+                            CAT_WARN("Text Compression Test") << "ERROR: Unread bytes remaining";
                         }
 
                         float ratio = used / (float)count;
                         if (worst < ratio)
                         {
                             worst = ratio;
-                            WARN("worst") << "origin   : " << line;
+                            CAT_WARN("worst") << "origin   : " << line;
                         }
 
                         if (chars > longest)
@@ -933,17 +933,17 @@ int main(int argc, const char **argv)
 
                         if (used > count + 1)
                         {
-                            WARN("Text Compression Test") << "ERROR: More than one extra byte emitted";
+                            CAT_WARN("Text Compression Test") << "ERROR: More than one extra byte emitted";
                         }
 
                         if (count != chars || memcmp(decomp, line, chars))
                         {
-                            WARN("Text Compression Test") << "Decompression failure!";
-                            WARN("Text Compression Test") << "txt.size : " << chars;
-                            WARN("Text Compression Test") << "comp.size: " << used;
-                            WARN("Text Compression Test") << "origin   : " << line;
-                            WARN("Text Compression Test") << "decomp   : " << decomp;
-                            WARN("Text Compression Test") << "out.size : " << count;
+                            CAT_WARN("Text Compression Test") << "Decompression failure!";
+                            CAT_WARN("Text Compression Test") << "txt.size : " << chars;
+                            CAT_WARN("Text Compression Test") << "comp.size: " << used;
+                            CAT_WARN("Text Compression Test") << "origin   : " << line;
+                            CAT_WARN("Text Compression Test") << "decomp   : " << decomp;
+                            CAT_WARN("Text Compression Test") << "out.size : " << count;
                         }
                     }
 #endif
@@ -992,23 +992,23 @@ int main(int argc, const char **argv)
         delete []comp;
         delete []decomp;
 
-        WARN("Text Compression Test") << "Worst message compression ratio: " << worst;
-        WARN("Text Compression Test") << "uncompressed = " << uncompressed;
-        WARN("Text Compression Test") << "compressed   = " << compressed;
-        WARN("Text Compression Test") << "Compression rate = " << uncompressed / ctime << " MB/s";
-        WARN("Text Compression Test") << "Decompression rate = " << uncompressed / dtime << " MB/s";
-        WARN("Text Compression Test") << "Average input length = " << uncompressed / linect;
-        WARN("Text Compression Test") << "Compression ratio = " << compressed * 100.0f / uncompressed;
-        WARN("Text Compression Test") << "Table bytes = " << sizeof(_ChatText);
+        CAT_WARN("Text Compression Test") << "Worst message compression ratio: " << worst;
+        CAT_WARN("Text Compression Test") << "uncompressed = " << uncompressed;
+        CAT_WARN("Text Compression Test") << "compressed   = " << compressed;
+        CAT_WARN("Text Compression Test") << "Compression rate = " << uncompressed / ctime << " MB/s";
+        CAT_WARN("Text Compression Test") << "Decompression rate = " << uncompressed / dtime << " MB/s";
+        CAT_WARN("Text Compression Test") << "Average input length = " << uncompressed / linect;
+        CAT_WARN("Text Compression Test") << "Compression ratio = " << compressed * 100.0f / uncompressed;
+        CAT_WARN("Text Compression Test") << "Table bytes = " << sizeof(_ChatText);
 #else
         ofstream ofile("ChatText.stats");
         if (!ofile)
         {
-            WARN("Text Compression Test") << "Unable to open file";
+            CAT_WARN("Text Compression Test") << "Unable to open file";
         }
         else
         {
-            WARN("Text Compression Test") << collector->GenerateMinimalStaticTable("ChatText", ofile);
+            CAT_WARN("Text Compression Test") << collector->GenerateMinimalStaticTable("ChatText", ofile);
         }
         delete collector;
 #endif
@@ -1018,7 +1018,7 @@ int main(int argc, const char **argv)
 
 	RunHuffmanTests();
 
-    INFO("Launcher") << "** Press any key to close.";
+    CAT_INFO("Launcher") << "** Press any key to close.";
 
     while (!getch())
         Sleep(100);

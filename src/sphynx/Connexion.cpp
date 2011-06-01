@@ -66,7 +66,7 @@ void Connexion::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 		u8 *data = GetTrailingBytes(buffer);
 		u32 data_bytes = buffer->data_bytes;
 
-		INFO("Connexion") << "Decrypting " << data_bytes << " bytes";
+		CAT_INFO("Connexion") << "Decrypting " << data_bytes << " bytes";
 
 		// If the data could be decrypted,
 		if (data_bytes > SPHYNX_OVERHEAD &&
@@ -90,14 +90,14 @@ void Connexion::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 				// have already validated the cookie and protocol magic to get here
 				if (!SecureEqual(_first_challenge, challenge, CHALLENGE_BYTES))
 				{
-					WARN("Connexion") << "Ignoring challenge: Replay challenge in bad state";
+					CAT_WARN("Connexion") << "Ignoring challenge: Replay challenge in bad state";
 					continue;
 				}
 
 				u8 *pkt = SendBuffer::Acquire(S2C_ANSWER_LEN);
 				if (!pkt)
 				{
-					WARN("Connexion") << "Ignoring challenge: Unable to allocate post buffer";
+					CAT_WARN("Connexion") << "Ignoring challenge: Unable to allocate post buffer";
 					continue;
 				}
 
@@ -108,7 +108,7 @@ void Connexion::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 
 				_parent->Write(pkt, S2C_ANSWER_LEN, buffer->GetAddr());
 
-				INANE("Connexion") << "Replayed lost answer to client challenge";
+				CAT_INANE("Connexion") << "Replayed lost answer to client challenge";
 			}
 		}
 	}
@@ -202,7 +202,7 @@ void Connexion::OnInternal(SphynxTLS *tls, u32 recv_time, BufferStream data, u32
 			// The byte count does not include the 2 byte header
 			bytes += 2;
 
-			WARN("Server") << "Got IOP_C2S_MTU_PROBE.  Max payload bytes = " << bytes;
+			CAT_WARN("Server") << "Got IOP_C2S_MTU_PROBE.  Max payload bytes = " << bytes;
 
 			// If new maximum payload is greater than the previous one,
 			if (bytes > _max_payload_bytes)
@@ -225,14 +225,14 @@ void Connexion::OnInternal(SphynxTLS *tls, u32 recv_time, BufferStream data, u32
 
 			WriteOOB(IOP_S2C_TIME_PONG, stamps, sizeof(stamps), SOP_INTERNAL);
 
-			WARN("Server") << "Got IOP_C2S_TIME_PING.  Stamp = " << *client_timestamp;
+			CAT_WARN("Server") << "Got IOP_C2S_TIME_PING.  Stamp = " << *client_timestamp;
 		}
 		break;
 
 	case IOP_DISCO:
 		if (bytes == IOP_DISCO_LEN)
 		{
-			WARN("Server") << "Got IOP_DISCO reason = " << (int)data[1];
+			CAT_WARN("Server") << "Got IOP_DISCO reason = " << (int)data[1];
 
 			Disconnect(data[1]);
 		}

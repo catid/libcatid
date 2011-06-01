@@ -168,7 +168,7 @@ void Settings::readSettingsFromBuffer(SequentialFileReader &sfile)
 			key->value.flags |= CAT_SETTINGS_FILLED;
 			bt() >> key->value.s;
 #ifdef SETTINGS_VERBOSE
-			INANE("Settings") << "Read: (" << key->name << ") = (" << key->value.s << ")";
+			CAT_INANE("Settings") << "Read: (" << key->name << ") = (" << key->value.s << ")";
 #endif
 		}
 	}
@@ -184,12 +184,12 @@ void Settings::readSettingsFromFile(const char *file_path, const char *override_
 
 	if (!sfile.Open(file_path))
 	{
-		WARN("Settings") << "Read: Unable to open " << file_path;
+		CAT_WARN("Settings") << "Read: Unable to open " << file_path;
 		return;
 	}
 
 #ifdef SETTINGS_VERBOSE
-	INANE("Settings") << "Read: " << file_path;
+	CAT_INANE("Settings") << "Read: " << file_path;
 #endif
 
 	readSettingsFromBuffer(sfile);
@@ -198,7 +198,7 @@ void Settings::readSettingsFromFile(const char *file_path, const char *override_
 	if (sfile.Open(override_file))
 	{
 #ifdef SETTINGS_VERBOSE
-		INANE("Settings") << "Read: " << override_file;
+		CAT_INANE("Settings") << "Read: " << override_file;
 #endif
 
 		readSettingsFromBuffer(sfile);
@@ -221,7 +221,7 @@ void Settings::write()
 	if (readSettings && !modified)
 	{
 #ifdef SETTINGS_VERBOSE
-		INANE("Settings") << "Skipped writing unmodified settings";
+		CAT_INANE("Settings") << "Skipped writing unmodified settings";
 #endif
 		return;
 	}
@@ -229,7 +229,7 @@ void Settings::write()
 	ofstream file(_settings_file.c_str());
 	if (!file)
 	{
-		WARN("Settings") << "Write: Unable to open " << _settings_file;
+		CAT_WARN("Settings") << "Write: Unable to open " << _settings_file;
 		return;
 	}
 
@@ -239,7 +239,7 @@ void Settings::write()
 		if (hbtrees[ii]) hbtrees[ii]->write(file);
 
 #ifdef SETTINGS_VERBOSE
-	INANE("Settings") << "Write: Saved " << _settings_file;
+	CAT_INANE("Settings") << "Write: Saved " << _settings_file;
 #endif
 
 	modified = false;

@@ -75,7 +75,7 @@ Port UDPEndpoint::GetPort()
 
 		if (!_port)
 		{
-			WARN("UDPEndpoint") << "Unable to get own address: " << SocketGetLastErrorString();
+			CAT_WARN("UDPEndpoint") << "Unable to get own address: " << SocketGetLastErrorString();
 			return 0;
 		}
 	}
@@ -99,7 +99,7 @@ bool UDPEndpoint::IgnoreUnreachable()
     if (WSAIoctl(_socket, SIO_UDP_CONNRESET, &bNewBehavior,
 				 sizeof(bNewBehavior), 0, 0, &dwBytesReturned, 0, 0) == SOCKET_ERROR)
 	{
-		WARN("UDPEndpoint") << "Unable to ignore ICMP Unreachable: " << SocketGetLastErrorString();
+		CAT_WARN("UDPEndpoint") << "Unable to ignore ICMP Unreachable: " << SocketGetLastErrorString();
 		return false;
 	}
 
@@ -114,7 +114,7 @@ bool UDPEndpoint::DontFragment(bool df)
 	DWORD bNewBehavior = df ? TRUE : FALSE;
 	if (setsockopt(_socket, IPPROTO_IP, IP_DONTFRAGMENT, (const char*)&bNewBehavior, sizeof(bNewBehavior)))
 	{
-		WARN("UDPEndpoint") << "Unable to change don't fragment bit: " << SocketGetLastErrorString();
+		CAT_WARN("UDPEndpoint") << "Unable to change don't fragment bit: " << SocketGetLastErrorString();
 		return false;
 	}
 
@@ -127,7 +127,7 @@ bool UDPEndpoint::Bind(bool onlySupportIPv4, Port port, bool ignoreUnreachable, 
     Socket s;
 	if (!CreateSocket(SOCK_DGRAM, IPPROTO_UDP, true, s, onlySupportIPv4))
 	{
-		FATAL("UDPEndpoint") << "Unable to create a UDP socket: " << SocketGetLastErrorString();
+		CAT_FATAL("UDPEndpoint") << "Unable to create a UDP socket: " << SocketGetLastErrorString();
 		return false;
     }
 	_ipv6 = !onlySupportIPv4;
@@ -136,7 +136,7 @@ bool UDPEndpoint::Bind(bool onlySupportIPv4, Port port, bool ignoreUnreachable, 
 	int snd_buffsize = 0;
 	if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, (char*)&snd_buffsize, sizeof(snd_buffsize)))
 	{
-		WARN("UDPEndpoint") << "Unable to zero the send buffer: " << SocketGetLastErrorString();
+		CAT_WARN("UDPEndpoint") << "Unable to zero the send buffer: " << SocketGetLastErrorString();
 		CloseSocket(s);
 		return false;
 	}
@@ -145,7 +145,7 @@ bool UDPEndpoint::Bind(bool onlySupportIPv4, Port port, bool ignoreUnreachable, 
 	if (rcv_buffsize < 64000) rcv_buffsize = 64000;
 	if (setsockopt(s, SOL_SOCKET, SO_RCVBUF, (char*)&rcv_buffsize, sizeof(rcv_buffsize)))
 	{
-		WARN("UDPEndpoint") << "Unable to setsockopt SO_RCVBUF " << rcv_buffsize << ": " << SocketGetLastErrorString();
+		CAT_WARN("UDPEndpoint") << "Unable to setsockopt SO_RCVBUF " << rcv_buffsize << ": " << SocketGetLastErrorString();
 		CloseSocket(s);
 		return false;
 	}
@@ -158,7 +158,7 @@ bool UDPEndpoint::Bind(bool onlySupportIPv4, Port port, bool ignoreUnreachable, 
     // Bind the socket to a given port
     if (!NetBind(s, port, onlySupportIPv4))
     {
-        FATAL("UDPEndpoint") << "Unable to bind to port: " << SocketGetLastErrorString();
+        CAT_FATAL("UDPEndpoint") << "Unable to bind to port: " << SocketGetLastErrorString();
         CloseSocket(s);
         _socket = SOCKET_ERROR;
         return false;
@@ -173,7 +173,7 @@ bool UDPEndpoint::Bind(bool onlySupportIPv4, Port port, bool ignoreUnreachable, 
 	// Associate with IOThreads
 	if (!IOThreads::ref()->Associate(this))
 	{
-		FATAL("UDPEndpoint") << "Unable to associate with IOThreads";
+		CAT_FATAL("UDPEndpoint") << "Unable to associate with IOThreads";
 		CloseSocket(s);
 		_socket = SOCKET_ERROR;
 		ReleaseRef(SIMULTANEOUS_READS + 1); // Release temporary references keeping the object alive until function returns
@@ -192,20 +192,20 @@ bool UDPEndpoint::Bind(bool onlySupportIPv4, Port port, bool ignoreUnreachable, 
 	{
 		ReleaseRef(read_fails);
 		Atomic::Add(&_buffers_posted, 0 - read_fails);
-		WARN("UDPEndpoint") << "Only able to launch " << read_count << " reads out of " << SIMULTANEOUS_READS;
+		CAT_WARN("UDPEndpoint") << "Only able to launch " << read_count << " reads out of " << SIMULTANEOUS_READS;
 	}
 
 	// If no reads could be posted,
 	if (read_count == 0)
 	{
-		FATAL("UDPEndpoint") << "No reads could be launched";
+		CAT_FATAL("UDPEndpoint") << "No reads could be launched";
 		CloseSocket(s);
 		_socket = SOCKET_ERROR;
 		ReleaseRef(); // Release temporary reference keeping the object alive until function returns
 		return false;
 	}
 
-    INFO("UDPEndpoint") << "Open on port " << GetPort();
+    CAT_INFO("UDPEndpoint") << "Open on port " << GetPort();
 
 	ReleaseRef(); // Release temporary reference keeping the object alive until function returns
     return true;
@@ -234,7 +234,7 @@ bool UDPEndpoint::PostRead(RecvBuffer *buffer)
 	// we get an error code other than ERROR_IO_PENDING.
 	if (result && WSAGetLastError() != ERROR_IO_PENDING)
 	{
-		FATAL("UDPEndpoint") << "WSARecvFrom error: " << SocketGetLastErrorString();
+		CAT_FATAL("UDPEndpoint") << "WSARecvFrom error: " << SocketGetLastErrorString();
 		return false;
 	}
 
@@ -303,7 +303,7 @@ bool UDPEndpoint::Write(const BatchSet &buffers, u32 count, const NetAddr &addr)
 		// we get an error code other than ERROR_IO_PENDING.
 		if (result && WSAGetLastError() != ERROR_IO_PENDING)
 		{
-			WARN("UDPEndpoint") << "WSASendTo error: " << SocketGetLastErrorString();
+			CAT_WARN("UDPEndpoint") << "WSASendTo error: " << SocketGetLastErrorString();
 
 			StdAllocator::ii->Release(node);
 			ReleaseRef();
@@ -325,13 +325,13 @@ bool UDPEndpoint::Write(const BatchSet &buffers, u32 count, const NetAddr &addr)
 			// Increment the number of buffers posted
 			Atomic::Add(&_buffers_posted, 1);
 
-			WARN("UDPEndpoint") << "Write noticed reads were dry and posted one";
+			CAT_WARN("UDPEndpoint") << "Write noticed reads were dry and posted one";
 		}
 		else
 		{
 			ReleaseRef();
 
-			WARN("UDPEndpoint") << "Write noticed reads were dry but could not help";
+			CAT_WARN("UDPEndpoint") << "Write noticed reads were dry but could not help";
 		}
 	}
 
@@ -373,11 +373,11 @@ void UDPEndpoint::ReleaseRecvBuffers(BatchSet buffers, u32 count)
 			// Increment the number of buffers posted and pull it out of the count
 			Atomic::Add(&_buffers_posted, 1);
 
-			WARN("UDPEndpoint") << "Release noticed reads were dry and reposted one";
+			CAT_WARN("UDPEndpoint") << "Release noticed reads were dry and reposted one";
 		}
 		else
 		{
-			WARN("UDPEndpoint") << "Release noticed reads were dry but could not help";
+			CAT_WARN("UDPEndpoint") << "Release noticed reads were dry but could not help";
 		}
 
 		if (!next) return;

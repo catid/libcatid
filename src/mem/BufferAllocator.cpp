@@ -47,7 +47,7 @@ BufferAllocator::BufferAllocator(u32 buffer_min_size, u32 buffer_count)
 
 	if (!buffers)
 	{
-		FATAL("BufferAllocator") << "Unable to allocate " << buffer_count << " buffers of " << buffer_min_size;
+		CAT_FATAL("BufferAllocator") << "Unable to allocate " << buffer_count << " buffers of " << buffer_min_size;
 		return;
 	}
 
@@ -68,12 +68,12 @@ BufferAllocator::BufferAllocator(u32 buffer_min_size, u32 buffer_count)
 
 	tail->batch_next = 0;
 
-	INFO("BufferAllocator") << "Allocated and marked " << buffer_count << " buffers of " << buffer_min_size;
+	CAT_INFO("BufferAllocator") << "Allocated and marked " << buffer_count << " buffers of " << buffer_min_size;
 }
 
 BufferAllocator::~BufferAllocator()
 {
-	INFO("BufferAllocator") << "Releasing buffers";
+	CAT_INFO("BufferAllocator") << "Releasing buffers";
 
 	LargeAllocator::ii->Release(_buffers);
 }

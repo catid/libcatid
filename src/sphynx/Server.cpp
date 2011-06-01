@@ -192,19 +192,19 @@ void Server::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 			u32 *protocol_magic = reinterpret_cast<u32*>( data + 1 );
 			if (*protocol_magic != getLE(PROTOCOL_MAGIC))
 			{
-				WARN("Server") << "Ignoring hello: Bad magic";
+				CAT_WARN("Server") << "Ignoring hello: Bad magic";
 				continue;
 			}
 
 			// Verify public key
 			if (!SecureEqual(data + 1 + 4, _public_key.GetPublicKey(), PUBLIC_KEY_BYTES))
 			{
-				WARN("Server") << "Failing hello: Client public key does not match";
+				CAT_WARN("Server") << "Failing hello: Client public key does not match";
 				PostConnectionError(buffer->GetAddr(), ERR_WRONG_KEY);
 				continue;
 			}
 
-			WARN("Server") << "Accepted hello and posted cookie";
+			CAT_WARN("Server") << "Accepted hello and posted cookie";
 
 			PostConnectionCookie(buffer->GetAddr());
 		}
@@ -214,7 +214,7 @@ void Server::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 			u32 *protocol_magic = reinterpret_cast<u32*>( data + 1 );
 			if (*protocol_magic != getLE(PROTOCOL_MAGIC))
 			{
-				WARN("Server") << "Ignoring challenge: Bad magic";
+				CAT_WARN("Server") << "Ignoring challenge: Bad magic";
 				continue;
 			}
 
@@ -226,13 +226,13 @@ void Server::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 
 			if (!good_cookie)
 			{
-				WARN("Server") << "Ignoring challenge: Stale cookie";
+				CAT_WARN("Server") << "Ignoring challenge: Stale cookie";
 				continue;
 			}
 
 			if (IsShutdown())
 			{
-				WARN("Server") << "Ignoring challenge: Server is shutting down";
+				CAT_WARN("Server") << "Ignoring challenge: Server is shutting down";
 				PostConnectionError(buffer->GetAddr(), ERR_SHUTDOWN);
 				continue;
 			}
@@ -240,7 +240,7 @@ void Server::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 			// If the derived server object does not like this address,
 			if (!AcceptNewConnexion(buffer->GetAddr()))
 			{
-				WARN("Server") << "Ignoring challenge: Source address is blocked";
+				CAT_WARN("Server") << "Ignoring challenge: Source address is blocked";
 				PostConnectionError(buffer->GetAddr(), ERR_BLOCKED);
 				continue;
 			}
@@ -248,7 +248,7 @@ void Server::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 			// If server is overpopulated,
 			if (_conn_map.GetCount() >= ConnexionMap::MAX_POPULATION)
 			{
-				WARN("Server") << "Ignoring challenge: Server is full";
+				CAT_WARN("Server") << "Ignoring challenge: Server is full";
 				PostConnectionError(buffer->GetAddr(), ERR_SERVER_FULL);
 				continue;
 			}
@@ -262,14 +262,14 @@ void Server::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 			// Verify that post buffer could be allocated
 			if (!pkt)
 			{
-				WARN("Server") << "Ignoring challenge: Unable to allocate post buffer";
+				CAT_WARN("Server") << "Ignoring challenge: Unable to allocate post buffer";
 			}
 			// If challenge is invalid,
 			else if (!_key_agreement_responder.ProcessChallenge(tls->math, tls->csprng,
 																challenge, CHALLENGE_BYTES,
 																pkt + 1, ANSWER_BYTES, &key_hash))
 			{
-				WARN("Server") << "Ignoring challenge: Invalid";
+				CAT_WARN("Server") << "Ignoring challenge: Invalid";
 
 				pkt[0] = S2C_ERROR;
 				pkt[1] = (u8)(ERR_TAMPERING);
@@ -278,7 +278,7 @@ void Server::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 			// If out of memory for Connexion objects,
 			else if (!(conn = NewConnexion()))
 			{
-				WARN("Server") << "Out of memory: Unable to allocate new Connexion";
+				CAT_WARN("Server") << "Out of memory: Unable to allocate new Connexion";
 
 				pkt[0] = S2C_ERROR;
 				pkt[1] = (u8)(ERR_SERVER_ERROR);
@@ -287,7 +287,7 @@ void Server::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 			// If unable to key encryption from session key,
 			else if (!_key_agreement_responder.KeyEncryption(&key_hash, &conn->_auth_enc, _session_key))
 			{
-				WARN("Server") << "Ignoring challenge: Unable to key encryption";
+				CAT_WARN("Server") << "Ignoring challenge: Unable to key encryption";
 
 				pkt[0] = S2C_ERROR;
 				pkt[1] = (u8)(ERR_SERVER_ERROR);
@@ -295,7 +295,7 @@ void Server::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 			}
 			else if (!conn->InitializeTransportSecurity(false, conn->_auth_enc))
 			{
-				WARN("Server") << "Ignoring challenge: Unable to initialize transport security";
+				CAT_WARN("Server") << "Ignoring challenge: Unable to initialize transport security";
 
 				pkt[0] = S2C_ERROR;
 				pkt[1] = (u8)(ERR_SERVER_ERROR);
@@ -319,17 +319,17 @@ void Server::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 
 				if (!Write(pkt, S2C_ANSWER_LEN, buffer->GetAddr()))
 				{
-					WARN("Server") << "Ignoring challenge: Unable to post packet";
+					CAT_WARN("Server") << "Ignoring challenge: Unable to post packet";
 				}
 				// If hash key could not be inserted,
 				else if (!_conn_map.Insert(conn))
 				{
-					WARN("Server") << "Ignoring challenge: Same client already connected (race condition)";
+					CAT_WARN("Server") << "Ignoring challenge: Same client already connected (race condition)";
 				}
 				// If server is still not shutting down,
 				else if (!IsShutdown())
 				{
-					WARN("Server") << "Accepted challenge and posted answer.  Client connected";
+					CAT_WARN("Server") << "Accepted challenge and posted answer.  Client connected";
 
 					// Add a reference to the server on behalf of the Connexion
 					// When the Connexion dies, it will release this reference
@@ -368,7 +368,7 @@ bool Server::StartServer(SphynxTLS *tls, Port port, TunnelKeyPair &key_pair, con
 	// If objects were not created,
 	if (!tls->Valid())
 	{
-		WARN("Server") << "Failed to initialize: Unable to create thread local storage";
+		CAT_WARN("Server") << "Failed to initialize: Unable to create thread local storage";
 		return false;
 	}
 
@@ -379,7 +379,7 @@ bool Server::StartServer(SphynxTLS *tls, Port port, TunnelKeyPair &key_pair, con
 	// Initialize key agreement responder
 	if (!_key_agreement_responder.Initialize(tls->math, tls->csprng, key_pair))
 	{
-		WARN("Server") << "Failed to initialize: Key pair is invalid";
+		CAT_WARN("Server") << "Failed to initialize: Key pair is invalid";
 		return false;
 	}
 
@@ -398,7 +398,7 @@ bool Server::StartServer(SphynxTLS *tls, Port port, TunnelKeyPair &key_pair, con
 	// Attempt to bind to the server port
 	if (!Bind(only_ipv4, port, true, kernelReceiveBufferBytes))
 	{
-		WARN("Server") << "Failed to initialize: Unable to bind handshake port "
+		CAT_WARN("Server") << "Failed to initialize: Unable to bind handshake port "
 			<< port << ". " << SocketGetLastErrorString();
 		return false;
 	}
@@ -411,7 +411,7 @@ bool Server::PostConnectionCookie(const NetAddr &dest)
 	u8 *pkt = SendBuffer::Acquire(S2C_COOKIE_LEN);
 	if (!pkt)
 	{
-		WARN("Server") << "Unable to post connection cookie: Unable to allocate post buffer";
+		CAT_WARN("Server") << "Unable to post connection cookie: Unable to allocate post buffer";
 		return false;
 	}
 
@@ -432,7 +432,7 @@ bool Server::PostConnectionError(const NetAddr &dest, SphynxError err)
 	u8 *pkt = SendBuffer::Acquire(S2C_ERROR_LEN);
 	if (!pkt)
 	{
-		WARN("Server") << "Out of memory: Unable to allocate send buffer";
+		CAT_WARN("Server") << "Out of memory: Unable to allocate send buffer";
 		return false;
 	}
 
@@ -448,32 +448,32 @@ bool Server::InitializeKey(SphynxTLS *tls, TunnelKeyPair &key_pair, const char *
 {
 	if (key_pair.LoadFile(pair_path))
 	{
-		INFO("Server") << "Key pair loaded successfully from disk";
+		CAT_INFO("Server") << "Key pair loaded successfully from disk";
 		return true;
 	}
 
 	if (!tls->Valid())
 	{
-		INFO("Server") << "Generating new key pair failed: TLS invalid";
+		CAT_INFO("Server") << "Generating new key pair failed: TLS invalid";
 		return false;
 	}
 
 	if (!key_pair.Generate(tls->math, tls->csprng))
 	{
-		INFO("Server") << "Generating new key pair failed";
+		CAT_INFO("Server") << "Generating new key pair failed";
 		return false;
 	}
 
 	if (!key_pair.SaveFile(pair_path))
 	{
-		WARN("Server") << "Unable to save key pair to file " << pair_path;
+		CAT_WARN("Server") << "Unable to save key pair to file " << pair_path;
 	}
 
 	TunnelPublicKey public_key(key_pair);
 
 	if (!public_key.SaveFile(public_path))
 	{
-		WARN("Server") << "Unable to save public key to file " << public_path;
+		CAT_WARN("Server") << "Unable to save public key to file " << public_path;
 	}
 
 	return true;

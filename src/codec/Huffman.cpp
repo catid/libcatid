@@ -94,7 +94,7 @@ void HuffmanTree::FillEncodings(HuffmanTreeNode *node, string &encoding)
 
 	if (leaf)
 	{
-		WARN("HuffmanTree") << node->letter << " = " << encoding;
+		CAT_WARN("HuffmanTree") << node->letter << " = " << encoding;
 	}
 }
 
