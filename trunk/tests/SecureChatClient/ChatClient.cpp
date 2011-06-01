@@ -23,19 +23,19 @@ class GameClient : public Client
 public:
 	virtual void OnConnectFail(sphynx::SphynxError err)
 	{
-		WARN("Client") << "-- CONNECT FAIL ERROR " << GetSphynxErrorString(err);
+		CAT_WARN("Client") << "-- CONNECT FAIL ERROR " << GetSphynxErrorString(err);
 	}
 	virtual void OnConnect(SphynxTLS *tls)
 	{
-		WARN("Client") << "-- CONNECTED";
+		CAT_WARN("Client") << "-- CONNECTED";
 
-		if (_fsource.WriteFile(OP_FILE_UPLOAD_START, "c:\\test.tmp", "sink_file.txt", this))
+		if (_fsource.WriteFile(GetWorkerID(), OP_FILE_UPLOAD_START, "test.tmp", "sink_file.txt", this))
 		{
-			WARN("Client") << "-- File upload starting";
+			CAT_WARN("Client") << "-- File upload starting";
 		}
 		else
 		{
-			WARN("Client") << "-- File upload FAILED";
+			CAT_WARN("Client") << "-- File upload FAILED";
 		}
 
 		//u8 test_msg[50000];
@@ -50,7 +50,7 @@ public:
 
 			if (msgs[ii].huge_fragment)
 			{
-				WARN("Client") << "Huge read stream " << msgs[ii].stream << " of size = " << bytes;
+				CAT_WARN("Client") << "Huge read stream " << msgs[ii].stream << " of size = " << bytes;
 
 				_fsink.OnReadHuge(msgs[ii].stream, msg, bytes);
 			}
@@ -58,32 +58,32 @@ public:
 			switch (msg[0])
 			{
 			case OP_TEST_FRAGMENTS:
-				WARN("Client") << "Successfully received test fragments";
+				CAT_WARN("Client") << "Successfully received test fragments";
 				break;
 			case OP_FILE_UPLOAD_START:
 				if (_fsink.OnFileStart(msg, bytes))
 				{
-					WARN("Client") << "-- File upload from remote peer starting";
+					CAT_WARN("Client") << "-- File upload from remote peer starting";
 				}
 				else
 				{
-					WARN("Client") << "-- File upload from remote peer NOT ACCEPTED";
+					CAT_WARN("Client") << "-- File upload from remote peer NOT ACCEPTED";
 				}
 				break;
 			case OP_USER_JOIN:
-				WARN("Client") << "-- User joined: " << getLE(*(u16*)(msg + 1));
+				CAT_WARN("Client") << "-- User joined: " << getLE(*(u16*)(msg + 1));
 				break;
 			case OP_USER_PART:
-				WARN("Client") << "-- User quit: " << getLE(*(u16*)(msg + 1));
+				CAT_WARN("Client") << "-- User quit: " << getLE(*(u16*)(msg + 1));
 				break;
 			default:
-				WARN("Client") << "-- Got unknown message type " << (int)msg[0] << " with " << bytes << " bytes";
+				CAT_WARN("Client") << "-- Got unknown message type " << (int)msg[0] << " with " << bytes << " bytes";
 			}
 		}
 	}
 	virtual void OnDisconnectReason(u8 reason)
 	{
-		WARN("Client") << "-- DISCONNECTED REASON " << (int)reason;
+		CAT_WARN("Client") << "-- DISCONNECTED REASON " << (int)reason;
 	}
 	virtual void OnTick(SphynxTLS *tls, u32 now)
 	{
@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	INFO("Client") << "Secure Chat Client 2.0";
+	CAT_INFO("Client") << "Secure Chat Client 2.0";
 
 	SphynxTLS tls;
 
@@ -107,7 +107,7 @@ int main(int argc, char *argv[])
 
 	if (!public_key.LoadFile("PublicKey.bin"))
 	{
-		FATAL("Client") << "Unable to load server public key from disk";
+		CAT_FATAL("Client") << "Unable to load server public key from disk";
 	}
 
 	GameClient *client = new GameClient;
@@ -125,11 +125,11 @@ int main(int argc, char *argv[])
 
 	if (!client->Connect(&tls, hostname, 22000, public_key, "Chat"))
 	{
-		FATAL("Client") << "Unable to connect to server";
+		CAT_FATAL("Client") << "Unable to connect to server";
 	}
 	else
 	{
-		INFO("Client") << "Press a key to terminate";
+		CAT_INFO("Client") << "Press a key to terminate";
 
 		while (!kbhit())
 		{

@@ -139,7 +139,7 @@ void DNSClient::CleanUp()
 	_cache_head = _cache_tail = 0;
 	_cache_size = 0;
 
-	ENFORCE(_request_queue_size == 0) << "Request queue not empty during cleanup";
+	CAT_ENFORCE(_request_queue_size == 0) << "Request queue not empty during cleanup";
 }
 
 void DNSClient::OnRecvRouting(const BatchSet &buffers)
@@ -170,14 +170,14 @@ void DNSClient::OnWorkerRecv(IWorkerTLS *tls, const BatchSet &buffers)
 		// If packet source is not the server, ignore this packet
 		if (_server_addr != buffer->addr)
 		{
-			INANE("DNSClient") << "Received DNS from unexpected source address " << buffer->addr.IPToString() << " : " << buffer->addr.GetPort();
+			CAT_INANE("DNSClient") << "Received DNS from unexpected source address " << buffer->addr.IPToString() << " : " << buffer->addr.GetPort();
 			continue;
 		}
 
 		// If packet is truncated, ignore this packet
 		if (buffer->data_bytes < DNS_HDRLEN)
 		{
-			WARN("DNSClient") << "DNS server sent truncated response bytes=" << buffer->data_bytes;
+			CAT_WARN("DNSClient") << "DNS server sent truncated response bytes=" << buffer->data_bytes;
 			continue;
 		}
 
@@ -193,7 +193,7 @@ void DNSClient::OnWorkerRecv(IWorkerTLS *tls, const BatchSet &buffers)
 		// If header is invalid, ignore this packet
 		if (!qr || opcode != 0)
 		{
-			WARN("DNSClient") << "DNS server sent invalid response: qr=" << qr << " opcode=" << opcode;
+			CAT_WARN("DNSClient") << "DNS server sent invalid response: qr=" << qr << " opcode=" << opcode;
 			continue;
 		}
 
@@ -208,7 +208,7 @@ void DNSClient::OnWorkerRecv(IWorkerTLS *tls, const BatchSet &buffers)
 		// If request was not found to match ID,
 		if (!req)
 		{
-			WARN("DNSClient") << "DNS server sent response with unmatched id " << id;
+			CAT_WARN("DNSClient") << "DNS server sent response with unmatched id " << id;
 			continue;
 		}
 
@@ -234,7 +234,7 @@ void DNSClient::OnWorkerRecv(IWorkerTLS *tls, const BatchSet &buffers)
 		}
 		else
 		{
-			WARN("DNSClient") << "DNS server sent response with error result: rcode=" << rcode;
+			CAT_WARN("DNSClient") << "DNS server sent response with error result: rcode=" << rcode;
 		}
 
 		NotifyRequesters(req);
@@ -266,6 +266,7 @@ void DNSClient::OnWorkerTick(IWorkerTLS *tls, u32 now)
 			else _request_tail = last;
 			if (last) last->next = next;
 			else _request_head = next;
+			--_request_queue_size;
 
 			NotifyRequesters(req);
 		}
@@ -296,7 +297,7 @@ bool DNSClient::Initialize()
 	// Attempt to get a CSPRNG
 	if (!(_csprng = new FortunaOutput))
 	{
-		WARN("DNSClient") << "Out of memory: Unable to get a CSPRNG";
+		CAT_WARN("DNSClient") << "Out of memory: Unable to get a CSPRNG";
 		RequestShutdown();
 		return false;
 	}
@@ -304,7 +305,7 @@ bool DNSClient::Initialize()
 	// Attempt to bind to any port; ignore ICMP unreachable messages
 	if (!BindToRandomPort(true))
 	{
-		WARN("DNSClient") << "Initialization failure: Unable to bind to any port";
+		CAT_WARN("DNSClient") << "Initialization failure: Unable to bind to any port";
 		RequestShutdown();
 		return false;
 	}
@@ -315,7 +316,7 @@ bool DNSClient::Initialize()
 	// Attempt to get server address from operating system
 	if (!GetServerAddr())
 	{
-		WARN("DNSClient") << "Initialization failure: Unable to discover DNS server address";
+		CAT_WARN("DNSClient") << "Initialization failure: Unable to discover DNS server address";
 		RequestShutdown();
 		return false;
 	}
@@ -345,7 +346,7 @@ bool DNSClient::GetServerAddr()
 	// Handle errors opening the key
 	if (err != ERROR_SUCCESS)
 	{
-		WARN("DNSClient") << "Initialization: Unable to open registry key for Tcpip interfaces: " << err;
+		CAT_WARN("DNSClient") << "Initialization: Unable to open registry key for Tcpip interfaces: " << err;
 		return false;
 	}
 
@@ -437,19 +438,19 @@ bool DNSClient::GetServerAddr()
 	if (_server_addr.Valid() &&
 		_server_addr.Convert(Is6()))
 	{
-		INANE("DNSClient") << "Using nameserver at " << _server_addr.IPToString();
+		CAT_INANE("DNSClient") << "Using nameserver at " << _server_addr.IPToString();
 	}
 	else
 	{
 		const char *ANYCAST_DNS_SERVER = "4.2.2.1"; // Level 3 / Verizon
 
-		WARN("DNSClient") << "Unable to determine nameserver from OS.  Using anycast address " << ANYCAST_DNS_SERVER;
+		CAT_WARN("DNSClient") << "Unable to determine nameserver from OS.  Using anycast address " << ANYCAST_DNS_SERVER;
 
 		// Attempt to get server address from anycast DNS server string
 		if (!_server_addr.SetFromString(ANYCAST_DNS_SERVER, 53) ||
 			!_server_addr.Convert(Is6()))
 		{
-			FATAL("DNSClient") << "Unable to resolve anycast address " << ANYCAST_DNS_SERVER;
+			CAT_FATAL("DNSClient") << "Unable to resolve anycast address " << ANYCAST_DNS_SERVER;
 			return false;
 		}
 	}
@@ -822,11 +823,11 @@ bool DNSClient::Resolve(const char *hostname, DNSDelegate callback, RefObject *h
 	u16 id;
 	if (!GetUnusedID(id))
 	{
-		WARN("DNSClient") << "Too many DNS requests pending";
+		CAT_WARN("DNSClient") << "Too many DNS requests pending";
 		return false;
 	}
 
-	INANE("DNSClient") << "Transmitting DNS request with id " << id;
+	CAT_INANE("DNSClient") << "Transmitting DNS request with id " << id;
 
 	// Create a new request
 	DNSRequest *request = new DNSRequest;
@@ -868,6 +869,7 @@ DNSRequest *DNSClient::PullRequest(u16 id)
 			else _request_head = next;
 			if (next) next->last = last;
 			else _request_tail = last;
+			--_request_queue_size;
 
 			return req;
 		}

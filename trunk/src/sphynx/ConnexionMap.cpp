@@ -232,7 +232,7 @@ bool ConnexionMap::Insert(Connexion *conn)
 
 	lock.Release();
 
-	INFO("ConnexionMap") << "Inserted connexion from " << conn->GetAddress().IPToString() << " : " << conn->GetAddress().GetPort() << " id=" << conn->GetKey();
+	CAT_INFO("ConnexionMap") << "Inserted connexion from " << conn->GetAddress().IPToString() << " : " << conn->GetAddress().GetPort() << " id=" << conn->GetKey();
 
 	// Keeps reference held
 	return true;
@@ -247,7 +247,7 @@ void ConnexionMap::Remove(Connexion *conn)
 	// If key is invalid,
 	if (key >= HASH_TABLE_SIZE) return;
 
-	INFO("ConnexionMap") << "Removing connexion from " << conn->GetAddress().IPToString() << " : " << conn->GetAddress().GetPort() << " id=" << conn->GetKey();
+	CAT_INFO("ConnexionMap") << "Removing connexion from " << conn->GetAddress().IPToString() << " : " << conn->GetAddress().GetPort() << " id=" << conn->GetKey();
 
 	conn->ReleaseRef();
 
@@ -282,7 +282,7 @@ void ConnexionMap::Remove(Connexion *conn)
 
 void ConnexionMap::ShutdownAll()
 {
-	INFO("ConnexionMap") << "Requesting shutdown of all connexions";
+	CAT_INFO("ConnexionMap") << "Requesting shutdown of all connexions";
 
 	std::vector<Connexion*> connexions;
 

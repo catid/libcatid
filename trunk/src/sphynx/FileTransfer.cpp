@@ -47,13 +47,13 @@ u64 FileTransferSource::GetRemaining(StreamMode stream)
 
 	if (stream != STREAM_BULK)
 	{
-		WARN("FileTransferSource") << "Stream is not bulk";
+		CAT_WARN("FileTransferSource") << "Stream is not bulk";
 		return 0;
 	}
 
 	if (_active_list.size() <= 0)
 	{
-		WARN("FileTransferSource") << "Read request on empty queue";
+		CAT_WARN("FileTransferSource") << "Read request on empty queue";
 		return 0;
 	}
 
@@ -75,7 +75,7 @@ bool FileTransferSource::Read(StreamMode stream, u8 *dest, u32 &bytes, Transport
 {
 	if (stream != STREAM_BULK)
 	{
-		WARN("FileTransferSource") << "Stream is not bulk";
+		CAT_WARN("FileTransferSource") << "Stream is not bulk";
 		return 0;
 	}
 
@@ -83,7 +83,7 @@ bool FileTransferSource::Read(StreamMode stream, u8 *dest, u32 &bytes, Transport
 
 	if (_active_list.size() <= 0)
 	{
-		WARN("FileTransferSource") << "Read request on empty queue";
+		CAT_WARN("FileTransferSource") << "Read request on empty queue";
 		return 0;
 	}
 
@@ -100,7 +100,7 @@ bool FileTransferSource::Read(StreamMode stream, u8 *dest, u32 &bytes, Transport
 
 	if (!active->reader->Read(dest, bytes, bytes))
 	{
-		WARN("FileTransferSource") << "Reached end of data";
+		CAT_WARN("FileTransferSource") << "Reached end of data";
 
 		OnTransferDone(transport);
 
@@ -140,7 +140,7 @@ void FileTransferSource::StartTransfer(QueuedFile *file, Transport *transport)
 
 	if (!transport->WriteReliableZeroCopy(STREAM_BULK, msg, file->msg_bytes))
 	{
-		WARN("FileTransferSource") << "Unable to write reliable with " << file->msg_bytes;
+		CAT_WARN("FileTransferSource") << "Unable to write reliable with " << file->msg_bytes;
 		return;
 	}
 
@@ -148,20 +148,27 @@ void FileTransferSource::StartTransfer(QueuedFile *file, Transport *transport)
 	while (!transport->WriteHuge(STREAM_BULK, this));
 }
 
-bool FileTransferSource::WriteFile(u8 opcode, const std::string &source_path, const std::string &sink_path, Transport *transport, u32 priority)
+bool FileTransferSource::WriteFile(u32 worker_id, u8 opcode, const std::string &source_path, const std::string &sink_path, Transport *transport, u32 priority)
 {
 	// Build a queued file object
 	QueuedFile *file = new QueuedFile;
 	if (!file)
 	{
-		WARN("FileTransferSource") << "Out of memory: Unable to allocate queued file";
+		CAT_WARN("FileTransferSource") << "Out of memory: Unable to allocate QueuedFile";
+		return false;
+	}
+
+	file->reader = new PolledFileReader;
+	if (!file->reader)
+	{
+		CAT_WARN("FileTransferSource") << "Out of memory: Unable to allocate PolledFileReader";
 		return false;
 	}
 
 	// If source file could not be opened,
-	if (!file->reader->Open(source_path.c_str()))
+	if (!file->reader->Open(source_path.c_str(), worker_id))
 	{
-		WARN("FileTransferSource") << "Unable to open specified file " << source_path;
+		CAT_WARN("FileTransferSource") << "Unable to open specified file " << source_path;
 		return false;
 	}
 
@@ -171,7 +178,7 @@ bool FileTransferSource::WriteFile(u8 opcode, const std::string &source_path, co
 	u8 *msg = OutgoingMessage::Acquire(msg_bytes);
 	if (!msg)
 	{
-		WARN("FileTransferSource") << "Out of memory: Unable to allocate outgoing message bytes = " << msg_bytes;
+		CAT_WARN("FileTransferSource") << "Out of memory: Unable to allocate outgoing message bytes = " << msg_bytes;
 		delete file;
 		return false;
 	}
@@ -210,11 +217,11 @@ FileTransferSink::~FileTransferSink()
 
 bool FileTransferSink::OnFileStart(BufferStream msg, u32 bytes)
 {
-	WARN("FileTransferSink") << "Got file start " << bytes;
+	CAT_WARN("FileTransferSink") << "Got file start " << bytes;
 	return true;
 }
 
 void FileTransferSink::OnReadHuge(u32 stream, BufferStream data, u32 size)
 {
-	WARN("FileTransferSink") << "Got file part " << size;
+	CAT_WARN("FileTransferSink") << "Got file part " << size;
 }

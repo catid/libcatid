@@ -43,7 +43,7 @@ protected:
 
 void GameConnexion::OnShutdownRequest()
 {
-	WARN("Connexion") << "-- Shutdown Requested";
+	CAT_WARN("Connexion") << "-- Shutdown Requested";
 
 	GetServer<GameServer>()->_collexion.Remove(this);
 
@@ -52,14 +52,14 @@ void GameConnexion::OnShutdownRequest()
 
 bool GameConnexion::OnZeroReferences()
 {
-	WARN("Connexion") << "-- Zero References";
+	CAT_WARN("Connexion") << "-- Zero References";
 
 	return Connexion::OnZeroReferences();
 }
 
 void GameConnexion::OnConnect(SphynxTLS *tls)
 {
-	WARN("Connexion") << "-- CONNECTED";
+	CAT_WARN("Connexion") << "-- CONNECTED";
 
 	//u8 test_msg[50000];
 	//WriteReliable(STREAM_UNORDERED, OP_TEST_FRAGMENTS, test_msg, sizeof(test_msg));
@@ -81,7 +81,7 @@ void GameConnexion::OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count
 
 		if (msgs[ii].huge_fragment)
 		{
-			WARN("Connexion") << "Huge read stream " << msgs[ii].stream << " of size = " << bytes;
+			CAT_WARN("Connexion") << "Huge read stream " << msgs[ii].stream << " of size = " << bytes;
 
 			_fsink.OnReadHuge(msgs[ii].stream, msg, bytes);
 		}
@@ -89,27 +89,27 @@ void GameConnexion::OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count
 		switch (msg[0])
 		{
 		case OP_TEST_FRAGMENTS:
-			WARN("Connexion") << "Successfully received test fragments";
+			CAT_WARN("Connexion") << "Successfully received test fragments";
 			break;
 		case OP_FILE_UPLOAD_START:
 			if (_fsink.OnFileStart(msg, bytes))
 			{
-				WARN("Connexion") << "-- File upload from remote peer starting";
+				CAT_WARN("Connexion") << "-- File upload from remote peer starting";
 			}
 			else
 			{
-				WARN("Connexion") << "-- File upload from remote peer NOT ACCEPTED";
+				CAT_WARN("Connexion") << "-- File upload from remote peer NOT ACCEPTED";
 			}
 			break;
 		default:
-			WARN("Connexion") << "-- Got unknown message with " << bytes << " bytes" << HexDumpString(msg, bytes);
+			CAT_WARN("Connexion") << "-- Got unknown message with " << bytes << " bytes" << HexDumpString(msg, bytes);
 		}
 	}
 }
 
 void GameConnexion::OnDisconnectReason(u8 reason)
 {
-	WARN("Connexion") << "-- DISCONNECTED REASON " << (int)reason;
+	CAT_WARN("Connexion") << "-- DISCONNECTED REASON " << (int)reason;
 
 	u16 key = getLE(GetKey());
 	for (sphynx::CollexionIterator<GameConnexion> ii = GetServer<GameServer>()->_collexion; ii; ++ii)
@@ -126,28 +126,28 @@ void GameConnexion::OnTick(SphynxTLS *tls, u32 now)
 
 void GameServer::OnShutdownRequest()
 {
-	WARN("Server") << "-- Shutdown Requested";
+	CAT_WARN("Server") << "-- Shutdown Requested";
 
 	Server::OnShutdownRequest();
 }
 
 bool GameServer::OnZeroReferences()
 {
-	WARN("Server") << "-- Zero References";
+	CAT_WARN("Server") << "-- Zero References";
 
 	return Server::OnZeroReferences();
 }
 
 Connexion *GameServer::NewConnexion()
 {
-	WARN("Server") << "-- Allocating a new Connexion";
+	CAT_WARN("Server") << "-- Allocating a new Connexion";
 
 	return new GameConnexion;
 }
 
 bool GameServer::AcceptNewConnexion(const NetAddr &src)
 {
-	WARN("Server") << "-- Accepting a connexion from " << src.IPToString() << " : " << src.GetPort();
+	CAT_WARN("Server") << "-- Accepting a connexion from " << src.IPToString() << " : " << src.GetPort();
 
 	return true; // allow all
 }
@@ -163,7 +163,7 @@ int main()
 		return 1;
 	}
 
-	INFO("Server") << "Secure Chat Server 2.0";
+	CAT_INFO("Server") << "Secure Chat Server 2.0";
 
 	GameServer *server = new GameServer;
 	const Port SERVER_PORT = 22000;
@@ -174,15 +174,15 @@ int main()
 
 	if (!Server::InitializeKey(&tls, key_pair, "KeyPair.bin", "PublicKey.bin"))
 	{
-		FATAL("Server") << "Unable to get key pair";
+		CAT_FATAL("Server") << "Unable to get key pair";
 	}
 	else if (!server->StartServer(&tls, SERVER_PORT, key_pair, "Chat"))
 	{
-		FATAL("Server") << "Unable to start server";
+		CAT_FATAL("Server") << "Unable to start server";
 	}
 	else
 	{
-		INFO("Server") << "Press a key to terminate";
+		CAT_INFO("Server") << "Press a key to terminate";
 
 		while (!kbhit())
 		{

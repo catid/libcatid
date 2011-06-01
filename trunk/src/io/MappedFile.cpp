@@ -67,13 +67,13 @@ bool MappedFile::Open(const char *path, bool random_access)
 	_file = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, access_pattern, 0);
 	if (_file == INVALID_HANDLE_VALUE)
 	{
-		WARN("MappedFile") << "CreateFileA error " << GetLastError() << " for " << path;
+		CAT_WARN("MappedFile") << "CreateFileA error " << GetLastError() << " for " << path;
 		return false;
 	}
 
 	if (!GetFileSizeEx(_file, (LARGE_INTEGER*)&_len))
 	{
-		WARN("MappedFile") << "GetFileSizeEx error " << GetLastError() << " for " << path;
+		CAT_WARN("MappedFile") << "GetFileSizeEx error " << GetLastError() << " for " << path;
 		return false;
 	}
 
@@ -142,7 +142,7 @@ bool MappedView::Open(MappedFile *file)
 	_map = CreateFileMapping(file->_file, 0, PAGE_READONLY, 0, 0, 0);
 	if (!_map)
 	{
-		WARN("MappedView") << "CreateFileMapping error " << GetLastError();
+		CAT_WARN("MappedView") << "CreateFileMapping error " << GetLastError();
 		return false;
 	}
 
@@ -156,7 +156,7 @@ bool MappedView::Open(MappedFile *file)
 
 u8 *MappedView::MapView(u64 offset, u32 length)
 {
-	DEBUG_ENFORCE(CAT_IS_POWER_OF_2(system_info.AllocationGranularity)) << "Allocation granularity is not a power of 2!";
+	CAT_DEBUG_ENFORCE(CAT_IS_POWER_OF_2(system_info.AllocationGranularity)) << "Allocation granularity is not a power of 2!";
 
 	// Bring offset back to the previous allocation granularity
 	u32 mask = system_info.AllocationGranularity - 1;
@@ -171,13 +171,13 @@ u8 *MappedView::MapView(u64 offset, u32 length)
 
 	if (_data && !UnmapViewOfFile(_data))
 	{
-		INANE("MappedView") << "UnmapViewOfFile error " << GetLastError();
+		CAT_INANE("MappedView") << "UnmapViewOfFile error " << GetLastError();
 	}
 
 	_data = (u8*)MapViewOfFile(_map, FILE_MAP_READ, (u32)(offset >> 32), (u32)offset, length);
 	if (!_data)
 	{
-		WARN("MappedView") << "MapViewOfFile error " << GetLastError();
+		CAT_WARN("MappedView") << "MapViewOfFile error " << GetLastError();
 		return 0;
 	}
 
@@ -235,7 +235,7 @@ u8 *MappedSequentialReader::Read(u32 bytes)
 {
 	if (bytes > MAX_READ_SIZE)
 	{
-		WARN("SequentialFileReader") << "Read size too large = " << bytes;
+		CAT_WARN("SequentialFileReader") << "Read size too large = " << bytes;
 		return 0;
 	}
 

@@ -107,13 +107,13 @@ bool AsyncFile::SetSize(u64 bytes)
 
 	if (!SetFilePointerEx(_file, offset, 0, FILE_BEGIN))
 	{
-		WARN("AsyncFile") << "SetFilePointerEx error: " << GetLastError();
+		CAT_WARN("AsyncFile") << "SetFilePointerEx error: " << GetLastError();
 		return false;
 	}
 
 	if (!SetEndOfFile(_file))
 	{
-		WARN("AsyncFile") << "SetEndOfFile error: " << GetLastError();
+		CAT_WARN("AsyncFile") << "SetEndOfFile error: " << GetLastError();
 		return false;
 	}
 
@@ -146,7 +146,7 @@ bool AsyncFile::Read(ReadBuffer *buffer, u64 offset, void *data, u32 bytes)
 
 	if (!result && GetLastError() != ERROR_IO_PENDING)
 	{
-		WARN("AsyncFile") << "ReadFile error: " << GetLastError();
+		CAT_WARN("AsyncFile") << "ReadFile error: " << GetLastError();
 		ReleaseRef();
 		return false;
 	}
@@ -169,7 +169,7 @@ bool AsyncFile::Write(WriteBuffer *buffer, u64 offset, void *data, u32 bytes)
 
 	if (!result && GetLastError() != ERROR_IO_PENDING)
 	{
-		WARN("AsyncFile") << "WriteFile error: " << GetLastError();
+		CAT_WARN("AsyncFile") << "WriteFile error: " << GetLastError();
 		ReleaseRef();
 		return false;
 	}

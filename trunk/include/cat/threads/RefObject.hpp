@@ -86,7 +86,7 @@ public:
 	CAT_INLINE void AddRef(s32 times = 1)
 	{
 #if defined(CAT_TRACE_REFOBJECT)
-		WARN("RefObject") << this << " add " << times << " fuzzy refcount = " << _ref_count;
+		CAT_WARN("RefObject") << this << " add " << times << " fuzzy refcount = " << _ref_count;
 #endif
 
 #if defined(CAT_NO_ATOMIC_REF_OBJECT)
@@ -102,7 +102,7 @@ public:
 	CAT_INLINE void ReleaseRef(s32 times = 1)
 	{
 #if defined(CAT_TRACE_REFOBJECT)
-		WARN("RefObject") << this << " release " << times << " fuzzy refcount = " << _ref_count;
+		CAT_WARN("RefObject") << this << " release " << times << " fuzzy refcount = " << _ref_count;
 #endif
 
 		// Decrement reference count by # of times

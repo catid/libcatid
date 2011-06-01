@@ -73,7 +73,7 @@ bool SphynxLayer::PreWorkerThreads()
 	// Start the CSPRNG subsystem
 	if (!FortunaFactory::ref()->Initialize())
 	{
-		FATAL("SphynxLayer") << "CSPRNG subsystem failed to initialize";
+		CAT_FATAL("SphynxLayer") << "CSPRNG subsystem failed to initialize";
 		return false;
 	}
 
@@ -92,7 +92,7 @@ bool SphynxLayer::OnStartup(IWorkerTLSBuilder *tls_builder, const char *settings
 
 	if (!DNSClient::ref())
 	{
-		FATAL("IOLayer") << "DNS subsystem failed to initialize";
+		CAT_FATAL("IOLayer") << "DNS subsystem failed to initialize";
 		return false;
 	}
 

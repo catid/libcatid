@@ -94,7 +94,7 @@ public:
 		return remaining > 0 ? remaining : 0;
 	}
 
-	bool Open(const char *file_path);
+	bool Open(const char *file_path, u32 worker_id);
 
 	/*
 		If Read() returns false, then the end of file has been found.

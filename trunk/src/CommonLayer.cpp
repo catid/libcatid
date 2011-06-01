@@ -80,7 +80,7 @@ bool CommonLayer::OnStartup(IWorkerTLSBuilder *tls_builder, const char *settings
 	// Start the Worker threads if requested to by the caller
 	if (tls_builder && !WorkerThreads::ref()->Startup(worker_tick_interval, tls_builder, worker_count_override))
 	{
-		FATAL("CommonLayer") << "WorkerThreads subsystem failed to initialize";
+		CAT_FATAL("CommonLayer") << "WorkerThreads subsystem failed to initialize";
 		return false;
 	}
 
@@ -91,7 +91,7 @@ void CommonLayer::OnShutdown(bool watched_shutdown)
 {
 	if (!watched_shutdown)
 	{
-		WARN("CommonLayer") << "Wait for shutdown expired";
+		CAT_WARN("CommonLayer") << "Wait for shutdown expired";
 	}
 
 	// Terminate Worker threads

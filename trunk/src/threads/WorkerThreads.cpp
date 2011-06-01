@@ -272,7 +272,7 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 	IWorkerTLS *tls = master->_tls_builder->Build();
 	if (!tls || !tls->Valid())
 	{
-		FATAL("WorkerThread") << "Failure building thread local storage";
+		CAT_FATAL("WorkerThread") << "Failure building thread local storage";
 		return false;
 	}
 
@@ -342,7 +342,7 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 				// Push off next tick one interval into the future
 				next_tick = now + tick_interval;
 
-				INANE("WorkerThread") << "Slow worker tick";
+				CAT_INANE("WorkerThread") << "Slow worker tick";
 			}
 		}
 	}
@@ -389,7 +389,7 @@ bool WorkerThreads::Startup(u32 worker_tick_interval, IWorkerTLSBuilder *tls_bui
 	_workers = new WorkerThread[worker_count];
 	if (!_workers)
 	{
-		FATAL("WorkerThreads") << "Out of memory while allocating " << worker_count << " worker thread objects";
+		CAT_FATAL("WorkerThreads") << "Out of memory while allocating " << worker_count << " worker thread objects";
 		return false;
 	}
 
@@ -401,7 +401,7 @@ bool WorkerThreads::Startup(u32 worker_tick_interval, IWorkerTLSBuilder *tls_bui
 		// Start its thread
 		if (!_workers[ii].StartThread(this))
 		{
-			FATAL("WorkerThreads") << "StartThread error " << GetLastError();
+			CAT_FATAL("WorkerThreads") << "StartThread error " << GetLastError();
 			return false;
 		}
 
@@ -429,7 +429,7 @@ bool WorkerThreads::Shutdown()
 	{
 		if (!_workers[ii].WaitForThread(SHUTDOWN_WAIT_TIMEOUT))
 		{
-			FATAL("WorkerThreads") << "Thread " << ii << "/" << worker_count << " refused to die!  Attempting lethal force...";
+			CAT_FATAL("WorkerThreads") << "Thread " << ii << "/" << worker_count << " refused to die!  Attempting lethal force...";
 			_workers[ii].AbortThread();
 		}
 	}

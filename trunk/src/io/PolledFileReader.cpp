@@ -51,12 +51,12 @@ PolledFileReader::~PolledFileReader()
 	LargeAllocator::ii->Release(_cache[0]);
 }
 
-bool PolledFileReader::Open(const char *file_path)
+bool PolledFileReader::Open(const char *file_path, u32 worker_id)
 {
 	// If file could not be opened,
 	if (!AsyncFile::Open(file_path, ASYNCFILE_READ))
 	{
-		WARN("PolledFileReader") << "Unable to open " << file_path;
+		CAT_WARN("PolledFileReader") << "Unable to open " << file_path;
 		return false;
 	}
 
@@ -69,6 +69,7 @@ bool PolledFileReader::Open(const char *file_path)
 	_cache_offset = 0;
 	_cache_back_done = 0;
 
+	_buffer.worker_id = worker_id;
 	_buffer.callback.SetMember<PolledFileReader, &PolledFileReader::OnFirstRead>(this);
 
 	CAT_FENCE_COMPILER
@@ -76,7 +77,7 @@ bool PolledFileReader::Open(const char *file_path)
 	// Read both buffers at once
 	if (!AsyncFile::Read(&_buffer, 0, _cache[0], _cache_size * 2))
 	{
-		WARN("PolledFileReader") << "Unable to make initial read";
+		CAT_WARN("PolledFileReader") << "Unable to make initial read";
 
 		// Simulate an EOF in Read()
 		_cache_front_done = 1;
@@ -134,7 +135,7 @@ bool PolledFileReader::Read(u8 *buffer, u32 requested, u32 &bytes_read)
 		// If read request fails,
 		if (!AsyncFile::Read(&_buffer, _offset, _cache[_cache_front_index], _cache_size))
 		{
-			WARN("PolledFileReader") << "Unable to make initial read";
+			CAT_WARN("PolledFileReader") << "Unable to make initial read";
 			Close();
 
 			// Simulate an EOF condition

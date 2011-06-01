@@ -48,7 +48,7 @@ RefObjectWatcher *RefObjectWatcher::ref()
 void RefObject::ShutdownComplete(bool delete_this)
 {
 #if defined(CAT_TRACE_REFOBJECT)
-	WARN("RefObject") << this << " ShutdownComplete";
+	CAT_WARN("RefObject") << this << " ShutdownComplete";
 #endif
 
 	if (delete_this) delete this;
@@ -57,7 +57,7 @@ void RefObject::ShutdownComplete(bool delete_this)
 void RefObject::RequestShutdown()
 {
 #if defined(CAT_TRACE_REFOBJECT)
-	WARN("RefObject") << this << " RequestShutdown";
+	CAT_WARN("RefObject") << this << " RequestShutdown";
 #endif
 
 	// Raise shutdown flag

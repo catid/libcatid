@@ -291,7 +291,7 @@ bool IOThreads::Startup()
 
 	if (!_recv_allocator || !_recv_allocator->Valid())
 	{
-		FATAL("IOThreads") << "Out of memory while allocating " << IOTHREADS_BUFFER_COUNT << " buffers for a shared pool";
+		CAT_FATAL("IOThreads") << "Out of memory while allocating " << IOTHREADS_BUFFER_COUNT << " buffers for a shared pool";
 		return false;
 	}
 
@@ -309,7 +309,7 @@ bool IOThreads::Startup()
 	_workers = new IOThread[worker_count];
 	if (!_workers)
 	{
-		FATAL("IOThreads") << "Out of memory while allocating " << worker_count << " worker thread objects";
+		CAT_FATAL("IOThreads") << "Out of memory while allocating " << worker_count << " worker thread objects";
 		return false;
 	}
 
@@ -319,7 +319,7 @@ bool IOThreads::Startup()
 
 	if (!_io_port)
 	{
-		FATAL("IOThreads") << "CreateIoCompletionPort error " << GetLastError();
+		CAT_FATAL("IOThreads") << "CreateIoCompletionPort error " << GetLastError();
 		return false;
 	}
 
@@ -329,7 +329,7 @@ bool IOThreads::Startup()
 		// Start its thread
 		if (!_workers[ii].StartThread(this))
 		{
-			FATAL("IOThreads") << "StartThread error " << GetLastError();
+			CAT_FATAL("IOThreads") << "StartThread error " << GetLastError();
 			return false;
 		}
 	}
@@ -350,7 +350,7 @@ bool IOThreads::Shutdown()
 			// Post a completion event that kills the worker threads
 			if (!PostQueuedCompletionStatus(_io_port, 0, 0, 0))
 			{
-				FATAL("IOThreads") << "PostQueuedCompletionStatus error " << GetLastError();
+				CAT_FATAL("IOThreads") << "PostQueuedCompletionStatus error " << GetLastError();
 			}
 		}
 	}
@@ -362,7 +362,7 @@ bool IOThreads::Shutdown()
 	{
 		if (!_workers[ii].WaitForThread(SHUTDOWN_WAIT_TIMEOUT))
 		{
-			FATAL("IOThreads") << "Thread " << ii << "/" << worker_count << " refused to die!  Attempting lethal force...";
+			CAT_FATAL("IOThreads") << "Thread " << ii << "/" << worker_count << " refused to die!  Attempting lethal force...";
 			_workers[ii].AbortThread();
 		}
 	}
@@ -397,7 +397,7 @@ bool IOThreads::Associate(UDPEndpoint *udp_endpoint)
 {
 	if (!_io_port)
 	{
-		FATAL("IOThreads") << "Unable to associate handle since completion port was never created";
+		CAT_FATAL("IOThreads") << "Unable to associate handle since completion port was never created";
 		return false;
 	}
 
@@ -405,7 +405,7 @@ bool IOThreads::Associate(UDPEndpoint *udp_endpoint)
 
 	if (result != _io_port)
 	{
-		FATAL("IOThreads") << "Associating UDPEndpoint error " << GetLastError();
+		CAT_FATAL("IOThreads") << "Associating UDPEndpoint error " << GetLastError();
 		return false;
 	}
 
@@ -416,7 +416,7 @@ bool IOThreads::Associate(AsyncFile *file)
 {
 	if (!_io_port)
 	{
-		FATAL("IOThreads") << "Unable to associate handle since completion port was never created";
+		CAT_FATAL("IOThreads") << "Unable to associate handle since completion port was never created";
 		return false;
 	}
 
@@ -424,7 +424,7 @@ bool IOThreads::Associate(AsyncFile *file)
 
 	if (result != _io_port)
 	{
-		FATAL("IOThreads") << "Associating UDPEndpoint error " << GetLastError();
+		CAT_FATAL("IOThreads") << "Associating UDPEndpoint error " << GetLastError();
 		return false;
 	}
 

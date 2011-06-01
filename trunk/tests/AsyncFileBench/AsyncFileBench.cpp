@@ -60,8 +60,8 @@ class Reader
 					u32 ms = (u32)(delta / 1000.0) % 1000;
 					delta -= (u32)(delta / 1000.0) * 1000.0;
 
-					WARN("AsyncFileBench") << "Total file size = " << m_file_total;
-					WARN("AsyncFileBench") << "File read complete in " << s << " s : " << ms << " ms : " << delta << " us -- at " << rate << " MBPS";
+					CAT_WARN("AsyncFileBench") << "Total file size = " << m_file_total;
+					CAT_WARN("AsyncFileBench") << "File read complete in " << s << " s : " << ms << " ms : " << delta << " us -- at " << rate << " MBPS";
 					_flag->Set();
 				}
 				else
@@ -70,7 +70,7 @@ class Reader
 
 					if (offset < m_file_total && !_file->Read(buffer, offset, data, m_file_chunk_size))
 					{
-						WARN("AsyncFileBench") << "Unable to read from offset " << offset;
+						CAT_WARN("AsyncFileBench") << "Unable to read from offset " << offset;
 					}
 				}
 			}
@@ -116,7 +116,7 @@ public:
 		_data = new u8*[parallelism];
 		if (!_buffers || !_data)
 		{
-			WARN("AsyncFileBench") << "Out of memory allocating parallel read buffers";
+			CAT_WARN("AsyncFileBench") << "Out of memory allocating parallel read buffers";
 			return false;
 		}
 
@@ -126,7 +126,7 @@ public:
 
 		if (!_file->Open(file_path, ASYNCFILE_READ | (no_buffer ? ASYNCFILE_NOBUFFER : 0) | (seq ? ASYNCFILE_SEQUENTIAL : 0)))
 		{
-			WARN("AsyncFileBench") << "Unable to open specified file: " << file_path;
+			CAT_WARN("AsyncFileBench") << "Unable to open specified file: " << file_path;
 			return false;
 		}
 
@@ -143,14 +143,14 @@ public:
 
 			if (!_data[ii])
 			{
-				WARN("AsyncFileBench") << "Out of memory allocating page-aligned read buffer.  Effective parallelism reduced by 1";
+				CAT_WARN("AsyncFileBench") << "Out of memory allocating page-aligned read buffer.  Effective parallelism reduced by 1";
 				continue;
 			}
 
 			u32 offset = GetNextFileOffset();
 			if (!_file->Read(_buffers+ii, offset, _data[ii], m_file_chunk_size))
 			{
-				WARN("AsyncFileBench") << "Unable to read from offset " << offset;
+				CAT_WARN("AsyncFileBench") << "Unable to read from offset " << offset;
 			}
 		}
 
@@ -217,11 +217,11 @@ void GetHarddiskDump()
 						// Verify that drive is fixed
 						if (geometry->Geometry.MediaType == FixedMedia)
 						{
-							WARN("AsyncFileBench") << "Fixed disk " << ii << ": " << (char*)(buffer + descrip->ProductIdOffset);
-							WARN("AsyncFileBench") << " - Bytes per sector = " << geometry->Geometry.BytesPerSector;
-							WARN("AsyncFileBench") << " - Cylinders = " << (u64)geometry->Geometry.Cylinders.QuadPart;
-							WARN("AsyncFileBench") << " - Sectors per track = " << geometry->Geometry.SectorsPerTrack;
-							WARN("AsyncFileBench") << " - Tracks per cylinder = " << geometry->Geometry.TracksPerCylinder;
+							CAT_WARN("AsyncFileBench") << "Fixed disk " << ii << ": " << (char*)(buffer + descrip->ProductIdOffset);
+							CAT_WARN("AsyncFileBench") << " - Bytes per sector = " << geometry->Geometry.BytesPerSector;
+							CAT_WARN("AsyncFileBench") << " - Cylinders = " << (u64)geometry->Geometry.Cylinders.QuadPart;
+							CAT_WARN("AsyncFileBench") << " - Sectors per track = " << geometry->Geometry.SectorsPerTrack;
+							CAT_WARN("AsyncFileBench") << " - Tracks per cylinder = " << geometry->Geometry.TracksPerCylinder;
 						}
 					}
 				}
@@ -257,7 +257,7 @@ void GetCdRomDump()
 			// Don't query the geometry for CD-ROM drives since it only exists if a disk is in the drive
 			if (bytes >= DESCRIP_BYTES && descrip->Size <= bytes)
 			{
-				WARN("AsyncFileBench") << "CD-ROM disc 0: " << (char*)(buffer + descrip->ProductIdOffset);
+				CAT_WARN("AsyncFileBench") << "CD-ROM disc 0: " << (char*)(buffer + descrip->ProductIdOffset);
 
 				u8 gbuffer[4096];
 				CAT_OBJCLR(gbuffer);
@@ -271,14 +271,14 @@ void GetCdRomDump()
 
 					const u32 GEOMETRY_BYTES = offsetof(DISK_GEOMETRY_EX, Data);
 
-					WARN("AsyncFileBench") << " - Bytes per sector = " << geometry->Geometry.BytesPerSector;
-					WARN("AsyncFileBench") << " - Cylinders = " << (u64)geometry->Geometry.Cylinders.QuadPart;
-					WARN("AsyncFileBench") << " - Sectors per track = " << geometry->Geometry.SectorsPerTrack;
-					WARN("AsyncFileBench") << " - Tracks per cylinder = " << geometry->Geometry.TracksPerCylinder;
+					CAT_WARN("AsyncFileBench") << " - Bytes per sector = " << geometry->Geometry.BytesPerSector;
+					CAT_WARN("AsyncFileBench") << " - Cylinders = " << (u64)geometry->Geometry.Cylinders.QuadPart;
+					CAT_WARN("AsyncFileBench") << " - Sectors per track = " << geometry->Geometry.SectorsPerTrack;
+					CAT_WARN("AsyncFileBench") << " - Tracks per cylinder = " << geometry->Geometry.TracksPerCylinder;
 				}
 				else
 				{
-					WARN("AsyncFileBench") << " - Unable to get geometry";
+					CAT_WARN("AsyncFileBench") << " - Unable to get geometry";
 				}
 			}
 		}
@@ -316,19 +316,19 @@ bool Main(Reader *reader, char **argv, int argc)
 	}
 	else
 	{
-		WARN("AsyncFileBench") << "Expected arguments: <no_buffer(1/0)> <seq(1/0)> <parallelism> <chunk size> <file path>";
+		CAT_WARN("AsyncFileBench") << "Expected arguments: <no_buffer(1/0)> <seq(1/0)> <parallelism> <chunk size> <file path>";
 		return false;
 	}
 
 	if (parallelism <= 0)
 	{
-		WARN("AsyncFileBench") << "Parallelism needs to be greater than 0";
+		CAT_WARN("AsyncFileBench") << "Parallelism needs to be greater than 0";
 		return false;
 	}
 
 	if (chunk_size < 0 || !CAT_IS_POWER_OF_2(chunk_size))
 	{
-		WARN("AsyncFileBench") << "Chunk size needs to be a power of 2";
+		CAT_WARN("AsyncFileBench") << "Chunk size needs to be a power of 2";
 		return false;
 	}
 
@@ -343,10 +343,10 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	WARN("AsyncFileBench") << "Allocation granularity = " << system_info.AllocationGranularity;
-	WARN("AsyncFileBench") << "Cache line bytes = " << system_info.CacheLineBytes;
-	WARN("AsyncFileBench") << "Page size = " << system_info.PageSize;
-	WARN("AsyncFileBench") << "Processor count = " << system_info.ProcessorCount;
+	CAT_WARN("AsyncFileBench") << "Allocation granularity = " << system_info.AllocationGranularity;
+	CAT_WARN("AsyncFileBench") << "Cache line bytes = " << system_info.CacheLineBytes;
+	CAT_WARN("AsyncFileBench") << "Page size = " << system_info.PageSize;
+	CAT_WARN("AsyncFileBench") << "Processor count = " << system_info.ProcessorCount;
 
 	GetHarddiskDump();
 	GetCdRomDump();

@@ -49,7 +49,7 @@ int main()
 		return 1;
 	}
 
-	INFO("TestThreads") << "TestThreads 1.0";
+	CAT_INFO("TestThreads") << "TestThreads 1.0";
 
 	TestWorker worker;
 
@@ -65,7 +65,7 @@ int main()
 		threads->DeliverBuffers(WQPRIO_LO, ii, buffer);
 	}
 
-	INFO("Server") << "Press a key to terminate";
+	CAT_INFO("Server") << "Press a key to terminate";
 
 	while (!kbhit())
 	{

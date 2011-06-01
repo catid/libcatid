@@ -54,7 +54,7 @@ public:
 
 			if (!data)
 			{
-				WARN("Test") << "DequeueWait returned null";
+				CAT_WARN("Test") << "DequeueWait returned null";
 				break;
 			}
 
@@ -66,14 +66,14 @@ public:
 			{
 				u32 now = Clock::msec_fast();
 
-				INFO("Test") << "Read throughput: " << (read_ctr / float(now - read_ts)) << "k/sec";
+				CAT_INFO("Test") << "Read throughput: " << (read_ctr / float(now - read_ts)) << "k/sec";
 
 				read_ts = now;
 				read_ctr = 0;
 			}
 		}
 
-		WARN("Test") << "ReadJob terminated";
+		CAT_WARN("Test") << "ReadJob terminated";
 		return true;
 	}
 
@@ -81,7 +81,7 @@ public:
 	{
 		if (!StartThread())
 		{
-			FATAL("Job") << "Unable to start thread!";
+			CAT_FATAL("Job") << "Unable to start thread!";
 		}
 	}
 
@@ -113,14 +113,14 @@ public:
 			{
 				u32 now = Clock::msec_fast();
 
-				INFO("Test") << "Write throughput: " << (write_ctr / float(now - write_ts)) << "k/sec";
+				CAT_INFO("Test") << "Write throughput: " << (write_ctr / float(now - write_ts)) << "k/sec";
 
 				write_ts = now;
 				write_ctr = 0;
 			}
 		}
 
-		WARN("Test") << "WriteJob terminated";
+		CAT_WARN("Test") << "WriteJob terminated";
 		return true;
 	}
 
@@ -128,7 +128,7 @@ public:
 	{
 		if (!StartThread())
 		{
-			FATAL("Job") << "Unable to start thread!";
+			CAT_FATAL("Job") << "Unable to start thread!";
 		}
 	}
 
@@ -150,7 +150,7 @@ int main(int argc, const char **argv)
 
 	q = new FIFO::Queue<TestData>;
 
-    INFO("Test") << "** Press any key to begin.";
+    CAT_INFO("Test") << "** Press any key to begin.";
 
 	while (!getch())
 		Sleep(100);
@@ -168,20 +168,20 @@ int main(int argc, const char **argv)
 		const int WRITER_COUNT = 1;
 		WriteJob write_jobs[WRITER_COUNT];
 
-	    INFO("Test") << "** Test in progress.  Press any key to stop.";
+	    CAT_INFO("Test") << "** Test in progress.  Press any key to stop.";
 
 		while (!getch())
 			Sleep(100);
 	}
 
-    INFO("Test") << "** Test aborted.  Press any key to shutdown.";
+    CAT_INFO("Test") << "** Test aborted.  Press any key to shutdown.";
 
 	while (!getch())
 		Sleep(100);
 
 	ShutdownFramework(true);
 
-    INFO("Test") << "** Shutdown complete.  Press any key to terminate.";
+    CAT_INFO("Test") << "** Shutdown complete.  Press any key to terminate.";
 
 	while (!getch())
 		Sleep(100);

@@ -136,7 +136,7 @@ void Client::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 				// Start ignoring ICMP unreachable messages now that we've seen a pkt from the server
 				if (!IgnoreUnreachable())
 				{
-					WARN("Client") << "ICMP ignore unreachable failed";
+					CAT_WARN("Client") << "ICMP ignore unreachable failed";
 				}
 
 				// Construct challenge
@@ -158,7 +158,7 @@ void Client::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 				}
 				else
 				{
-					INFO("Client") << "Accepted cookie and posted challenge";
+					CAT_INFO("Client") << "Accepted cookie and posted challenge";
 				}
 			}
 			else if (bytes == S2C_ANSWER_LEN && data[0] == S2C_ANSWER)
@@ -178,14 +178,14 @@ void Client::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 
 					if (!DontFragment())
 					{
-						WARN("Client") << "Unable to detect MTU: Unable to set DF bit";
+						CAT_WARN("Client") << "Unable to detect MTU: Unable to set DF bit";
 
 						_mtu_discovery_attempts = 0;
 					}
 					else if (!PostMTUProbe(tls, MAXIMUM_MTU) ||
 							 !PostMTUProbe(tls, MEDIUM_MTU))
 					{
-						WARN("Client") << "Unable to detect MTU: First probe post failure";
+						CAT_WARN("Client") << "Unable to detect MTU: First probe post failure";
 					}
 
 					_connected = true;
@@ -197,7 +197,7 @@ void Client::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 				}
 				else
 				{
-					INANE("Client") << "Ignored invalid server answer";
+					CAT_INANE("Client") << "Ignored invalid server answer";
 				}
 			}
 			else if (bytes == S2C_ERROR_LEN && data[0] == S2C_ERROR)
@@ -237,7 +237,7 @@ void Client::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 			}
 			else
 			{
-				WARN("Client") << "Ignored invalid encrypted data";
+				CAT_WARN("Client") << "Ignored invalid encrypted data";
 			}
 		}
 
@@ -324,13 +324,13 @@ void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)
 					{
 						if (!PostMTUProbe(tls, MAXIMUM_MTU))
 						{
-							WARN("Client") << "Unable to detect MTU: Probe post failure";
+							CAT_WARN("Client") << "Unable to detect MTU: Probe post failure";
 						}
 
 						if (_max_payload_bytes < MEDIUM_MTU - _udpip_bytes - SPHYNX_OVERHEAD &&
 							!PostMTUProbe(tls, MEDIUM_MTU))
 						{
-							WARN("Client") << "Unable to detect MTU: Probe post failure";
+							CAT_WARN("Client") << "Unable to detect MTU: Probe post failure";
 						}
 
 						_mtu_discovery_time = now;
@@ -375,20 +375,20 @@ bool Client::InitialConnect(SphynxTLS *tls, TunnelPublicKey &public_key, const c
 {
 	if (!tls->Valid())
 	{
-		WARN("Client") << "Failed to connect: Invalid thread local storage";
+		CAT_WARN("Client") << "Failed to connect: Invalid thread local storage";
 		return false;
 	}
 
 	if (!public_key.Valid())
 	{
-		WARN("Client") << "Failed to connect: Invalid server public key provided";
+		CAT_WARN("Client") << "Failed to connect: Invalid server public key provided";
 		return false;
 	}
 
 	// Verify public key and initialize crypto library with it
 	if (!_key_agreement_initiator.Initialize(tls->math, public_key))
 	{
-		WARN("Client") << "Failed to connect: Corrupted server public key provided";
+		CAT_WARN("Client") << "Failed to connect: Corrupted server public key provided";
 		return false;
 	}
 
@@ -396,7 +396,7 @@ bool Client::InitialConnect(SphynxTLS *tls, TunnelPublicKey &public_key, const c
 	if (!_key_agreement_initiator.GenerateChallenge(tls->math, tls->csprng,
 										_cached_challenge, CHALLENGE_BYTES))
 	{
-		WARN("Client") << "Failed to connect: Cannot generate crypto-challenge";
+		CAT_WARN("Client") << "Failed to connect: Cannot generate crypto-challenge";
 		return false;
 	}
 
@@ -416,7 +416,7 @@ bool Client::InitialConnect(SphynxTLS *tls, TunnelPublicKey &public_key, const c
 	// Attempt to bind to any port and accept ICMP errors initially
 	if (!Bind(only_ipv4, 0, false, kernelReceiveBufferBytes))
 	{
-		WARN("Client") << "Failed to connect: Unable to bind to any port";
+		CAT_WARN("Client") << "Failed to connect: Unable to bind to any port";
 		return false;
 	}
 
@@ -515,7 +515,7 @@ bool Client::OnDNSResolve(const char *hostname, const NetAddr *addrs, int count)
 		NetAddr addr = addrs[n];
 		addr.SetPort(_server_addr.GetPort());
 
-		INFO("Client") << "Connecting: Resolved '" << hostname << "' to " << addr.IPToString();
+		CAT_INFO("Client") << "Connecting: Resolved '" << hostname << "' to " << addr.IPToString();
 
 		if (!FinalConnect(addr))
 			return false;
@@ -528,7 +528,7 @@ bool Client::WriteHello()
 {
 	if (_connected)
 	{
-		WARN("Client") << "Refusing to post hello after connected";
+		CAT_WARN("Client") << "Refusing to post hello after connected";
 		return false;
 	}
 
@@ -537,7 +537,7 @@ bool Client::WriteHello()
 	// If unable to allocate,
 	if (!pkt)
 	{
-		WARN("Client") << "Cannot allocate a post buffer for hello packet";
+		CAT_WARN("Client") << "Cannot allocate a post buffer for hello packet";
 		return false;
 	}
 
@@ -552,11 +552,11 @@ bool Client::WriteHello()
 	// Attempt to post packet
 	if (!Write(pkt, C2S_HELLO_LEN, _server_addr))
 	{
-		WARN("Client") << "Unable to post hello packet";
+		CAT_WARN("Client") << "Unable to post hello packet";
 		return false;
 	}
 
-	INANE("Client") << "Posted hello packet";
+	CAT_INANE("Client") << "Posted hello packet";
 	return true;
 }
 
@@ -617,7 +617,7 @@ void Client::OnInternal(SphynxTLS *tls, u32 recv_time, BufferStream data, u32 by
 		{
 			u16 max_payload_bytes = getLE(*reinterpret_cast<u16*>( data + 1 ));
 
-			WARN("Client") << "Got IOP_S2C_MTU_SET.  Max payload bytes = " << max_payload_bytes;
+			CAT_WARN("Client") << "Got IOP_S2C_MTU_SET.  Max payload bytes = " << max_payload_bytes;
 
 			// If new maximum payload is greater than the previous one,
 			if (max_payload_bytes > _max_payload_bytes)
@@ -653,14 +653,14 @@ void Client::OnInternal(SphynxTLS *tls, u32 recv_time, BufferStream data, u32 by
 
 			UpdateTimeSynch(rtt, delta);
 
-			WARN("Client") << "Got IOP_S2C_TIME_PONG.  rtt=" << rtt << " first leg = " << first_leg << " second leg = " << second_leg << " delta = " << delta << " running delta = " << (s32)_ts_delta;
+			CAT_WARN("Client") << "Got IOP_S2C_TIME_PONG.  rtt=" << rtt << " first leg = " << first_leg << " second leg = " << second_leg << " delta = " << delta << " running delta = " << (s32)_ts_delta;
 		}
 		break;
 
 	case IOP_DISCO:
 		if (bytes == IOP_DISCO_LEN)
 		{
-			WARN("Client") << "Got IOP_DISCO reason = " << (int)data[1];
+			CAT_WARN("Client") << "Got IOP_DISCO reason = " << (int)data[1];
 
 			Disconnect(data[1]);
 		}
