@@ -89,15 +89,6 @@ bool FileTransferSource::Read(StreamMode stream, u8 *dest, u32 &bytes, Transport
 
 	QueuedFile *active = _active_list[0];
 
-	u64 remaining = active->reader->Remaining();
-
-	// If no more remaining,
-	if (remaining <= 0)
-	{
-		bytes = 0;
-		return true;
-	}
-
 	if (!active->reader->Read(dest, bytes, bytes))
 	{
 		CAT_WARN("FileTransferSource") << "Reached end of data";
@@ -105,10 +96,10 @@ bool FileTransferSource::Read(StreamMode stream, u8 *dest, u32 &bytes, Transport
 		OnTransferDone(transport);
 
 		bytes = 0;
-		return true;
+		return false;
 	}
 
-	return remaining <= bytes;
+	return true;
 }
 
 void FileTransferSource::ClearHeap()
@@ -148,7 +139,7 @@ void FileTransferSource::StartTransfer(QueuedFile *file, Transport *transport)
 	while (!transport->WriteHuge(STREAM_BULK, this));
 }
 
-bool FileTransferSource::WriteFile(u32 worker_id, u8 opcode, const std::string &source_path, const std::string &sink_path, Transport *transport, u32 priority)
+bool FileTransferSource::TransferFile(u32 worker_id, u8 opcode, const std::string &source_path, const std::string &sink_path, Transport *transport, u32 priority)
 {
 	// Build a queued file object
 	QueuedFile *file = new QueuedFile;
