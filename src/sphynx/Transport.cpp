@@ -1851,7 +1851,7 @@ bool Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream, s32 remai
 	// For each fragment of the message,
 	u32 copy_bytes, total_copied_bytes = 0;
 	s32 send_limit = node->send_bytes;
-	bool complete;
+	bool read_success;
 	do
 	{
 		// If there is not enough room to write anything,
@@ -1899,7 +1899,7 @@ bool Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream, s32 remai
 
 		// Read data into fragment
 		u32 copied = copy_bytes;
-		complete = node->source->Read((StreamMode)stream, GetTrailingBytes(frag), copied, this);
+		read_success = node->source->Read((StreamMode)stream, GetTrailingBytes(frag), copied, this);
 
 		// If data source has failed us,
 		if (copied < copy_bytes)
@@ -1907,9 +1907,10 @@ bool Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream, s32 remai
 			// If no data could be copied,
 			if (copied == 0)
 			{
-				if (complete)
+				// If end of file,
+				if (!read_success)
 				{
-					// Allow this final transfer
+					// Allow this final transfer of zero bytes to indicate file completion
 					send_limit = 0;
 				}
 				else
@@ -1971,7 +1972,7 @@ bool Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream, s32 remai
 		total_copied_bytes += copy_bytes;
 		send_limit -= copy_bytes;
 
-	} while (send_limit > 0 || (complete && copy_bytes > 0));
+	} while (send_limit > 0);
 
 	node->sent_bytes = sent_bytes;
 	node->huge_remaining -= total_copied_bytes;

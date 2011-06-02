@@ -29,7 +29,7 @@ public:
 	{
 		CAT_WARN("Client") << "-- CONNECTED";
 
-		if (_fsource.WriteFile(GetWorkerID(), OP_FILE_UPLOAD_START, "test.tmp", "sink_file.txt", this))
+		if (_fsource.TransferFile(GetWorkerID(), OP_FILE_UPLOAD_START, "test.tmp", "sink_file.txt", this))
 		{
 			CAT_WARN("Client") << "-- File upload starting";
 		}
