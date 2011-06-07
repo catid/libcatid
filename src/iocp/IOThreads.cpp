@@ -56,6 +56,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 	for (u32 ii = 0; ii < count; ++ii)
 	{
 		IOCPOverlapped *ov_iocp = reinterpret_cast<IOCPOverlapped*>( entries[ii].lpOverlapped );
+		IOThreadsAssociator *associator = reinterpret_cast<IOThreadsAssociator*>( entries[ii].lpCompletionKey );
 		u32 bytes = entries[ii].dwNumberOfBytesTransferred;
 
 		// Terminate thread on zero completion
@@ -70,7 +71,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 		{
 		case IOTYPE_UDP_SEND:
 			{
-				UDPEndpoint *udp_endpoint = reinterpret_cast<UDPEndpoint*>( entries[ii].lpCompletionKey );
+				UDPEndpoint *udp_endpoint = static_cast<UDPEndpoint*>( associator );
 				SendBuffer *buffer = reinterpret_cast<SendBuffer*>( (u8*)ov_iocp - offsetof(SendBuffer, iointernal.ov) );
 
 				// Link to sendq
@@ -86,7 +87,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 
 		case IOTYPE_UDP_RECV:
 			{
-				UDPEndpoint *udp_endpoint = reinterpret_cast<UDPEndpoint*>( entries[ii].lpCompletionKey );
+				UDPEndpoint *udp_endpoint = static_cast<UDPEndpoint*>( associator );
 				RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( (u8*)ov_iocp - offsetof(RecvBuffer, iointernal.ov) );
 
 				// Write event completion results to buffer
@@ -121,7 +122,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 
 		case IOTYPE_FILE_WRITE:
 			{
-				AsyncFile *async_file = reinterpret_cast<AsyncFile*>( entries[ii].lpCompletionKey );
+				AsyncFile *async_file = static_cast<AsyncFile*>( associator );
 				WriteBuffer *buffer = reinterpret_cast<WriteBuffer*>( (u8*)ov_iocp - offsetof(WriteBuffer, iointernal.ov) );
 
 				// Write event completion results to buffer
@@ -137,7 +138,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreads *master, OVERLAPPED_ENTRY e
 
 		case IOTYPE_FILE_READ:
 			{
-				AsyncFile *async_file = reinterpret_cast<AsyncFile*>( entries[ii].lpCompletionKey );
+				AsyncFile *async_file = static_cast<AsyncFile*>( associator );
 				ReadBuffer *buffer = reinterpret_cast<ReadBuffer*>( (u8*)ov_iocp - offsetof(ReadBuffer, iointernal.ov) );
 
 				// Write event completion results to buffer
@@ -393,7 +394,7 @@ bool IOThreads::Shutdown()
 	return true;
 }
 
-bool IOThreads::Associate(UDPEndpoint *udp_endpoint)
+bool IOThreads::Associate(IOThreadsAssociator *associator)
 {
 	if (!_io_port)
 	{
@@ -401,30 +402,11 @@ bool IOThreads::Associate(UDPEndpoint *udp_endpoint)
 		return false;
 	}
 
-	HANDLE result = CreateIoCompletionPort((HANDLE)udp_endpoint->GetSocket(), _io_port, (ULONG_PTR)udp_endpoint, 0);
+	HANDLE result = CreateIoCompletionPort(associator->GetHandle(), _io_port, (ULONG_PTR)associator, 0);
 
 	if (result != _io_port)
 	{
-		CAT_FATAL("IOThreads") << "Associating UDPEndpoint error " << GetLastError();
-		return false;
-	}
-
-	return true;
-}
-
-bool IOThreads::Associate(AsyncFile *file)
-{
-	if (!_io_port)
-	{
-		CAT_FATAL("IOThreads") << "Unable to associate handle since completion port was never created";
-		return false;
-	}
-
-	HANDLE result = CreateIoCompletionPort(file->GetHandle(), _io_port, (ULONG_PTR)file, 0);
-
-	if (result != _io_port)
-	{
-		CAT_FATAL("IOThreads") << "Associating UDPEndpoint error " << GetLastError();
+		CAT_FATAL("IOThreads") << "Associating handle error " << GetLastError();
 		return false;
 	}
 

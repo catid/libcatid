@@ -65,7 +65,7 @@ static const u32 SIMULTANEOUS_READS = 128;
 
 
 // Object that represents a UDP endpoint bound to a single port
-class CAT_EXPORT UDPEndpoint : public WatchedRefObject
+class CAT_EXPORT UDPEndpoint : public WatchedRefObject, public IOThreadsAssociator
 {
 	friend class IOThread;
 
@@ -88,7 +88,8 @@ public:
 
 	CAT_INLINE bool Valid() { return _socket != SOCKET_ERROR; }
 	CAT_INLINE Socket GetSocket() { return _socket; }
-    Port GetPort();
+	CAT_INLINE HANDLE GetHandle() { return (HANDLE)_socket; }
+   Port GetPort();
 	CAT_INLINE Port GetCachedPort() { return _port; }
 
 	// Is6() result is only valid AFTER Bind()

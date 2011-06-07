@@ -87,13 +87,20 @@ public:
 
 class CAT_EXPORT FileTransferSink
 {
-	// TODO: Thread safety
+	AsyncFile *_file;
+	u64 _write_offset;
+	u32 _worker_id;
+
+	void Close();
+
+	void OnWrite(IWorkerTLS *tls, const BatchSet &buffers);
+
 public:
 	FileTransferSink();
 	~FileTransferSink();
 
 	// Queue up a file transfer
-	bool OnFileStart(BufferStream msg, u32 bytes);
+	bool OnFileStart(u32 worker_id, BufferStream msg, u32 bytes);
 
 	// Takes over void OnReadHuge(StreamMode stream, BufferStream data, u32 size)
 	void OnReadHuge(u32 stream, BufferStream data, u32 size);

@@ -7,7 +7,7 @@ public:
 	virtual bool Valid() { return true; }
 };
 
-class Reader
+class ReadTester
 {
 	u8 m_padding1[CAT_DEFAULT_CACHE_LINE_SIZE];
 	u32 m_file_offset;
@@ -42,8 +42,9 @@ class Reader
 
 	void OnRead(IWorkerTLS *tls, const BatchSet &batch)
 	{
-		for (BatchHead *node = batch.head; node; node = node->batch_next)
+		for (BatchHead *next, *node = batch.head; node; node = next)
 		{
+			next = node->batch_next;
 			ReadBuffer *buffer = reinterpret_cast<ReadBuffer*>( node );
 			void *data = buffer->data;
 			u32 data_bytes = buffer->data_bytes;
@@ -61,11 +62,14 @@ class Reader
 					delta -= (u32)(delta / 1000.0) * 1000.0;
 
 					CAT_WARN("AsyncFileBench") << "Total file size = " << m_file_total;
-					CAT_WARN("AsyncFileBench") << "File read complete in " << s << " s : " << ms << " ms : " << delta << " us -- at " << rate << " MBPS";
+					CAT_WARN("AsyncFileBench") << "File read complete in " << s << " s : " << ms << " ms : " << delta << " us";
+					CAT_WARN("AsyncFileBench") << "File read complete at " << rate << " MBPS";
 					_flag->Set();
 				}
 				else
 				{
+					//CAT_WARN("AsyncFileBench") << "Read at " << buffer->offset;
+
 					u32 offset = GetNextFileOffset();
 
 					if (offset < m_file_total && !_file->Read(buffer, offset, data, m_file_chunk_size))
@@ -78,13 +82,13 @@ class Reader
 	}
 
 public:
-	Reader(WaitableFlag *flag)
+	ReadTester(WaitableFlag *flag)
 	{
 		_buffers = 0;
 		_flag = flag;
 		_data = 0;
 	}
-	~Reader()
+	~ReadTester()
 	{
 		Clear();
 	}
@@ -136,7 +140,7 @@ public:
 
 		for (u32 ii = 0; ii < parallelism; ++ii)
 		{
-			_buffers[ii].callback.SetMember<Reader, &Reader::OnRead>(this);
+			_buffers[ii].callback.SetMember<ReadTester, &ReadTester::OnRead>(this);
 			_buffers[ii].worker_id = 0;
 
 			_data[ii] = (u8*)LargeAllocator::ii->Acquire(m_file_chunk_size);
@@ -158,6 +162,189 @@ public:
 	}
 };
 
+
+class WriteTester
+{
+	u8 m_padding1[CAT_DEFAULT_CACHE_LINE_SIZE];
+	u32 m_file_offset;
+	u8 m_padding2[CAT_DEFAULT_CACHE_LINE_SIZE];
+	u32 m_file_chunk_size;
+	u8 m_padding3[CAT_DEFAULT_CACHE_LINE_SIZE];
+	u32 m_file_parallelism;
+	u8 m_padding4[CAT_DEFAULT_CACHE_LINE_SIZE];
+	u32 m_file_progress;
+	u8 m_padding5[CAT_DEFAULT_CACHE_LINE_SIZE];
+	u32 m_file_total;
+	u8 m_padding6[CAT_DEFAULT_CACHE_LINE_SIZE];
+	double m_start_time;
+	u8 m_padding7[CAT_DEFAULT_CACHE_LINE_SIZE];
+
+	AsyncFile *_file;
+
+	WaitableFlag *_flag;
+
+	WriteBuffer *_buffers;
+	u8 **_data;
+
+	bool _no_buffer;
+	bool _seq;
+	u32 _parallelism;
+	u32 _chunk_size;
+	const char *_file_path;
+	ReadTester *_reader;
+
+	CAT_INLINE u32 GetNextFileOffset()
+	{
+		return Atomic::Add(&m_file_offset, m_file_chunk_size);
+	}
+
+	CAT_INLINE bool AccumulateFilePiece(u32 size)
+	{
+		return Atomic::Add(&m_file_progress, size) >= (m_file_total - size);
+	}
+
+	void OnWrite(IWorkerTLS *tls, const BatchSet &batch)
+	{
+		for (BatchHead *next, *node = batch.head; node; node = next)
+		{
+			next = node->batch_next;
+			WriteBuffer *buffer = reinterpret_cast<WriteBuffer*>( node );
+			void *data = buffer->data;
+			u32 data_bytes = buffer->data_bytes;
+
+			if (data_bytes)
+			{
+				if (AccumulateFilePiece(data_bytes))
+				{
+					double delta = Clock::usec() - m_start_time;
+
+					double rate = m_file_total / delta;
+
+					u32 s = (u32)(delta / 1000000.0);
+					u32 ms = (u32)(delta / 1000.0) % 1000;
+					delta -= (u32)(delta / 1000.0) * 1000.0;
+
+					CAT_WARN("AsyncFileBench") << "Total file size = " << m_file_total;
+					CAT_WARN("AsyncFileBench") << "File write complete in " << s << " s : " << ms << " ms : " << delta << " us";
+					CAT_WARN("AsyncFileBench") << "File write complete at " << rate << " MBPS";
+
+					_file->RequestShutdown();
+
+					Sleep(1000);
+
+					_reader = new ReadTester(_flag);
+
+					if (!_reader->StartReading(_no_buffer, _seq, _parallelism, _chunk_size, _file_path))
+						_flag->Set();
+				}
+				else
+				{
+					//CAT_WARN("AsyncFileBench") << "Wrote at " << buffer->offset << " bytes=" << data_bytes << " done=" << m_file_progress << "/" << m_file_total;
+
+					u32 offset = GetNextFileOffset();
+
+					if (offset < m_file_total && !_file->Write(buffer, offset, data, m_file_chunk_size))
+					{
+						CAT_WARN("AsyncFileBench") << "Unable to write to offset " << offset;
+					}
+				}
+			}
+		}
+	}
+
+public:
+	WriteTester(WaitableFlag *flag)
+	{
+		_buffers = 0;
+		_flag = flag;
+		_data = 0;
+	}
+	~WriteTester()
+	{
+		Clear();
+
+		if (_reader)
+			delete _reader;
+	}
+
+	void Clear()
+	{
+		if (_buffers)
+		{
+			delete []_buffers;
+			_buffers = 0;
+		}
+		if (_data)
+		{
+			delete []_data;
+			_data = 0;
+		}
+	}
+
+	bool StartWriting(bool no_buffer, bool seq, u32 parallelism, u32 chunk_size, const char *file_path)
+	{
+		// Start timing before file object is created
+		_no_buffer = no_buffer;
+		_seq = seq;
+		_parallelism = parallelism;
+		_chunk_size = chunk_size;
+		_file_path = file_path;
+
+		m_start_time = Clock::usec();
+
+		m_file_chunk_size = chunk_size;
+		m_file_parallelism = parallelism;
+
+		_buffers = new WriteBuffer[parallelism];
+		_data = new u8*[parallelism];
+		if (!_buffers || !_data)
+		{
+			CAT_WARN("AsyncFileBench") << "Out of memory allocating parallel write buffers";
+			return false;
+		}
+
+		_file = new AsyncFile;
+
+		RefObjectWatcher::ref()->Watch(_file);
+
+		_unlink(file_path);
+
+		if (!_file->Open(file_path, ASYNCFILE_WRITE | (no_buffer ? ASYNCFILE_NOBUFFER : 0) | (seq ? ASYNCFILE_SEQUENTIAL : 0)))
+		{
+			CAT_WARN("AsyncFileBench") << "Unable to open specified file: " << file_path;
+			return false;
+		}
+
+		m_file_total = 200000000;
+		m_file_total -= m_file_total % _chunk_size;
+		m_file_progress = 0;
+		m_file_offset = 0;
+
+		_file->SetSize(m_file_total);
+
+		for (u32 ii = 0; ii < parallelism; ++ii)
+		{
+			_buffers[ii].callback.SetMember<WriteTester, &WriteTester::OnWrite>(this);
+			_buffers[ii].worker_id = 0;
+
+			_data[ii] = (u8*)LargeAllocator::ii->Acquire(m_file_chunk_size);
+
+			if (!_data[ii])
+			{
+				CAT_WARN("AsyncFileBench") << "Out of memory allocating page-aligned write buffer.  Effective parallelism reduced by 1";
+				continue;
+			}
+
+			u32 offset = GetNextFileOffset();
+			if (!_file->Write(_buffers+ii, offset, _data[ii], m_file_chunk_size))
+			{
+				CAT_WARN("AsyncFileBench") << "Unable to write to offset " << offset;
+			}
+		}
+
+		return true;
+	}
+};
 
 
 
@@ -298,7 +485,7 @@ void GetCdRomDump()
 
 
 
-bool Main(Reader *reader, char **argv, int argc)
+bool Main(WriteTester *writer, char **argv, int argc)
 {
 	const char *file_path;
 	int chunk_size = 0;
@@ -306,17 +493,17 @@ bool Main(Reader *reader, char **argv, int argc)
 	int no_buffer = 0;
 	int seq = 0;
 
-	if (argc >= 6)
+	if (argc >= 5)
 	{
 		no_buffer = atoi(argv[1]);
 		seq = atoi(argv[2]);
 		parallelism = atoi(argv[3]);
 		chunk_size = atoi(argv[4]);
-		file_path = argv[5];
+		file_path = "writer.tst";
 	}
 	else
 	{
-		CAT_WARN("AsyncFileBench") << "Expected arguments: <no_buffer(1/0)> <seq(1/0)> <parallelism> <chunk size> <file path>";
+		CAT_WARN("AsyncFileBench") << "Expected arguments: <no_buffer(1/0)> <seq(1/0)> <parallelism> <chunk size>";
 		return false;
 	}
 
@@ -332,7 +519,7 @@ bool Main(Reader *reader, char **argv, int argc)
 		return false;
 	}
 
-	return reader->StartReading(no_buffer != 0, seq != 0, parallelism, chunk_size, file_path);
+	return writer->StartWriting(no_buffer != 0, seq != 0, parallelism, chunk_size, file_path);
 }
 
 int main(int argc, char **argv)
@@ -350,11 +537,11 @@ int main(int argc, char **argv)
 
 	GetHarddiskDump();
 	GetCdRomDump();
-
+	
 	WaitableFlag flag;
-	Reader reader(&flag);
+	WriteTester writer(&flag);
 
-	if (Main(&reader, argv, argc))
+	if (Main(&writer, argv, argc))
 	{
 		flag.Wait();
 	}

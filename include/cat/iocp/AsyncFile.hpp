@@ -58,7 +58,7 @@ enum AsyncFileModes
 };
 
 
-class CAT_EXPORT AsyncFile : public WatchedRefObject
+class CAT_EXPORT AsyncFile : public WatchedRefObject, public IOThreadsAssociator
 {
 	friend class IOThread;
 
