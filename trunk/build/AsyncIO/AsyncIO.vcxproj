@@ -165,6 +165,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\iocp\AsyncFile.cpp" />
+    <ClCompile Include="..\..\src\io\BufferedFileWriter.cpp" />
     <ClCompile Include="..\..\src\io\PolledFileReader.cpp" />
     <ClCompile Include="..\..\src\io\IOLayer.cpp" />
     <ClCompile Include="..\..\src\iocp\IOThreads.cpp" />
@@ -182,6 +183,7 @@
     <ClInclude Include="..\..\include\cat\iocp\AsyncFile.hpp" />
     <ClInclude Include="..\..\include\cat\iocp\IOThreads.hpp" />
     <ClInclude Include="..\..\include\cat\iocp\UDPEndpoint.hpp" />
+    <ClInclude Include="..\..\include\cat\io\BufferedFileWriter.hpp" />
     <ClInclude Include="..\..\include\cat\io\Buffers.hpp" />
     <ClInclude Include="..\..\include\cat\io\IOLayer.hpp" />
     <ClInclude Include="..\..\include\cat\io\PolledFileReader.hpp" />

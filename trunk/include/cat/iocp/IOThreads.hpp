@@ -115,6 +115,15 @@ class CAT_EXPORT IOThread : public Thread
 };
 
 
+class CAT_EXPORT IOThreadsAssociator
+{
+public:
+	CAT_INLINE virtual ~IOThreadsAssociator() {}
+
+	CAT_INLINE virtual HANDLE GetHandle() = 0;
+};
+
+
 // IOCP threads
 class CAT_EXPORT IOThreads
 {
@@ -138,8 +147,7 @@ public:
 
 	bool Startup();
 	bool Shutdown();
-	bool Associate(UDPEndpoint *udp_endpoint);
-	bool Associate(AsyncFile *file);
+	bool Associate(IOThreadsAssociator *associator);
 };
 
 

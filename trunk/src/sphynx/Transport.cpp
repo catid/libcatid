@@ -1831,7 +1831,7 @@ bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s
 
 bool Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream, s32 remaining)
 {
-	bool success = true;
+	bool complete = false;
 
 	u32 max_payload_bytes = _max_payload_bytes;
 	SendCluster cluster = _send_cluster;
@@ -1862,7 +1862,6 @@ bool Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream, s32 remai
 			remaining -= cluster.bytes;
 			if (remaining <= FRAG_THRESHOLD)
 			{
-				success = false;
 				break;
 			}
 
@@ -1887,10 +1886,7 @@ bool Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream, s32 remai
 
 		// If this drops the number of copy bytes to zero, then abort here
 		if (copy_bytes <= 0)
-		{
-			success = false;
 			break;
-		}
 
 		// Acquire a fragment
 		SendFrag *frag;
@@ -1912,12 +1908,12 @@ bool Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream, s32 remai
 				{
 					// Allow this final transfer of zero bytes to indicate file completion
 					send_limit = 0;
+					complete = true;
 				}
 				else
 				{
 					// Abort transmit for now
 					StdAllocator::ii->Release(frag);
-					success = false;
 					break;
 				}
 			}
@@ -1981,7 +1977,7 @@ bool Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream, s32 remai
 	_next_send_id[stream] = ack_id;
 	_send_cluster = cluster;
 
-	return success;
+	return complete;
 }
 
 void Transport::WriteQueuedReliable()
@@ -2085,18 +2081,15 @@ void Transport::WriteQueuedReliable()
 
 			// If node aborted early,
 			if (!success)
-			{
-				// Stop tail here
-				out_tail[stream] = node;
 				break;
+			else
+			{
+				_sending_queue[stream].head = next;
+				if (!next) _sending_queue[stream].tail = 0;
 			}
 
 		} while (node != out_tail[stream] && (node = next));
 	}
 
 	_send_cluster_lock.Leave();
-
-	// Update the sending queue to contain only remaining messages
-	for (u32 stream = 0; stream < NUM_STREAMS; ++stream)
-		_sending_queue[stream].RemoveBefore(out_tail[stream]);
 }

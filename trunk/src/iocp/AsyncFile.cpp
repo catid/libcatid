@@ -156,6 +156,7 @@ bool AsyncFile::Read(ReadBuffer *buffer, u64 offset, void *data, u32 bytes)
 
 bool AsyncFile::Write(WriteBuffer *buffer, u64 offset, void *data, u32 bytes)
 {
+	buffer->data = data;
 	buffer->iointernal.ov.Internal = 0;
 	buffer->iointernal.ov.InternalHigh = 0;
 	buffer->iointernal.ov.Offset = (u32)offset;

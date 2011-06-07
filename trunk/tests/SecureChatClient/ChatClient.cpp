@@ -29,7 +29,7 @@ public:
 	{
 		CAT_WARN("Client") << "-- CONNECTED";
 
-		if (_fsource.TransferFile(GetWorkerID(), OP_FILE_UPLOAD_START, "test.tmp", "sink_file.txt", this))
+		if (_fsource.TransferFile(GetWorkerID(), OP_FILE_UPLOAD_START, "test.tmp", "sink.tmp", this))
 		{
 			CAT_WARN("Client") << "-- File upload starting";
 		}
@@ -61,7 +61,7 @@ public:
 				CAT_WARN("Client") << "Successfully received test fragments";
 				break;
 			case OP_FILE_UPLOAD_START:
-				if (_fsink.OnFileStart(msg, bytes))
+				if (_fsink.OnFileStart(GetWorkerID(), msg, bytes))
 				{
 					CAT_WARN("Client") << "-- File upload from remote peer starting";
 				}

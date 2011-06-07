@@ -164,7 +164,7 @@ bool FileTransferSource::TransferFile(u32 worker_id, u8 opcode, const std::strin
 	}
 
 	u32 sink_path_len = (u32)sink_path.length();
-	u32 msg_bytes = 1 + sizeof(u64) + sink_path_len;
+	u32 msg_bytes = 1 + sink_path_len + sizeof(u64);
 
 	u8 *msg = OutgoingMessage::Acquire(msg_bytes);
 	if (!msg)
@@ -176,8 +176,8 @@ bool FileTransferSource::TransferFile(u32 worker_id, u8 opcode, const std::strin
 
 	// Construct message
 	msg[0] = opcode;
-	*(u64*)(msg + 1) = getLE(file->reader->Size());
-	memcpy(msg + 1 + 8, sink_path.c_str(), sink_path_len);
+	memcpy(msg + 1, sink_path.c_str(), sink_path_len);
+	*(u64*)(msg + 1 + sink_path_len) = getLE(file->reader->Size());
 
 	// Configure file object
 	file->priority = priority;
@@ -200,19 +200,126 @@ bool FileTransferSource::TransferFile(u32 worker_id, u8 opcode, const std::strin
 
 FileTransferSink::FileTransferSink()
 {
+	_file = 0;
+	//_write_offset = 0;
 }
 
 FileTransferSink::~FileTransferSink()
 {
+	Close();
 }
 
-bool FileTransferSink::OnFileStart(BufferStream msg, u32 bytes)
+void FileTransferSink::Close()
 {
-	CAT_WARN("FileTransferSink") << "Got file start " << bytes;
+	if (_file)
+	{
+		_file->RequestShutdown();
+		_file = 0;
+	}
+}
+
+bool ValidFilePath(const char *file_path)
+{
+	// TODO
 	return true;
+}
+
+bool FileTransferSink::OnFileStart(u32 worker_id, BufferStream msg, u32 bytes)
+{
+	if (_file)
+	{
+		CAT_WARN("FileTransferSink") << "New file transfer request ignored: File transfer already in progress";
+		return false;
+	}
+
+	if (bytes < 1 + sizeof(u64) + 1)
+	{
+		CAT_WARN("FileTransferSink") << "Truncated file transfer start message ignored";
+		return false;
+	}
+
+	// Extract the file size
+	u32 sink_path_len = bytes - (1 + sizeof(u64));
+	u64 file_size = *(u64*)(msg + 1 + sink_path_len);
+
+	// Terminate the path
+	msg[1 + sink_path_len] = '\0';
+
+	const char *file_path = msg.c_str() + 1;
+
+	if (!ValidFilePath(file_path))
+	{
+		CAT_WARN("FileTransferSink") << "Ignored invalid file transfer path";
+		return false;
+	}
+
+	_file = new AsyncFile;
+	if (!_file)
+	{
+		CAT_WARN("FileTransferSink") << "Out of memory allocating AsyncFile object";
+		return false;
+	}
+
+	if (!_file->Open(file_path,
+					 ASYNCFILE_WRITE|ASYNCFILE_SEQUENTIAL|ASYNCFILE_NOBUFFER))
+	{
+		CAT_WARN("FileTransferSink") << "Unable to open output file for writing";
+		Close();
+		return false;
+	}
+
+	if (!_file->SetSize(file_size))
+	{
+		CAT_WARN("FileTransferSink") << "Unable to set output file size.  Out of disk space?";
+		Close();
+		return false;
+	}
+
+	CAT_WARN("FileTransferSink") << "Accepting file transfer for " << file_path << " of " << file_size << " bytes";
+
+	_worker_id = worker_id;
+	_write_offset = 0;
+
+	return true;
+}
+
+void FileTransferSink::OnWrite(IWorkerTLS *tls, const BatchSet &buffers)
+{
+	for (BatchHead *next, *head = buffers.head; head; head = next)
+	{
+		WriteBuffer *buffer = (WriteBuffer*)head;
+		next = head->batch_next;
+
+		delete buffer;
+	}
 }
 
 void FileTransferSink::OnReadHuge(u32 stream, BufferStream data, u32 size)
 {
-	CAT_WARN("FileTransferSink") << "Got file part " << size;
+	if (!_file)
+	{
+		CAT_WARN("FileTransferSink") << "Ignored huge read when no file transfer was expected";
+		return;
+	}
+
+	_file->AddRef();
+
+	WriteBuffer *buffer = new WriteBuffer;
+	buffer->worker_id = _worker_id;
+	buffer->callback.SetMember<FileTransferSink, &FileTransferSink::OnWrite>(this);
+
+	if (!buffer)
+	{
+		CAT_WARN("FileTransferSink") << "File transfer part failed: Out of memory to allocate write buffer";
+		return;
+	}
+
+	if (!_file->Write(buffer, _write_offset, data, size))
+	{
+		CAT_WARN("FileTransferSink") << "Unable to write to output file.  Out of disk space?";
+		delete buffer;
+		Close();
+	}
+
+	_write_offset += size;
 }

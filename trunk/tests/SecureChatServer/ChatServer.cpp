@@ -92,7 +92,7 @@ void GameConnexion::OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count
 			CAT_WARN("Connexion") << "Successfully received test fragments";
 			break;
 		case OP_FILE_UPLOAD_START:
-			if (_fsink.OnFileStart(msg, bytes))
+			if (_fsink.OnFileStart(GetWorkerID(), msg, bytes))
 			{
 				CAT_WARN("Connexion") << "-- File upload from remote peer starting";
 			}
