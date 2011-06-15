@@ -522,6 +522,128 @@ bool Main(WriteTester *writer, char **argv, int argc)
 	return writer->StartWriting(no_buffer != 0, seq != 0, parallelism, chunk_size, file_path);
 }
 
+
+// SD card CRC-7 implementation
+
+#include <iostream>
+using namespace std;
+
+unsigned char CRC7_fast(unsigned char crc, unsigned char data)
+{
+	data ^= crc << 1;
+
+	if (data & 0x80)
+		data ^= 9;
+
+	crc = data ^ (crc & 0x78) ^ (crc << 4) ^ ((crc >> 3) & 15);
+
+	return crc & 0x7f;
+}
+
+unsigned char CRC7f_fast(unsigned char crc)
+{
+	crc = (crc << 1) ^ (crc << 4) ^ (crc & 0x70) ^ ((crc >> 3) & 0x0f);
+	return crc | 1;
+}
+
+unsigned char CRC7_naive(unsigned char crc, unsigned char data)
+{
+	for (int ii = 0; ii <= 7; ++ii)
+	{
+		crc = (crc << 1) | (data >> 7);
+		data <<= 1;
+
+		if (crc & 0x80)
+		{
+			crc ^= 9;
+		}
+	}
+
+	return crc & 0x7f;
+}
+
+unsigned char CRC7f_naive(unsigned char crc)
+{
+	for (int ii = 0; ii <= 6; ++ii)
+	{
+		crc <<= 1;
+
+		if (crc & 0x80)
+		{
+			crc ^= 9;
+		}
+	}
+
+	return (crc << 1) | 1;
+}
+
+unsigned char m_block[256];
+unsigned char m_crc_fast, m_crc_naive;
+
+void timing_fast()
+{
+	unsigned char crc = 0;
+
+	for (int ii = 0; ii < 256; ++ii)
+		crc = CRC7_fast(crc, m_block[ii]);
+
+	m_crc_fast = CRC7f_fast(crc);
+}
+
+void timing_naive()
+{
+	unsigned char crc = 0;
+
+	for (int ii = 0; ii < 256; ++ii)
+		crc = CRC7_naive(crc, m_block[ii]);
+
+	m_crc_naive = CRC7f_naive(crc);
+}
+
+int RunCRC7Tests()
+{
+	for (int ii = 0; ii <= 255; ++ii)
+	{
+		unsigned char crc = (unsigned char)ii;
+
+		for (int jj = 0; jj <= 255; ++jj)
+		{
+			unsigned char data = (unsigned char)jj, r_fast, r_naive;
+
+			r_fast = CRC7_fast(crc, data);
+			r_naive = CRC7_naive(crc, data);
+
+			if (r_fast != r_naive)
+			{
+				cout << "CRC body failure with crc=" << ii << " and data=" << jj << '.' << endl;
+				return 1;
+			}
+		}
+
+		if (CRC7f_fast(crc) != CRC7f_naive(crc))
+		{
+			cout << "Finalization failure with crc=" << ii << '.' << endl;
+			return 1;
+		}
+
+		m_block[ii] = crc;
+	}
+
+#if defined(CAT_HAS_TOYS)
+
+	// Optional timing section (uses libcat)
+	u32 clocks_fast = Clock::MeasureClocks(10000, &timing_fast);
+	u32 clocks_naive = Clock::MeasureClocks(10000, &timing_naive);
+
+	cout << "Fast algorithm takes about " << clocks_fast << " cycles" << endl;
+	cout << "Naive algorithm takes about " << clocks_naive << " cycles" << endl;
+
+#endif
+
+	cout << "They match!" << endl;
+	return 0;
+}
+
 int main(int argc, char **argv)
 {
 	if (!IOLayer::ref()->Startup<AsyncTestTLS>("AsyncFileBench.cfg"))
@@ -529,6 +651,8 @@ int main(int argc, char **argv)
 		FatalStop("Unable to initialize framework!");
 		return 1;
 	}
+
+	RunCRC7Tests();
 
 	CAT_WARN("AsyncFileBench") << "Allocation granularity = " << system_info.AllocationGranularity;
 	CAT_WARN("AsyncFileBench") << "Cache line bytes = " << system_info.CacheLineBytes;

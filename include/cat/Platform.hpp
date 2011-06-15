@@ -34,6 +34,10 @@
 namespace cat {
 
 
+// Used to detect if libcat is included
+#define CAT_HAS_TOYS
+
+
 //// Compiler ////
 
 // Mac OS X additional compilation flags
