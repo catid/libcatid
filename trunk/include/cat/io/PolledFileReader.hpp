@@ -50,7 +50,7 @@
 	For single mechanical disks, this can be set lower without hurting.
 
 	+ Each read from the disks is 32768 bytes.  It's the magic number.
-	In some cases raising the number will not hurt much.
+	In some cases raising the number will help.
 	In most cases lowering this number will hurt.
 */
 

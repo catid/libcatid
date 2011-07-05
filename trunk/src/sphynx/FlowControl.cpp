@@ -39,7 +39,7 @@ FlowControl::FlowControl()
 	_bandwidth_high_limit = 100000000;
 	_bps = _bandwidth_low_limit;
 
-	_rtt = 50;
+	_rtt = 3000;
 
 	_last_bw_update = 0;
 	_available_bw = 0;
@@ -97,8 +97,7 @@ void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 
 	// Tick statistics
 	s32 elapsed = now - _last_stats_update;
-	s32 period = _rtt * 4;
-	if (period < 10) period = 10;
+	s32 period = (_rtt + RTT_FUZZ) * 4;
 	if (elapsed >= period)
 	{
 		u32 rtt_avg = _stats_rtt_count ? (_stats_rtt_acc / _stats_rtt_count) : 0;
@@ -130,7 +129,7 @@ void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 		{
 			// Halve the bandwidth
 			// TODO: Turn off flow control
-			//_bps /= 2;
+			_bps /= 2;
 
 			if (_bps < _bandwidth_low_limit)
 				_bps = _bandwidth_low_limit;
@@ -140,7 +139,7 @@ void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 			// Increase the bandwidth by the goodput over the period
 			if (goodrate >= _bps * 0.8)
 			{
-				_bps += 1000;
+				_bps += 2000;
 
 				if (_bps > _bandwidth_high_limit)
 					_bps = _bandwidth_high_limit;
@@ -156,22 +155,19 @@ void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 
 void FlowControl::OnACK(u32 recv_time, OutgoingMessage *node)
 {
-	// TODO: Do not update RTT for now
-	return;
-
 	// If no retransmission,
-	if (node->ts_firstsend == node->ts_lastsend)
+	//if (node->ts_firstsend == node->ts_lastsend)
 	{
 		u32 rtt = recv_time - node->ts_firstsend;
 
 		_lock.Enter();
 
-		// Update estimate of RTT
-		_rtt = (_rtt * 9 + rtt) / 10;
-
 		// Update statistics
 		_stats_rtt_acc += rtt;
 		_stats_rtt_count++;
+
+		// Update estimate of RTT
+		_rtt = (_rtt * 9 + rtt) / 10;
 
 		_lock.Leave();
 	}

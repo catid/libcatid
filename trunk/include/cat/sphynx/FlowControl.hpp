@@ -89,6 +89,8 @@ class CAT_EXPORT FlowControl
 {
 	Mutex _lock;
 
+	static const u32 RTT_FUZZ = 10;	// Fuzz mainly for worker tick rate
+
 	// BPS low and high limits
 	s32 _bandwidth_low_limit, _bandwidth_high_limit;
 
@@ -120,10 +122,10 @@ public:
 	void OnPacketSend(u32 bytes_with_overhead);
 
 	// Get timeout for reliable message with negative acknowledgment
-	CAT_INLINE u32 GetNACKTimeout(u32 stream) { return _rtt * 3 / 2; }
+	CAT_INLINE u32 GetNACKTimeout(u32 stream) { return (_rtt + RTT_FUZZ) * 3 / 2; }
 
 	// Get timeout for reliable message with no negative acknowledgment
-	CAT_INLINE u32 GetHeadTimeout(u32 stream) { return _rtt * 2; }
+	CAT_INLINE u32 GetHeadTimeout(u32 stream) { return (_rtt + RTT_FUZZ) * 2; }
 
 	// Called when a transport layer tick occurs
 	void OnTick(u32 now, u32 timeout_loss_count);

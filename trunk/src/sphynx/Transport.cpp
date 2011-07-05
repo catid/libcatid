@@ -394,14 +394,12 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 	//	return;
 
 	// For each buffer in the batch,
-	printf("{");
 	for (BatchHead *node = delivery.head; !IsDisconnected() && node; node = node->batch_next)
 	{
 		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
 		u8 *data = GetTrailingBytes(buffer);
 		s32 bytes = buffer->data_bytes;
 		u32 recv_time = buffer->event_msec;
-		printf("(%d)", bytes);
 
 		// And start peeling out messages from the warm gooey center of the packet
 		u32 ack_id = 0, stream = 0;
@@ -545,7 +543,6 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 			data += data_bytes;
 		} // while bytes >= 1
 	} // end for each buffer
-	printf("} ");
 
 	// Deliver any messages that are queued up
 	DeliverQueued(tls);
@@ -1126,6 +1123,7 @@ void Transport::WriteACK()
 
 			for (u32 ii = 0; node && ii < OUT_OF_ORDER_LOOPS; ++ii, node = eos->next)
 			{
+				// Get end of sequence pointer (eos)
 				eos = node->eos;
 
 				// Encode RANGE: START(3) || END(3)
@@ -1693,6 +1691,13 @@ bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s
 	u32 remote_expected = _send_next_remote_expected[stream];
 	u32 ack_id_overhead = 0;
 
+	// If the next ACK-ID is too far ahead of the receiver,
+	if (ack_id - remote_expected >= OUT_OF_ORDER_LIMIT)
+	{
+		CAT_WARN("Transport") << "Next ACK-ID is too far ahead of receiver for stream " << stream;
+		return false;
+	}
+
 	// Calculate ack_id_overhead
 	if (cluster.ack_id != ack_id || cluster.stream != stream)
 		ack_id_overhead = GetACKIDOverhead(ack_id, remote_expected);
@@ -1842,6 +1847,13 @@ bool Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream, s32 remai
 	u32 ack_id = _next_send_id[stream];
 	u32 remote_expected = _send_next_remote_expected[stream];
 	u32 ack_id_overhead = 0;
+
+	// If the next ACK-ID is too far ahead of the receiver,
+	if (ack_id - remote_expected >= OUT_OF_ORDER_LIMIT)
+	{
+		CAT_WARN("Transport") << "Next ACK-ID is too far ahead of receiver (huge) for stream " << stream;
+		return false;
+	}
 
 	// Calculate ack_id_overhead
 	if (cluster.ack_id != ack_id || cluster.stream != stream)
