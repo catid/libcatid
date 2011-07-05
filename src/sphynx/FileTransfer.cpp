@@ -89,6 +89,9 @@ bool FileTransferSource::Read(StreamMode stream, u8 *dest, u32 &bytes, Transport
 
 	QueuedFile *active = _active_list[0];
 
+	// TODO: Testing transfer speed
+	memset(dest, 0, bytes);
+/*
 	if (!active->reader->Read(dest, bytes, bytes))
 	{
 		CAT_WARN("FileTransferSource") << "Reached end of data";
@@ -98,7 +101,7 @@ bool FileTransferSource::Read(StreamMode stream, u8 *dest, u32 &bytes, Transport
 		bytes = 0;
 		return false;
 	}
-
+*/
 	return true;
 }
 
@@ -126,6 +129,7 @@ void FileTransferSource::StartTransfer(QueuedFile *file, Transport *transport)
 	// Grab the message and remove its reference from the file object
 	u8 *msg = file->msg;
 	file->msg = 0;
+
 
 	_active_list.push_back(file);
 
@@ -298,7 +302,8 @@ void FileTransferSink::OnReadHuge(u32 stream, BufferStream data, u32 size)
 {
 	if (!_file)
 	{
-		CAT_WARN("FileTransferSink") << "Ignored huge read when no file transfer was expected";
+		// TODO: Don't waste console time on this
+		//CAT_WARN("FileTransferSink") << "Ignored huge read when no file transfer was expected";
 		return;
 	}
 

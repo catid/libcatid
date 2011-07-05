@@ -394,12 +394,14 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 	//	return;
 
 	// For each buffer in the batch,
+	printf("{");
 	for (BatchHead *node = delivery.head; !IsDisconnected() && node; node = node->batch_next)
 	{
 		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
 		u8 *data = GetTrailingBytes(buffer);
 		s32 bytes = buffer->data_bytes;
 		u32 recv_time = buffer->event_msec;
+		printf("(%d)", bytes);
 
 		// And start peeling out messages from the warm gooey center of the packet
 		u32 ack_id = 0, stream = 0;
@@ -490,7 +492,7 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 			// If reliable message,
 			if (hdr & R_MASK)
 			{
-				CAT_INFO("Transport") << "Got # " << stream << ":" << ack_id;
+				CAT_INANE("Transport") << "Got # " << stream << ":" << ack_id;
 
 				s32 diff = (s32)(ack_id - _next_recv_expected_id[stream]);
 
@@ -543,6 +545,7 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 			data += data_bytes;
 		} // while bytes >= 1
 	} // end for each buffer
+	printf("} ");
 
 	// Deliver any messages that are queued up
 	DeliverQueued(tls);
