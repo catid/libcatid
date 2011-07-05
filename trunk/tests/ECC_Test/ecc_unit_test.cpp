@@ -1332,6 +1332,52 @@ void ECCSpeed()
 }
 
 
+
+void GeneratePassword()
+{
+	FortunaOutput *output = new FortunaOutput;
+
+	cout << "Password: ";
+
+	for (int ii = 0; ii < 16; ++ii)
+	{
+		// 0-25 = A-Z
+		// 26-51 = a-z
+		// 52-61 = 0-9
+		char *symbols = "!@#$%^&*()_~`'"; // 14
+
+		u32 offset = output->GenerateUnbiased(0, 26 + 26 + 10 + 14 - 1);
+		char passch;
+
+		if (offset < 26)
+		{
+			passch = 'A' + offset;
+		}
+		else if (offset < 52)
+		{
+			offset -= 26;
+			passch = 'a' + offset;
+		}
+		else if (offset < 62)
+		{
+			offset -= 26 + 26;
+			passch = '0' + offset;
+		}
+		else
+		{
+			offset -= 62;
+			passch = symbols[offset];
+		}
+
+		cout << passch;
+	}
+
+	cout << endl;
+
+	delete output;
+}
+
+
 int main()
 {
 	CommonLayer layer;
@@ -1344,6 +1390,22 @@ int main()
 		cout << "FAILURE: Unable to initialize the Fortuna factory" << endl;
 		return 1;
 	}
+
+	GeneratePassword();
+	GeneratePassword();
+	GeneratePassword();
+	GeneratePassword();
+	GeneratePassword();
+	GeneratePassword();
+	GeneratePassword();
+	GeneratePassword();
+	GeneratePassword();
+	GeneratePassword();
+	GeneratePassword();
+	GeneratePassword();
+	GeneratePassword();
+	GeneratePassword();
+	GeneratePassword();
 
 	//GenerateCurveParameterC();
 

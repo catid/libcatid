@@ -39,7 +39,7 @@ FlowControl::FlowControl()
 	_bandwidth_high_limit = 100000000;
 	_bps = _bandwidth_low_limit;
 
-	_rtt = 3000;
+	_rtt = 50;
 
 	_last_bw_update = 0;
 	_available_bw = 0;
@@ -106,6 +106,8 @@ void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 		u32 goodput = _stats_goodput;
 		u32 goodrate = goodput * 1000 / period;
 
+		// TODO: Disable RTT bump for now
+/*
 		// If all of the reliable messages were retransmissions but data was
 		// delivered successfully,
 		if (rtt_avg == 0 && goodput > 0)
@@ -115,6 +117,7 @@ void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 
 			CAT_FATAL("FlowControl") << "Doubled RTT since RTTavg == 0 && goodput > 0";
 		}
+*/
 
 		_last_stats_update = now;
 		_stats_rtt_acc = 0;
@@ -126,7 +129,8 @@ void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 		if (loss_count >= 2)
 		{
 			// Halve the bandwidth
-			_bps /= 2;
+			// TODO: Turn off flow control
+			//_bps /= 2;
 
 			if (_bps < _bandwidth_low_limit)
 				_bps = _bandwidth_low_limit;
@@ -143,7 +147,8 @@ void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 			}
 		}
 
-		CAT_FATAL("FlowControl") << "Statistics: RTTavg=" << rtt_avg << " losses=" << loss_count << " goodput=" << goodput << " goodrate=" << goodrate << " BPS=" << _bps << " RTT=" << _rtt;
+		if (goodput > 0)
+			CAT_FATAL("FlowControl") << "Statistics: RTTavg=" << rtt_avg << " losses=" << loss_count << " goodput=" << goodput << " goodrate=" << goodrate << " BPS=" << _bps << " RTT=" << _rtt;
 	}
 
 	_lock.Leave();
@@ -151,6 +156,9 @@ void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 
 void FlowControl::OnACK(u32 recv_time, OutgoingMessage *node)
 {
+	// TODO: Do not update RTT for now
+	return;
+
 	// If no retransmission,
 	if (node->ts_firstsend == node->ts_lastsend)
 	{

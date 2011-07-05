@@ -81,7 +81,7 @@ void GameConnexion::OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count
 
 		if (msgs[ii].huge_fragment)
 		{
-			CAT_WARN("Connexion") << "Huge read stream " << msgs[ii].stream << " of size = " << bytes;
+			CAT_INFO("Connexion") << "Huge read stream " << msgs[ii].stream << " of size = " << bytes;
 
 			_fsink.OnReadHuge(msgs[ii].stream, msg, bytes);
 		}

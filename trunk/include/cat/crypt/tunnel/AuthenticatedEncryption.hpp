@@ -151,7 +151,6 @@ public:
 };
 
 
-
 } // namespace cat
 
 #endif // CAT_AUTHENTICATED_ENCRYPTION_HPP
