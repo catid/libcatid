@@ -86,9 +86,6 @@ void FlowControl::OnPacketSend(u32 bytes_with_overhead)
 	_lock.Leave();
 }
 
-static u32 trip_ii = 0;
-static u32 bw_ii = 2;
-
 void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 {
 	_lock.Enter();
@@ -103,7 +100,7 @@ void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 		u32 rtt_avg = _stats_rtt_count ? (_stats_rtt_acc / _stats_rtt_count) : 0;
 		u32 loss_count = _stats_loss_count;
 		u32 goodput = _stats_goodput;
-		u32 goodrate = goodput * 1000 / period;
+		u32 goodrate = (u32)((u64)goodput * 1000 / elapsed);
 
 		// TODO: Disable RTT bump for now
 /*
@@ -128,7 +125,6 @@ void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 		if (loss_count >= 2)
 		{
 			// Halve the bandwidth
-			// TODO: Turn off flow control
 			_bps /= 2;
 
 			if (_bps < _bandwidth_low_limit)
@@ -139,7 +135,14 @@ void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 			// Increase the bandwidth by the goodput over the period
 			if (goodrate >= _bps * 0.8)
 			{
-				_bps += 2000;
+				static const s32 MIN_AIMD_INCREMENT = 2000;
+
+				s32 increment = goodrate / 20;
+
+				if (increment < MIN_AIMD_INCREMENT)
+					increment = MIN_AIMD_INCREMENT;
+
+				_bps += increment;
 
 				if (_bps > _bandwidth_high_limit)
 					_bps = _bandwidth_high_limit;
@@ -156,7 +159,7 @@ void FlowControl::OnTick(u32 now, u32 timeout_loss_count)
 void FlowControl::OnACK(u32 recv_time, OutgoingMessage *node)
 {
 	// If no retransmission,
-	//if (node->ts_firstsend == node->ts_lastsend)
+	if (node->ts_firstsend == node->ts_lastsend)
 	{
 		u32 rtt = recv_time - node->ts_firstsend;
 

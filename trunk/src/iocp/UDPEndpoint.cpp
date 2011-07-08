@@ -51,6 +51,8 @@ void UDPEndpoint::OnShutdownRequest()
 
 bool UDPEndpoint::OnZeroReferences()
 {
+	IOThreadPools::ref()->DissociatePrivate(_pool);
+
 	return true;
 }
 
@@ -58,6 +60,7 @@ UDPEndpoint::UDPEndpoint()
 {
     _port = 0;
     _socket = SOCKET_ERROR;
+	_pool = 0;
 }
 
 UDPEndpoint::~UDPEndpoint()
@@ -171,7 +174,8 @@ bool UDPEndpoint::Bind(bool onlySupportIPv4, Port port, bool ignoreUnreachable, 
 	_buffers_posted = SIMULTANEOUS_READS;
 
 	// Associate with IOThreadPools
-	if (!IOThreadPools::ref()->AssociatePrivate(this))
+	_pool = IOThreadPools::ref()->AssociatePrivate(this);
+	if (!_pool)
 	{
 		CAT_FATAL("UDPEndpoint") << "Unable to associate with IOThreadPools";
 		CloseSocket(s);
