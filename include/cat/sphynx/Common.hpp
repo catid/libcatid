@@ -39,6 +39,8 @@
 // TODO: make debug output optional with preprocessor flag
 // TODO: evaluate all places that allocate memory to see if retry would help
 // TODO: vulnerable to resource starvation attacks?
+// TODO: fix a bug that eats all the buffers when none are available
+// TODO: fix a bug that drops data on the floor when it arrives out of order
 
 #define CAT_TRANSPORT_RANDOMIZE_LENGTH /* Add extra no-op bytes to the end of each datagram to mask true length */
 
