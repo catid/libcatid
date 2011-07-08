@@ -56,9 +56,9 @@ bool IOLayer::OnStartup(IWorkerTLSBuilder *tls_builder, const char *settings_fil
 	}
 
 	// Start the IO threads
-	if (!IOThreads::ref()->Startup())
+	if (!IOThreadPools::ref()->Startup())
 	{
-		CAT_FATAL("IOLayer") << "IOThreads subsystem failed to initialize";
+		CAT_FATAL("IOLayer") << "IOThreadPools subsystem failed to initialize";
 		return false;
 	}
 
@@ -68,7 +68,7 @@ bool IOLayer::OnStartup(IWorkerTLSBuilder *tls_builder, const char *settings_fil
 void IOLayer::OnShutdown(bool watched_shutdown)
 {
 	// Terminate IO threads
-	IOThreads::ref()->Shutdown();
+	IOThreadPools::ref()->Shutdown();
 
 	// Terminate sockets
 	CleanupSockets();

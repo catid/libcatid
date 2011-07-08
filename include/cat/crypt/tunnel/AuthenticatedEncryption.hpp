@@ -113,7 +113,7 @@ public:
     static const int IV_BITS = IV_BYTES * 8;
     static const u32 IV_MSB = (1 << IV_BITS);
     static const u32 IV_MASK = (IV_MSB - 1);
-    static const u32 IV_FUZZ = 0xCA7DCA7D;
+    static const u32 IV_FUZZ = 0x9F286AD7;
 
 protected:
     bool SetKey(int KeyBytes, Skein *key, bool is_initiator, const char *key_name);

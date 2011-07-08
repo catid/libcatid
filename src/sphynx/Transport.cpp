@@ -1823,7 +1823,7 @@ bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s
 		sent_bytes += data_bytes_to_copy;
 		bytes_to_send -= data_bytes_to_copy;
 
-		CAT_INFO("Transport") << "Wrote " << stream << ": bytes=" << data_bytes_to_copy << " ack_id=" << ack_id;
+		CAT_FATAL("Transport") << "Wrote " << stream << ": bytes=" << data_bytes_to_copy << " ack_id=" << ack_id;
 
 	} while (bytes_to_send > 0); // end while sending message fragments
 

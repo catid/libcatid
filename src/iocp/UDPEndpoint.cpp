@@ -170,10 +170,10 @@ bool UDPEndpoint::Bind(bool onlySupportIPv4, Port port, bool ignoreUnreachable, 
 	AddRef(SIMULTANEOUS_READS + 1);
 	_buffers_posted = SIMULTANEOUS_READS;
 
-	// Associate with IOThreads
-	if (!IOThreads::ref()->Associate(this))
+	// Associate with IOThreadPools
+	if (!IOThreadPools::ref()->AssociatePrivate(this))
 	{
-		CAT_FATAL("UDPEndpoint") << "Unable to associate with IOThreads";
+		CAT_FATAL("UDPEndpoint") << "Unable to associate with IOThreadPools";
 		CloseSocket(s);
 		_socket = SOCKET_ERROR;
 		ReleaseRef(SIMULTANEOUS_READS + 1); // Release temporary references keeping the object alive until function returns
@@ -246,7 +246,7 @@ u32 UDPEndpoint::PostReads(u32 count)
 	if (IsShutdown())
 		return 0;
 
-	IAllocator *allocator = IOThreads::ref()->GetRecvAllocator();
+	IAllocator *allocator = IOThreadPools::ref()->GetRecvAllocator();
 
 	BatchSet set;
 	u32 acquire_count = allocator->AcquireBatch(set, count);
@@ -386,7 +386,7 @@ void UDPEndpoint::ReleaseRecvBuffers(BatchSet buffers, u32 count)
 		--count;
 	}
 
-	IOThreads::ref()->GetRecvAllocator()->ReleaseBatch(buffers);
+	IOThreadPools::ref()->GetRecvAllocator()->ReleaseBatch(buffers);
 
 	// Release one reference for each buffer
 	ReleaseRef(count);
