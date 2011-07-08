@@ -422,6 +422,8 @@ IOThreadPools::~IOThreadPools()
 
 bool IOThreadPools::Startup()
 {
+	AutoMutex lock(_lock);
+
 	// If startup was previously attempted,
 	if (_recv_allocator)
 	{
@@ -442,6 +444,8 @@ bool IOThreadPools::Startup()
 
 bool IOThreadPools::Shutdown()
 {
+	AutoMutex lock(_lock);
+
 	// If allocator was created,
 	if (_recv_allocator)
 	{
@@ -458,8 +462,10 @@ bool IOThreadPools::Shutdown()
 	return _shared_pool.Shutdown();
 }
 
-bool IOThreadPools::AssociatePrivate(IOThreadsAssociator *associator)
+IOThreadPool *IOThreadPools::AssociatePrivate(IOThreadsAssociator *associator)
 {
+	AutoMutex lock(_lock);
+
 	_private_pools.push_front(IOThreadPool());
 
 	IOThreadPool &pool = _private_pools.front();
@@ -467,10 +473,30 @@ bool IOThreadPools::AssociatePrivate(IOThreadsAssociator *associator)
 	if (!pool.Startup(1) || !pool.Associate(associator))
 	{
 		_private_pools.pop_front();
-		return false;
+		return 0;
 	}
 
-	return true;
+	return &pool;
+}
+
+bool IOThreadPools::DissociatePrivate(IOThreadPool *pool)
+{
+	AutoMutex lock(_lock);
+
+	// For each pool,
+	for (pools_iter ii = _private_pools.begin(); ii != _private_pools.end(); ++ii)
+	{
+		if (pool == &*ii)
+		{
+			bool success = pool->Shutdown();
+
+			_private_pools.erase(ii);
+
+			return success;
+		}
+	}
+
+	return false;
 }
 
 bool IOThreadPools::AssociateShared(IOThreadsAssociator *associator)

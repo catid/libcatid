@@ -179,6 +179,7 @@ class CAT_EXPORT IOThreadPools
 	IOThreadImports _imports;
 	BufferAllocator *_recv_allocator;
 
+	Mutex _lock;
 	std::list<IOThreadPool> _private_pools;
 	typedef std::list<IOThreadPool>::iterator pools_iter;
 
@@ -196,7 +197,9 @@ public:
 	bool Startup();
 	bool Shutdown();
 
-	bool AssociatePrivate(IOThreadsAssociator *associator);
+	IOThreadPool *AssociatePrivate(IOThreadsAssociator *associator);
+	bool DissociatePrivate(IOThreadPool *pool);
+
 	bool AssociateShared(IOThreadsAssociator *associator);
 };
 

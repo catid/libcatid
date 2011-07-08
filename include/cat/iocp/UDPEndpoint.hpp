@@ -74,6 +74,7 @@ class CAT_EXPORT UDPEndpoint : public WatchedRefObject, public IOThreadsAssociat
 	Socket _socket;
 	Port _port;
 	bool _ipv6;
+	IOThreadPool *_pool;
 
 	bool PostRead(RecvBuffer *buffer);
 
