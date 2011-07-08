@@ -33,6 +33,92 @@ using namespace std;
 using namespace cat;
 using namespace sphynx;
 
+#if defined(CAT_TRANSPORT_RANDOMIZE_LENGTH)
+
+// LUT for unif->exp RV with a mean of 8 bytes
+static const u8 CAT_RAND_PAD_EXP[256] = {
+	44, 38, 35, 33, 31, 30, 28, 27, 26, 25, 25, 24, 23, 23, 22, 22, 21, 21, 20,
+	20, 20, 19, 19, 18, 18, 18, 17, 17, 17, 17, 16, 16, 16, 16, 15, 15, 15, 15,
+	15, 14, 14, 14, 14, 14, 13, 13, 13, 13, 13, 13, 12, 12, 12, 12, 12, 12, 12,
+	11, 11, 11, 11, 11, 11, 11, 10, 10, 10, 10, 10, 10, 10, 10, 10, 9, 9, 9, 9,
+	9, 9, 9, 9, 9, 9, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 7, 7, 7, 7, 7, 7, 7, 7,
+	7, 7, 7, 7, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 5, 5, 5, 5, 5, 5, 5,
+	5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+	4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2,
+	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1,
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0
+};
+
+bool Transport::InitializeRandPad(AuthenticatedEncryption &auth_enc)
+{
+	// Key the random length generator
+	u8 material[32];
+	if (!auth_enc.GenerateKey("kernel32.dll", material, sizeof(material)))
+		return false;
+
+	ChaChaKey key;
+	key.Set(material, sizeof(material));
+
+	_rand_pad_csprng.ReKey(key, 7);
+
+	_rand_pad_iv = 0;
+	_rand_pad_index = 64; // indicate that regeneration is needed
+
+	return true;
+}
+
+bool Transport::RandPadDatagram(SendBuffer *buffer, u32 &data_bytes)
+{
+	// If it is time to generate more random length padding numbers,
+	if (_rand_pad_index >= sizeof(_rand_pad_source))
+	{
+		_rand_pad_index = 0;
+
+		// Generate the next keystream
+		_rand_pad_csprng.GenerateKeyStream((u32*)&_rand_pad_source);
+
+		// Convert keystream bytes into exponentially-distributed lengths with mean of 8
+		for (int ii = 0; ii < 64; ii += 2)
+			_rand_pad_source[ii] = CAT_RAND_PAD_EXP[_rand_pad_source[ii]];
+	}
+
+	// Determine desired padding
+	u8 pad = _rand_pad_source[_rand_pad_index++];
+	u8 rval = _rand_pad_source[_rand_pad_index++];
+	if (pad + data_bytes > _max_payload_bytes)
+		pad = _max_payload_bytes - data_bytes;
+
+	// If any padding is to be added,
+	if (pad > 0)
+	{
+		// Resize packet to include space for padding
+		u8 *pkt = SendBuffer::Resize(buffer, data_bytes + pad + SPHYNX_OVERHEAD);
+		if (!pkt)
+		{
+			CAT_WARN("Transport") << "Ran out of memory resizing message for rand pad";
+			return false;
+		}
+
+		pkt[data_bytes] = HDR_NOP;
+
+		// Write random value to remaining bytes
+		memset(pkt + data_bytes + 1, rval, pad - 1);
+
+		// Update parameters
+		buffer = SendBuffer::Promote(pkt);
+		data_bytes += pad;
+	}
+
+	return true;
+}
+
+#endif // CAT_TRANSPORT_RANDOMIZE_LENGTH
+
+
+//// SendQueue
+
 CAT_INLINE void SendQueue::FreeMemory()
 {
 	for (OutgoingMessage *node = head, *next; node; node = next)
@@ -332,7 +418,17 @@ bool Transport::InitializeTransportSecurity(bool is_initiator, AuthenticatedEncr
 	memcpy(_send_next_remote_expected, _next_send_id, sizeof(_send_next_remote_expected));
 
 	// Randomize next recv ACK-ID
-	return auth_enc.GenerateKey(!is_initiator ? "ws2_32.dll" : "winsock.ocx", _next_recv_expected_id, sizeof(_next_recv_expected_id));
+	if (!auth_enc.GenerateKey(!is_initiator ? "ws2_32.dll" : "winsock.ocx", _next_recv_expected_id, sizeof(_next_recv_expected_id)))
+		return false;
+
+#if defined(CAT_TRANSPORT_RANDOMIZE_LENGTH)
+
+	if (!InitializeRandPad(auth_enc))
+		return false;
+
+#endif // CAT_TRANSPORT_RANDOMIZE_LENGTH
+
+	return true;
 }
 
 void Transport::TickTransport(SphynxTLS *tls, u32 now)
@@ -389,7 +485,7 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 	tls->delivery_queue_depth = 0;
 	tls->free_list_count = 0;
 
-	// TODO: Remove this packet loss generator
+	// Simulate 5% packetloss
 	//if (tls->csprng->GenerateUnbiased(0, 19) == 2)
 	//	return;
 
@@ -487,7 +583,7 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 				break;
 			}
 
-			// If reliable message,
+			// If reliable message,f
 			if (hdr & R_MASK)
 			{
 				CAT_INANE("Transport") << "Got # " << stream << ":" << ack_id;
@@ -537,6 +633,12 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 					OnACK(recv_time, data, data_bytes);
 				else if (super_opcode == SOP_INTERNAL)
 					OnInternal(tls, recv_time, data, data_bytes);
+			}
+			else if (hdr == HDR_NOP)
+			{
+				// Abort processing this message on first NOP
+				CAT_INANE("Transport") << "Aborted processing on NOP";
+				break;
 			}
 
 			bytes -= data_bytes;
@@ -852,7 +954,7 @@ bool Transport::WriteOOB(u8 msg_opcode, const void *msg_data, u32 msg_bytes, Sup
 	pkt[offset++] = msg_opcode;
 	memcpy(pkt + offset, msg_data, msg_bytes);
 
-	bool success = WriteDatagrams(pkt, offset + msg_bytes);
+	bool success = WriteDatagram(pkt, offset + msg_bytes);
 
 	_send_cluster_lock.Enter();
 	_send_flow.OnPacketSend(_udpip_bytes + needed);
@@ -1308,7 +1410,7 @@ bool Transport::PostMTUProbe(SphynxTLS *tls, u32 mtu)
 	pkt[2] = IOP_C2S_MTU_PROBE;
 	tls->csprng->Generate(pkt + 3, data_bytes + 1);
 
-	bool success = WriteDatagrams(pkt, payload_bytes);
+	bool success = WriteDatagram(pkt, payload_bytes);
 
 	_send_cluster_lock.Enter();
 	_send_flow.OnPacketSend(mtu);

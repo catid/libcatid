@@ -43,14 +43,6 @@ namespace sphynx {
 // Base class for a Sphynx client
 class CAT_EXPORT Client : public UDPEndpoint, public Transport
 {
-	static const int HANDSHAKE_TICK_RATE = 100; // milliseconds
-	static const int INITIAL_HELLO_POST_INTERVAL = 200; // milliseconds
-	static const int CONNECT_TIMEOUT = 6000; // milliseconds
-	static const u32 MTU_PROBE_INTERVAL = 8000; // seconds
-	static const int CLIENT_THREAD_KILL_TIMEOUT = 10000; // seconds
-	static const int SILENCE_LIMIT = 4357; // Time silent before sending a keep-alive (0-length unordered reliable message), milliseconds
-
-	static const int SESSION_KEY_BYTES = 32;
 	char _session_key[SESSION_KEY_BYTES];
 
 	KeyAgreementInitiator _key_agreement_initiator;
@@ -77,18 +69,13 @@ class CAT_EXPORT Client : public UDPEndpoint, public Transport
 	u32 _next_sync_time;
 	u32 _sync_attempts;
 
-	// Clock Synchronization
-	static const int TIME_SYNC_INTERVAL = 10000; // Normal time synch interval, milliseconds
-	static const int TIME_SYNC_FAST_COUNT = 20; // Number of fast measurements at the start, milliseconds
-	static const int TIME_SYNC_FAST = 2000; // Interval during fast measurements, milliseconds
-	static const int MAX_TS_SAMPLES = 16; // Maximum timestamp sample memory
-	static const int MIN_TS_SAMPLES = 1; // Minimum number of timestamp samples
-
 	struct TimesPingSample {
 		u32 rtt;
 		s32 delta;
-	} _ts_samples[MAX_TS_SAMPLES];
+	} _ts_samples[TS_MAX_SAMPLES];
 	u32 _ts_sample_count, _ts_next_index;
+
+	u32 _ts_delta; // Milliseconds clock difference between server and client: server_time = client_time + _ts_delta
 
 	void UpdateTimeSynch(u32 rtt, s32 delta);
 
@@ -119,6 +106,24 @@ public:
 	// Once you call Connect(), the object may be deleted at any time.  If you want to keep a reference to it, AddRef() before calling
 	bool Connect(SphynxTLS *tls, const char *hostname, Port port, TunnelPublicKey &public_key, const char *session_key);
 	bool Connect(SphynxTLS *tls, const NetAddr &addr, TunnelPublicKey &public_key, const char *session_key);
+
+	// Current local time
+	CAT_INLINE u32 getLocalTime() { return Clock::msec(); }
+
+	// Convert from local time to server time
+	CAT_INLINE u32 toServerTime(u32 local_time) { return local_time + _ts_delta; }
+
+	// Convert from server time to local time
+	CAT_INLINE u32 fromServerTime(u32 server_time) { return server_time - _ts_delta; }
+
+	// Current server time
+	CAT_INLINE u32 getServerTime() { return toServerTime(getLocalTime()); }
+
+	// Compress timestamp on client for delivery to server; byte order must be fixed before writing to message
+	CAT_INLINE u16 encodeClientTimestamp(u32 local_time) { return (u16)toServerTime(local_time); }
+
+	// Decompress a timestamp on client from server
+	CAT_INLINE u32 decodeServerTimestamp(u32 local_time, u16 timestamp) { return fromServerTime(BiasedReconstructCounter<16>(toServerTime(local_time), TS_COMPRESS_FUTURE_TOLERANCE, timestamp)); }
 
 protected:
 	virtual void OnShutdownRequest();

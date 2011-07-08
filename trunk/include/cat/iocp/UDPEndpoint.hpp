@@ -52,6 +52,9 @@
 	will not want to accept unreachable messages.
 */
 
+// TODO: Disabled this for now to simplify a bug hunt
+//#define CAT_NOBUFFER_FAILSAFE /* Attempt to post more reads if there are none */
+
 namespace cat {
 
 

@@ -31,6 +31,8 @@
 #include <string.h>
 using namespace cat;
 
+static const int CAT_CHACHA_ROUNDS = 14; // Multiple of 2
+
 
 //// ChaChaKey
 
@@ -84,13 +86,14 @@ void ChaChaOutput::GenerateKeyStream(u32 *out_words)
 	for (int ii = 0; ii < 16; ++ii)
 		x[ii] = state[ii];
 
-	// Mix state for 12 rounds
-	for (int round = 12; round > 0; round -= 2)
+	// For each round,
+	for (int round = CAT_CHACHA_ROUNDS; round > 0; round -= 2)
 	{
 		QUARTERROUND(0, 4, 8,  12)
 		QUARTERROUND(1, 5, 9,  13)
 		QUARTERROUND(2, 6, 10, 14)
 		QUARTERROUND(3, 7, 11, 15)
+
 		QUARTERROUND(0, 5, 10, 15)
 		QUARTERROUND(1, 6, 11, 12)
 		QUARTERROUND(2, 7, 8,  13)
@@ -102,7 +105,12 @@ void ChaChaOutput::GenerateKeyStream(u32 *out_words)
 		out_words[jj] = getLE(x[jj] + state[jj]);
 }
 
-ChaChaOutput::ChaChaOutput(const ChaChaKey &key, u64 iv)
+ChaChaOutput::~ChaChaOutput()
+{
+	CAT_OBJCLR(state);
+}
+
+void ChaChaOutput::ReKey(const ChaChaKey &key, u64 iv)
 {
 	for (int ii = 0; ii < 12; ++ii)
 		state[ii] = key.state[ii];
@@ -114,11 +122,6 @@ ChaChaOutput::ChaChaOutput(const ChaChaKey &key, u64 iv)
 	// Initialize IV
 	state[14] = (u32)iv;
 	state[15] = (u32)(iv >> 32);
-}
-
-ChaChaOutput::~ChaChaOutput()
-{
-	CAT_OBJCLR(state);
 }
 
 void ChaChaOutput::Crypt(const void *in_bytes, void *out_bytes, int bytes)

@@ -227,12 +227,6 @@ class SphynxPINVOKE {
   [DllImport("Sphynx", EntryPoint="CSharp_EasySphynxClient_encodeClientTimestamp")]
   public static extern ushort EasySphynxClient_encodeClientTimestamp(HandleRef jarg1, uint jarg2);
 
-  [DllImport("Sphynx", EntryPoint="CSharp_EasySphynxClient_decodeClientTimestamp")]
-  public static extern uint EasySphynxClient_decodeClientTimestamp(HandleRef jarg1, uint jarg2, ushort jarg3);
-
-  [DllImport("Sphynx", EntryPoint="CSharp_EasySphynxClient_encodeServerTimestamp")]
-  public static extern ushort EasySphynxClient_encodeServerTimestamp(HandleRef jarg1, uint jarg2);
-
   [DllImport("Sphynx", EntryPoint="CSharp_EasySphynxClient_decodeServerTimestamp")]
   public static extern uint EasySphynxClient_decodeServerTimestamp(HandleRef jarg1, uint jarg2, ushort jarg3);
 

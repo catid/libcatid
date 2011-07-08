@@ -38,11 +38,9 @@
 // TODO: periodically reset the average trip time to avoid skewing statistics
 // TODO: make debug output optional with preprocessor flag
 // TODO: evaluate all places that allocate memory to see if retry would help
-// TODO: add 20ms x 2 fuzz factor in retransmits
-// TODO: flow control
-// TODO: add random bytes to length of each packet under MTU to mask function
-// TODO: do something with the extra two bits in the new timestamp field
-// TODO: vulnerable to resource starvation attacks
+// TODO: vulnerable to resource starvation attacks?
+
+#define CAT_TRANSPORT_RANDOMIZE_LENGTH /* Add extra no-op bytes to the end of each datagram to mask true length */
 
 #if defined(CAT_WORD_32)
 #define CAT_PACK_TRANSPORT_STATE_STRUCTURES /* For 32-bit version, this allows fragments to fit in 32 bytes */
@@ -73,6 +71,23 @@ static const int PRIVATE_KEY_BYTES = 32;
 static const int CHALLENGE_BYTES = PUBLIC_KEY_BYTES;
 static const int ANSWER_BYTES = PUBLIC_KEY_BYTES*2;
 static const int SPHYNX_OVERHEAD = AuthenticatedEncryption::OVERHEAD_BYTES;
+
+// Client constants
+static const int SESSION_KEY_BYTES = 32;
+static const int HANDSHAKE_TICK_RATE = 100; // milliseconds
+static const int INITIAL_HELLO_POST_INTERVAL = 200; // milliseconds
+static const int CONNECT_TIMEOUT = 6000; // milliseconds
+static const u32 MTU_PROBE_INTERVAL = 8000; // seconds
+static const int CLIENT_THREAD_KILL_TIMEOUT = 10000; // seconds
+static const int SILENCE_LIMIT = 4357; // Time silent before sending a keep-alive (0-length unordered reliable message), milliseconds
+
+// Clock Synchronization
+static const int TS_COMPRESS_FUTURE_TOLERANCE = 1000; // Milliseconds of time synch error before errors may occur in timestamp compression
+static const int TS_INTERVAL = 10000; // Normal time synch interval, milliseconds
+static const int TS_FAST_COUNT = 20; // Number of fast measurements at the start, milliseconds
+static const int TS_FAST_PERIOD = 2000; // Interval during fast measurements, milliseconds
+static const int TS_MAX_SAMPLES = 16; // Maximum timestamp sample memory
+static const int TS_MIN_SAMPLES = 1; // Minimum number of timestamp samples
 
 // Handshake types
 enum HandshakeType

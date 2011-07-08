@@ -79,6 +79,15 @@ public:
 	CAT_INLINE u16 GetFloodKey() { return _flood_key; }
 	CAT_INLINE u32 GetWorkerID() { return _worker_id; }
 
+	// Current local time
+	CAT_INLINE u32 getLocalTime() { return Clock::msec(); }
+
+	// Decompress a timestamp on server from client; byte order must be fixed before decoding
+	CAT_INLINE u32 decodeClientTimestamp(u32 local_time, u16 timestamp) { return BiasedReconstructCounter<16>(local_time, TS_COMPRESS_FUTURE_TOLERANCE, timestamp); }
+
+	// Compress timestamp on server for delivery to client; byte order must be fixed before writing to message
+	CAT_INLINE u16 encodeServerTimestamp(u32 local_time) { return (u16)local_time; }
+
 protected:
 	template<class T> CAT_INLINE T *GetServer() { return reinterpret_cast<T*>( _parent ); }
 

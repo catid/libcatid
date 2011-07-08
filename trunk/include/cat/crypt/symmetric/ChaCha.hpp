@@ -129,14 +129,17 @@ class CAT_EXPORT ChaChaOutput
 {
 	u32 state[16];
 
-	void GenerateKeyStream(u32 *out);
-
 public:
-	ChaChaOutput(const ChaChaKey &key, u64 iv);
 	~ChaChaOutput();
+
+	// Re-key the ChaCha cipher
+	void ReKey(const ChaChaKey &key, u64 iv);
 
 	// Message with any number of bytes
 	void Crypt(const void *in, void *out, int bytes);
+
+	// Generate 16 words of keystream
+	void GenerateKeyStream(u32 out[16]);
 };
 
 
