@@ -306,7 +306,8 @@ bool AuthenticatedEncryption::Decrypt(u8 *buffer, u32 buf_bytes)
 #endif
 
     // Decrypt the message and the MAC
-	ChaChaOutput remote_cipher(remote_cipher_key, iv);
+	ChaChaOutput remote_cipher;
+	remote_cipher.ReKey(remote_cipher_key, iv);
     remote_cipher.Crypt(buffer, buffer, buf_bytes - IV_BYTES);
 
     // Generate the expected MAC given the decrypted message and full IV
@@ -374,6 +375,11 @@ bool AuthenticatedEncryption::Encrypt(u64 &next_iv, u8 *buffer, u32 buf_bytes)
 	u32 msg_bytes = buf_bytes - OVERHEAD_BYTES;
     u8 *overhead = buffer + buf_bytes - OVERHEAD_BYTES;
 
+	if (msg_bytes > 2000)
+	{
+		int x = 0;
+	}
+
 	// Outgoing IV increments by one each time, and starts one ahead of remotely generated IV
 	u64 iv = next_iv;
 	next_iv = iv + 1;
@@ -407,7 +413,8 @@ bool AuthenticatedEncryption::Encrypt(u64 &next_iv, u8 *buffer, u32 buf_bytes)
 #endif
 
     // Encrypt the message and MAC
-	ChaChaOutput local_cipher(local_cipher_key, iv);
+	ChaChaOutput local_cipher;
+	local_cipher.ReKey(local_cipher_key, iv);
     local_cipher.Crypt(buffer, buffer, msg_bytes + MAC_BYTES);
 
     // Obfuscate the truncated IV

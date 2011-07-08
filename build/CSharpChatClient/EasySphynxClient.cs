@@ -113,16 +113,6 @@ public class EasySphynxClient : IDisposable {
     return ret;
   }
 
-  public uint decodeClientTimestamp(uint local_time, ushort timestamp) {
-    uint ret = SphynxPINVOKE.EasySphynxClient_decodeClientTimestamp(swigCPtr, local_time, timestamp);
-    return ret;
-  }
-
-  public ushort encodeServerTimestamp(uint local_time) {
-    ushort ret = SphynxPINVOKE.EasySphynxClient_encodeServerTimestamp(swigCPtr, local_time);
-    return ret;
-  }
-
   public uint decodeServerTimestamp(uint local_time, ushort timestamp) {
     uint ret = SphynxPINVOKE.EasySphynxClient_decodeServerTimestamp(swigCPtr, local_time, timestamp);
     return ret;

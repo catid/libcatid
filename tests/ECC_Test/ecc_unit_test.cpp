@@ -1258,7 +1258,8 @@ void ChaChaOnce()
 {
 	char in[1500], out[1500];
 
-	ChaChaOutput cc_test(cc_test_key, 0x0123456701234567LL);
+	ChaChaOutput cc_test;
+	cc_test.ReKey(cc_test_key, 0x0123456701234567LL);
 	cc_test.Crypt(in, out, cc_bytes);
 }
 

@@ -295,11 +295,11 @@ void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)
 				WriteTimePing();
 
 				// Increase sync interval after the first few data points
-				if (_sync_attempts >= TIME_SYNC_FAST_COUNT)
-					_next_sync_time = now + TIME_SYNC_INTERVAL;
+				if (_sync_attempts >= TS_FAST_COUNT)
+					_next_sync_time = now + TS_INTERVAL;
 				else
 				{
-					_next_sync_time = now + TIME_SYNC_FAST;
+					_next_sync_time = now + TS_FAST_PERIOD;
 					++_sync_attempts;
 				}
 			}
@@ -349,7 +349,7 @@ void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)
 			{
 				WriteTimePing();
 
-				_next_sync_time = now + TIME_SYNC_INTERVAL;
+				_next_sync_time = now + TS_INTERVAL;
 			}
 
 			// If no packets have been received,
@@ -590,11 +590,8 @@ bool Client::WriteDatagrams(const BatchSet &buffers, u32 count)
 		u8 *msg_data = GetTrailingBytes(buffer);
 		u32 msg_bytes = buffer->GetBytes();
 
-		msg_bytes += SPHYNX_OVERHEAD;
-
 		// Encrypt the message
 		_auth_enc.Encrypt(iv, msg_data, msg_bytes);
-		buffer->SetBytes(msg_bytes);
 
 		//INFO("Client") << "Transmitting datagram with " << msg_bytes << " data bytes";
 	}
@@ -746,7 +743,7 @@ void Client::ConnectFail(SphynxError err)
 void Client::UpdateTimeSynch(u32 rtt, s32 delta)
 {
 	// Increment the sample count if we haven't exhausted the array space yet
-	if (_ts_sample_count < MAX_TS_SAMPLES)
+	if (_ts_sample_count < TS_MAX_SAMPLES)
 		_ts_sample_count++;
 
 	// Insert sample
@@ -754,12 +751,12 @@ void Client::UpdateTimeSynch(u32 rtt, s32 delta)
 	_ts_samples[_ts_next_index].rtt = rtt;
 
 	// Increment write address to next oldest entry or next empty space
-	_ts_next_index = (_ts_next_index + 1) % MAX_TS_SAMPLES;
+	_ts_next_index = (_ts_next_index + 1) % TS_MAX_SAMPLES;
 
-	// Find the lowest 25% RTT samples >= MIN_TS_SAMPLES
-	TimesPingSample *BestSamples[MAX_TS_SAMPLES / 4 + MIN_TS_SAMPLES];
+	// Find the lowest 25% RTT samples >= TS_MIN_SAMPLES
+	TimesPingSample *BestSamples[TS_MAX_SAMPLES / 4 + TS_MIN_SAMPLES];
 	u32 num_samples = _ts_sample_count / 4;
-	if (num_samples < MIN_TS_SAMPLES) num_samples = MIN_TS_SAMPLES;
+	if (num_samples < TS_MIN_SAMPLES) num_samples = TS_MIN_SAMPLES;
 
 	// Find the highest RTT sample so far
 	u32 highest_rtt = _ts_samples[0].rtt, highest_index = 0;

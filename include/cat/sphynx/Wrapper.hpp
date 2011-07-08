@@ -120,19 +120,7 @@ public:
 		return _client->encodeClientTimestamp(local_time);
 	}
 
-	// Decompress a timestamp on server from client; high two bits are unused; byte order must be fixed before decoding
-	inline unsigned int decodeClientTimestamp(unsigned int local_time, unsigned short timestamp)
-	{
-		return _client->decodeClientTimestamp(local_time, timestamp);
-	}
-
-	// Compress timestamp on server for delivery to client; high two bits are unused; byte order must be fixed before writing to message
-	inline unsigned short encodeServerTimestamp(unsigned int local_time)
-	{
-		return _client->encodeServerTimestamp(local_time);
-	}
-
-	// Decompress a timestamp on client from server; high two bits are unused; byte order must be fixed before decoding
+	// Decompress a timestamp on client from server; byte order must be fixed before decoding
 	inline unsigned int decodeServerTimestamp(unsigned int local_time, unsigned short timestamp)
 	{
 		return _client->decodeServerTimestamp(local_time, timestamp);

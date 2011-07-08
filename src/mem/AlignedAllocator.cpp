@@ -41,8 +41,7 @@ using namespace cat;
 
 // Add your compiler here if it supports aligned malloc
 #if defined(CAT_COMPILER_MSVC)
-// TODO: Test this and then uncomment the following line
-//# define CAT_HAS_ALIGNED_ALLOC
+# define CAT_HAS_ALIGNED_ALLOC
 # define aligned_malloc _aligned_malloc
 # define aligned_realloc _aligned_realloc
 # define aligned_free _aligned_free

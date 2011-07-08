@@ -256,6 +256,11 @@ u32 UDPEndpoint::PostReads(u32 count)
 	u32 acquire_count = allocator->AcquireBatch(set, count);
 	u32 read_count = 0;
 
+	if (acquire_count != count)
+	{
+		CAT_WARN("UDPEndpoint") << "Only able to acquire " << acquire_count << " of " << count << " buffers";
+	}
+
 	for (BatchHead *node = set.head; node; node = node->batch_next, ++read_count)
 	{
 		if (!PostRead(reinterpret_cast<RecvBuffer*>( node )))
@@ -317,6 +322,7 @@ bool UDPEndpoint::Write(const BatchSet &buffers, u32 count, const NetAddr &addr)
 		++write_count;
 	}
 
+#if defined(CAT_NOBUFFER_FAILSAFE)
 	// If there are no read buffers posted on the socket,
 	if (_buffers_posted == 0)
 	{
@@ -338,6 +344,7 @@ bool UDPEndpoint::Write(const BatchSet &buffers, u32 count, const NetAddr &addr)
 			CAT_WARN("UDPEndpoint") << "Write noticed reads were dry but could not help";
 		}
 	}
+#endif
 
 	return count == write_count;
 }
@@ -361,8 +368,7 @@ void UDPEndpoint::ReleaseRecvBuffers(BatchSet buffers, u32 count)
 {
 	if (!buffers.head) return;
 
-	u32 buffers_posted = 0;
-
+#if defined(CAT_NOBUFFER_FAILSAFE)
 	// If there are no buffers posted on the socket,
 	if (_buffers_posted == 0 && !IsShutdown())
 	{
@@ -389,6 +395,7 @@ void UDPEndpoint::ReleaseRecvBuffers(BatchSet buffers, u32 count)
 		buffers.head = next;
 		--count;
 	}
+#endif
 
 	IOThreadPools::ref()->GetRecvAllocator()->ReleaseBatch(buffers);
 
@@ -437,6 +444,8 @@ void UDPEndpoint::OnRecvCompletion(const BatchSet &buffers, u32 count)
 	// If not all posts succeeded,
 	if (posted_reads < count)
 	{
+		CAT_WARN("UDPEndpoint") << "Not all read posts succeeded: " << posted_reads << " of " << count;
+
 		// Subtract the number that failed
 		Atomic::Add(&_buffers_posted, posted_reads - count);
 

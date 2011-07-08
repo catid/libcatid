@@ -52,12 +52,17 @@ namespace sphynx {
 
 		E { HDR(2 bytes)|ACK-ID(3 bytes)|DATA || ... || MAC(8 bytes) } || IV(3 bytes)
 
-		E: ChaCha-12 stream cipher.
+		E: ChaCha stream cipher.
 		IV: Initialization vector used by security layer (Randomly initialized).
 		MAC: Message authentication code used by security layer (HMAC-MD5).
 
 		HDR|ACK-ID|DATA: A message block inside the datagram.  The HDR and
 		ACK-ID fields employ compression to use as little as 1 byte together.
+
+		If CAT_TRANSPORT_RANDOMIZE_LENGTH is defined, no-op bytes are appended
+		to each datagram plaintext based on an exponential distribution.  The
+		purpose is to hide the true length of the datagrams to avoid filtering
+		based on datagram length.
 
 	Each message follows the same format.  A two-byte header followed by data:
 
@@ -71,10 +76,10 @@ namespace sphynx {
 		I: 1=Followed by ACK-ID field. 0=ACK-ID is one higher than the last.
 		R: 1=Reliable. 0=Unreliable.
 		SOP: Super opcodes:
-				0=Data (reliable or unreliable)
-				1=Fragment (reliable)
-				2=ACK (unreliable)
-				3=Internal (any)
+				0=Internal (any)
+				1=Data (reliable or unreliable)
+				2=Fragment (reliable)
+				3=ACK (unreliable)
 		C: 1=BHI byte is sent. 0=BHI byte is not sent and is assumed to be 0.
 
 			When the I bit is set, the data part is preceded by an ACK-ID,
@@ -87,6 +92,9 @@ namespace sphynx {
 
 			When DATA_BYTES is between 0 and 7, C can be set to 0 to avoid
 			sending the BHI byte.
+
+			When all bits are zero, it is considered a no-op.  The first nop
+			will cause processing of a message to terminate early.
 
 		------------- ACK-ID Field (24 bits) ------------
 		 0 1 2 3 4 5 6 7 8 9 a b c d e f 0 1 2 3 4 5 6 7 
@@ -272,8 +280,6 @@ class CAT_EXPORT Transport
 	friend struct SendQueue;
 	friend struct SentList;
 
-	static const int TS_COMPRESS_FUTURE_TOLERANCE = 1000; // Milliseconds of time synch error before errors may occur in timestamp compression
-
 	static const u8 SHUTDOWN_TICK_COUNT = 3; // Number of ticks before shutting down the object
 
 	static const u8 BLO_MASK = 7;
@@ -283,6 +289,7 @@ class CAT_EXPORT Transport
 	static const u8 C_MASK = 1 << 7;
 	static const u32 SOP_SHIFT = 5;
 	static const u32 SOP_MASK = 3;
+	static const u8 HDR_NOP = 0; // Official no-op header byte
 
 	static const u32 MAX_ACK_ID_BYTES = 3;
 
@@ -356,13 +363,33 @@ class CAT_EXPORT Transport
 	BatchSet _outgoing_datagrams;
 	u32 _outgoing_datagrams_count, _outgoing_datagrams_bytes;
 
+#if defined(CAT_TRANSPORT_RANDOMIZE_LENGTH)
+
+	// Random padding state
+	ChaChaOutput _rand_pad_csprng;
+	u8 _rand_pad_source[64];
+	u64 _rand_pad_iv;
+	u32 _rand_pad_index;
+
+	bool InitializeRandPad(AuthenticatedEncryption &auth_enc);
+	bool RandPadDatagram(SendBuffer *buffer, u32 &data_bytes);
+
+#endif // CAT_TRANSPORT_RANDOMIZE_LENGTH
+
 	CAT_INLINE void QueueWriteDatagram(u8 *data, u32 data_bytes)
 	{
 		SendBuffer *buffer = SendBuffer::Promote(data);
-		buffer->SetBytes(data_bytes);
+
+#if defined(CAT_TRANSPORT_RANDOMIZE_LENGTH)
+		if (!RandPadDatagram(buffer, data_bytes))
+			return;
+#endif // CAT_TRANSPORT_RANDOMIZE_LENGTH
+
+		buffer->SetBytes(data_bytes + SPHYNX_OVERHEAD);
+
 		_outgoing_datagrams.PushBack(buffer);
 		_outgoing_datagrams_count++;
-		_outgoing_datagrams_bytes += data_bytes + AuthenticatedEncryption::OVERHEAD_BYTES;
+		_outgoing_datagrams_bytes += data_bytes + SPHYNX_OVERHEAD;
 	}
 
 	// true = no longer connected
@@ -431,30 +458,6 @@ public:
 	// Try to use FlushAfter() unless you really see benefit from this!
 	void FlushWrites();
 
-	// Current local time
-	CAT_INLINE u32 getLocalTime() { return Clock::msec(); }
-
-	// Convert from local time to server time
-	CAT_INLINE u32 toServerTime(u32 local_time) { return local_time + _ts_delta; }
-
-	// Convert from server time to local time
-	CAT_INLINE u32 fromServerTime(u32 server_time) { return server_time - _ts_delta; }
-
-	// Current server time
-	CAT_INLINE u32 getServerTime() { return toServerTime(getLocalTime()); }
-
-	// Compress timestamp on client for delivery to server; byte order must be fixed before writing to message
-	CAT_INLINE u16 encodeClientTimestamp(u32 local_time) { return (u16)toServerTime(local_time); }
-
-	// Decompress a timestamp on server from client; high two bits are unused; byte order must be fixed before decoding
-	CAT_INLINE u32 decodeClientTimestamp(u32 local_time, u16 timestamp) { return BiasedReconstructCounter<16>(local_time, TS_COMPRESS_FUTURE_TOLERANCE, timestamp); }
-
-	// Compress timestamp on server for delivery to client; high two bits are unused; byte order must be fixed before writing to message
-	CAT_INLINE u16 encodeServerTimestamp(u32 local_time) { return (u16)local_time; }
-
-	// Decompress a timestamp on client from server; high two bits are unused; byte order must be fixed before decoding
-	CAT_INLINE u32 decodeServerTimestamp(u32 local_time, u16 timestamp) { return fromServerTime(BiasedReconstructCounter<16>(toServerTime(local_time), TS_COMPRESS_FUTURE_TOLERANCE, timestamp)); }
-
 	void Disconnect(u8 reason = DISCO_USER_EXIT);
 	CAT_INLINE bool IsDisconnected() { return _disconnect_reason != DISCO_CONNECTED; }
 	CAT_INLINE bool WriteDisconnect(u8 reason) { return WriteOOB(IOP_DISCO, &reason, 1, SOP_INTERNAL); }
@@ -463,7 +466,7 @@ public:
 	void OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery);
 
 protected:
-	// Maximum transfer unit (MTU) in UDP payload bytes, excluding anything included in _overhead_bytes
+	// Maximum transfer unit (MTU) in UDP payload bytes, excluding _udpip_bytes
 	u32 _max_payload_bytes;
 
 	// Overhead bytes: UDP/IP headers
@@ -472,18 +475,16 @@ protected:
 	// Send state: Flow control
 	FlowControl _send_flow;
 
-	u32 _ts_delta; // Milliseconds clock difference between server and client: server_time = client_time + _ts_delta
-
 	CAT_INLINE u8 GetDisconnectReason() { return _disconnect_reason; }
 
 	virtual void OnDisconnectComplete() = 0;
 
 	virtual bool WriteDatagrams(const BatchSet &buffers, u32 count) = 0;
 
-	CAT_INLINE bool WriteDatagrams(u8 *single, u32 data_bytes)
+	CAT_INLINE bool WriteDatagram(u8 *single, u32 data_bytes)
 	{
 		SendBuffer *buffer = SendBuffer::Promote(single);
-		buffer->SetBytes(data_bytes);
+		buffer->SetBytes(data_bytes + SPHYNX_OVERHEAD);
 		return WriteDatagrams(buffer, 1);
 	}
 

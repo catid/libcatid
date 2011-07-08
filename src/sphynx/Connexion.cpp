@@ -116,6 +116,21 @@ void Connexion::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 	// Process all datagrams that decrypted properly
 	if (delivery.head)
 	{
+		// TODO: Simulating out of order packets
+		if (delivery.tail && delivery.tail != delivery.head)
+		{
+			BatchHead *old_head = delivery.head;
+			BatchHead *old_next = old_head->batch_next;
+
+			old_head->batch_next = old_next->batch_next;
+			old_next->batch_next = old_head;
+
+			delivery.head = old_next;
+
+			if (old_next == delivery.tail)
+				delivery.tail = old_head;
+		}
+
 		OnTransportDatagrams(tls, delivery);
 		_seen_encrypted = true;
 		_last_recv_tsc = Clock::msec_fast();
@@ -181,11 +196,8 @@ bool Connexion::WriteDatagrams(const BatchSet &buffers, u32 count)
 		u8 *msg_data = GetTrailingBytes(buffer);
 		u32 msg_bytes = buffer->GetBytes();
 
-		msg_bytes += SPHYNX_OVERHEAD;
-
 		// Encrypt the message
 		_auth_enc.Encrypt(iv, msg_data, msg_bytes);
-		buffer->SetBytes(msg_bytes);
 	}
 
 	// Do not need to update a "last send" timestamp here because the client is responsible for sending keep-alives
