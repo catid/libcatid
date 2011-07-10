@@ -364,7 +364,6 @@ class CAT_EXPORT Transport
 	u32 _outgoing_datagrams_count, _outgoing_datagrams_bytes;
 
 #if defined(CAT_TRANSPORT_RANDOMIZE_LENGTH)
-
 	// Random padding state
 	ChaChaOutput _rand_pad_csprng;
 	u8 _rand_pad_source[64];
@@ -372,8 +371,7 @@ class CAT_EXPORT Transport
 	u32 _rand_pad_index;
 
 	bool InitializeRandPad(AuthenticatedEncryption &auth_enc);
-	bool RandPadDatagram(SendBuffer *buffer, u32 &data_bytes);
-
+	bool RandPadDatagram(SendBuffer *&buffer, u32 &data_bytes);
 #endif // CAT_TRANSPORT_RANDOMIZE_LENGTH
 
 	CAT_INLINE void QueueWriteDatagram(u8 *data, u32 data_bytes)
@@ -484,6 +482,12 @@ protected:
 	CAT_INLINE bool WriteDatagram(u8 *single, u32 data_bytes)
 	{
 		SendBuffer *buffer = SendBuffer::Promote(single);
+
+#if defined(CAT_TRANSPORT_RANDOMIZE_LENGTH)
+		if (!RandPadDatagram(buffer, data_bytes))
+			return false;
+#endif // CAT_TRANSPORT_RANDOMIZE_LENGTH
+
 		buffer->SetBytes(data_bytes + SPHYNX_OVERHEAD);
 		return WriteDatagrams(buffer, 1);
 	}

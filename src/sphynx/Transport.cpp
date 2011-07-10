@@ -69,7 +69,7 @@ bool Transport::InitializeRandPad(AuthenticatedEncryption &auth_enc)
 	return true;
 }
 
-bool Transport::RandPadDatagram(SendBuffer *buffer, u32 &data_bytes)
+bool Transport::RandPadDatagram(SendBuffer *&buffer, u32 &data_bytes)
 {
 	// If it is time to generate more random length padding numbers,
 	if (_rand_pad_index >= sizeof(_rand_pad_source))
@@ -88,7 +88,12 @@ bool Transport::RandPadDatagram(SendBuffer *buffer, u32 &data_bytes)
 	u8 pad = _rand_pad_source[_rand_pad_index++];
 	u8 rval = _rand_pad_source[_rand_pad_index++];
 	if (pad + data_bytes > _max_payload_bytes)
+	{
+		if (data_bytes >= _max_payload_bytes)
+			return true;
+
 		pad = _max_payload_bytes - data_bytes;
+	}
 
 	// If any padding is to be added,
 	if (pad > 0)
@@ -1676,27 +1681,31 @@ OutgoingMessage *Transport::DequeueBandwidth(OutgoingMessage *node, s32 availabl
 	// For each node in the list,
 	for (buffer_remaining = available_bytes; buffer_remaining > 0 && node; node = node->next)
 	{
-		s32 send_bytes = node->send_bytes;
-
-		u64 send_remaining = (node->GetBytes() == FRAG_HUGE) ? node->huge_remaining : (node->GetBytes() - node->sent_bytes);
-		send_remaining -= send_bytes;
-
-		// If this node ate the last of the bandwidth,
-		if (send_remaining > buffer_remaining + FRAG_THRESHOLD)
+		if (node->GetBytes() == FRAG_HUGE)
 		{
-			node->send_bytes = send_bytes + buffer_remaining;
+			u64 send_remaining = node->huge_remaining;
 
-			bandwidth -= available_bytes;
-			return node;
+			// If this node ate the last of the bandwidth,
+			if (send_remaining > buffer_remaining + FRAG_THRESHOLD)
+				node->send_bytes = buffer_remaining;
+			else
+				node->send_bytes = (u32)send_remaining;
+		}
+		else
+		{
+			u32 send_remaining = node->GetBytes() - node->sent_bytes;
+
+			if (send_remaining <= buffer_remaining + FRAG_THRESHOLD ||
+				buffer_remaining <= FRAG_THRESHOLD)
+			{
+				node->send_bytes = send_remaining;
+			}
+			else
+				node->send_bytes = buffer_remaining;
 		}
 
-		u32 bytes = (u32)send_remaining;
-
-		// Send whatever is left of this message
-		node->send_bytes = send_bytes + bytes;
-
 		// Add one for average header size (only need a rough estimate)
-		buffer_remaining -= bytes + 1;
+		buffer_remaining -= node->send_bytes + 1;
 	}
 
 	// If we got here then all nodes were consumed

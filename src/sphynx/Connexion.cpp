@@ -223,7 +223,7 @@ void Connexion::OnInternal(SphynxTLS *tls, u32 recv_time, BufferStream data, u32
 				_max_payload_bytes = bytes;
 
 				u16 mtu = getLE((u16)bytes);
-				WriteReliable(STREAM_UNORDERED, IOP_S2C_MTU_SET, &mtu, sizeof(mtu), SOP_INTERNAL);
+				WriteReliable(STREAM_UNORDERED, IOP_S2C_MTU_SET, &mtu, 2, SOP_INTERNAL);
 			}
 		}
 		break;
