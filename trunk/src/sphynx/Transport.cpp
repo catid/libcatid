@@ -588,7 +588,7 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 				break;
 			}
 
-			// If reliable message,f
+			// If reliable message,
 			if (hdr & R_MASK)
 			{
 				CAT_INANE("Transport") << "Got # " << stream << ":" << ack_id;
