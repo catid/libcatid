@@ -160,14 +160,25 @@ u32 BufferAllocator::AcquireBatch(BatchSet &set, u32 count, u32 bytes)
 	_acquire_lock.Leave();
 
 	set.tail = last;
+
 	//last->batch_next = 0;
+	CAT_DEBUG_ENFORCE(last->batch_next);
+
 	return ii;
 }
 
 void BufferAllocator::ReleaseBatch(const BatchSet &set)
 {
 	if (!set.head) return;
+/*
+	BatchHead *node;
+	for (node = set.head; node->batch_next; node = node->batch_next);
 
+	if (node != set.tail)
+	{
+		CAT_FATAL("BufferAllocator") << "FOUND IT: ReleaseBatch detected an error in input";
+	}
+*/
 	_release_lock.Enter();
 	set.tail->batch_next = _release_head;
 	_release_head = set.head;
