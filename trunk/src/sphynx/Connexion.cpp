@@ -115,7 +115,7 @@ void Connexion::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 
 	// Process all datagrams that decrypted properly
 	if (delivery.head)
-	{
+	{/*
 		// TODO: Simulating out of order packets
 		if (delivery.tail && delivery.tail != delivery.head)
 		{
@@ -130,7 +130,7 @@ void Connexion::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 			if (old_next == delivery.tail)
 				delivery.tail = old_head;
 		}
-
+		*/
 		OnTransportDatagrams(tls, delivery);
 		_seen_encrypted = true;
 		_last_recv_tsc = Clock::msec_fast();
