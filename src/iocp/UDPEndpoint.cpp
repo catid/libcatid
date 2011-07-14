@@ -267,6 +267,9 @@ u32 UDPEndpoint::PostReads(u32 limit, u32 reuse_count, BatchSet set)
 		set.PushBack(allocated);
 	}
 
+	// Add references for number of expected new posts
+	AddRef(count);
+
 	// For each buffer,
 	BatchHead *node;
 	for (node = set.head; node && posted_reads < count; node = node->batch_next, ++posted_reads)
@@ -288,17 +291,9 @@ u32 UDPEndpoint::PostReads(u32 limit, u32 reuse_count, BatchSet set)
 		allocator->ReleaseBatch(set);
 	}
 
-	// If posted reads exceed the re-use count,
-	if (posted_reads > reuse_count)
-	{
-		// Add more references so the total matches the number of outstanding reads
-		AddRef(posted_reads - reuse_count);
-	}
-	else if (reuse_count > posted_reads)
-	{
-		// Release references to subtract the deficit
-		ReleaseRef(reuse_count - posted_reads);
-	}
+	// Release excess references
+	count = reuse_count + count - posted_reads;
+	if (count > 0) ReleaseRef(count);
 
 	return posted_reads;
 }
