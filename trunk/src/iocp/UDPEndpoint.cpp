@@ -264,12 +264,7 @@ u32 UDPEndpoint::PostReads(u32 limit, u32 reuse_count, BatchSet set)
 			CAT_WARN("UDPEndpoint") << "Only able to acquire " << acquire_count << " of " << request_count << " buffers";
 		}
 
-		// If acquired at least one buffer,
-		if (acquire_count > 0)
-		{
-			AddRef(acquire_count);
-			set.PushBack(allocated);
-		}
+		set.PushBack(allocated);
 	}
 
 	// For each buffer,
@@ -278,21 +273,11 @@ u32 UDPEndpoint::PostReads(u32 limit, u32 reuse_count, BatchSet set)
 		if (!PostRead(reinterpret_cast<RecvBuffer*>( node )))
 			break;
 
-	// If not all posts succeeded,
-	if (posted_reads < count) CAT_WARN("UDPEndpoint") << "Not all read posts succeeded: " << posted_reads << " of " << count;
-
 	// Increment the buffer posted count
 	if (posted_reads > 0) Atomic::Add(&_buffers_posted, posted_reads);
 
-	// If total buffers allocated by this process is more than was posted,
-	u32 total_buffers = reuse_count + acquire_count;
-	if (total_buffers > posted_reads)
-	{
-		CAT_WARN("UDPEndpoint") << "total_buffers > posted_reads: reuse=" << reuse_count << " + acquire=" << acquire_count << " > " << posted_reads;
-
-		// Release references for the difference
-		ReleaseRef(total_buffers - posted_reads);
-	}
+	// If not all posts succeeded,
+	if (posted_reads < count) CAT_WARN("UDPEndpoint") << "Not all read posts succeeded: " << posted_reads << " of " << count;
 
 	// If nodes were unused,
 	if (node)
@@ -301,6 +286,18 @@ u32 UDPEndpoint::PostReads(u32 limit, u32 reuse_count, BatchSet set)
 
 		set.head = node;
 		allocator->ReleaseBatch(set);
+	}
+
+	// If posted reads exceed the re-use count,
+	if (posted_reads > reuse_count)
+	{
+		// Add more references so the total matches the number of outstanding reads
+		AddRef(posted_reads - reuse_count);
+	}
+	else if (reuse_count > posted_reads)
+	{
+		// Release references to subtract the deficit
+		ReleaseRef(reuse_count - posted_reads);
 	}
 
 	return posted_reads;
