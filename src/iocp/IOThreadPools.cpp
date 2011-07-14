@@ -431,7 +431,9 @@ bool IOThreadPools::Startup()
 		Shutdown();
 	}
 
-	_recv_allocator = new BufferAllocator(sizeof(RecvBuffer) + IOTHREADS_BUFFER_READ_BYTES, IOTHREADS_BUFFER_COUNT);
+	u32 iothreads_buffer_count = Settings::ref()->getInt("IOThreads.BufferCount", IOTHREADS_BUFFER_COUNT);
+
+	_recv_allocator = new BufferAllocator(sizeof(RecvBuffer) + IOTHREADS_BUFFER_READ_BYTES, iothreads_buffer_count);
 
 	if (!_recv_allocator || !_recv_allocator->Valid())
 	{

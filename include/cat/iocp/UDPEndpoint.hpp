@@ -64,7 +64,8 @@ struct SendBuffer;
 
 
 // Number of IO outstanding on a UDP endpoint
-static const u32 SIMULTANEOUS_READS = 128;
+static const u32 UDP_SIMULTANEOUS_READS = 128;
+static const u32 UDP_READ_POST_LIMIT = 8;
 
 
 // Object that represents a UDP endpoint bound to a single port
@@ -80,9 +81,7 @@ class CAT_EXPORT UDPEndpoint : public WatchedRefObject, public IOThreadsAssociat
 	IOThreadPool *_pool;
 
 	bool PostRead(RecvBuffer *buffer);
-
-	// Returns the number of reads posted
-	u32 PostReads(u32 count);
+	u32 PostReads(u32 limit, u32 reuse_count = 0, BatchSet set = BatchSet(0, 0));
 
 	void OnRecvCompletion(const BatchSet &buffers, u32 count);
 
@@ -93,7 +92,7 @@ public:
 	CAT_INLINE bool Valid() { return _socket != SOCKET_ERROR; }
 	CAT_INLINE Socket GetSocket() { return _socket; }
 	CAT_INLINE HANDLE GetHandle() { return (HANDLE)_socket; }
-   Port GetPort();
+	Port GetPort();
 	CAT_INLINE Port GetCachedPort() { return _port; }
 
 	// Is6() result is only valid AFTER Bind()

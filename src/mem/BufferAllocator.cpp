@@ -161,8 +161,11 @@ u32 BufferAllocator::AcquireBatch(BatchSet &set, u32 count, u32 bytes)
 
 	set.tail = last;
 
-	//last->batch_next = 0;
-	CAT_DEBUG_ENFORCE(last->batch_next);
+	if (last)
+	{
+		//last->batch_next = 0;
+		CAT_DEBUG_ENFORCE(!last->batch_next);
+	}
 
 	return ii;
 }
