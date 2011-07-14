@@ -392,6 +392,5 @@ void UDPEndpoint::OnRecvCompletion(const BatchSet &buffers, u32 count)
 	// Notify derived class about new buffers
 	OnRecvRouting(buffers);
 
-	// Post more reads
 	PostReads(UDP_SIMULTANEOUS_READS);
 }
