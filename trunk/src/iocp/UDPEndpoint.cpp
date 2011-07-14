@@ -168,10 +168,8 @@ bool UDPEndpoint::Bind(bool onlySupportIPv4, Port port, bool ignoreUnreachable, 
     }
 
 	_port = port;
-
-	// Add references for all the reads assuming they will succeed + 1 to keep object alive until function returns
-	AddRef(SIMULTANEOUS_READS + 1);
-	_buffers_posted = SIMULTANEOUS_READS;
+	AddRef();
+	_buffers_posted = 0;
 
 	// Associate with IOThreadPools
 	_pool = IOThreadPools::ref()->AssociatePrivate(this);
@@ -180,27 +178,15 @@ bool UDPEndpoint::Bind(bool onlySupportIPv4, Port port, bool ignoreUnreachable, 
 		CAT_FATAL("UDPEndpoint") << "Unable to associate with IOThreadPools";
 		CloseSocket(s);
 		_socket = SOCKET_ERROR;
-		ReleaseRef(SIMULTANEOUS_READS + 1); // Release temporary references keeping the object alive until function returns
+		ReleaseRef(); // Release temporary references keeping the object alive until function returns
 		return false;
 	}
 
 	// Now that we're in the IO layer, start watching the object for shutdown
 	RefObjectWatcher::ref()->Watch(this);
 
-	// Post reads for this socket
-	u32 read_count = PostReads(SIMULTANEOUS_READS);
-
-	// Release references that were held for unsuccessful reads
-	u32 read_fails = SIMULTANEOUS_READS - read_count;
-	if ((s32)read_fails > 0)
-	{
-		ReleaseRef(read_fails);
-		Atomic::Add(&_buffers_posted, 0 - read_fails);
-		CAT_WARN("UDPEndpoint") << "Only able to launch " << read_count << " reads out of " << SIMULTANEOUS_READS;
-	}
-
 	// If no reads could be posted,
-	if (read_count == 0)
+	if (PostReads(UDP_SIMULTANEOUS_READS) == 0)
 	{
 		CAT_FATAL("UDPEndpoint") << "No reads could be launched";
 		CloseSocket(s);
@@ -245,34 +231,79 @@ bool UDPEndpoint::PostRead(RecvBuffer *buffer)
 	return true;
 }
 
-u32 UDPEndpoint::PostReads(u32 count)
+u32 UDPEndpoint::PostReads(u32 limit, u32 reuse_count, BatchSet set)
 {
 	if (IsShutdown())
 		return 0;
 
-	IAllocator *allocator = IOThreadPools::ref()->GetRecvAllocator();
+	// Check if there is a deficiency
+	s32 count = (s32)(UDP_SIMULTANEOUS_READS - _buffers_posted);
 
-	BatchSet set;
-	u32 acquire_count = allocator->AcquireBatch(set, count);
-	u32 read_count = 0;
+	// Obey the read limit
+	if (count > limit)
+		count = limit;
 
-	if (acquire_count != count)
+	// If there is no deficiency,
+	if (count <= 0)
+		return 0;
+
+	// If reuse count is more than needed,
+	u32 acquire_count = 0, posted_reads = 0;
+
+	if (reuse_count < count)
 	{
-		CAT_WARN("UDPEndpoint") << "Only able to acquire " << acquire_count << " of " << count << " buffers";
-	}
+		IAllocator *allocator = IOThreadPools::ref()->GetRecvAllocator();
+		BatchSet allocated;
 
-	for (BatchHead *node = set.head; node; node = node->batch_next, ++read_count)
-	{
-		if (!PostRead(reinterpret_cast<RecvBuffer*>( node )))
+		// Acquire a batch of buffers
+		u32 request_count = count - reuse_count;
+		acquire_count = allocator->AcquireBatch(allocated, request_count);
+
+		if (acquire_count != request_count)
 		{
-			// Give up and release this buffer and the remaining ones
-			set.head = node;
-			allocator->ReleaseBatch(set);
-			break;
+			CAT_WARN("UDPEndpoint") << "Only able to acquire " << acquire_count << " of " << request_count << " buffers";
+		}
+
+		// If acquired at least one buffer,
+		if (acquire_count > 0)
+		{
+			AddRef(acquire_count);
+			set.PushBack(allocated);
 		}
 	}
 
-	return read_count;
+	// For each buffer,
+	BatchHead *node;
+	for (node = set.head; node && posted_reads < count; node = node->batch_next, ++posted_reads)
+		if (!PostRead(reinterpret_cast<RecvBuffer*>( node )))
+			break;
+
+	// If not all posts succeeded,
+	if (posted_reads < count) CAT_WARN("UDPEndpoint") << "Not all read posts succeeded: " << posted_reads << " of " << count;
+
+	// Increment the buffer posted count
+	if (posted_reads > 0) Atomic::Add(&_buffers_posted, posted_reads);
+
+	// If total buffers allocated by this process is more than was posted,
+	u32 total_buffers = reuse_count + acquire_count;
+	if (total_buffers > posted_reads)
+	{
+		CAT_WARN("UDPEndpoint") << "total_buffers > posted_reads: reuse=" << reuse_count << " + acquire=" << acquire_count << " > " << posted_reads;
+
+		// Release references for the difference
+		ReleaseRef(total_buffers - posted_reads);
+	}
+
+	// If nodes were unused,
+	if (node)
+	{
+		IAllocator *allocator = IOThreadPools::ref()->GetRecvAllocator();
+
+		set.head = node;
+		allocator->ReleaseBatch(set);
+	}
+
+	return posted_reads;
 }
 
 bool UDPEndpoint::Write(const BatchSet &buffers, u32 count, const NetAddr &addr)
@@ -322,29 +353,7 @@ bool UDPEndpoint::Write(const BatchSet &buffers, u32 count, const NetAddr &addr)
 		++write_count;
 	}
 
-#if defined(CAT_NOBUFFER_FAILSAFE)
-	// If there are no read buffers posted on the socket,
-	if (_buffers_posted == 0)
-	{
-		AddRef();
-
-		// Post just one buffer to keep at least one request out there
-		// Posting reads is expensive so only do this if we are desperate
-		if (PostReads(1))
-		{
-			// Increment the number of buffers posted
-			Atomic::Add(&_buffers_posted, 1);
-
-			CAT_WARN("UDPEndpoint") << "Write noticed reads were dry and posted one";
-		}
-		else
-		{
-			ReleaseRef();
-
-			CAT_WARN("UDPEndpoint") << "Write noticed reads were dry but could not help";
-		}
-	}
-#endif
+	PostReads(UDP_READ_POST_LIMIT);
 
 	return count == write_count;
 }
@@ -366,90 +375,31 @@ CAT_INLINE void UDPEndpoint::SetRemoteAddress(RecvBuffer *buffer)
 
 void UDPEndpoint::ReleaseRecvBuffers(BatchSet buffers, u32 count)
 {
-	if (!buffers.head) return;
-
-#if defined(CAT_NOBUFFER_FAILSAFE)
-	// If there are no buffers posted on the socket,
-	if (_buffers_posted == 0 && !IsShutdown())
-	{
-		BatchHead *next = buffers.head->batch_next;
-
-		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( buffers.head );
-
-		// Re-use just one buffer to keep at least one request out there
-		// Posting reads is expensive so only do this if we are desperate
-		if (PostRead(buffer))
-		{
-			// Increment the number of buffers posted and pull it out of the count
-			Atomic::Add(&_buffers_posted, 1);
-
-			CAT_WARN("UDPEndpoint") << "Release noticed reads were dry and reposted one";
-		}
-		else
-		{
-			CAT_WARN("UDPEndpoint") << "Release noticed reads were dry but could not help";
-		}
-
-		if (!next) return;
-
-		buffers.head = next;
-		--count;
-	}
-#endif
-
-	IOThreadPools::ref()->GetRecvAllocator()->ReleaseBatch(buffers);
-
-	// Release one reference for each buffer
-	ReleaseRef(count);
+	if (buffers.head)
+		PostReads(UDP_READ_POST_LIMIT, count, buffers);
 }
 
 void UDPEndpoint::OnRecvCompletion(const BatchSet &buffers, u32 count)
 {
+	// Subtract the number of buffers completed from the total posted
+	Atomic::Add(&_buffers_posted, 0 - count);
+
 	// If reads completed during shutdown,
 	if (IsShutdown())
 	{
+		IAllocator *allocator = IOThreadPools::ref()->GetRecvAllocator();
+
 		// Just release the read buffers
-		ReleaseRecvBuffers(buffers, count);
+		allocator->ReleaseBatch(buffers);
+
+		ReleaseRef(count);
+
 		return;
 	}
 
 	// Notify derived class about new buffers
 	OnRecvRouting(buffers);
 
-	// Check if new posts need to be made
-	u32 perceived_deficiency = SIMULTANEOUS_READS - _buffers_posted;
-	if ((s32)perceived_deficiency > 0)
-	{
-		// Race to replenish the buffers
-		u32 race_posted = Atomic::Add(&_buffers_posted, perceived_deficiency);
-
-		// If we lost the race to replenish,
-		if (race_posted >= SIMULTANEOUS_READS)
-		{
-			// Take it back
-			Atomic::Add(&_buffers_posted, 0 - perceived_deficiency);
-		}
-		else
-		{
-			// Set new post count to the perceived deficiency
-			count += perceived_deficiency;
-		}
-	}
-
-	AddRef(count);
-
-	// Post enough reads to fill in
-	u32 posted_reads = PostReads(count);
-
-	// If not all posts succeeded,
-	if (posted_reads < count)
-	{
-		CAT_WARN("UDPEndpoint") << "Not all read posts succeeded: " << posted_reads << " of " << count;
-
-		// Subtract the number that failed
-		Atomic::Add(&_buffers_posted, posted_reads - count);
-
-		// Release references for the number that failed
-		ReleaseRef(count - posted_reads);
-	}
+	// Post more reads
+	PostReads(UDP_SIMULTANEOUS_READS);
 }
