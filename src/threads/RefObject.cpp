@@ -78,7 +78,7 @@ void RefObject::RequestShutdown()
 		OnShutdownRequest();
 
 		// Release the initial reference to allow OnZeroReference()
-		ReleaseRef();
+		ReleaseRef(CAT_REFOBJECT_FILE_LINE);
 	}
 }
 
@@ -126,7 +126,7 @@ void WatchedRefObject::RequestShutdown()
 		_lock.Leave();
 
 		// Release the initial reference to allow OnZeroReference()
-		ReleaseRef();
+		ReleaseRef(CAT_REFOBJECT_FILE_LINE);
 	}
 }
 
@@ -136,7 +136,7 @@ bool WatchedRefObject::AddWatcher(RefObjectWatcher *watcher)
 
 	if (!IsShutdown())
 	{
-		AddRef();
+		AddRef(CAT_REFOBJECT_FILE_LINE);
 		_watchers.push_back(watcher);
 		return true;
 	}
@@ -208,7 +208,7 @@ bool RefObjectWatcher::OnObjectShutdownStart(WatchedRefObject *obj)
 	if (_shutdown)
 	{
 		// Just release the reference - No longer using this list
-		obj->ReleaseRef();
+		obj->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
 		return true;
 	}
 
@@ -224,7 +224,7 @@ bool RefObjectWatcher::OnObjectShutdownStart(WatchedRefObject *obj)
 
 	// Release object reference, since they still have a reference on us
 	// and will call us back when shutdown ends
-	obj->ReleaseRef();
+	obj->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
 
 	// Do not decrement _wait_count until shutdown is complete
 	return true;

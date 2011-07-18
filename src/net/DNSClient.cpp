@@ -294,6 +294,7 @@ DNSClient::~DNSClient()
 
 bool DNSClient::Initialize()
 {
+	return false;
 	// Attempt to get a CSPRNG
 	if (!(_csprng = new FortunaOutput))
 	{
@@ -808,7 +809,7 @@ bool DNSClient::Resolve(const char *hostname, DNSDelegate callback, RefObject *h
 			DNSCallback *cb = new DNSCallback;
 			if (!cb) return false;
 
-			if (holdRef) holdRef->AddRef();
+			if (holdRef) holdRef->AddRef(CAT_REFOBJECT_FILE_LINE);
 
 			cb->cb = callback;
 			cb->ref = holdRef;
@@ -841,7 +842,7 @@ bool DNSClient::Resolve(const char *hostname, DNSDelegate callback, RefObject *h
 	request->id = id;
 	request->num_responses = 0;
 
-	if (holdRef) holdRef->AddRef();
+	if (holdRef) holdRef->AddRef(CAT_REFOBJECT_FILE_LINE);
 
 	// Attempt to perform lookup
 	if (!PerformLookup(request))

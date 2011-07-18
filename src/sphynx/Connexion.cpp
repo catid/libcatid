@@ -40,7 +40,7 @@ void Connexion::OnShutdownRequest()
 
 bool Connexion::OnZeroReferences()
 {
-	_parent->ReleaseRef();
+	_parent->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
 	return true;
 }
 
@@ -138,7 +138,7 @@ void Connexion::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 
 	_parent->ReleaseRecvBuffers(buffers, buffer_count);
 
-	ReleaseRef(buffer_count);
+	ReleaseRef(CAT_REFOBJECT_FILE_LINE, buffer_count);
 }
 
 void Connexion::OnWorkerTick(IWorkerTLS *itls, u32 now)

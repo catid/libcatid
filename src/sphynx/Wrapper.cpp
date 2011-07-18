@@ -110,12 +110,12 @@ EasySphynxClient::EasySphynxClient()
 	_client = new InternalSphynxClient(this);
 	_watcher.Watch(_client);
 
-	_client->AddRef();
+	_client->AddRef(CAT_REFOBJECT_FILE_LINE);
 }
 
 EasySphynxClient::~EasySphynxClient()
 {
-	_client->ReleaseRef();
+	_client->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
 
 	_watcher.WaitForShutdown();
 

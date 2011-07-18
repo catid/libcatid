@@ -516,6 +516,9 @@ union Float32 {
 #define CAT_STRINGIZE(X) DO_CAT_STRINGIZE(X)
 #define DO_CAT_STRINGIZE(X) #X
 
+// Fine and line string macro
+#define CAT_FILE_LINE_STRING __FILE__ ":" CAT_STRINGIZE(__LINE__)
+
 // Variable-length data trailing a struct
 template<typename T> CAT_INLINE u8 *GetTrailingBytes(T *t) { return reinterpret_cast<u8*>( t ) + sizeof(T); }
 

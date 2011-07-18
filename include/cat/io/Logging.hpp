@@ -181,7 +181,7 @@ public:
 #endif
 
 #if defined(CAT_USE_ENFORCE_FILE_LINE_STRING)
-# define CAT_ENFORCE_FILE_LINE_STRING " at " __FILE__ ":" CAT_STRINGIZE(__LINE__)
+# define CAT_ENFORCE_FILE_LINE_STRING " at " CAT_FILE_LINE_STRING
 #else
 # define CAT_ENFORCE_FILE_LINE_STRING ""
 #endif

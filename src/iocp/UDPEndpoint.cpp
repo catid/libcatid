@@ -168,7 +168,7 @@ bool UDPEndpoint::Bind(bool onlySupportIPv4, Port port, bool ignoreUnreachable, 
     }
 
 	_port = port;
-	AddRef();
+	AddRef(CAT_REFOBJECT_FILE_LINE);
 	_buffers_posted = 0;
 
 	// Associate with IOThreadPools
@@ -178,7 +178,7 @@ bool UDPEndpoint::Bind(bool onlySupportIPv4, Port port, bool ignoreUnreachable, 
 		CAT_FATAL("UDPEndpoint") << "Unable to associate with IOThreadPools";
 		CloseSocket(s);
 		_socket = SOCKET_ERROR;
-		ReleaseRef(); // Release temporary references keeping the object alive until function returns
+		ReleaseRef(CAT_REFOBJECT_FILE_LINE); // Release temporary references keeping the object alive until function returns
 		return false;
 	}
 
@@ -191,13 +191,13 @@ bool UDPEndpoint::Bind(bool onlySupportIPv4, Port port, bool ignoreUnreachable, 
 		CAT_FATAL("UDPEndpoint") << "No reads could be launched";
 		CloseSocket(s);
 		_socket = SOCKET_ERROR;
-		ReleaseRef(); // Release temporary reference keeping the object alive until function returns
+		ReleaseRef(CAT_REFOBJECT_FILE_LINE); // Release temporary reference keeping the object alive until function returns
 		return false;
 	}
 
     CAT_INFO("UDPEndpoint") << "Open on port " << GetPort();
 
-	ReleaseRef(); // Release temporary reference keeping the object alive until function returns
+	ReleaseRef(CAT_REFOBJECT_FILE_LINE); // Release temporary reference keeping the object alive until function returns
     return true;
 }
 
@@ -268,7 +268,7 @@ u32 UDPEndpoint::PostReads(u32 limit, u32 reuse_count, BatchSet set)
 	}
 
 	// Add references for number of expected new posts
-	AddRef(count);
+	AddRef(CAT_REFOBJECT_FILE_LINE, count);
 
 	// For each buffer,
 	BatchHead *node;
@@ -293,7 +293,11 @@ u32 UDPEndpoint::PostReads(u32 limit, u32 reuse_count, BatchSet set)
 
 	// Release excess references
 	count = reuse_count + count - posted_reads;
-	if (count > 0) ReleaseRef(count);
+	if (count > 0)
+	{
+		ReleaseRef(CAT_REFOBJECT_FILE_LINE, count);
+		CAT_WARN("UDPEndpoint") << "Released excess references: " << count;
+	}
 
 	return posted_reads;
 }
@@ -312,7 +316,7 @@ bool UDPEndpoint::Write(const BatchSet &buffers, u32 count, const NetAddr &addr)
 
 	u32 write_count = 0;
 
-	AddRef(count);
+	AddRef(CAT_REFOBJECT_FILE_LINE, count);
 
 	for (BatchHead *next, *node = buffers.head; node; node = next)
 	{
@@ -338,7 +342,7 @@ bool UDPEndpoint::Write(const BatchSet &buffers, u32 count, const NetAddr &addr)
 			CAT_WARN("UDPEndpoint") << "WSASendTo error: " << SocketGetLastErrorString();
 
 			StdAllocator::ii->Release(node);
-			ReleaseRef();
+			ReleaseRef(CAT_REFOBJECT_FILE_LINE);
 			continue;
 		}
 
@@ -369,6 +373,8 @@ void UDPEndpoint::ReleaseRecvBuffers(BatchSet buffers, u32 count)
 {
 	if (buffers.head)
 		PostReads(UDP_READ_POST_LIMIT, count, buffers);
+
+	CAT_WARN("UDPEndpoint") << "Released recv references: " << count;
 }
 
 void UDPEndpoint::OnRecvCompletion(const BatchSet &buffers, u32 count)
@@ -384,7 +390,11 @@ void UDPEndpoint::OnRecvCompletion(const BatchSet &buffers, u32 count)
 		// Just release the read buffers
 		allocator->ReleaseBatch(buffers);
 
-		ReleaseRef(count);
+		CAT_WARN("UDPEndpoint") << "Releasing dead references: " << count;
+
+		ReleaseRef(CAT_REFOBJECT_FILE_LINE, count);
+
+		CAT_WARN("UDPEndpoint") << "Released dead references: " << count;
 
 		return;
 	}

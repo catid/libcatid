@@ -117,7 +117,7 @@ void Server::OnRecvRouting(const BatchSet &buffers)
 		else if (conn)
 		{
 			// Another packet from the same connexion
-			conn->AddRef();
+			conn->AddRef(CAT_REFOBJECT_FILE_LINE);
 			buffer->callback.SetMember<Connexion, &Connexion::OnWorkerRecv>(conn);
 		}
 		else
@@ -333,7 +333,7 @@ void Server::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 
 					// Add a reference to the server on behalf of the Connexion
 					// When the Connexion dies, it will release this reference
-					AddRef();
+					AddRef(CAT_REFOBJECT_FILE_LINE);
 
 					conn->OnConnect(tls);
 

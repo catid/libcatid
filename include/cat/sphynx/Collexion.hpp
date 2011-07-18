@@ -336,7 +336,7 @@ Collexion<T>::~Collexion()
 		T *conn = _table[ii].conn;
 
 		// If object is valid, release it
-		if (conn) conn->ReleaseRef();
+		if (conn) conn->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
 	}
 
 	// Release table memory
@@ -347,7 +347,7 @@ template<class T>
 bool Collexion<T>::Insert(T *conn)
 {
 	u32 hash = HashPtr(conn);
-	conn->AddRef();
+	conn->AddRef(CAT_REFOBJECT_FILE_LINE);
 
 	AutoMutex lock(_lock);
 
@@ -361,7 +361,7 @@ bool Collexion<T>::Insert(T *conn)
 			// On growth failure, return false
 			lock.Release();
 
-			conn->ReleaseRef();
+			conn->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
 
 			return false;
 		}
@@ -380,7 +380,7 @@ bool Collexion<T>::Insert(T *conn)
 			// Return false on duplicate
 			lock.Release();
 
-			conn->ReleaseRef();
+			conn->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
 
 			return false;
 		}
@@ -476,7 +476,7 @@ bool Collexion<T>::Remove(T *conn)
 
 				lock.Release();
 
-				conn->ReleaseRef();
+				conn->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
 			}
 
 			// Return success
@@ -657,7 +657,7 @@ void Collexion<T>::Next(CollexionIterator<T> &iter, bool refill)
 	// Release data awaiting destruction
 	for (u32 ii = 0; ii < release_ii; ++ii)
 	{
-		release_list[ii]->ReleaseRef();
+		release_list[ii]->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
 	}
 }
 

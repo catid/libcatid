@@ -81,7 +81,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreadPool *master, OVERLAPPED_ENTR
 				sendq.tail = buffer;
 				buffer->batch_next = 0;
 
-				udp_endpoint->ReleaseRef();
+				udp_endpoint->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
 			}
 			break;
 
@@ -132,7 +132,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreadPool *master, OVERLAPPED_ENTR
 				// Deliver the buffer to the worker threads
 				WorkerThreads::ref()->DeliverBuffers(WQPRIO_LO, buffer->worker_id, buffer);
 
-				async_file->ReleaseRef();
+				async_file->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
 			}
 			break;
 
@@ -148,7 +148,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreadPool *master, OVERLAPPED_ENTR
 				// Deliver the buffer to the worker threads
 				WorkerThreads::ref()->DeliverBuffers(WQPRIO_LO, buffer->worker_id, buffer);
 
-				async_file->ReleaseRef();
+				async_file->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
 			}
 			break;
 		}
@@ -184,7 +184,7 @@ void IOThread::UseVistaAPI(IOThreadPool *master)
 		IOThreadPools::ref()->GetIOThreadImports()->pGetQueuedCompletionStatusEx;
 	HANDLE port = master->GetIOPort();
 
-	static const u32 MAX_IO_GATHER = 32;
+	static const u32 MAX_IO_GATHER = 128;
 	OVERLAPPED_ENTRY entries[MAX_IO_GATHER];
 	unsigned long ulEntriesRemoved;
 
