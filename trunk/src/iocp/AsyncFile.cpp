@@ -140,14 +140,14 @@ bool AsyncFile::Read(ReadBuffer *buffer, u64 offset, void *data, u32 bytes)
 	buffer->iointernal.ov.hEvent = 0;
 	buffer->iointernal.io_type = IOTYPE_FILE_READ;
 
-	AddRef();
+	AddRef(CAT_REFOBJECT_FILE_LINE);
 
 	BOOL result = ReadFile(_file, data, bytes, 0, &buffer->iointernal.ov);
 
 	if (!result && GetLastError() != ERROR_IO_PENDING)
 	{
 		CAT_WARN("AsyncFile") << "ReadFile error: " << GetLastError();
-		ReleaseRef();
+		ReleaseRef(CAT_REFOBJECT_FILE_LINE);
 		return false;
 	}
 
@@ -164,14 +164,14 @@ bool AsyncFile::Write(WriteBuffer *buffer, u64 offset, void *data, u32 bytes)
 	buffer->iointernal.ov.hEvent = 0;
 	buffer->iointernal.io_type = IOTYPE_FILE_WRITE;
 
-	AddRef();
+	AddRef(CAT_REFOBJECT_FILE_LINE);
 
 	BOOL result = WriteFile(_file, data, bytes, 0, &buffer->iointernal.ov);
 
 	if (!result && GetLastError() != ERROR_IO_PENDING)
 	{
 		CAT_WARN("AsyncFile") << "WriteFile error: " << GetLastError();
-		ReleaseRef();
+		ReleaseRef(CAT_REFOBJECT_FILE_LINE);
 		return false;
 	}
 

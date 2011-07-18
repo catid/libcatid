@@ -307,7 +307,7 @@ void FileTransferSink::OnReadHuge(u32 stream, BufferStream data, u32 size)
 		return;
 	}
 
-	_file->AddRef();
+	_file->AddRef(CAT_REFOBJECT_FILE_LINE);
 
 	WriteBuffer *buffer = new WriteBuffer;
 	buffer->worker_id = _worker_id;

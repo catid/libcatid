@@ -44,6 +44,12 @@
 #include <vector>
 #include <list>
 
+#if defined(CAT_TRACE_REFOBJECT)
+#define CAT_REFOBJECT_FILE_LINE CAT_FILE_LINE_STRING
+#else
+#define CAT_REFOBJECT_FILE_LINE 0
+#endif
+
 namespace cat {
 
 
@@ -83,10 +89,10 @@ public:
 
 	CAT_INLINE bool IsShutdown() { return _shutdown != 0; }
 
-	CAT_INLINE void AddRef(s32 times = 1)
+	CAT_INLINE void AddRef(const char *file_line, s32 times = 1)
 	{
 #if defined(CAT_TRACE_REFOBJECT)
-		CAT_WARN("RefObject") << this << " add " << times << " fuzzy refcount = " << _ref_count;
+		CAT_WARN("RefObject") << this << " add " << times << " at " << file_line;
 #endif
 
 #if defined(CAT_NO_ATOMIC_REF_OBJECT)
@@ -99,10 +105,10 @@ public:
 #endif
 	}
 
-	CAT_INLINE void ReleaseRef(s32 times = 1)
+	CAT_INLINE void ReleaseRef(const char *file_line, s32 times = 1)
 	{
 #if defined(CAT_TRACE_REFOBJECT)
-		CAT_WARN("RefObject") << this << " release " << times << " fuzzy refcount = " << _ref_count;
+		CAT_WARN("RefObject") << this << " release " << times << " at " << file_line;
 #endif
 
 		// Decrement reference count by # of times
@@ -134,7 +140,7 @@ public:
 	{
 		if (object)
 		{
-			object->ReleaseRef();
+			object->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
 			object = 0;
 		}
 	}
@@ -214,7 +220,7 @@ class AutoRelease
 
 public:
 	CAT_INLINE AutoRelease(T *ref = 0) throw() { _ref = ref; }
-	CAT_INLINE ~AutoRelease() throw() { if (_ref) _ref->ReleaseRef(); }
+	CAT_INLINE ~AutoRelease() throw() { if (_ref) _ref->ReleaseRef(CAT_REFOBJECT_FILE_LINE); }
 	CAT_INLINE AutoRelease &operator=(T *ref) throw() { Reset(ref); return *this; }
 
 	CAT_INLINE T *Get() throw() { return _ref; }
