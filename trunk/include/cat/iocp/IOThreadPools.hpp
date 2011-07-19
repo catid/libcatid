@@ -31,7 +31,7 @@
 
 #include <cat/threads/Thread.hpp>
 #include <cat/net/Sockets.hpp>
-#include <cat/threads/RefObject.hpp>
+#include <cat/threads/RefObjects.hpp>
 #include <cat/mem/BufferAllocator.hpp>
 
 #if defined(CAT_OS_WINDOWS)

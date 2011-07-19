@@ -105,9 +105,6 @@
     <ClCompile Include="..\..\src\mem\StdAllocator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\threads\RefObject.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\math\BitMath.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -124,6 +121,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\io\MappedFile.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\threads\RefObjects.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -197,9 +197,6 @@
     <ClInclude Include="..\..\include\cat\threads\AutoMutex.hpp">
       <Filter>Header Files\threads</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\cat\threads\RefObject.hpp">
-      <Filter>Header Files\threads</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\include\cat\port\SystemInfo.hpp">
       <Filter>Header Files\port</Filter>
     </ClInclude>
@@ -235,6 +232,9 @@
     </ClInclude>
     <ClInclude Include="..\..\include\cat\lang\Delegates.hpp">
       <Filter>Header Files\lang</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\threads\RefObjects.hpp">
+      <Filter>Header Files\threads</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

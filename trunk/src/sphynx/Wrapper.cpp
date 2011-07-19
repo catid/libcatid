@@ -58,9 +58,9 @@ static void EndLayer()
 }
 
 
-EasySphynxClient::InternalSphynxClient::InternalSphynxClient(EasySphynxClient *parent)
+EasySphynxClient::InternalSphynxClient::InternalSphynxClient()
 {
-	_parent = parent;
+	_parent = 0;
 }
 
 void EasySphynxClient::InternalSphynxClient::OnDestroy()
@@ -107,8 +107,8 @@ EasySphynxClient::EasySphynxClient()
 {
 	StartLayer();
 
-	_client = new InternalSphynxClient(this);
-	_watcher.Watch(_client);
+	_client = RefObjects::Acquire<InternalSphynxClient>(CAT_REFOBJECT_FILE_LINE);
+	_client->_parent = this;
 
 	_client->AddRef(CAT_REFOBJECT_FILE_LINE);
 }
@@ -116,8 +116,6 @@ EasySphynxClient::EasySphynxClient()
 EasySphynxClient::~EasySphynxClient()
 {
 	_client->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
-
-	_watcher.WaitForShutdown();
 
 	EndLayer();
 }

@@ -35,6 +35,8 @@ class EasySphynxClient
 {
 	class InternalSphynxClient : public cat::sphynx::Client
 	{
+		friend class EasySphynxClient;
+
 		EasySphynxClient *_parent;
 
 		void OnDestroy();
@@ -46,11 +48,10 @@ class EasySphynxClient
 		void OnTick(cat::SphynxTLS *tls, cat::u32 now);
 
 	public:
-		InternalSphynxClient(EasySphynxClient *parent);
+		InternalSphynxClient();
 	};
 
 	InternalSphynxClient *_client;
-	cat::RefObjects _watcher;
 
 public:
 	EasySphynxClient();

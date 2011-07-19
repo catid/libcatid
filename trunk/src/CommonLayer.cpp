@@ -31,6 +31,7 @@
 #include <cat/time/Clock.hpp>
 #include <cat/io/Logging.hpp>
 #include <cat/io/Settings.hpp>
+#include <cat/threads/RefObjects.hpp>
 using namespace cat;
 
 
@@ -93,6 +94,9 @@ void CommonLayer::OnShutdown(bool watched_shutdown)
 	{
 		CAT_WARN("CommonLayer") << "Wait for shutdown expired";
 	}
+
+	// Shutdown reference objects
+	RefObjects::ref()->Shutdown();
 
 	// Terminate Worker threads
 	WorkerThreads::ref()->Shutdown();

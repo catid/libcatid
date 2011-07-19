@@ -142,7 +142,7 @@ Connexion *GameServer::NewConnexion()
 {
 	CAT_WARN("Server") << "-- Allocating a new Connexion";
 
-	return new GameConnexion;
+	return RefObjects::Acquire<GameConnexion>(CAT_REFOBJECT_FILE_LINE);
 }
 
 bool GameServer::AcceptNewConnexion(const NetAddr &src)
@@ -165,7 +165,7 @@ int main()
 
 	CAT_INFO("Server") << "Secure Chat Server 2.0";
 
-	GameServer *server = new GameServer;
+	GameServer *server = RefObjects::Acquire<GameServer>(CAT_REFOBJECT_FILE_LINE);
 	const Port SERVER_PORT = 22000;
 
 	SphynxTLS tls;

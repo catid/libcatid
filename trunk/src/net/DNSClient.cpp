@@ -299,15 +299,15 @@ bool DNSClient::Initialize()
 	if (!(_csprng = new FortunaOutput))
 	{
 		CAT_WARN("DNSClient") << "Out of memory: Unable to get a CSPRNG";
-		RequestShutdown();
+		Destroy(CAT_REFOBJECT_FILE_LINE);
 		return false;
 	}
 
 	// Attempt to bind to any port; ignore ICMP unreachable messages
-	//if (!BindToRandomPort(true))
+	if (!BindToRandomPort(true))
 	{
 		CAT_WARN("DNSClient") << "Initialization failure: Unable to bind to any port";
-		RequestShutdown();
+		Destroy(CAT_REFOBJECT_FILE_LINE);
 		return false;
 	}
 
@@ -318,7 +318,7 @@ bool DNSClient::Initialize()
 	if (!GetServerAddr())
 	{
 		CAT_WARN("DNSClient") << "Initialization failure: Unable to discover DNS server address";
-		RequestShutdown();
+		Destroy(CAT_REFOBJECT_FILE_LINE);
 		return false;
 	}
 

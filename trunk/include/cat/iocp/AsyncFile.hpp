@@ -40,7 +40,7 @@
 #ifndef CAT_IOCP_ASYNCFILE_HPP
 #define CAT_IOCP_ASYNCFILE_HPP
 
-#include <cat/threads/RefObject.hpp>
+#include <cat/threads/RefObjects.hpp>
 #include <cat/io/Buffers.hpp>
 
 namespace cat {
@@ -58,7 +58,7 @@ enum AsyncFileModes
 };
 
 
-class CAT_EXPORT AsyncFile : public WatchedRefObject, public IOThreadsAssociator
+class CAT_EXPORT AsyncFile : public RefObject, public IOThreadsAssociator
 {
 	friend class IOThread;
 

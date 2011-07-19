@@ -26,29 +26,36 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/threads/RefObject.hpp>
+#include <cat/threads/RefObjects.hpp>
 #include <cat/threads/AutoMutex.hpp>
 using namespace cat;
-
-#include <algorithm>
 
 
 //// RefObjects Singleton
 
-static RefObjects refobject_watcher;
+static RefObjects refobject_reaper;
 
 RefObjects *RefObjects::ref()
 {
-	return &refobject_watcher;
+	return &refobject_reaper;
 }
 
 
 //// RefObject
 
-void RefObject::Destroy()
+RefObject::RefObject()
+{
+	// Initialize shutdown flag
+	_shutdown = 0;
+
+	// Initialize to one reference
+	_ref_count = 1;
+}
+
+void RefObject::Destroy(const char *file_line)
 {
 #if defined(CAT_TRACE_REFOBJECT)
-	CAT_WARN("RefObject") << this << " Destroy";
+	CAT_WARN("RefObject") << this << " destroyed at " << file_line;
 #endif
 
 	// Raise shutdown flag
@@ -68,71 +75,18 @@ void RefObject::Destroy()
 		// Notify the derived class on the first shutdown request
 		OnDestroy();
 
-		// Release the initial reference to allow OnZeroReference()
-		ReleaseRef(CAT_REFOBJECT_FILE_LINE);
+		// Release the initial reference to allow Finalize()
+		ReleaseRef(file_line);
 	}
 }
 
-
-//// WatchedRefObject
-
-void WatchedRefObject::ShutdownComplete(bool delete_this)
+void RefObject::OnZeroReferences(const char *file_line)
 {
-	_lock.Enter();
-
-	for (VectorIterator ii = _watchers.begin(); ii != _watchers.end(); ++ii)
-		(*ii)->OnObjectShutdownEnd(this);
-
-	_watchers.clear();
-
-	_lock.Leave();
-
-	if (delete_this) delete this;
-}
-
-void WatchedRefObject::RequestShutdown()
-{
-	// Raise shutdown flag
-#if defined(CAT_NO_ATOMIC_REF_OBJECT)
-	u32 shutdown;
-
-	_lock.Enter();
-	shutdown = _shutdown;
-	_shutdown = 1;
-	_lock.Leave();
-
-	if (shutdown == 0)
-#else
-	if (Atomic::Set(&_shutdown, 1) == 0)
+#if defined(CAT_TRACE_REFOBJECT)
+	CAT_WARN("RefObject") << this << " zero refs at " << file_line;
 #endif
-	{
-		// Notify the derived class on the first shutdown request
-		OnDestroy();
 
-		_lock.Enter();
-
-		for (VectorIterator ii = _watchers.begin(); ii != _watchers.end(); ++ii)
-			(*ii)->OnObjectShutdownStart(this);
-
-		_lock.Leave();
-
-		// Release the initial reference to allow OnZeroReference()
-		ReleaseRef(CAT_REFOBJECT_FILE_LINE);
-	}
-}
-
-bool WatchedRefObject::AddWatcher(RefObjects *watcher)
-{
-	AutoMutex lock(_lock);
-
-	if (!IsShutdown())
-	{
-		AddRef(CAT_REFOBJECT_FILE_LINE);
-		_watchers.push_back(watcher);
-		return true;
-	}
-
-	return false;
+	refobject_reaper.Kill(this);
 }
 
 
@@ -140,96 +94,159 @@ bool WatchedRefObject::AddWatcher(RefObjects *watcher)
 
 RefObjects::RefObjects()
 {
-	_wait_count = 0;
+	_active_head = _dead_head = 0;
+
 	_shutdown = false;
 }
 
-RefObjects::~RefObjects()
+bool RefObjects::Watch(const char *file_line, RefObject *obj)
 {
-	WaitForShutdown();
-}
+	if (!obj) return false;
 
-bool RefObjects::WaitForShutdown(s32 milliseconds)
-{
+#if defined(CAT_TRACE_REFOBJECT)
+	CAT_WARN("RefObjects") << obj << " acquired at " << file_line;
+#endif
+
 	AutoMutex lock(_lock);
 
-	bool shutdown = _shutdown;
-	_shutdown = true;
-
-	if (_wait_count == 0) return true;
-
-	lock.Release();
-
-	// If first time shutting down,
-	if (!shutdown)
-	{
-		// For each object we haven't seen shutdown start yet,
-		for (ListIterator ii = _watched_list.begin(); ii != _watched_list.end(); ++ii)
-		{
-			RefObject *obj = *ii;
-			ListIterator next = ii;
-
-			obj->Destroy();
-		}
-	}
-
-	return _shutdown_flag.Wait(milliseconds);
-}
-
-void RefObjects::Watch(WatchedRefObject *obj)
-{
-	AutoMutex lock(_lock);
-
-	// Abort if watcher is shutdown already
-	if (_shutdown) return;
-
-	// Abort if in race condition with watched object shutdown
-	if (!obj->AddWatcher(this))
-		return;
-
-	_watched_list.push_back(obj);
-	++_wait_count;
-}
-
-bool RefObjects::OnObjectShutdownStart(WatchedRefObject *obj)
-{
-	AutoMutex lock(_lock);
-
-	// If shutting down,
 	if (_shutdown)
 	{
-		// Just release the reference - No longer using this list
-		obj->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
-		return true;
+		lock.Release();
+
+		delete obj;
+
+		return false;
 	}
 
-	// Try to find the object in the watched list
-	ListIterator ii = std::find(_watched_list.begin(), _watched_list.end(), obj);
+	// Link to active list
+	RefObject *old_head = _active_head;
 
-	// If it was found in the list,
-	if (ii == _watched_list.end()) return false;
+	obj->_prev = 0;
+	obj->_next = old_head;
 
-	_watched_list.erase(ii);
+	old_head->_prev = obj;
 
-	lock.Release();
+	_active_head = obj;
 
-	// Release object reference, since they still have a reference on us
-	// and will call us back when shutdown ends
-	obj->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
-
-	// Do not decrement _wait_count until shutdown is complete
 	return true;
 }
 
-void RefObjects::OnObjectShutdownEnd(WatchedRefObject *obj)
+void RefObjects::UnlinkFromActiveList(RefObject *obj)
 {
+	RefObject *next = obj->_next, *prev = obj->_prev;
+	if (prev) prev->_next = obj;
+	else _active_head = next;
+	if (next) next->_prev = obj;
+}
+
+void RefObjects::LinkToDeadList(RefObject *obj)
+{
+	RefObject *old_head = _dead_head;
+
+	obj->_prev = 0;
+	obj->_next = old_head;
+
+	old_head->_prev = obj;
+
+	_dead_head = obj;
+}
+
+void RefObjects::Kill(RefObject *obj)
+{
+	AutoMutex lock(_lock);
+
+	// Skip if shutdown
+	if (_shutdown) return;
+
+	UnlinkFromActiveList(obj);
+
+	LinkToDeadList(obj);
+}
+
+bool RefObjects::Startup()
+{
+	if (!Thread::StartThread())
+	{
+		CAT_FATAL("RefObjects") << "Unable to start reaper thread";
+		return false;
+	}
+
+	return true;
+}
+
+bool RefObjects::Shutdown(s32 milliseconds)
+{
+	_shutdown_flag.Set();
+
+	return Thread::WaitForThread(milliseconds);
+}
+
+void RefObjects::BuryDeadites()
+{
+	if (!_dead_head) return;
+
+	RefObject *dead_head;
+
+	// Copy dead list
+	_lock.Enter();
+	dead_head = _dead_head;
+	_dead_head = 0;
+	_lock.Leave();
+
+	for (RefObject *next, *obj = dead_head; obj; obj = next)
+	{
+		next = obj->_next;
+
+		if (obj->OnFinalize())
+			delete obj;
+	}
+}
+
+bool RefObjects::ThreadFunction(void *param)
+{
+	while (!_shutdown_flag.Wait(513))
+	{
+		BuryDeadites();
+	}
+
 	_lock.Enter();
 
-	u32 wait_count = --_wait_count;
-	bool shutdown = _shutdown && wait_count <= 0;
+	// Set shutdown flag
+	_shutdown = true;
+
+	// Now the shutdown flag is set everywhere synchronously.
+	// The lists may only be modified from this function.
 
 	_lock.Leave();
 
-	// If the watcher is shutting down and all wait objects are dead,
-	if (shutdown) _shutdown_flag.Set();
+	// For each remaining active object,
+	for (RefObject *obj = _active_head; obj; obj = obj->_next)
+	{
+		obj->Destroy(CAT_REFOBJECT_FILE_LINE);
+	}
+
+	// Bury any easy dead
+	BuryDeadites();
+
+	// While active objects still exist,
+	RefObject *head = _active_head;
+	while (head)
+	{
+		if (head->_ref_count == 0)
+		{
+			RefObject *next = head->_next;
+
+			if (head->OnFinalize())
+				delete head;
+
+			head = next;
+		}
+		else
+		{
+			// Give it some time
+			Clock::sleep(10);
+		}
+	}
+
+	return true;
 }

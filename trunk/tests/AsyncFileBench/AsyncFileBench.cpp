@@ -124,9 +124,7 @@ public:
 			return false;
 		}
 
-		_file = new AsyncFile;
-
-		RefObjects::ref()->Watch(_file);
+		_file = RefObjects::Acquire<AsyncFile>(CAT_REFOBJECT_FILE_LINE);
 
 		if (!_file->Open(file_path, ASYNCFILE_READ | (no_buffer ? ASYNCFILE_NOBUFFER : 0) | (seq ? ASYNCFILE_SEQUENTIAL : 0)))
 		{
@@ -228,7 +226,7 @@ class WriteTester
 					CAT_WARN("AsyncFileBench") << "File write complete in " << s << " s : " << ms << " ms : " << delta << " us";
 					CAT_WARN("AsyncFileBench") << "File write complete at " << rate << " MBPS";
 
-					_file->RequestShutdown();
+					_file->Destroy(CAT_REFOBJECT_FILE_LINE);
 
 					Sleep(1000);
 
@@ -303,9 +301,7 @@ public:
 			return false;
 		}
 
-		_file = new AsyncFile;
-
-		RefObjects::ref()->Watch(_file);
+		_file = RefObjects::Acquire<AsyncFile>(CAT_REFOBJECT_FILE_LINE);
 
 		_unlink(file_path);
 
