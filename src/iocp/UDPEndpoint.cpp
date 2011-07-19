@@ -291,10 +291,7 @@ u32 UDPEndpoint::PostReads(s32 limit, s32 reuse_count, BatchSet set)
 	// Release excess references
 	count = reuse_count + count - posted_reads;
 	if (count > 0)
-	{
 		ReleaseRef(CAT_REFOBJECT_FILE_LINE, count);
-		CAT_WARN("UDPEndpoint") << "Released excess references: " << count;
-	}
 
 	return posted_reads;
 }
@@ -370,8 +367,6 @@ void UDPEndpoint::ReleaseRecvBuffers(BatchSet buffers, u32 count)
 {
 	if (buffers.head)
 		PostReads(UDP_READ_POST_LIMIT, count, buffers);
-
-	CAT_WARN("UDPEndpoint") << "Released recv references: " << count;
 }
 
 void UDPEndpoint::OnRecvCompletion(const BatchSet &buffers, u32 count)
@@ -387,11 +382,7 @@ void UDPEndpoint::OnRecvCompletion(const BatchSet &buffers, u32 count)
 		// Just release the read buffers
 		allocator->ReleaseBatch(buffers);
 
-		CAT_WARN("UDPEndpoint") << "Releasing dead references: " << count;
-
 		ReleaseRef(CAT_REFOBJECT_FILE_LINE, count);
-
-		CAT_WARN("UDPEndpoint") << "Released dead references: " << count;
 
 		return;
 	}
