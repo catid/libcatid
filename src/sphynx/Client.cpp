@@ -40,14 +40,14 @@ using namespace std;
 using namespace cat;
 using namespace sphynx;
 
-void Client::OnShutdownRequest()
+void Client::OnDestroy()
 {
-	UDPEndpoint::OnShutdownRequest();
+	UDPEndpoint::OnDestroy();
 }
 
-bool Client::OnZeroReferences()
+bool Client::OnFinalize()
 {
-	return UDPEndpoint::OnZeroReferences();
+	return UDPEndpoint::OnFinalize();
 }
 
 void Client::OnDisconnectComplete()

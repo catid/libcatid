@@ -90,8 +90,8 @@ public:
 	bool Write(WriteBuffer *buffer, u64 offset, void *data, u32 bytes);
 
 protected:
-	virtual void OnShutdownRequest();
-	virtual bool OnZeroReferences();
+	virtual void OnDestroy();
+	virtual bool OnFinalize();
 };
 
 

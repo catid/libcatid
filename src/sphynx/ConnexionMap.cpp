@@ -316,7 +316,7 @@ void ConnexionMap::ShutdownAll()
 	{
 		Connexion *conn = connexions[ii];
 
-		conn->RequestShutdown();
+		conn->Destroy();
 		conn->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
 	}
 }

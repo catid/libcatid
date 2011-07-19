@@ -40,7 +40,7 @@ using namespace cat;
 #define SIO_UDP_CONNRESET _WSAIOW(IOC_VENDOR,12)
 #endif
 
-void UDPEndpoint::OnShutdownRequest()
+void UDPEndpoint::OnDestroy()
 {
 	if (_socket != SOCKET_ERROR)
 	{
@@ -49,7 +49,7 @@ void UDPEndpoint::OnShutdownRequest()
 	}
 }
 
-bool UDPEndpoint::OnZeroReferences()
+bool UDPEndpoint::OnFinalize()
 {
 	IOThreadPools::ref()->DissociatePrivate(_pool);
 
@@ -183,7 +183,7 @@ bool UDPEndpoint::Bind(bool onlySupportIPv4, Port port, bool ignoreUnreachable, 
 	}
 
 	// Now that we're in the IO layer, start watching the object for shutdown
-	RefObjectWatcher::ref()->Watch(this);
+	RefObjects::ref()->Watch(this);
 
 	// If no reads could be posted,
 	if (PostReads(UDP_SIMULTANEOUS_READS) == 0)

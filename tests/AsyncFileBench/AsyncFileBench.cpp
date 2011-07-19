@@ -126,7 +126,7 @@ public:
 
 		_file = new AsyncFile;
 
-		RefObjectWatcher::ref()->Watch(_file);
+		RefObjects::ref()->Watch(_file);
 
 		if (!_file->Open(file_path, ASYNCFILE_READ | (no_buffer ? ASYNCFILE_NOBUFFER : 0) | (seq ? ASYNCFILE_SEQUENTIAL : 0)))
 		{
@@ -305,7 +305,7 @@ public:
 
 		_file = new AsyncFile;
 
-		RefObjectWatcher::ref()->Watch(_file);
+		RefObjects::ref()->Watch(_file);
 
 		_unlink(file_path);
 

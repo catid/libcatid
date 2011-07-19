@@ -33,11 +33,11 @@ using namespace cat;
 #include <algorithm>
 
 
-//// RefObjectWatcher Singleton
+//// RefObjects Singleton
 
-static RefObjectWatcher refobject_watcher;
+static RefObjects refobject_watcher;
 
-RefObjectWatcher *RefObjectWatcher::ref()
+RefObjects *RefObjects::ref()
 {
 	return &refobject_watcher;
 }
@@ -45,19 +45,10 @@ RefObjectWatcher *RefObjectWatcher::ref()
 
 //// RefObject
 
-void RefObject::ShutdownComplete(bool delete_this)
+void RefObject::Destroy()
 {
 #if defined(CAT_TRACE_REFOBJECT)
-	CAT_WARN("RefObject") << this << " ShutdownComplete";
-#endif
-
-	if (delete_this) delete this;
-}
-
-void RefObject::RequestShutdown()
-{
-#if defined(CAT_TRACE_REFOBJECT)
-	CAT_WARN("RefObject") << this << " RequestShutdown";
+	CAT_WARN("RefObject") << this << " Destroy";
 #endif
 
 	// Raise shutdown flag
@@ -75,7 +66,7 @@ void RefObject::RequestShutdown()
 #endif
 	{
 		// Notify the derived class on the first shutdown request
-		OnShutdownRequest();
+		OnDestroy();
 
 		// Release the initial reference to allow OnZeroReference()
 		ReleaseRef(CAT_REFOBJECT_FILE_LINE);
@@ -116,7 +107,7 @@ void WatchedRefObject::RequestShutdown()
 #endif
 	{
 		// Notify the derived class on the first shutdown request
-		OnShutdownRequest();
+		OnDestroy();
 
 		_lock.Enter();
 
@@ -130,7 +121,7 @@ void WatchedRefObject::RequestShutdown()
 	}
 }
 
-bool WatchedRefObject::AddWatcher(RefObjectWatcher *watcher)
+bool WatchedRefObject::AddWatcher(RefObjects *watcher)
 {
 	AutoMutex lock(_lock);
 
@@ -145,20 +136,20 @@ bool WatchedRefObject::AddWatcher(RefObjectWatcher *watcher)
 }
 
 
-//// RefObjectWatcher
+//// RefObjects
 
-RefObjectWatcher::RefObjectWatcher()
+RefObjects::RefObjects()
 {
 	_wait_count = 0;
 	_shutdown = false;
 }
 
-RefObjectWatcher::~RefObjectWatcher()
+RefObjects::~RefObjects()
 {
 	WaitForShutdown();
 }
 
-bool RefObjectWatcher::WaitForShutdown(s32 milliseconds)
+bool RefObjects::WaitForShutdown(s32 milliseconds)
 {
 	AutoMutex lock(_lock);
 
@@ -178,14 +169,14 @@ bool RefObjectWatcher::WaitForShutdown(s32 milliseconds)
 			RefObject *obj = *ii;
 			ListIterator next = ii;
 
-			obj->RequestShutdown();
+			obj->Destroy();
 		}
 	}
 
 	return _shutdown_flag.Wait(milliseconds);
 }
 
-void RefObjectWatcher::Watch(WatchedRefObject *obj)
+void RefObjects::Watch(WatchedRefObject *obj)
 {
 	AutoMutex lock(_lock);
 
@@ -200,7 +191,7 @@ void RefObjectWatcher::Watch(WatchedRefObject *obj)
 	++_wait_count;
 }
 
-bool RefObjectWatcher::OnObjectShutdownStart(WatchedRefObject *obj)
+bool RefObjects::OnObjectShutdownStart(WatchedRefObject *obj)
 {
 	AutoMutex lock(_lock);
 
@@ -230,7 +221,7 @@ bool RefObjectWatcher::OnObjectShutdownStart(WatchedRefObject *obj)
 	return true;
 }
 
-void RefObjectWatcher::OnObjectShutdownEnd(WatchedRefObject *obj)
+void RefObjects::OnObjectShutdownEnd(WatchedRefObject *obj)
 {
 	_lock.Enter();
 

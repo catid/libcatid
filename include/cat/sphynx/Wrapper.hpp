@@ -37,8 +37,8 @@ class EasySphynxClient
 	{
 		EasySphynxClient *_parent;
 
-		void OnShutdownRequest();
-		bool OnZeroReferences();
+		void OnDestroy();
+		bool OnFinalize();
 		void OnConnectFail(cat::sphynx::SphynxError err);
 		void OnConnect(cat::SphynxTLS *tls);
 		void OnMessages(cat::SphynxTLS *tls, cat::sphynx::IncomingMessage msgs[], cat::u32 count);
@@ -50,7 +50,7 @@ class EasySphynxClient
 	};
 
 	InternalSphynxClient *_client;
-	cat::RefObjectWatcher _watcher;
+	cat::RefObjects _watcher;
 
 public:
 	EasySphynxClient();

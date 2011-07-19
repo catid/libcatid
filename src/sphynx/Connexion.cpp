@@ -33,12 +33,12 @@
 using namespace cat;
 using namespace sphynx;
 
-void Connexion::OnShutdownRequest()
+void Connexion::OnDestroy()
 {
 	_parent->_conn_map.Remove(this);
 }
 
-bool Connexion::OnZeroReferences()
+bool Connexion::OnFinalize()
 {
 	_parent->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
 	return true;
@@ -46,7 +46,7 @@ bool Connexion::OnZeroReferences()
 
 void Connexion::OnDisconnectComplete()
 {
-	RequestShutdown();
+	Destroy();
 }
 
 void Connexion::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)

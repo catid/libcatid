@@ -304,7 +304,7 @@ bool DNSClient::Initialize()
 	}
 
 	// Attempt to bind to any port; ignore ICMP unreachable messages
-	if (!BindToRandomPort(true))
+	//if (!BindToRandomPort(true))
 	{
 		CAT_WARN("DNSClient") << "Initialization failure: Unable to bind to any port";
 		RequestShutdown();

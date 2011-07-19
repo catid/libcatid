@@ -195,7 +195,11 @@ void IOThread::UseVistaAPI(IOThreadPool *master)
 	UDPEndpoint *prev_recv_endpoint = 0;
 	u32 recv_count = 0;
 
-	while (pGetQueuedCompletionStatusEx(port, entries, MAX_IO_GATHER, &ulEntriesRemoved, INFINITE, FALSE))
+	u32 max_io_gather = Settings::ref()->getInt("IOThread.MaxIOGather", MAX_IO_GATHER);
+	if (max_io_gather > MAX_IO_GATHER) max_io_gather = MAX_IO_GATHER;
+	if (max_io_gather < 1) max_io_gather = 1;
+
+	while (pGetQueuedCompletionStatusEx(port, entries, max_io_gather, &ulEntriesRemoved, INFINITE, FALSE))
 	{
 		u32 event_time = Clock::msec();
 
@@ -253,9 +257,9 @@ bool IOThread::ThreadFunction(void *vmaster)
 {
 	IOThreadPool *master = reinterpret_cast<IOThreadPool*>( vmaster );
 
-	if (IOThreadPools::ref()->GetIOThreadImports()->pGetQueuedCompletionStatusEx)
-		UseVistaAPI(master);
-	else
+	//if (IOThreadPools::ref()->GetIOThreadImports()->pGetQueuedCompletionStatusEx)
+		//UseVistaAPI(master);
+	//else
 		UsePreVistaAPI(master);
 
 	return true;
@@ -291,7 +295,7 @@ bool IOThreadPool::Startup(u32 max_worker_count)
 	if (worker_count < 1) worker_count = 1;
 
 	// If worker count override is set,
-	u32 worker_count_override = Settings::ref()->getInt("IOThreadPools.Count", 0);
+	u32 worker_count_override = Settings::ref()->getInt("IOThreadPool.WorkerCount", 0);
 	if (worker_count_override != 0)
 	{
 		// Use it instead of the number of processors
@@ -431,7 +435,7 @@ bool IOThreadPools::Startup()
 		Shutdown();
 	}
 
-	u32 iothreads_buffer_count = Settings::ref()->getInt("IOThreads.BufferCount", IOTHREADS_BUFFER_COUNT);
+	u32 iothreads_buffer_count = Settings::ref()->getInt("IOThreadPools.BufferCount", IOTHREADS_BUFFER_COUNT);
 
 	_recv_allocator = new BufferAllocator(sizeof(RecvBuffer) + IOTHREADS_BUFFER_READ_BYTES, iothreads_buffer_count);
 
@@ -483,6 +487,8 @@ IOThreadPool *IOThreadPools::AssociatePrivate(IOThreadsAssociator *associator)
 
 bool IOThreadPools::DissociatePrivate(IOThreadPool *pool)
 {
+	bool success = pool->Shutdown();
+
 	AutoMutex lock(_lock);
 
 	// For each pool,
@@ -490,15 +496,12 @@ bool IOThreadPools::DissociatePrivate(IOThreadPool *pool)
 	{
 		if (pool == &*ii)
 		{
-			bool success = pool->Shutdown();
-
 			_private_pools.erase(ii);
-
-			return success;
+			break;
 		}
 	}
 
-	return false;
+	return success;
 }
 
 bool IOThreadPools::AssociateShared(IOThreadsAssociator *associator)

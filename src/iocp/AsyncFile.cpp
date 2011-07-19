@@ -33,12 +33,12 @@
 using namespace std;
 using namespace cat;
 
-void AsyncFile::OnShutdownRequest()
+void AsyncFile::OnDestroy()
 {
 	Close();
 }
 
-bool AsyncFile::OnZeroReferences()
+bool AsyncFile::OnFinalize()
 {
 	return true;
 }
