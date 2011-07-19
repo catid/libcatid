@@ -83,12 +83,13 @@ public:
 	static RefObjects *ref();
 
 	// Start the reaper thread
-	bool Startup();
+	bool Initialize();
 
 	// Wait for watched objects to finish shutdown, returns false on timeout
 	bool Shutdown(s32 milliseconds = -1); // < 0 = wait forever
 
-	template<class T> static CAT_INLINE T *Acquire(const char *file_line)
+	template<class T>
+	static CAT_INLINE T *Acquire(const char *file_line)
 	{
 		T *obj = new T;
 

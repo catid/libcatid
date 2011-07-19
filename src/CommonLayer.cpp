@@ -67,6 +67,13 @@ bool CommonLayer::OnStartup(IWorkerTLSBuilder *tls_builder, const char *settings
 	Logging::ref()->Initialize(LVL_INFO);
 	if (service) Logging::ref()->EnableServiceMode(service_name);
 
+	// Initialize ref objects subsystem
+	if (!RefObjects::ref()->Initialize())
+	{
+		CAT_FATAL("CommonLayer") << "RefObjects subsystem failed to initialize";
+		return false;
+	}
+
 	// Initialize disk settings subsystem
 	Settings::ref()->readSettingsFromFile(settings_file_name);
 

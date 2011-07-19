@@ -46,7 +46,7 @@ static DNSClient *dns_client = 0;
 DNSClient *DNSClient::ref()
 {
 	if (!dns_client)
-		dns_client = new DNSClient;
+		dns_client = RefObjects::Acquire<DNSClient>(CAT_REFOBJECT_FILE_LINE);
 
 	return dns_client;
 }
@@ -294,7 +294,6 @@ DNSClient::~DNSClient()
 
 bool DNSClient::Initialize()
 {
-	return false;
 	// Attempt to get a CSPRNG
 	if (!(_csprng = new FortunaOutput))
 	{
