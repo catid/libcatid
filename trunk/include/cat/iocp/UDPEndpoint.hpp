@@ -121,8 +121,8 @@ public:
 protected:
 	CAT_INLINE void SetRemoteAddress(RecvBuffer *buffer);
 
-	virtual void OnShutdownRequest();
-	virtual bool OnZeroReferences();
+	virtual void OnDestroy();
+	virtual bool OnFinalize();
 
 	virtual void OnRecvRouting(const BatchSet &buffers) = 0;
 };

@@ -54,24 +54,46 @@ namespace cat {
 
 
 class RefObject;
-class WatchedRefObject;
-class RefObjectWatcher;
+class RefObjects;
+
+
+// Mechanism to wait for reference-counted objects to finish shutting down
+class CAT_EXPORT RefObjects
+{
+	friend class RefObject;
+
+#if defined(CAT_NO_ATOMIC_REF_OBJECT)
+	Mutex _lock;
+#endif
+
+	volatile u32 _obj_count;
+
+	WaitableFlag _shutdown_flag;
+
+public:
+	RefObjects();
+	virtual ~RefObjects();
+
+	static RefObjects *ref();
+
+	// Wait for watched objects to finish shutdown, returns false on timeout
+	bool WaitForShutdown(s32 milliseconds = -1); // < 0 = wait forever
+};
+
 
 // Classes that derive from RefObject have asynchronously managed lifetimes
-// Never delete a RefObject directly.  Use the RequestShutdown() member instead
+// Never delete a RefObject directly.  Use the Destroy() member instead
 class CAT_EXPORT RefObject
 {
-	friend class WatchedRefObject;
+	friend class RefObjects;
 
 #if defined(CAT_NO_ATOMIC_REF_OBJECT)
 	Mutex _lock;
 #endif
 
 	volatile u32 _ref_count;
-	u8 _packing[CAT_DEFAULT_CACHE_LINE_SIZE];
 	volatile u32 _shutdown;
-
-	virtual void ShutdownComplete(bool delete_this);
+	RefObject *_last, *_next;
 
 public:
 	CAT_INLINE RefObject()
@@ -85,7 +107,7 @@ public:
 
 	CAT_INLINE virtual ~RefObject() {}
 
-	virtual void RequestShutdown();
+	void Destroy();
 
 	CAT_INLINE bool IsShutdown() { return _shutdown != 0; }
 
@@ -126,11 +148,7 @@ public:
 		if (Atomic::Add(&_ref_count, -times) == times)
 #endif
 		{
-			// Request shutdown to make sure shutdown callback is used
-			RequestShutdown();
-
-			// Then proceed to call zero references callback
-			ShutdownComplete(OnZeroReferences());
+			Destroy();
 		}
 	}
 
@@ -149,66 +167,14 @@ protected:
 	// Called when a shutdown is in progress
 	// The object should release any internally held references
 	// such as private threads that are working on the object
-	// Always called and before OnZeroReferences()
+	// Always called and before OnFinalize()
 	// Proper implementation of derived classes should call the parent version
-	virtual void OnShutdownRequest() = 0;
+	virtual void OnDestroy() = 0;
 
 	// Called when object has no more references
 	// Return true to delete the object
-	// Always called and after OnShutdownRequest()
-	virtual bool OnZeroReferences() = 0;
-};
-
-
-// This is a RefObject that can be watched using a RefObjectWatcher
-// I separated these out so that the basic RefObject can be very lightweight
-class CAT_EXPORT WatchedRefObject : public RefObject
-{
-	friend class RefObjectWatcher;
-
-#if !defined(CAT_NO_ATOMIC_REF_OBJECT)
-	Mutex _lock;
-#endif
-
-	std::vector<RefObjectWatcher*> _watchers;
-	typedef std::vector<RefObjectWatcher*>::iterator VectorIterator;
-
-	virtual void ShutdownComplete(bool delete_this);
-	bool AddWatcher(RefObjectWatcher *watcher);
-
-public:
-	CAT_INLINE virtual ~WatchedRefObject() {}
-
-	virtual void RequestShutdown();
-};
-
-
-// Mechanism to wait for reference-counted objects to finish shutting down
-class CAT_EXPORT RefObjectWatcher
-{
-	friend class WatchedRefObject;
-
-	Mutex _lock;
-	std::list<WatchedRefObject*> _watched_list;
-	typedef std::list<WatchedRefObject*>::iterator ListIterator;
-	u32 _wait_count;
-	bool _shutdown;
-
-	WaitableFlag _shutdown_flag;
-
-	bool OnObjectShutdownStart(WatchedRefObject *obj);
-	void OnObjectShutdownEnd(WatchedRefObject *obj);
-
-public:
-	RefObjectWatcher();
-	virtual ~RefObjectWatcher();
-
-	static RefObjectWatcher *ref();
-
-	// Wait for watched objects to finish shutdown, returns false on timeout
-	bool WaitForShutdown(s32 milliseconds = -1); // < 0 = wait forever
-
-	void Watch(WatchedRefObject *obj);
+	// Always called and after OnDestroy()
+	virtual bool OnFinalize() = 0;
 };
 
 

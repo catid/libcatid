@@ -61,7 +61,7 @@ public:
 
 	CAT_INLINE void Shutdown()
 	{
-		OnShutdown(RefObjectWatcher::ref()->WaitForShutdown());
+		OnShutdown(RefObjects::ref()->WaitForShutdown());
 	}
 
 protected:
