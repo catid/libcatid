@@ -110,7 +110,7 @@ int main(int argc, char *argv[])
 		CAT_FATAL("Client") << "Unable to load server public key from disk";
 	}
 
-	GameClient *client = new GameClient;
+	GameClient *client = RefObjects::Acquire<GameClient>(CAT_REFOBJECT_FILE_LINE);
 
 	// loopback: 127.0.0.1
 	// desktop: 10.1.1.142

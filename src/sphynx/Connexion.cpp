@@ -46,7 +46,7 @@ bool Connexion::OnFinalize()
 
 void Connexion::OnDisconnectComplete()
 {
-	Destroy();
+	Destroy(CAT_REFOBJECT_FILE_LINE);
 }
 
 void Connexion::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)

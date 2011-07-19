@@ -52,7 +52,7 @@ bool Client::OnFinalize()
 
 void Client::OnDisconnectComplete()
 {
-	RequestShutdown();
+	Destroy(CAT_REFOBJECT_FILE_LINE);
 }
 
 void Client::OnRecvRouting(const BatchSet &buffers)
@@ -668,7 +668,7 @@ void Client::OnInternal(SphynxTLS *tls, u32 recv_time, BufferStream data, u32 by
 void Client::ConnectFail(SphynxError err)
 {
 	OnConnectFail(err);
-	RequestShutdown();
+	Destroy(CAT_REFOBJECT_FILE_LINE);
 }
 
 /*

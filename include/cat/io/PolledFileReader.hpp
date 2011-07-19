@@ -62,7 +62,7 @@ static const u32 OPTIMAL_FILE_READ_CHUNK_SIZE = 32768;
 static const u32 OPTIMAL_FILE_MINIMUM_PARALLELISM = 16;
 static const u32 OPTIMAL_FILE_READ_MODE = ASYNCFILE_READ | ASYNCFILE_SEQUENTIAL | ASYNCFILE_NOBUFFER;
 
-class CAT_EXPORT PolledFileReader : protected AsyncFile
+class CAT_EXPORT PolledFileReader : public AsyncFile
 {
 	// Double-buffered cache system
 	u8 *_cache[2];

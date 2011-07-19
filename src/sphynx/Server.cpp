@@ -83,7 +83,7 @@ void Server::OnRecvRouting(const BatchSet &buffers)
 		{
 			// If close signal is received,
 			if (buffer->data_bytes == 0)
-				RequestShutdown();
+				Destroy(CAT_REFOBJECT_FILE_LINE);
 
 			if (_conn_map.LookupCheckFlood(conn, buffer->GetAddr()))
 			{

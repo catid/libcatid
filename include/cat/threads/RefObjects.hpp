@@ -58,26 +58,45 @@ class RefObjects;
 
 
 // Mechanism to wait for reference-counted objects to finish shutting down
-class CAT_EXPORT RefObjects
+class CAT_EXPORT RefObjects : Thread
 {
 	friend class RefObject;
 
-#if defined(CAT_NO_ATOMIC_REF_OBJECT)
 	Mutex _lock;
-#endif
-
-	volatile u32 _obj_count;
+	RefObject *_active_head, *_dead_head;
+	bool _shutdown;
 
 	WaitableFlag _shutdown_flag;
 
+	bool Watch(const char *file_line, RefObject *obj);
+	void Kill(RefObject *obj);
+
+	void UnlinkFromActiveList(RefObject *obj);
+	void LinkToDeadList(RefObject *obj);
+	void BuryDeadites();
+	bool ThreadFunction(void *param);
+
 public:
 	RefObjects();
-	virtual ~RefObjects();
+	//virtual ~RefObjects();
 
 	static RefObjects *ref();
 
+	// Start the reaper thread
+	bool Startup();
+
 	// Wait for watched objects to finish shutdown, returns false on timeout
-	bool WaitForShutdown(s32 milliseconds = -1); // < 0 = wait forever
+	bool Shutdown(s32 milliseconds = -1); // < 0 = wait forever
+
+	template<class T> static CAT_INLINE T *Acquire(const char *file_line)
+	{
+		T *obj = new T;
+
+		if (!RefObjects::ref()->Watch(file_line, obj))
+			return 0;
+
+		return obj;
+	}
 };
 
 
@@ -93,21 +112,15 @@ class CAT_EXPORT RefObject
 
 	volatile u32 _ref_count;
 	volatile u32 _shutdown;
-	RefObject *_last, *_next;
+	RefObject *_prev, *_next;
+
+	void OnZeroReferences(const char *file_line);
 
 public:
-	CAT_INLINE RefObject()
-	{
-		// Initialize shutdown flag
-		_shutdown = 0;
-
-		// Initialize to one reference
-		_ref_count = 1;
-	}
-
+	RefObject();
 	CAT_INLINE virtual ~RefObject() {}
 
-	void Destroy();
+	void Destroy(const char *file_line);
 
 	CAT_INLINE bool IsShutdown() { return _shutdown != 0; }
 
@@ -148,7 +161,7 @@ public:
 		if (Atomic::Add(&_ref_count, -times) == times)
 #endif
 		{
-			Destroy();
+			OnZeroReferences(file_line);
 		}
 	}
 
@@ -207,7 +220,7 @@ class AutoShutdown
 
 public:
 	CAT_INLINE AutoShutdown(T *ref = 0) throw() { _ref = ref; }
-	CAT_INLINE ~AutoShutdown() throw() { if (_ref) _ref->RequestShutdown(); }
+	CAT_INLINE ~AutoShutdown() throw() { if (_ref) _ref->Destroy(CAT_REFOBJECT_FILE_LINE); }
 	CAT_INLINE AutoShutdown &operator=(T *ref) throw() { Reset(ref); return *this; }
 
 	CAT_INLINE T *Get() throw() { return _ref; }

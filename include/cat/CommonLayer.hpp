@@ -29,7 +29,7 @@
 #ifndef CAT_COMMON_LAYER_HPP
 #define CAT_COMMON_LAYER_HPP
 
-#include <cat/threads/RefObject.hpp>
+#include <cat/threads/RefObjects.hpp>
 #include <cat/threads/WorkerThreads.hpp>
 
 namespace cat {
@@ -61,7 +61,7 @@ public:
 
 	CAT_INLINE void Shutdown()
 	{
-		OnShutdown(RefObjects::ref()->WaitForShutdown());
+		OnShutdown(RefObjects::ref()->Shutdown());
 	}
 
 protected:

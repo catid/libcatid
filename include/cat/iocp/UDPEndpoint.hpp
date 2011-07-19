@@ -30,7 +30,7 @@
 #define CAT_IOCP_UDP_ENDPOINT_HPP
 
 #include <cat/net/Sockets.hpp>
-#include <cat/threads/RefObject.hpp>
+#include <cat/threads/RefObjects.hpp>
 #include <cat/mem/IAllocator.hpp>
 
 /*
@@ -69,7 +69,7 @@ static const u32 UDP_READ_POST_LIMIT = 8;
 
 
 // Object that represents a UDP endpoint bound to a single port
-class CAT_EXPORT UDPEndpoint : public WatchedRefObject, public IOThreadsAssociator
+class CAT_EXPORT UDPEndpoint : public RefObject, public IOThreadsAssociator
 {
 	friend class IOThread;
 
@@ -81,7 +81,7 @@ class CAT_EXPORT UDPEndpoint : public WatchedRefObject, public IOThreadsAssociat
 	IOThreadPool *_pool;
 
 	bool PostRead(RecvBuffer *buffer);
-	u32 PostReads(u32 limit, u32 reuse_count = 0, BatchSet set = BatchSet(0, 0));
+	u32 PostReads(s32 limit, s32 reuse_count = 0, BatchSet set = BatchSet(0, 0));
 
 	void OnRecvCompletion(const BatchSet &buffers, u32 count);
 

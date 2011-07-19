@@ -182,9 +182,6 @@ bool UDPEndpoint::Bind(bool onlySupportIPv4, Port port, bool ignoreUnreachable, 
 		return false;
 	}
 
-	// Now that we're in the IO layer, start watching the object for shutdown
-	RefObjects::ref()->Watch(this);
-
 	// If no reads could be posted,
 	if (PostReads(UDP_SIMULTANEOUS_READS) == 0)
 	{
@@ -231,7 +228,7 @@ bool UDPEndpoint::PostRead(RecvBuffer *buffer)
 	return true;
 }
 
-u32 UDPEndpoint::PostReads(u32 limit, u32 reuse_count, BatchSet set)
+u32 UDPEndpoint::PostReads(s32 limit, s32 reuse_count, BatchSet set)
 {
 	if (IsShutdown())
 		return 0;
@@ -248,7 +245,7 @@ u32 UDPEndpoint::PostReads(u32 limit, u32 reuse_count, BatchSet set)
 		return 0;
 
 	// If reuse count is more than needed,
-	u32 acquire_count = 0, posted_reads = 0;
+	s32 acquire_count = 0, posted_reads = 0;
 
 	if (reuse_count < count)
 	{
