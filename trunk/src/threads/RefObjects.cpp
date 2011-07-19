@@ -124,7 +124,7 @@ bool RefObjects::Watch(const char *file_line, RefObject *obj)
 	obj->_prev = 0;
 	obj->_next = old_head;
 
-	old_head->_prev = obj;
+	if (old_head) old_head->_prev = obj;
 
 	_active_head = obj;
 
@@ -146,7 +146,7 @@ void RefObjects::LinkToDeadList(RefObject *obj)
 	obj->_prev = 0;
 	obj->_next = old_head;
 
-	old_head->_prev = obj;
+	if (old_head) old_head->_prev = obj;
 
 	_dead_head = obj;
 }
@@ -163,7 +163,7 @@ void RefObjects::Kill(RefObject *obj)
 	LinkToDeadList(obj);
 }
 
-bool RefObjects::Startup()
+bool RefObjects::Initialize()
 {
 	if (!Thread::StartThread())
 	{

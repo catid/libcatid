@@ -257,9 +257,9 @@ bool IOThread::ThreadFunction(void *vmaster)
 {
 	IOThreadPool *master = reinterpret_cast<IOThreadPool*>( vmaster );
 
-	//if (IOThreadPools::ref()->GetIOThreadImports()->pGetQueuedCompletionStatusEx)
-		//UseVistaAPI(master);
-	//else
+	if (IOThreadPools::ref()->GetIOThreadImports()->pGetQueuedCompletionStatusEx)
+		UseVistaAPI(master);
+	else
 		UsePreVistaAPI(master);
 
 	return true;
