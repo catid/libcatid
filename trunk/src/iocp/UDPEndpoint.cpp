@@ -245,7 +245,7 @@ u32 UDPEndpoint::PostReads(s32 limit, s32 reuse_count, BatchSet set)
 		return 0;
 
 	// If reuse count is more than needed,
-	s32 acquire_count = 0, posted_reads = 0;
+	s32 acquire_count = 0, posted_reads = 0, release_count = 0;
 
 	if (reuse_count < count)
 	{
@@ -258,14 +258,20 @@ u32 UDPEndpoint::PostReads(s32 limit, s32 reuse_count, BatchSet set)
 
 		if (acquire_count != request_count)
 		{
+			count -= request_count - acquire_count;
+
 			CAT_WARN("UDPEndpoint") << "Only able to acquire " << acquire_count << " of " << request_count << " buffers";
 		}
 
 		set.PushBack(allocated);
-	}
 
-	// Add references for number of expected new posts
-	AddRef(CAT_REFOBJECT_FILE_LINE, count);
+		// Add references for number of expected new posts
+		if (acquire_count > 0) AddRef(CAT_REFOBJECT_FILE_LINE, acquire_count);
+	}
+	else
+	{
+		release_count = reuse_count - count;
+	}
 
 	// For each buffer,
 	BatchHead *node;
@@ -277,7 +283,14 @@ u32 UDPEndpoint::PostReads(s32 limit, s32 reuse_count, BatchSet set)
 	if (posted_reads > 0) Atomic::Add(&_buffers_posted, posted_reads);
 
 	// If not all posts succeeded,
-	if (posted_reads < count) CAT_WARN("UDPEndpoint") << "Not all read posts succeeded: " << posted_reads << " of " << count;
+	if (posted_reads < count)
+	{
+		CAT_WARN("UDPEndpoint") << "Not all read posts succeeded: " << posted_reads << " of " << count;
+	}
+
+	// Release excess references
+	release_count += count - posted_reads;
+	if (release_count > 0) ReleaseRef(CAT_REFOBJECT_FILE_LINE, release_count);
 
 	// If nodes were unused,
 	if (node)
@@ -287,11 +300,6 @@ u32 UDPEndpoint::PostReads(s32 limit, s32 reuse_count, BatchSet set)
 		set.head = node;
 		allocator->ReleaseBatch(set);
 	}
-
-	// Release excess references
-	count = reuse_count + count - posted_reads;
-	if (count > 0)
-		ReleaseRef(CAT_REFOBJECT_FILE_LINE, count);
 
 	return posted_reads;
 }

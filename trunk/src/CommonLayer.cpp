@@ -102,11 +102,11 @@ void CommonLayer::OnShutdown(bool watched_shutdown)
 		CAT_WARN("CommonLayer") << "Wait for shutdown expired";
 	}
 
-	// Shutdown reference objects
-	RefObjects::ref()->Shutdown();
-
 	// Terminate Worker threads
 	WorkerThreads::ref()->Shutdown();
+
+	// Shutdown reference objects
+	RefObjects::ref()->Shutdown();
 
 	// Write settings to disk
 	Settings::ref()->write();

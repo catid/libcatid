@@ -347,7 +347,15 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 		}
 	}
 
-	// TODO: Remove references here
+	u32 timers_count = _timers_count;
+
+	// For each timer,
+	for (u32 ii = 0; ii < timers_count; ++ii)
+	{
+		WorkerTimer *timer = &_timers[ii];
+
+		timer->object->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
+	}
 
 	return true;
 }
