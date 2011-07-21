@@ -74,6 +74,8 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreadPool *master, OVERLAPPED_ENTR
 				UDPEndpoint *udp_endpoint = static_cast<UDPEndpoint*>( associator );
 				SendBuffer *buffer = reinterpret_cast<SendBuffer*>( (u8*)ov_iocp - offsetof(SendBuffer, iointernal.ov) );
 
+				CAT_INANE("IOThread") << "IOTYPE_UDP_SEND completed for " << udp_endpoint;
+
 				// Link to sendq
 				if (sendq.tail) sendq.tail->batch_next = buffer;
 				else sendq.head = buffer;
@@ -89,6 +91,8 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreadPool *master, OVERLAPPED_ENTR
 			{
 				UDPEndpoint *udp_endpoint = static_cast<UDPEndpoint*>( associator );
 				RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( (u8*)ov_iocp - offsetof(RecvBuffer, iointernal.ov) );
+
+				CAT_INANE("IOThread") << "IOTYPE_UDP_RECV completed for " << udp_endpoint;
 
 				// Write event completion results to buffer
 				buffer->data_bytes = bytes;
@@ -125,6 +129,8 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreadPool *master, OVERLAPPED_ENTR
 				AsyncFile *async_file = static_cast<AsyncFile*>( associator );
 				WriteBuffer *buffer = reinterpret_cast<WriteBuffer*>( (u8*)ov_iocp - offsetof(WriteBuffer, iointernal.ov) );
 
+				CAT_INANE("IOThread") << "IOTYPE_FILE_WRITE completed for " << async_file;
+
 				// Write event completion results to buffer
 				buffer->offset = ((u64)buffer->iointernal.ov.OffsetHigh << 32) | buffer->iointernal.ov.Offset;
 				buffer->data_bytes = bytes;
@@ -140,6 +146,8 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreadPool *master, OVERLAPPED_ENTR
 			{
 				AsyncFile *async_file = static_cast<AsyncFile*>( associator );
 				ReadBuffer *buffer = reinterpret_cast<ReadBuffer*>( (u8*)ov_iocp - offsetof(ReadBuffer, iointernal.ov) );
+
+				CAT_INANE("IOThread") << "IOTYPE_FILE_READ completed for " << async_file;
 
 				// Write event completion results to buffer
 				buffer->offset = ((u64)buffer->iointernal.ov.OffsetHigh << 32) | buffer->iointernal.ov.Offset;
@@ -487,6 +495,8 @@ IOThreadPool *IOThreadPools::AssociatePrivate(IOThreadsAssociator *associator)
 
 bool IOThreadPools::DissociatePrivate(IOThreadPool *pool)
 {
+	if (!pool) return true;
+
 	bool success = pool->Shutdown();
 
 	AutoMutex lock(_lock);
