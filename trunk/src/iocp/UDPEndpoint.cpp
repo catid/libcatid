@@ -231,7 +231,10 @@ bool UDPEndpoint::PostRead(RecvBuffer *buffer)
 u32 UDPEndpoint::PostReads(s32 limit, s32 reuse_count, BatchSet set)
 {
 	if (IsShutdown())
+	{
+		if (reuse_count > 0) ReleaseRef(CAT_REFOBJECT_FILE_LINE, reuse_count);
 		return 0;
+	}
 
 	// Check if there is a deficiency
 	s32 count = (s32)(UDP_SIMULTANEOUS_READS - _buffers_posted);
@@ -242,7 +245,10 @@ u32 UDPEndpoint::PostReads(s32 limit, s32 reuse_count, BatchSet set)
 
 	// If there is no deficiency,
 	if (count <= 0)
+	{
+		if (reuse_count > 0) ReleaseRef(CAT_REFOBJECT_FILE_LINE, reuse_count);
 		return 0;
+	}
 
 	// If reuse count is more than needed,
 	s32 acquire_count = 0, posted_reads = 0, release_count = 0;
