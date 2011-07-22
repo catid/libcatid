@@ -110,6 +110,7 @@ struct WorkerThreadQueue
 	BatchSet queued;
 };
 
+
 class CAT_EXPORT WorkerThread : public Thread
 {
 	virtual bool ThreadFunction(void *master);
@@ -132,7 +133,7 @@ class CAT_EXPORT WorkerThread : public Thread
 
 public:
 	WorkerThread();
-	virtual ~WorkerThread();
+	CAT_INLINE virtual ~WorkerThread() {}
 
 	CAT_INLINE u32 GetTimerCount() { return _timers_count + _new_timers_count; }
 	CAT_INLINE void FlagEvent() { _event_flag.Set(); }
@@ -143,7 +144,7 @@ public:
 };
 
 
-class CAT_EXPORT WorkerThreads
+class CAT_EXPORT WorkerThreads : public RefObject
 {
 	friend class WorkerThread;
 

@@ -65,10 +65,6 @@ WorkerThread::WorkerThread()
 	}
 }
 
-WorkerThread::~WorkerThread()
-{
-}
-
 bool WorkerThread::Associate(RefObject *object, WorkerTimerDelegate callback)
 {
 	if (!object || !callback)
