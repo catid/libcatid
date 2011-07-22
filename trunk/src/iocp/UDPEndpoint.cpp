@@ -40,7 +40,7 @@ using namespace cat;
 #define SIO_UDP_CONNRESET _WSAIOW(IOC_VENDOR,12)
 #endif
 
-void UDPEndpoint::OnDestroy()
+void UDPEndpoint::OnRefObjectDestroy()
 {
 	if (_socket != SOCKET_ERROR)
 	{
@@ -49,7 +49,7 @@ void UDPEndpoint::OnDestroy()
 	}
 }
 
-bool UDPEndpoint::OnFinalize()
+bool UDPEndpoint::OnRefObjectFinalize()
 {
 	IOThreadPools::ref()->DissociatePrivate(_pool);
 

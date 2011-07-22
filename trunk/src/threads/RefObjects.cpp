@@ -73,7 +73,7 @@ void RefObject::Destroy(const char *file_line)
 #endif
 	{
 		// Notify the derived class on the first shutdown request
-		OnDestroy();
+		OnRefObjectDestroy();
 
 		// Release the initial reference to allow Finalize()
 		ReleaseRef(file_line);
@@ -197,7 +197,7 @@ void RefObjects::BuryDeadites()
 	{
 		next = obj->_next;
 
-		if (obj->OnFinalize())
+		if (obj->OnRefObjectFinalize())
 			delete obj;
 	}
 }
@@ -236,7 +236,7 @@ bool RefObjects::ThreadFunction(void *param)
 		{
 			RefObject *next = head->_next;
 
-			if (head->OnFinalize())
+			if (head->OnRefObjectFinalize())
 				delete head;
 
 			head = next;

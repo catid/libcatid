@@ -17,8 +17,8 @@ class GameConnexion : public Connexion
 	};
 
 public:
-	virtual void OnDestroy();
-	virtual bool OnFinalize();
+	virtual void OnRefObjectDestroy();
+	virtual bool OnRefObjectFinalize();
 	virtual void OnConnect(SphynxTLS *tls);
 	virtual void OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count);
 	virtual void OnDisconnectReason(u8 reason);
@@ -32,8 +32,8 @@ class GameServer : public Server
 	Collexion<GameConnexion> _collexion;
 
 protected:
-	virtual void OnDestroy();
-	virtual bool OnFinalize();
+	virtual void OnRefObjectDestroy();
+	virtual bool OnRefObjectFinalize();
 	virtual Connexion *NewConnexion();
 	virtual bool AcceptNewConnexion(const NetAddr &src);
 };
@@ -41,20 +41,20 @@ protected:
 
 //// GameConnexion
 
-void GameConnexion::OnDestroy()
+void GameConnexion::OnRefObjectDestroy()
 {
 	CAT_WARN("Connexion") << "-- Shutdown Requested";
 
 	GetServer<GameServer>()->_collexion.Remove(this);
 
-	Connexion::OnDestroy();
+	Connexion::OnRefObjectDestroy();
 }
 
-bool GameConnexion::OnFinalize()
+bool GameConnexion::OnRefObjectFinalize()
 {
 	CAT_WARN("Connexion") << "-- Zero References";
 
-	return Connexion::OnFinalize();
+	return Connexion::OnRefObjectFinalize();
 }
 
 void GameConnexion::OnConnect(SphynxTLS *tls)
@@ -124,18 +124,18 @@ void GameConnexion::OnTick(SphynxTLS *tls, u32 now)
 
 //// GameServer
 
-void GameServer::OnDestroy()
+void GameServer::OnRefObjectDestroy()
 {
 	CAT_WARN("Server") << "-- Shutdown Requested";
 
-	Server::OnDestroy();
+	Server::OnRefObjectDestroy();
 }
 
-bool GameServer::OnFinalize()
+bool GameServer::OnRefObjectFinalize()
 {
 	CAT_WARN("Server") << "-- Zero References";
 
-	return Server::OnFinalize();
+	return Server::OnRefObjectFinalize();
 }
 
 Connexion *GameServer::NewConnexion()

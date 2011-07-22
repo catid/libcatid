@@ -39,8 +39,8 @@ class EasySphynxClient
 
 		EasySphynxClient *_parent;
 
-		void OnDestroy();
-		bool OnFinalize();
+		void OnRefObjectDestroy();
+		bool OnRefObjectFinalize();
 		void OnConnectFail(cat::sphynx::SphynxError err);
 		void OnConnect(cat::SphynxTLS *tls);
 		void OnMessages(cat::SphynxTLS *tls, cat::sphynx::IncomingMessage msgs[], cat::u32 count);

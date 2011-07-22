@@ -63,16 +63,16 @@ EasySphynxClient::InternalSphynxClient::InternalSphynxClient()
 	_parent = 0;
 }
 
-void EasySphynxClient::InternalSphynxClient::OnDestroy()
+void EasySphynxClient::InternalSphynxClient::OnRefObjectDestroy()
 {
-	Client::OnDestroy();
+	Client::OnRefObjectDestroy();
 
 	_parent->OnDisconnect(GetSphynxErrorString((SphynxError)GetDisconnectReason()));
 }
 
-bool EasySphynxClient::InternalSphynxClient::OnFinalize()
+bool EasySphynxClient::InternalSphynxClient::OnRefObjectFinalize()
 {
-	return Client::OnFinalize();
+	return Client::OnRefObjectFinalize();
 }
 
 void EasySphynxClient::InternalSphynxClient::OnConnectFail(cat::sphynx::SphynxError err)
