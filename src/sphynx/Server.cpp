@@ -39,16 +39,16 @@ using namespace std;
 using namespace cat;
 using namespace sphynx;
 
-void Server::OnDestroy()
+void Server::OnRefObjectDestroy()
 {
 	_conn_map.ShutdownAll();
 
-	UDPEndpoint::OnDestroy();
+	UDPEndpoint::OnRefObjectDestroy();
 }
 
-bool Server::OnFinalize()
+bool Server::OnRefObjectFinalize()
 {
-	return UDPEndpoint::OnFinalize();
+	return UDPEndpoint::OnRefObjectFinalize();
 }
 
 void Server::OnRecvRouting(const BatchSet &buffers)

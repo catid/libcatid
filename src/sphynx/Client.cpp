@@ -42,12 +42,12 @@ using namespace sphynx;
 
 void Client::OnDestroy()
 {
-	UDPEndpoint::OnDestroy();
+	UDPEndpoint::OnRefObjectDestroy();
 }
 
-bool Client::OnFinalize()
+bool Client::OnRefObjectFinalize()
 {
-	return UDPEndpoint::OnFinalize();
+	return UDPEndpoint::OnRefObjectFinalize();
 }
 
 void Client::OnDisconnectComplete()

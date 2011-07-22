@@ -74,8 +74,8 @@ protected:
 	// LookupConnexion client by key
 	CAT_INLINE Connexion *LookupConnexion(u32 key) { return _conn_map.Lookup(key); }
 
-	virtual void OnDestroy();
-	virtual bool OnFinalize();
+	virtual void OnRefObjectDestroy();
+	virtual bool OnRefObjectFinalize();
 
 	virtual void OnRecvRouting(const BatchSet &buffers);
 

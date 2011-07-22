@@ -126,8 +126,8 @@ public:
 	CAT_INLINE u32 decodeServerTimestamp(u32 local_time, u16 timestamp) { return fromServerTime(BiasedReconstructCounter<16>(toServerTime(local_time), TS_COMPRESS_FUTURE_TOLERANCE, timestamp)); }
 
 protected:
-	virtual void OnDestroy();
-	virtual bool OnFinalize();
+	virtual void OnRefObjectDestroy();
+	virtual bool OnRefObjectFinalize();
 
 	CAT_INLINE bool IsConnected() { return _connected; }
 	CAT_INLINE u32 GetWorkerID() { return _worker_id; }

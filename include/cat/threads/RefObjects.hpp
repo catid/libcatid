@@ -178,17 +178,29 @@ public:
 	}
 
 protected:
-	// Called when a shutdown is in progress
-	// The object should release any internally held references
-	// such as private threads that are working on the object
-	// Always called and before OnFinalize()
-	// Proper implementation of derived classes should call the parent version
-	virtual void OnDestroy() = 0;
+	// Called when an object is constructed.
+	// Allows the object to reference itself on instantiation and report startup
+	// errors without putting it in the constructor where it doesn't belong.
+	// Return false to delete the object immediately.
+	// Especially handy for using RefObjects as a plugin system.
+	virtual bool OnRefObjectInitialize() = 0;
 
-	// Called when object has no more references
-	// Return true to delete the object
-	// Always called and after OnDestroy()
-	virtual bool OnFinalize() = 0;
+	// Return a C-string naming the derived RefObject uniquely.
+	// For debug output; it can be used to report which object is locking it up.
+	virtual const char *GetRefObjectName() = 0;
+
+protected:
+	// Called when a shutdown is in progress.
+	// The object should release any internally held references.
+	// such as private threads that are working on the object.
+	// Always called and before OnRefObjectFinalize().
+	// Proper implementation of derived classes should call the parent version.
+	virtual void OnRefObjectDestroy() = 0;
+
+	// Called when object has no more references.
+	// Return true to delete the object.
+	// Always called and after OnRefObjectDestroy().
+	virtual bool OnRefObjectFinalize() = 0;
 };
 
 
