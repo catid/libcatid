@@ -64,7 +64,7 @@ class CAT_EXPORT RefObjects : Thread
 
 	Mutex _lock;
 	RefObject *_active_head, *_dead_head;
-	bool _shutdown;
+	bool _initialized, _shutdown;
 
 	WaitableFlag _shutdown_flag;
 
@@ -179,7 +179,7 @@ public:
 
 public:
 	// Return a C-string naming the derived RefObject uniquely.
-	// For debug output; it can be used to report which object is locking it up.
+	// For debug output; it can be used to report which object is locking up.
 	virtual const char *GetRefObjectName() = 0;
 
 protected:

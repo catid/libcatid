@@ -31,16 +31,6 @@
 using namespace cat;
 
 
-//// RefObjects Singleton
-
-static RefObjects refobject_reaper;
-
-RefObjects *RefObjects::ref()
-{
-	return &refobject_reaper;
-}
-
-
 //// RefObject
 
 RefObject::RefObject()
@@ -92,11 +82,23 @@ void RefObject::OnZeroReferences(const char *file_line)
 
 //// RefObjects
 
+static RefObjects refobject_reaper;
+
+RefObjects *RefObjects::ref()
+{
+	return &refobject_reaper;
+}
+
+void RefObjectsAtExit()
+{
+	RefObjects::ref()->Shutdown();
+}
+
 RefObjects::RefObjects()
 {
 	_active_head = _dead_head = 0;
 
-	_shutdown = false;
+	_shutdown = _initialized = false;
 }
 
 bool RefObjects::Watch(const char *file_line, RefObject *obj)
