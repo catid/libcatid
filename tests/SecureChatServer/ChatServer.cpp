@@ -17,6 +17,9 @@ class GameConnexion : public Connexion
 	};
 
 public:
+
+	CAT_INLINE const char *GetRefObjectName() { return "GameConnexion"; }
+
 	virtual void OnRefObjectDestroy();
 	virtual bool OnRefObjectFinalize();
 	virtual void OnConnect(SphynxTLS *tls);
@@ -32,6 +35,9 @@ class GameServer : public Server
 	Collexion<GameConnexion> _collexion;
 
 protected:
+
+	CAT_INLINE const char *GetRefObjectName() { return "GameServer"; }
+
 	virtual void OnRefObjectDestroy();
 	virtual bool OnRefObjectFinalize();
 	virtual Connexion *NewConnexion();

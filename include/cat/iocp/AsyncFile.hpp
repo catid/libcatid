@@ -69,6 +69,8 @@ public:
 	AsyncFile();
 	virtual ~AsyncFile();
 
+	CAT_INLINE const char *GetRefObjectName() { return "AsyncFile"; }
+
 	CAT_INLINE bool Valid() { return _file != INVALID_HANDLE_VALUE; }
 	CAT_INLINE HANDLE GetHandle() { return _file; }
 	CAT_INLINE IOLayer *GetIOLayer() { return _iolayer; }

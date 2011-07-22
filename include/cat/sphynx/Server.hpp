@@ -60,6 +60,8 @@ public:
 	Server();
 	virtual ~Server();
 
+	CAT_INLINE const char *GetRefObjectName() { return "Server"; }
+
 	static bool InitializeKey(SphynxTLS *tls, TunnelKeyPair &key_pair, const char *pair_file_path, const char *public_file_path);
 
 	bool StartServer(SphynxTLS *tls, Port port, TunnelKeyPair &key_pair, const char *session_key);

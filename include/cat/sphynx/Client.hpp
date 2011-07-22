@@ -103,6 +103,8 @@ public:
 	Client();
 	CAT_INLINE virtual ~Client() {}
 
+	CAT_INLINE const char *GetRefObjectName() { return "Client"; }
+
 	// Once you call Connect(), the object may be deleted at any time.  If you want to keep a reference to it, AddRef() before calling
 	bool Connect(SphynxTLS *tls, const char *hostname, Port port, TunnelPublicKey &public_key, const char *session_key);
 	bool Connect(SphynxTLS *tls, const NetAddr &addr, TunnelPublicKey &public_key, const char *session_key);

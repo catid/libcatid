@@ -89,6 +89,8 @@ public:
     UDPEndpoint();
     virtual ~UDPEndpoint();
 
+	CAT_INLINE const char *GetRefObjectName() { return "UDPEndpoint"; }
+
 	CAT_INLINE bool Valid() { return _socket != SOCKET_ERROR; }
 	CAT_INLINE Socket GetSocket() { return _socket; }
 	CAT_INLINE HANDLE GetHandle() { return (HANDLE)_socket; }

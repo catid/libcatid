@@ -55,7 +55,7 @@ RefObject::RefObject()
 void RefObject::Destroy(const char *file_line)
 {
 #if defined(CAT_TRACE_REFOBJECT)
-	CAT_WARN("RefObject") << this << " destroyed at " << file_line;
+	CAT_WARN("RefObject") << GetRefObjectName() << "#" << this << " destroyed at " << file_line;
 #endif
 
 	// Raise shutdown flag
@@ -83,7 +83,7 @@ void RefObject::Destroy(const char *file_line)
 void RefObject::OnZeroReferences(const char *file_line)
 {
 #if defined(CAT_TRACE_REFOBJECT)
-	CAT_WARN("RefObject") << this << " zero refs at " << file_line;
+	CAT_WARN("RefObject") << GetRefObjectName() << "#" << this << " zero refs at " << file_line;
 #endif
 
 	refobject_reaper.Kill(this);
@@ -104,7 +104,7 @@ bool RefObjects::Watch(const char *file_line, RefObject *obj)
 	if (!obj) return false;
 
 #if defined(CAT_TRACE_REFOBJECT)
-	CAT_WARN("RefObjects") << obj << " acquired at " << file_line;
+	CAT_WARN("RefObjects") << obj->GetRefObjectName() << "#" << obj << " acquired at " << file_line;
 #endif
 
 	AutoMutex lock(_lock);
@@ -204,14 +204,17 @@ void RefObjects::BuryDeadites()
 
 bool RefObjects::ThreadFunction(void *param)
 {
+	CAT_INANE("RefObjects") << "Reaper starting...";
+
 	while (!_shutdown_flag.Wait(513))
 	{
 		BuryDeadites();
 	}
 
+	CAT_INANE("RefObjects") << "Reaper caught shutdown signal, setting asynchronous shutdown flag...";
+
 	_lock.Enter();
 
-	// Set shutdown flag
 	_shutdown = true;
 
 	// Now the shutdown flag is set everywhere synchronously.
@@ -219,34 +222,93 @@ bool RefObjects::ThreadFunction(void *param)
 
 	_lock.Leave();
 
+	CAT_INANE("RefObjects") << "Reaper destroying remaining active objects...";
+
 	// For each remaining active object,
 	for (RefObject *obj = _active_head; obj; obj = obj->_next)
 	{
 		obj->Destroy(CAT_REFOBJECT_FILE_LINE);
 	}
 
-	// Bury any easy dead
+	CAT_INANE("RefObjects") << "Reaper burying any easy dead...";
+
 	BuryDeadites();
 
+	CAT_INANE("RefObjects") << "Reaper spinning and finalizing the remaining active objects...";
+
+	static const u32 HANG_THRESHOLD = 3000; // ms
+	static const u32 SLEEP_TIME = 10; // ms
+	u32 hang_counter = 0;
+
 	// While active objects still exist,
-	RefObject *head = _active_head;
-	while (head)
+	CAT_FOREVER
 	{
-		if (head->_ref_count == 0)
+		// Troll for zero reference counts
+		for (RefObject *next, *node = _active_head; node; node = next)
 		{
-			RefObject *next = head->_next;
+			next = node->_next;
 
-			if (head->OnRefObjectFinalize())
-				delete head;
+			// If reference count hits zero,
+			if (node->_ref_count == 0)
+			{
+				CAT_INANE("RefObjects") << node->GetRefObjectName() << "#" << node << " finalizing";
 
-			head = next;
+				UnlinkFromActiveList(node);
+
+				// If object finalizing requests memory freed,
+				if (node->OnRefObjectFinalize())
+				{
+					CAT_INANE("RefObjects") << node->GetRefObjectName() << "#" << node << " freeing memory";
+
+					delete node;
+				}
+
+				// Reset hang counter
+				hang_counter = 0;
+			}
 		}
+
+		// Quit when active list is empty
+		if (!_active_head) break;
+
+		// If active list is not empty and hang count exceeded threshold,
+		if (++hang_counter < HANG_THRESHOLD)
+			Clock::sleep(SLEEP_TIME);
 		else
 		{
-			// Give it some time
-			Clock::sleep(10);
+			// Find smallest ref count object
+			RefObject *smallest_obj = _active_head;
+			u32 smallest_ref_count = smallest_obj->_ref_count;
+
+			for (RefObject *next, *node = smallest_obj->_next; node; node = next)
+			{
+				next = node->_next;
+
+				if (node->_ref_count < smallest_ref_count)
+				{
+					smallest_ref_count = node->_ref_count;
+					smallest_obj = node;
+				}
+			}
+
+			CAT_FATAL("RefObjects") << smallest_obj->GetRefObjectName() << "#" << smallest_obj << " finalizing FORCED with " << smallest_ref_count << " dangling references (smallest found)";
+
+			UnlinkFromActiveList(smallest_obj);
+
+			// If object finalizing requests memory freed,
+			if (smallest_obj->OnRefObjectFinalize())
+			{
+				CAT_FATAL("RefObjects") << smallest_obj->GetRefObjectName() << "#" << smallest_obj << " freeing memory for forced finalize";
+
+				delete smallest_obj;
+			}
+
+			// Reset hang counter
+			hang_counter = 0;
 		}
 	}
+
+	CAT_INANE("RefObjects") << "...Reaper going to sleep in a quiet field of dead objects";
 
 	return true;
 }

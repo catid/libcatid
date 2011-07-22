@@ -40,7 +40,7 @@ using namespace std;
 using namespace cat;
 using namespace sphynx;
 
-void Client::OnDestroy()
+void Client::OnRefObjectDestroy()
 {
 	UDPEndpoint::OnRefObjectDestroy();
 }
