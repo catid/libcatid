@@ -257,7 +257,7 @@ void Server::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 			u8 *challenge = data + 1 + 4 + 4;
 
 			Skein key_hash;
-			AutoShutdown<Connexion> conn;
+			AutoDestroy<Connexion> conn;
 
 			// Verify that post buffer could be allocated
 			if (!pkt)

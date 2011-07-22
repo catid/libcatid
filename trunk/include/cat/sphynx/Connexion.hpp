@@ -74,6 +74,8 @@ public:
 	Connexion();
 	CAT_INLINE virtual ~Connexion() {}
 
+	CAT_INLINE const char *GetRefObjectName() { return "Connexion"; }
+
 	CAT_INLINE const NetAddr &GetAddress() { return _client_addr; }
 	CAT_INLINE u16 GetKey() { return _key; }
 	CAT_INLINE u16 GetFloodKey() { return _flood_key; }

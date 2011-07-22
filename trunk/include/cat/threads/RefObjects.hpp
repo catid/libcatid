@@ -128,7 +128,7 @@ public:
 	CAT_INLINE void AddRef(const char *file_line, s32 times = 1)
 	{
 #if defined(CAT_TRACE_REFOBJECT)
-		CAT_WARN("RefObject") << this << " add " << times << " at " << file_line;
+		CAT_WARN("RefObject") << GetRefObjectName() << "#" << this << " add " << times << " at " << file_line;
 #endif
 
 #if defined(CAT_NO_ATOMIC_REF_OBJECT)
@@ -144,7 +144,7 @@ public:
 	CAT_INLINE void ReleaseRef(const char *file_line, s32 times = 1)
 	{
 #if defined(CAT_TRACE_REFOBJECT)
-		CAT_WARN("RefObject") << this << " release " << times << " at " << file_line;
+		CAT_WARN("RefObject") << GetRefObjectName() << "#" << this << " release " << times << " at " << file_line;
 #endif
 
 		// Decrement reference count by # of times
@@ -177,19 +177,19 @@ public:
 		}
 	}
 
+public:
+	// Return a C-string naming the derived RefObject uniquely.
+	// For debug output; it can be used to report which object is locking it up.
+	virtual const char *GetRefObjectName() = 0;
+
 protected:
 	// Called when an object is constructed.
 	// Allows the object to reference itself on instantiation and report startup
 	// errors without putting it in the constructor where it doesn't belong.
 	// Return false to delete the object immediately.
 	// Especially handy for using RefObjects as a plugin system.
-	virtual bool OnRefObjectInitialize() = 0;
+	CAT_INLINE virtual bool OnRefObjectInitialize() { return true; }
 
-	// Return a C-string naming the derived RefObject uniquely.
-	// For debug output; it can be used to report which object is locking it up.
-	virtual const char *GetRefObjectName() = 0;
-
-protected:
 	// Called when a shutdown is in progress.
 	// The object should release any internally held references.
 	// such as private threads that are working on the object.
@@ -227,14 +227,14 @@ public:
 
 // Auto shutdown for RefObjects
 template<class T>
-class AutoShutdown
+class AutoDestroy
 {
 	T *_ref;
 
 public:
-	CAT_INLINE AutoShutdown(T *ref = 0) throw() { _ref = ref; }
-	CAT_INLINE ~AutoShutdown() throw() { if (_ref) _ref->Destroy(CAT_REFOBJECT_FILE_LINE); }
-	CAT_INLINE AutoShutdown &operator=(T *ref) throw() { Reset(ref); return *this; }
+	CAT_INLINE AutoDestroy(T *ref = 0) throw() { _ref = ref; }
+	CAT_INLINE ~AutoDestroy() throw() { if (_ref) _ref->Destroy(CAT_REFOBJECT_FILE_LINE); }
+	CAT_INLINE AutoDestroy &operator=(T *ref) throw() { Reset(ref); return *this; }
 
 	CAT_INLINE T *Get() throw() { return _ref; }
 	CAT_INLINE T *operator->() throw() { return _ref; }

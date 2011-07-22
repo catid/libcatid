@@ -132,6 +132,8 @@ public:
 	DNSClient();
 	CAT_INLINE virtual ~DNSClient();
 
+	CAT_INLINE const char *GetRefObjectName() { return "DNSClient"; }
+
 	static DNSClient *ref();
 
 	CAT_INLINE u32 GetWorkerID() { return _worker_id; }
