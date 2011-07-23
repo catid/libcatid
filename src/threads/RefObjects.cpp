@@ -82,18 +82,6 @@ void RefObject::OnZeroReferences(const char *file_line)
 
 //// RefObjects
 
-static RefObjects refobject_reaper;
-
-RefObjects *RefObjects::ref()
-{
-	return &refobject_reaper;
-}
-
-void RefObjectsAtExit()
-{
-	RefObjects::ref()->Shutdown();
-}
-
 RefObjects::RefObjects()
 {
 	_active_head = _dead_head = 0;
@@ -104,6 +92,13 @@ RefObjects::RefObjects()
 bool RefObjects::Watch(const char *file_line, RefObject *obj)
 {
 	if (!obj) return false;
+
+	if (!obj->OnRefObjectInitialize())
+	{
+		delete obj;
+
+		return false;
+	}
 
 #if defined(CAT_TRACE_REFOBJECT)
 	CAT_WARN("RefObjects") << obj->GetRefObjectName() << "#" << obj << " acquired at " << file_line;
@@ -163,6 +158,18 @@ void RefObjects::Kill(RefObject *obj)
 	UnlinkFromActiveList(obj);
 
 	LinkToDeadList(obj);
+}
+
+static RefObjects refobject_reaper;
+
+RefObjects *RefObjects::ref()
+{
+	return &refobject_reaper;
+}
+
+void RefObjectsAtExit()
+{
+	refobject_reaper.Shutdown();
 }
 
 bool RefObjects::Initialize()

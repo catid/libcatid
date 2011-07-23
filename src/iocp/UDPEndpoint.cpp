@@ -40,6 +40,19 @@ using namespace cat;
 #define SIO_UDP_CONNRESET _WSAIOW(IOC_VENDOR,12)
 #endif
 
+static IOThreadPools *m_thread_pools = 0;
+static IAllocator *m_recv_allocator = 0;
+
+bool UDPEndpoint::OnRefObjectInitialize()
+{
+	if (!RefObjects::Require(m_thread_pools, CAT_REFOBJECT_FILE_LINE))
+		return false;
+
+	m_recv_allocator = m_thread_pools->GetRecvAllocator();
+
+	return true;
+}
+
 void UDPEndpoint::OnRefObjectDestroy()
 {
 	if (_socket != SOCKET_ERROR)
@@ -51,7 +64,7 @@ void UDPEndpoint::OnRefObjectDestroy()
 
 bool UDPEndpoint::OnRefObjectFinalize()
 {
-	IOThreadPools::ref()->DissociatePrivate(_pool);
+	m_thread_pools->DissociatePrivate(_pool);
 
 	return true;
 }
@@ -172,7 +185,7 @@ bool UDPEndpoint::Bind(bool onlySupportIPv4, Port port, bool ignoreUnreachable, 
 	_buffers_posted = 0;
 
 	// Associate with IOThreadPools
-	_pool = IOThreadPools::ref()->AssociatePrivate(this);
+	_pool = m_thread_pools->AssociatePrivate(this);
 	if (!_pool)
 	{
 		CAT_FATAL("UDPEndpoint") << "Unable to associate with IOThreadPools";
@@ -255,12 +268,11 @@ u32 UDPEndpoint::PostReads(s32 limit, s32 reuse_count, BatchSet set)
 
 	if (reuse_count < count)
 	{
-		IAllocator *allocator = IOThreadPools::ref()->GetRecvAllocator();
 		BatchSet allocated;
 
 		// Acquire a batch of buffers
 		u32 request_count = count - reuse_count;
-		acquire_count = allocator->AcquireBatch(allocated, request_count);
+		acquire_count = m_recv_allocator->AcquireBatch(allocated, request_count);
 
 		if (acquire_count != request_count)
 		{
@@ -301,10 +313,8 @@ u32 UDPEndpoint::PostReads(s32 limit, s32 reuse_count, BatchSet set)
 	// If nodes were unused,
 	if (node)
 	{
-		IAllocator *allocator = IOThreadPools::ref()->GetRecvAllocator();
-
 		set.head = node;
-		allocator->ReleaseBatch(set);
+		m_recv_allocator->ReleaseBatch(set);
 	}
 
 	return posted_reads;
@@ -391,10 +401,8 @@ void UDPEndpoint::OnRecvCompletion(const BatchSet &buffers, u32 count)
 	// If reads completed during shutdown,
 	if (IsShutdown())
 	{
-		IAllocator *allocator = IOThreadPools::ref()->GetRecvAllocator();
-
 		// Just release the read buffers
-		allocator->ReleaseBatch(buffers);
+		m_recv_allocator->ReleaseBatch(buffers);
 
 		ReleaseRef(CAT_REFOBJECT_FILE_LINE, count);
 

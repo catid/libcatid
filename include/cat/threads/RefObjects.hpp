@@ -68,6 +68,7 @@ class CAT_EXPORT RefObjects : Thread
 
 	WaitableFlag _shutdown_flag;
 
+	RefObject *FindActiveByGUID(u32 guid);
 	bool Watch(const char *file_line, RefObject *obj);
 	void Kill(RefObject *obj);
 
@@ -88,10 +89,63 @@ public:
 	// Wait for watched objects to finish shutdown, returns false on timeout
 	bool Shutdown(s32 milliseconds = -1); // < 0 = wait forever
 
+	template <class T> static T *AcquireSingleton(const char *file_line)
+	{
+		AutoMutex lock(_lock);
+
+		RefObject *existing = FindActiveByGUID(T::RefObjectGUID);
+		if (existing) return static_cast<T*>( existing );
+
+		T *obj = new T;
+
+		if (!obj->OnRefObjectInitialize())
+		{
+			delete obj;
+
+			return 0;
+		}
+
+		if (!RefObjects::ref()->Watch(file_line, obj))
+			return 0;
+
+		return obj;
+	}
+
+	template<class T>
+	static bool Require(T *&obj, const char *file_line)
+	{
+		if (obj)
+		{
+			CAT_INANE("RefObjects") << obj->GetRefObjectName() << "#" << obj << " require already performed at " << file_line;
+
+			return true;
+		}
+
+		T *instance = RefObjects::AcquireSingleton<T>(file_line);
+		if (!instance)
+		{
+			CAT_FATAL("RefObjects") << "Unable to acquire singleton at " << file_line;
+
+			return false;
+		}
+
+		CAT_INANE("RefObjects") << instance->GetRefObjectName() << "#" << instance << " require acquired at " << file_line;
+
+		obj = instance;
+		return true;
+	}
+
 	template<class T>
 	static CAT_INLINE T *Acquire(const char *file_line)
 	{
 		T *obj = new T;
+
+		if (!obj->OnRefObjectInitialize())
+		{
+			delete obj;
+
+			return 0;
+		}
 
 		if (!RefObjects::ref()->Watch(file_line, obj))
 			return 0;
@@ -178,6 +232,9 @@ public:
 	}
 
 public:
+	// Override the GUID to allow the objects to be treated as singletons.
+	static const u32 RefObjectGUID = 0;
+
 	// Return a C-string naming the derived RefObject uniquely.
 	// For debug output; it can be used to report which object is locking up.
 	virtual const char *GetRefObjectName() = 0;
