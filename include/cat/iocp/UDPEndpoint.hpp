@@ -89,7 +89,7 @@ public:
     UDPEndpoint();
     virtual ~UDPEndpoint();
 
-	bool OnRefObjectInitialize();
+	static const u32 RefObjectGUID = 0x00060001; // Global Unique IDentifier for acquiring RefObject singletons
 	CAT_INLINE const char *GetRefObjectName() { return "UDPEndpoint"; }
 
 	CAT_INLINE bool Valid() { return _socket != SOCKET_ERROR; }
@@ -124,6 +124,7 @@ public:
 protected:
 	CAT_INLINE void SetRemoteAddress(RecvBuffer *buffer);
 
+	virtual bool OnRefObjectInitialize();
 	virtual void OnRefObjectDestroy();
 	virtual bool OnRefObjectFinalize();
 

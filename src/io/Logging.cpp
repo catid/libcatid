@@ -164,7 +164,22 @@ Logging::Logging()
 	_service = false;
 }
 
-void Logging::Initialize(EventSeverity min_severity)
+bool Logging::OnRefObjectInitialize()
+{
+
+}
+
+void Logging::OnRefObjectDestroy()
+{
+
+}
+
+bool Logging::OnRefObjectFinalize()
+{
+	return true;
+}
+
+void Logging::SetLogThreshold(EventSeverity min_severity)
 {
 	_log_threshold = min_severity;
 }

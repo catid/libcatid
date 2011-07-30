@@ -45,7 +45,7 @@ class ReadTester
 		for (BatchHead *next, *node = batch.head; node; node = next)
 		{
 			next = node->batch_next;
-			ReadBuffer *buffer = reinterpret_cast<ReadBuffer*>( node );
+			ReadBuffer *buffer = static_cast<ReadBuffer*>( node );
 			void *data = buffer->data;
 			u32 data_bytes = buffer->data_bytes;
 
@@ -206,7 +206,7 @@ class WriteTester
 		for (BatchHead *next, *node = batch.head; node; node = next)
 		{
 			next = node->batch_next;
-			WriteBuffer *buffer = reinterpret_cast<WriteBuffer*>( node );
+			WriteBuffer *buffer = static_cast<WriteBuffer*>( node );
 			void *data = buffer->data;
 			u32 data_bytes = buffer->data_bytes;
 

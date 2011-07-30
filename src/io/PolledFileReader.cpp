@@ -157,7 +157,7 @@ void PolledFileReader::OnFirstRead(IWorkerTLS *tls, const BatchSet &buffers)
 	// For each buffer,
 	for (BatchHead *node = buffers.head; node; node = node->batch_next)
 	{
-		ReadBuffer *buffer = reinterpret_cast<ReadBuffer*>( node );
+		ReadBuffer *buffer = static_cast<ReadBuffer*>( node );
 		u32 data_bytes = buffer->data_bytes;
 
 		// Set the number of bytes in the back buffer
@@ -194,7 +194,7 @@ void PolledFileReader::OnRead(IWorkerTLS *tls, const BatchSet &buffers)
 	// For each buffer,
 	for (BatchHead *node = buffers.head; node; node = node->batch_next)
 	{
-		ReadBuffer *buffer = reinterpret_cast<ReadBuffer*>( node );
+		ReadBuffer *buffer = static_cast<ReadBuffer*>( node );
 		u32 data_bytes = buffer->data_bytes;
 
 		// Set the number of bytes in the back buffer

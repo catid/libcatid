@@ -187,20 +187,23 @@ class CAT_EXPORT IOThreadPools
 
 public:
 	IOThreadPools();
-	virtual ~IOThreadPools();
+	CAT_INLINE virtual ~IOThreadPools() {}
 
-	static IOThreadPools *ref();
+	static const u32 RefObjectGUID = 0x00070001; // Global Unique IDentifier for acquiring RefObject singletons
+	CAT_INLINE const char *GetRefObjectName() { return "IOThreadPools"; }
 
 	CAT_INLINE BufferAllocator *GetRecvAllocator() { return _recv_allocator; }
 	CAT_INLINE IOThreadImports *GetIOThreadImports() { return &_imports; }
-
-	bool Startup();
-	bool Shutdown();
 
 	IOThreadPool *AssociatePrivate(IOThreadsAssociator *associator);
 	bool DissociatePrivate(IOThreadPool *pool);
 
 	bool AssociateShared(IOThreadsAssociator *associator);
+
+protected:
+	virtual bool OnRefObjectInitialize();
+	virtual void OnRefObjectDestroy();
+	virtual bool OnRefObjectFinalize();
 };
 
 

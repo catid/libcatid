@@ -33,6 +33,11 @@
 using namespace cat;
 using namespace sphynx;
 
+bool Connexion::OnRefObjectInitialize()
+{
+	return true;
+}
+
 void Connexion::OnRefObjectDestroy()
 {
 	_parent->_conn_map.Remove(this);
@@ -41,6 +46,7 @@ void Connexion::OnRefObjectDestroy()
 bool Connexion::OnRefObjectFinalize()
 {
 	_parent->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
+
 	return true;
 }
 
@@ -51,7 +57,7 @@ void Connexion::OnDisconnectComplete()
 
 void Connexion::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 {
-	SphynxTLS *tls = reinterpret_cast<SphynxTLS*>( itls );
+	SphynxTLS *tls = static_cast<SphynxTLS*>( itls );
 	u32 buffer_count = 0;
 
 	BatchSet delivery;
@@ -62,7 +68,7 @@ void Connexion::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 	{
 		next = node->batch_next;
 		++buffer_count;
-		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
+		RecvBuffer *buffer = static_cast<RecvBuffer*>( node );
 		u8 *data = GetTrailingBytes(buffer);
 		u32 data_bytes = buffer->data_bytes;
 
@@ -143,7 +149,7 @@ void Connexion::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 
 void Connexion::OnWorkerTick(IWorkerTLS *itls, u32 now)
 {
-	SphynxTLS *tls = reinterpret_cast<SphynxTLS*>( itls );
+	SphynxTLS *tls = static_cast<SphynxTLS*>( itls );
 
 	// If in graceful disconnect,
 	if (IsDisconnected())
@@ -192,7 +198,7 @@ bool Connexion::WriteDatagrams(const BatchSet &buffers, u32 count)
 	for (BatchHead *node = buffers.head; node; node = node->batch_next)
 	{
 		// Unwrap the message data
-		SendBuffer *buffer = reinterpret_cast<SendBuffer*>( node );
+		SendBuffer *buffer = static_cast<SendBuffer*>( node );
 		u8 *msg_data = GetTrailingBytes(buffer);
 		u32 msg_bytes = buffer->GetBytes();
 

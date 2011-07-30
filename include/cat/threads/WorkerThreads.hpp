@@ -157,11 +157,17 @@ class CAT_EXPORT WorkerThreads : public RefObject
 
 	IWorkerTLSBuilder *_tls_builder;
 
+protected:
+	bool OnRefObjectInitialize();
+	void OnRefObjectDestroy();
+	bool OnRefObjectFinalize();
+
 public:
 	WorkerThreads();
-	virtual ~WorkerThreads();
+	CAT_INLINE virtual ~WorkerThreads() {}
 
-	static WorkerThreads *ref();
+	static const u32 RefObjectGUID = 0x00010001; // Global Unique IDentifier for acquiring RefObject singletons
+	CAT_INLINE const char *GetRefObjectName() { return "WorkerThreads"; }
 
 	CAT_INLINE u32 GetWorkerCount() { return _worker_count; }
 
@@ -183,10 +189,6 @@ public:
 
 		DeliverBuffers(priority, worker_id, buffers);
 	}
-
-	bool Startup(u32 worker_tick_interval, IWorkerTLSBuilder *tls_builder, u32 worker_count_override);
-
-	bool Shutdown();
 
 	CAT_INLINE u32 AssignTimer(RefObject *object, WorkerTimerDelegate timer)
 	{

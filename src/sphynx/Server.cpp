@@ -39,6 +39,16 @@ using namespace std;
 using namespace cat;
 using namespace sphynx;
 
+static WorkerThreads *m_worker_threads = 0;
+static Settings *m_settings = 0;
+
+bool Server::OnRefObjectInitialize()
+{
+	return UDPEndpoint::OnRefObjectInitialize() &&
+		RefObjects::Require(m_worker_threads, CAT_REFOBJECT_FILE_LINE) &&
+		RefObjects::Require(m_settings, CAT_REFOBJECT_FILE_LINE);
+}
+
 void Server::OnRefObjectDestroy()
 {
 	_conn_map.ShutdownAll();
@@ -46,15 +56,10 @@ void Server::OnRefObjectDestroy()
 	UDPEndpoint::OnRefObjectDestroy();
 }
 
-bool Server::OnRefObjectFinalize()
-{
-	return UDPEndpoint::OnRefObjectFinalize();
-}
-
 void Server::OnRecvRouting(const BatchSet &buffers)
 {
 	u32 connect_worker = _connect_worker;
-	u32 worker_count = WorkerThreads::ref()->GetWorkerCount();
+	u32 worker_count = m_worker_threads->GetWorkerCount();
 
 	BatchSet garbage;
 	garbage.Clear();
@@ -74,7 +79,7 @@ void Server::OnRecvRouting(const BatchSet &buffers)
 	for (BatchHead *next, *node = buffers.head; node; node = next)
 	{
 		next = node->batch_next;
-		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
+		RecvBuffer *buffer = static_cast<RecvBuffer*>( node );
 
 		SetRemoteAddress(buffer);
 
@@ -157,7 +162,7 @@ void Server::OnRecvRouting(const BatchSet &buffers)
 			u32 bin = offset + BSF32(v);
 
 			// Deliver all buffers for this worker at once
-			WorkerThreads::ref()->DeliverBuffers(WQPRIO_HI, bin, bins[bin]);
+			m_worker_threads->DeliverBuffers(WQPRIO_HI, bin, bins[bin]);
 
 			// Clear LSB
 			v ^= CAT_LSB32(v);
@@ -174,13 +179,13 @@ void Server::OnRecvRouting(const BatchSet &buffers)
 
 void Server::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 {
-	SphynxTLS *tls = reinterpret_cast<SphynxTLS*>( itls );
+	SphynxTLS *tls = static_cast<SphynxTLS*>( itls );
 	u32 buffer_count = 0;
 
 	// For each buffer received,
 	for (BatchHead *node = buffers.head; node; node = node->batch_next, ++buffer_count)
 	{
-		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
+		RecvBuffer *buffer = static_cast<RecvBuffer*>( node );
 
 		u32 bytes = buffer->data_bytes;
 		u8 *data = GetTrailingBytes(buffer);
@@ -315,7 +320,7 @@ void Server::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 				conn->InitializePayloadBytes(Is6());
 
 				// Assign to a worker
-				conn->_worker_id = WorkerThreads::ref()->AssignTimer(conn, WorkerTimerDelegate::FromMember<Connexion, &Connexion::OnWorkerTick>(conn));
+				conn->_worker_id = m_worker_threads->AssignTimer(conn, WorkerTimerDelegate::FromMember<Connexion, &Connexion::OnWorkerTick>(conn));
 
 				if (!Write(pkt, S2C_ANSWER_LEN, buffer->GetAddr()))
 				{
@@ -390,10 +395,10 @@ bool Server::StartServer(SphynxTLS *tls, Port port, TunnelKeyPair &key_pair, con
 	_public_key = key_pair;
 
 	// Get SupportIPv6 flag from settings
-	bool only_ipv4 = Settings::ref()->getInt("Sphynx.Server.SupportIPv6", 0) == 0;
+	bool only_ipv4 = m_settings->getInt("Sphynx.Server.SupportIPv6", 0) == 0;
 
 	// Get kernel receive buffer size
-	int kernelReceiveBufferBytes = Settings::ref()->getInt("Sphynx.Server.KernelReceiveBuffer", 8000000);
+	int kernelReceiveBufferBytes = m_settings->getInt("Sphynx.Server.KernelReceiveBuffer", 8000000);
 
 	// Attempt to bind to the server port
 	if (!Bind(only_ipv4, port, true, kernelReceiveBufferBytes))

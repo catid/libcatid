@@ -60,6 +60,7 @@ public:
 	Server();
 	virtual ~Server();
 
+	static const u32 RefObjectGUID = 0x00020001; // Global Unique IDentifier for acquiring RefObject singletons
 	CAT_INLINE const char *GetRefObjectName() { return "Server"; }
 
 	static bool InitializeKey(SphynxTLS *tls, TunnelKeyPair &key_pair, const char *pair_file_path, const char *public_file_path);
@@ -76,8 +77,9 @@ protected:
 	// LookupConnexion client by key
 	CAT_INLINE Connexion *LookupConnexion(u32 key) { return _conn_map.Lookup(key); }
 
+	virtual bool OnRefObjectInitialize();
 	virtual void OnRefObjectDestroy();
-	virtual bool OnRefObjectFinalize();
+	//virtual bool OnRefObjectFinalize();
 
 	virtual void OnRecvRouting(const BatchSet &buffers);
 

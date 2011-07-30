@@ -89,26 +89,26 @@ public:
 	// Wait for watched objects to finish shutdown, returns false on timeout
 	bool Shutdown(s32 milliseconds = -1); // < 0 = wait forever
 
-	template <class T> static T *AcquireSingleton(const char *file_line)
+	template<class T>
+	static bool AcquireSingleton(T * &obj, const char *file_line)
 	{
 		AutoMutex lock(_lock);
 
 		RefObject *existing = FindActiveByGUID(T::RefObjectGUID);
 		if (existing) return static_cast<T*>( existing );
 
-		T *obj = new T;
+		obj = new T;
 
-		if (!obj->OnRefObjectInitialize())
+		if (!obj->OnRefObjectInitialize() ||
+			!RefObjects::ref()->Watch(file_line, obj))
 		{
 			delete obj;
 
-			return 0;
+			obj = 0;
+			return false;
 		}
 
-		if (!RefObjects::ref()->Watch(file_line, obj))
-			return 0;
-
-		return obj;
+		return true;
 	}
 
 	template<class T>
@@ -121,8 +121,8 @@ public:
 			return true;
 		}
 
-		T *instance = RefObjects::AcquireSingleton<T>(file_line);
-		if (!instance)
+		T *instance;
+		if (!RefObjects::AcquireSingleton(instance, file_line))
 		{
 			CAT_FATAL("RefObjects") << "Unable to acquire singleton at " << file_line;
 
@@ -136,21 +136,22 @@ public:
 	}
 
 	template<class T>
-	static CAT_INLINE T *Acquire(const char *file_line)
+	static CAT_INLINE bool Acquire(T *&obj, const char *file_line)
 	{
-		T *obj = new T;
+		obj = new T;
+		if (!obj) return false;
 
-		if (!obj->OnRefObjectInitialize())
+		obj->_shutdown_guid = T::RefObjectGUID;
+
+		if (!obj->OnRefObjectInitialize() &&
+			!RefObjects::ref()->Watch(file_line, obj))
 		{
 			delete obj;
-
-			return 0;
+			obj = 0;
+			return false;
 		}
 
-		if (!RefObjects::ref()->Watch(file_line, obj))
-			return 0;
-
-		return obj;
+		return true;
 	}
 };
 
@@ -166,7 +167,7 @@ class CAT_EXPORT RefObject
 #endif
 
 	volatile u32 _ref_count;
-	volatile u32 _shutdown;
+	volatile u32 _shutdown_guid;
 	RefObject *_prev, *_next;
 
 	void OnZeroReferences(const char *file_line);
@@ -177,7 +178,7 @@ public:
 
 	void Destroy(const char *file_line);
 
-	CAT_INLINE bool IsShutdown() { return _shutdown != 0; }
+	CAT_INLINE bool IsShutdown() { return _shutdown_guid != ILLEGAL_GUID; }
 
 	CAT_INLINE void AddRef(const char *file_line, s32 times = 1)
 	{
@@ -233,6 +234,7 @@ public:
 
 public:
 	// Override the GUID to allow the objects to be treated as singletons.
+	static const u32 ILLEGAL_GUID = ~(u32)0;
 	static const u32 RefObjectGUID = 0;
 
 	// Return a C-string naming the derived RefObject uniquely.
@@ -245,7 +247,7 @@ protected:
 	// errors without putting it in the constructor where it doesn't belong.
 	// Return false to delete the object immediately.
 	// Especially handy for using RefObjects as a plugin system.
-	CAT_INLINE virtual bool OnRefObjectInitialize() { return true; }
+	virtual bool OnRefObjectInitialize() = 0;
 
 	// Called when a shutdown is in progress.
 	// The object should release any internally held references.
@@ -268,9 +270,9 @@ class AutoRelease
 	T *_ref;
 
 public:
-	CAT_INLINE AutoRelease(T *ref = 0) throw() { _ref = ref; }
+	CAT_INLINE AutoRelease(T *t = 0) throw() { _ref = t; }
 	CAT_INLINE ~AutoRelease() throw() { if (_ref) _ref->ReleaseRef(CAT_REFOBJECT_FILE_LINE); }
-	CAT_INLINE AutoRelease &operator=(T *ref) throw() { Reset(ref); return *this; }
+	CAT_INLINE AutoRelease &operator=(T *t) throw() { Reset(t); return *this; }
 
 	CAT_INLINE T *Get() throw() { return _ref; }
 	CAT_INLINE T *operator->() throw() { return _ref; }
@@ -278,7 +280,7 @@ public:
 	CAT_INLINE operator T*() { return _ref; }
 
 	CAT_INLINE void Forget() throw() { _ref = 0; }
-	CAT_INLINE void Reset(T *ref = 0) throw() { _ref = ref; }
+	CAT_INLINE void Reset(T *t = 0) throw() { _ref = t; }
 };
 
 
@@ -289,9 +291,9 @@ class AutoDestroy
 	T *_ref;
 
 public:
-	CAT_INLINE AutoDestroy(T *ref = 0) throw() { _ref = ref; }
+	CAT_INLINE AutoDestroy(T *t = 0) throw() { _ref = t; }
 	CAT_INLINE ~AutoDestroy() throw() { if (_ref) _ref->Destroy(CAT_REFOBJECT_FILE_LINE); }
-	CAT_INLINE AutoDestroy &operator=(T *ref) throw() { Reset(ref); return *this; }
+	CAT_INLINE AutoDestroy &operator=(T *t) throw() { Reset(t); return *this; }
 
 	CAT_INLINE T *Get() throw() { return _ref; }
 	CAT_INLINE T *operator->() throw() { return _ref; }
@@ -299,7 +301,7 @@ public:
 	CAT_INLINE operator T*() { return _ref; }
 
 	CAT_INLINE void Forget() throw() { _ref = 0; }
-	CAT_INLINE void Reset(T *ref = 0) throw() { _ref = ref; }
+	CAT_INLINE void Reset(T *t = 0) throw() { _ref = t; }
 };
 
 

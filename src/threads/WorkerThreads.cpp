@@ -35,16 +35,6 @@ using namespace cat;
 static const u32 INITIAL_TIMERS_ALLOCATED = 16;
 
 
-//// WorkerThreads Singleton
-
-static WorkerThreads worker_threads;
-
-WorkerThreads *WorkerThreads::ref()
-{
-	return &worker_threads;
-}
-
-
 //// WorkerThread
 
 WorkerThread::WorkerThread()
@@ -185,15 +175,15 @@ static CAT_INLINE void ExecuteWorkQueue(IWorkerTLS *tls, const BatchSet &queue)
 	BatchSet batch;
 	batch.Clear();
 
-	WorkerBuffer *last = reinterpret_cast<WorkerBuffer*>( queue.head );
+	WorkerBuffer *last = static_cast<WorkerBuffer*>( queue.head );
 
 	CAT_FOREVER
 	{
-		WorkerBuffer *next = reinterpret_cast<WorkerBuffer*>( last->batch_next );
+		WorkerBuffer *next = static_cast<WorkerBuffer*>( last->batch_next );
 
 		if (!next) break;
 
-		WorkerBuffer *batch_head = reinterpret_cast<WorkerBuffer*>( batch.head );
+		WorkerBuffer *batch_head = static_cast<WorkerBuffer*>( batch.head );
 
 		// If batch is not empty or callback has changed,
 		if (batch_head && last->callback != next->callback)
@@ -235,11 +225,11 @@ static CAT_INLINE void ExecuteWorkQueue(IWorkerTLS *tls, const BatchSet &queue)
 	BatchSet buffers;
 	buffers.head = queue.head;
 
-	WorkerBuffer *last = reinterpret_cast<WorkerBuffer*>( queue.head );
+	WorkerBuffer *last = static_cast<WorkerBuffer*>( queue.head );
 
 	CAT_FOREVER
 	{
-		WorkerBuffer *next = reinterpret_cast<WorkerBuffer*>( last->batch_next );
+		WorkerBuffer *next = static_cast<WorkerBuffer*>( last->batch_next );
 
 		if (!next || next->callback != last->callback)
 		{
@@ -361,34 +351,17 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 
 WorkerThreads::WorkerThreads()
 {
-	_worker_count = 0;
+	_tick_interval = 10;
+	_worker_count = 2;
+
 	_workers = 0;
 	_tls_builder = 0;
 	_round_robin_worker_id = 0;
 }
 
-WorkerThreads::~WorkerThreads()
+bool WorkerThreads::OnRefObjectInitialize()
 {
-	Shutdown();
-}
-
-bool WorkerThreads::Startup(u32 worker_tick_interval, IWorkerTLSBuilder *tls_builder, u32 worker_count_override)
-{
-	if (_worker_count)
-		return false;
-
-	_tick_interval = worker_tick_interval;
-	_tls_builder = tls_builder;
-
-	u32 worker_count = system_info.ProcessorCount;
-	if (worker_count < 1) worker_count = 1;
-
-	// If worker count override is set,
-	if (worker_count_override != 0)
-	{
-		// Use it instead of the number of processors
-		worker_count = worker_count_override;
-	}
+	u32 worker_count = _worker_count;
 
 	_workers = new WorkerThread[worker_count];
 	if (!_workers)
@@ -396,8 +369,6 @@ bool WorkerThreads::Startup(u32 worker_tick_interval, IWorkerTLSBuilder *tls_bui
 		CAT_FATAL("WorkerThreads") << "Out of memory while allocating " << worker_count << " worker thread objects";
 		return false;
 	}
-
-	_worker_count = worker_count;
 
 	// For each worker,
 	for (u32 ii = 0; ii < worker_count; ++ii)
@@ -415,7 +386,12 @@ bool WorkerThreads::Startup(u32 worker_tick_interval, IWorkerTLSBuilder *tls_bui
 	return true;
 }
 
-bool WorkerThreads::Shutdown()
+void WorkerThreads::OnRefObjectDestroy()
+{
+
+}
+
+bool WorkerThreads::OnRefObjectFinalize()
 {
 	u32 worker_count = _worker_count;
 

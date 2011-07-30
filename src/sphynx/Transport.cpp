@@ -248,7 +248,7 @@ void Transport::FreeSentNode(OutgoingMessage *node)
 	// If node is a fragment,
 	if (node->sop == SOP_FRAG)
 	{
-		SendFrag *frag = reinterpret_cast<SendFrag*>( node );
+		SendFrag *frag = static_cast<SendFrag*>( node );
 		OutgoingMessage *full_data_node = frag->full_data;
 
 		// If no more fragments exist for the full data node,
@@ -497,7 +497,7 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 	// For each buffer in the batch,
 	for (BatchHead *node = delivery.head; !IsDisconnected() && node; node = node->batch_next)
 	{
-		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
+		RecvBuffer *buffer = static_cast<RecvBuffer*>( node );
 		u8 *data = GetTrailingBytes(buffer);
 		s32 bytes = buffer->data_bytes;
 		u32 recv_time = buffer->event_msec;
@@ -1102,7 +1102,7 @@ void Transport::Retransmit(u32 stream, OutgoingMessage *node, u32 now)
 	// If node is a fragment,
 	if (node->sop == SOP_FRAG)
 	{
-		SendFrag *frag = reinterpret_cast<SendFrag*>( node );
+		SendFrag *frag = static_cast<SendFrag*>( node );
 		OutgoingMessage *full_node = frag->full_data;
 		frag_total_bytes = full_node->GetBytes();
 
@@ -1898,7 +1898,7 @@ bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s
 			// Increment fragment count on the source node
 			++node->frag_count;
 
-			add_node = reinterpret_cast<OutgoingMessage*>( frag );
+			add_node = static_cast<OutgoingMessage*>( frag );
 		}
 
 		// Write common data
@@ -2202,7 +2202,7 @@ void Transport::WriteQueuedReliable()
 			next = node->next;
 
 			bool success = (node->GetBytes() == FRAG_HUGE) ?
-				WriteSendHugeNode(reinterpret_cast<SendHuge*>( node ), now, stream, remaining) :
+				WriteSendHugeNode(static_cast<SendHuge*>( node ), now, stream, remaining) :
 				WriteSendQueueNode(node, now, stream, remaining);
 
 			// If node aborted early,

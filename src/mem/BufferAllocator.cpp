@@ -52,7 +52,7 @@ BufferAllocator::BufferAllocator(u32 buffer_min_size, u32 buffer_count)
 	}
 
 	// Construct linked list of free nodes
-	BatchHead *tail = reinterpret_cast<BatchHead*>( buffers );
+	BatchHead *tail = static_cast<BatchHead*>( buffers );
 
 	_acquire_head = tail;
 	_release_head = 0;
@@ -60,7 +60,7 @@ BufferAllocator::BufferAllocator(u32 buffer_min_size, u32 buffer_count)
 	for (u32 ii = 1; ii < buffer_count; ++ii)
 	{
 		buffers += buffer_bytes;
-		BatchHead *node = reinterpret_cast<BatchHead*>( buffers );
+		BatchHead *node = static_cast<BatchHead*>( buffers );
 
 		tail->batch_next = node;
 		tail = node;
