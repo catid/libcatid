@@ -35,15 +35,9 @@
 #include <cat/io/Settings.hpp>
 using namespace cat;
 
-
-//// IOThreadPools Singleton
-
-static IOThreadPools iothreads;
-
-IOThreadPools *IOThreadPools::ref()
-{
-	return &iothreads;
-}
+static WorkerThreads *m_worker_threads = 0;
+static IOThreadPools *m_io_thread_pools = 0;
+static Settings *m_settings = 0;
 
 
 //// IOThread
@@ -136,7 +130,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreadPool *master, OVERLAPPED_ENTR
 				buffer->data_bytes = bytes;
 
 				// Deliver the buffer to the worker threads
-				WorkerThreads::ref()->DeliverBuffers(WQPRIO_LO, buffer->worker_id, buffer);
+				m_worker_threads->DeliverBuffers(WQPRIO_LO, buffer->worker_id, buffer);
 
 				async_file->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
 			}
@@ -154,7 +148,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreadPool *master, OVERLAPPED_ENTR
 				buffer->data_bytes = bytes;
 
 				// Deliver the buffer to the worker threads
-				WorkerThreads::ref()->DeliverBuffers(WQPRIO_LO, buffer->worker_id, buffer);
+				m_worker_threads->DeliverBuffers(WQPRIO_LO, buffer->worker_id, buffer);
 
 				async_file->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
 			}
@@ -189,7 +183,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreadPool *master, OVERLAPPED_ENTR
 void IOThread::UseVistaAPI(IOThreadPool *master)
 {
 	PGetQueuedCompletionStatusEx pGetQueuedCompletionStatusEx =
-		IOThreadPools::ref()->GetIOThreadImports()->pGetQueuedCompletionStatusEx;
+		m_io_thread_pools->GetIOThreadImports()->pGetQueuedCompletionStatusEx;
 	HANDLE port = master->GetIOPort();
 
 	static const u32 MAX_IO_GATHER = 128;
@@ -203,7 +197,7 @@ void IOThread::UseVistaAPI(IOThreadPool *master)
 	UDPEndpoint *prev_recv_endpoint = 0;
 	u32 recv_count = 0;
 
-	u32 max_io_gather = Settings::ref()->getInt("IOThread.MaxIOGather", MAX_IO_GATHER);
+	u32 max_io_gather = m_settings->getInt("IOThread.MaxIOGather", MAX_IO_GATHER);
 	if (max_io_gather > MAX_IO_GATHER) max_io_gather = MAX_IO_GATHER;
 	if (max_io_gather < 1) max_io_gather = 1;
 
@@ -265,7 +259,7 @@ bool IOThread::ThreadFunction(void *vmaster)
 {
 	IOThreadPool *master = reinterpret_cast<IOThreadPool*>( vmaster );
 
-	if (IOThreadPools::ref()->GetIOThreadImports()->pGetQueuedCompletionStatusEx)
+	if (m_io_thread_pools->GetIOThreadImports()->pGetQueuedCompletionStatusEx)
 		UseVistaAPI(master);
 	else
 		UsePreVistaAPI(master);
@@ -303,7 +297,7 @@ bool IOThreadPool::Startup(u32 max_worker_count)
 	if (worker_count < 1) worker_count = 1;
 
 	// If worker count override is set,
-	u32 worker_count_override = Settings::ref()->getInt("IOThreadPool.WorkerCount", 0);
+	u32 worker_count_override = m_settings->getInt("IOThreadPool.WorkerCount", 0);
 	if (worker_count_override != 0)
 	{
 		// Use it instead of the number of processors
@@ -427,23 +421,15 @@ IOThreadPools::IOThreadPools()
 	_imports.pSetFileValidData = (PSetFileValidData)GetProcAddress(GetModuleHandleA("kernel32.dll"), "SetFileValidData");
 }
 
-IOThreadPools::~IOThreadPools()
+bool IOThreadPools::OnRefObjectInitialize()
 {
-	Shutdown();
-}
+	m_io_thread_pools = this;
 
-bool IOThreadPools::Startup()
-{
-	AutoMutex lock(_lock);
+	if (!RefObjects::Require(m_worker_threads, CAT_REFOBJECT_FILE_LINE) ||
+		!RefObjects::Require(m_settings, CAT_REFOBJECT_FILE_LINE))
+		return false;
 
-	// If startup was previously attempted,
-	if (_recv_allocator)
-	{
-		// Clean up and try again
-		Shutdown();
-	}
-
-	u32 iothreads_buffer_count = Settings::ref()->getInt("IOThreadPools.BufferCount", IOTHREADS_BUFFER_COUNT);
+	u32 iothreads_buffer_count = m_settings->getInt("IOThreadPools.BufferCount", IOTHREADS_BUFFER_COUNT);
 
 	_recv_allocator = new BufferAllocator(sizeof(RecvBuffer) + IOTHREADS_BUFFER_READ_BYTES, iothreads_buffer_count);
 
@@ -456,10 +442,12 @@ bool IOThreadPools::Startup()
 	return _shared_pool.Startup();
 }
 
-bool IOThreadPools::Shutdown()
+void IOThreadPools::OnRefObjectDestroy()
 {
-	AutoMutex lock(_lock);
+}
 
+bool IOThreadPools::OnRefObjectFinalize()
+{
 	// If allocator was created,
 	if (_recv_allocator)
 	{
@@ -473,7 +461,9 @@ bool IOThreadPools::Shutdown()
 
 	_private_pools.clear();
 
-	return _shared_pool.Shutdown();
+	_shared_pool.Shutdown();
+
+	return true;
 }
 
 IOThreadPool *IOThreadPools::AssociatePrivate(IOThreadsAssociator *associator)

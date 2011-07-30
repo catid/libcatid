@@ -73,7 +73,7 @@ void CAT_EXPORT DefaultLogCallback(EventSeverity severity, const char *source, s
 
 typedef void (*LogCallback)(EventSeverity severity, const char *source, std::ostringstream &msg);
 
-class CAT_EXPORT Logging
+class CAT_EXPORT Logging : public RefObject
 {
 	CAT_NO_COPY(Logging);
 
@@ -90,11 +90,13 @@ class CAT_EXPORT Logging
 
 public:
 	Logging();
+	CAT_INLINE virtual ~Logging() {}
 	int _log_threshold;
 
-	static Logging *ref();
+	static const u32 RefObjectGUID = 0x00090001; // Global Unique IDentifier for acquiring RefObject singletons
+	CAT_INLINE const char *GetRefObjectName() { return "Logging"; }
 
-	void Initialize(EventSeverity min_severity = LVL_INANE);
+	void SetLogThreshold(EventSeverity min_severity);
 	CAT_INLINE void SetThreshold(EventSeverity min_severity) { _log_threshold = min_severity; }
 	void ReadSettings();
 	void Shutdown();
@@ -106,6 +108,11 @@ public:
 
 	// Not thread-safe
 	CAT_INLINE void SetLogCallback(LogCallback cb) { _callback = cb; }
+
+protected:
+	virtual bool OnRefObjectInitialize();
+	virtual void OnRefObjectDestroy();
+	virtual bool OnRefObjectFinalize();
 };
 
 

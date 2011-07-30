@@ -242,14 +242,14 @@ bool Collexion<T>::DoubleTable()
 
 	// Allocate secondary table
 	u32 new_bytes2 = sizeof(CollexionElement2) * new_allocated;
-	CollexionElement2 *new_table2 = reinterpret_cast<CollexionElement2*>(
+	CollexionElement2 *new_table2 = static_cast<CollexionElement2*>(
 		StdAllocator::ii->Acquire(new_bytes2) );
 
 	if (!new_table2) return false;
 
 	// Allocate primary table
 	u32 new_bytes = sizeof(CollexionElement<T>) * new_allocated;
-	CollexionElement<T> *new_table = reinterpret_cast<CollexionElement<T> *>(
+	CollexionElement<T> *new_table = static_cast<CollexionElement<T> *>(
 		StdAllocator::ii->Acquire(new_bytes) );
 
 	if (!new_table)

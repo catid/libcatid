@@ -1386,7 +1386,8 @@ int main()
 	if (!layer.Startup("TestECC.cfg"))
 		return 1;
 
-	if (!FortunaFactory::ref()->Initialize())
+	FortunaFactory *factory = 0;
+	if (!RefObjects::AcquireSingleton(factory, CAT_REFOBJECT_FILE_LINE))
 	{
 		cout << "FAILURE: Unable to initialize the Fortuna factory" << endl;
 		return 1;

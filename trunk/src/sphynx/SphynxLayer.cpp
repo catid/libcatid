@@ -70,13 +70,6 @@ bool SphynxTLS::Valid()
 
 bool SphynxLayer::PreWorkerThreads()
 {
-	// Start the CSPRNG subsystem
-	if (!FortunaFactory::ref()->Initialize())
-	{
-		CAT_FATAL("SphynxLayer") << "CSPRNG subsystem failed to initialize";
-		return false;
-	}
-
 	return true;
 }
 
@@ -90,19 +83,10 @@ bool SphynxLayer::OnStartup(IWorkerTLSBuilder *tls_builder, const char *settings
 	if (!IOLayer::OnStartup(tls_builder, settings_file_name, service, service_name))
 		return false;
 
-	if (!DNSClient::ref())
-	{
-		CAT_FATAL("IOLayer") << "DNS subsystem failed to initialize";
-		return false;
-	}
-
 	return true;
 }
 
 void SphynxLayer::OnShutdown(bool watched_shutdown)
 {
-	// Terminate the entropy collection thread in the CSPRNG
-	FortunaFactory::ref()->Shutdown();
-
 	IOLayer::OnShutdown(watched_shutdown);
 }

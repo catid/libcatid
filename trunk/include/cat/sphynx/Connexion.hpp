@@ -74,6 +74,7 @@ public:
 	Connexion();
 	CAT_INLINE virtual ~Connexion() {}
 
+	static const u32 RefObjectGUID = 0x00050001; // Global Unique IDentifier for acquiring RefObject singletons
 	CAT_INLINE const char *GetRefObjectName() { return "Connexion"; }
 
 	CAT_INLINE const NetAddr &GetAddress() { return _client_addr; }
@@ -91,8 +92,9 @@ public:
 	CAT_INLINE u16 encodeServerTimestamp(u32 local_time) { return (u16)local_time; }
 
 protected:
-	template<class T> CAT_INLINE T *GetServer() { return reinterpret_cast<T*>( _parent ); }
+	template<class T> CAT_INLINE T *GetServer() { return static_cast<T*>( _parent ); }
 
+	virtual bool OnRefObjectInitialize();
 	virtual void OnRefObjectDestroy();
 	virtual bool OnRefObjectFinalize();
 

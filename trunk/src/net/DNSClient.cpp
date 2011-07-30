@@ -38,18 +38,8 @@
 #include <fstream>
 using namespace cat;
 
-
-//// DNSClient Singleton
-
-static DNSClient *dns_client = 0;
-
-DNSClient *DNSClient::ref()
-{
-	if (!dns_client)
-		dns_client = RefObjects::Acquire<DNSClient>(CAT_REFOBJECT_FILE_LINE);
-
-	return dns_client;
-}
+static WorkerThreads *m_worker_threads = 0;
+static Settings *m_settings = 0;
 
 /*
 	DNS protocol:
@@ -125,35 +115,18 @@ enum QClasses
 
 //// DNSClient
 
-void DNSClient::CleanUp()
-{
-	// For each cache node,
-	for (DNSRequest *node = _cache_head, *next; node; node = next)
-	{
-		next = node->next;
-
-		delete node;
-	}
-
-	// Clear cache
-	_cache_head = _cache_tail = 0;
-	_cache_size = 0;
-
-	CAT_ENFORCE(_request_queue_size == 0) << "Request queue not empty during cleanup";
-}
-
 void DNSClient::OnRecvRouting(const BatchSet &buffers)
 {
 	// For each message,
 	for (BatchHead *node = buffers.head; node; node = node->batch_next)
 	{
-		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
+		RecvBuffer *buffer = static_cast<RecvBuffer*>( node );
 
 		// Set the receive callback
 		buffer->callback.SetMember<DNSClient, &DNSClient::OnWorkerRecv>(this);
 	}
 
-	WorkerThreads::ref()->DeliverBuffers(WQPRIO_HI, GetWorkerID(), buffers);
+	m_worker_threads->DeliverBuffers(WQPRIO_HI, GetWorkerID(), buffers);
 }
 
 void DNSClient::OnWorkerRecv(IWorkerTLS *tls, const BatchSet &buffers)
@@ -162,7 +135,7 @@ void DNSClient::OnWorkerRecv(IWorkerTLS *tls, const BatchSet &buffers)
 	for (BatchHead *node = buffers.head; node; node = node->batch_next)
 	{
 		++buffer_count;
-		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
+		RecvBuffer *buffer = static_cast<RecvBuffer*>( node );
 
 		SetRemoteAddress(buffer);
 		buffer->callback.SetMember<DNSClient, &DNSClient::OnWorkerRecv>(this);
@@ -276,7 +249,6 @@ void DNSClient::OnWorkerTick(IWorkerTLS *tls, u32 now)
 DNSClient::DNSClient()
 {
 	_server_addr.Invalidate();
-	_initialized = false;
 
 	_cache_head = _cache_tail = 0;
 	_cache_size = 0;
@@ -287,13 +259,15 @@ DNSClient::DNSClient()
 	_worker_id = INVALID_WORKER_ID;
 }
 
-DNSClient::~DNSClient()
+bool DNSClient::OnRefObjectInitialize()
 {
-	CleanUp();
-}
+	if (!UDPEndpoint::OnRefObjectInitialize() ||
+		!RefObjects::Require(m_worker_threads, CAT_REFOBJECT_FILE_LINE) ||
+		!RefObjects::Require(m_settings, CAT_REFOBJECT_FILE_LINE))
+	{
+		return false;
+	}
 
-bool DNSClient::Initialize()
-{
 	// Attempt to get a CSPRNG
 	if (!(_csprng = new FortunaOutput))
 	{
@@ -311,7 +285,7 @@ bool DNSClient::Initialize()
 	}
 
 	// Assign to a worker
-	_worker_id = WorkerThreads::ref()->AssignTimer(this, WorkerTimerDelegate::FromMember<DNSClient, &DNSClient::OnWorkerTick>(this));
+	_worker_id = m_worker_threads->AssignTimer(this, WorkerTimerDelegate::FromMember<DNSClient, &DNSClient::OnWorkerTick>(this));
 
 	// Attempt to get server address from operating system
 	if (!GetServerAddr())
@@ -321,9 +295,26 @@ bool DNSClient::Initialize()
 		return false;
 	}
 
-	_initialized = true;
-
 	return true;
+}
+
+bool DNSClient::OnRefObjectFinalize()
+{
+	// For each cache node,
+	for (DNSRequest *node = _cache_head, *next; node; node = next)
+	{
+		next = node->next;
+
+		delete node;
+	}
+
+	// Clear cache
+	_cache_head = _cache_tail = 0;
+	_cache_size = 0;
+
+	CAT_ENFORCE(_request_queue_size == 0) << "Request queue not empty during cleanup";
+
+	return UDPEndpoint::OnRefObjectFinalize();
 }
 
 bool DNSClient::GetServerAddr()
@@ -467,7 +458,7 @@ bool DNSClient::BindToRandomPort(bool ignoreUnreachable)
 	const int RANDOM_BIND_ATTEMPTS_MAX = 16;
 
 	// Get SupportIPv6 flag from settings
-	bool only_ipv4 = Settings::ref()->getInt("DNSClient.SupportIPv6", 0) == 0;
+	bool only_ipv4 = m_settings->getInt("DNSClient.SupportIPv6", 0) == 0;
 
 	// Try to use a more random port
 	int tries = RANDOM_BIND_ATTEMPTS_MAX;
@@ -757,10 +748,6 @@ bool DNSClient::Resolve(const char *hostname, DNSDelegate callback, RefObject *h
 {
 	// If DNSClient is shutdown,
 	if (IsShutdown())
-		return false;
-
-	// Initialize if needed
-	if (!_initialized && !Initialize())
 		return false;
 
 	// Try to interpret hostname as numeric

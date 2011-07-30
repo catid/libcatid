@@ -103,6 +103,7 @@ public:
 	Client();
 	CAT_INLINE virtual ~Client() {}
 
+	static const u32 RefObjectGUID = 0x00030001; // Global Unique IDentifier for acquiring RefObject singletons
 	CAT_INLINE const char *GetRefObjectName() { return "Client"; }
 
 	// Once you call Connect(), the object may be deleted at any time.  If you want to keep a reference to it, AddRef() before calling
@@ -128,8 +129,9 @@ public:
 	CAT_INLINE u32 decodeServerTimestamp(u32 local_time, u16 timestamp) { return fromServerTime(BiasedReconstructCounter<16>(toServerTime(local_time), TS_COMPRESS_FUTURE_TOLERANCE, timestamp)); }
 
 protected:
-	virtual void OnRefObjectDestroy();
-	virtual bool OnRefObjectFinalize();
+	virtual bool OnRefObjectInitialize();
+	//virtual void OnRefObjectDestroy();
+	//virtual bool OnRefObjectFinalize();
 
 	CAT_INLINE bool IsConnected() { return _connected; }
 	CAT_INLINE u32 GetWorkerID() { return _worker_id; }

@@ -40,14 +40,16 @@ using namespace std;
 using namespace cat;
 using namespace sphynx;
 
-void Client::OnRefObjectDestroy()
-{
-	UDPEndpoint::OnRefObjectDestroy();
-}
+static WorkerThreads *m_worker_threads = 0;
+static Settings *m_settings = 0;
+static DNSClient *m_dns_client = 0;
 
-bool Client::OnRefObjectFinalize()
+bool Client::OnRefObjectInitialize()
 {
-	return UDPEndpoint::OnRefObjectFinalize();
+	return UDPEndpoint::OnRefObjectInitialize() &&
+		RefObjects::Require(m_worker_threads, CAT_REFOBJECT_FILE_LINE) &&
+		RefObjects::Require(m_settings, CAT_REFOBJECT_FILE_LINE) &&
+		RefObjects::Require(m_dns_client, CAT_REFOBJECT_FILE_LINE);
 }
 
 void Client::OnDisconnectComplete()
@@ -79,7 +81,7 @@ void Client::OnRecvRouting(const BatchSet &buffers)
 	for (BatchHead *next, *node = buffers.head; node; node = next)
 	{
 		next = node->batch_next;
-		RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
+		RecvBuffer *buffer = static_cast<RecvBuffer*>( node );
 
 		SetRemoteAddress(buffer);
 
@@ -98,7 +100,7 @@ void Client::OnRecvRouting(const BatchSet &buffers)
 
 	// If delivery set is not empty,
 	if (delivery.head)
-		WorkerThreads::ref()->DeliverBuffers(WQPRIO_HI, GetWorkerID(), delivery);
+		m_worker_threads->DeliverBuffers(WQPRIO_HI, GetWorkerID(), delivery);
 
 	// If free set is not empty,
 	if (garbage_count > 0)
@@ -107,7 +109,7 @@ void Client::OnRecvRouting(const BatchSet &buffers)
 
 void Client::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 {
-	SphynxTLS *tls = reinterpret_cast<SphynxTLS*>( itls );
+	SphynxTLS *tls = static_cast<SphynxTLS*>( itls );
 	u32 buffer_count = 0;
 	BatchHead *node = buffers.head;
 
@@ -116,7 +118,7 @@ void Client::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 		for (; node; node = node->batch_next)
 		{
 			++buffer_count;
-			RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
+			RecvBuffer *buffer = static_cast<RecvBuffer*>( node );
 			u32 bytes = buffer->data_bytes;
 			u8 *data = GetTrailingBytes(buffer);
 
@@ -217,7 +219,7 @@ void Client::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 		{
 			next = node->batch_next;
 			++buffer_count;
-			RecvBuffer *buffer = reinterpret_cast<RecvBuffer*>( node );
+			RecvBuffer *buffer = static_cast<RecvBuffer*>( node );
 			u8 *data = GetTrailingBytes(buffer);
 			u32 data_bytes = buffer->data_bytes;
 
@@ -254,7 +256,7 @@ void Client::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 
 void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)
 {
-	SphynxTLS *tls = reinterpret_cast<SphynxTLS*>( itls );
+	SphynxTLS *tls = static_cast<SphynxTLS*>( itls );
 
 	if (!_connected)
 	{
@@ -407,11 +409,11 @@ bool Client::InitialConnect(SphynxTLS *tls, TunnelPublicKey &public_key, const c
 	_server_public_key = public_key;
 
 	// Get SupportIPv6 flag from settings
-	bool only_ipv4 = Settings::ref()->getInt("Sphynx.Client.SupportIPv6", 0) == 0;
+	bool only_ipv4 = m_settings->getInt("Sphynx.Client.SupportIPv6", 0) == 0;
 
 	// Get kernel receive buffer size
 	int kernelReceiveBufferBytes =
-		Settings::ref()->getInt("Sphynx.Client.KernelReceiveBuffer", 1000000);
+		m_settings->getInt("Sphynx.Client.KernelReceiveBuffer", 1000000);
 
 	// Attempt to bind to any port and accept ICMP errors initially
 	if (!Bind(only_ipv4, 0, false, kernelReceiveBufferBytes))
@@ -454,7 +456,7 @@ bool Client::FinalConnect(const NetAddr &addr)
 	}
 
 	// Assign to a worker
-	_worker_id = WorkerThreads::ref()->AssignTimer(this, WorkerTimerDelegate::FromMember<Client, &Client::OnWorkerTick>(this));
+	_worker_id = m_worker_threads->AssignTimer(this, WorkerTimerDelegate::FromMember<Client, &Client::OnWorkerTick>(this));
 
 	return true;
 }
@@ -469,7 +471,7 @@ bool Client::Connect(SphynxTLS *tls, const char *hostname, Port port, TunnelPubl
 
 	_server_addr.SetPort(port);
 
-	if (!DNSClient::ref()->Resolve(hostname, DNSDelegate::FromMember<Client, &Client::OnDNSResolve>(this), this))
+	if (!m_dns_client->Resolve(hostname, DNSDelegate::FromMember<Client, &Client::OnDNSResolve>(this), this))
 	{
 		ConnectFail(ERR_CLIENT_SERVER_ADDR);
 		return false;
@@ -586,7 +588,7 @@ bool Client::WriteDatagrams(const BatchSet &buffers, u32 count)
 	for (BatchHead *node = buffers.head; node; node = node->batch_next)
 	{
 		// Unwrap the message data
-		SendBuffer *buffer = reinterpret_cast<SendBuffer*>( node );
+		SendBuffer *buffer = static_cast<SendBuffer*>( node );
 		u8 *msg_data = GetTrailingBytes(buffer);
 		u32 msg_bytes = buffer->GetBytes();
 

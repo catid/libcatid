@@ -92,7 +92,6 @@ struct DNSRequest
 class DNSClient : public UDPEndpoint
 {
 	NetAddr _server_addr;
-	bool _initialized;
 	u32 _worker_id;
 
 	FortunaOutput *_csprng;
@@ -106,8 +105,6 @@ class DNSClient : public UDPEndpoint
 	DNSRequest *_cache_head;
 	DNSRequest *_cache_tail;
 	int _cache_size;
-
-	bool Initialize();
 
 	bool GetUnusedID(u16 &id); // not thread-safe, caller must lock
 	bool IsValidHostname(const char *hostname);
@@ -126,15 +123,12 @@ class DNSClient : public UDPEndpoint
 	void ProcessDNSResponse(DNSRequest *req, int qdcount, int ancount, u8 *data, u32 bytes);
 	void NotifyRequesters(DNSRequest *req);
 
-	void CleanUp();
-
 public:
 	DNSClient();
-	CAT_INLINE virtual ~DNSClient();
+	CAT_INLINE virtual ~DNSClient() {}
 
+	static const u32 RefObjectGUID = 0x00040001; // Global Unique IDentifier for acquiring RefObject singletons
 	CAT_INLINE const char *GetRefObjectName() { return "DNSClient"; }
-
-	static DNSClient *ref();
 
 	CAT_INLINE u32 GetWorkerID() { return _worker_id; }
 
@@ -162,6 +156,10 @@ public:
 	bool Resolve(const char *hostname, DNSDelegate callback, RefObject *holdRef = 0);
 
 protected:
+	virtual bool OnRefObjectInitialize();
+	//virtual void OnRefObjectDestroy();
+	virtual bool OnRefObjectFinalize();
+
 	virtual void OnRecvRouting(const BatchSet &buffers);
 
 	virtual void OnWorkerRecv(IWorkerTLS *tls, const BatchSet &buffers);

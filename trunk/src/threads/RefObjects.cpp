@@ -35,9 +35,6 @@ using namespace cat;
 
 RefObject::RefObject()
 {
-	// Initialize shutdown flag
-	_shutdown = 0;
-
 	// Initialize to one reference
 	_ref_count = 1;
 }
@@ -53,13 +50,13 @@ void RefObject::Destroy(const char *file_line)
 	u32 shutdown;
 
 	_lock.Enter();
-	shutdown = _shutdown;
-	_shutdown = 1;
+	shutdown = _shutdown_guid;
+	_shutdown_guid = ILLEGAL_GUID;
 	_lock.Leave();
 
 	if (shutdown == 0)
 #else
-	if (Atomic::Set(&_shutdown, 1) == 0)
+	if (Atomic::Set(&_shutdown_guid, ILLEGAL_GUID) != ILLEGAL_GUID)
 #endif
 	{
 		// Notify the derived class on the first shutdown request
@@ -87,6 +84,14 @@ RefObjects::RefObjects()
 	_active_head = _dead_head = 0;
 
 	_shutdown = _initialized = false;
+}
+
+RefObject *RefObjects::FindActiveByGUID(u32 guid)
+{
+	for (RefObject *obj = _active_head; obj; obj = obj->_next)
+	{
+		obj->RefObjectGUID
+	}
 }
 
 bool RefObjects::Watch(const char *file_line, RefObject *obj)
@@ -164,6 +169,8 @@ static RefObjects refobject_reaper;
 
 RefObjects *RefObjects::ref()
 {
+	refobject_reaper.Initialize();
+
 	return &refobject_reaper;
 }
 
@@ -174,6 +181,16 @@ void RefObjectsAtExit()
 
 bool RefObjects::Initialize()
 {
+	if (_initialized) return true;
+
+	AutoMutex lock(_lock);
+
+	if (_initialized) return true;
+
+	atexit(&RefObjectsAtExit);
+
+	_initialized = true;
+
 	if (!Thread::StartThread())
 	{
 		CAT_FATAL("RefObjects") << "Unable to start reaper thread";
@@ -319,5 +336,6 @@ bool RefObjects::ThreadFunction(void *param)
 
 	CAT_INANE("RefObjects") << "...Reaper going to sleep in a quiet field of dead objects";
 
+	_initialized = false;
 	return true;
 }

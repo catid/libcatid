@@ -294,7 +294,7 @@ u32 UDPEndpoint::PostReads(s32 limit, s32 reuse_count, BatchSet set)
 	// For each buffer,
 	BatchHead *node;
 	for (node = set.head; node && posted_reads < count; node = node->batch_next, ++posted_reads)
-		if (!PostRead(reinterpret_cast<RecvBuffer*>( node )))
+		if (!PostRead(static_cast<RecvBuffer*>( node )))
 			break;
 
 	// Increment the buffer posted count
@@ -339,7 +339,7 @@ bool UDPEndpoint::Write(const BatchSet &buffers, u32 count, const NetAddr &addr)
 	for (BatchHead *next, *node = buffers.head; node; node = next)
 	{
 		next = node->batch_next;
-		SendBuffer *buffer = reinterpret_cast<SendBuffer*>( node );
+		SendBuffer *buffer = static_cast<SendBuffer*>( node );
 
 		WSABUF wsabuf;
 		wsabuf.buf = reinterpret_cast<CHAR*>( GetTrailingBytes(buffer) );
