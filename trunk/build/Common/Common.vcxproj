@@ -228,7 +228,6 @@
     <ClInclude Include="..\..\include\cat\math\BitMath.hpp" />
     <ClInclude Include="..\..\include\cat\port\EndianNeutral.hpp" />
     <ClInclude Include="..\..\include\cat\lang\Strings.hpp" />
-    <ClInclude Include="..\..\include\cat\types\List.hpp" />
     <ClInclude Include="Precompiled.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

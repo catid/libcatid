@@ -98,9 +98,10 @@ struct WorkerTimer
 
 enum WorkQueuePriorities
 {
-	WQPRIO_HI = 0,
-	WQPRIO_LO = 1,
-	WQPRIO_COUNT = 2
+	WQPRIO_HI,
+	WQPRIO_LO,
+
+	WQPRIO_COUNT
 };
 
 // Queue of buffers waiting to be processed
@@ -157,16 +158,11 @@ class CAT_EXPORT WorkerThreads : public RefObject
 
 	IWorkerTLSBuilder *_tls_builder;
 
-protected:
-	bool OnRefObjectInitialize();
-	void OnRefObjectDestroy();
-	bool OnRefObjectFinalize();
-
 public:
 	WorkerThreads();
 	CAT_INLINE virtual ~WorkerThreads() {}
 
-	static const u32 RefObjectGUID = 0x00010001; // Global Unique IDentifier for acquiring RefObject singletons
+	static const u32 RefObjectGUID = 0x1e95ced; // Global Unique IDentifier for acquiring RefObject singletons
 	CAT_INLINE const char *GetRefObjectName() { return "WorkerThreads"; }
 
 	CAT_INLINE u32 GetWorkerCount() { return _worker_count; }
@@ -199,6 +195,11 @@ public:
 
 		return worker_id;
 	}
+
+protected:
+	bool OnRefObjectInitialize();
+	void OnRefObjectDestroy();
+	bool OnRefObjectFinalize();
 };
 
 

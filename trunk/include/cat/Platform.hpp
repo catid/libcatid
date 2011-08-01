@@ -643,6 +643,7 @@ template<typename T> CAT_INLINE T Bound(const T &minimum, const T &maximum, cons
 //// No Copy ////
 
 #define CAT_NO_COPY(T) \
+private: \
 	CAT_INLINE T(const T&) {} \
 	CAT_INLINE T& operator=(const T&) { return *this; }
 

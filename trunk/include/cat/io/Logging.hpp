@@ -29,7 +29,8 @@
 #ifndef CAT_LOGGING_HPP
 #define CAT_LOGGING_HPP
 
-#include <cat/Platform.hpp>
+#include <cat/threads/RefObjects.hpp>
+#include <cat/lang/Delegates.hpp>
 #include <string>
 #include <sstream>
 
@@ -71,34 +72,39 @@ void CAT_EXPORT DefaultLogCallback(EventSeverity severity, const char *source, s
 
 //// Logging
 
-typedef void (*LogCallback)(EventSeverity severity, const char *source, std::ostringstream &msg);
-
-class CAT_EXPORT Logging : public RefObject
+class CAT_EXPORT Logging
 {
+public:
+	typedef Delegate3<void, EventSeverity, const char *, std::ostringstream &> Callback;
+
+private:
 	CAT_NO_COPY(Logging);
 
 	friend class Recorder;
 
-	LogCallback _callback;
+	Mutex _lock;
+	Callback _callback;
 
 	bool _service;
 #if defined(CAT_OS_WINDOWS)
 	HANDLE _event_source;
 #endif
 
+	int _log_threshold;
+
 	void LogEvent(Recorder *recorder);
 
 public:
 	Logging();
 	CAT_INLINE virtual ~Logging() {}
-	int _log_threshold;
 
-	static const u32 RefObjectGUID = 0x00090001; // Global Unique IDentifier for acquiring RefObject singletons
+	static Logging *ref();
+
+	static const u32 RefObjectGUID = 0x1e9b9d58; // Global Unique IDentifier for acquiring RefObject singletons
 	CAT_INLINE const char *GetRefObjectName() { return "Logging"; }
 
-	void SetLogThreshold(EventSeverity min_severity);
 	CAT_INLINE void SetThreshold(EventSeverity min_severity) { _log_threshold = min_severity; }
-	void ReadSettings();
+	CAT_INLINE int GetThreshold() { return _log_threshold; }
 	void Shutdown();
 
 	// Service mode
@@ -106,13 +112,7 @@ public:
 	void EnableServiceMode(const char *service_name);
 	void WriteServiceLog(EventSeverity severity, const char *line);
 
-	// Not thread-safe
-	CAT_INLINE void SetLogCallback(LogCallback cb) { _callback = cb; }
-
-protected:
-	virtual bool OnRefObjectInitialize();
-	virtual void OnRefObjectDestroy();
-	virtual bool OnRefObjectFinalize();
+	void SetLogCallback(const Callback &cb);
 };
 
 
@@ -146,7 +146,7 @@ public:
 // Instead use:
 //  if (XYZ) { WARN("SS") << "ERROR!"; } else INFO("SS") << "OK!";   <-- good
 #define CAT_RECORD(subsystem, severity) \
-	if (severity >= Logging::ref()->_log_threshold) Recorder(subsystem, severity)
+	if (severity >= Logging::ref()->GetThreshold()) Recorder(subsystem, severity)
 
 #define CAT_INANE(subsystem)	CAT_RECORD(subsystem, cat::LVL_INANE)
 #define CAT_INFO(subsystem)		CAT_RECORD(subsystem, cat::LVL_INFO)

@@ -27,7 +27,6 @@
 */
 
 #include <cat/io/Logging.hpp>
-#include <cat/io/Settings.hpp>
 #include <cat/time/Clock.hpp>
 #include <cstdlib>
 #include <ctime>
@@ -61,8 +60,7 @@ static const char *const EVENT_NAME[5] = { "Inane", "Info", "Warn", "Oops", "Fat
 static const char *const SHORT_EVENT_NAME[5] = { ".", "I", "W", "!", "F" };
 
 
-static Logging singleton;
-Logging *Logging::ref() { return &singleton; }
+static Logging m_logging;
 
 
 //// Free functions
@@ -110,9 +108,9 @@ std::string cat::HexDumpString(const void *vdata, u32 bytes)
 
 void cat::FatalStop(const char *message)
 {
-	if (Logging::ref()->IsService())
+	if (m_logging.IsService())
 	{
-		Logging::ref()->WriteServiceLog(LVL_FATAL, message);
+		m_logging.WriteServiceLog(LVL_FATAL, message);
 	}
 	else
 	{
@@ -130,14 +128,14 @@ void cat::FatalStop(const char *message)
 
 void cat::DefaultLogCallback(EventSeverity severity, const char *source, std::ostringstream &msg)
 {
-	if (Logging::ref()->IsService())
+	if (m_logging.IsService())
 	{
 		std::ostringstream oss;
 		oss << "<" << source << "> " << msg.str() << endl;
 
 		std::string result = oss.str();
 
-		Logging::ref()->WriteServiceLog(severity, result.c_str());
+		m_logging.WriteServiceLog(severity, result.c_str());
 	}
 	else
 	{
@@ -159,46 +157,36 @@ void cat::DefaultLogCallback(EventSeverity severity, const char *source, std::os
 
 Logging::Logging()
 {
-	_callback = &DefaultLogCallback;
+	_callback = Callback::FromFree<&DefaultLogCallback>();
 	_log_threshold = LVL_INANE;
 	_service = false;
 }
 
-bool Logging::OnRefObjectInitialize()
+Logging *Logging::ref()
 {
-
+	return &m_logging;
 }
 
-void Logging::OnRefObjectDestroy()
+void Logging::SetLogCallback(const Callback &cb)
 {
+	AutoMutex lock(_lock);
 
-}
-
-bool Logging::OnRefObjectFinalize()
-{
-	return true;
-}
-
-void Logging::SetLogThreshold(EventSeverity min_severity)
-{
-	_log_threshold = min_severity;
-}
-
-void Logging::ReadSettings()
-{
-	_log_threshold = Settings::ref()->getInt("Log.Threshold", _log_threshold);
+	_callback = cb;
 }
 
 void Logging::LogEvent(Recorder *recorder)
 {
+	AutoMutex lock(_lock);
+
 	_callback(recorder->_severity, recorder->_subsystem, recorder->_msg);
 }
 
 void Logging::EnableServiceMode(const char *service_name)
 {
-	_service = true;
+	AutoMutex lock(_lock);
 
 #if defined(CAT_OS_WINDOWS)
+	_service = true;
 	_event_source = RegisterEventSourceA(0, service_name);
 #endif
 }
@@ -236,7 +224,7 @@ Recorder::Recorder(const char *subsystem, EventSeverity severity)
 
 Recorder::~Recorder()
 {
-	Logging::ref()->LogEvent(this);
+	m_logging.LogEvent(this);
 }
 
 

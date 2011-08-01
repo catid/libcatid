@@ -65,7 +65,7 @@ struct RecvBuffer : BatchHead
 	u32 data_bytes;
 	u32 event_msec;
 
-	CAT_INLINE NetAddr &GetAddr() { return (NetAddr&)addr; }
+	CAT_INLINE NetAddr &GetAddr() { return static_cast<NetAddr&>( addr ); }
 };
 
 

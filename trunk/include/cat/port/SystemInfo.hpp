@@ -29,28 +29,37 @@
 #ifndef CAT_CACHE_LINE_BYTES_HPP
 #define CAT_CACHE_LINE_BYTES_HPP
 
-#include <cat/Platform.hpp>
+#include <cat/threads/RefObjects.hpp>
 
 namespace cat {
 
 
-// Call InitializeSystemInfo() before using system_info global
-CAT_EXPORT void InitializeSystemInfo();
-
-struct SystemInfo
+class SystemInfo : public RefObject
 {
 	// Number of bytes in each CPU cache line
-	u32 CacheLineBytes;
+	u32 _CacheLineBytes;
 
 	// Number of processors
-	u32 ProcessorCount;
+	u32 _ProcessorCount;
 
 	// Page size
-	u32 PageSize;
+	u32 _PageSize;
 
 	// Allocation granularity
-	u32 AllocationGranularity;
-} extern system_info;
+	u32 _AllocationGranularity;
+
+public:
+	SystemInfo();
+	CAT_INLINE virtual ~SystemInfo() {}
+
+	static const u32 RefObjectGUID = 0xd4b15f58; // Global Unique IDentifier for acquiring RefObject singletons
+	CAT_INLINE virtual const char *GetRefObjectName() { return "SystemInfo"; }
+
+protected:
+	virtual bool OnRefObjectInitialize();
+	//virtual void OnRefObjectDestroy();
+	//virtual bool OnRefObjectFinalize();
+};
 
 
 } // namespace cat

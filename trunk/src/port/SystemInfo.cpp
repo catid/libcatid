@@ -53,15 +53,6 @@ using namespace cat;
 # define aligned_free _aligned_free
 #endif
 
-static bool system_info_initialized = false;
-
-SystemInfo cat::system_info = {
-	CAT_DEFAULT_CACHE_LINE_SIZE, // From Config.hpp
-	CAT_DEFAULT_CPU_COUNT,
-	CAT_DEFAULT_PAGE_SIZE,
-	CAT_DEFAULT_ALLOCATION_GRANULARITY
-};
-
 static u32 GetCacheLineBytes()
 {
 	// Based on work by Nick Strupat (http://strupat.ca/)
@@ -226,15 +217,21 @@ static u32 GetAllocationGranularity()
 	return alloc_gran > 0 ? alloc_gran : CAT_DEFAULT_ALLOCATION_GRANULARITY;
 }
 
-void cat::InitializeSystemInfo()
+
+//// SystemInfo
+
+SystemInfo::SystemInfo()
 {
-	if (system_info_initialized) return;
+	_CacheLineBytes = CAT_DEFAULT_CACHE_LINE_SIZE;
+	_ProcessorCount = CAT_DEFAULT_CPU_COUNT;
+	_PageSize = CAT_DEFAULT_PAGE_SIZE;
+	_AllocationGranularity = CAT_DEFAULT_ALLOCATION_GRANULARITY;
+}
 
-	system_info.CacheLineBytes = GetCacheLineBytes();
-	system_info.ProcessorCount = GetProcessorCount();
-	system_info.PageSize = GetPageSize();
-	system_info.AllocationGranularity = GetAllocationGranularity();
-
-	CAT_FENCE_COMPILER
-	system_info_initialized = true;
+bool SystemInfo::OnRefObjectInitialize()
+{
+	_CacheLineBytes = GetCacheLineBytes();
+	_ProcessorCount = GetProcessorCount();
+	_PageSize = GetPageSize();
+	_AllocationGranularity = GetAllocationGranularity();
 }
