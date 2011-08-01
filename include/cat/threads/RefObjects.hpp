@@ -162,6 +162,8 @@ class CAT_EXPORT RefObject
 {
 	friend class RefObjects;
 
+	CAT_NO_COPY(RefObject);
+
 #if defined(CAT_NO_ATOMIC_REF_OBJECT)
 	Mutex _lock;
 #endif
