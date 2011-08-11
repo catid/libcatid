@@ -82,19 +82,19 @@ void SettingsKey::write(std::ofstream &file)
 
 Settings::Settings()
 {
-	CAT_OBJCLR(hbtrees);
+	CAT_OBJCLR(_hbtrees);
 
-	readSettings = false;
-	modified = false;
+	_readSettings = false;
+	_modified = false;
 }
 
 SettingsKey *Settings::addKey(const char *name)
 {
 	u32 treekey = MurmurHash(name, (int)strlen(name)+1, KEY_HASH_SALT).Get32() % SETTINGS_HASH_BINS;
-	SettingsKey *key = hbtrees[treekey];
+	SettingsKey *key = _hbtrees[treekey];
 
 	if (!key)
-		return hbtrees[treekey] = new SettingsKey(0, 0, name);
+		return _hbtrees[treekey] = new SettingsKey(0, 0, name);
 
 	CAT_FOREVER
 	{
@@ -121,7 +121,7 @@ SettingsKey *Settings::addKey(const char *name)
 SettingsKey *Settings::getKey(const char *name)
 {
 	u32 treekey = MurmurHash(name, (int)strlen(name)+1, KEY_HASH_SALT).Get32() % SETTINGS_HASH_BINS;
-	SettingsKey *key = hbtrees[treekey];
+	SettingsKey *key = _hbtrees[treekey];
 
 	while (key)
 	{
@@ -138,10 +138,10 @@ void Settings::clear()
 {
 	for (int ii = 0; ii < SETTINGS_HASH_BINS; ++ii)
 	{
-		SettingsKey *root = hbtrees[ii];
+		SettingsKey *root = _hbtrees[ii];
 		if (root)
 		{
-			hbtrees[ii] = 0;
+			_hbtrees[ii] = 0;
 			delete root;
 		}
 	}
@@ -211,14 +211,14 @@ void Settings::readSettingsFromFile(const char *file_path, const char *override_
 		setInt("override.unlink", 0);
 	}
 
-	readSettings = true;
+	_readSettings = true;
 }
 
 void Settings::write()
 {
 	AutoMutex lock(_lock);
 
-	if (readSettings && !modified)
+	if (_readSettings && !_modified)
 	{
 #ifdef SETTINGS_VERBOSE
 		CAT_INANE("Settings") << "Skipped writing unmodified settings";
@@ -236,13 +236,13 @@ void Settings::write()
 	file << "This file is regenerated on shutdown and reread on startup" << endl << endl;
 
 	for (int ii = 0; ii < SETTINGS_HASH_BINS; ++ii)
-		if (hbtrees[ii]) hbtrees[ii]->write(file);
+		if (_hbtrees[ii]) _hbtrees[ii]->write(file);
 
 #ifdef SETTINGS_VERBOSE
 	CAT_INANE("Settings") << "Write: Saved " << _settings_file;
 #endif
 
-	modified = false;
+	_modified = false;
 }
 
 int Settings::getInt(const char *name)
@@ -308,7 +308,7 @@ SettingsKey *Settings::initInt(const char *name, int n, bool overwrite)
 		key->value.i = n;
 		key->value.flags = CAT_SETTINGS_FILLED|CAT_SETTINGS_INT;
 
-		modified = true;
+		_modified = true;
 	}
 	else if (!(key->value.flags & CAT_SETTINGS_INT))
 	{
@@ -328,7 +328,7 @@ SettingsKey *Settings::initStr(const char *name, const char *value, bool overwri
 		CAT_STRNCPY(key->value.s, value, sizeof(key->value.s));
 		key->value.flags = CAT_SETTINGS_FILLED;
 
-		modified = true;
+		_modified = true;
 	}
 
 	return key;

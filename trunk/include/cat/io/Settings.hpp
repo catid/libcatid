@@ -71,19 +71,17 @@ public:
 
 
 // User settings manager
-class CAT_EXPORT Settings
+class CAT_EXPORT Settings : public RefObject
 {
-	CAT_NO_COPY(Settings);
-
 	Mutex _lock;
 
 	static const u32 KEY_HASH_SALT = 0xbaddecaf;
 	static const int SETTINGS_HASH_BINS = 256;
 
-	SettingsKey *hbtrees[SETTINGS_HASH_BINS]; // hash table of binary trees
+	SettingsKey *_hbtrees[SETTINGS_HASH_BINS]; // hash table of binary trees
 
-	bool readSettings; // Flag set when settings have been read from disk
-	bool modified;	 // Flag set when settings have been modified since last write
+	bool _readSettings; // Flag set when settings have been read from disk
+	bool _modified;	 // Flag set when settings have been modified since last write
 
 	std::string _settings_file;
 
