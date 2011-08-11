@@ -74,8 +74,6 @@
 #include <cat/mem/LargeAllocator.hpp>
 #include <cat/mem/BufferAllocator.hpp>
 
-#include <cat/CommonLayer.hpp>
-
 #if defined(CAT_COMPILER_MSVC) && defined(CAT_BUILD_DLL)
 # pragma warning(pop)
 #endif

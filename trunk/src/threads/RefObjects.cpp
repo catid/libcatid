@@ -30,6 +30,8 @@
 #include <cat/threads/AutoMutex.hpp>
 using namespace cat;
 
+static RefObjects refobject_reaper;
+
 
 //// RefObject
 
@@ -90,8 +92,13 @@ RefObject *RefObjects::FindActiveByGUID(u32 guid)
 {
 	for (RefObject *obj = _active_head; obj; obj = obj->_next)
 	{
-		obj->RefObjectGUID
+		if (obj->RefObjectGUID == guid)
+		{
+			return obj;
+		}
 	}
+
+	return 0;
 }
 
 bool RefObjects::Watch(const char *file_line, RefObject *obj)
@@ -165,8 +172,6 @@ void RefObjects::Kill(RefObject *obj)
 	LinkToDeadList(obj);
 }
 
-static RefObjects refobject_reaper;
-
 RefObjects *RefObjects::ref()
 {
 	refobject_reaper.Initialize();
@@ -174,7 +179,7 @@ RefObjects *RefObjects::ref()
 	return &refobject_reaper;
 }
 
-void RefObjectsAtExit()
+void RefObjects::RefObjectsAtExit()
 {
 	refobject_reaper.Shutdown();
 }
@@ -187,7 +192,7 @@ bool RefObjects::Initialize()
 
 	if (_initialized) return true;
 
-	atexit(&RefObjectsAtExit);
+	atexit(&RefObjects::RefObjectsAtExit);
 
 	_initialized = true;
 

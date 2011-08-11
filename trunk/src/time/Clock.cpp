@@ -47,11 +47,6 @@ using namespace cat;
 // Windows version requires some initialization
 static const int LOWEST_ACCEPTABLE_PERIOD = 10;
 
-Mutex Clock::init_lock;
-u32 Clock::initialized = 0;
-u32 Clock::period = LOWEST_ACCEPTABLE_PERIOD+1;
-double Clock::inv_freq = 1;
-
 #else // Linux/other version
 
 # include <sys/time.h>
@@ -63,46 +58,30 @@ double Clock::inv_freq = 1;
 using namespace std;
 
 
-bool Clock::Initialize()
+bool Clock::OnRefObjectInitialize()
 {
 #if defined(CAT_OS_WINDOWS)
-	// Protect with a mutex
-	AutoMutex lock(init_lock);
+	// Set minimum timer resolution as low as possible
+	s32 period;
+	for (period = 1; period <= LOWEST_ACCEPTABLE_PERIOD && (timeBeginPeriod(period) != TIMERR_NOERROR); ++period);
+	_period = period;
 
-	// If this is the first initialize,
-	if (!initialized)
-	{
-		// Set minimum timer resolution as low as possible
-		for (period = 1; period <= LOWEST_ACCEPTABLE_PERIOD && (timeBeginPeriod(period) != TIMERR_NOERROR); ++period);
-
-		// Cache the inverse of the performance counter frequency
-		LARGE_INTEGER freq;
-		QueryPerformanceFrequency(&freq);
-		inv_freq = 1.0 / static_cast<double>(freq.QuadPart);
-	}
-
-	// Increment initialized counter
-	++initialized;
+	// Cache the inverse of the performance counter frequency
+	LARGE_INTEGER freq;
+	QueryPerformanceFrequency(&freq);
+	_inv_freq = 1.0 / static_cast<double>(freq.QuadPart);
 #endif
 
 	return true;
 }
 
-bool Clock::Shutdown()
+void Clock::OnRefObjectDestroy()
 {
-#if defined(CAT_OS_WINDOWS)
-	// Protect with a mutex
-	AutoMutex lock(init_lock);
+}
 
-	// If this is the last shutdown,
-	if (initialized == 1)
-	{
-		if (period <= LOWEST_ACCEPTABLE_PERIOD) timeEndPeriod(period);
-	}
- 
-	// Decrement initialized counter
-	--initialized;
-#endif
+bool Clock::OnRefObjectFinalize()
+{
+	if (_period <= LOWEST_ACCEPTABLE_PERIOD) timeEndPeriod(_period);
 
 	return true;
 }
@@ -173,7 +152,7 @@ double Clock::usec()
 
     QueryPerformanceCounter(&tim);
 
-    return (static_cast<double>(tim.QuadPart) * 1000000.0) * inv_freq;
+    return (static_cast<double>(tim.QuadPart) * 1000000.0) * _inv_freq;
 
 #else
 

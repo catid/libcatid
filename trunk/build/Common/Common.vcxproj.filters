@@ -111,9 +111,6 @@
     <ClCompile Include="..\..\src\threads\WorkerThreads.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\CommonLayer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\parse\Base64.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -205,9 +202,6 @@
     </ClInclude>
     <ClInclude Include="..\..\include\cat\threads\WorkerThreads.hpp">
       <Filter>Header Files\threads</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\include\cat\CommonLayer.hpp">
-      <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\include\cat\parse\Base64.hpp">
       <Filter>Header Files\parse</Filter>
