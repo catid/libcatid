@@ -161,7 +161,6 @@
     <Lib />
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\src\CommonLayer.cpp" />
     <ClCompile Include="..\..\src\io\Logging.cpp" />
     <ClCompile Include="..\..\src\io\MappedFile.cpp" />
     <ClCompile Include="..\..\src\io\Settings.cpp" />
@@ -195,7 +194,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\cat\AllCommon.hpp" />
-    <ClInclude Include="..\..\include\cat\CommonLayer.hpp" />
     <ClInclude Include="..\..\include\cat\Config.hpp" />
     <ClInclude Include="..\..\include\cat\io\Logging.hpp" />
     <ClInclude Include="..\..\include\cat\io\MappedFile.hpp" />

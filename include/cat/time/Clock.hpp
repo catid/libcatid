@@ -39,22 +39,24 @@ namespace cat {
 class CAT_EXPORT Clock
 {
 #ifdef CAT_OS_WINDOWS
-	static Mutex init_lock;
-	static u32 initialized; // Number of times initialized
-    static u32 period; // timegettime() and Windows scheduler period
-	static double inv_freq; // Performance counter frequency (does not change, so cache it)
+    u32 _period; // timegettime() and Windows scheduler period
+	double _inv_freq; // Performance counter frequency (does not change, so cache it)
 #endif
 
 public:
-	static bool Initialize();
-	static bool Shutdown();
+	//Clock();
+	CAT_INLINE virtual ~Clock() {}
+
+	static const u32 RefObjectGUID = 0x7c44023f;
+	virtual const char *GetRefObjectName() { return "Clock"; }
 
     static u32 sec();     // timestamp in seconds
     static u32 msec_fast(); // timestamp in milliseconds, less accurate than msec() but faster
-    static u32 msec();    // timestamp in milliseconds, must call Initialize() first
-	static double usec(); // timestamp in microseconds, must call Initialize() first
+    u32 msec();    // timestamp in milliseconds
+	double usec(); // timestamp in microseconds
 	static u32 cycles();  // timestamp in cycles
 
+public:
     static std::string format(const char *format_string);
 
     static void sleep(u32 milliseconds);
@@ -63,6 +65,11 @@ public:
     static bool SetNormalPriority();
 
     static u32 MeasureClocks(int iterations, void (*FunctionPtr)());
+
+protected:
+	virtual bool OnRefObjectInitialize();
+	virtual void OnRefObjectDestroy();
+	virtual bool OnRefObjectFinalize();
 };
 
 

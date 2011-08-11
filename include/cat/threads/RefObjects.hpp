@@ -77,11 +77,7 @@ class CAT_EXPORT RefObjects : Thread
 	void BuryDeadites();
 	bool ThreadFunction(void *param);
 
-public:
-	RefObjects();
-	//virtual ~RefObjects();
-
-	static RefObjects *ref();
+	static void RefObjectsAtExit();
 
 	// Start the reaper thread
 	bool Initialize();
@@ -89,49 +85,50 @@ public:
 	// Wait for watched objects to finish shutdown, returns false on timeout
 	bool Shutdown(s32 milliseconds = -1); // < 0 = wait forever
 
+public:
+	RefObjects();
+	//virtual ~RefObjects();
+
+	static RefObjects *ref();
+
 	template<class T>
 	static bool AcquireSingleton(T * &obj, const char *file_line)
 	{
+		if (obj)
+		{
+			CAT_INANE("RefObjects") << obj->GetRefObjectName() << "#" << obj << " acquire singleton non-zero already at " << file_line;
+			return true;
+		}
+
 		AutoMutex lock(_lock);
 
+		if (obj)
+		{
+			CAT_INANE("RefObjects") << obj->GetRefObjectName() << "#" << obj << " acquire singleton barely non-zero already at " << file_line;
+			return true;
+		}
+
 		RefObject *existing = FindActiveByGUID(T::RefObjectGUID);
-		if (existing) return static_cast<T*>( existing );
+		if (existing)
+		{
+			obj = static_cast<T*>( existing );
+			CAT_INANE("RefObjects") << obj->GetRefObjectName() << "#" << obj << " acquire singleton re-used previous instance at " << file_line;
+			return true;
+		}
 
 		obj = new T;
 
 		if (!obj->OnRefObjectInitialize() ||
 			!RefObjects::ref()->Watch(file_line, obj))
 		{
+			CAT_WARN("RefObjects") << obj->GetRefObjectName() << "#" << obj << " acquire singleton unable to initialize instance at " << file_line;
+
 			delete obj;
 
 			obj = 0;
 			return false;
 		}
 
-		return true;
-	}
-
-	template<class T>
-	static bool Require(T *&obj, const char *file_line)
-	{
-		if (obj)
-		{
-			CAT_INANE("RefObjects") << obj->GetRefObjectName() << "#" << obj << " require already performed at " << file_line;
-
-			return true;
-		}
-
-		T *instance;
-		if (!RefObjects::AcquireSingleton(instance, file_line))
-		{
-			CAT_FATAL("RefObjects") << "Unable to acquire singleton at " << file_line;
-
-			return false;
-		}
-
-		CAT_INANE("RefObjects") << instance->GetRefObjectName() << "#" << instance << " require acquired at " << file_line;
-
-		obj = instance;
 		return true;
 	}
 
