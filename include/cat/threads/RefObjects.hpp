@@ -32,6 +32,7 @@
 #include <cat/threads/Atomic.hpp>
 #include <cat/threads/WaitableFlag.hpp>
 #include <cat/threads/Mutex.hpp>
+#include <cat/threads/Thread.hpp>
 
 #if defined(CAT_TRACE_REFOBJECT)
 #include <cat/io/Logging.hpp>
@@ -77,13 +78,35 @@ class CAT_EXPORT RefObjects : Thread
 	void BuryDeadites();
 	bool ThreadFunction(void *param);
 
-	static void RefObjectsAtExit();
+	template<class T>
+	bool AcquireSingleton(T * &obj, const char *file_line)
+	{
+		AutoMutex lock(_lock);
 
-	// Start the reaper thread
-	bool Initialize();
+		RefObject *existing = FindActiveByGUID(T::RefObjectGUID);
+		if (existing)
+		{
+			obj = static_cast<T*>( existing );
 
-	// Wait for watched objects to finish shutdown, returns false on timeout
-	bool Shutdown(s32 milliseconds = -1); // < 0 = wait forever
+			return true;
+		}
+
+		obj = new T;
+
+		// Get base object
+		RefObject *obj_base = obj;
+
+		if (!obj_base->OnRefObjectInitialize() ||
+			!Watch(file_line, obj_base))
+		{
+			delete obj;
+
+			obj = 0;
+			return false;
+		}
+
+		return true;
+	}
 
 public:
 	RefObjects();
@@ -91,44 +114,33 @@ public:
 
 	static RefObjects *ref();
 
+	// Start the reaper thread
+	bool Initialize();
+
+	// Wait for watched objects to finish shutdown, returns false on timeout
+	bool Shutdown(s32 milliseconds = -1); // < 0 = wait forever
+
 	template<class T>
-	static bool AcquireSingleton(T * &obj, const char *file_line)
+	static bool Require(T *&obj, const char *file_line)
 	{
 		if (obj)
 		{
-			CAT_INANE("RefObjects") << obj->GetRefObjectName() << "#" << obj << " acquire singleton non-zero already at " << file_line;
+			CAT_INANE("RefObjects") << obj->GetRefObjectName() << "#" << obj << " require already performed at " << file_line;
+
 			return true;
 		}
 
-		AutoMutex lock(_lock);
-
-		if (obj)
+		T *instance;
+		if (!RefObjects::ref()->AcquireSingleton(instance, file_line))
 		{
-			CAT_INANE("RefObjects") << obj->GetRefObjectName() << "#" << obj << " acquire singleton barely non-zero already at " << file_line;
-			return true;
-		}
+			CAT_FATAL("RefObjects") << "Unable to acquire singleton at " << file_line;
 
-		RefObject *existing = FindActiveByGUID(T::RefObjectGUID);
-		if (existing)
-		{
-			obj = static_cast<T*>( existing );
-			CAT_INANE("RefObjects") << obj->GetRefObjectName() << "#" << obj << " acquire singleton re-used previous instance at " << file_line;
-			return true;
-		}
-
-		obj = new T;
-
-		if (!obj->OnRefObjectInitialize() ||
-			!RefObjects::ref()->Watch(file_line, obj))
-		{
-			CAT_WARN("RefObjects") << obj->GetRefObjectName() << "#" << obj << " acquire singleton unable to initialize instance at " << file_line;
-
-			delete obj;
-
-			obj = 0;
 			return false;
 		}
 
+		CAT_INANE("RefObjects") << instance->GetRefObjectName() << "#" << instance << " require acquired at " << file_line;
+
+		obj = instance;
 		return true;
 	}
 

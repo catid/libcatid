@@ -37,9 +37,6 @@ using namespace cat;
 using namespace std;
 
 
-static Settings singleton;
-Settings *Settings::ref() { return &singleton; }
-
 //#define SETTINGS_VERBOSE /* dump extra settings information to the console for debugging */
 
 
@@ -86,6 +83,21 @@ Settings::Settings()
 
 	_readSettings = false;
 	_modified = false;
+}
+
+bool Settings::OnRefObjectInitialize()
+{
+
+}
+
+void Settings::OnRefObjectDestroy()
+{
+
+}
+
+bool Settings::OnRefObjectFinalize()
+{
+
 }
 
 SettingsKey *Settings::addKey(const char *name)

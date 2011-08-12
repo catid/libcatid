@@ -37,16 +37,16 @@ namespace cat {
 class SystemInfo : public RefObject
 {
 	// Number of bytes in each CPU cache line
-	u32 _CacheLineBytes;
+	static u32 _CacheLineBytes;
 
 	// Number of processors
-	u32 _ProcessorCount;
+	static u32 _ProcessorCount;
 
 	// Page size
-	u32 _PageSize;
+	static u32 _PageSize;
 
 	// Allocation granularity
-	u32 _AllocationGranularity;
+	static u32 _AllocationGranularity;
 
 public:
 	SystemInfo();
@@ -55,10 +55,15 @@ public:
 	static const u32 RefObjectGUID = 0xd4b15f58; // Global Unique IDentifier for acquiring RefObject singletons
 	CAT_INLINE virtual const char *GetRefObjectName() { return "SystemInfo"; }
 
+	static CAT_INLINE u32 GetCacheLineBytes() { return _CacheLineBytes; }
+	static CAT_INLINE u32 GetProcessorCount() { return _ProcessorCount; }
+	static CAT_INLINE u32 GetPageSize() { return _PageSize; }
+	static CAT_INLINE u32 GetAllocationGranularity() { return _AllocationGranularity; }
+
 protected:
 	virtual bool OnRefObjectInitialize();
-	//virtual void OnRefObjectDestroy();
-	//virtual bool OnRefObjectFinalize();
+	CAT_INLINE virtual void OnRefObjectDestroy() {}
+	CAT_INLINE virtual bool OnRefObjectFinalize() { return true; }
 };
 
 

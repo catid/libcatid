@@ -34,6 +34,7 @@ using namespace cat;
 
 static const u32 INITIAL_TIMERS_ALLOCATED = 16;
 
+
 static Clock *m_clock = 0;
 
 
@@ -436,8 +437,6 @@ bool WorkerThreads::OnRefObjectFinalize()
 		delete _tls_builder;
 		_tls_builder = 0;
 	}
-
-	RefObjects::Release
 
 	return true;
 }
