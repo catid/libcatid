@@ -40,6 +40,12 @@
 namespace cat {
 
 
+//// Thread priority modification
+
+bool SetHighPriority();
+bool SetNormalPriority();
+
+
 /*
 	A thread that executes ThreadFunction and then exits.
 

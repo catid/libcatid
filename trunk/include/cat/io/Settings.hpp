@@ -95,8 +95,10 @@ class CAT_EXPORT Settings : public RefObject
 	
 public:
 	Settings();
+	CAT_INLINE virtual ~Settings() {}
 
-	static Settings *ref();
+	static const u32 RefObjectGUID = 0x58e8c4f0; // Global Unique IDentifier for acquiring RefObject singletons
+	CAT_INLINE virtual const char *GetRefObjectName() { return "Settings"; }
 
 	void readSettingsFromFile(const char *file_path = "settings.txt", const char *override_file = "override.txt");
 	void readSettingsFromBuffer(SequentialFileReader &sfile);
@@ -110,6 +112,11 @@ public:
 
 	void setInt(const char *name, int n);
 	void setStr(const char *name, const char *value);
+
+protected:
+	virtual bool OnRefObjectInitialize();
+	virtual void OnRefObjectDestroy();
+	virtual bool OnRefObjectFinalize();
 };
 
 

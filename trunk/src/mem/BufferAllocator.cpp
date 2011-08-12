@@ -36,7 +36,15 @@ BufferAllocator::BufferAllocator(u32 buffer_min_size, u32 buffer_count)
 {
 	if (buffer_count < 4) buffer_count = 4;
 
-	u32 cache_line_bytes = system_info.CacheLineBytes;
+	u32 cache_line_bytes;
+
+	SystemInfo *sinfo;
+	if (RefObjects::Require(sinfo, CAT_REFOBJECT_FILE_LINE))
+		cache_line_bytes = sinfo->GetCacheLineBytes();
+	else
+		cache_line_bytes = CAT_DEFAULT_CACHE_LINE_SIZE;
+	sinfo->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
+
 	u32 buffer_bytes = CAT_CEIL(sizeof(BatchHead) + buffer_min_size, cache_line_bytes);
 	u32 total_bytes = buffer_count * buffer_bytes;
 	u8 *buffers = (u8*)LargeAllocator::ii->Acquire(total_bytes);
@@ -52,7 +60,7 @@ BufferAllocator::BufferAllocator(u32 buffer_min_size, u32 buffer_count)
 	}
 
 	// Construct linked list of free nodes
-	BatchHead *tail = static_cast<BatchHead*>( buffers );
+	BatchHead *tail = reinterpret_cast<BatchHead*>( buffers );
 
 	_acquire_head = tail;
 	_release_head = 0;
@@ -60,7 +68,7 @@ BufferAllocator::BufferAllocator(u32 buffer_min_size, u32 buffer_count)
 	for (u32 ii = 1; ii < buffer_count; ++ii)
 	{
 		buffers += buffer_bytes;
-		BatchHead *node = static_cast<BatchHead*>( buffers );
+		BatchHead *node = reinterpret_cast<BatchHead*>( buffers );
 
 		tail->batch_next = node;
 		tail = node;

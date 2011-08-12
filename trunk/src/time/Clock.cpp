@@ -32,7 +32,6 @@ using namespace cat;
 #if defined(CAT_OS_WINDOWS)
 
 # include <cat/port/WindowsInclude.hpp>
-# include <cat/threads/AutoMutex.hpp>
 
 # if defined(CAT_COMPILER_MSVC)
 #  pragma warning(push)
@@ -43,9 +42,6 @@ using namespace cat;
 # else
 #  include <mmsystem.h>
 # endif
-
-// Windows version requires some initialization
-static const int LOWEST_ACCEPTABLE_PERIOD = 10;
 
 #else // Linux/other version
 
@@ -58,30 +54,44 @@ static const int LOWEST_ACCEPTABLE_PERIOD = 10;
 using namespace std;
 
 
+Clock::Clock()
+{
+#if defined(CAT_OS_WINDOWS)
+
+	_period = LOWEST_ACCEPTABLE_PERIOD + 1;
+	_inv_freq = 1;
+
+#endif
+}
+
 bool Clock::OnRefObjectInitialize()
 {
 #if defined(CAT_OS_WINDOWS)
+
 	// Set minimum timer resolution as low as possible
-	s32 period;
+	u32 period;
+
 	for (period = 1; period <= LOWEST_ACCEPTABLE_PERIOD && (timeBeginPeriod(period) != TIMERR_NOERROR); ++period);
+
 	_period = period;
 
 	// Cache the inverse of the performance counter frequency
 	LARGE_INTEGER freq;
 	QueryPerformanceFrequency(&freq);
 	_inv_freq = 1.0 / static_cast<double>(freq.QuadPart);
+
 #endif
 
 	return true;
 }
 
-void Clock::OnRefObjectDestroy()
-{
-}
-
 bool Clock::OnRefObjectFinalize()
 {
+#if defined(CAT_OS_WINDOWS)
+
 	if (_period <= LOWEST_ACCEPTABLE_PERIOD) timeEndPeriod(_period);
+
+#endif
 
 	return true;
 }
@@ -272,26 +282,6 @@ u32 Clock::cycles()
     return x[0];
 }
 
-// Algorithm from Skein test app
-bool Clock::SetHighPriority()
-{
-#if defined(CAT_OS_WINDOWS)
-    return 0 != SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
-#else
-    return false;
-#endif
-}
-
-// Algorithm from Skein test app
-bool Clock::SetNormalPriority()
-{
-#if defined(CAT_OS_WINDOWS)
-    return 0 != SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
-#else
-    return false;
-#endif
-}
-
 static int compare_u32(const void *aPtr,const void *bPtr)
 {
     u32 a = *(u32*)aPtr;
@@ -307,7 +297,7 @@ u32 Clock::MeasureClocks(int iterations, void (*FunctionPtr)())
 {
     u32 *timings = new u32[iterations];
 
-    Clock::SetHighPriority();
+    SetHighPriority();
     Clock::sleep(200);
 
     u32 dtMin = ~(u32)0;
@@ -357,7 +347,7 @@ u32 Clock::MeasureClocks(int iterations, void (*FunctionPtr)())
 
     qsort(timings, iterations, sizeof(u32), compare_u32);
 
-    Clock::SetNormalPriority();
+    SetNormalPriority();
 
     u32 median = timings[iterations/2];
 

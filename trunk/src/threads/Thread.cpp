@@ -179,3 +179,24 @@ bool Thread::WaitForThread(int ms)
 
 	return success;
 }
+
+
+//// Thread priority modification
+
+bool cat::SetHighPriority()
+{
+#if defined(CAT_OS_WINDOWS)
+	return 0 != SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
+#else
+	return false;
+#endif
+}
+
+bool cat::SetNormalPriority()
+{
+#if defined(CAT_OS_WINDOWS)
+	return 0 != SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
+#else
+	return false;
+#endif
+}

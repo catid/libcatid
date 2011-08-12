@@ -29,46 +29,44 @@
 #ifndef CAT_CLOCK_HPP
 #define CAT_CLOCK_HPP
 
-#include <cat/Platform.hpp>
+#include <cat/threads/RefObjects.hpp>
 #include <string>
-#include <cat/threads/Mutex.hpp>
 
 namespace cat {
 
 
-class CAT_EXPORT Clock
+class CAT_EXPORT Clock : public RefObject
 {
 #ifdef CAT_OS_WINDOWS
-    u32 _period; // timegettime() and Windows scheduler period
-	double _inv_freq; // Performance counter frequency (does not change, so cache it)
+	// Windows version requires some initialization
+	static const int LOWEST_ACCEPTABLE_PERIOD = 10;
+
+    static u32 _period;		// timegettime() and Windows scheduler period
+	static double _inv_freq;	// Performance counter frequency (does not change, so cache it)
 #endif
 
 public:
-	//Clock();
+	Clock();
 	CAT_INLINE virtual ~Clock() {}
 
-	static const u32 RefObjectGUID = 0x7c44023f;
-	virtual const char *GetRefObjectName() { return "Clock"; }
+	static const u32 RefObjectGUID = 0x1f747973; // Global Unique IDentifier for acquiring RefObject singletons
+	CAT_INLINE virtual const char *GetRefObjectName() { return "Clock"; }
 
-    static u32 sec();     // timestamp in seconds
-    static u32 msec_fast(); // timestamp in milliseconds, less accurate than msec() but faster
-    u32 msec();    // timestamp in milliseconds
-	double usec(); // timestamp in microseconds
-	static u32 cycles();  // timestamp in cycles
+    static u32 sec();			// Timestamp in seconds
+    static u32 msec_fast();	// Timestamp in milliseconds, less accurate than msec() but faster
+    static u32 msec();			// Timestamp in milliseconds, must call Initialize() first
+	static double usec();		// Timestamp in microseconds, must call Initialize() first
+	static u32 cycles();		// Timestamp in cycles
 
-public:
     static std::string format(const char *format_string);
 
     static void sleep(u32 milliseconds);
-
-    static bool SetHighPriority();
-    static bool SetNormalPriority();
 
     static u32 MeasureClocks(int iterations, void (*FunctionPtr)());
 
 protected:
 	virtual bool OnRefObjectInitialize();
-	virtual void OnRefObjectDestroy();
+	CAT_INLINE virtual void OnRefObjectDestroy() {}
 	virtual bool OnRefObjectFinalize();
 };
 
