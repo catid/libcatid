@@ -70,43 +70,14 @@ class CAT_EXPORT RefObjects : Thread
 	WaitableFlag _shutdown_flag;
 
 	RefObject *FindActiveByGUID(u32 guid);
-	bool Watch(const char *file_line, RefObject *obj);
+	bool Watch(const char *file_line, RefObject *obj);	// Will delete object if it fails to initialize
 	void Kill(RefObject *obj);
 
+	void LinkToActiveList(RefObject *obj);
 	void UnlinkFromActiveList(RefObject *obj);
 	void LinkToDeadList(RefObject *obj);
 	void BuryDeadites();
 	bool ThreadFunction(void *param);
-
-	template<class T>
-	bool AcquireSingleton(T * &obj, const char *file_line)
-	{
-		AutoMutex lock(_lock);
-
-		RefObject *existing = FindActiveByGUID(T::RefObjectGUID);
-		if (existing)
-		{
-			obj = static_cast<T*>( existing );
-
-			return true;
-		}
-
-		obj = new T;
-
-		// Get base object
-		RefObject *obj_base = obj;
-
-		if (!obj_base->OnRefObjectInitialize() ||
-			!Watch(file_line, obj_base))
-		{
-			delete obj;
-
-			obj = 0;
-			return false;
-		}
-
-		return true;
-	}
 
 public:
 	RefObjects();
@@ -121,44 +92,77 @@ public:
 	bool Shutdown(s32 milliseconds = -1); // < 0 = wait forever
 
 	template<class T>
-	static bool Require(T *&obj, const char *file_line)
+	static bool AcquireSingleton(T *&obj, const char *file_line)
 	{
+		RefObjects *m_refobjects = RefObjects::ref();
+
+		AutoMutex lock(m_refobjects->_lock);
+
 		if (obj)
 		{
-			CAT_INANE("RefObjects") << obj->GetRefObjectName() << "#" << obj << " require already performed at " << file_line;
-
+			CAT_INANE("RefObjects") << "AcquireSingleton: " << obj->GetRefObjectName() << "#" << obj << " object already set (lost race) at " << file_line;
 			return true;
 		}
 
-		T *instance;
-		if (!RefObjects::ref()->AcquireSingleton(instance, file_line))
+		// If the object already has an instance,
+		RefObject *existing = m_refobjects->FindActiveByGUID(T::RefObjectGUID);
+		if (existing)
 		{
-			CAT_FATAL("RefObjects") << "Unable to acquire singleton at " << file_line;
+			obj = static_cast<T*>( existing );
+			CAT_INANE("RefObjects") << "AcquireSingleton: " << existing->GetRefObjectName() << "#" << existing << " re-using existing at " << file_line;
+			return true;
+		}
 
+		// Create a new object
+		T *obj_local = new T;
+		if (!obj_local) return false;
+
+		// Get base object
+		RefObject *obj_base = obj_local;
+
+		// Initialize shutdown to false and set GUID at the same time
+		obj_base->_shutdown_guid = T::RefObjectGUID;
+
+		// If object could not be initialized,
+		if (!m_refobjects->Watch(file_line, obj_base))
+		{
+			CAT_INANE("RefObjects") << "AcquireSingleton: " << obj_local->GetRefObjectName() << "#" << obj_local << " initialization failed at " << file_line;
+			obj = 0;
 			return false;
 		}
 
-		CAT_INANE("RefObjects") << instance->GetRefObjectName() << "#" << instance << " require acquired at " << file_line;
-
-		obj = instance;
+		CAT_INANE("RefObjects") << "AcquireSingleton: " << obj_local->GetRefObjectName() << "#" << obj_local << " created at " << file_line;
+		obj = obj_local;
 		return true;
 	}
 
 	template<class T>
 	static CAT_INLINE bool Acquire(T *&obj, const char *file_line)
 	{
+		RefObjects *m_refobjects = RefObjects::ref();
+
 		obj = new T;
 		if (!obj) return false;
 
-		obj->_shutdown_guid = T::RefObjectGUID;
+		// Get base object
+		RefObject *obj_base = obj;
 
-		if (!obj->OnRefObjectInitialize() &&
-			!RefObjects::ref()->Watch(file_line, obj))
+		// Initialize shutdown to false and set GUID at the same time
+		obj_base->_shutdown_guid = T::RefObjectGUID;
+
+		AutoMutex lock(m_refobjects->_lock);
+
+		// If object could not be initialized,
+		if (!m_refobjects->Watch(file_line, obj_base))
 		{
-			delete obj;
+			CAT_INANE("RefObjects") << "Acquire: " << obj->GetRefObjectName() << "#" << obj << " initialization failed at " << file_line;
 			obj = 0;
 			return false;
 		}
+
+		lock.Release();
+
+		CAT_INANE("RefObjects") << "Acquire: " << obj->GetRefObjectName() << "#" << obj << " created at " << file_line;
 
 		return true;
 	}

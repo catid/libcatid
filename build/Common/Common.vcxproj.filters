@@ -120,6 +120,12 @@
     <ClCompile Include="..\..\src\threads\RefObjects.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\lang\DoublyLinkedLists.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\lang\SinglyLinkedLists.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\cat\AllCommon.hpp">
@@ -223,6 +229,12 @@
     </ClInclude>
     <ClInclude Include="..\..\include\cat\threads\RefObjects.hpp">
       <Filter>Header Files\threads</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\lang\SinglyLinkedLists.hpp">
+      <Filter>Header Files\lang</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\lang\DoublyLinkedLists.hpp">
+      <Filter>Header Files\lang</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

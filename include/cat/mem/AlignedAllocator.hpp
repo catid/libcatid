@@ -41,7 +41,11 @@ namespace cat {
 class CAT_EXPORT AlignedAllocator : public IAllocator
 {
 public:
+	//AlignedAllocator();
 	CAT_INLINE virtual ~AlignedAllocator() {}
+
+	static const u32 RefObjectGUID = 0xe9326b45; // Global Unique IDentifier for acquiring RefObject singletons
+	CAT_INLINE const char *GetRefObjectName() { return "AlignedAllocator"; }
 
 	// Acquires memory aligned to a CPU cache-line byte boundary from the heap
 	// NOTE: Call DetermineCacheLineBytes() before using
@@ -53,9 +57,14 @@ public:
     // Release an aligned pointer
     void Release(void *ptr);
 
-	static AlignedAllocator *ii;
+protected:
+	bool OnRefObjectInitialize();
+	void OnRefObjectDestroy();
+	bool OnRefObjectFinalize();
 };
 
+
+/* Dropping this because it doesn't work across dynamically linked modules
 
 // Use STLAlignedAllocator in place of the standard STL allocator
 // to make use of the AlignedAllocator in STL types.
@@ -139,6 +148,8 @@ public:
 		return false;
 	}
 };
+
+*/
 
 
 } // namespace cat

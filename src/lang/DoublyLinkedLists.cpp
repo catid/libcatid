@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -26,56 +26,66 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-// Include all libcat Common headers
-
-#include <cat/Platform.hpp>
-
-#if defined(CAT_COMPILER_MSVC) && defined(CAT_BUILD_DLL)
-# pragma warning(push)
-# pragma warning(disable:4251) // Remove "not exported" warning from STL
-#endif
-
-#include <cat/time/Clock.hpp>
-
-#include <cat/rand/IRandom.hpp>
-#include <cat/rand/MersenneTwister.hpp>
-#include <cat/rand/StdRand.hpp>
-
-#include <cat/hash/Murmur.hpp>
-
-#include <cat/threads/Atomic.hpp>
-#include <cat/threads/Mutex.hpp>
-#include <cat/threads/AutoMutex.hpp>
-#include <cat/threads/RWLock.hpp>
-#include <cat/threads/Thread.hpp>
-#include <cat/threads/WaitableFlag.hpp>
-#include <cat/threads/RefObjects.hpp>
-#include <cat/threads/WorkerThreads.hpp>
-
-#include <cat/math/BitMath.hpp>
-
-#include <cat/port/SystemInfo.hpp>
-#include <cat/port/EndianNeutral.hpp>
-
-#include <cat/lang/Strings.hpp>
-#include <cat/lang/Delegates.hpp>
-#include <cat/lang/SinglyLinkedLists.hpp>
 #include <cat/lang/DoublyLinkedLists.hpp>
+using namespace cat;
 
-#include <cat/io/Logging.hpp>
-#include <cat/io/MappedFile.hpp>
-#include <cat/io/Settings.hpp>
 
-#include <cat/parse/BufferTok.hpp>
-#include <cat/parse/BufferStream.hpp>
-#include <cat/parse/Base64.hpp>
+//// Forward-iterating doubly-linked list
 
-#include <cat/mem/IAllocator.hpp>
-#include <cat/mem/StdAllocator.hpp>
-#include <cat/mem/AlignedAllocator.hpp>
-#include <cat/mem/LargeAllocator.hpp>
-#include <cat/mem/BufferAllocator.hpp>
+DListForward::DListForward()
+{
+	CAT_FDLL_CLEAR(_head);
+}
 
-#if defined(CAT_COMPILER_MSVC) && defined(CAT_BUILD_DLL)
-# pragma warning(pop)
-#endif
+void DListForward::PushFront(DListItem *item)
+{
+	CAT_FDLL_PUSH_FRONT(_head, item, _next, _prev);
+}
+
+void DListForward::InsertBefore(DListItem *item, DListItem *at)
+{
+	CAT_FDLL_INSERT_BEFORE(_head, item, at, _next, _prev);
+}
+
+void DListForward::InsertAfter(DListItem *item, DListItem *at)
+{
+	CAT_FDLL_INSERT_AFTER(_head, item, at, _next, _prev);
+}
+
+void DListForward::Erase(DListItem *item)
+{
+	CAT_FDLL_ERASE(_head, item, _next, _prev);
+}
+
+
+//// Bidirectionally-iterating doubly-linked list
+
+DList::DList()
+{
+	CAT_BDLL_CLEAR(_head, _tail);
+}
+
+void DList::PushFront(DListItem *item)
+{
+	CAT_BDLL_PUSH_FRONT(_head, _tail, item, _next, _prev);
+}
+
+void DList::PushBack(DListItem *item)
+{
+	CAT_BDLL_PUSH_FRONT(_head, _tail, item, _next, _prev);
+}
+
+void DList::InsertBefore(DListItem *item, DListItem *at)
+{
+	CAT_BDLL_INSERT_BEFORE(_head, _tail, item, at, _next, _prev);
+}
+
+void DList::InsertAfter(DListItem *item, DListItem *at)
+{
+	CAT_BDLL_INSERT_AFTER(_head, _tail, item, at, _next, _prev);
+}
+
+void DList::Erase(DListItem *item)
+{
+	CAT_BDLL_ERASE(_head, _tail, item, _next, _prev);
+}

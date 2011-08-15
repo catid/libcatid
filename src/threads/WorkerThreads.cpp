@@ -364,10 +364,8 @@ WorkerThreads::WorkerThreads()
 
 bool WorkerThreads::OnRefObjectInitialize()
 {
-	if (!RefObjects::Require(m_clock, CAT_REFOBJECT_FILE_LINE))
-	{
+	if (!RefObjects::AcquireSingleton(m_clock, CAT_REFOBJECT_FILE_LINE))
 		return false;
-	}
 
 	u32 worker_count = _worker_count;
 
@@ -396,7 +394,7 @@ bool WorkerThreads::OnRefObjectInitialize()
 
 void WorkerThreads::OnRefObjectDestroy()
 {
-
+	m_clock->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
 }
 
 bool WorkerThreads::OnRefObjectFinalize()

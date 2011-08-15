@@ -145,6 +145,7 @@ public:
 };
 
 
+// A pool of worker threads
 class CAT_EXPORT WorkerThreads : public RefObject
 {
 	friend class WorkerThread;
