@@ -61,10 +61,34 @@ static CAT_INLINE u8 DetermineOffset(u32 cacheline_bytes, void *ptr)
 
 static const u32 OLD_BYTES_OVERHEAD = sizeof(u32);
 
+static SystemInfo *m_system_info = 0;
+static u32 m_cacheline_bytes = CAT_DEFAULT_CACHE_LINE_SIZE;
+
+bool OnRefObjectInitialize()
+{
+	if (RefObjects::AcquireSingleton(m_system_info, CAT_REFOBJECT_FILE_LINE))
+		cacheline_bytes = m_system_info->GetCacheLineBytes();
+}
+
+void OnRefObjectDestroy()
+{
+	m_system_info->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
+}
+
+bool OnRefObjectFinalize()
+{
+}
+
+
 // Allocates memory aligned to a CPU cache-line byte boundary from the heap
 void *AlignedAllocator::Acquire(u32 bytes)
 {
-	u32 cacheline_bytes = system_info.CacheLineBytes;
+	u32 cacheline_bytes = CAT_DEFAULT_CACHE_LINE_SIZE;
+
+	if (RefObjects::AcquireSingleton(m_system_info, CAT_REFOBJECT_FILE_LINE))
+		cacheline_bytes = m_system_info->GetCacheLineBytes();
+
+	m_system_info->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
 
 #if defined(CAT_HAS_ALIGNED_ALLOC)
 

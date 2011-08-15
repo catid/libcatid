@@ -32,20 +32,20 @@
 #include <cat/io/Logging.hpp>
 using namespace cat;
 
+static SystemInfo *m_system_info = 0;
+
 BufferAllocator::BufferAllocator(u32 buffer_min_size, u32 buffer_count)
 {
 	if (buffer_count < 4) buffer_count = 4;
 
-	u32 cache_line_bytes;
+	u32 cacheline_bytes = CAT_DEFAULT_CACHE_LINE_SIZE;
 
-	SystemInfo *sinfo;
-	if (RefObjects::Require(sinfo, CAT_REFOBJECT_FILE_LINE))
-		cache_line_bytes = sinfo->GetCacheLineBytes();
-	else
-		cache_line_bytes = CAT_DEFAULT_CACHE_LINE_SIZE;
-	sinfo->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
+	if (RefObjects::AcquireSingleton(m_system_info, CAT_REFOBJECT_FILE_LINE))
+		cacheline_bytes = m_system_info->GetCacheLineBytes();
 
-	u32 buffer_bytes = CAT_CEIL(sizeof(BatchHead) + buffer_min_size, cache_line_bytes);
+	m_system_info->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
+
+	u32 buffer_bytes = CAT_CEIL(sizeof(BatchHead) + buffer_min_size, cacheline_bytes);
 	u32 total_bytes = buffer_count * buffer_bytes;
 	u8 *buffers = (u8*)LargeAllocator::ii->Acquire(total_bytes);
 

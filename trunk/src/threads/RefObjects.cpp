@@ -106,8 +106,7 @@ bool RefObjects::Watch(const char *file_line, RefObject *obj)
 
 	if (!obj->OnRefObjectInitialize())
 	{
-		delete obj;
-
+		LinkToDeadList(obj);
 		return false;
 	}
 
@@ -115,18 +114,19 @@ bool RefObjects::Watch(const char *file_line, RefObject *obj)
 	CAT_WARN("RefObjects") << obj->GetRefObjectName() << "#" << obj << " acquired at " << file_line;
 #endif
 
-	AutoMutex lock(_lock);
-
 	if (_shutdown)
 	{
-		lock.Release();
-
 		delete obj;
-
 		return false;
 	}
 
-	// Link to active list
+	LinkToActiveList(obj);
+
+	return true;
+}
+
+void RefObjects::LinkToActiveList(RefObject *obj)
+{
 	RefObject *old_head = _active_head;
 
 	obj->_prev = 0;
@@ -135,8 +135,6 @@ bool RefObjects::Watch(const char *file_line, RefObject *obj)
 	if (old_head) old_head->_prev = obj;
 
 	_active_head = obj;
-
-	return true;
 }
 
 void RefObjects::UnlinkFromActiveList(RefObject *obj)
