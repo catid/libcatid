@@ -36,9 +36,6 @@ using namespace cat;
 # include <fcntl.h>
 #endif
 
-static RefObjectSingleton<SystemInfo> m_system_info;
-static u32 m_AllocationGranularity = CAT_DEFAULT_ALLOCATION_GRANULARITY;
-
 MappedFile::MappedFile()
 {
 	_len = 0;
@@ -159,16 +156,12 @@ bool MappedView::Open(MappedFile *file)
 
 u8 *MappedView::MapView(u64 offset, u32 length)
 {
-	if (RefObjects::AcquireSingleton(m_system_info, CAT_REFOBJECT_FILE_LINE))
-	{
-		m_AllocationGranularity = m_system_info->GetAllocationGranularity();
-		m_system_info.Release(CAT_REFOBJECT_FILE_LINE);
-	}
+	u32 granularity = SystemInfo::ref()->GetAllocationGranularity();
 
-	CAT_DEBUG_ENFORCE(CAT_IS_POWER_OF_2(m_AllocationGranularity)) << "Allocation granularity is not a power of 2!";
+	CAT_DEBUG_ENFORCE(CAT_IS_POWER_OF_2(granularity)) << "Allocation granularity is not a power of 2!";
 
 	// Bring offset back to the previous allocation granularity
-	u32 mask = m_AllocationGranularity - 1;
+	u32 mask = granularity - 1;
 	u32 masked = (u32)offset & mask;
 	if (masked)
 	{

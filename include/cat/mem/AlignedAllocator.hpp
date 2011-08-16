@@ -44,9 +44,6 @@ class CAT_EXPORT AlignedAllocator : public IAllocator
 	CAT_SINGLETON(AlignedAllocator);
 
 public:
-	//AlignedAllocator();
-	CAT_INLINE virtual ~AlignedAllocator() {}
-
 	// Acquires memory aligned to a CPU cache-line byte boundary from the heap
 	// NOTE: Call DetermineCacheLineBytes() before using
     void *Acquire(u32 bytes);

@@ -26,8 +26,47 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_SINGLE_START_HPP
-#define CAT_SINGLE_START_HPP
+#ifndef CAT_SINGLETON_HPP
+#define CAT_SINGLETON_HPP
+
+/*
+	This implementation of singletons is motivated by a few real requirements:
+
+	+ Objects that are global,
+		but have initialization that must be done once in a thread-safe manner.
+	+ Use is initialization, so the client does not need to explicitly initialize.
+	+ Pre-allocate the objects in the data section, and initialize at runtime.
+	+ Cannot create or copy the singleton object in normal ways.
+	+ Easier to type than coding it in a broken way.
+	+ Access the object across DLLs without memory allocation issues.
+
+	Usage:
+
+		To declare a singleton class:
+
+			class MyClass
+			{
+				CAT_SINGLETON(MyClass);
+				...
+
+		To define a singleton class:
+
+			CAT_ON_SINGLETON_STARTUP(SystemInfo)
+			{
+				...
+			}
+
+		To access a member of the singleton instance:
+
+			MyClass::ref()->blah
+
+	Some things it won't do and work-arounds:
+
+	- You cannot specify a constructor for the object.
+		-> Implement the provided startup callback routine.
+	- You cannot specify a deconstructor for the object.
+		-> Use RefObjects for singletons that need cleanup.
+*/
 
 #include <cat/threads/RefObjects.hpp>
 
@@ -39,10 +78,10 @@ namespace cat {
 	CAT_NO_COPY(T);				\
 public:							\
 	static T *ref();			\
-	CAT_INLINE T() {}			\
 private:						\
+	CAT_INLINE T() {}			\
+	CAT_INLINE virtual ~T() {}	\
 	friend class Singleton<T>;	\
-								\
 	void OnSingletonStartup();
 
 
@@ -83,4 +122,4 @@ public:
 
 } // namespace cat
 
-#endif // CAT_SINGLE_START_HPP
+#endif // CAT_SINGLETON_HPP
