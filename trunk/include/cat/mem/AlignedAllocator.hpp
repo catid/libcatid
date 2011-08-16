@@ -30,6 +30,7 @@
 #define CAT_ALIGNED_ALLOCATOR_HPP
 
 #include <cat/mem/IAllocator.hpp>
+#include <cat/lang/Singleton.hpp>
 
 #include <cstddef> // size_t
 #include <vector> // std::_Construct and std::_Destroy
@@ -40,12 +41,11 @@ namespace cat {
 // Small to medium -size aligned heap allocator
 class CAT_EXPORT AlignedAllocator : public IAllocator
 {
+	CAT_SINGLETON(AlignedAllocator);
+
 public:
 	//AlignedAllocator();
 	CAT_INLINE virtual ~AlignedAllocator() {}
-
-	static const u32 RefObjectGUID = 0xe9326b45; // Global Unique IDentifier for acquiring RefObject singletons
-	CAT_INLINE const char *GetRefObjectName() { return "AlignedAllocator"; }
 
 	// Acquires memory aligned to a CPU cache-line byte boundary from the heap
 	// NOTE: Call DetermineCacheLineBytes() before using
@@ -56,13 +56,8 @@ public:
 
     // Release an aligned pointer
     void Release(void *ptr);
-
-protected:
-	bool OnRefObjectInitialize();
 };
 
-
-/* Dropping this because it doesn't work across dynamically linked modules
 
 // Use STLAlignedAllocator in place of the standard STL allocator
 // to make use of the AlignedAllocator in STL types.
@@ -111,12 +106,12 @@ public:
 
 	pointer allocate(size_type Count, const void *Hint = 0)
 	{
-		return (pointer)AlignedAllocator::ii->Acquire((u32)Count * sizeof(T));
+		return (pointer)AlignedAllocator::ref()->Acquire((u32)Count * sizeof(T));
 	}
 
 	void deallocate(pointer Ptr, size_type Count)
 	{
-		AlignedAllocator::ii->Release(Ptr);
+		AlignedAllocator::ref()->Release(Ptr);
 	}
 
 	void construct(pointer Ptr, const T &Val)
@@ -146,8 +141,6 @@ public:
 		return false;
 	}
 };
-
-*/
 
 
 } // namespace cat

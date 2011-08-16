@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -26,38 +26,61 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_CACHE_LINE_BYTES_HPP
-#define CAT_CACHE_LINE_BYTES_HPP
+#ifndef CAT_SINGLE_START_HPP
+#define CAT_SINGLE_START_HPP
 
-#include <cat/lang/Singleton.hpp>
+#include <cat/threads/RefObjects.hpp>
 
 namespace cat {
 
 
-class SystemInfo
+// In the H file for the object, use this macro:
+#define CAT_SINGLETON(T)		\
+	CAT_NO_COPY(T);				\
+public:							\
+	static T *ref();			\
+	CAT_INLINE T() {}			\
+private:						\
+	friend class Singleton<T>;	\
+								\
+	void OnSingletonStartup();
+
+
+// In the C file for the object, use this macro:
+#define CAT_ON_SINGLETON_STARTUP(T)		\
+static cat::Singleton<T> m_T_ss;		\
+T *T::ref() { return m_T_ss.GetRef(); }	\
+void T::OnSingletonStartup()
+
+
+// Internal class
+template<class T>
+class Singleton
 {
-	CAT_SINGLETON(SystemInfo);
-
-	// Number of bytes in each CPU cache line
-	u32 _CacheLineBytes;
-
-	// Number of processors
-	u32 _ProcessorCount;
-
-	// Page size
-	u32 _PageSize;
-
-	// Allocation granularity
-	u32 _AllocationGranularity;
+	T _instance;
+	bool _init;
+	Mutex _lock;
 
 public:
-	CAT_INLINE u32 GetCacheLineBytes() { return _CacheLineBytes; }
-	CAT_INLINE u32 GetProcessorCount() { return _ProcessorCount; }
-	CAT_INLINE u32 GetPageSize() { return _PageSize; }
-	CAT_INLINE u32 GetAllocationGranularity() { return _AllocationGranularity; }
+	CAT_INLINE T *GetRef()
+	{
+		if (_init) return &_instance;
+
+		AutoMutex lock(_lock);
+
+		if (_init) return &_instance;
+
+		_instance.OnSingletonStartup();
+
+		CAT_FENCE_COMPILER;
+
+		_init = true;
+
+		return &_instance;
+	}
 };
 
 
 } // namespace cat
 
-#endif // CAT_CACHE_LINE_BYTES_HPP
+#endif // CAT_SINGLE_START_HPP

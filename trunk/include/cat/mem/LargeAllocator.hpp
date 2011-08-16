@@ -30,6 +30,7 @@
 #define CAT_LARGE_ALLOCATOR_HPP
 
 #include <cat/mem/IAllocator.hpp>
+#include <cat/lang/Singleton.hpp>
 
 #include <cstddef> // size_t
 #include <vector> // std::_Construct and std::_Destroy
@@ -40,6 +41,8 @@ namespace cat {
 // Large-size aligned heap allocator
 class CAT_EXPORT LargeAllocator : public IAllocator
 {
+	CAT_SINGLETON(LargeAllocator);
+
 public:
 	CAT_INLINE virtual ~LargeAllocator() {}
 
@@ -51,8 +54,6 @@ public:
 
     // Release an aligned pointer
     void Release(void *ptr);
-
-	static LargeAllocator *ii;
 };
 
 // Use STLAlignedAllocator in place of the standard STL allocator
@@ -102,12 +103,12 @@ public:
 
 	pointer allocate(size_type Count, const void *Hint = 0)
 	{
-		return (pointer)LargeAllocator::Acquire((u32)Count * sizeof(T));
+		return (pointer)LargeAllocator::ref()->Acquire((u32)Count * sizeof(T));
 	}
 
 	void deallocate(pointer Ptr, size_type Count)
 	{
-		LargeAllocator::Release(Ptr);
+		LargeAllocator::ref()->Release(Ptr);
 	}
 
 	void construct(pointer Ptr, const T &Val)

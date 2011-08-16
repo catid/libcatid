@@ -220,15 +220,7 @@ static u32 GetAllocationGranularity()
 
 //// SystemInfo
 
-SystemInfo::SystemInfo()
-{
-	_CacheLineBytes = CAT_DEFAULT_CACHE_LINE_SIZE;
-	_ProcessorCount = CAT_DEFAULT_CPU_COUNT;
-	_PageSize = CAT_DEFAULT_PAGE_SIZE;
-	_AllocationGranularity = CAT_DEFAULT_ALLOCATION_GRANULARITY;
-}
-
-bool SystemInfo::OnRefObjectInitialize()
+CAT_ON_SINGLETON_STARTUP(SystemInfo)
 {
 	_CacheLineBytes = GetCacheLineBytes();
 	_ProcessorCount = GetProcessorCount();

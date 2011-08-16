@@ -34,7 +34,6 @@ using namespace cat;
 
 static const u32 INITIAL_TIMERS_ALLOCATED = 16;
 
-
 static RefObjectSingleton<Clock> m_clock;
 
 
