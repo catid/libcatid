@@ -61,6 +61,7 @@
 #include <cat/lang/Delegates.hpp>
 #include <cat/lang/SinglyLinkedLists.hpp>
 #include <cat/lang/DoublyLinkedLists.hpp>
+#include <cat/lang/Singleton.hpp>
 
 #include <cat/io/Logging.hpp>
 #include <cat/io/MappedFile.hpp>
