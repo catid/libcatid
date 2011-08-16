@@ -59,8 +59,6 @@ public:
 
 protected:
 	bool OnRefObjectInitialize();
-	void OnRefObjectDestroy();
-	bool OnRefObjectFinalize();
 };
 
 

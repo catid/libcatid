@@ -106,6 +106,7 @@ bool RefObjects::Watch(const char *file_line, RefObject *obj)
 
 	if (!obj->OnRefObjectInitialize())
 	{
+		obj->Destroy(file_line);
 		LinkToDeadList(obj);
 		return false;
 	}
@@ -113,12 +114,6 @@ bool RefObjects::Watch(const char *file_line, RefObject *obj)
 #if defined(CAT_TRACE_REFOBJECT)
 	CAT_WARN("RefObjects") << obj->GetRefObjectName() << "#" << obj << " acquired at " << file_line;
 #endif
-
-	if (_shutdown)
-	{
-		delete obj;
-		return false;
-	}
 
 	LinkToActiveList(obj);
 
