@@ -44,8 +44,6 @@ class CAT_EXPORT LargeAllocator : public IAllocator
 	CAT_SINGLETON(LargeAllocator);
 
 public:
-	CAT_INLINE virtual ~LargeAllocator() {}
-
 	// Acquires memory aligned to a CPU cache-line byte boundary from the heap
     void *Acquire(u32 bytes);
 

@@ -32,22 +32,15 @@
 #include <cat/io/Logging.hpp>
 using namespace cat;
 
-static RefObjectSingleton<SystemInfo> m_system_info;
-u32 m_cacheline_bytes = CAT_DEFAULT_CACHE_LINE_SIZE;
-
 BufferAllocator::BufferAllocator(u32 buffer_min_size, u32 buffer_count)
 {
 	if (buffer_count < 4) buffer_count = 4;
 
-	if (RefObjects::AcquireSingleton(m_system_info, CAT_REFOBJECT_FILE_LINE))
-	{
-		m_cacheline_bytes = m_system_info->GetCacheLineBytes();
-		m_system_info.Release(CAT_REFOBJECT_FILE_LINE);
-	}
+	u32 cacheline_bytes = SystemInfo::ref()->GetCacheLineBytes();
 
-	u32 buffer_bytes = CAT_CEIL(sizeof(BatchHead) + buffer_min_size, m_cacheline_bytes);
+	u32 buffer_bytes = CAT_CEIL(sizeof(BatchHead) + buffer_min_size, cacheline_bytes);
 	u32 total_bytes = buffer_count * buffer_bytes;
-	u8 *buffers = (u8*)LargeAllocator::ii->Acquire(total_bytes);
+	u8 *buffers = (u8*)LargeAllocator::ref()->Acquire(total_bytes);
 
 	_buffer_bytes = buffer_bytes;
 	_buffer_count = buffer_count;
@@ -83,7 +76,7 @@ BufferAllocator::~BufferAllocator()
 {
 	CAT_INFO("BufferAllocator") << "Releasing buffers";
 
-	LargeAllocator::ii->Release(_buffers);
+	LargeAllocator::ref()->Release(_buffers);
 }
 
 u32 BufferAllocator::AcquireBatch(BatchSet &set, u32 count, u32 bytes)
