@@ -58,6 +58,59 @@ class RefObject;
 class RefObjects;
 
 
+// Reference to a RefOjbect singleton
+template<class T>
+class RefObjectSingleton
+{
+	friend class RefObjects;
+
+	T *_ref;
+	bool _valid;
+
+public:
+	RefObjectSingleton()
+	{
+#if defined(CAT_DEBUG)
+		_ref = reinterpret_cast<T*>( 1 ); // try to catch errors
+#else
+		_ref = 0;
+#endif
+		_valid = false;
+	}
+
+	CAT_INLINE operator bool()
+	{
+		return _valid;
+	}
+
+	CAT_INLINE T *operator->()
+	{
+		return _ref;
+	}
+
+	CAT_INLINE T *GetRef()
+	{
+		return _ref;
+	}
+
+	CAT_INLINE RefObjectSingleton<T> &operator=(T *ref)
+	{
+		_ref = ref;
+
+		CAT_FENCE_COMPILER
+
+		_valid = true;
+
+		return *this;
+	}
+
+	CAT_INLINE void Release(const char *file_line)
+	{
+		if (_valid) _ref->ReleaseRef(file_line);
+	}
+};
+
+
 // Mechanism to wait for reference-counted objects to finish shutting down
 class CAT_EXPORT RefObjects : Thread
 {
@@ -92,16 +145,38 @@ public:
 	bool Shutdown(s32 milliseconds = -1); // < 0 = wait forever
 
 	template<class T>
-	static bool AcquireSingleton(T *&obj, const char *file_line)
+	static bool AcquireSingleton(RefObjectSingleton<T> &obj, const char *file_line)
 	{
+		if (obj)
+		{
+#if defined(CAT_TRACE_REFOBJECT)
+			CAT_INANE("RefObjects") << "AcquireSingleton: " << obj->GetRefObjectName() << "#" << obj.GetRef() << " object already set at " << file_line;
+#endif
+			obj->AddRef(file_line);
+			return true;
+		}
+
 		RefObjects *m_refobjects = RefObjects::ref();
 
 		AutoMutex lock(m_refobjects->_lock);
 
 		if (obj)
 		{
-			CAT_INANE("RefObjects") << "AcquireSingleton: " << obj->GetRefObjectName() << "#" << obj << " object already set (lost race) at " << file_line;
+			lock.Release();
+
+#if defined(CAT_TRACE_REFOBJECT)
+			CAT_INANE("RefObjects") << "AcquireSingleton: " << obj->GetRefObjectName() << "#" << obj.GetRef() << " object already set (lost race) at " << file_line;
+#endif
+			obj->AddRef(file_line);
 			return true;
+		}
+
+		if (m_refobjects->_shutdown)
+		{
+#if defined(CAT_TRACE_REFOBJECT)
+			CAT_INANE("RefObjects") << "AcquireSingleton: Ignored acquire during shutdown at " << file_line;
+#endif
+			return false;
 		}
 
 		// If the object already has an instance,
@@ -109,7 +184,9 @@ public:
 		if (existing)
 		{
 			obj = static_cast<T*>( existing );
+#if defined(CAT_TRACE_REFOBJECT)
 			CAT_INANE("RefObjects") << "AcquireSingleton: " << existing->GetRefObjectName() << "#" << existing << " re-using existing at " << file_line;
+#endif
 			return true;
 		}
 
@@ -126,18 +203,21 @@ public:
 		// If object could not be initialized,
 		if (!m_refobjects->Watch(file_line, obj_base))
 		{
+#if defined(CAT_TRACE_REFOBJECT)
 			CAT_INANE("RefObjects") << "AcquireSingleton: " << obj_local->GetRefObjectName() << "#" << obj_local << " initialization failed at " << file_line;
-			obj = 0;
+#endif
 			return false;
 		}
 
+#if defined(CAT_TRACE_REFOBJECT)
 		CAT_INANE("RefObjects") << "AcquireSingleton: " << obj_local->GetRefObjectName() << "#" << obj_local << " created at " << file_line;
+#endif
 		obj = obj_local;
 		return true;
 	}
 
 	template<class T>
-	static CAT_INLINE bool Acquire(T *&obj, const char *file_line)
+	static bool Acquire(T *&obj, const char *file_line)
 	{
 		RefObjects *m_refobjects = RefObjects::ref();
 
@@ -152,17 +232,31 @@ public:
 
 		AutoMutex lock(m_refobjects->_lock);
 
+		if (m_refobjects->_shutdown)
+		{
+			lock.Release();
+			delete obj;
+#if defined(CAT_TRACE_REFOBJECT)
+			CAT_INANE("RefObjects") << "Acquire: " << obj->GetRefObjectName() << "#" << obj << " ignored during shutdown at " << file_line;
+#endif
+			return false;
+		}
+
 		// If object could not be initialized,
 		if (!m_refobjects->Watch(file_line, obj_base))
 		{
+#if defined(CAT_TRACE_REFOBJECT)
 			CAT_INANE("RefObjects") << "Acquire: " << obj->GetRefObjectName() << "#" << obj << " initialization failed at " << file_line;
+#endif
 			obj = 0;
 			return false;
 		}
 
 		lock.Release();
 
+#if defined(CAT_TRACE_REFOBJECT)
 		CAT_INANE("RefObjects") << "Acquire: " << obj->GetRefObjectName() << "#" << obj << " created at " << file_line;
+#endif
 
 		return true;
 	}
@@ -262,19 +356,19 @@ protected:
 	// errors without putting it in the constructor where it doesn't belong.
 	// Return false to delete the object immediately.
 	// Especially handy for using RefObjects as a plugin system.
-	virtual bool OnRefObjectInitialize() = 0;
+	CAT_INLINE virtual bool OnRefObjectInitialize() { return true; }
 
 	// Called when a shutdown is in progress.
 	// The object should release any internally held references.
 	// such as private threads that are working on the object.
 	// Always called and before OnRefObjectFinalize().
 	// Proper implementation of derived classes should call the parent version.
-	virtual void OnRefObjectDestroy() = 0;
+	CAT_INLINE virtual void OnRefObjectDestroy() {}
 
 	// Called when object has no more references.
 	// Return true to delete the object.
 	// Always called and after OnRefObjectDestroy().
-	virtual bool OnRefObjectFinalize() = 0;
+	CAT_INLINE virtual bool OnRefObjectFinalize() { return true; }
 };
 
 

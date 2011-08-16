@@ -35,7 +35,7 @@ using namespace cat;
 static const u32 INITIAL_TIMERS_ALLOCATED = 16;
 
 
-static Clock *m_clock = 0;
+static RefObjectSingleton<Clock> m_clock;
 
 
 //// WorkerThread
@@ -394,7 +394,6 @@ bool WorkerThreads::OnRefObjectInitialize()
 
 void WorkerThreads::OnRefObjectDestroy()
 {
-	m_clock->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
 }
 
 bool WorkerThreads::OnRefObjectFinalize()
@@ -435,6 +434,8 @@ bool WorkerThreads::OnRefObjectFinalize()
 		delete _tls_builder;
 		_tls_builder = 0;
 	}
+
+	m_clock.Release(CAT_REFOBJECT_FILE_LINE);
 
 	return true;
 }

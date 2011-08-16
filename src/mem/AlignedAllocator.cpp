@@ -47,9 +47,6 @@ using namespace cat;
 # define aligned_free _aligned_free
 #endif
 
-static AlignedAllocator aligned_allocator;
-AlignedAllocator *AlignedAllocator::ii = &aligned_allocator;
-
 static CAT_INLINE u8 DetermineOffset(u32 cacheline_bytes, void *ptr)
 {
 #if defined(CAT_WORD_64)
@@ -61,49 +58,38 @@ static CAT_INLINE u8 DetermineOffset(u32 cacheline_bytes, void *ptr)
 
 static const u32 OLD_BYTES_OVERHEAD = sizeof(u32);
 
-static SystemInfo *m_system_info = 0;
+static RefObjectSingleton<SystemInfo> m_system_info;
 static u32 m_cacheline_bytes = CAT_DEFAULT_CACHE_LINE_SIZE;
 
-bool OnRefObjectInitialize()
+bool AlignedAllocator::OnRefObjectInitialize()
 {
 	if (RefObjects::AcquireSingleton(m_system_info, CAT_REFOBJECT_FILE_LINE))
-		cacheline_bytes = m_system_info->GetCacheLineBytes();
-}
+	{
+		m_cacheline_bytes = m_system_info->GetCacheLineBytes();
+		m_system_info.Release(CAT_REFOBJECT_FILE_LINE);
+		return false;
+	}
 
-void OnRefObjectDestroy()
-{
-	m_system_info->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
+	return true;
 }
-
-bool OnRefObjectFinalize()
-{
-}
-
 
 // Allocates memory aligned to a CPU cache-line byte boundary from the heap
 void *AlignedAllocator::Acquire(u32 bytes)
 {
-	u32 cacheline_bytes = CAT_DEFAULT_CACHE_LINE_SIZE;
-
-	if (RefObjects::AcquireSingleton(m_system_info, CAT_REFOBJECT_FILE_LINE))
-		cacheline_bytes = m_system_info->GetCacheLineBytes();
-
-	m_system_info->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
-
 #if defined(CAT_HAS_ALIGNED_ALLOC)
 
-	return aligned_malloc(bytes, cacheline_bytes);
+	return aligned_malloc(bytes, m_cacheline_bytes);
 
 #else
 
-    u8 *buffer = (u8*)malloc(OLD_BYTES_OVERHEAD + cacheline_bytes + bytes);
+    u8 *buffer = (u8*)malloc(OLD_BYTES_OVERHEAD + m_cacheline_bytes + bytes);
     if (!buffer) return 0;
 
 	// Store number of allocated bytes
 	*(u32*)buffer = bytes;
 
 	// Get buffer aligned address
-	u8 offset = OLD_BYTES_OVERHEAD + DetermineOffset(cacheline_bytes, buffer + OLD_BYTES_OVERHEAD);
+	u8 offset = OLD_BYTES_OVERHEAD + DetermineOffset(m_cacheline_bytes, buffer + OLD_BYTES_OVERHEAD);
 
 	// Write offset to number of allocated bytes
     buffer += offset;
@@ -117,11 +103,9 @@ void *AlignedAllocator::Acquire(u32 bytes)
 // Resizes an aligned pointer
 void *AlignedAllocator::Resize(void *ptr, u32 bytes)
 {
-	u32 cacheline_bytes = system_info.CacheLineBytes;
-
 #if defined(CAT_HAS_ALIGNED_ALLOC)
 
-	return aligned_realloc(ptr, bytes, cacheline_bytes);
+	return aligned_realloc(ptr, bytes, m_cacheline_bytes);
 
 #else
 
@@ -137,11 +121,11 @@ void *AlignedAllocator::Resize(void *ptr, u32 bytes)
 	// Read number of old bytes
 	u32 old_bytes = *(u32*)buffer;
 
-	buffer = (u8*)realloc(buffer, OLD_BYTES_OVERHEAD + cacheline_bytes + bytes);
+	buffer = (u8*)realloc(buffer, OLD_BYTES_OVERHEAD + m_cacheline_bytes + bytes);
 	if (!buffer) return 0;
 
 	// Get buffer aligned address
-	u8 offset = OLD_BYTES_OVERHEAD + DetermineOffset(cacheline_bytes, buffer + OLD_BYTES_OVERHEAD);
+	u8 offset = OLD_BYTES_OVERHEAD + DetermineOffset(m_cacheline_bytes, buffer + OLD_BYTES_OVERHEAD);
 
 	if (offset != old_offset)
 	{
