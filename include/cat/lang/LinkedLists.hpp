@@ -59,16 +59,6 @@ namespace cat {
 */
 
 /*
-	Clear the list without releasing memory, useful for startup.
-
-	head: Pointer to the head of the list
-*/
-#define CAT_FDLL_CLEAR(head)	\
-{							\
-	head = 0;				\
-}
-
-/*
 	Push object to the front of the list.
 
 	head: Pointer to the head of the list
@@ -165,18 +155,6 @@ namespace cat {
 	Operations are all O(1).
 	Not thread-safe.
 */
-
-/*
-	Clear the list without releasing memory, useful for startup.
-
-	head: Pointer to the head of the list
-	tail: Pointer to the tail of the list
-*/
-#define CAT_BDLL_CLEAR(head, tail)	\
-{									\
-	head = 0;						\
-	tail = 0;						\
-}
 
 /*
 	Push object to the front of the list.
@@ -281,7 +259,7 @@ namespace cat {
 	Derive doubly-linked list items from this base class
 	to wrap using the macros above.
 */
-class DListItem
+class CAT_EXPORT DListItem
 {
 	friend class DList;
 	friend class DListForward;
@@ -293,7 +271,7 @@ private:
 
 
 // Internal class
-class DListIteratorBase
+class CAT_EXPORT DListIteratorBase
 {
 protected:
 	DListItem *_item;
@@ -313,14 +291,33 @@ protected:
 /*
 	Access the linked list through this type.
 */
-class DListForward
+class CAT_EXPORT DListForward
 {
 	DListItem *_head;
 
 public:
-	DListForward();
+	CAT_INLINE DListForward()
+	{
+		Clear();
+	}
 
 	CAT_INLINE DListItem *head() { return _head; }
+	CAT_INLINE bool empty() { return _head != 0; }
+
+	CAT_INLINE void Clear()
+	{
+		_head = 0;
+	}
+	CAT_INLINE DListForward &operator=(DListForward &list)
+	{
+		_head = list._head;
+		return *this;
+	}
+	CAT_INLINE void Steal(DListForward &list)
+	{
+		_head = list._head;
+		list.Clear();
+	}
 
 	void PushFront(DListItem *item);
 	void InsertBefore(DListItem *item, DListItem *at);
@@ -378,15 +375,36 @@ public:
 /*
 	Access the linked list through this type.
 */
-class DList
+class CAT_EXPORT DList
 {
 	DListItem *_head, *_tail;
 
 public:
-	DList();
+	CAT_INLINE DList()
+	{
+		Clear();
+	}
 
 	CAT_INLINE DListItem *head() { return _head; }
 	CAT_INLINE DListItem *tail() { return _tail; }
+	CAT_INLINE bool empty() { return _head != 0; }
+
+	CAT_INLINE void Clear()
+	{
+		_head = _tail = 0;
+	}
+	CAT_INLINE DList &operator=(DList &list)
+	{
+		_head = list._head;
+		_tail = list._tail;
+		return *this;
+	}
+	CAT_INLINE void Steal(DList &list)
+	{
+		_head = list._head;
+		_tail = list._tail;
+		list.Clear();
+	}
 
 	void PushFront(DListItem *item);
 	void PushBack(DListItem *item);
@@ -476,16 +494,6 @@ public:
 */
 
 /*
-	Clear the list without releasing memory, useful for startup.
-
-	head: Pointer to the head of the list
-*/
-#define CAT_FSLL_CLEAR(head)	\
-{								\
-	head = 0;					\
-}
-
-/*
 	Push object to the front of the list.
 
 	head: Pointer to the head of the list
@@ -534,7 +542,7 @@ public:
 	Derive singly-linked list items from this base class
 	to wrap using the macros above.
 */
-class SListItem
+class CAT_EXPORT SListItem
 {
 	friend class SList;
 	friend class SListIteratorBase;
@@ -545,7 +553,7 @@ private:
 
 
 // Internal class
-class SListIteratorBase
+class CAT_EXPORT SListIteratorBase
 {
 	friend class SList;
 
@@ -563,14 +571,33 @@ protected:
 /*
 	Access the linked list through this type.
 */
-class SList
+class CAT_EXPORT SList
 {
 	SListItem *_head;
 
 public:
-	SList();
+	CAT_INLINE SList()
+	{
+		Clear();
+	}
 
 	CAT_INLINE SListItem *head() { return _head; }
+	CAT_INLINE bool empty() { return _head != 0; }
+
+	CAT_INLINE void Clear()
+	{
+		_head = 0;
+	}
+	CAT_INLINE SList &operator=(SList &list)
+	{
+		_head = list._head;
+		return *this;
+	}
+	CAT_INLINE void Steal(SList &list)
+	{
+		_head = list._head;
+		list.Clear();
+	}
 
 	void PushFront(SListItem *item);
 	void InsertAfter(SListItem *item, SListItem *at);

@@ -32,11 +32,6 @@ using namespace cat;
 
 //// Forward-iterating doubly-linked list
 
-DListForward::DListForward()
-{
-	CAT_FDLL_CLEAR(_head);
-}
-
 void DListForward::PushFront(DListItem *item)
 {
 	CAT_FDLL_PUSH_FRONT(_head, item, _next, _prev);
@@ -59,11 +54,6 @@ void DListForward::Erase(DListItem *item)
 
 
 //// Bidirectionally-iterating doubly-linked list
-
-DList::DList()
-{
-	CAT_BDLL_CLEAR(_head, _tail);
-}
 
 void DList::PushFront(DListItem *item)
 {
@@ -92,11 +82,6 @@ void DList::Erase(DListItem *item)
 
 
 //// Forward-iterating singly-linked list
-
-SList::SList()
-{
-	CAT_FSLL_CLEAR(_head);
-}
 
 void SList::PushFront(SListItem *item)
 {
