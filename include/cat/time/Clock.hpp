@@ -41,7 +41,7 @@ class CAT_EXPORT Clock : public RefObject
 	// Windows version requires some initialization
 	static const int LOWEST_ACCEPTABLE_PERIOD = 10;
 
-    static u32 _period;		// timegettime() and Windows scheduler period
+    static u32 _period;			// timegettime() and Windows scheduler period
 	static double _inv_freq;	// Performance counter frequency (does not change, so cache it)
 #endif
 
@@ -53,7 +53,7 @@ public:
 	CAT_INLINE virtual const char *GetRefObjectName() { return "Clock"; }
 
     static u32 sec();			// Timestamp in seconds
-    static u32 msec_fast();	// Timestamp in milliseconds, less accurate than msec() but faster
+    static u32 msec_fast();		// Timestamp in milliseconds, less accurate than msec() but faster
     static u32 msec();			// Timestamp in milliseconds, must call Initialize() first
 	static double usec();		// Timestamp in microseconds, must call Initialize() first
 	static u32 cycles();		// Timestamp in cycles

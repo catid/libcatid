@@ -276,14 +276,15 @@ class CAT_EXPORT DListIteratorBase
 protected:
 	DListItem *_item;
 
-	CAT_INLINE void IterateNext()
+public:
+	CAT_INLINE DListItem *GetNext()
 	{
-		_item = _item->_next;
+		return _item->_next;
 	}
 
-	CAT_INLINE void IteratePrev()
+	CAT_INLINE DListItem *GetPrev()
 	{
-		_item = _item->_prev;
+		return _item->_prev;
 	}
 };
 
@@ -331,7 +332,7 @@ public:
 		for (DListForward::Iterator<MyObject> ii = list.head(); ii; ++ii)
 	*/
 	template<class T>
-	class Iterator : DListIteratorBase
+	class Iterator : public DListIteratorBase
 	{
 		CAT_INLINE Iterator() {}
 
@@ -359,13 +360,13 @@ public:
 
 		CAT_INLINE Iterator &operator++() // pre-increment
 		{
-			IterateNext();
+			_item = GetNext();
 			return *this;
 		}
 
 		CAT_INLINE Iterator &operator++(int) // post-increment
 		{
-			IterateNext();
+			_item = GetNext();
 			return *this;
 		}
 	};
@@ -419,7 +420,7 @@ public:
 		for (DList::Iterator<MyObject> ii = list.head(); ii; ++ii)
 	*/
 	template<class T>
-	class Iterator : DListIteratorBase
+	class Iterator : public DListIteratorBase
 	{
 		CAT_INLINE Iterator() {}
 
@@ -447,25 +448,25 @@ public:
 
 		CAT_INLINE Iterator &operator++() // pre-increment
 		{
-			IterateNext();
+			_item = GetNext();
 			return *this;
 		}
 
 		CAT_INLINE Iterator &operator++(int) // post-increment
 		{
-			IterateNext();
+			_item = GetNext();
 			return *this;
 		}
 
 		CAT_INLINE Iterator &operator--() // pre-decrement
 		{
-			IteratePrev();
+			_item = GetPrev();
 			return *this;
 		}
 
 		CAT_INLINE Iterator &operator--(int) // post-decrement
 		{
-			IteratePrev();
+			_item = GetPrev();
 			return *this;
 		}
 	};

@@ -66,44 +66,20 @@ class CAT_EXPORT RefObjects : Thread
 
 	friend class RefObject;
 
-	Mutex _lock;
 	DListForward _active_list, _dead_list;
 	bool _shutdown, _initialized;
 	WaitableFlag _shutdown_flag;
 
 	static void RefObjectsAtExit();
-	bool Watch(const char *file_line, RefObject *obj);	// Will delete object if it fails to initialize
 	void Kill(RefObject *obj);
 	void BuryDeadites();
 	bool ThreadFunction(void *param);
 	void Shutdown();
 
 public:
-	template<class T>
-	static bool Acquire(T *&obj, const char *file_line)
-	{
-		obj = new T;
-		if (!obj) return false;
+	bool Watch(const char *file_line, RefObject *&obj);	// Will delete and nullify object if it fails to initialize
 
-		// Get base object
-		RefObject *obj_base = obj;
-
-		// If object could not be initialized,
-		if (!RefObjects::ref()->Watch(file_line, obj_base))
-		{
-#if defined(CAT_TRACE_REFOBJECT)
-			CAT_INANE("RefObjects") << "Acquire: " << obj->GetRefObjectName() << "#" << obj << " initialization failed at " << file_line;
-#endif
-			obj = 0;
-			return false;
-		}
-
-#if defined(CAT_TRACE_REFOBJECT)
-		CAT_INANE("RefObjects") << "Acquire: " << obj->GetRefObjectName() << "#" << obj << " created at " << file_line;
-#endif
-
-		return true;
-	}
+	static Mutex &GetGlobalLock();
 };
 
 
@@ -261,42 +237,39 @@ public:
 
 
 // In the H file for the object, use this macro:
-#define CAT_SINGLETON(T)		\
-	CAT_NO_COPY(T);				\
-public:							\
-	static T *ref();			\
-private:						\
-	CAT_INLINE T() {}			\
-	CAT_INLINE virtual ~T() {}	\
-	friend class Singleton<T>;	\
-	void OnSingletonStartup();
+#define CAT_REFOBJECT_SINGLETON(T)			\
+	CAT_NO_COPY(T);							\
+public:										\
+	static T *ref(const char *file_line);	\
+private:									\
+	CAT_INLINE T() {}						\
+	CAT_INLINE virtual ~T() {}				\
+	friend class Singleton<T>;
 
 
 // In the C file for the object, use this macro:
-#define CAT_ON_SINGLETON_STARTUP(T)		\
-static cat::Singleton<T> m_T_ss;		\
-T *T::ref() { return m_T_ss.GetRef(); }	\
-void T::OnSingletonStartup()
+#define CAT_REFOBJECT_SINGLETON_IMPL(T)		\
+static cat::RefObjectSingleton<T> m_T_rss;	\
+T *T::ref(const char *file_line) { return m_T_rss.GetRef(file_line); }
 
 
 // Internal class
 template<class T>
-class Singleton
+class RefObjectSingleton
 {
-	T _instance;
+	T *_instance;
 	bool _init;
-	Mutex _lock;
 
 public:
-	CAT_INLINE T *GetRef()
+	CAT_INLINE T *GetRef(const char *file_line)
 	{
-		if (_init) return &_instance;
+		if (_init) return _instance;
 
-		AutoMutex lock(_lock);
+		AutoMutex lock(RefObjects::GetGlobalLock());
 
-		if (_init) return &_instance;
+		if (_init) return _instance;
 
-		_instance.OnSingletonStartup();
+		RefObjects::ref()->Watch(file_line, new T);
 
 		CAT_FENCE_COMPILER;
 

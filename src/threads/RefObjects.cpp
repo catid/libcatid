@@ -30,6 +30,8 @@
 #include <cat/threads/AutoMutex.hpp>
 using namespace cat;
 
+static Mutex m_refobjects_lock;
+
 
 //// RefObject
 
@@ -101,13 +103,19 @@ CAT_ON_SINGLETON_STARTUP(RefObjects)
 	_initialized = true;
 }
 
-bool RefObjects::Watch(const char *file_line, RefObject *obj)
+Mutex &RefObjects::GetGlobalLock()
+{
+	return m_refobjects_lock;
+}
+
+bool RefObjects::Watch(const char *file_line, RefObject *&obj)
 {
 	if (!obj) return false;
 
 	if (!_initialized || _shutdown)
 	{
 		delete obj;
+		obj = 0;
 
 #if defined(CAT_TRACE_REFOBJECT)
 		CAT_INANE("RefObjects") << obj->GetRefObjectName() << "#" << obj << " refused to watch during bad state at " << file_line;
@@ -115,13 +123,14 @@ bool RefObjects::Watch(const char *file_line, RefObject *obj)
 		return false;
 	}
 
-	AutoMutex lock(_lock);
+	AutoMutex lock(m_refobjects_lock);
 
 	if (_shutdown)
 	{
 		lock.Release();
 
 		delete obj;
+		obj = 0;
 
 #if defined(CAT_TRACE_REFOBJECT)
 		CAT_INANE("RefObjects") << obj->GetRefObjectName() << "#" << obj << " refused to watch during shutdown at " << file_line;
@@ -139,6 +148,8 @@ bool RefObjects::Watch(const char *file_line, RefObject *obj)
 
 		_dead_list.PushFront(obj);
 
+		obj = 0;
+
 		return false;
 	}
 
@@ -153,7 +164,7 @@ bool RefObjects::Watch(const char *file_line, RefObject *obj)
 
 void RefObjects::Kill(RefObject *obj)
 {
-	AutoMutex lock(_lock);
+	AutoMutex lock(m_refobjects_lock);
 
 	// Skip if shutdown
 	if (!_shutdown)
@@ -182,20 +193,19 @@ void RefObjects::BuryDeadites()
 {
 	if (!_dead_list.empty()) return;
 
-	RefObject *dead_head;
-
 	// Copy dead list
-	_lock.Enter();
-	dead_head = _dead_head;
-	_dead_head = 0;
-	_lock.Leave();
+	DListForward dead_list;
 
-	for (RefObject *next, *obj = dead_head; obj; obj = next)
+	m_refobjects_lock.Enter();
+	dead_list.Steal(_dead_list);
+	m_refobjects_lock.Leave();
+
+	for (DListForward::Iterator<RefObject> next = 0, ii = dead_list.head(); ii; ii = next)
 	{
-		next = obj->_next;
+		next = ii.GetNext();
 
-		if (obj->OnRefObjectFinalize())
-			delete obj;
+		if (ii->OnRefObjectFinalize())
+			delete ii;
 	}
 }
 
@@ -210,21 +220,21 @@ bool RefObjects::ThreadFunction(void *param)
 
 	CAT_INANE("RefObjects") << "Reaper caught shutdown signal, setting asynchronous shutdown flag...";
 
-	_lock.Enter();
+	m_refobjects_lock.Enter();
 
 	_shutdown = true;
 
 	// Now the shutdown flag is set everywhere synchronously.
 	// The lists may only be modified from this function.
 
-	_lock.Leave();
+	m_refobjects_lock.Leave();
 
 	CAT_INANE("RefObjects") << "Reaper destroying remaining active objects...";
 
 	// For each remaining active object,
-	for (RefObject *obj = _active_head; obj; obj = obj->_next)
+	for (DListForward::Iterator<RefObject> ii = _active_list.head(); ii; ++ii)
 	{
-		obj->Destroy(CAT_REFOBJECT_FILE_LINE);
+		ii->Destroy(CAT_REFOBJECT_FILE_LINE);
 	}
 
 	CAT_INANE("RefObjects") << "Reaper burying any easy dead...";
@@ -241,23 +251,23 @@ bool RefObjects::ThreadFunction(void *param)
 	CAT_FOREVER
 	{
 		// Troll for zero reference counts
-		for (RefObject *next, *node = _active_head; node; node = next)
+		for (DListForward::Iterator<RefObject> next = 0, ii = _active_list.head(); ii; ii = next)
 		{
-			next = node->_next;
+			next = ii.GetNext();
 
 			// If reference count hits zero,
-			if (node->_ref_count == 0)
+			if (ii->_ref_count == 0)
 			{
-				CAT_INANE("RefObjects") << node->GetRefObjectName() << "#" << node << " finalizing";
+				CAT_INANE("RefObjects") << ii->GetRefObjectName() << "#" << ii << " finalizing";
 
-				UnlinkFromActiveList(node);
+				_active_list.Erase(ii);
 
 				// If object finalizing requests memory freed,
-				if (node->OnRefObjectFinalize())
+				if (ii->OnRefObjectFinalize())
 				{
-					CAT_INANE("RefObjects") << node->GetRefObjectName() << "#" << node << " freeing memory";
+					CAT_INANE("RefObjects") << ii->GetRefObjectName() << "#" << ii << " freeing memory";
 
-					delete node;
+					delete ii;
 				}
 
 				// Reset hang counter
@@ -266,7 +276,7 @@ bool RefObjects::ThreadFunction(void *param)
 		}
 
 		// Quit when active list is empty
-		if (!_active_head) break;
+		if (_active_list.empty()) break;
 
 		// If active list is not empty and hang count exceeded threshold,
 		if (++hang_counter < HANG_THRESHOLD)
@@ -274,23 +284,23 @@ bool RefObjects::ThreadFunction(void *param)
 		else
 		{
 			// Find smallest ref count object
-			RefObject *smallest_obj = _active_head;
+			DListForward::Iterator<RefObject> smallest_obj = _active_list.head();
 			u32 smallest_ref_count = smallest_obj->_ref_count;
 
-			for (RefObject *next, *node = smallest_obj->_next; node; node = next)
+			for (DListForward::Iterator<RefObject> next = 0, ii = smallest_obj.GetNext(); ii; ii = next)
 			{
-				next = node->_next;
+				next = ii.GetNext();
 
-				if (node->_ref_count < smallest_ref_count)
+				if (ii->_ref_count < smallest_ref_count)
 				{
-					smallest_ref_count = node->_ref_count;
-					smallest_obj = node;
+					smallest_ref_count = ii->_ref_count;
+					smallest_obj = ii;
 				}
 			}
 
 			CAT_FATAL("RefObjects") << smallest_obj->GetRefObjectName() << "#" << smallest_obj << " finalizing FORCED with " << smallest_ref_count << " dangling references (smallest found)";
 
-			UnlinkFromActiveList(smallest_obj);
+			_active_list.Erase(smallest_obj);
 
 			// If object finalizing requests memory freed,
 			if (smallest_obj->OnRefObjectFinalize())

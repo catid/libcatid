@@ -31,7 +31,7 @@ using namespace cat;
 
 static Mutex m_lock;
 
-Mutex &Singletons::GetMutex()
+Mutex &cat::GetSingletonMutex()
 {
 	return m_lock;
 }

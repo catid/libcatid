@@ -94,12 +94,8 @@ T *T::ref() { return m_T_ss.GetRef(); }	\
 void T::OnSingletonStartup()
 
 
-// Internal class
-class Singletons
-{
-	static Mutex &GetMutex();
-};
-
+// Internal free function
+Mutex CAT_EXPORT &GetSingletonMutex();
 
 // Internal class
 template<class T>
@@ -113,7 +109,7 @@ public:
 	{
 		if (_init) return &_instance;
 
-		AutoMutex lock(Singletons::GetMutex());
+		AutoMutex lock(GetSingletonMutex());
 
 		if (_init) return &_instance;
 
