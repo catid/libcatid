@@ -31,6 +31,7 @@
 
 #include <cat/threads/RefObjects.hpp>
 #include <cat/lang/Delegates.hpp>
+#include <cat/lang/Singleton.hpp>
 #include <string>
 #include <sstream>
 
@@ -74,14 +75,14 @@ void CAT_EXPORT DefaultLogCallback(EventSeverity severity, const char *source, s
 
 class CAT_EXPORT Logging
 {
+	CAT_SINGLETON(Logging);
+
+	friend class Recorder;
+
 public:
 	typedef Delegate3<void, EventSeverity, const char *, std::ostringstream &> Callback;
 
 private:
-	CAT_NO_COPY(Logging);
-
-	friend class Recorder;
-
 	Mutex _lock;
 	Callback _callback;
 
@@ -95,14 +96,6 @@ private:
 	void LogEvent(Recorder *recorder);
 
 public:
-	Logging();
-	CAT_INLINE virtual ~Logging() {}
-
-	static Logging *ref();
-
-	static const u32 RefObjectGUID = 0x1e9b9d58; // Global Unique IDentifier for acquiring RefObject singletons
-	CAT_INLINE const char *GetRefObjectName() { return "Logging"; }
-
 	CAT_INLINE void SetThreshold(EventSeverity min_severity) { _log_threshold = min_severity; }
 	CAT_INLINE int GetThreshold() { return _log_threshold; }
 	void Shutdown();
