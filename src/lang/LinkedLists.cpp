@@ -26,8 +26,69 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/lang/SinglyLinkedLists.hpp>
+#include <cat/lang/LinkedLists.hpp>
 using namespace cat;
+
+
+//// Forward-iterating doubly-linked list
+
+DListForward::DListForward()
+{
+	CAT_FDLL_CLEAR(_head);
+}
+
+void DListForward::PushFront(DListItem *item)
+{
+	CAT_FDLL_PUSH_FRONT(_head, item, _next, _prev);
+}
+
+void DListForward::InsertBefore(DListItem *item, DListItem *at)
+{
+	CAT_FDLL_INSERT_BEFORE(_head, item, at, _next, _prev);
+}
+
+void DListForward::InsertAfter(DListItem *item, DListItem *at)
+{
+	CAT_FDLL_INSERT_AFTER(_head, item, at, _next, _prev);
+}
+
+void DListForward::Erase(DListItem *item)
+{
+	CAT_FDLL_ERASE(_head, item, _next, _prev);
+}
+
+
+//// Bidirectionally-iterating doubly-linked list
+
+DList::DList()
+{
+	CAT_BDLL_CLEAR(_head, _tail);
+}
+
+void DList::PushFront(DListItem *item)
+{
+	CAT_BDLL_PUSH_FRONT(_head, _tail, item, _next, _prev);
+}
+
+void DList::PushBack(DListItem *item)
+{
+	CAT_BDLL_PUSH_FRONT(_head, _tail, item, _next, _prev);
+}
+
+void DList::InsertBefore(DListItem *item, DListItem *at)
+{
+	CAT_BDLL_INSERT_BEFORE(_head, _tail, item, at, _next, _prev);
+}
+
+void DList::InsertAfter(DListItem *item, DListItem *at)
+{
+	CAT_BDLL_INSERT_AFTER(_head, _tail, item, at, _next, _prev);
+}
+
+void DList::Erase(DListItem *item)
+{
+	CAT_BDLL_ERASE(_head, _tail, item, _next, _prev);
+}
 
 
 //// Forward-iterating singly-linked list

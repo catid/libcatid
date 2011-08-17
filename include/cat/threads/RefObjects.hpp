@@ -33,6 +33,7 @@
 #include <cat/threads/WaitableFlag.hpp>
 #include <cat/threads/Mutex.hpp>
 #include <cat/threads/Thread.hpp>
+#include <cat/lang/SinglyLinkedLists.hpp>
 
 #if defined(CAT_TRACE_REFOBJECT)
 #include <cat/io/Logging.hpp>
@@ -58,66 +59,13 @@ class RefObject;
 class RefObjects;
 
 
-// Reference to a RefOjbect singleton
-template<class T>
-class RefObjectSingleton
-{
-	friend class RefObjects;
-
-	T *_ref;
-	bool _valid;
-
-public:
-	RefObjectSingleton()
-	{
-#if defined(CAT_DEBUG)
-		_ref = reinterpret_cast<T*>( 1 ); // try to catch errors
-#else
-		_ref = 0;
-#endif
-		_valid = false;
-	}
-
-	CAT_INLINE operator bool()
-	{
-		return _valid;
-	}
-
-	CAT_INLINE T *operator->()
-	{
-		return _ref;
-	}
-
-	CAT_INLINE T *GetRef()
-	{
-		return _ref;
-	}
-
-	CAT_INLINE RefObjectSingleton<T> &operator=(T *ref)
-	{
-		_ref = ref;
-
-		CAT_FENCE_COMPILER
-
-		_valid = true;
-
-		return *this;
-	}
-
-	CAT_INLINE void Release(const char *file_line)
-	{
-		if (_valid) _ref->ReleaseRef(file_line);
-	}
-};
-
-
 // Mechanism to wait for reference-counted objects to finish shutting down
 class CAT_EXPORT RefObjects : Thread
 {
 	friend class RefObject;
 
 	Mutex _lock;
-	RefObject *_active_head, *_dead_head;
+	DListForward _active_list, _dead_list;
 	bool _initialized, _shutdown;
 
 	WaitableFlag _shutdown_flag;
@@ -219,8 +167,6 @@ public:
 	template<class T>
 	static bool Acquire(T *&obj, const char *file_line)
 	{
-		RefObjects *m_refobjects = RefObjects::ref();
-
 		obj = new T;
 		if (!obj) return false;
 
@@ -230,20 +176,8 @@ public:
 		// Initialize shutdown to false and set GUID at the same time
 		obj_base->_shutdown_guid = T::RefObjectGUID;
 
-		AutoMutex lock(m_refobjects->_lock);
-
-		if (m_refobjects->_shutdown)
-		{
-			lock.Release();
-			delete obj;
-#if defined(CAT_TRACE_REFOBJECT)
-			CAT_INANE("RefObjects") << "Acquire: " << obj->GetRefObjectName() << "#" << obj << " ignored during shutdown at " << file_line;
-#endif
-			return false;
-		}
-
 		// If object could not be initialized,
-		if (!m_refobjects->Watch(file_line, obj_base))
+		if (!RefObjects::ref()->Watch(file_line, obj_base))
 		{
 #if defined(CAT_TRACE_REFOBJECT)
 			CAT_INANE("RefObjects") << "Acquire: " << obj->GetRefObjectName() << "#" << obj << " initialization failed at " << file_line;
@@ -251,8 +185,6 @@ public:
 			obj = 0;
 			return false;
 		}
-
-		lock.Release();
 
 #if defined(CAT_TRACE_REFOBJECT)
 		CAT_INANE("RefObjects") << "Acquire: " << obj->GetRefObjectName() << "#" << obj << " created at " << file_line;
@@ -265,7 +197,7 @@ public:
 
 // Classes that derive from RefObject have asynchronously managed lifetimes
 // Never delete a RefObject directly.  Use the Destroy() member instead
-class CAT_EXPORT RefObject
+class CAT_EXPORT RefObject : SListItem
 {
 	friend class RefObjects;
 
@@ -277,7 +209,6 @@ class CAT_EXPORT RefObject
 
 	volatile u32 _ref_count;
 	volatile u32 _shutdown_guid;
-	RefObject *_prev, *_next;
 
 	void OnZeroReferences(const char *file_line);
 
