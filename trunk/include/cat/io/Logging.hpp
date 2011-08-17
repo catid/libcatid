@@ -98,7 +98,6 @@ private:
 public:
 	CAT_INLINE void SetThreshold(EventSeverity min_severity) { _log_threshold = min_severity; }
 	CAT_INLINE int GetThreshold() { return _log_threshold; }
-	void Shutdown();
 
 	// Service mode
 	CAT_INLINE bool IsService() { return _service; }
