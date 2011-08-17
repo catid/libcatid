@@ -31,17 +31,13 @@
 using namespace cat;
 
 
-//// RefObjects singleton
-
-static RefObjects refobject_reaper;
-
-
 //// RefObject
 
 RefObject::RefObject()
 {
 	// Initialize to one reference
 	_ref_count = 1;
+	_shutdown = 0;
 }
 
 void RefObject::Destroy(const char *file_line)
@@ -55,13 +51,13 @@ void RefObject::Destroy(const char *file_line)
 	u32 shutdown;
 
 	_lock.Enter();
-	shutdown = _shutdown_guid;
-	_shutdown_guid = ILLEGAL_GUID;
+	shutdown = _shutdown;
+	_shutdown = 1;
 	_lock.Leave();
 
 	if (shutdown == 0)
 #else
-	if (Atomic::Set(&_shutdown_guid, ILLEGAL_GUID) != ILLEGAL_GUID)
+	if (Atomic::Set(&_shutdown, 1) != 1)
 #endif
 	{
 		// Notify the derived class on the first shutdown request
@@ -78,58 +74,79 @@ void RefObject::OnZeroReferences(const char *file_line)
 	CAT_WARN("RefObject") << GetRefObjectName() << "#" << this << " zero refs at " << file_line;
 #endif
 
-	refobject_reaper.Kill(this);
+	RefObjects::ref()->Kill(this);
 }
 
 
 //// RefObjects
 
-RefObjects::RefObjects()
+CAT_ON_SINGLETON_STARTUP(RefObjects)
 {
-	_active_head = _dead_head = 0;
+	_shutdown = false;
 
-	_shutdown = _initialized = false;
-}
+	if (0 != atexit(&RefObjectsAtExit))
+	{
+		CAT_FATAL("RefObjects") << "Unable to register atexit callback";
+		_initialized = false;
+		return;
+	}
 
-RefObject *RefObjects::FindActiveByGUID(u32 guid)
-{
-	for (RefObject *obj = _active_head; obj; obj = obj->_next)
-		if (obj->RefObjectGUID == guid)
-			return obj;
+	if (!Thread::StartThread())
+	{
+		CAT_FATAL("RefObjects") << "Unable to start reaper thread";
+		_initialized = false;
+		return;
+	}
 
-	return 0;
+	_initialized = true;
 }
 
 bool RefObjects::Watch(const char *file_line, RefObject *obj)
 {
 	if (!obj) return false;
 
+	if (!_initialized || _shutdown)
+	{
+		delete obj;
+
+#if defined(CAT_TRACE_REFOBJECT)
+		CAT_INANE("RefObjects") << obj->GetRefObjectName() << "#" << obj << " refused to watch during bad state at " << file_line;
+#endif
+		return false;
+	}
+
 	AutoMutex lock(_lock);
 
 	if (_shutdown)
 	{
 		lock.Release();
+
 		delete obj;
+
 #if defined(CAT_TRACE_REFOBJECT)
-		CAT_INANE("RefObjects") << "Acquire: " << obj->GetRefObjectName() << "#" << obj << " ignored during shutdown at " << file_line;
+		CAT_INANE("RefObjects") << obj->GetRefObjectName() << "#" << obj << " refused to watch during shutdown at " << file_line;
 #endif
 		return false;
 	}
 
 	if (!obj->OnRefObjectInitialize())
 	{
+#if defined(CAT_TRACE_REFOBJECT)
+		CAT_WARN("RefObjects") << obj->GetRefObjectName() << "#" << obj << " failed to initialize at " << file_line;
+#endif
+
 		obj->Destroy(file_line);
 
-		LinkToDeadList(obj);
+		_dead_list.PushFront(obj);
 
 		return false;
 	}
 
 #if defined(CAT_TRACE_REFOBJECT)
-	CAT_WARN("RefObjects") << obj->GetRefObjectName() << "#" << obj << " acquired at " << file_line;
+	CAT_WARN("RefObjects") << obj->GetRefObjectName() << "#" << obj << " active and watched at " << file_line;
 #endif
 
-	LinkToActiveList(obj);
+	_active_list.PushFront(obj);
 
 	return true;
 }
@@ -139,56 +156,31 @@ void RefObjects::Kill(RefObject *obj)
 	AutoMutex lock(_lock);
 
 	// Skip if shutdown
-	if (_shutdown) return;
-
-	UnlinkFromActiveList(obj);
-
-	LinkToDeadList(obj);
-}
-
-RefObjects *RefObjects::ref()
-{
-	refobject_reaper.Initialize();
-
-	return &refobject_reaper;
-}
-
-void RefObjectsAtExit()
-{
-	refobject_reaper.Shutdown();
-}
-
-bool RefObjects::Initialize()
-{
-	if (_initialized) return true;
-
-	AutoMutex lock(_lock);
-
-	if (_initialized) return true;
-
-	atexit(&RefObjectsAtExit);
-
-	_initialized = true;
-
-	if (!Thread::StartThread())
+	if (!_shutdown)
 	{
-		CAT_FATAL("RefObjects") << "Unable to start reaper thread";
-		return false;
-	}
+		_active_list.Erase(obj);
 
-	return true;
+		_dead_list.PushFront(obj);
+	}
 }
 
-bool RefObjects::Shutdown(s32 milliseconds)
+void RefObjects::RefObjectsAtExit()
+{
+	RefObjects::ref()->Shutdown();
+}
+
+void RefObjects::Shutdown()
 {
 	_shutdown_flag.Set();
 
-	return Thread::WaitForThread(milliseconds);
+	static const int REFOBJECTS_REAPER_WAIT = 15000; // ms
+
+	Thread::WaitForThread(REFOBJECTS_REAPER_WAIT);
 }
 
 void RefObjects::BuryDeadites()
 {
-	if (!_dead_head) return;
+	if (!_dead_list.empty()) return;
 
 	RefObject *dead_head;
 
