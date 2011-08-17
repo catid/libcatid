@@ -252,6 +252,61 @@ public:
 };
 
 
+/*
+	RefObjects Singleton
+
+	The standard singleton provides synchronous initialization and a single global instance.
+	The RefObjects singleton also provides ordered shutdown.
+*/
+
+
+// In the H file for the object, use this macro:
+#define CAT_SINGLETON(T)		\
+	CAT_NO_COPY(T);				\
+public:							\
+	static T *ref();			\
+private:						\
+	CAT_INLINE T() {}			\
+	CAT_INLINE virtual ~T() {}	\
+	friend class Singleton<T>;	\
+	void OnSingletonStartup();
+
+
+// In the C file for the object, use this macro:
+#define CAT_ON_SINGLETON_STARTUP(T)		\
+static cat::Singleton<T> m_T_ss;		\
+T *T::ref() { return m_T_ss.GetRef(); }	\
+void T::OnSingletonStartup()
+
+
+// Internal class
+template<class T>
+class Singleton
+{
+	T _instance;
+	bool _init;
+	Mutex _lock;
+
+public:
+	CAT_INLINE T *GetRef()
+	{
+		if (_init) return &_instance;
+
+		AutoMutex lock(_lock);
+
+		if (_init) return &_instance;
+
+		_instance.OnSingletonStartup();
+
+		CAT_FENCE_COMPILER;
+
+		_init = true;
+
+		return &_instance;
+	}
+};
+
+
 } // namespace cat
 
 #endif // CAT_REF_OBJECT_HPP
