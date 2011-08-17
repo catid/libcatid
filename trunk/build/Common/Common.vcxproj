@@ -164,8 +164,7 @@
     <ClCompile Include="..\..\src\io\Logging.cpp" />
     <ClCompile Include="..\..\src\io\MappedFile.cpp" />
     <ClCompile Include="..\..\src\io\Settings.cpp" />
-    <ClCompile Include="..\..\src\lang\DoublyLinkedLists.cpp" />
-    <ClCompile Include="..\..\src\lang\SinglyLinkedLists.cpp" />
+    <ClCompile Include="..\..\src\lang\LinkedLists.cpp" />
     <ClCompile Include="..\..\src\math\BitMath.cpp" />
     <ClCompile Include="..\..\src\mem\AlignedAllocator.cpp" />
     <ClCompile Include="..\..\src\mem\BufferAllocator.cpp" />
@@ -201,9 +200,8 @@
     <ClInclude Include="..\..\include\cat\io\MappedFile.hpp" />
     <ClInclude Include="..\..\include\cat\io\Settings.hpp" />
     <ClInclude Include="..\..\include\cat\lang\Delegates.hpp" />
-    <ClInclude Include="..\..\include\cat\lang\DoublyLinkedLists.hpp" />
     <ClInclude Include="..\..\include\cat\lang\Singleton.hpp" />
-    <ClInclude Include="..\..\include\cat\lang\SinglyLinkedLists.hpp" />
+    <ClInclude Include="..\..\include\cat\lang\LinkedLists.hpp" />
     <ClInclude Include="..\..\include\cat\mem\AlignedAllocator.hpp" />
     <ClInclude Include="..\..\include\cat\mem\BufferAllocator.hpp" />
     <ClInclude Include="..\..\include\cat\mem\IAllocator.hpp" />

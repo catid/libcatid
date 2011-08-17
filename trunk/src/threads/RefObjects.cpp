@@ -104,10 +104,24 @@ bool RefObjects::Watch(const char *file_line, RefObject *obj)
 {
 	if (!obj) return false;
 
+	AutoMutex lock(_lock);
+
+	if (_shutdown)
+	{
+		lock.Release();
+		delete obj;
+#if defined(CAT_TRACE_REFOBJECT)
+		CAT_INANE("RefObjects") << "Acquire: " << obj->GetRefObjectName() << "#" << obj << " ignored during shutdown at " << file_line;
+#endif
+		return false;
+	}
+
 	if (!obj->OnRefObjectInitialize())
 	{
 		obj->Destroy(file_line);
+
 		LinkToDeadList(obj);
+
 		return false;
 	}
 
@@ -118,38 +132,6 @@ bool RefObjects::Watch(const char *file_line, RefObject *obj)
 	LinkToActiveList(obj);
 
 	return true;
-}
-
-void RefObjects::LinkToActiveList(RefObject *obj)
-{
-	RefObject *old_head = _active_head;
-
-	obj->_prev = 0;
-	obj->_next = old_head;
-
-	if (old_head) old_head->_prev = obj;
-
-	_active_head = obj;
-}
-
-void RefObjects::UnlinkFromActiveList(RefObject *obj)
-{
-	RefObject *next = obj->_next, *prev = obj->_prev;
-	if (prev) prev->_next = obj;
-	else _active_head = next;
-	if (next) next->_prev = obj;
-}
-
-void RefObjects::LinkToDeadList(RefObject *obj)
-{
-	RefObject *old_head = _dead_head;
-
-	obj->_prev = 0;
-	obj->_next = old_head;
-
-	if (old_head) old_head->_prev = obj;
-
-	_dead_head = obj;
 }
 
 void RefObjects::Kill(RefObject *obj)

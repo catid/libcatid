@@ -120,10 +120,7 @@
     <ClCompile Include="..\..\src\threads\RefObjects.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\lang\DoublyLinkedLists.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\lang\SinglyLinkedLists.cpp">
+    <ClCompile Include="..\..\src\lang\LinkedLists.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -230,13 +227,10 @@
     <ClInclude Include="..\..\include\cat\threads\RefObjects.hpp">
       <Filter>Header Files\threads</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\cat\lang\SinglyLinkedLists.hpp">
-      <Filter>Header Files\lang</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\include\cat\lang\DoublyLinkedLists.hpp">
-      <Filter>Header Files\lang</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\include\cat\lang\Singleton.hpp">
+      <Filter>Header Files\lang</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\lang\LinkedLists.hpp">
       <Filter>Header Files\lang</Filter>
     </ClInclude>
   </ItemGroup>
