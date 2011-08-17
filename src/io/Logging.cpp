@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -60,9 +60,6 @@ static const char *const EVENT_NAME[5] = { "Inane", "Info", "Warn", "Oops", "Fat
 static const char *const SHORT_EVENT_NAME[5] = { ".", "I", "W", "!", "F" };
 
 
-static Logging m_logging;
-
-
 //// Free functions
 
 std::string cat::HexDumpString(const void *vdata, u32 bytes)
@@ -108,9 +105,11 @@ std::string cat::HexDumpString(const void *vdata, u32 bytes)
 
 void cat::FatalStop(const char *message)
 {
-	if (m_logging.IsService())
+	Logging *log = Logging::ref();
+
+	if (log->IsService())
 	{
-		m_logging.WriteServiceLog(LVL_FATAL, message);
+		log->WriteServiceLog(LVL_FATAL, message);
 	}
 	else
 	{
@@ -128,14 +127,16 @@ void cat::FatalStop(const char *message)
 
 void cat::DefaultLogCallback(EventSeverity severity, const char *source, std::ostringstream &msg)
 {
-	if (m_logging.IsService())
+	Logging *log = Logging::ref();
+
+	if (log->IsService())
 	{
 		std::ostringstream oss;
 		oss << "<" << source << "> " << msg.str() << endl;
 
 		std::string result = oss.str();
 
-		m_logging.WriteServiceLog(severity, result.c_str());
+		log->WriteServiceLog(severity, result.c_str());
 	}
 	else
 	{
@@ -155,16 +156,11 @@ void cat::DefaultLogCallback(EventSeverity severity, const char *source, std::os
 
 //// Logging
 
-Logging::Logging()
+CAT_ON_SINGLETON_STARTUP(Logging)
 {
 	_callback = Callback::FromFree<&DefaultLogCallback>();
 	_log_threshold = LVL_INANE;
 	_service = false;
-}
-
-Logging *Logging::ref()
-{
-	return &m_logging;
 }
 
 void Logging::SetLogCallback(const Callback &cb)
@@ -224,7 +220,7 @@ Recorder::Recorder(const char *subsystem, EventSeverity severity)
 
 Recorder::~Recorder()
 {
-	m_logging.LogEvent(this);
+	Logging::ref()->LogEvent(this);
 }
 
 
