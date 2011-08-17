@@ -123,6 +123,9 @@
     <ClCompile Include="..\..\src\lang\LinkedLists.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\lang\Singleton.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\cat\AllCommon.hpp">

@@ -39,6 +39,7 @@
 	+ Cannot create or copy the singleton object in normal ways.
 	+ Easier to type than coding it in a broken way.
 	+ Access the object across DLLs without memory allocation issues.
+	+ Uses a single global mutex to reduce OS resource overhead.
 
 	Usage:
 
@@ -69,6 +70,7 @@
 */
 
 #include <cat/threads/RefObjects.hpp>
+#include <cat/threads/Mutex.hpp>
 
 namespace cat {
 
@@ -93,19 +95,25 @@ void T::OnSingletonStartup()
 
 
 // Internal class
+class Singletons
+{
+	static Mutex &GetMutex();
+};
+
+
+// Internal class
 template<class T>
 class Singleton
 {
 	T _instance;
 	bool _init;
-	Mutex _lock;
 
 public:
 	CAT_INLINE T *GetRef()
 	{
 		if (_init) return &_instance;
 
-		AutoMutex lock(_lock);
+		AutoMutex lock(Singletons::GetMutex());
 
 		if (_init) return &_instance;
 
