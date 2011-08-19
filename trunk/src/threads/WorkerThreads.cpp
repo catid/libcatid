@@ -351,7 +351,7 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 
 //// WorkerThreads
 
-WorkerThreads::WorkerThreads()
+void WorkerThreads::OnInitialize()
 {
 	_tick_interval = 10;
 	_worker_count = 2;
@@ -359,17 +359,15 @@ WorkerThreads::WorkerThreads()
 	_workers = 0;
 	_tls_builder = 0;
 	_round_robin_worker_id = 0;
-}
 
-bool WorkerThreads::OnRefObjectInitialize()
-{
 	u32 worker_count = _worker_count;
 
+	// Allocate worker thread objects
 	_workers = new WorkerThread[worker_count];
 	if (!_workers)
 	{
 		CAT_FATAL("WorkerThreads") << "Out of memory while allocating " << worker_count << " worker thread objects";
-		return false;
+		return;
 	}
 
 	// For each worker,
@@ -379,20 +377,16 @@ bool WorkerThreads::OnRefObjectInitialize()
 		if (!_workers[ii].StartThread(this))
 		{
 			CAT_FATAL("WorkerThreads") << "StartThread error " << GetLastError();
-			return false;
+			return;
 		}
 
 		_workers[ii].SetIdealCore(ii);
 	}
 
-	return true;
+	return;
 }
 
-void WorkerThreads::OnRefObjectDestroy()
-{
-}
-
-bool WorkerThreads::OnRefObjectFinalize()
+void WorkerThreads::OnFinalize()
 {
 	u32 worker_count = _worker_count;
 
@@ -430,8 +424,6 @@ bool WorkerThreads::OnRefObjectFinalize()
 		delete _tls_builder;
 		_tls_builder = 0;
 	}
-
-	return true;
 }
 
 u32 WorkerThreads::FindLeastPopulatedWorker()

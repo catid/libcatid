@@ -146,8 +146,13 @@ public:
 
 
 // A pool of worker threads
-class CAT_EXPORT WorkerThreads : public RefObject
+class CAT_EXPORT WorkerThreads : public RefSingleton<WorkerThreads>
 {
+	RefSingletonUses<Clock> _clock;
+
+	void OnInitialize();
+	void OnFinalize();
+
 	friend class WorkerThread;
 
 	u32 _tick_interval;
@@ -162,9 +167,6 @@ class CAT_EXPORT WorkerThreads : public RefObject
 public:
 	WorkerThreads();
 	CAT_INLINE virtual ~WorkerThreads() {}
-
-	static const u32 RefObjectGUID = 0x1e95ced; // Global Unique IDentifier for acquiring RefObject singletons
-	CAT_INLINE const char *GetRefObjectName() { return "WorkerThreads"; }
 
 	CAT_INLINE u32 GetWorkerCount() { return _worker_count; }
 
@@ -196,11 +198,6 @@ public:
 
 		return worker_id;
 	}
-
-protected:
-	bool OnRefObjectInitialize();
-	void OnRefObjectDestroy();
-	bool OnRefObjectFinalize();
 };
 
 
