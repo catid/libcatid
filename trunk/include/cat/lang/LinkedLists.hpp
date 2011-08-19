@@ -43,7 +43,7 @@
 
 namespace cat {
 
-	
+
 /*
 	Forward-only doubly linked list
 
