@@ -39,10 +39,8 @@ namespace cat {
 
 
 // Large-size aligned heap allocator
-class CAT_EXPORT LargeAllocator : public IAllocator
+class CAT_EXPORT LargeAllocator : public IAllocator, public Singleton<LargeAllocator>
 {
-	CAT_SINGLETON(LargeAllocator);
-
 public:
 	// Acquires memory aligned to a CPU cache-line byte boundary from the heap
     void *Acquire(u32 bytes);

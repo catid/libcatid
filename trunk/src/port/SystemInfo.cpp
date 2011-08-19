@@ -220,7 +220,7 @@ static u32 GetAllocationGranularity()
 
 //// SystemInfo
 
-CAT_ON_SINGLETON_STARTUP(SystemInfo)
+void SystemInfo::OnInitialize()
 {
 	_CacheLineBytes = GetCacheLineBytes();
 	_ProcessorCount = GetProcessorCount();

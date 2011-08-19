@@ -45,14 +45,15 @@
 
 		To declare a singleton class:
 
-			class MyClass
+			class SystemInfo : Singleton<SystemInfo>
 			{
-				CAT_SINGLETON(MyClass);
 				...
 
 		To define a singleton class:
 
-			CAT_ON_SINGLETON_STARTUP(SystemInfo)
+			CAT_SINGLETON(SystemInfo);
+
+			void SystemInfo::OnInitialize()
 			{
 				...
 			}
@@ -73,32 +74,38 @@
 
 namespace cat {
 
+// In the H file for the object, derive from this class:
+template<class T>
+class Singleton
+{
+	friend class SingletonImpl<T>;
 
-// In the H file for the object, use this macro:
-#define CAT_SINGLETON(T)		\
-	CAT_NO_COPY(T);				\
-public:							\
-	static T *ref();			\
-private:						\
-	CAT_INLINE T() {}			\
-	CAT_INLINE virtual ~T() {}	\
-	friend class Singleton<T>;	\
-	void OnSingletonStartup();
+	CAT_NO_COPY(Singleton)
+	CAT_INLINE Singleton() {}
+
+protected:
+	CAT_INLINE virtual void OnInitialize() {}
+
+public:
+	CAT_INLINE virtual ~Singleton() {}
+
+	static T *ref();
+};
 
 
 // In the C file for the object, use this macro:
-#define CAT_ON_SINGLETON_STARTUP(T)		\
-static cat::Singleton<T> m_T_ss;		\
-T *T::ref() { return m_T_ss.GetRef(); }	\
-void T::OnSingletonStartup()
+#define CAT_SINGLETON(T)				\
+static cat::SingletonImpl<T> m_T_ss;	\
+T *Singleton<T>::ref() { return m_T_ss.GetRef(); }
 
 
 // Internal free function
 Mutex CAT_EXPORT &GetSingletonMutex();
 
+
 // Internal class
 template<class T>
-class Singleton
+class SingletonImpl
 {
 	T _instance;
 	bool _init;
@@ -112,7 +119,7 @@ public:
 
 		if (_init) return &_instance;
 
-		_instance.OnSingletonStartup();
+		_instance.OnInitialize();
 
 		CAT_FENCE_COMPILER;
 

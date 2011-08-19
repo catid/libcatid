@@ -39,9 +39,9 @@ namespace cat {
 
 
 // Small to medium -size aligned heap allocator
-class CAT_EXPORT AlignedAllocator : public IAllocator
+class CAT_EXPORT AlignedAllocator : public IAllocator, public Singleton<AlignedAllocator>
 {
-	CAT_SINGLETON(AlignedAllocator);
+	void OnInitialize();
 
 public:
 	// Acquires memory aligned to a CPU cache-line byte boundary from the heap

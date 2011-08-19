@@ -36,7 +36,7 @@ namespace cat {
 
 
 // Small to medium -size unaligned heap allocator
-class CAT_EXPORT StdAllocator : public IAllocator
+class CAT_EXPORT StdAllocator : public IAllocator, public Singleton<StdAllocator>
 {
 public:
 	CAT_INLINE virtual ~StdAllocator() {}
@@ -59,8 +59,6 @@ public:
 	{
 		free(ptr);
 	}
-
-	static StdAllocator *ii;
 };
 
 

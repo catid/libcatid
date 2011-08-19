@@ -45,7 +45,6 @@
 
 #include <cat/threads/Atomic.hpp>
 #include <cat/threads/Mutex.hpp>
-#include <cat/threads/AutoMutex.hpp>
 #include <cat/threads/RWLock.hpp>
 #include <cat/threads/Thread.hpp>
 #include <cat/threads/WaitableFlag.hpp>
@@ -61,6 +60,7 @@
 #include <cat/lang/Delegates.hpp>
 #include <cat/lang/LinkedLists.hpp>
 #include <cat/lang/Singleton.hpp>
+#include <cat/lang/RefSingleton.hpp>
 
 #include <cat/io/Logging.hpp>
 #include <cat/io/MappedFile.hpp>

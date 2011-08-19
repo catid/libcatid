@@ -165,6 +165,7 @@
     <ClCompile Include="..\..\src\io\MappedFile.cpp" />
     <ClCompile Include="..\..\src\io\Settings.cpp" />
     <ClCompile Include="..\..\src\lang\LinkedLists.cpp" />
+    <ClCompile Include="..\..\src\lang\RefSingleton.cpp" />
     <ClCompile Include="..\..\src\lang\Singleton.cpp" />
     <ClCompile Include="..\..\src\math\BitMath.cpp" />
     <ClCompile Include="..\..\src\mem\AlignedAllocator.cpp" />

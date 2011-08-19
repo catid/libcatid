@@ -60,7 +60,9 @@ static const u32 OLD_BYTES_OVERHEAD = sizeof(u32);
 
 static u32 m_cacheline_bytes;
 
-CAT_ON_SINGLETON_STARTUP(AlignedAllocator)
+CAT_SINGLETON(AlignedAllocator);
+
+void AlignedAllocator::OnInitialize()
 {
 	m_cacheline_bytes = SystemInfo::ref()->GetCacheLineBytes();
 }

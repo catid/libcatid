@@ -29,37 +29,59 @@
 #ifndef CAT_REF_SINGLETON_HPP
 #define CAT_REF_SINGLETON_HPP
 
-#include <cat/threads/RefObjects.hpp>
-#include <cat/threads/Mutex.hpp>
+#include <cat/lang/Singleton.hpp>
 
 namespace cat {
 
+class RefSingletonBase;
+class RefSingletons;
 
-// In the H file for the object, use this macro:
-#define CAT_SINGLETON(T)		\
-	CAT_NO_COPY(T);				\
-public:							\
-	static T *ref();			\
-private:						\
-	CAT_INLINE T() {}			\
-	CAT_INLINE virtual ~T() {}	\
-	friend class Singleton<T>;	\
-	void OnSingletonStartup();
+
+// In the H file for the object, derive from this class:
+template<class T>
+class RefSingleton : public RefSingletonBase
+{
+	friend class RefSingletonImpl<T>;
+
+	CAT_INLINE virtual ~RefSingleton<T>() {}
+
+protected:
+	// Called during initialization, return false to indicate error
+	virtual bool OnInitialize() = 0;
+
+	// Called during finalization, return false to indicate error
+	virtual bool OnFinalize() = 0;
+
+public:
+	static T *ref();
+};
 
 
 // In the C file for the object, use this macro:
-#define CAT_ON_SINGLETON_STARTUP(T)		\
-static cat::Singleton<T> m_T_ss;		\
-T *T::ref() { return m_T_ss.GetRef(); }	\
-void T::OnSingletonStartup()
+#define CAT_REF_SINGLETON(T)				\
+static cat::RefSingletonImpl<T> m_T_rss;	\
+T *T::ref() { return m_T_rss.GetRef(); }
 
+
+// Internal class
+class RefSingletonBase : public SListItem
+{
+	CAT_NO_COPY(RefSingletonBase);
+
+	CAT_INLINE RefSingletonBase() {}
+	CAT_INLINE virtual ~RefSingletonBase() {}
+
+protected:
+	virtual bool OnInitialize() = 0;
+	virtual bool OnFinalize() = 0;
+};
 
 // Internal free function
-Mutex CAT_EXPORT &GetSingletonMutex();
+Mutex CAT_EXPORT &GetRefSingletonMutex();
 
 // Internal class
 template<class T>
-class Singleton
+class RefSingletonImpl
 {
 	T _instance;
 	bool _init;
@@ -69,11 +91,11 @@ public:
 	{
 		if (_init) return &_instance;
 
-		AutoMutex lock(GetSingletonMutex());
+		AutoMutex lock(GetRefSingletonMutex());
 
 		if (_init) return &_instance;
 
-		_instance.OnSingletonStartup();
+		_instance.OnRefSingletonStartup();
 
 		CAT_FENCE_COMPILER;
 
@@ -81,6 +103,26 @@ public:
 
 		return &_instance;
 	}
+};
+
+// Internal class
+class RefSingletons : public Singleton<RefSingletons>
+{
+	SList _active_list;
+	typedef SList::Iterator<RefSingletonBase> iter;
+
+	template<class T>
+	CAT_INLINE void Watch(T *obj)
+	{
+		AutoMutex lock(GetRefSingletonMutex());
+
+		_active_list.PushFront(obj);
+	}
+
+	static void OnExit();
+
+	void OnInitialize();
+	void OnFinalize();
 };
 
 

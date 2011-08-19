@@ -126,6 +126,9 @@
     <ClCompile Include="..\..\src\lang\Singleton.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\lang\RefSingleton.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\cat\AllCommon.hpp">
@@ -237,7 +240,7 @@
       <Filter>Header Files\lang</Filter>
     </ClInclude>
     <ClInclude Include="..\..\include\cat\lang\RefSingleton.hpp">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\lang</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

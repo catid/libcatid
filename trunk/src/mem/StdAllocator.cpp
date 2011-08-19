@@ -29,5 +29,4 @@
 #include <cat/mem/StdAllocator.hpp>
 using namespace cat;
 
-static StdAllocator std_allocator;
-StdAllocator *cat::StdAllocator::ii = &std_allocator;
+CAT_SINGLETON(StdAllocator);
