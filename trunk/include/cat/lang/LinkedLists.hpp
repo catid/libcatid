@@ -31,8 +31,15 @@
 
 #include <cat/Platform.hpp>
 
-// The point of this code is to generate fast and correct implementations of
-// linked lists that introduce a minimal amount of overhead.
+/*
+	The point of this code is to generate fast and correct implementations of
+	linked lists that introduce a minimal amount of overhead.  When applicable
+	these designs are way better than std::list as the next/prev pointers are
+	stored inside of the objects in the list.
+
+	I was finding that I had to write linked list code over and over and
+	decided it was time to write it in a reusable way.
+*/
 
 namespace cat {
 
@@ -265,7 +272,6 @@ class CAT_EXPORT DListItem
 	friend class DListForward;
 	friend class DListIteratorBase;
 
-private:
 	DListItem *_next, *_prev;
 };
 
@@ -548,7 +554,6 @@ class CAT_EXPORT SListItem
 	friend class SList;
 	friend class SListIteratorBase;
 
-private:
 	SListItem *_next;
 };
 

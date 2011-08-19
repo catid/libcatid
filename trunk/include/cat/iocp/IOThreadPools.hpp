@@ -33,6 +33,7 @@
 #include <cat/net/Sockets.hpp>
 #include <cat/threads/RefObjects.hpp>
 #include <cat/mem/BufferAllocator.hpp>
+#include <cat/lang/LinkedLists.hpp>
 
 #if defined(CAT_OS_WINDOWS)
 # include <cat/port/WindowsInclude.hpp>
@@ -153,7 +154,7 @@ class CAT_EXPORT IOThread : public Thread
 
 
 // A pool of IOThreadPools
-class CAT_EXPORT IOThreadPool
+class CAT_EXPORT IOThreadPool : public DListItem
 {
 	HANDLE _io_port;
 
@@ -180,8 +181,8 @@ class CAT_EXPORT IOThreadPools
 	BufferAllocator *_recv_allocator;
 
 	Mutex _lock;
-	std::list<IOThreadPool> _private_pools;
-	typedef std::list<IOThreadPool>::iterator pools_iter;
+	DListForward _private_pools;
+	typedef DListForward::Iterator<IOThreadPool> pools_iter;
 
 	IOThreadPool _shared_pool;
 
