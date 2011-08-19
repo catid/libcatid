@@ -201,6 +201,7 @@
     <ClInclude Include="..\..\include\cat\io\MappedFile.hpp" />
     <ClInclude Include="..\..\include\cat\io\Settings.hpp" />
     <ClInclude Include="..\..\include\cat\lang\Delegates.hpp" />
+    <ClInclude Include="..\..\include\cat\lang\RefSingleton.hpp" />
     <ClInclude Include="..\..\include\cat\lang\Singleton.hpp" />
     <ClInclude Include="..\..\include\cat\lang\LinkedLists.hpp" />
     <ClInclude Include="..\..\include\cat\mem\AlignedAllocator.hpp" />

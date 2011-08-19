@@ -456,10 +456,10 @@ bool IOThreadPools::OnRefObjectFinalize()
 	}
 
 	// For each pool,
-	for (pools_iter ii = _private_pools.begin(); ii != _private_pools.end(); ++ii)
+	for (pools_iter ii = _private_pools.head(); ii; ++ii)
 		ii->Shutdown();
 
-	_private_pools.clear();
+	_private_pools.Clear();
 
 	_shared_pool.Shutdown();
 
@@ -470,17 +470,17 @@ IOThreadPool *IOThreadPools::AssociatePrivate(IOThreadsAssociator *associator)
 {
 	AutoMutex lock(_lock);
 
-	_private_pools.push_front(IOThreadPool());
+	_private_pools.PushFront(new IOThreadPool());
 
-	IOThreadPool &pool = _private_pools.front();
+	pools_iter ii = _private_pools.head();
 
-	if (!pool.Startup(1) || !pool.Associate(associator))
+	if (!ii->Startup(1) || !ii->Associate(associator))
 	{
-		_private_pools.pop_front();
+		_private_pools.Erase(ii);
 		return 0;
 	}
 
-	return &pool;
+	return ii;
 }
 
 bool IOThreadPools::DissociatePrivate(IOThreadPool *pool)
@@ -492,11 +492,11 @@ bool IOThreadPools::DissociatePrivate(IOThreadPool *pool)
 	AutoMutex lock(_lock);
 
 	// For each pool,
-	for (pools_iter ii = _private_pools.begin(); ii != _private_pools.end(); ++ii)
+	for (pools_iter ii = _private_pools.head(); ii; ++ii)
 	{
-		if (pool == &*ii)
+		if (pool == ii)
 		{
-			_private_pools.erase(ii);
+			_private_pools.Erase(ii);
 			break;
 		}
 	}

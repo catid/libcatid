@@ -230,11 +230,14 @@
     <ClInclude Include="..\..\include\cat\threads\RefObjects.hpp">
       <Filter>Header Files\threads</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\include\cat\lang\LinkedLists.hpp">
+      <Filter>Header Files\lang</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\include\cat\lang\Singleton.hpp">
       <Filter>Header Files\lang</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\cat\lang\LinkedLists.hpp">
-      <Filter>Header Files\lang</Filter>
+    <ClInclude Include="..\..\include\cat\lang\RefSingleton.hpp">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
