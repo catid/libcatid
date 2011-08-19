@@ -26,12 +26,30 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/lang/Singleton.hpp>
+#include <cat/lang/RefSingleton.hpp>
 using namespace cat;
 
-static Mutex m_lock;
+static Mutex m_ref_singleton_mutex;
 
-Mutex &cat::GetSingletonMutex()
+Mutex &cat::GetRefSingletonMutex()
 {
-	return m_lock;
+	return m_ref_singleton_mutex;
+}
+
+void RefSingletons::OnExit()
+{
+	RefSingletons::ref()->OnFinalize();
+}
+
+CAT_SINGLETON(RefSingletons);
+
+void RefSingletons::OnInitialize()
+{
+	// Register shutdown callback
+	atexit(&RefSingletons::OnExit);
+}
+
+void RefSingletons::OnFinalize()
+{
+	// TODO
 }

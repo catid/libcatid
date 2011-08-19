@@ -116,6 +116,55 @@ CAT_INLINE bool Mutex::Leave()
 }
 
 
+// RAII Mutex wrapper
+class AutoMutex
+{
+	Mutex *_mutex;
+
+public:
+	CAT_INLINE AutoMutex()
+	{
+		_mutex = 0;
+	}
+
+	CAT_INLINE AutoMutex(Mutex &mutex)
+	{
+		_mutex = &mutex;
+		mutex.Enter();
+	}
+
+	CAT_INLINE ~AutoMutex()
+	{
+		Release();
+	}
+
+	// TryEnter can be used to hold a lock conditionally
+	// through a complex routine and release it at the
+	// end only if it was held at some point.
+	CAT_INLINE void TryEnter(Mutex &mutex)
+	{
+		if (!_mutex)
+		{
+			_mutex = &mutex;
+			mutex.Enter();
+		}
+	}
+
+	CAT_INLINE bool Release()
+	{
+		bool success = false;
+
+		if (_mutex)
+		{
+			success = _mutex->Leave();
+			_mutex = 0;
+		}
+
+		return success;
+	}
+};
+
+
 } // namespace cat
 
 #endif // CAT_MUTEX_HPP

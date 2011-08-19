@@ -29,9 +29,9 @@
 #include <cat/lang/Singleton.hpp>
 using namespace cat;
 
-static Mutex m_lock;
+static Mutex m_singleton_lock;
 
 Mutex &cat::GetSingletonMutex()
 {
-	return m_lock;
+	return m_singleton_lock;
 }

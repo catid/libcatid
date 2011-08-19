@@ -73,10 +73,8 @@ void CAT_EXPORT DefaultLogCallback(EventSeverity severity, const char *source, s
 
 //// Logging
 
-class CAT_EXPORT Logging
+class CAT_EXPORT Logging : public Singleton<Logging>
 {
-	CAT_SINGLETON(Logging);
-
 	friend class Recorder;
 
 public:
@@ -93,6 +91,7 @@ private:
 
 	int _log_threshold;
 
+	void OnInitialize();
 	void LogEvent(Recorder *recorder);
 
 public:

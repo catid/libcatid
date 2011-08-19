@@ -26,17 +26,17 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_CACHE_LINE_BYTES_HPP
-#define CAT_CACHE_LINE_BYTES_HPP
+#ifndef CAT_SYSTEM_INFO_HPP
+#define CAT_SYSTEM_INFO_HPP
 
 #include <cat/lang/Singleton.hpp>
 
 namespace cat {
 
 
-class SystemInfo
+class SystemInfo : public Singleton<SystemInfo>
 {
-	CAT_SINGLETON(SystemInfo);
+	void OnInitialize();
 
 	// Number of bytes in each CPU cache line
 	u32 _CacheLineBytes;
@@ -60,4 +60,4 @@ public:
 
 } // namespace cat
 
-#endif // CAT_CACHE_LINE_BYTES_HPP
+#endif // CAT_SYSTEM_INFO_HPP

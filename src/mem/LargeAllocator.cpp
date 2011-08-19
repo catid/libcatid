@@ -36,9 +36,7 @@ using namespace cat;
 #include <cat/port/WindowsInclude.hpp>
 #endif
 
-CAT_ON_SINGLETON_STARTUP(AlignedAllocator)
-{
-}
+CAT_SINGLETON(LargeAllocator);
 
 // Allocates memory aligned to a CPU cache-line byte boundary from the heap
 void *LargeAllocator::Acquire(u32 bytes)
