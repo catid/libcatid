@@ -109,7 +109,7 @@ class CAT_EXPORT Singleton
 {
 	friend class SingletonImpl<T>;
 
-	CAT_NO_COPY(Singleton)
+	CAT_NO_COPY(Singleton);
 	CAT_INLINE Singleton() {}
 
 protected:
