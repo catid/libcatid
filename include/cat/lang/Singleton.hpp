@@ -69,7 +69,6 @@
 		-> Use RefObjects for singletons that need cleanup.
 */
 
-#include <cat/threads/RefObjects.hpp>
 #include <cat/threads/Mutex.hpp>
 
 namespace cat {
