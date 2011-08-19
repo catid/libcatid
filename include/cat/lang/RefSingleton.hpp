@@ -30,16 +30,57 @@
 #define CAT_REF_SINGLETON_HPP
 
 #include <cat/lang/Singleton.hpp>
+#include <cat/lang/LinkedLists.hpp>
 
 namespace cat {
 
-class RefSingletonBase;
-class RefSingletons;
+
+// Internal class
+class CAT_EXPORT RefSingletonBase : public SListItem
+{
+	CAT_NO_COPY(RefSingletonBase);
+
+	CAT_INLINE RefSingletonBase() {}
+
+protected:
+	virtual void OnInitialize() = 0;
+	virtual void OnFinalize() = 0;
+
+public:
+	CAT_INLINE virtual ~RefSingletonBase() {}
+};
+
+// Internal class
+template<class T>
+class RefSingletonImpl
+{
+	T _instance;
+	bool _init;
+
+public:
+	CAT_INLINE T *GetRef()
+	{
+		if (_init) return &_instance;
+
+		AutoMutex lock(GetRefSingletonMutex());
+
+		if (_init) return &_instance;
+
+		RefSingleton<T> *ptr = &_instance;
+		ptr->OnInitialize();
+
+		CAT_FENCE_COMPILER;
+
+		_init = true;
+
+		return &_instance;
+	}
+};
 
 
 // In the H file for the object, derive from this class:
 template<class T>
-class RefSingleton : public RefSingletonBase
+class CAT_EXPORT RefSingleton : public RefSingletonBase
 {
 	friend class RefSingletonImpl<T>;
 
@@ -60,55 +101,14 @@ public:
 // In the C file for the object, use this macro:
 #define CAT_REF_SINGLETON(T)				\
 static cat::RefSingletonImpl<T> m_T_rss;	\
-T *RefSingleton<T>::ref() { return m_T_rss.GetRef(); }
+template<> T *RefSingleton<T>::ref() { return m_T_rss.GetRef(); }
 
-
-// Internal class
-class RefSingletonBase : public SListItem
-{
-	CAT_NO_COPY(RefSingletonBase);
-
-	CAT_INLINE RefSingletonBase() {}
-
-protected:
-	virtual bool OnInitialize() = 0;
-	virtual bool OnFinalize() = 0;
-
-public:
-	CAT_INLINE virtual ~RefSingletonBase() {}
-};
 
 // Internal free function
 Mutex CAT_EXPORT &GetRefSingletonMutex();
 
 // Internal class
-template<class T>
-class RefSingletonImpl
-{
-	T _instance;
-	bool _init;
-
-public:
-	CAT_INLINE T *GetRef()
-	{
-		if (_init) return &_instance;
-
-		AutoMutex lock(GetRefSingletonMutex());
-
-		if (_init) return &_instance;
-
-		_instance.OnRefSingletonStartup();
-
-		CAT_FENCE_COMPILER;
-
-		_init = true;
-
-		return &_instance;
-	}
-};
-
-// Internal class
-class RefSingletons : public Singleton<RefSingletons>
+class CAT_EXPORT RefSingletons : public Singleton<RefSingletons>
 {
 	SList _active_list;
 	typedef SList::Iterator<RefSingletonBase> iter;

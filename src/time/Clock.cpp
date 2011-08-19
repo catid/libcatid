@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -54,17 +54,11 @@ using namespace cat;
 using namespace std;
 
 
-Clock::Clock()
-{
-#if defined(CAT_OS_WINDOWS)
+//// Clock
 
-	_period = LOWEST_ACCEPTABLE_PERIOD + 1;
-	_inv_freq = 1;
+CAT_REF_SINGLETON(Clock);
 
-#endif
-}
-
-bool Clock::OnRefObjectInitialize()
+void Clock::OnInitialize()
 {
 #if defined(CAT_OS_WINDOWS)
 
@@ -81,19 +75,15 @@ bool Clock::OnRefObjectInitialize()
 	_inv_freq = 1.0 / static_cast<double>(freq.QuadPart);
 
 #endif
-
-	return true;
 }
 
-bool Clock::OnRefObjectFinalize()
+void Clock::OnFinalize()
 {
 #if defined(CAT_OS_WINDOWS)
 
 	if (_period <= LOWEST_ACCEPTABLE_PERIOD) timeEndPeriod(_period);
 
 #endif
-
-	return true;
 }
 
 

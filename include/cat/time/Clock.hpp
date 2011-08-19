@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -35,27 +35,24 @@
 namespace cat {
 
 
-class CAT_EXPORT Clock : public RefObject
+class CAT_EXPORT Clock : public RefSingleton<Clock>
 {
 #ifdef CAT_OS_WINDOWS
 	// Windows version requires some initialization
 	static const int LOWEST_ACCEPTABLE_PERIOD = 10;
 
-    static u32 _period;			// timegettime() and Windows scheduler period
-	static double _inv_freq;	// Performance counter frequency (does not change, so cache it)
+    u32 _period;		// timegettime() and Windows scheduler period
+	double _inv_freq;	// Performance counter frequency (does not change, so cache it)
 #endif
 
+	void OnInitialize();
+	void OnFinalize();
+
 public:
-	Clock();
-	CAT_INLINE virtual ~Clock() {}
-
-	static const u32 RefObjectGUID = 0x1f747973; // Global Unique IDentifier for acquiring RefObject singletons
-	CAT_INLINE virtual const char *GetRefObjectName() { return "Clock"; }
-
     static u32 sec();			// Timestamp in seconds
     static u32 msec_fast();		// Timestamp in milliseconds, less accurate than msec() but faster
-    static u32 msec();			// Timestamp in milliseconds, must call Initialize() first
-	static double usec();		// Timestamp in microseconds, must call Initialize() first
+    u32 msec();					// Timestamp in milliseconds
+	double usec();				// Timestamp in microseconds
 	static u32 cycles();		// Timestamp in cycles
 
     static std::string format(const char *format_string);
@@ -63,11 +60,6 @@ public:
     static void sleep(u32 milliseconds);
 
     static u32 MeasureClocks(int iterations, void (*FunctionPtr)());
-
-protected:
-	virtual bool OnRefObjectInitialize();
-	CAT_INLINE virtual void OnRefObjectDestroy() {}
-	virtual bool OnRefObjectFinalize();
 };
 
 

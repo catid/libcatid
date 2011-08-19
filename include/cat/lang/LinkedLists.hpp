@@ -359,6 +359,11 @@ public:
 			return static_cast<T*>( _item );
 		}
 
+		CAT_INLINE T *GetRef()
+		{
+			return static_cast<T*>( _item );
+		}
+
 		CAT_INLINE T *operator->()
 		{
 			return static_cast<T*>( _item );

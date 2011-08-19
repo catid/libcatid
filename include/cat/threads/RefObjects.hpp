@@ -34,6 +34,7 @@
 #include <cat/threads/Mutex.hpp>
 #include <cat/threads/Thread.hpp>
 #include <cat/lang/LinkedLists.hpp>
+#include <cat/lang/RefSingleton.hpp>
 
 #if defined(CAT_TRACE_REFOBJECT)
 #include <cat/io/Logging.hpp>
@@ -42,9 +43,6 @@
 #if defined(CAT_NO_ATOMIC_ADD) || defined(CAT_NO_ATOMIC_SET)
 #define CAT_NO_ATOMIC_REF_OBJECT
 #endif
-
-#include <vector>
-#include <list>
 
 #if defined(CAT_TRACE_REFOBJECT)
 #define CAT_REFOBJECT_FILE_LINE CAT_FILE_LINE_STRING
