@@ -27,7 +27,6 @@
 */
 
 #include <cat/threads/RefObjects.hpp>
-#include <cat/threads/AutoMutex.hpp>
 using namespace cat;
 
 static Mutex m_refobjects_lock;
@@ -82,7 +81,9 @@ void RefObject::OnZeroReferences(const char *file_line)
 
 //// RefObjects
 
-CAT_ON_SINGLETON_STARTUP(RefObjects)
+CAT_REF_SINGLETON(RefObjects);
+
+void RefObjects::OnInitialize()
 {
 	_shutdown = false;
 
@@ -175,12 +176,7 @@ void RefObjects::Kill(RefObject *obj)
 	}
 }
 
-void RefObjects::RefObjectsAtExit()
-{
-	RefObjects::ref()->Shutdown();
-}
-
-void RefObjects::Shutdown()
+void RefObjects::OnFinalize()
 {
 	_shutdown_flag.Set();
 

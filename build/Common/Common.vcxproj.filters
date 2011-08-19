@@ -197,9 +197,6 @@
     <ClInclude Include="..\..\include\cat\parse\BufferTok.hpp">
       <Filter>Header Files\parse</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\cat\threads\AutoMutex.hpp">
-      <Filter>Header Files\threads</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\include\cat\port\SystemInfo.hpp">
       <Filter>Header Files\port</Filter>
     </ClInclude>

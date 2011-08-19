@@ -32,7 +32,6 @@
 #include <cat/lang/Strings.hpp>
 #include <cat/port/EndianNeutral.hpp>
 #include <cat/io/Settings.hpp>
-#include <cat/threads/AutoMutex.hpp>
 #include <cat/io/Buffers.hpp>
 #include <cstdio>
 #include <fstream>

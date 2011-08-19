@@ -74,6 +74,34 @@
 
 namespace cat {
 
+
+// Internal class
+template<class T>
+class SingletonImpl
+{
+	T _instance;
+	bool _init;
+
+public:
+	CAT_INLINE T *GetRef()
+	{
+		if (_init) return &_instance;
+
+		AutoMutex lock(GetSingletonMutex());
+
+		if (_init) return &_instance;
+
+		_instance.OnInitialize();
+
+		CAT_FENCE_COMPILER;
+
+		_init = true;
+
+		return &_instance;
+	}
+};
+
+
 // In the H file for the object, derive from this class:
 template<class T>
 class Singleton
@@ -101,33 +129,6 @@ T *Singleton<T>::ref() { return m_T_ss.GetRef(); }
 
 // Internal free function
 Mutex CAT_EXPORT &GetSingletonMutex();
-
-
-// Internal class
-template<class T>
-class SingletonImpl
-{
-	T _instance;
-	bool _init;
-
-public:
-	CAT_INLINE T *GetRef()
-	{
-		if (_init) return &_instance;
-
-		AutoMutex lock(GetSingletonMutex());
-
-		if (_init) return &_instance;
-
-		_instance.OnInitialize();
-
-		CAT_FENCE_COMPILER;
-
-		_init = true;
-
-		return &_instance;
-	}
-};
 
 
 } // namespace cat

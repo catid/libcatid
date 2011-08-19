@@ -60,21 +60,20 @@ class RefObjects;
 
 
 // Mechanism to wait for reference-counted objects to finish shutting down
-class CAT_EXPORT RefObjects : Thread
+class CAT_EXPORT RefObjects : Thread, public RefSingleton<RefObjects>
 {
-	CAT_SINGLETON(RefObjects);
-
 	friend class RefObject;
 
 	DListForward _active_list, _dead_list;
 	bool _shutdown, _initialized;
 	WaitableFlag _shutdown_flag;
 
-	static void RefObjectsAtExit();
+	void OnInitialize();
+	void OnFinalize();
+
 	void Kill(RefObject *obj);
 	void BuryDeadites();
 	bool ThreadFunction(void *param);
-	void Shutdown();
 
 public:
 	bool Watch(const char *file_line, RefObject *&obj);	// Will delete and nullify object if it fails to initialize
@@ -225,58 +224,6 @@ public:
 
 	CAT_INLINE void Forget() throw() { _ref = 0; }
 	CAT_INLINE void Reset(T *t = 0) throw() { _ref = t; }
-};
-
-
-/*
-	RefObjects Singleton
-
-	The standard singleton provides synchronous initialization and a single global instance.
-	The RefObjects singleton also provides ordered shutdown.
-*/
-
-
-// In the H file for the object, use this macro:
-#define CAT_REFOBJECT_SINGLETON(T)			\
-	CAT_NO_COPY(T);							\
-public:										\
-	static T *ref(const char *file_line);	\
-private:									\
-	CAT_INLINE T() {}						\
-	CAT_INLINE virtual ~T() {}				\
-	friend class Singleton<T>;
-
-
-// In the C file for the object, use this macro:
-#define CAT_REFOBJECT_SINGLETON_IMPL(T)		\
-static cat::RefObjectSingleton<T> m_T_rss;	\
-T *T::ref(const char *file_line) { return m_T_rss.GetRef(file_line); }
-
-
-// Internal class
-template<class T>
-class RefObjectSingleton
-{
-	T *_instance;
-	bool _init;
-
-public:
-	CAT_INLINE T *GetRef(const char *file_line)
-	{
-		if (_init) return _instance;
-
-		AutoMutex lock(RefObjects::GetGlobalLock());
-
-		if (_init) return _instance;
-
-		RefObjects::ref()->Watch(file_line, new T);
-
-		CAT_FENCE_COMPILER;
-
-		_init = true;
-
-		return &_instance;
-	}
 };
 
 

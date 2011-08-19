@@ -216,7 +216,6 @@
     <ClInclude Include="..\..\include\cat\parse\BufferTok.hpp" />
     <ClInclude Include="..\..\include\cat\Platform.hpp" />
     <ClInclude Include="..\..\include\cat\port\SystemInfo.hpp" />
-    <ClInclude Include="..\..\include\cat\threads\AutoMutex.hpp" />
     <ClInclude Include="..\..\include\cat\threads\RefObjects.hpp" />
     <ClInclude Include="..\..\include\cat\threads\Thread.hpp" />
     <ClInclude Include="..\..\include\cat\threads\WaitableFlag.hpp" />

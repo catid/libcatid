@@ -43,16 +43,16 @@ class RefSingleton : public RefSingletonBase
 {
 	friend class RefSingletonImpl<T>;
 
-	CAT_INLINE virtual ~RefSingleton<T>() {}
-
 protected:
-	// Called during initialization, return false to indicate error
-	virtual bool OnInitialize() = 0;
+	// Called during initialization
+	CAT_INLINE virtual void OnInitialize() {}
 
-	// Called during finalization, return false to indicate error
-	virtual bool OnFinalize() = 0;
+	// Called during finalization
+	CAT_INLINE virtual void OnFinalize() {}
 
 public:
+	CAT_INLINE virtual ~RefSingleton<T>() {}
+
 	static T *ref();
 };
 
@@ -60,7 +60,7 @@ public:
 // In the C file for the object, use this macro:
 #define CAT_REF_SINGLETON(T)				\
 static cat::RefSingletonImpl<T> m_T_rss;	\
-T *T::ref() { return m_T_rss.GetRef(); }
+T *RefSingleton<T>::ref() { return m_T_rss.GetRef(); }
 
 
 // Internal class
@@ -69,11 +69,13 @@ class RefSingletonBase : public SListItem
 	CAT_NO_COPY(RefSingletonBase);
 
 	CAT_INLINE RefSingletonBase() {}
-	CAT_INLINE virtual ~RefSingletonBase() {}
 
 protected:
 	virtual bool OnInitialize() = 0;
 	virtual bool OnFinalize() = 0;
+
+public:
+	CAT_INLINE virtual ~RefSingletonBase() {}
 };
 
 // Internal free function
