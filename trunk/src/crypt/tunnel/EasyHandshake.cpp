@@ -29,7 +29,6 @@
 #include <cat/crypt/tunnel/EasyHandshake.hpp>
 #include <cat/crypt/tunnel/Keys.hpp>
 #include <cat/time/Clock.hpp>
-#include <cat/threads/AutoMutex.hpp>
 using namespace cat;
 
 //// EasyHandshake

@@ -28,7 +28,6 @@
 
 #include <cat/sphynx/FileTransfer.hpp>
 #include <cat/io/Logging.hpp>
-#include <cat/threads/AutoMutex.hpp>
 using namespace cat;
 using namespace sphynx;
 
