@@ -91,7 +91,8 @@ public:
 
 		if (_init) return &_instance;
 
-		_instance.OnInitialize();
+		Singleton<T> *ptr = &_instance;
+		ptr->OnInitialize();
 
 		CAT_FENCE_COMPILER;
 
@@ -104,7 +105,7 @@ public:
 
 // In the H file for the object, derive from this class:
 template<class T>
-class Singleton
+class CAT_EXPORT Singleton
 {
 	friend class SingletonImpl<T>;
 
@@ -124,7 +125,7 @@ public:
 // In the C file for the object, use this macro:
 #define CAT_SINGLETON(T)				\
 static cat::SingletonImpl<T> m_T_ss;	\
-T *Singleton<T>::ref() { return m_T_ss.GetRef(); }
+template<> T *Singleton<T>::ref() { return m_T_ss.GetRef(); }
 
 
 // Internal free function

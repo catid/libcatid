@@ -87,13 +87,6 @@ void RefObjects::OnInitialize()
 {
 	_shutdown = false;
 
-	if (0 != atexit(&RefObjectsAtExit))
-	{
-		CAT_FATAL("RefObjects") << "Unable to register atexit callback";
-		_initialized = false;
-		return;
-	}
-
 	if (!Thread::StartThread())
 	{
 		CAT_FATAL("RefObjects") << "Unable to start reaper thread";
@@ -254,14 +247,18 @@ bool RefObjects::ThreadFunction(void *param)
 			// If reference count hits zero,
 			if (ii->_ref_count == 0)
 			{
-				CAT_INANE("RefObjects") << ii->GetRefObjectName() << "#" << ii << " finalizing";
+#if defined(CAT_TRACE_REFOBJECT)
+				CAT_INANE("RefObjects") << ii->GetRefObjectName() << "#" << ii.GetRef() << " finalizing";
+#endif
 
 				_active_list.Erase(ii);
 
 				// If object finalizing requests memory freed,
 				if (ii->OnRefObjectFinalize())
 				{
-					CAT_INANE("RefObjects") << ii->GetRefObjectName() << "#" << ii << " freeing memory";
+#if defined(CAT_TRACE_REFOBJECT)
+					CAT_INANE("RefObjects") << ii->GetRefObjectName() << "#" << ii.GetRef() << " freeing memory";
+#endif
 
 					delete ii;
 				}
@@ -294,14 +291,14 @@ bool RefObjects::ThreadFunction(void *param)
 				}
 			}
 
-			CAT_FATAL("RefObjects") << smallest_obj->GetRefObjectName() << "#" << smallest_obj << " finalizing FORCED with " << smallest_ref_count << " dangling references (smallest found)";
+			CAT_FATAL("RefObjects") << smallest_obj->GetRefObjectName() << "#" << smallest_obj.GetRef() << " finalizing FORCED with " << smallest_ref_count << " dangling references (smallest found)";
 
 			_active_list.Erase(smallest_obj);
 
 			// If object finalizing requests memory freed,
 			if (smallest_obj->OnRefObjectFinalize())
 			{
-				CAT_FATAL("RefObjects") << smallest_obj->GetRefObjectName() << "#" << smallest_obj << " freeing memory for forced finalize";
+				CAT_FATAL("RefObjects") << smallest_obj->GetRefObjectName() << "#" << smallest_obj.GetRef() << " freeing memory for forced finalize";
 
 				delete smallest_obj;
 			}
