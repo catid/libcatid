@@ -47,13 +47,15 @@
 
 			class SystemInfo : Singleton<SystemInfo>
 			{
+				void OnInitialize(); // optional
+
 				...
 
 		To define a singleton class:
 
 			CAT_SINGLETON(SystemInfo);
 
-			void SystemInfo::OnInitialize()
+			void SystemInfo::OnInitialize() // optional
 			{
 				...
 			}
@@ -64,8 +66,6 @@
 
 	Some things it won't do and work-arounds:
 
-	- You cannot specify a constructor for the object.
-		-> Implement the provided startup callback routine.
 	- You cannot specify a deconstructor for the object.
 		-> Use RefObjects for singletons that need cleanup.
 */
