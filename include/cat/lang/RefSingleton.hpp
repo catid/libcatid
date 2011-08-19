@@ -39,8 +39,11 @@ namespace cat {
 class CAT_EXPORT RefSingletonBase : public SListItem
 {
 	CAT_NO_COPY(RefSingletonBase);
-
 	CAT_INLINE RefSingletonBase() {}
+
+protected:
+	void AddRef();
+	void ReleaseRef();
 
 protected:
 	virtual void OnInitialize() = 0;
@@ -83,6 +86,7 @@ template<class T>
 class CAT_EXPORT RefSingleton : public RefSingletonBase
 {
 	friend class RefSingletonImpl<T>;
+	friend class RefSingletonUses<T>;
 
 protected:
 	// Called during initialization
@@ -95,6 +99,24 @@ public:
 	CAT_INLINE virtual ~RefSingleton<T>() {}
 
 	static T *ref();
+};
+
+// In the H file for the object, register dependencies:
+template<class T>
+class CAT_EXPORT RefSingletonUses
+{
+	T *_ref;
+
+public:
+	RefSingletonDependency()
+	{
+		_ref = T::ref();
+		if (_ref) _ref->AddRef();
+	}
+	~RefSingletonDependency()
+	{
+		if (_ref) _ref->ReleaseRef();
+	}
 };
 
 
