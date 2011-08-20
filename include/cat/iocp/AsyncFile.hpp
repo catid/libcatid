@@ -40,7 +40,7 @@
 #ifndef CAT_IOCP_ASYNCFILE_HPP
 #define CAT_IOCP_ASYNCFILE_HPP
 
-#include <cat/threads/RefObjects.hpp>
+#include <cat/threads/RefObject.hpp>
 #include <cat/io/Buffers.hpp>
 
 namespace cat {

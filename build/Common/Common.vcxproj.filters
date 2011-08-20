@@ -117,9 +117,6 @@
     <ClCompile Include="..\..\src\io\MappedFile.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\threads\RefObjects.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\lang\LinkedLists.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -127,6 +124,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\lang\RefSingleton.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\threads\RefObject.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -227,9 +227,6 @@
     <ClInclude Include="..\..\include\cat\lang\Delegates.hpp">
       <Filter>Header Files\lang</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\cat\threads\RefObjects.hpp">
-      <Filter>Header Files\threads</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\include\cat\lang\LinkedLists.hpp">
       <Filter>Header Files\lang</Filter>
     </ClInclude>
@@ -238,6 +235,9 @@
     </ClInclude>
     <ClInclude Include="..\..\include\cat\lang\RefSingleton.hpp">
       <Filter>Header Files\lang</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\threads\RefObject.hpp">
+      <Filter>Header Files\threads</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
