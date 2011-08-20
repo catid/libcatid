@@ -65,6 +65,14 @@ namespace cat {
 // Enable event re-ordering for better batching in WorkerThreads
 #define CAT_WORKER_THREADS_REORDER_EVENTS
 
+// Dump extra settings information to the console for debugging
+#define CAT_SETTINGS_VERBOSE
+
+// Specify which file to use for persisting settings between sessions
+#if !defined(CAT_SETTINGS_FILE)
+#define CAT_SETTINGS_FILE "Settings.cfg"
+#endif
+
 
 } // namespace cat
 

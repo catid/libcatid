@@ -31,9 +31,9 @@
 
 #include <cat/threads/Thread.hpp>
 #include <cat/net/Sockets.hpp>
-#include <cat/threads/RefObject.hpp>
 #include <cat/mem/BufferAllocator.hpp>
 #include <cat/lang/LinkedLists.hpp>
+#include <cat/lang/RefSingleton.hpp>
 
 #if defined(CAT_OS_WINDOWS)
 # include <cat/port/WindowsInclude.hpp>
@@ -175,7 +175,7 @@ public:
 
 
 // A collection of IOThreadPools
-class CAT_EXPORT IOThreadPools
+class CAT_EXPORT IOThreadPools : RefSingleton<IOThreadPools>
 {
 	IOThreadImports _imports;
 	BufferAllocator *_recv_allocator;
@@ -190,9 +190,6 @@ public:
 	IOThreadPools();
 	CAT_INLINE virtual ~IOThreadPools() {}
 
-	static const u32 RefObjectGUID = 0x00070001; // Global Unique IDentifier for acquiring RefObject singletons
-	CAT_INLINE const char *GetRefObjectName() { return "IOThreadPools"; }
-
 	CAT_INLINE BufferAllocator *GetRecvAllocator() { return _recv_allocator; }
 	CAT_INLINE IOThreadImports *GetIOThreadImports() { return &_imports; }
 
@@ -202,9 +199,8 @@ public:
 	bool AssociateShared(IOThreadsAssociator *associator);
 
 protected:
-	virtual bool OnRefObjectInitialize();
-	virtual void OnRefObjectDestroy();
-	virtual bool OnRefObjectFinalize();
+	void OnInitialize();
+	void OnFinalize();
 };
 
 

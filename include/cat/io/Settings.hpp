@@ -71,7 +71,7 @@ public:
 
 
 // User settings manager
-class CAT_EXPORT Settings : public RefObject
+class CAT_EXPORT Settings : public RefSingleton<Settings>
 {
 	Mutex _lock;
 
@@ -94,12 +94,6 @@ class CAT_EXPORT Settings : public RefObject
 	void clear();
 	
 public:
-	Settings();
-	CAT_INLINE virtual ~Settings() {}
-
-	static const u32 RefObjectGUID = 0x58e8c4f0; // Global Unique IDentifier for acquiring RefObject singletons
-	CAT_INLINE virtual const char *GetRefObjectName() { return "Settings"; }
-
 	void readSettingsFromFile(const char *file_path = "settings.txt", const char *override_file = "override.txt");
 	void readSettingsFromBuffer(SequentialFileReader &sfile);
 	void write();
@@ -114,9 +108,8 @@ public:
 	void setStr(const char *name, const char *value);
 
 protected:
-	virtual bool OnRefObjectInitialize();
-	virtual void OnRefObjectDestroy();
-	virtual bool OnRefObjectFinalize();
+	void OnRefObjectInitialize();
+	void OnRefObjectFinalize();
 };
 
 
