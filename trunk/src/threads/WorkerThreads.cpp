@@ -353,7 +353,7 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 
 void WorkerThreads::OnInitialize()
 {
-	Use<Clock>();
+	FinalizeBefore<Clock>();
 
 	_tick_interval = 10;
 	_worker_count = 2;

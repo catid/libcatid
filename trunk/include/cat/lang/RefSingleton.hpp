@@ -35,6 +35,15 @@
 namespace cat {
 
 
+/*
+	RefSingleton builds on the Singleton class, to add OnFinalize().
+
+	When the order of finalization matters, RefSingleton objects may call the FinalizeBefore<>();
+	function inside of their OnInitialize() member.  This function creates a reference counted
+	relationship between the two objects.  Circular references will cause this system to break.
+*/
+
+
 // Internal class
 class CAT_EXPORT RefSingletonBase : public SListItem
 {
@@ -114,7 +123,7 @@ protected:
 
 	// Call only from OnInitialize() to declare which other RefSingletons are used
 	template<class S>
-	CAT_INLINE void Use()
+	CAT_INLINE void FinalizeBefore()
 	{
 		AddRefSingletonReference(S::get_refcount_ptr());
 	}

@@ -421,13 +421,14 @@ IOThreadPools::IOThreadPools()
 	_imports.pSetFileValidData = (PSetFileValidData)GetProcAddress(GetModuleHandleA("kernel32.dll"), "SetFileValidData");
 }
 
-bool IOThreadPools::OnRefObjectInitialize()
+void IOThreadPools::OnInitialize()
 {
 	m_io_thread_pools = this;
+	m_worker_threads = WorkerThreads::ref();
+	m_settings = Settings::ref();
 
-	if (!RefObjects::Require(m_worker_threads, CAT_REFOBJECT_FILE_LINE) ||
-		!RefObjects::Require(m_settings, CAT_REFOBJECT_FILE_LINE))
-		return false;
+	FinalizeBefore<WorkerThreads>();
+	FinalizeBefore<Settings>();
 
 	u32 iothreads_buffer_count = m_settings->getInt("IOThreadPools.BufferCount", IOTHREADS_BUFFER_COUNT);
 
@@ -442,11 +443,7 @@ bool IOThreadPools::OnRefObjectInitialize()
 	return _shared_pool.Startup();
 }
 
-void IOThreadPools::OnRefObjectDestroy()
-{
-}
-
-bool IOThreadPools::OnRefObjectFinalize()
+void IOThreadPools::OnFinalize()
 {
 	// If allocator was created,
 	if (_recv_allocator)

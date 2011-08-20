@@ -36,8 +36,7 @@ using namespace cat;
 using namespace std;
 
 
-//#define SETTINGS_VERBOSE /* dump extra settings information to the console for debugging */
-
+//// SettingsKey
 
 SettingsKey::SettingsKey(SettingsKey *lnodei, SettingsKey *gnodei, const char *namei)
 {
@@ -76,27 +75,21 @@ void SettingsKey::write(std::ofstream &file)
 }
 
 
-Settings::Settings()
+//// Settings
+
+void Settings::OnRefObjectInitialize()
 {
 	CAT_OBJCLR(_hbtrees);
 
 	_readSettings = false;
 	_modified = false;
+
+	readSettingsFromFile(CAT_SETTINGS_FILE);
 }
 
-bool Settings::OnRefObjectInitialize()
+void Settings::OnRefObjectFinalize()
 {
-
-}
-
-void Settings::OnRefObjectDestroy()
-{
-
-}
-
-bool Settings::OnRefObjectFinalize()
-{
-
+	write();
 }
 
 SettingsKey *Settings::addKey(const char *name)
@@ -178,7 +171,7 @@ void Settings::readSettingsFromBuffer(SequentialFileReader &sfile)
 
 			key->value.flags |= CAT_SETTINGS_FILLED;
 			bt() >> key->value.s;
-#ifdef SETTINGS_VERBOSE
+#ifdef CAT_SETTINGS_VERBOSE
 			CAT_INANE("Settings") << "Read: (" << key->name << ") = (" << key->value.s << ")";
 #endif
 		}
@@ -199,7 +192,7 @@ void Settings::readSettingsFromFile(const char *file_path, const char *override_
 		return;
 	}
 
-#ifdef SETTINGS_VERBOSE
+#ifdef CAT_SETTINGS_VERBOSE
 	CAT_INANE("Settings") << "Read: " << file_path;
 #endif
 
@@ -208,7 +201,7 @@ void Settings::readSettingsFromFile(const char *file_path, const char *override_
 	// If override file exists,
 	if (sfile.Open(override_file))
 	{
-#ifdef SETTINGS_VERBOSE
+#ifdef CAT_SETTINGS_VERBOSE
 		CAT_INANE("Settings") << "Read: " << override_file;
 #endif
 
@@ -231,7 +224,7 @@ void Settings::write()
 
 	if (_readSettings && !_modified)
 	{
-#ifdef SETTINGS_VERBOSE
+#ifdef CAT_SETTINGS_VERBOSE
 		CAT_INANE("Settings") << "Skipped writing unmodified settings";
 #endif
 		return;
@@ -249,7 +242,7 @@ void Settings::write()
 	for (int ii = 0; ii < SETTINGS_HASH_BINS; ++ii)
 		if (_hbtrees[ii]) _hbtrees[ii]->write(file);
 
-#ifdef SETTINGS_VERBOSE
+#ifdef CAT_SETTINGS_VERBOSE
 	CAT_INANE("Settings") << "Write: Saved " << _settings_file;
 #endif
 
