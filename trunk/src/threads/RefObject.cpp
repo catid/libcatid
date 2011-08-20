@@ -26,7 +26,7 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/threads/RefObjects.hpp>
+#include <cat/threads/RefObject.hpp>
 using namespace cat;
 
 static Mutex m_refobjects_lock;

@@ -29,7 +29,7 @@
 #ifndef CAT_CLOCK_HPP
 #define CAT_CLOCK_HPP
 
-#include <cat/threads/RefObjects.hpp>
+#include <cat/threads/RefObject.hpp>
 #include <string>
 
 namespace cat {

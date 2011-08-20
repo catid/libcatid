@@ -41,11 +41,12 @@ class CAT_EXPORT RefSingletonBase : public SListItem
 	CAT_NO_COPY(RefSingletonBase);
 	CAT_INLINE RefSingletonBase() {}
 
-protected:
-	void AddRef();
-	void ReleaseRef();
+	u32 _ref_count;
 
 protected:
+	void AddRef(RefSingletonBase *instance);
+	void ReleaseRefs();
+
 	virtual void OnInitialize() = 0;
 	virtual void OnFinalize() = 0;
 
@@ -86,7 +87,6 @@ template<class T>
 class CAT_EXPORT RefSingleton : public RefSingletonBase
 {
 	friend class RefSingletonImpl<T>;
-	friend class RefSingletonUses<T>;
 
 protected:
 	// Called during initialization
@@ -95,35 +95,29 @@ protected:
 	// Called during finalization
 	CAT_INLINE virtual void OnFinalize() {}
 
+	CAT_INLINE u32 *GetRefCount() { return T::get_refcount_ptr(); }
+
+	// Call only from OnInitialize() to declare which other RefSingletons are used
+	template<class S>
+	CAT_INLINE void Use()
+	{
+		u32 *refcount_ptr = S::get_refcount_ptr();
+	}
+
 public:
 	CAT_INLINE virtual ~RefSingleton<T>() {}
 
 	static T *ref();
-};
-
-// In the H file for the object, register dependencies:
-template<class T>
-class CAT_EXPORT RefSingletonUses
-{
-	T *_ref;
-
-public:
-	RefSingletonDependency()
-	{
-		_ref = T::ref();
-		if (_ref) _ref->AddRef();
-	}
-	~RefSingletonDependency()
-	{
-		if (_ref) _ref->ReleaseRef();
-	}
+	static u32 *get_refcount_ptr();
 };
 
 
 // In the C file for the object, use this macro:
-#define CAT_REF_SINGLETON(T)				\
-static cat::RefSingletonImpl<T> m_T_rss;	\
-template<> T *RefSingleton<T>::ref() { return m_T_rss.GetRef(); }
+#define CAT_REF_SINGLETON(T)										\
+static cat::RefSingletonImpl<T> m_T_rss;							\
+template<> T *RefSingleton<T>::ref() { return m_T_rss.GetRef(); }	\
+static u32 m_T_rcnt = 0;											\
+template<> u32 *RefSingleton<T>::get_refcount_ptr() { return &m_T_rcnt; }
 
 
 // Internal free function
