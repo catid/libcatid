@@ -38,14 +38,21 @@ namespace cat {
 // Internal class
 class CAT_EXPORT RefSingletonBase : public SListItem
 {
-	CAT_NO_COPY(RefSingletonBase);
-	CAT_INLINE RefSingletonBase() {}
+	friend class RefSingletons;
 
-	u32 _ref_count;
+	CAT_NO_COPY(RefSingletonBase);
+	RefSingletonBase();
+
+	virtual u32 *GetRefCount() = 0;
+	void ReleaseRefs();
+
+	static const int REFS_PREALLOC = 8;
+	u32 _refs_count;
+	u32 *_refs_prealloc[REFS_PREALLOC];
+	u32 **_refs_extended;
 
 protected:
-	void AddRef(RefSingletonBase *instance);
-	void ReleaseRefs();
+	void AddRefSingletonReference(u32 *ref_counter);
 
 	virtual void OnInitialize() = 0;
 	virtual void OnFinalize() = 0;
@@ -55,8 +62,15 @@ public:
 };
 
 // Internal class
+class RefSingletonImplBase
+{
+protected:
+	CAT_INLINE void Watch(RefSingletonBase *obj);
+};
+
+// Internal class
 template<class T>
-class RefSingletonImpl
+class RefSingletonImpl : public RefSingletonImplBase
 {
 	T _instance;
 	bool _init;
@@ -72,6 +86,7 @@ public:
 
 		RefSingleton<T> *ptr = &_instance;
 		ptr->OnInitialize();
+		Watch(&_instance);
 
 		CAT_FENCE_COMPILER;
 
@@ -88,6 +103,8 @@ class CAT_EXPORT RefSingleton : public RefSingletonBase
 {
 	friend class RefSingletonImpl<T>;
 
+	CAT_INLINE u32 *GetRefCount() { return T::get_refcount_ptr(); }
+
 protected:
 	// Called during initialization
 	CAT_INLINE virtual void OnInitialize() {}
@@ -95,13 +112,11 @@ protected:
 	// Called during finalization
 	CAT_INLINE virtual void OnFinalize() {}
 
-	CAT_INLINE u32 *GetRefCount() { return T::get_refcount_ptr(); }
-
 	// Call only from OnInitialize() to declare which other RefSingletons are used
 	template<class S>
 	CAT_INLINE void Use()
 	{
-		u32 *refcount_ptr = S::get_refcount_ptr();
+		AddRefSingletonReference(S::get_refcount_ptr());
 	}
 
 public:
@@ -126,22 +141,28 @@ Mutex CAT_EXPORT &GetRefSingletonMutex();
 // Internal class
 class CAT_EXPORT RefSingletons : public Singleton<RefSingletons>
 {
+	friend class RefSingletonImplBase;
+
 	SList _active_list;
 	typedef SList::Iterator<RefSingletonBase> iter;
-
-	template<class T>
-	CAT_INLINE void Watch(T *obj)
-	{
-		AutoMutex lock(GetRefSingletonMutex());
-
-		_active_list.PushFront(obj);
-	}
 
 	static void OnExit();
 
 	void OnInitialize();
 	void OnFinalize();
+
+	template<class T>
+	CAT_INLINE void Watch(T *obj)
+	{
+		_active_list.PushFront(obj);
+	}
 };
+
+// Internal inline member function definition
+CAT_INLINE void RefSingletonImplBase::Watch(RefSingletonBase *obj)
+{
+	RefSingletons::ref()->Watch(obj);
+}
 
 
 } // namespace cat

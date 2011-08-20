@@ -148,8 +148,6 @@ public:
 // A pool of worker threads
 class CAT_EXPORT WorkerThreads : public RefSingleton<WorkerThreads>
 {
-	RefSingletonUses<Clock> _clock;
-
 	void OnInitialize();
 	void OnFinalize();
 

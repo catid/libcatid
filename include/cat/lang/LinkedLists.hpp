@@ -26,8 +26,8 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_SINGLY_LINKED_LISTS_HPP
-#define CAT_SINGLY_LINKED_LISTS_HPP
+#ifndef CAT_LINKED_LISTS_HPP
+#define CAT_LINKED_LISTS_HPP
 
 #include <cat/Platform.hpp>
 
@@ -615,9 +615,17 @@ public:
 	void EraseAfter(SListItem *item, SListItem *at);
 
 	// Erase via iterator to simplify usage
-	CAT_INLINE void Erase(SListIteratorBase *iterator)
+	CAT_INLINE void Erase(SListIteratorBase &iterator)
 	{
-		EraseAfter(iterator->_item, iterator->_prev);
+		EraseAfter(iterator._item, iterator._prev);
+	}
+
+	CAT_INLINE void EraseMaintainIteration(SListIteratorBase &iterator)
+	{
+		EraseAfter(iterator._item, iterator._prev);
+
+		// Store previous as current, so that next iteration will fix it
+		iterator._item = iterator._prev;
 	}
 
 	/*
@@ -677,4 +685,4 @@ public:
 
 } // namespace cat
 
-#endif // CAT_SINGLY_LINKED_LISTS_HPP
+#endif // CAT_LINKED_LISTS_HPP
