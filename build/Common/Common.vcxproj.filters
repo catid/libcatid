@@ -126,7 +126,7 @@
     <ClCompile Include="..\..\src\lang\RefSingleton.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\threads\RefObject.cpp">
+    <ClCompile Include="..\..\src\lang\RefObject.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -236,8 +236,8 @@
     <ClInclude Include="..\..\include\cat\lang\RefSingleton.hpp">
       <Filter>Header Files\lang</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\cat\threads\RefObject.hpp">
-      <Filter>Header Files\threads</Filter>
+    <ClInclude Include="..\..\include\cat\lang\RefObject.hpp">
+      <Filter>Header Files\lang</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
