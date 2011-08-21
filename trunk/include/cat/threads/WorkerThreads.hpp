@@ -29,7 +29,7 @@
 #ifndef CAT_WORKER_THREADS_HPP
 #define CAT_WORKER_THREADS_HPP
 
-#include <cat/threads/RefObject.hpp>
+#include <cat/lang/RefObject.hpp>
 #include <cat/threads/Thread.hpp>
 #include <cat/threads/WaitableFlag.hpp>
 #include <cat/threads/Mutex.hpp>

@@ -30,7 +30,7 @@
 #define CAT_IOCP_UDP_ENDPOINT_HPP
 
 #include <cat/net/Sockets.hpp>
-#include <cat/threads/RefObject.hpp>
+#include <cat/lang/RefObject.hpp>
 #include <cat/mem/IAllocator.hpp>
 
 /*
