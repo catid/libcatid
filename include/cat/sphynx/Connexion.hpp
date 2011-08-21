@@ -31,7 +31,7 @@
 
 #include <cat/sphynx/Transport.hpp>
 #include <cat/threads/WorkerThreads.hpp>
-#include <cat/threads/RefObject.hpp>
+#include <cat/lang/RefObject.hpp>
 #include <cat/sphynx/SphynxLayer.hpp>
 
 namespace cat {

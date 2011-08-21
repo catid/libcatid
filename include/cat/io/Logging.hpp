@@ -29,7 +29,7 @@
 #ifndef CAT_LOGGING_HPP
 #define CAT_LOGGING_HPP
 
-#include <cat/threads/RefObject.hpp>
+#include <cat/lang/RefObject.hpp>
 #include <cat/lang/Delegates.hpp>
 #include <cat/lang/Singleton.hpp>
 #include <string>
