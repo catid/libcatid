@@ -38,13 +38,24 @@
 # include <unistd.h>
 #endif
 
-#define CAT_LOOPBACK_IPV4 "127.0.0.1"
-#define CAT_LOOPBACK_IPV6 "::1"
+/*
+	Any portable socket functionality belongs in this module.
+
+	Classes like UDPEndpoint provide a full wrapper that also does I/O,
+	which is platform-dependent.
+
+	OS socket layer startup/cleanup code is completely hidden from the library
+	user thanks to the Sockets RefSingleton.  It is only referenced internally,
+	so that the user doesn't even need to know about it.
+*/
 
 namespace cat {
 
 
-//// Basic types
+//// Basic definitions
+
+#define CAT_LOOPBACK_IPV4 "127.0.0.1"
+#define CAT_LOOPBACK_IPV6 "::1"
 
 typedef u16 Port;
 
@@ -216,8 +227,6 @@ class CAT_EXPORT Socket
 {
 	bool _support4, _support6;
 	Port _port;
-
-protected:
 	SocketHandle _s;
 
 public:
