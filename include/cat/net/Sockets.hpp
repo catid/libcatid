@@ -233,22 +233,25 @@ public:
 	Socket();
 	virtual ~Socket();
 
+	// The RequestIPv6 flag is a suggestion.  Use SupportsIPv6() to check success.  The RequireIPv4 flag is always respected.
+	// NOTE: Socket only supports IPv6 operations after Bind() completes
+	bool Create(int type, int protocol, bool RequestIPv6 = true, bool RequireIPv4 = true);
+
+	// Call these before binding:
+
+	bool SetSendBufferSize(int bytes);
+	bool SetRecvBufferSize(int bytes);
+
+	bool Bind(Port port);
+
+	// Call these after binding:
+
 	CAT_INLINE bool Valid() { return _s != INVALID_SOCKET; }
 	CAT_INLINE bool SupportsIPv4() { return _support4; }
 	CAT_INLINE bool SupportsIPv6() { return _support6; }
 	CAT_INLINE SocketHandle GetHandle() { return _s; }
 
 	Port GetPort();
-
-	// The RequestIPv6 flag is a suggestion.  Use SupportsIPv6() to check success.  The RequireIPv4 flag is always respected.
-	// NOTE: Socket only supports IPv6 operations after Bind() completes
-	bool Create(int type, int protocol, bool RequestIPv6 = true, bool RequireIPv4 = true);
-
-	// Call these before binding
-	bool SetSendBufferSize(int bytes);
-	bool SetRecvBufferSize(int bytes);
-
-	bool Bind(Port port);
 
 	void Close();
 };
@@ -264,8 +267,12 @@ public:
 
 	CAT_INLINE bool Create(bool RequestIPv6 = true, bool RequireIPv4 = true) { return Socket::Create(SOCK_DGRAM, IPPROTO_UDP, RequestIPv6, RequireIPv4); }
 
+	// Call these before binding:
+
 	// Disabled by default; ignore ICMP unreachable errors
 	bool IgnoreUnreachable(bool ignore = true);
+
+	// Call these after binding:
 
 	// Disabled by default; useful for MTU discovery
 	bool DontFragment(bool df = true);
