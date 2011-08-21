@@ -274,6 +274,7 @@ public:
 	CAT_INLINE bool Create(bool RequestIPv6 = true, bool RequireIPv4 = true) { return Socket::Create(SOCK_STREAM, IPPROTO_TCP, RequestIPv6, RequireIPv4); }
 };
 
+
 // Internal class
 class CAT_EXPORT Sockets : public RefSingleton<Sockets>
 {
