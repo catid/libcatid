@@ -33,9 +33,6 @@
     <ClCompile Include="Precompiled.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\io\IOLayer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\iocp\AsyncFile.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -61,9 +58,6 @@
     </ClInclude>
     <ClInclude Include="..\..\include\cat\AllAsyncIO.hpp">
       <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\include\cat\io\IOLayer.hpp">
-      <Filter>Header Files\io</Filter>
     </ClInclude>
     <ClInclude Include="..\..\include\cat\iocp\AsyncFile.hpp">
       <Filter>Header Files\iocp</Filter>
