@@ -408,21 +408,28 @@ bool IOThreadPool::Associate(IOThreadsAssociator *associator)
 }
 
 
-//// IOThreadPools
+//// IOThreadImports
 
-IOThreadPools::IOThreadPools()
+void IOThreadImports::Initialize()
 {
-	_recv_allocator = 0;
+	HMODULE kernel32 = GetModuleHandleA("kernel32.dll");
 
 	// Attempt to use Vista+ API
-	_imports.pGetQueuedCompletionStatusEx = (PGetQueuedCompletionStatusEx)GetProcAddress(GetModuleHandleA("kernel32.dll"), "GetQueuedCompletionStatusEx");
-	_imports.pSetFileCompletionNotificationModes = (PSetFileCompletionNotificationModes)GetProcAddress(GetModuleHandleA("kernel32.dll"), "SetFileCompletionNotificationModes");
-	_imports.pSetFileIoOverlappedRange = (PSetFileIoOverlappedRange)GetProcAddress(GetModuleHandleA("kernel32.dll"), "SetFileIoOverlappedRange");
-	_imports.pSetFileValidData = (PSetFileValidData)GetProcAddress(GetModuleHandleA("kernel32.dll"), "SetFileValidData");
+	pGetQueuedCompletionStatusEx = (PGetQueuedCompletionStatusEx)GetProcAddress(kernel32, "GetQueuedCompletionStatusEx");
+	pSetFileCompletionNotificationModes = (PSetFileCompletionNotificationModes)GetProcAddress(kernel32, "SetFileCompletionNotificationModes");
+	pSetFileIoOverlappedRange = (PSetFileIoOverlappedRange)GetProcAddress(kernel32, "SetFileIoOverlappedRange");
+	pSetFileValidData = (PSetFileValidData)GetProcAddress(kernel32, "SetFileValidData");
 }
+
+
+//// IOThreadPools
 
 void IOThreadPools::OnInitialize()
 {
+	_recv_allocator = 0;
+
+	_imports.Initialize();
+
 	m_io_thread_pools = this;
 	m_worker_threads = WorkerThreads::ref();
 	m_settings = Settings::ref();

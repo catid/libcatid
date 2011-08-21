@@ -120,8 +120,13 @@ typedef BOOL (WINAPI *PSetFileValidData)(
 	LONGLONG ValidDataLength
 	);
 
-struct IOThreadImports
+class IOThreadImports
 {
+	friend class IOThreadPools;
+
+	void Initialize();
+
+public:
 	PGetQueuedCompletionStatusEx pGetQueuedCompletionStatusEx;
 	PSetFileCompletionNotificationModes pSetFileCompletionNotificationModes;
 	PSetFileIoOverlappedRange pSetFileIoOverlappedRange;
@@ -177,6 +182,9 @@ public:
 // A collection of IOThreadPools
 class CAT_EXPORT IOThreadPools : RefSingleton<IOThreadPools>
 {
+	void OnInitialize();
+	void OnFinalize();
+
 	IOThreadImports _imports;
 	BufferAllocator *_recv_allocator;
 
@@ -187,9 +195,6 @@ class CAT_EXPORT IOThreadPools : RefSingleton<IOThreadPools>
 	IOThreadPool _shared_pool;
 
 public:
-	IOThreadPools();
-	CAT_INLINE virtual ~IOThreadPools() {}
-
 	CAT_INLINE BufferAllocator *GetRecvAllocator() { return _recv_allocator; }
 	CAT_INLINE IOThreadImports *GetIOThreadImports() { return &_imports; }
 
@@ -197,10 +202,6 @@ public:
 	bool DissociatePrivate(IOThreadPool *pool);
 
 	bool AssociateShared(IOThreadsAssociator *associator);
-
-protected:
-	void OnInitialize();
-	void OnFinalize();
 };
 
 

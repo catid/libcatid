@@ -86,7 +86,7 @@ public:
     UDPEndpoint();
     virtual ~UDPEndpoint();
 
-	static const u32 RefObjectGUID = 0x00060001; // Global Unique IDentifier for acquiring RefObject singletons
+	static const u32 RefObjectGUID = 0x76c45f40; // Global Unique IDentifier for acquiring RefObject singletons
 	CAT_INLINE const char *GetRefObjectName() { return "UDPEndpoint"; }
 
 	bool Initialize(Port port = 0, bool ignoreUnreachable = true, bool RequestIPv6 = true, bool RequireIPv4 = true, int kernelReceiveBufferBytes = 0);

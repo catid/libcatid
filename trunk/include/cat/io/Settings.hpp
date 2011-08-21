@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -73,6 +73,9 @@ public:
 // User settings manager
 class CAT_EXPORT Settings : public RefSingleton<Settings>
 {
+	void OnInitialize();
+	void OnFinalize();
+
 	Mutex _lock;
 
 	static const u32 KEY_HASH_SALT = 0xbaddecaf;
@@ -92,9 +95,6 @@ class CAT_EXPORT Settings : public RefSingleton<Settings>
 	SettingsKey *initStr(const char *name, const char *value, bool overwrite);
 
 	void clear();
-
-	void OnInitialize();
-	void OnFinalize();
 
 public:
 	void readSettingsFromFile(const char *file_path = "settings.txt", const char *override_file = "override.txt");
