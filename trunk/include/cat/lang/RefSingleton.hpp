@@ -58,11 +58,14 @@ namespace cat {
 
 		void Settings::OnInitialize()
 		{
+			FinalizeBefore<Clock>(); // Add a reference to Clock RefSingleton so order of finalization is correct.
 		}
 
 		void Settings::OnFinalize()
 		{
 		}
+
+	Just ~10 lines of code to convert an object into a singleton with correct finalization order!
 */
 
 

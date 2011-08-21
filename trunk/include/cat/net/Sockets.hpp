@@ -38,25 +38,28 @@
 # include <unistd.h>
 #endif
 
-#define CAT_LOOPBACK_IP4 "127.0.0.1"
-#define CAT_LOOPBACK_IP6 "::1"
+#define CAT_LOOPBACK_IPV4 "127.0.0.1"
+#define CAT_LOOPBACK_IPV6 "::1"
 
 namespace cat {
 
 
-//// Data Types
+//// Basic types
 
 #if defined(CAT_OS_WINDOWS)
-	typedef SOCKET Socket;
-	CAT_INLINE bool CloseSocket(Socket s) { return !closesocket(s); }
+	typedef SOCKET SocketHandle;
+	CAT_INLINE bool CloseSocketHandle(SocketHandle s) { return !closesocket(s); }
 #else
-	typedef int Socket;
-	static const Socket INVALID_SOCKET = -1;
+	typedef int SocketHandle;
+	static const SocketHandle INVALID_SOCKET = -1;
 	static const int SOCKET_ERROR = -1;
-	CAT_INLINE bool CloseSocket(Socket s) { return !close(s); }
+	CAT_INLINE bool CloseSocketHandle(Socket s) { return !close(s); }
 #endif
 
 typedef u16 Port;
+
+
+//// Address
 
 #pragma pack(push)
 #pragma pack(1)
@@ -207,31 +210,46 @@ struct CAT_EXPORT NetAddr : UNetAddr
 #pragma pack(pop)
 
 
+//// Socket
+
+class CAT_EXPORT Socket
+{
+	SocketHandle _socket;
+	bool _ipv6;
+	Port _port;
+
+public:
+	Socket();
+	virtual ~Socket();
+
+	CAT_INLINE bool IsIPv6() { return _ipv6; }
+	CAT_INLINE SocketHandle GetHandle() { return _socket; }
+
+	Port GetPort();
+
+	// inout_OnlyIPv4: Indicates that only IPv4 is requested by caller
+	// Sets OnlyIPv4 if IPv6 will be unsupported
+	// Returns true on success
+	bool Create(int type, int protocol, bool SupportIPv4 = true);
+	bool CreateUDP(bool SupportIPv4 = true);
+	bool CreateTCP(bool SupportIPv4 = true);
+
+	bool Bind(Port port, bool OnlyIPv4);
+};
+
+
 //// Sockets
 
-class Sockets : RefSingleton<Sockets>
+class CAT_EXPORT Sockets : RefSingleton<Sockets>
+{
+	void OnInitialize();
+	void OnFinalize();
 
-// Run startup and cleanup functions needed under some OS
-CAT_EXPORT bool StartupSockets(); // returns false on error
-CAT_EXPORT void CleanupSockets();
-
-// inout_OnlyIPv4: Indicates that only IPv4 is requested by caller
-// Sets OnlyIPv4 if IPv6 will be unsupported
-// Returns true on success
-CAT_EXPORT bool CreateSocket(int type, int protocol, bool SupportIPv4, Socket &out_s, bool &inout_OnlyIPv4);
-
-// Returns true on success
-CAT_EXPORT bool NetBind(Socket s, Port port, bool OnlyIPv4);
-
-// Returns 0 on failure
-CAT_EXPORT Port GetBoundPort(Socket s);
-
-
-//// Error Codes
-
-// Returns a string describing the last error from Winsock2 API
-CAT_EXPORT std::string SocketGetLastErrorString();
-CAT_EXPORT std::string SocketGetErrorString(int code);
+public:
+	// Returns a string describing the last error from Winsock2 API
+	static std::string SocketGetLastErrorString();
+	static std::string SocketGetErrorString(int code);
+};
 
 
 } // namespace cat
