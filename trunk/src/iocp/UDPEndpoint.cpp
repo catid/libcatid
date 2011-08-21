@@ -35,11 +35,6 @@
 using namespace std;
 using namespace cat;
 
-// Add missing definition for MinGW
-#if !defined(SIO_UDP_CONNRESET)
-#define SIO_UDP_CONNRESET _WSAIOW(IOC_VENDOR,12)
-#endif
-
 static IOThreadPools *m_thread_pools = 0;
 static IAllocator *m_recv_allocator = 0;
 

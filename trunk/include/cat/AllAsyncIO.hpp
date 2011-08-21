@@ -35,8 +35,8 @@
 # pragma warning(disable:4251) // Remove "not exported" warning from STL
 #endif
 
-#include <cat/io/IOLayer.hpp>
 #include <cat/io/Buffers.hpp>
+#include <cat/io/BufferedFileWriter.hpp>
 #include <cat/io/PolledFileReader.hpp>
 
 #include <cat/net/Sockets.hpp>

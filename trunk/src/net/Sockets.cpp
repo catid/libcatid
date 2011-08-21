@@ -35,58 +35,306 @@ using namespace cat;
 #pragma comment(lib, "ws2_32.lib")
 #endif
 
-// Fix missing definition for MinGW
+// Fix missing definitions (mainly for MinGW)
 #if !defined(IPV6_V6ONLY)
 #define IPV6_V6ONLY 27
 #endif
+#if !defined(SIO_UDP_CONNRESET)
+#define SIO_UDP_CONNRESET _WSAIOW(IOC_VENDOR,12)
+#endif
 
 
-//// Error Codes
+//// Socket
 
-std::string cat::SocketGetLastErrorString()
+Socket::Socket()
+{
+	_s = INVALID_SOCKET;
+}
+
+Socket::~Socket()
+{
+	Close();
+}
+
+Port Socket::GetPort()
+{
+	if (_port == 0)
+		_port = Sockets::GetBoundPort(_s);
+
+	return _port;
+}
+
+bool Socket::Create(int type, int protocol, bool SupportIPv6, bool SupportIPv4)
+{
+	Close();
+
+	SocketHandle s;
+
+	if (!Sockets::ref()->Create(type, protocol, SupportIPv4, SupportIPv6, s))
+	{
+		CAT_FATAL("Socket") << "Unable to create a socket: " << Sockets::GetLastErrorString();
+		return false;
+	}
+
+	_s = s;
+	_port = 0;
+	_support4 = SupportIPv4;
+	_support6 = SupportIPv6;
+	return true;
+}
+
+bool Socket::SetSendBufferSize(int bytes)
+{
+	int snd_buffsize = bytes;
+	if (setsockopt(_s, SOL_SOCKET, SO_SNDBUF, (char*)&snd_buffsize, sizeof(snd_buffsize)))
+	{
+		CAT_WARN("Socket") << "Unable to zero the send buffer: " << Sockets::GetLastErrorString();
+		return false;
+	}
+
+	return true;
+}
+
+bool Socket::SetRecvBufferSize(int bytes)
+{
+	int rcv_buffsize = bytes;
+	if (setsockopt(_s, SOL_SOCKET, SO_RCVBUF, (char*)&rcv_buffsize, sizeof(rcv_buffsize)))
+	{
+		CAT_WARN("Socket") << "Unable to setsockopt SO_RCVBUF " << rcv_buffsize << ": " << Sockets::GetLastErrorString();
+		return false;
+	}
+
+	return true;
+}
+
+bool Socket::Bind(Port port)
+{
+	// Bind the socket to a given port
+	if (!Sockets::NetBind(_s, port, _support6))
+	{
+		CAT_FATAL("Socket") << "Unable to bind to port: " << Sockets::GetLastErrorString();
+		CloseSocketHandle(_s);
+		_s = INVALID_SOCKET;
+		return false;
+	}
+
+	return true;
+}
+
+void Socket::Close()
+{
+	if (_s != INVALID_SOCKET)
+		CloseSocketHandle(_s);
+}
+
+
+//// UDP Socket
+
+bool UDPSocket::IgnoreUnreachable(bool ignore)
+{
+	// FALSE = Disable behavior where, after receiving an ICMP Unreachable message,
+	// WSARecvFrom() will fail.  Disables ICMP completely; normally this is good.
+	// But when you're writing a client endpoint, you probably want to listen to
+	// ICMP Port Unreachable or other failures until you get the first packet.
+	// After that call IgnoreUnreachable() to avoid spoofed ICMP exploits.
+
+	DWORD behavior = ignore ? FALSE : TRUE;
+	if (ioctlsocket(_s, SIO_UDP_CONNRESET, &behavior) == SOCKET_ERROR)
+	{
+		CAT_WARN("UDPSocket") << "Unable to ignore ICMP Unreachable: " << Sockets::GetLastErrorString();
+		return false;
+	}
+
+	return true;
+}
+
+bool UDPSocket::DontFragment(bool df)
+{
+	DWORD behavior = df ? TRUE : FALSE;
+	if (setsockopt(_s, IPPROTO_IP, IP_DONTFRAGMENT, (const char*)&behavior, sizeof(behavior)))
+	{
+		CAT_WARN("UDPSocket") << "Unable to change don't fragment bit: " << Sockets::GetLastErrorString();
+		return false;
+	}
+
+	return true;
+}
+
+
+//// Sockets
+
+CAT_REF_SINGLETON(Sockets);
+
+void Sockets::OnInitialize()
 {
 #if defined(CAT_OS_WINDOWS)
-    return SocketGetErrorString(WSAGetLastError());
-#else
-    return SocketGetErrorString(errno);
+	WSADATA wsaData;
+
+	// Request Winsock 2.2
+	if (NO_ERROR != WSAStartup(MAKEWORD(2, 2), &wsaData))
+	{
+		CAT_FATAL("Sockets") << "Unable to initialize Winsock 2.2";
+	}
 #endif
 }
 
-std::string cat::SocketGetErrorString(int code)
+void Sockets::OnFinalize()
+{
+#if defined(CAT_OS_WINDOWS)
+	WSACleanup();
+#endif
+}
+
+bool Sockets::AllowIPv4OnIPv6Socket(SocketHandle s)
+{
+	int on = 0;
+
+	// Turn off IPV6_V6ONLY so that IPv4 is able to communicate with the socket also
+	return 0 == setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&on, sizeof(on));
+}
+
+bool Sockets::Create(int type, int protocol, bool SupportIPv4, bool &SupportIPv6, SocketHandle &out_s)
+{
+	// If IPv6 support requested,
+	if (SupportIPv6)
+	{
+		// Attempt to create an IPv6 socket
+#if defined(CAT_OS_WINDOWS)
+		SocketHandle s = WSASocket(AF_INET6, type, protocol, 0, 0, WSA_FLAG_OVERLAPPED);
+#else
+		SocketHandle s = socket(AF_INET6, type, protocol);
+#endif
+
+		// If the socket was created,
+		if (s != INVALID_SOCKET)
+		{
+			// If does not need to support IPv4 or able to disable IPv6-only mode,
+			if (!SupportIPv4 || AllowIPv4OnIPv6Socket(s))
+			{
+				//SupportIPv6 = true;
+				out_s = s;
+				return true;
+			}
+
+			// If IPv4 cannot be supported, just create an IPv4 socket
+			CloseSocketHandle(s);
+		}
+	}
+
+	// Attempt to create an IPv4 socket
+#if defined(CAT_OS_WINDOWS)
+	SocketHandle s = WSASocket(AF_INET, type, protocol, 0, 0, WSA_FLAG_OVERLAPPED);
+#else
+	SocketHandle s = socket(AF_INET, type, protocol);
+#endif
+
+	// If the socket was created,
+	if (s == INVALID_SOCKET)
+		return false;
+
+	SupportIPv6 = false;
+	out_s = s;
+	return true;
+}
+
+bool Sockets::NetBind(SocketHandle s, Port port, bool SupportIPv6)
+{
+	if (s == SOCKET_ERROR)
+		return false;
+
+	// Bind socket to port
+	sockaddr_in6 addr;
+	int addr_len;
+
+	// If IPv6 support is enabled,
+	if (SupportIPv6)
+	{
+		// Fill in IPv6 sockaddr
+		CAT_OBJCLR(addr);
+		addr.sin6_family = AF_INET6;
+		addr.sin6_addr = in6addr_any;
+		addr.sin6_port = htons(port);
+
+		addr_len = sizeof(sockaddr_in6);
+	}
+	else
+	{
+		// Fill in IPv4 sockaddr within IPv6 addr
+		sockaddr_in *addr4 = reinterpret_cast<sockaddr_in*>( &addr );
+
+		addr4->sin_family = AF_INET;
+		addr4->sin_addr.S_un.S_addr = INADDR_ANY;
+		addr4->sin_port = htons(port);
+		CAT_OBJCLR(addr4->sin_zero);
+
+		addr_len = sizeof(sockaddr_in);
+	}
+
+	// Attempt to bind
+	return 0 == bind(s, reinterpret_cast<sockaddr*>( &addr ), addr_len);
+}
+
+Port Sockets::GetBoundPort(SocketHandle s)
+{
+	sockaddr_in6 addr;
+	int namelen = sizeof(addr);
+
+	// If socket name cannot be determined,
+	if (getsockname(s, reinterpret_cast<sockaddr*>( &addr ), &namelen))
+		return 0;
+
+	// Port is placed in the same location for IPv4 and IPv6
+	return ntohs(addr.sin6_port);
+}
+
+std::string Sockets::GetLastErrorString()
+{
+	int code;
+
+#if defined(CAT_OS_WINDOWS)
+	code = WSAGetLastError();
+#else
+	code = errno;
+#endif
+
+	return GetErrorString(code);
+}
+
+std::string Sockets::GetErrorString(int code)
 {
 	switch (code)
 	{
 #if defined(CAT_OS_WINDOWS)
-    case WSAEADDRNOTAVAIL:         return "[Address not available]";
-    case WSAEADDRINUSE:            return "[Address is in use]";
-    case WSANOTINITIALISED:        return "[Winsock not initialized]";
-    case WSAENETDOWN:              return "[Network is down]";
-    case WSAEINPROGRESS:           return "[Operation in progress]";
-    case WSA_NOT_ENOUGH_MEMORY:    return "[Out of memory]";
-    case WSA_INVALID_HANDLE:       return "[Invalid handle]";
-    case WSA_INVALID_PARAMETER:    return "[Invalid parameter]";
-    case WSAEFAULT:                return "[Fault]";
-    case WSAEINTR:                 return "[Interrupted]";
-    case WSAEINVAL:                return "[Invalid]";
-    case WSAEISCONN:               return "[Is connected]";
-    case WSAENETRESET:             return "[Network reset]";
-    case WSAENOTSOCK:              return "[Parameter is not a socket]";
-    case WSAEOPNOTSUPP:            return "[Operation not supported]";
-    case WSAESOCKTNOSUPPORT:       return "[Socket type not supported]";
-    case WSAESHUTDOWN:             return "[Shutdown]";
-    case WSAEWOULDBLOCK:           return "[Operation would block]";
-    case WSAEMSGSIZE:              return "[Message size]";
-    case WSAETIMEDOUT:             return "[Operation timed out]";
-    case WSAECONNRESET:            return "[Connection reset]";
-    case WSAENOTCONN:              return "[Socket not connected]";
-    case WSAEDISCON:               return "[Disconnected]";
+	case WSAEADDRNOTAVAIL:         return "[Address not available]";
+	case WSAEADDRINUSE:            return "[Address is in use]";
+	case WSANOTINITIALISED:        return "[Winsock not initialized]";
+	case WSAENETDOWN:              return "[Network is down]";
+	case WSAEINPROGRESS:           return "[Operation in progress]";
+	case WSA_NOT_ENOUGH_MEMORY:    return "[Out of memory]";
+	case WSA_INVALID_HANDLE:       return "[Invalid handle]";
+	case WSA_INVALID_PARAMETER:    return "[Invalid parameter]";
+	case WSAEFAULT:                return "[Fault]";
+	case WSAEINTR:                 return "[Interrupted]";
+	case WSAEINVAL:                return "[Invalid]";
+	case WSAEISCONN:               return "[Is connected]";
+	case WSAENETRESET:             return "[Network reset]";
+	case WSAENOTSOCK:              return "[Parameter is not a socket]";
+	case WSAEOPNOTSUPP:            return "[Operation not supported]";
+	case WSAESOCKTNOSUPPORT:       return "[Socket type not supported]";
+	case WSAESHUTDOWN:             return "[Shutdown]";
+	case WSAEWOULDBLOCK:           return "[Operation would block]";
+	case WSAEMSGSIZE:              return "[Message size]";
+	case WSAETIMEDOUT:             return "[Operation timed out]";
+	case WSAECONNRESET:            return "[Connection reset]";
+	case WSAENOTCONN:              return "[Socket not connected]";
+	case WSAEDISCON:               return "[Disconnected]";
 	case WSAENOBUFS:               return "[No buffer space available]";
-    case ERROR_IO_PENDING:         return "[IO operation will complete in IOCP worker thread]";
-    case WSA_OPERATION_ABORTED:    return "[Operation aborted]";
-    case ERROR_CONNECTION_ABORTED: return "[Connection aborted locally]";
-    case ERROR_NETNAME_DELETED:    return "[Socket was already closed]";
-    case ERROR_PORT_UNREACHABLE:   return "[Destination port is unreachable]";
-    case ERROR_MORE_DATA:          return "[More data is available]";
+	case ERROR_IO_PENDING:         return "[IO operation will complete in IOCP worker thread]";
+	case WSA_OPERATION_ABORTED:    return "[Operation aborted]";
+	case ERROR_CONNECTION_ABORTED: return "[Connection aborted locally]";
+	case ERROR_NETNAME_DELETED:    return "[Socket was already closed]";
+	case ERROR_PORT_UNREACHABLE:   return "[Destination port is unreachable]";
+	case ERROR_MORE_DATA:          return "[More data is available]";
 #else
 	case EPERM:		return "[Operation not permitted]";
 	case ENOENT:	return "[No such file or directory]";
@@ -101,155 +349,11 @@ std::string cat::SocketGetErrorString(int code)
 	case EAGAIN:	return "[Try again]";
 	case ENOMEM:	return "[Out of memory]";
 #endif
-    };
+	};
 
-    ostringstream oss;
-    oss << "[Error code: " << code << " (0x" << hex << code << ")]";
-    return oss.str();
-}
-
-static CAT_INLINE bool IsIP6ContactableByIP4()
-{
-	// Under Windows 2003 or earlier, when a server binds to an IPv6 address it
-	// cannot be contacted by IPv4 clients, which is currently a very bad thing,
-	// so just do IPv4 under Windows 2003 or earlier.
-#if defined(CAT_OS_WINDOWS)
-	DWORD dwVersion = 0;
-	DWORD dwMajorVersion = 0;
-
-	dwVersion = GetVersion();
-	dwMajorVersion = (DWORD)(LOBYTE(LOWORD(dwVersion)));
-
-	// 5: 2000(.0), XP(.1), 2003(.2)
-	// 6: Vista(.0), 7(.1)
-	return (dwMajorVersion >= 6);
-#else
-	return true; // For other OS this is not a problem, just return true
-#endif
-}
-
-// Returns true on success
-static bool DisableV6ONLY(Socket s)
-{
-	int on = 0;
-
-	// Turn off IPV6_V6ONLY so that IPv4 is able to communicate with the socket also
-	return 0 == setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&on, sizeof(on));
-}
-
-bool cat::CreateSocket(int type, int protocol, bool SupportIPv4, Socket &out_s, bool &inout_OnlyIPv4)
-{
-	if (!inout_OnlyIPv4 && IsIP6ContactableByIP4())
-	{
-		// Attempt to create an IPv6 socket
-#if defined(CAT_OS_WINDOWS)
-		Socket s = WSASocket(AF_INET6, type, protocol, 0, 0, WSA_FLAG_OVERLAPPED);
-#else
-		Socket s = socket(AF_INET6, type, protocol);
-#endif
-
-		// If the socket was created,
-		while (s != INVALID_SOCKET)
-		{
-			// Attempt to disable IPv6_Only flag
-			if (SupportIPv4 && !DisableV6ONLY(s))
-			{
-				// If IPv4 cannot be supported, just create an IPv4 socket
-				CloseSocket(s);
-				break;
-			}
-
-			out_s = s;
-			return true;
-		}
-	}
-
-	// Attempt to create an IPv4 socket
-#if defined(CAT_OS_WINDOWS)
-	Socket s = WSASocket(AF_INET, type, protocol, 0, 0, WSA_FLAG_OVERLAPPED);
-#else
-	Socket s = socket(AF_INET, type, protocol);
-#endif
-
-	// If the socket was created,
-	if (s != INVALID_SOCKET)
-	{
-		inout_OnlyIPv4 = true;
-		out_s = s;
-		return true;
-	}
-
-	return false;
-}
-
-bool cat::NetBind(Socket s, Port port, bool OnlyIPv4)
-{
-	if (s == SOCKET_ERROR)
-		return false;
-
-	// Bind socket to port
-	sockaddr_in6 addr;
-	int addr_len;
-
-	// If only IPv4 is desired,
-	if (OnlyIPv4)
-	{
-		// Fill in IPv4 sockaddr within IPv6 addr
-		sockaddr_in *addr4 = reinterpret_cast<sockaddr_in*>( &addr );
-
-		addr4->sin_family = AF_INET;
-		addr4->sin_addr.S_un.S_addr = INADDR_ANY;
-		addr4->sin_port = htons(port);
-		CAT_OBJCLR(addr4->sin_zero);
-
-		addr_len = sizeof(sockaddr_in);
-	}
-	else
-	{
-		// Fill in IPv6 sockaddr
-		CAT_OBJCLR(addr);
-		addr.sin6_family = AF_INET6;
-		addr.sin6_addr = in6addr_any;
-		addr.sin6_port = htons(port);
-
-		addr_len = sizeof(sockaddr_in6);
-	}
-
-	// Attempt to bind
-	return 0 == bind(s, reinterpret_cast<sockaddr*>( &addr ), addr_len);
-}
-
-Port cat::GetBoundPort(Socket s)
-{
-    sockaddr_in6 addr;
-    int namelen = sizeof(addr);
-
-	// If socket name cannot be determined,
-    if (getsockname(s, reinterpret_cast<sockaddr*>( &addr ), &namelen))
-        return 0;
-
-	// Port is placed in the same location for IPv4 and IPv6
-    return ntohs(addr.sin6_port);
-}
-
-// Run startup and cleanup functions needed under some OS
-bool cat::StartupSockets()
-{
-#if defined(CAT_OS_WINDOWS)
-	WSADATA wsaData;
-
-	// Request Winsock 2.2
-	return NO_ERROR == WSAStartup(MAKEWORD(2, 2), &wsaData);
-#else
-	return true;
-#endif
-}
-
-void cat::CleanupSockets()
-{
-#if defined(CAT_OS_WINDOWS)
-	WSACleanup();
-#endif
+	ostringstream oss;
+	oss << "[Error code: " << code << " (0x" << hex << code << ")]";
+	return oss.str();
 }
 
 
