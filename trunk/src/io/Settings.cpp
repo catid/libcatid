@@ -77,6 +77,8 @@ void SettingsKey::write(std::ofstream &file)
 
 //// Settings
 
+CAT_REF_SINGLETON(Settings);
+
 void Settings::OnInitialize()
 {
 	CAT_OBJCLR(_hbtrees);
