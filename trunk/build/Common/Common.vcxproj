@@ -165,6 +165,7 @@
     <ClCompile Include="..\..\src\io\MappedFile.cpp" />
     <ClCompile Include="..\..\src\io\Settings.cpp" />
     <ClCompile Include="..\..\src\lang\LinkedLists.cpp" />
+    <ClCompile Include="..\..\src\lang\RefObject.cpp" />
     <ClCompile Include="..\..\src\lang\RefSingleton.cpp" />
     <ClCompile Include="..\..\src\lang\Singleton.cpp" />
     <ClCompile Include="..\..\src\math\BitMath.cpp" />
@@ -176,7 +177,6 @@
     <ClCompile Include="..\..\src\parse\Base64.cpp" />
     <ClCompile Include="..\..\src\parse\BufferTok.cpp" />
     <ClCompile Include="..\..\src\port\SystemInfo.cpp" />
-    <ClCompile Include="..\..\src\threads\RefObject.cpp" />
     <ClCompile Include="..\..\src\threads\Thread.cpp" />
     <ClCompile Include="..\..\src\threads\WaitableFlag.cpp" />
     <ClCompile Include="..\..\src\threads\WorkerThreads.cpp" />
@@ -202,6 +202,7 @@
     <ClInclude Include="..\..\include\cat\io\MappedFile.hpp" />
     <ClInclude Include="..\..\include\cat\io\Settings.hpp" />
     <ClInclude Include="..\..\include\cat\lang\Delegates.hpp" />
+    <ClInclude Include="..\..\include\cat\lang\RefObject.hpp" />
     <ClInclude Include="..\..\include\cat\lang\RefSingleton.hpp" />
     <ClInclude Include="..\..\include\cat\lang\Singleton.hpp" />
     <ClInclude Include="..\..\include\cat\lang\LinkedLists.hpp" />
@@ -216,7 +217,6 @@
     <ClInclude Include="..\..\include\cat\parse\BufferTok.hpp" />
     <ClInclude Include="..\..\include\cat\Platform.hpp" />
     <ClInclude Include="..\..\include\cat\port\SystemInfo.hpp" />
-    <ClInclude Include="..\..\include\cat\threads\RefObject.hpp" />
     <ClInclude Include="..\..\include\cat\threads\Thread.hpp" />
     <ClInclude Include="..\..\include\cat\threads\WaitableFlag.hpp" />
     <ClInclude Include="..\..\include\cat\threads\WorkerThreads.hpp" />
