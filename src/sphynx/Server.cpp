@@ -404,7 +404,7 @@ bool Server::StartServer(SphynxTLS *tls, Port port, TunnelKeyPair &key_pair, con
 	if (!Bind(only_ipv4, port, true, kernelReceiveBufferBytes))
 	{
 		CAT_WARN("Server") << "Failed to initialize: Unable to bind handshake port "
-			<< port << ". " << SocketGetLastErrorString();
+			<< port << ". " << Sockets::GetLastErrorString()();
 		return false;
 	}
 

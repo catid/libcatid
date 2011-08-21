@@ -231,9 +231,9 @@ public:
 
 	Port GetPort();
 
-	// The SupportIPv6 flag is a suggestion.  Use SupportsIPv6() to check success.  The SupportIPv4 flag is always respected.
+	// The RequestIPv6 flag is a suggestion.  Use SupportsIPv6() to check success.  The RequireIPv4 flag is always respected.
 	// NOTE: Socket only supports IPv6 operations after Bind() completes
-	bool Create(int type, int protocol, bool SupportIPv6 = true, bool SupportIPv4 = true);
+	bool Create(int type, int protocol, bool RequestIPv6 = true, bool RequireIPv4 = true);
 
 	// Call these before binding
 	bool SetSendBufferSize(int bytes);
@@ -253,7 +253,7 @@ class UDPSocket : public Socket
 public:
 	CAT_INLINE virtual ~UDPSocket() {}
 
-	CAT_INLINE bool Create(bool SupportIPv6 = true, bool SupportIPv4 = true) { return Socket::Create(SOCK_DGRAM, IPPROTO_UDP, SupportIPv6, SupportIPv4); }
+	CAT_INLINE bool Create(bool RequestIPv6 = true, bool RequireIPv4 = true) { return Socket::Create(SOCK_DGRAM, IPPROTO_UDP, RequestIPv6, RequireIPv4); }
 
 	// Disabled by default; ignore ICMP unreachable errors
 	bool IgnoreUnreachable(bool ignore = true);
@@ -271,12 +271,10 @@ class TCPSocket : public Socket
 public:
 	CAT_INLINE virtual ~TCPSocket() {}
 
-	CAT_INLINE bool Create(bool SupportIPv6 = true, bool SupportIPv4 = true) { return Socket::Create(SOCK_STREAM, IPPROTO_TCP, SupportIPv6, SupportIPv4); }
+	CAT_INLINE bool Create(bool RequestIPv6 = true, bool RequireIPv4 = true) { return Socket::Create(SOCK_STREAM, IPPROTO_TCP, RequestIPv6, RequireIPv4); }
 };
 
-
-//// Sockets
-
+// Internal class
 class CAT_EXPORT Sockets : public RefSingleton<Sockets>
 {
 	void OnInitialize();
@@ -285,7 +283,7 @@ class CAT_EXPORT Sockets : public RefSingleton<Sockets>
 public:
 	// Will unset SupportIPv6 flag if it was unable to support IPv6.  Always respects SupportIPv4 flag.
 	// Always creates an overlapped socket in Windows.
-	bool Create(int type, int protocol, bool SupportIPv4, bool &SupportIPv6, SocketHandle &out_s);
+	bool Create(int type, int protocol, bool RequireIPv4, bool &SupportIPv6, SocketHandle &out_s);
 
 	static bool AllowIPv4OnIPv6Socket(SocketHandle s);
 	static bool NetBind(SocketHandle s, Port port, bool SupportIPv6);

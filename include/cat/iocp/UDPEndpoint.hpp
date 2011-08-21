@@ -69,13 +69,12 @@ static const u32 UDP_READ_POST_LIMIT = 8;
 
 
 // Object that represents a UDP endpoint bound to a single port
-class CAT_EXPORT UDPEndpoint : public RefObject, public IOThreadsAssociator
+class CAT_EXPORT UDPEndpoint : public RefObject, public IOThreadsAssociator, public UDPSocket
 {
 	friend class IOThread;
 
 	volatile u32 _buffers_posted; // Number of buffers posted to the socket waiting for data
 
-	UDPSocket _socket;
 	IOThreadPool *_pool;
 
 	bool PostRead(RecvBuffer *buffer);
@@ -90,21 +89,7 @@ public:
 	static const u32 RefObjectGUID = 0x00060001; // Global Unique IDentifier for acquiring RefObject singletons
 	CAT_INLINE const char *GetRefObjectName() { return "UDPEndpoint"; }
 
-	CAT_INLINE bool Valid() { return _socket.Valid(); }
-	CAT_INLINE Socket &GetSocket() { return _socket; }
-
-	// Is6() result is only valid AFTER Bind()
-	CAT_INLINE bool Is6() { return _socket.SupportsIPv6(); }
-
-    // For servers: Bind() with ignoreUnreachable = true ((default))
-    // For clients: Bind() with ignoreUnreachable = false and call this
-    //              after the first packet from the server is received.
-    bool IgnoreUnreachable();
-
-	// Disabled by default; useful for MTU discovery
-	bool DontFragment(bool df = true);
-
-	bool Bind(bool onlySupportIPv4, Port port = 0, bool ignoreUnreachable = true, int kernelReceiveBufferBytes = 0);
+	bool Initialize(Port port = 0, bool ignoreUnreachable = true, bool RequestIPv6 = true, bool RequireIPv4 = true, int kernelReceiveBufferBytes = 0);
 
 	// If Is6() == true, the address must be promoted to IPv6
 	// before calling using addr.PromoteTo6()
