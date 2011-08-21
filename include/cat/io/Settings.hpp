@@ -92,7 +92,10 @@ class CAT_EXPORT Settings : public RefSingleton<Settings>
 	SettingsKey *initStr(const char *name, const char *value, bool overwrite);
 
 	void clear();
-	
+
+	void OnInitialize();
+	void OnFinalize();
+
 public:
 	void readSettingsFromFile(const char *file_path = "settings.txt", const char *override_file = "override.txt");
 	void readSettingsFromBuffer(SequentialFileReader &sfile);
@@ -106,10 +109,6 @@ public:
 
 	void setInt(const char *name, int n);
 	void setStr(const char *name, const char *value);
-
-protected:
-	void OnRefObjectInitialize();
-	void OnRefObjectFinalize();
 };
 
 

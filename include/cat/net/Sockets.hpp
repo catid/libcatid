@@ -29,7 +29,7 @@
 #ifndef CAT_SOCKETS_HPP
 #define CAT_SOCKETS_HPP
 
-#include <cat/Platform.hpp>
+#include <cat/lang/RefSingleton.hpp>
 #include <string>
 
 #if defined(CAT_OS_WINDOWS)
@@ -38,8 +38,8 @@
 # include <unistd.h>
 #endif
 
-#define CAT_IP4_LOOPBACK "127.0.0.1"
-#define CAT_IP6_LOOPBACK "::1"
+#define CAT_LOOPBACK_IP4 "127.0.0.1"
+#define CAT_LOOPBACK_IP6 "::1"
 
 namespace cat {
 
@@ -207,7 +207,9 @@ struct CAT_EXPORT NetAddr : UNetAddr
 #pragma pack(pop)
 
 
-//// Helper Functions
+//// Sockets
+
+class Sockets : RefSingleton<Sockets>
 
 // Run startup and cleanup functions needed under some OS
 CAT_EXPORT bool StartupSockets(); // returns false on error
