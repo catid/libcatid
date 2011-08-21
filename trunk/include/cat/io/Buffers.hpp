@@ -29,7 +29,6 @@
 #ifndef CAT_IO_BUFFERS_HPP
 #define CAT_IO_BUFFERS_HPP
 
-#include <cat/io/IOLayer.hpp>
 #include <cat/mem/ResizableBuffer.hpp>
 #include <cat/threads/WorkerThreads.hpp>
 

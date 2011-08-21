@@ -193,7 +193,7 @@ bool Sockets::AllowIPv4OnIPv6Socket(SocketHandle s)
 	return 0 == setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&on, sizeof(on));
 }
 
-bool Sockets::Create(int type, int protocol, bool SupportIPv4, bool &SupportIPv6, SocketHandle &out_s)
+bool Sockets::Create(int type, int protocol, bool RequireIPv4, bool &SupportIPv6, SocketHandle &out_s)
 {
 	// If IPv6 support requested,
 	if (SupportIPv6)
@@ -209,7 +209,7 @@ bool Sockets::Create(int type, int protocol, bool SupportIPv4, bool &SupportIPv6
 		if (s != INVALID_SOCKET)
 		{
 			// If does not need to support IPv4 or able to disable IPv6-only mode,
-			if (!SupportIPv4 || AllowIPv4OnIPv6Socket(s))
+			if (!RequireIPv4 || AllowIPv4OnIPv6Socket(s))
 			{
 				//SupportIPv6 = true;
 				out_s = s;
@@ -642,7 +642,7 @@ std::string UNetAddr::IPToString() const
 		// Because inet_ntop() is not supported in Windows XP, only Vista+
 		if (SOCKET_ERROR == WSAAddressToStringA((sockaddr*)&addr6, sizeof(addr6),
 												0, addr_str6, &str_len6))
-			return SocketGetLastErrorString();
+			return Sockets::GetLastErrorString()();
 
 		return addr_str6;
 	}
@@ -661,7 +661,7 @@ std::string UNetAddr::IPToString() const
 		// Because inet_ntop() is not supported in Windows XP, only Vista+
 		if (SOCKET_ERROR == WSAAddressToStringA((sockaddr*)&addr4, sizeof(addr4),
 												0, addr_str4, &str_len4))
-			return SocketGetLastErrorString();
+			return Sockets::GetLastErrorString()();
 
 		return addr_str4;
 	}
