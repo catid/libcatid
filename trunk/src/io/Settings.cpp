@@ -77,7 +77,7 @@ void SettingsKey::write(std::ofstream &file)
 
 //// Settings
 
-void Settings::OnRefObjectInitialize()
+void Settings::OnInitialize()
 {
 	CAT_OBJCLR(_hbtrees);
 
@@ -87,7 +87,7 @@ void Settings::OnRefObjectInitialize()
 	readSettingsFromFile(CAT_SETTINGS_FILE);
 }
 
-void Settings::OnRefObjectFinalize()
+void Settings::OnFinalize()
 {
 	write();
 }
