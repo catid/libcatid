@@ -46,6 +46,8 @@ namespace cat {
 
 //// Basic types
 
+typedef u16 Port;
+
 #if defined(CAT_OS_WINDOWS)
 	typedef SOCKET SocketHandle;
 	CAT_INLINE bool CloseSocketHandle(SocketHandle s) { return !closesocket(s); }
@@ -55,8 +57,6 @@ namespace cat {
 	static const int SOCKET_ERROR = -1;
 	CAT_INLINE bool CloseSocketHandle(Socket s) { return !close(s); }
 #endif
-
-typedef u16 Port;
 
 
 //// Address
@@ -214,41 +214,86 @@ struct CAT_EXPORT NetAddr : UNetAddr
 
 class CAT_EXPORT Socket
 {
-	SocketHandle _socket;
-	bool _ipv6;
+	bool _support4, _support6;
 	Port _port;
+
+protected:
+	SocketHandle _s;
 
 public:
 	Socket();
 	virtual ~Socket();
 
-	CAT_INLINE bool IsIPv6() { return _ipv6; }
-	CAT_INLINE SocketHandle GetHandle() { return _socket; }
+	CAT_INLINE bool Valid() { return _s != INVALID_SOCKET; }
+	CAT_INLINE bool SupportsIPv4() { return _support4; }
+	CAT_INLINE bool SupportsIPv6() { return _support6; }
+	CAT_INLINE SocketHandle GetHandle() { return _s; }
 
 	Port GetPort();
 
-	// inout_OnlyIPv4: Indicates that only IPv4 is requested by caller
-	// Sets OnlyIPv4 if IPv6 will be unsupported
-	// Returns true on success
-	bool Create(int type, int protocol, bool SupportIPv4 = true);
-	bool CreateUDP(bool SupportIPv4 = true);
-	bool CreateTCP(bool SupportIPv4 = true);
+	// The SupportIPv6 flag is a suggestion.  Use SupportsIPv6() to check success.  The SupportIPv4 flag is always respected.
+	// NOTE: Socket only supports IPv6 operations after Bind() completes
+	bool Create(int type, int protocol, bool SupportIPv6 = true, bool SupportIPv4 = true);
 
-	bool Bind(Port port, bool OnlyIPv4);
+	// Call these before binding
+	bool SetSendBufferSize(int bytes);
+	bool SetRecvBufferSize(int bytes);
+
+	bool Bind(Port port);
+
+	void Close();
+};
+
+
+//// UDP Socket
+
+// Adds functions only used for UDP sockets
+class UDPSocket : public Socket
+{
+public:
+	CAT_INLINE virtual ~UDPSocket() {}
+
+	CAT_INLINE bool Create(bool SupportIPv6 = true, bool SupportIPv4 = true) { return Socket::Create(SOCK_DGRAM, IPPROTO_UDP, SupportIPv6, SupportIPv4); }
+
+	// Disabled by default; ignore ICMP unreachable errors
+	bool IgnoreUnreachable(bool ignore = true);
+
+	// Disabled by default; useful for MTU discovery
+	bool DontFragment(bool df = true);
+};
+
+
+//// TCP Socket
+
+// Adds functions only used for TCP sockets
+class TCPSocket : public Socket
+{
+public:
+	CAT_INLINE virtual ~TCPSocket() {}
+
+	CAT_INLINE bool Create(bool SupportIPv6 = true, bool SupportIPv4 = true) { return Socket::Create(SOCK_STREAM, IPPROTO_TCP, SupportIPv6, SupportIPv4); }
 };
 
 
 //// Sockets
 
-class CAT_EXPORT Sockets : RefSingleton<Sockets>
+class CAT_EXPORT Sockets : public RefSingleton<Sockets>
 {
 	void OnInitialize();
 	void OnFinalize();
 
 public:
-	// Returns a string describing the last error from Winsock2 API
-	static std::string SocketGetLastErrorString();
-	static std::string SocketGetErrorString(int code);
+	// Will unset SupportIPv6 flag if it was unable to support IPv6.  Always respects SupportIPv4 flag.
+	// Always creates an overlapped socket in Windows.
+	bool Create(int type, int protocol, bool SupportIPv4, bool &SupportIPv6, SocketHandle &out_s);
+
+	static bool AllowIPv4OnIPv6Socket(SocketHandle s);
+	static bool NetBind(SocketHandle s, Port port, bool SupportIPv6);
+	static Port GetBoundPort(SocketHandle s);
+
+	// Returns a string describing the last error
+	static std::string GetLastErrorString();
+	static std::string GetErrorString(int code);
 };
 
 

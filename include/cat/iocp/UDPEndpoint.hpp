@@ -75,9 +75,7 @@ class CAT_EXPORT UDPEndpoint : public RefObject, public IOThreadsAssociator
 
 	volatile u32 _buffers_posted; // Number of buffers posted to the socket waiting for data
 
-	Socket _socket;
-	Port _port;
-	bool _ipv6;
+	UDPSocket _socket;
 	IOThreadPool *_pool;
 
 	bool PostRead(RecvBuffer *buffer);
@@ -92,14 +90,11 @@ public:
 	static const u32 RefObjectGUID = 0x00060001; // Global Unique IDentifier for acquiring RefObject singletons
 	CAT_INLINE const char *GetRefObjectName() { return "UDPEndpoint"; }
 
-	CAT_INLINE bool Valid() { return _socket != SOCKET_ERROR; }
-	CAT_INLINE Socket GetSocket() { return _socket; }
-	CAT_INLINE HANDLE GetHandle() { return (HANDLE)_socket; }
-	Port GetPort();
-	CAT_INLINE Port GetCachedPort() { return _port; }
+	CAT_INLINE bool Valid() { return _socket.Valid(); }
+	CAT_INLINE Socket &GetSocket() { return _socket; }
 
 	// Is6() result is only valid AFTER Bind()
-	CAT_INLINE bool Is6() { return _ipv6; }
+	CAT_INLINE bool Is6() { return _socket.SupportsIPv6(); }
 
     // For servers: Bind() with ignoreUnreachable = true ((default))
     // For clients: Bind() with ignoreUnreachable = false and call this
