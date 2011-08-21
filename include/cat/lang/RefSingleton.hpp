@@ -41,6 +41,28 @@ namespace cat {
 	When the order of finalization matters, RefSingleton objects may call the FinalizeBefore<>();
 	function inside of their OnInitialize() member.  This function creates a reference counted
 	relationship between the two objects.  Circular references will cause this system to break.
+
+	To declare a RefSingleton in the header file:
+
+		#include <cat/lang/RefSingleton.hpp>
+
+		class Settings : public RefSingleton<Settings>
+		{
+			void OnInitialize();
+			void OnFinalize();
+			// No ctor or dtor
+
+	To define a Refsingleton in the source file:
+
+		CAT_REF_SINGLETON(Settings);
+
+		void Settings::OnInitialize()
+		{
+		}
+
+		void Settings::OnFinalize()
+		{
+		}
 */
 
 
