@@ -48,7 +48,6 @@
 #include <cat/threads/RWLock.hpp>
 #include <cat/threads/Thread.hpp>
 #include <cat/threads/WaitableFlag.hpp>
-#include <cat/lang/RefObject.hpp>
 #include <cat/threads/WorkerThreads.hpp>
 
 #include <cat/math/BitMath.hpp>
@@ -61,6 +60,7 @@
 #include <cat/lang/LinkedLists.hpp>
 #include <cat/lang/Singleton.hpp>
 #include <cat/lang/RefSingleton.hpp>
+#include <cat/lang/RefObject.hpp>
 
 #include <cat/io/Logging.hpp>
 #include <cat/io/MappedFile.hpp>
