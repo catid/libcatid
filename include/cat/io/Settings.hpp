@@ -33,19 +33,113 @@
 #include <cat/io/MappedFile.hpp>
 #include <fstream>
 
+/*
+	The settings file format is designed to be both human and machine readable.
+
+	Override CAT_SETTINGS_FILE in your project settings to change the file path.
+
+	Settings are stored in a hierarchy.  Tabs indicate the tree depth of a key.  Whitespace separates keys from values.
+
+	For example: Settings::ref()->getInt("IOThreadPools.BufferCount", IOTHREADS_BUFFER_COUNT)
+
+	Settings.cfg:
+		IOThreadPools
+			BufferCount 5
+*/
+
 namespace cat {
+
+
+class HashItem
+{
+	friend class HashTable;
+
+	u32 _hash;
+	std::string _key;
+	std::string _value;
+	int _value_int;
+
+	HashTable *_table;
+
+public:
+	CAT_INLINE u32 Hash() { return _hash; }
+
+	HashItem(std::string &key, std::string &value)
+	{
+		_key = key;
+		_value = value;
+		_value_int = atoi(_value.c_str());
+		_hash = MurmurHash(_key.c_str(), _key.length()).Get32();
+	}
+
+	virtual ~HashItem()
+	{
+	}
+};
+
+class HashTable
+{
+	int _allocated, _used;
+	HashItem **_items;
+
+public:
+	HashTable()
+	{
+
+	}
+
+	~HashTable()
+	{
+		if (_items)
+		{
+			for (u32 ii = 0; ii < _allocated; ++ii)
+			{
+				HashItem *item = _items[ii];
+
+				if (item)
+				{
+					delete item;
+				}
+			}
+
+			delete []_items;
+		}
+	}
+
+	void Insert(HashItem *new_item)
+	{
+		u32 hash = new_item->Hash();
+		u32 mask = _allocated - 1;
+		u32 index = hash & mask;
+
+		while (_items[index])
+		{
+			index = (index + 1) & mask;
+		}
+
+		_items[index] = new_item;
+	}
+
+	template<class T>
+	CAT_INLINE T *Lookup(HashKey key)
+	{
+		return static_cast<T*>( FindItem(key) );
+	}
+};
+
+
 
 
 enum SettingsValueFlags
 {
-	CAT_SETTINGS_FILLED = 1, // s[] array has been set
-	CAT_SETTINGS_INT = 2,	// value has been promoted to int 'i'
+	CAT_SETTINGS_FILLED = 1,	// s[] array has been set
+	CAT_SETTINGS_INT = 2,		// value has been promoted to int 'i'
 };
 
 struct SettingsValue
 {
-	u8 flags;	// sum of SettingsValueFlags
-	char s[256]; // always nul-terminated
+	u8 flags;		// sum of SettingsValueFlags
+	char s[256];	// always nul-terminated
 	int i;
 };
 
@@ -83,8 +177,8 @@ class CAT_EXPORT Settings : public RefSingleton<Settings>
 
 	SettingsKey *_hbtrees[SETTINGS_HASH_BINS]; // hash table of binary trees
 
-	bool _readSettings; // Flag set when settings have been read from disk
-	bool _modified;	 // Flag set when settings have been modified since last write
+	bool _readSettings;	// Flag set when settings have been read from disk
+	bool _modified;		// Flag set when settings have been modified since last write
 
 	std::string _settings_file;
 
