@@ -101,6 +101,35 @@ void CAT_EXPORT CopyToUppercaseString(const char *from, char *to);
 void CAT_EXPORT CopyToLowercaseString(const char *from, char *to);
 
 
+//// Nul-Terminated Fixed-Length String
+
+template<int MAX_LEN>
+class NulTermFixedStr
+{
+	char _str[MAX_LEN+1];
+
+public:
+	CAT_INLINE void SetFromRangeString(const char *str, int len)
+	{
+		if (len > MAX_LEN)
+			len = MAX_LEN;
+
+		memcpy(_str, str, len);
+		_str[len] = '\0';
+	}
+
+	CAT_INLINE void SetFromNulTerminatedString(const char *str)
+	{
+		CAT_STRNCPY(_str, str, sizeof(_str));
+	}
+
+	CAT_INLINE operator const char*()
+	{
+		return _str;
+	}
+};
+
+
 } // namespace cat
 
 #endif // CAT_STRINGS_HPP

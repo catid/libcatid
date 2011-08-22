@@ -43,87 +43,176 @@
 	For example: Settings::ref()->getInt("IOThreadPools.BufferCount", IOTHREADS_BUFFER_COUNT)
 
 	Settings.cfg:
-		IOThreadPools
-			BufferCount 5
+		IOThreadPools = 10
+			BufferCount = 5
 */
 
 namespace cat {
 
 
-class HashItem
+static const int SETTINGS_STRMAX = 32;
+
+class CAT_EXPORT SettingsHashKey
 {
-	friend class HashTable;
-
+protected:
+	NulTermFixedStr<SETTINGS_STRMAX> _key;
 	u32 _hash;
-	std::string _key;
-	std::string _value;
-	int _value_int;
-
-	HashTable *_table;
 
 public:
-	CAT_INLINE u32 Hash() { return _hash; }
-
-	HashItem(std::string &key, std::string &value)
+	SettingsHashKey(const char *key, int len)
 	{
-		_key = key;
-		_value = value;
-		_value_int = atoi(_value.c_str());
-		_hash = MurmurHash(_key.c_str(), _key.length()).Get32();
+		_key.SetFromRangeString(key, len);
+
+		_hash = MurmurHash(key, len).Get32();
 	}
 
-	virtual ~HashItem()
+	//CAT_INLINE virtual ~SettingsHashKey() {}
+
+	CAT_INLINE u32 Hash() { return _hash; }
+
+	bool operator==(SettingsHashKey &rhs)
 	{
+		return iStrEqual(rhs._key, _key);
 	}
 };
 
-class HashTable
+class CAT_EXPORT SettingsHashItem : public SettingsHashKey
 {
-	int _allocated, _used;
-	HashItem **_items;
+	friend class SettingsHashTable;
+
+protected:
+	NulTermFixedStr<SETTINGS_STRMAX> _value;
+	SettingsHashTable _children;
 
 public:
-	HashTable()
+	SettingsHashItem(const char *key, int len, const char *value)
+		: SettingsHashKey(key, len)
 	{
-
+		_value.SetFromRangeString(value, len);
 	}
 
-	~HashTable()
+	//CAT_INLINE virtual ~SettingsHashItem() {}
+
+	CAT_INLINE SettingsHashTable &GetChildren() { return _children; }
+
+	CAT_INLINE int GetValueInt() { return atoi(_value); }
+
+	CAT_INLINE const char *GetValueStr() { return _value; }
+
+	CAT_INLINE void SetValueStr(const char *value)
+	{
+		_value.SetFromNulTerminatedString(value);
+	}
+
+	CAT_INLINE void SetValueInt(int ivalue)
+	{
+		char value[13];
+
+		SetValueStr(itoa(ivalue, value, 10));
+	}
+};
+
+class CAT_EXPORT SettingsHashTable
+{
+	CAT_NO_COPY(SettingsHashTable);
+
+	static const u32 PREALLOC = 16;
+	static const u32 GROW_THRESH = 2;
+	static const u32 GROW_RATE = 2;
+
+	u32 _allocated, _used;
+	SettingsHashItem **_items;
+
+	void Grow()
+	{
+		u32 old_size = _allocated;
+
+		// Allocate larger array
+		u32 new_size = old_size * GROW_RATE;
+		if (new_size < PREALLOC) new_size = PREALLOC;
+		SettingsHashItem **new_items = new SettingsHashItem*[new_size];
+		if (!new_items) return;
+
+		// Zero new items
+		for (u32 ii = 0; ii < new_size; ++ii)
+			new_items[ii] = 0;
+
+		// Move old items to the new array
+		u32 mask = new_size - 1;
+		for (u32 ii = 0; ii < old_size; ++ii)
+		{
+			SettingsHashItem *item = _items[ii];
+			if (item) new_items[item->Hash() & mask] = item;
+		}
+
+		// Free old array
+		if (_items) delete []_items;
+
+		_items = new_items;
+		_allocated = new_size;
+	}
+
+public:
+	SettingsHashTable()
+	{
+		_items = 0;
+		_allocated = 0;
+		_used = 0;
+	}
+
+	~SettingsHashTable()
 	{
 		if (_items)
 		{
+			// Free any items
 			for (u32 ii = 0; ii < _allocated; ++ii)
 			{
-				HashItem *item = _items[ii];
-
-				if (item)
-				{
-					delete item;
-				}
+				SettingsHashItem *item = _items[ii];
+				if (item) delete item;
 			}
 
+			// Free the array
 			delete []_items;
 		}
 	}
 
-	void Insert(HashItem *new_item)
+	void Insert(SettingsHashItem *new_item)
 	{
+		// Grow if needed
+		if (_used * GROW_THRESH >= _allocated)
+			Grow();
+
+		// Insert at first open table index after hash
 		u32 hash = new_item->Hash();
 		u32 mask = _allocated - 1;
 		u32 index = hash & mask;
 
 		while (_items[index])
-		{
 			index = (index + 1) & mask;
-		}
 
 		_items[index] = new_item;
 	}
 
-	template<class T>
-	CAT_INLINE T *Lookup(HashKey key)
+	SettingsHashItem *Lookup(SettingsHashKey &key)
 	{
-		return static_cast<T*>( FindItem(key) );
+		if (!_allocated) return 0;
+
+		// Search used table indices after hash
+		u32 hash = key.Hash();
+		u32 mask = _allocated - 1;
+		u32 index = hash & mask;
+
+		SettingsHashItem *item;
+		while ((item = _items[index]))
+		{
+			if (hash == item->Hash() &&
+				key == *item)
+			{
+				return item;
+			}
+
+			index = (index + 1) & mask;
+		}
 	}
 };
 
