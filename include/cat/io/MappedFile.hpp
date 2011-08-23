@@ -130,15 +130,28 @@ public:
 class CAT_EXPORT MappedSequentialReader
 {
 	MappedView _view;
-	u32 _offset;
+	u32 _offset; // Offset in bytes into the mapped view for next read
 
 public:
 	static const u32 READ_AHEAD_CACHE = 16000000;	// 16 MB read ahead cache
 	static const u32 MAX_READ_SIZE = 512000000;		// 512 MB read limit (per read)
 
 	bool Open(MappedFile *file);		// Returns false on error
-	u8 *Read(u32 bytes);				// Returns 0 if read would be beyond end of file
-	bool ReadLine(char *outs, int len);	// Return false on error
+	u8 *Peek(u32 bytes);				// Returns 0 if read would be beyond end of file
+
+	CAT_INLINE void Skip(u32 bytes)
+	{
+		_offset += bytes;
+	}
+
+	CAT_INLINE u8 *Read(u32 bytes)
+	{
+		u8 *data = Peek(bytes);
+		Skip(bytes);
+		return data;
+	}
+
+	int ReadLine(char *outs, int len);	// Returns < 0 on eof, otherwise the line length
 
 	CAT_INLINE void Close() { _view.Close(); }
 

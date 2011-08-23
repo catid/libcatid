@@ -233,7 +233,7 @@ bool MappedSequentialReader::Open(MappedFile *file)
 	return _view.Open(file);
 }
 
-u8 *MappedSequentialReader::Read(u32 bytes)
+u8 *MappedSequentialReader::Peek(u32 bytes)
 {
 	CAT_DEBUG_ENFORCE(bytes <= MAX_READ_SIZE);
 
@@ -242,11 +242,7 @@ u8 *MappedSequentialReader::Read(u32 bytes)
 
 	// If bytes read is available,
 	if (bytes <= map_size - map_offset)
-	{
-		_offset = map_offset + bytes;
-
 		return _view.GetFront() + map_offset;
-	}
 
 	u64 file_offset = GetOffset();
 	u64 file_remaining = GetLength() - file_offset;
@@ -267,54 +263,67 @@ u8 *MappedSequentialReader::Read(u32 bytes)
 	// Map new view of file
 	u8 *data = _view.MapView(file_offset, acquire);
 
-	_offset = bytes;
+	_offset = 0;
 
 	return data;
 }
 
-bool MappedSequentialReader::ReadLine(char *outs, int len)
+int MappedSequentialReader::ReadLine(char *outs, int len)
 {
-	CAT_DEBUG_ENFORCE(len <= MAX_READ_SIZE);
+	// Check if any data is available for reading
+	u8 *data = Read(1);
+	if (!data) return -1;
 
-	u32 map_offset = _offset;
-	u32 map_size = _view.GetLength();
+	int count = 0;
 
-	// If bytes remain in the existing map,
-	if (map_offset < map_size)
+	// While there is room in the output buffer,
+	while (len > 1)
 	{
-		char ch;
+		char ch = (char)*data;
 
+		// If character is a line delimiter token,
+		if (ch == '\r')
+		{
+			// Peek at next character
+			u8 *next = Peek(1);
+			if (!next) break;
 
-	}
+			// If next character is a NL/CR pair,
+			if ((char)*next == '\n')
+			{
+				// Skip it so that next call will not treat it as a blank line
+				Skip(1);
+			}
 
-	// If bytes read is available,
-	if (bytes <= map_size - map_offset)
-	{
-		_offset = map_offset + bytes;
+			break;
+		}
+		else if (ch == '\n')
+		{
+			// Peek at next character
+			u8 *next = Peek(1);
+			if (!next) break;
 
-		return _view.GetFront() + map_offset;
-	}
+			// If next character is a NL/CR pair,
+			if ((char)*next == '\r')
+			{
+				// Skip it so that next call will not treat it as a blank line
+				Skip(1);
+			}
 
-	u64 file_offset = GetOffset();
-	u64 file_remaining = GetLength() - file_offset;
-
-	// If requested data is beyond the end of the file,
-	if (bytes > file_remaining)
-		return 0;
-
-	u32 acquire = bytes;
-	if (acquire < READ_AHEAD_CACHE)
-	{
-		if (READ_AHEAD_CACHE > file_remaining)
-			acquire = (u32)file_remaining;
+			break;
+		}
 		else
-			acquire = READ_AHEAD_CACHE;
+		{
+			// Copy other characters directly
+			*outs++ = ch;
+			--len;
+			++count;
+		}
+
+		u8 *data = Read(1);
+		if (!data) break;
 	}
 
-	// Map new view of file
-	u8 *data = _view.MapView(file_offset, acquire);
-
-	_offset = bytes;
-
-	return data;
+	*outs = '\0';
+	return count;
 }

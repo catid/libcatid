@@ -185,8 +185,8 @@ class CAT_EXPORT Settings : public RefSingleton<Settings>
 
 	std::string _settings_file;
 
-	void readSettingsFromBuffer(SequentialFileReader &sfile);
-	void readSettingsFromFile(const char *file_path = CAT_SETTINGS_FILE, const char *override_file = CAT_SETTINGS_OVERRIDE_FILE);
+	void readFile(SequentialFileReader &sfile);
+	void read(const char *file_path = CAT_SETTINGS_FILE, const char *override_file = CAT_SETTINGS_OVERRIDE_FILE);
 	void write();
 
 public:
