@@ -266,7 +266,33 @@ void Settings::readFile(SequentialFileReader &sfile)
 		if (count == 0)
 			continue;
 
+		// Count the number of tabs and spaces at the front
+		char *first = line;
+		int tab_count = 0, space_count = 0;
 
+		// While EOL not encountered,
+		char ch;
+		while ((ch = *first))
+		{
+			// Count whitespace
+			switch (*first)
+			{
+			case ' ':
+				++space_count;
+				++first;
+				break;
+
+			case '\t':
+				++tab_count;
+				++first;
+				break;
+
+			default:
+				{
+				}
+				break;
+			};
+		}
 	}
 }
 
