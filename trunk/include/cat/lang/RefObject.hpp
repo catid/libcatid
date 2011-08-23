@@ -63,6 +63,8 @@ class CAT_EXPORT RefObjects : Thread, public RefSingleton<RefObjects>
 	friend class RefObject;
 
 	DListForward _active_list, _dead_list;
+	typedef DListForward::Iterator<RefObject> iter;
+
 	bool _shutdown, _initialized;
 	WaitableFlag _shutdown_flag;
 

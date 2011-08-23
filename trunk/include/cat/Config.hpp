@@ -72,6 +72,9 @@ namespace cat {
 #if !defined(CAT_SETTINGS_FILE)
 #define CAT_SETTINGS_FILE "Settings.cfg"
 #endif
+#if !defined(CAT_SETTINGS_OVERRIDE_FILE)
+#define CAT_SETTINGS_OVERRIDE_FILE "Override.cfg"
+#endif
 
 
 } // namespace cat

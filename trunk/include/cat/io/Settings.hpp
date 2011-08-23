@@ -31,6 +31,9 @@
 
 #include <cat/threads/Mutex.hpp>
 #include <cat/io/MappedFile.hpp>
+#include <cat/lang/LinkedLists.hpp>
+#include <cat/lang/Strings.hpp>
+#include <cat/lang/RefSingleton.hpp>
 #include <fstream>
 
 /*
@@ -52,6 +55,9 @@ namespace cat {
 
 static const int SETTINGS_STRMAX = 32;
 
+
+//// SettingsHashKey
+
 class CAT_EXPORT SettingsHashKey
 {
 protected:
@@ -59,41 +65,32 @@ protected:
 	u32 _hash;
 
 public:
-	SettingsHashKey(const char *key, int len)
-	{
-		_key.SetFromRangeString(key, len);
-
-		_hash = MurmurHash(key, len).Get32();
-	}
+	SettingsHashKey(const char *key, int len);
 
 	//CAT_INLINE virtual ~SettingsHashKey() {}
 
 	CAT_INLINE u32 Hash() { return _hash; }
 
-	bool operator==(SettingsHashKey &rhs)
+	CAT_INLINE bool operator==(SettingsHashKey &rhs)
 	{
 		return iStrEqual(rhs._key, _key);
 	}
 };
 
-class CAT_EXPORT SettingsHashItem : public SettingsHashKey
+
+//// SettingsHashItem
+
+class CAT_EXPORT SettingsHashItem : public SettingsHashKey, public DListItem
 {
 	friend class SettingsHashTable;
 
 protected:
 	NulTermFixedStr<SETTINGS_STRMAX> _value;
-	SettingsHashTable _children;
 
 public:
-	SettingsHashItem(const char *key, int len, const char *value)
-		: SettingsHashKey(key, len)
-	{
-		_value.SetFromRangeString(value, len);
-	}
+	SettingsHashItem(const char *key, int len, const char *value);
 
 	//CAT_INLINE virtual ~SettingsHashItem() {}
-
-	CAT_INLINE SettingsHashTable &GetChildren() { return _children; }
 
 	CAT_INLINE int GetValueInt() { return atoi(_value); }
 
@@ -112,6 +109,9 @@ public:
 	}
 };
 
+
+//// SettingsHashTable
+
 class CAT_EXPORT SettingsHashTable
 {
 	CAT_NO_COPY(SettingsHashTable);
@@ -121,139 +121,56 @@ class CAT_EXPORT SettingsHashTable
 	static const u32 GROW_RATE = 2;
 
 	u32 _allocated, _used;
-	SettingsHashItem **_items;
+	DListForward *_buckets;
+	typedef DListForward::Iterator<SettingsHashItem> iter;
 
-	void Grow()
+	void Grow();
+
+public:
+	SettingsHashTable();
+	~SettingsHashTable();
+
+	void Insert(SettingsHashItem *new_item);
+	SettingsHashItem *Lookup(SettingsHashKey &key);
+
+	// Iterator
+	class CAT_EXPORT Iterator
 	{
-		u32 old_size = _allocated;
+		u32 _remaining;
+		DListForward *_bucket;
+		iter _ii;
 
-		// Allocate larger array
-		u32 new_size = old_size * GROW_RATE;
-		if (new_size < PREALLOC) new_size = PREALLOC;
-		SettingsHashItem **new_items = new SettingsHashItem*[new_size];
-		if (!new_items) return;
+		void IterateNext();
 
-		// Zero new items
-		for (u32 ii = 0; ii < new_size; ++ii)
-			new_items[ii] = 0;
+	public:
+		Iterator(SettingsHashTable &head);
 
-		// Move old items to the new array
-		u32 mask = new_size - 1;
-		for (u32 ii = 0; ii < old_size; ++ii)
+		CAT_INLINE operator SettingsHashItem *()
 		{
-			SettingsHashItem *item = _items[ii];
-			if (item) new_items[item->Hash() & mask] = item;
+			return _ii;
 		}
 
-		// Free old array
-		if (_items) delete []_items;
-
-		_items = new_items;
-		_allocated = new_size;
-	}
-
-public:
-	SettingsHashTable()
-	{
-		_items = 0;
-		_allocated = 0;
-		_used = 0;
-	}
-
-	~SettingsHashTable()
-	{
-		if (_items)
+		CAT_INLINE SettingsHashItem *operator->()
 		{
-			// Free any items
-			for (u32 ii = 0; ii < _allocated; ++ii)
-			{
-				SettingsHashItem *item = _items[ii];
-				if (item) delete item;
-			}
-
-			// Free the array
-			delete []_items;
+			return _ii;
 		}
-	}
 
-	void Insert(SettingsHashItem *new_item)
-	{
-		// Grow if needed
-		if (_used * GROW_THRESH >= _allocated)
-			Grow();
-
-		// Insert at first open table index after hash
-		u32 hash = new_item->Hash();
-		u32 mask = _allocated - 1;
-		u32 index = hash & mask;
-
-		while (_items[index])
-			index = (index + 1) & mask;
-
-		_items[index] = new_item;
-	}
-
-	SettingsHashItem *Lookup(SettingsHashKey &key)
-	{
-		if (!_allocated) return 0;
-
-		// Search used table indices after hash
-		u32 hash = key.Hash();
-		u32 mask = _allocated - 1;
-		u32 index = hash & mask;
-
-		SettingsHashItem *item;
-		while ((item = _items[index]))
+		CAT_INLINE Iterator &operator++() // pre-increment
 		{
-			if (hash == item->Hash() &&
-				key == *item)
-			{
-				return item;
-			}
-
-			index = (index + 1) & mask;
+			IterateNext();
+			return *this;
 		}
-	}
+
+		CAT_INLINE Iterator &operator++(int) // post-increment
+		{
+			return ++*this;
+		}
+	};
 };
 
 
+//// Settings
 
-
-enum SettingsValueFlags
-{
-	CAT_SETTINGS_FILLED = 1,	// s[] array has been set
-	CAT_SETTINGS_INT = 2,		// value has been promoted to int 'i'
-};
-
-struct SettingsValue
-{
-	u8 flags;		// sum of SettingsValueFlags
-	char s[256];	// always nul-terminated
-	int i;
-};
-
-
-class CAT_EXPORT SettingsKey
-{
-	CAT_NO_COPY(SettingsKey);
-
-public:
-	SettingsKey(SettingsKey *lnode, SettingsKey *gnode, const char *name);
-	~SettingsKey();
-
-public:
-	SettingsKey *lnode, *gnode;
-
-	char name[64]; // not necessarily nul-terminated
-
-	SettingsValue value;
-
-public:
-	void write(std::ofstream &file);
-};
-
-
-// User settings manager
 class CAT_EXPORT Settings : public RefSingleton<Settings>
 {
 	void OnInitialize();
@@ -261,36 +178,24 @@ class CAT_EXPORT Settings : public RefSingleton<Settings>
 
 	Mutex _lock;
 
-	static const u32 KEY_HASH_SALT = 0xbaddecaf;
-	static const int SETTINGS_HASH_BINS = 256;
-
-	SettingsKey *_hbtrees[SETTINGS_HASH_BINS]; // hash table of binary trees
+	SettingsHashTable _table;
 
 	bool _readSettings;	// Flag set when settings have been read from disk
 	bool _modified;		// Flag set when settings have been modified since last write
 
 	std::string _settings_file;
 
-	SettingsKey *addKey(const char *name);
-	SettingsKey *getKey(const char *name);
-
-	SettingsKey *initInt(const char *name, int n, bool overwrite);
-	SettingsKey *initStr(const char *name, const char *value, bool overwrite);
-
 	void clear();
+	void readSettingsFromBuffer(SequentialFileReader &sfile);
 
 public:
-	void readSettingsFromFile(const char *file_path = "settings.txt", const char *override_file = "override.txt");
-	void readSettingsFromBuffer(SequentialFileReader &sfile);
+	void readSettingsFromFile(const char *file_path = CAT_SETTINGS_FILE, const char *override_file = CAT_SETTINGS_OVERRIDE_FILE);
 	void write();
 
-	int getInt(const char *name);
-	const char *getStr(const char *name);
+	int getInt(const char *name, int default_value = 0);
+	const char *getStr(const char *name, const char *default_value = "");
 
-	int getInt(const char *name, int init);
-	const char *getStr(const char *name, const char *init);
-
-	void setInt(const char *name, int n);
+	void setInt(const char *name, int value);
 	void setStr(const char *name, const char *value);
 };
 

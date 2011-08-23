@@ -189,7 +189,7 @@ void RefObjects::BuryDeadites()
 	dead_list.Steal(_dead_list);
 	m_refobjects_lock.Leave();
 
-	for (DListForward::Iterator<RefObject> next = 0, ii = dead_list.head(); ii; ii = next)
+	for (iter next = 0, ii = dead_list.head(); ii; ii = next)
 	{
 		next = ii.GetNext();
 
@@ -221,7 +221,7 @@ bool RefObjects::ThreadFunction(void *param)
 	CAT_INANE("RefObjects") << "Reaper destroying remaining active objects...";
 
 	// For each remaining active object,
-	for (DListForward::Iterator<RefObject> ii = _active_list.head(); ii; ++ii)
+	for (iter ii = _active_list.head(); ii; ++ii)
 	{
 		ii->Destroy(CAT_REFOBJECT_FILE_LINE);
 	}
@@ -240,7 +240,7 @@ bool RefObjects::ThreadFunction(void *param)
 	CAT_FOREVER
 	{
 		// Troll for zero reference counts
-		for (DListForward::Iterator<RefObject> next = 0, ii = _active_list.head(); ii; ii = next)
+		for (iter next = 0, ii = _active_list.head(); ii; ii = next)
 		{
 			next = ii.GetNext();
 
@@ -277,10 +277,10 @@ bool RefObjects::ThreadFunction(void *param)
 		else
 		{
 			// Find smallest ref count object
-			DListForward::Iterator<RefObject> smallest_obj = _active_list.head();
+			iter smallest_obj = _active_list.head();
 			u32 smallest_ref_count = smallest_obj->_ref_count;
 
-			for (DListForward::Iterator<RefObject> next = 0, ii = smallest_obj.GetNext(); ii; ii = next)
+			for (iter next = 0, ii = smallest_obj.GetNext(); ii; ii = next)
 			{
 				next = ii.GetNext();
 
