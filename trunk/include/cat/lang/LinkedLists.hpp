@@ -340,9 +340,12 @@ public:
 	template<class T>
 	class Iterator : public DListIteratorBase
 	{
-		CAT_INLINE Iterator() {}
-
 	public:
+		CAT_INLINE Iterator()
+		{
+			_item = 0;
+		}
+
 		CAT_INLINE Iterator(DListItem *item)
 		{
 			_item = item;
@@ -432,9 +435,12 @@ public:
 	template<class T>
 	class Iterator : public DListIteratorBase
 	{
-		CAT_INLINE Iterator() {}
-
 	public:
+		CAT_INLINE Iterator()
+		{
+			_item = 0;
+		}
+
 		CAT_INLINE Iterator(DListItem *item)
 		{
 			_item = item;
@@ -634,9 +640,12 @@ public:
 	template<class T>
 	class Iterator : public SListIteratorBase
 	{
-		CAT_INLINE Iterator() {}
-
 	public:
+		CAT_INLINE Iterator()
+		{
+			_item = 0;
+		}
+
 		CAT_INLINE Iterator(SListItem *item)
 		{
 			_prev = 0;

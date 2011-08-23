@@ -69,10 +69,10 @@ void SettingsHashTable::Grow()
 
 	// For each bucket,
 	u32 mask = new_size - 1;
-	for (u32 ii = 0; ii < old_size; ++ii)
+	for (u32 jj = 0; jj < old_size; ++jj)
 	{
 		// For each bucket item,
-		for (iter next = 0, ii = _buckets[ii].head(); ii; ii = next)
+		for (iter next = 0, ii = _buckets[jj].head(); ii; ii = next)
 		{
 			next = ii.GetNext();
 

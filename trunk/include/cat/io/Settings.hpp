@@ -80,7 +80,7 @@ public:
 
 //// SettingsHashItem
 
-class CAT_EXPORT SettingsHashItem : public SettingsHashKey, public DListItem
+class CAT_EXPORT SettingsHashItem : public SettingsHashKey, public SListItem
 {
 	friend class SettingsHashTable;
 
@@ -105,7 +105,9 @@ public:
 	{
 		char value[13];
 
-		SetValueStr(itoa(ivalue, value, 10));
+		DecToString(ivalue, value);
+
+		SetValueStr(value);
 	}
 };
 
@@ -114,6 +116,8 @@ public:
 
 class CAT_EXPORT SettingsHashTable
 {
+	friend class Iterator;
+
 	CAT_NO_COPY(SettingsHashTable);
 
 	static const u32 PREALLOC = 16;
@@ -121,8 +125,8 @@ class CAT_EXPORT SettingsHashTable
 	static const u32 GROW_RATE = 2;
 
 	u32 _allocated, _used;
-	DListForward *_buckets;
-	typedef DListForward::Iterator<SettingsHashItem> iter;
+	SList *_buckets;
+	typedef SList::Iterator<SettingsHashItem> iter;
 
 	void Grow();
 

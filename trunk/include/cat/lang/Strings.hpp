@@ -43,9 +43,9 @@
 
 namespace cat {
 
-
-// Convert from signed 32-bit number to string (up to 12 bytes including '\0')
-int CAT_EXPORT DecToString(s32 x, char *outs);
+// Portable, safe, faster itoa: Converts x to string, returning number of characters produced
+// Returns false if output is clipped
+int CAT_EXPORT IntegerToArray(s32 x, char *outs, int outs_buf_size, int radix = 10);
 
 
 // iStrEqual(): Returns true if strings match.  Case-insensitive
@@ -121,6 +121,11 @@ public:
 	CAT_INLINE void SetFromNulTerminatedString(const char *str)
 	{
 		CAT_STRNCPY(_str, str, sizeof(_str));
+	}
+
+	CAT_INLINE void SetFromInteger(int x, int radix = 10)
+	{
+		IntegerToArray(x, _str, sizeof(_str), radix);
 	}
 
 	CAT_INLINE operator const char*()
