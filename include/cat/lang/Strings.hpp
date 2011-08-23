@@ -44,8 +44,8 @@
 namespace cat {
 
 // Portable, safe, faster itoa: Converts x to string, returning number of characters produced
-// Returns false if output is clipped
-int CAT_EXPORT IntegerToArray(s32 x, char *outs, int outs_buf_size, int radix = 10);
+// Returns false if output is clipped (13 character buffer is good enough for 32-bit decimal)
+bool CAT_EXPORT IntegerToArray(s32 x, char *outs, int outs_buf_size, int radix = 10);
 
 
 // iStrEqual(): Returns true if strings match.  Case-insensitive

@@ -327,8 +327,8 @@ public:
 	}
 
 	void PushFront(DListItem *item);
-	void InsertBefore(DListItem *item, DListItem *at);
-	void InsertAfter(DListItem *item, DListItem *at);
+	void InsertBefore(DListItem *item, DListItem *before);
+	void InsertAfter(DListItem *item, DListItem *after);
 	void Erase(DListItem *item);
 
 	/*
@@ -422,8 +422,8 @@ public:
 
 	void PushFront(DListItem *item);
 	void PushBack(DListItem *item);
-	void InsertBefore(DListItem *item, DListItem *at);
-	void InsertAfter(DListItem *item, DListItem *at);
+	void InsertBefore(DListItem *item, DListItem *before);
+	void InsertAfter(DListItem *item, DListItem *after);
 	void Erase(DListItem *item);
 
 	/*
@@ -572,13 +572,7 @@ class CAT_EXPORT SListIteratorBase
 	friend class SList;
 
 protected:
-	SListItem *_item, *_prev;
-
-	CAT_INLINE void IterateNext()
-	{
-		_prev = _item;
-		_item = _item->_next;
-	}
+	SListItem *_prev, *_item, *_next;
 };
 
 
@@ -595,7 +589,6 @@ public:
 		Clear();
 	}
 
-	CAT_INLINE SListItem *head() { return _head; }
 	CAT_INLINE bool empty() { return _head != 0; }
 
 	CAT_INLINE void Clear()
@@ -614,20 +607,14 @@ public:
 	}
 
 	void PushFront(SListItem *item);
-	void InsertAfter(SListItem *item, SListItem *at);
-	void EraseAfter(SListItem *item, SListItem *at);
+	void InsertAfter(SListItem *item, SListItem *after);
+	void EraseAfter(SListItem *item, SListItem *after);
 
 	// Erase via iterator to simplify usage
 	CAT_INLINE void Erase(SListIteratorBase &iterator)
 	{
 		EraseAfter(iterator._item, iterator._prev);
-	}
 
-	CAT_INLINE void EraseMaintainIteration(SListIteratorBase &iterator)
-	{
-		EraseAfter(iterator._item, iterator._prev);
-
-		// Store previous as current, so that next iteration will fix it
 		iterator._item = iterator._prev;
 	}
 
@@ -646,16 +633,23 @@ public:
 			_item = 0;
 		}
 
-		CAT_INLINE Iterator(SListItem *item)
+		CAT_INLINE Iterator(SList &list)
 		{
+			SListItem *head = list._head;
+
 			_prev = 0;
-			_item = item;
+			_item = head;
+			_next = head ? head->_next : 0;
 		}
 
-		CAT_INLINE Iterator &operator=(SListItem *item)
+		CAT_INLINE Iterator &operator=(SList &list)
 		{
+			SListItem *head = list._head;
+
 			_prev = 0;
-			_item = item;
+			_item = head;
+			_next = head ? head->_next : 0;
+
 			return *this;
 		}
 
@@ -676,7 +670,10 @@ public:
 
 		CAT_INLINE Iterator &operator++() // pre-increment
 		{
-			IterateNext();
+			_prev = _item;
+			_item = _next;
+			_next = _next ? _next->_next : 0;
+
 			return *this;
 		}
 

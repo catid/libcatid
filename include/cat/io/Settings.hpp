@@ -103,11 +103,7 @@ public:
 
 	CAT_INLINE void SetValueInt(int ivalue)
 	{
-		char value[13];
-
-		DecToString(ivalue, value);
-
-		SetValueStr(value);
+		_value.SetFromInteger(ivalue);
 	}
 };
 
@@ -141,7 +137,7 @@ public:
 	class CAT_EXPORT Iterator
 	{
 		u32 _remaining;
-		DListForward *_bucket;
+		SList *_bucket;
 		iter _ii;
 
 		void IterateNext();
