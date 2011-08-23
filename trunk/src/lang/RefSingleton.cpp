@@ -137,7 +137,7 @@ void RefSingletons::OnFinalize()
 		bool locked = true;
 
 		// For each active singleton,
-		for (iter ii = _active_list.head(); ii; ++ii)
+		for (iter ii = _active_list; ii; ++ii)
 		{
 			u32 *ref_count = ii->GetRefCount();
 
@@ -147,7 +147,7 @@ void RefSingletons::OnFinalize()
 				ii->OnFinalize();
 				ii->ReleaseRefs();
 
-				_active_list.EraseMaintainIteration(ii);
+				_active_list.Erase(ii);
 
 				locked = false;
 			}
@@ -158,7 +158,7 @@ void RefSingletons::OnFinalize()
 		{
 			CAT_FATAL("RefSingleton") << "Unable to gracefully finalize all the RefSingletons due to dangling references.  Forcing the rest...";
 
-			for (iter ii = _active_list.head(); ii; ++ii)
+			for (iter ii = _active_list; ii; ++ii)
 				ii->OnFinalize();
 
 			break;

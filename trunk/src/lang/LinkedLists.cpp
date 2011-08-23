@@ -37,14 +37,14 @@ void DListForward::PushFront(DListItem *item)
 	CAT_FDLL_PUSH_FRONT(_head, item, _next, _prev);
 }
 
-void DListForward::InsertBefore(DListItem *item, DListItem *at)
+void DListForward::InsertBefore(DListItem *item, DListItem *before)
 {
-	CAT_FDLL_INSERT_BEFORE(_head, item, at, _next, _prev);
+	CAT_FDLL_INSERT_BEFORE(_head, item, before, _next, _prev);
 }
 
-void DListForward::InsertAfter(DListItem *item, DListItem *at)
+void DListForward::InsertAfter(DListItem *item, DListItem *after)
 {
-	CAT_FDLL_INSERT_AFTER(_head, item, at, _next, _prev);
+	CAT_FDLL_INSERT_AFTER(_head, item, after, _next, _prev);
 }
 
 void DListForward::Erase(DListItem *item)
@@ -65,14 +65,14 @@ void DList::PushBack(DListItem *item)
 	CAT_BDLL_PUSH_FRONT(_head, _tail, item, _next, _prev);
 }
 
-void DList::InsertBefore(DListItem *item, DListItem *at)
+void DList::InsertBefore(DListItem *item, DListItem *before)
 {
-	CAT_BDLL_INSERT_BEFORE(_head, _tail, item, at, _next, _prev);
+	CAT_BDLL_INSERT_BEFORE(_head, _tail, item, before, _next, _prev);
 }
 
-void DList::InsertAfter(DListItem *item, DListItem *at)
+void DList::InsertAfter(DListItem *item, DListItem *after)
 {
-	CAT_BDLL_INSERT_AFTER(_head, _tail, item, at, _next, _prev);
+	CAT_BDLL_INSERT_AFTER(_head, _tail, item, after, _next, _prev);
 }
 
 void DList::Erase(DListItem *item)
@@ -88,12 +88,12 @@ void SList::PushFront(SListItem *item)
 	CAT_FSLL_PUSH_FRONT(_head, item, _next, _prev);
 }
 
-void SList::InsertAfter(SListItem *item, SListItem *at)
+void SList::InsertAfter(SListItem *item, SListItem *after)
 {
-	CAT_FSLL_INSERT_AFTER(_head, item, at, _next, _prev);
+	CAT_FSLL_INSERT_AFTER(_head, item, after, _next, _prev);
 }
 
-void SList::EraseAfter(SListItem *item, SListItem *at)
+void SList::EraseAfter(SListItem *item, SListItem *after)
 {
-	CAT_FSLL_ERASE_AFTER(_head, item, at, _next, _prev);
+	CAT_FSLL_ERASE_AFTER(_head, item, after, _next, _prev);
 }

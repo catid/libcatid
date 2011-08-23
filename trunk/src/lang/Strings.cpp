@@ -31,8 +31,7 @@
 using namespace cat;
 
 
-// Portable, safe itoa: Converts x to string, returning number of characters produced
-bool CAT_EXPORT IntegerToArray(s32 x, char *outs, int outs_buf_size, int radix = 10)
+bool cat::IntegerToArray(s32 x, char *outs, int outs_buf_size, int radix)
 {
 	CAT_DEBUG_ENFORCE(outs_buf_size >= 1);
 	CAT_DEBUG_ENFORCE(radix >= 2 && radix <= 36);

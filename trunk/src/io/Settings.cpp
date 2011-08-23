@@ -64,7 +64,7 @@ void SettingsHashTable::Grow()
 	// Allocate larger bucket array
 	u32 new_size = old_size * GROW_RATE;
 	if (new_size < PREALLOC) new_size = PREALLOC;
-	DListForward *new_buckets = new DListForward[new_size];
+	SList *new_buckets = new SList[new_size];
 	if (!new_buckets) return;
 
 	// For each bucket,
@@ -72,10 +72,8 @@ void SettingsHashTable::Grow()
 	for (u32 jj = 0; jj < old_size; ++jj)
 	{
 		// For each bucket item,
-		for (iter next = 0, ii = _buckets[jj].head(); ii; ii = next)
+		for (iter ii = _buckets[jj]; ii; ++ii)
 		{
-			next = ii.GetNext();
-
 			new_buckets[ii->Hash() & mask].PushFront(ii);
 		}
 	}
@@ -102,16 +100,14 @@ SettingsHashTable::~SettingsHashTable()
 		// For each allocated bucket,
 		for (u32 ii = 0; ii < _allocated; ++ii)
 		{
-			DListForward &bucket = _buckets[ii];
+			SList &bucket = _buckets[ii];
 
 			// If bucket is not empty,
 			if (!bucket.empty())
 			{
 				// For each item in the bucket,
-				for (iter next = 0, ii = bucket.head(); ii; ii = next)
+				for (iter ii = bucket; ii; ++ii)
 				{
-					next = ii.GetNext();
-
 					// Free item
 					delete ii;
 				}
@@ -151,7 +147,7 @@ SettingsHashItem *SettingsHashTable::Lookup(SettingsHashKey &key)
 	u32 ii = hash & mask;
 
 	// For each item in the selected bucket,
-	for (iter jj = _buckets[ii].head(); jj; ++jj)
+	for (iter jj = _buckets[ii]; jj; ++jj)
 	{
 		// If the hash matches and the key matches,
 		if (jj->Hash() == hash &&
@@ -180,7 +176,7 @@ void SettingsHashTable::Iterator::IterateNext()
 		--_remaining;
 		++_bucket;
 
-		_ii = _bucket->head();
+		_ii = *_bucket;
 
 		if (_ii) return;
 	}
@@ -190,7 +186,7 @@ SettingsHashTable::Iterator::Iterator(SettingsHashTable &head)
 {
 	_remaining = head._allocated;
 	_bucket = head._buckets;
-	_ii = _bucket->head();
+	_ii = *_bucket;
 
 	if (!_ii)
 	{
