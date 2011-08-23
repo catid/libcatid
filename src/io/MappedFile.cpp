@@ -235,14 +235,57 @@ bool MappedSequentialReader::Open(MappedFile *file)
 
 u8 *MappedSequentialReader::Read(u32 bytes)
 {
-	if (bytes > MAX_READ_SIZE)
-	{
-		CAT_WARN("SequentialFileReader") << "Read size too large = " << bytes;
-		return 0;
-	}
+	CAT_DEBUG_ENFORCE(bytes <= MAX_READ_SIZE);
 
 	u32 map_offset = _offset;
 	u32 map_size = _view.GetLength();
+
+	// If bytes read is available,
+	if (bytes <= map_size - map_offset)
+	{
+		_offset = map_offset + bytes;
+
+		return _view.GetFront() + map_offset;
+	}
+
+	u64 file_offset = GetOffset();
+	u64 file_remaining = GetLength() - file_offset;
+
+	// If requested data is beyond the end of the file,
+	if (bytes > file_remaining)
+		return 0;
+
+	u32 acquire = bytes;
+	if (acquire < READ_AHEAD_CACHE)
+	{
+		if (READ_AHEAD_CACHE > file_remaining)
+			acquire = (u32)file_remaining;
+		else
+			acquire = READ_AHEAD_CACHE;
+	}
+
+	// Map new view of file
+	u8 *data = _view.MapView(file_offset, acquire);
+
+	_offset = bytes;
+
+	return data;
+}
+
+bool MappedSequentialReader::ReadLine(char *outs, int len)
+{
+	CAT_DEBUG_ENFORCE(len <= MAX_READ_SIZE);
+
+	u32 map_offset = _offset;
+	u32 map_size = _view.GetLength();
+
+	// If bytes remain in the existing map,
+	if (map_offset < map_size)
+	{
+		char ch;
+
+
+	}
 
 	// If bytes read is available,
 	if (bytes <= map_size - map_offset)

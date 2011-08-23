@@ -133,11 +133,13 @@ class CAT_EXPORT MappedSequentialReader
 	u32 _offset;
 
 public:
-	static const u32 READ_AHEAD_CACHE = 16000000; // 16 MB read ahead cache
-	static const u32 MAX_READ_SIZE = 512000000; // 512 MB read limit (per read)
+	static const u32 READ_AHEAD_CACHE = 16000000;	// 16 MB read ahead cache
+	static const u32 MAX_READ_SIZE = 512000000;		// 512 MB read limit (per read)
 
-	bool Open(MappedFile *file); // Returns false on error
-	u8 *Read(u32 bytes); // Returns 0 if read would be beyond end of file
+	bool Open(MappedFile *file);		// Returns false on error
+	u8 *Read(u32 bytes);				// Returns 0 if read would be beyond end of file
+	bool ReadLine(char *outs, int len);	// Return false on error
+
 	CAT_INLINE void Close() { _view.Close(); }
 
 	CAT_INLINE bool IsValid() { return _view.IsValid(); }

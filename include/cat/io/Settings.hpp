@@ -29,7 +29,7 @@
 #ifndef CAT_SETTINGS_HPP
 #define CAT_SETTINGS_HPP
 
-#include <cat/threads/Mutex.hpp>
+#include <cat/threads/RWLock.hpp>
 #include <cat/io/MappedFile.hpp>
 #include <cat/lang/LinkedLists.hpp>
 #include <cat/lang/Strings.hpp>
@@ -176,7 +176,7 @@ class CAT_EXPORT Settings : public RefSingleton<Settings>
 	void OnInitialize();
 	void OnFinalize();
 
-	Mutex _lock;
+	RWLock _lock;
 
 	SettingsHashTable _table;
 
@@ -185,13 +185,11 @@ class CAT_EXPORT Settings : public RefSingleton<Settings>
 
 	std::string _settings_file;
 
-	void clear();
 	void readSettingsFromBuffer(SequentialFileReader &sfile);
-
-public:
 	void readSettingsFromFile(const char *file_path = CAT_SETTINGS_FILE, const char *override_file = CAT_SETTINGS_OVERRIDE_FILE);
 	void write();
 
+public:
 	int getInt(const char *name, int default_value = 0);
 	const char *getStr(const char *name, const char *default_value = "");
 

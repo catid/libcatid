@@ -212,19 +212,14 @@ void Settings::OnFinalize()
 	write();
 }
 
-void Settings::clear()
-{
-
-}
-
 void Settings::readSettingsFromBuffer(SequentialFileReader &sfile)
 {
-
+	sfile.
 }
 
 void Settings::readSettingsFromFile(const char *file_path, const char *override_file)
 {
-	AutoMutex lock(_lock);
+	AutoWriteLock lock(_lock);
 
 	_settings_file = file_path;
 
