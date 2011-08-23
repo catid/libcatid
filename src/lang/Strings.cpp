@@ -30,68 +30,43 @@
 #include <cctype> // tolower
 using namespace cat;
 
-// Convert from signed 32-bit number to string (up to 12 bytes including '\0')
-int cat::DecToString(s32 x, char *outs)
+
+// Portable, safe itoa: Converts x to string, returning number of characters produced
+bool CAT_EXPORT IntegerToArray(s32 x, char *outs, int outs_buf_size, int radix = 10)
 {
-	char *out = outs;
+	CAT_DEBUG_ENFORCE(outs_buf_size >= 1);
+	CAT_DEBUG_ENFORCE(radix >= 2 && radix <= 36);
 
-	if (x < 0)
+	char *ptr = outs;
+
+	int prev;
+	do
 	{
-		*out++ = '-';
-		x = -x;
+		prev = x;
+		x /= radix;
+
+		if (--outs_buf_size == 0) return false;
+		*ptr++ = "zyxwvutsrqponmlkjihgfedcba9876543210123456789abcdefghijklmnopqrstuvwxyz" [35 + (prev - x * radix)];
+	} while (x);
+
+	if (prev < 0)
+	{
+		if (--outs_buf_size == 0) return false;
+		*ptr++ = '-';
 	}
 
-	// max = 4294967295
-	u32 r, d, n = (u32)x;
+	*ptr-- = '\0';
 
-	r = (n >= 1000000000) ? 9 : (n >= 100000000) ? 8 : (n >= 10000000) ? 7 : 
-		(n >= 1000000) ? 6 : (n >= 100000) ? 5 : (n >= 10000) ? 4 : 
-		(n >= 1000) ? 3 : (n >= 100) ? 2 : (n >= 10) ? 1 : 0;
-
-	switch (r)
+	while (outs < ptr)
 	{
-	case 9:
-		d = n / 1000000000;
-		n %= 1000000000;
-		*out++ = '0' + (char)d;
-	case 8:
-		d = n / 100000000;
-		n %= 100000000;
-		*out++ = '0' + (char)d;
-	case 7:
-		d = n / 10000000;
-		n %= 10000000;
-		*out++ = '0' + (char)d;
-	case 6:
-		d = n / 1000000;
-		n %= 1000000;
-		*out++ = '0' + (char)d;
-	case 5:
-		d = n / 100000;
-		n %= 100000;
-		*out++ = '0' + (char)d;
-	case 4:
-		d = n / 10000;
-		n %= 10000;
-		*out++ = '0' + (char)d;
-	case 3:
-		d = n / 1000;
-		n %= 1000;
-		*out++ = '0' + (char)d;
-	case 2:
-		d = n / 100;
-		n %= 100;
-		*out++ = '0' + (char)d;
-	case 1:
-		d = n / 10;
-		n %= 10;
-		*out++ = '0' + (char)d;
-	default:
-		*out++ = '0' + (char)n;
+		char ch = *ptr;
+		*ptr-- = *outs;
+		*outs++ = ch;
 	}
 
-	return (int)(out - outs);
+	return true;
 }
+
 
 #if defined(CAT_UNKNOWN_BUILTIN_ISTRCMP)
 
