@@ -377,8 +377,7 @@ public:
 
 		CAT_INLINE Iterator &operator++(int) // post-increment
 		{
-			_item = GetNext();
-			return *this;
+			return ++*this;
 		}
 	};
 };
@@ -465,8 +464,7 @@ public:
 
 		CAT_INLINE Iterator &operator++(int) // post-increment
 		{
-			_item = GetNext();
-			return *this;
+			return ++*this;
 		}
 
 		CAT_INLINE Iterator &operator--() // pre-decrement
@@ -477,8 +475,7 @@ public:
 
 		CAT_INLINE Iterator &operator--(int) // post-decrement
 		{
-			_item = GetPrev();
-			return *this;
+			return --*this;
 		}
 	};
 };
@@ -676,8 +673,7 @@ public:
 
 		CAT_INLINE Iterator &operator++(int) // post-increment
 		{
-			IterateNext();
-			return *this;
+			return ++*this;
 		}
 	};
 };

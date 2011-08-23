@@ -27,10 +27,12 @@
 */
 
 /*
-    MurmurHash3 is a very fast noncryptographic 128-bit hash
+    MurmurHash3 is a very fast non-cryptographic 128-bit hash
 
     Algorithm by Austin Appleby <aappleby@gmail.com>
     http://code.google.com/p/smhasher/wiki/MurmurHash3
+
+	Based on the "final final" version r136
 */
 
 #ifndef CAT_MURMUR_HPP

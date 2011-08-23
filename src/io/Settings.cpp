@@ -36,42 +36,166 @@ using namespace cat;
 using namespace std;
 
 
-//// SettingsKey
+//// SettingsHashKey
 
-SettingsKey::SettingsKey(SettingsKey *lnodei, SettingsKey *gnodei, const char *namei)
+SettingsHashKey::SettingsHashKey(const char *key, int len)
 {
-	gnode = gnodei;
-	lnode = lnodei;
-	CAT_STRNCPY(name, namei, sizeof(name));
+	_key.SetFromRangeString(key, len);
 
-	value.flags = 0;
+	_hash = MurmurHash(key, len).Get32();
 }
 
-SettingsKey::~SettingsKey()
+
+//// SettingsHashItem
+
+SettingsHashItem::SettingsHashItem(const char *key, int len, const char *value)
+	: SettingsHashKey(key, len)
 {
-	if (lnode) delete lnode;
-	if (gnode) delete gnode;
+	_value.SetFromRangeString(value, len);
 }
 
-void SettingsKey::write(std::ofstream &file)
-{
-	if (lnode) lnode->write(file);
 
-	// Only write keys that had a default value and
-	// have been changed from the default value.
-	if (value.flags & CAT_SETTINGS_FILLED)
+//// SettingsHashTable
+
+void SettingsHashTable::Grow()
+{
+	u32 old_size = _allocated;
+
+	// Allocate larger bucket array
+	u32 new_size = old_size * GROW_RATE;
+	if (new_size < PREALLOC) new_size = PREALLOC;
+	DListForward *new_buckets = new DListForward[new_size];
+	if (!new_buckets) return;
+
+	// For each bucket,
+	u32 mask = new_size - 1;
+	for (u32 ii = 0; ii < old_size; ++ii)
 	{
-		if (value.flags & CAT_SETTINGS_INT)
+		// For each bucket item,
+		for (iter next = 0, ii = _buckets[ii].head(); ii; ii = next)
 		{
-			file << name << " = " << value.i << endl;
-		}
-		else
-		{
-			file << name << " = " << value.s << endl;
+			next = ii.GetNext();
+
+			new_buckets[ii->Hash() & mask].PushFront(ii);
 		}
 	}
 
-	if (gnode) gnode->write(file);
+	// Free old array
+	if (_buckets) delete []_buckets;
+
+	_buckets = new_buckets;
+	_allocated = new_size;
+}
+
+SettingsHashTable::SettingsHashTable()
+{
+	_buckets = 0;
+	_allocated = 0;
+	_used = 0;
+}
+
+SettingsHashTable::~SettingsHashTable()
+{
+	// If any buckets are allocated,
+	if (_buckets)
+	{
+		// For each allocated bucket,
+		for (u32 ii = 0; ii < _allocated; ++ii)
+		{
+			DListForward &bucket = _buckets[ii];
+
+			// If bucket is not empty,
+			if (!bucket.empty())
+			{
+				// For each item in the bucket,
+				for (iter next = 0, ii = bucket.head(); ii; ii = next)
+				{
+					next = ii.GetNext();
+
+					// Free item
+					delete ii;
+				}
+			}
+		}
+
+		// Free the array
+		delete []_buckets;
+	}
+}
+
+void SettingsHashTable::Insert(SettingsHashItem *new_item)
+{
+	// If time to grow,
+	if (_used * GROW_THRESH >= _allocated)
+		Grow();
+
+	// Insert at first open table index after hash
+	u32 hash = new_item->Hash();
+	u32 mask = _allocated - 1;
+	u32 ii = hash & mask;
+
+	// Push into the bucket list
+	_buckets[ii].PushFront(new_item);
+
+	++_used;
+}
+
+SettingsHashItem *SettingsHashTable::Lookup(SettingsHashKey &key)
+{
+	// If nothing allocated,
+	if (!_allocated) return 0;
+
+	// Search used table indices after hash
+	u32 hash = key.Hash();
+	u32 mask = _allocated - 1;
+	u32 ii = hash & mask;
+
+	// For each item in the selected bucket,
+	for (iter jj = _buckets[ii].head(); jj; ++jj)
+	{
+		// If the hash matches and the key matches,
+		if (jj->Hash() == hash &&
+			*jj == key)
+		{
+			// Found it!
+			return jj;
+		}
+	}
+}
+
+
+//// SettingsHashTable::Iterator
+
+void SettingsHashTable::Iterator::IterateNext()
+{
+	if (_ii)
+	{
+		++_ii;
+
+		if (_ii) return;
+	}
+
+	while (_remaining)
+	{
+		--_remaining;
+		++_bucket;
+
+		_ii = _bucket->head();
+
+		if (_ii) return;
+	}
+}
+
+SettingsHashTable::Iterator::Iterator(SettingsHashTable &head)
+{
+	_remaining = head._allocated;
+	_bucket = head._buckets;
+	_ii = _bucket->head();
+
+	if (!_ii)
+	{
+		IterateNext();
+	}
 }
 
 
@@ -81,12 +205,10 @@ CAT_REF_SINGLETON(Settings);
 
 void Settings::OnInitialize()
 {
-	CAT_OBJCLR(_hbtrees);
-
 	_readSettings = false;
 	_modified = false;
 
-	readSettingsFromFile(CAT_SETTINGS_FILE);
+	readSettingsFromFile();
 }
 
 void Settings::OnFinalize()
@@ -94,90 +216,14 @@ void Settings::OnFinalize()
 	write();
 }
 
-SettingsKey *Settings::addKey(const char *name)
-{
-	u32 treekey = MurmurHash(name, (int)strlen(name)+1, KEY_HASH_SALT).Get32() % SETTINGS_HASH_BINS;
-	SettingsKey *key = _hbtrees[treekey];
-
-	if (!key)
-		return _hbtrees[treekey] = new SettingsKey(0, 0, name);
-
-	CAT_FOREVER
-	{
-		int cmp = strncmp(key->name, name, sizeof(key->name));
-		if (!cmp) return key;
-
-		if (cmp > 0)
-		{
-			if (!key->lnode)
-				return key->lnode = new SettingsKey(0, 0, name);
-			else
-				key = key->lnode;
-		}
-		else
-		{
-			if (!key->gnode)
-				return key->gnode = new SettingsKey(0, 0, name);
-			else
-				key = key->gnode;
-		}
-	}
-}
-
-SettingsKey *Settings::getKey(const char *name)
-{
-	u32 treekey = MurmurHash(name, (int)strlen(name)+1, KEY_HASH_SALT).Get32() % SETTINGS_HASH_BINS;
-	SettingsKey *key = _hbtrees[treekey];
-
-	while (key)
-	{
-		int cmp = strncmp(key->name, name, sizeof(key->name));
-		if (!cmp) return key;
-
-		key = cmp > 0 ? key->lnode : key->gnode;
-	}
-
-	return 0;
-}
-
 void Settings::clear()
 {
-	for (int ii = 0; ii < SETTINGS_HASH_BINS; ++ii)
-	{
-		SettingsKey *root = _hbtrees[ii];
-		if (root)
-		{
-			_hbtrees[ii] = 0;
-			delete root;
-		}
-	}
+
 }
 
 void Settings::readSettingsFromBuffer(SequentialFileReader &sfile)
 {
-	AutoMutex lock(_lock);
 
-	u32 length = (u32)sfile.GetLength();
-	BufferTok bt((char*)sfile.Read(length), length);
-
-	char keyName[256];
-
-	while (!!bt)
-	{
-		bt['='] >> keyName;
-
-		if (*keyName && !bt.onNewline())
-		{
-			SettingsKey *key = addKey(keyName);
-			if (!key) continue;
-
-			key->value.flags |= CAT_SETTINGS_FILLED;
-			bt() >> key->value.s;
-#ifdef CAT_SETTINGS_VERBOSE
-			CAT_INANE("Settings") << "Read: (" << key->name << ") = (" << key->value.s << ")";
-#endif
-		}
-	}
 }
 
 void Settings::readSettingsFromFile(const char *file_path, const char *override_file)
@@ -211,13 +257,76 @@ void Settings::readSettingsFromFile(const char *file_path, const char *override_
 	}
 
 	// Delete the override settings file if settings request it
-	if (getInt("override.unlink", 0))
+	if (getInt("Override.Unlink", 0))
 	{
 		_unlink(override_file);
-		setInt("override.unlink", 0);
+		setInt("Override.Unlink", 0);
 	}
 
 	_readSettings = true;
+}
+
+void Settings::write()
+{
+
+}
+
+int Settings::getInt(const char *name, int default_value)
+{
+	AutoMutex lock(_lock);
+
+	SettingsKey *key = getKey(name);
+	if (!key) return 0;
+
+	if (!(key->value.flags & CAT_SETTINGS_INT))
+	{
+		key->value.i = atoi(key->value.s);
+		key->value.flags |= CAT_SETTINGS_INT;
+	}
+
+	return key->value.i;
+}
+
+const char *Settings::getStr(const char *name, const char *default_value)
+{
+
+}
+
+void Settings::setInt(const char *name, int value)
+{
+
+}
+
+void Settings::setStr(const char *name, const char *value)
+{
+
+}
+
+void Settings::readSettingsFromBuffer(SequentialFileReader &sfile)
+{
+	AutoMutex lock(_lock);
+
+	u32 length = (u32)sfile.GetLength();
+	BufferTok bt((char*)sfile.Read(length), length);
+
+	char keyName[256];
+
+	while (!!bt)
+	{
+		bt['='] >> keyName;
+
+		if (*keyName && !bt.onNewline())
+		{
+			SettingsKey *key = addKey(keyName);
+			if (!key) continue;
+
+			key->value.flags |= CAT_SETTINGS_FILLED;
+			bt() >> key->value.s;
+#ifdef CAT_SETTINGS_VERBOSE
+			CAT_INANE("Settings") << "Read: (" << key->name << ") = (" << key->value.s << ")";
+#endif
+		}
+	}
 }
 
 void Settings::write()
@@ -253,18 +362,6 @@ void Settings::write()
 
 int Settings::getInt(const char *name)
 {
-	AutoMutex lock(_lock);
-
-	SettingsKey *key = getKey(name);
-	if (!key) return 0;
-
-	if (!(key->value.flags & CAT_SETTINGS_INT))
-	{
-		key->value.i = atoi(key->value.s);
-		key->value.flags |= CAT_SETTINGS_INT;
-	}
-
-	return key->value.i;
 }
 
 const char *Settings::getStr(const char *name)
