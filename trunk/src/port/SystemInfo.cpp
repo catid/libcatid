@@ -224,8 +224,8 @@ CAT_SINGLETON(SystemInfo);
 
 void SystemInfo::OnInitialize()
 {
-	_CacheLineBytes = GetCacheLineBytes();
-	_ProcessorCount = GetProcessorCount();
-	_PageSize = GetPageSize();
-	_AllocationGranularity = GetAllocationGranularity();
+	_CacheLineBytes = ::GetCacheLineBytes();
+	_ProcessorCount = ::GetProcessorCount();
+	_PageSize = ::GetPageSize();
+	_AllocationGranularity = ::GetAllocationGranularity();
 }

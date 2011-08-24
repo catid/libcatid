@@ -75,7 +75,6 @@ class CAT_EXPORT RefSingletonBase : public SListItem
 	friend class RefSingletons;
 
 	CAT_NO_COPY(RefSingletonBase);
-	RefSingletonBase();
 
 	virtual u32 *GetRefCount() = 0;
 	void ReleaseRefs();
@@ -86,6 +85,8 @@ class CAT_EXPORT RefSingletonBase : public SListItem
 	u32 **_refs_extended;
 
 protected:
+	RefSingletonBase();
+
 	void AddRefSingletonReference(u32 *ref_counter);
 
 	virtual void OnInitialize() = 0;
@@ -118,7 +119,7 @@ public:
 
 		if (_init) return &_instance;
 
-		RefSingleton<T> *ptr = static_cast< RefSingleton<T> * >( &_instance );
+		RefSingleton<T> *ptr = &_instance;
 		ptr->OnInitialize();
 		Watch(&_instance);
 
