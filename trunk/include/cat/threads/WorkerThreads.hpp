@@ -163,7 +163,6 @@ class CAT_EXPORT WorkerThreads : public RefSingleton<WorkerThreads>
 	IWorkerTLSBuilder *_tls_builder;
 
 public:
-	WorkerThreads();
 	CAT_INLINE virtual ~WorkerThreads() {}
 
 	CAT_INLINE u32 GetWorkerCount() { return _worker_count; }

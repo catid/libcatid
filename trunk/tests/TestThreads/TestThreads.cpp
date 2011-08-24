@@ -2,6 +2,8 @@
 #include <conio.h> // kbhit()
 using namespace cat;
 
+static Clock *m_clock = 0;
+
 struct RandomBuffer : WorkerBuffer
 {
 	u32 worker_id;
@@ -30,7 +32,7 @@ public:
 
 			for (u32 ii = 0; ii < 100000; ++ii)
 			{
-				r->usec += Clock::usec();
+				r->usec += m_clock->usec();
 				r->x += MurmurGenerateUnbiased(r, sizeof(RandomBuffer), 0, 1000);
 			}
 
@@ -41,13 +43,7 @@ public:
 
 int main()
 {
-	CommonLayer layer;
-
-	if (!layer.Startup<TestWorkerTLS>("TestThreads.cfg"))
-	{
-		FatalStop("Unable to initialize framework!");
-		return 1;
-	}
+	m_clock = Clock::ref();
 
 	CAT_INFO("TestThreads") << "TestThreads 1.0";
 

@@ -53,7 +53,7 @@
 namespace cat {
 
 
-static const int SETTINGS_STRMAX = 32;
+static const int SETTINGS_STRMAX = 256;
 
 
 //// SettingsHashKey
@@ -71,26 +71,24 @@ public:
 
 	CAT_INLINE u32 Hash() { return _hash; }
 
-	CAT_INLINE bool operator==(SettingsHashKey &rhs)
+	CAT_INLINE bool operator==(const char *key)
 	{
-		return iStrEqual(rhs._key, _key);
+		return iStrEqual(key, _key);
 	}
 };
 
 
-//// SettingsHashItem
+//// SettingsHashValue
 
-class CAT_EXPORT SettingsHashItem : public SettingsHashKey, public SListItem
+class CAT_EXPORT SettingsHashValue
 {
-	friend class SettingsHashTable;
-
 protected:
 	NulTermFixedStr<SETTINGS_STRMAX> _value;
 
 public:
-	SettingsHashItem(const char *key, int len, const char *value);
+	SettingsHashValue(const char *key, int len);
 
-	//CAT_INLINE virtual ~SettingsHashItem() {}
+	//CAT_INLINE virtual ~SettingsHashValue() {}
 
 	CAT_INLINE int GetValueInt() { return atoi(_value); }
 
@@ -105,6 +103,19 @@ public:
 	{
 		_value.SetFromInteger(ivalue);
 	}
+};
+
+
+//// SettingsHashItem
+
+class CAT_EXPORT SettingsHashItem : public SettingsHashKey, public SettingsHashValue, public SListItem
+{
+	friend class SettingsHashTable;
+
+public:
+	SettingsHashItem(const char *key, int key_len, const char *value, int value_len);
+
+	//CAT_INLINE virtual ~SettingsHashItem() {}
 };
 
 
@@ -130,8 +141,8 @@ public:
 	SettingsHashTable();
 	~SettingsHashTable();
 
-	void Insert(SettingsHashItem *new_item);
-	SettingsHashItem *Lookup(SettingsHashKey &key);
+	void Set(const char *key, int key_len, const char *value, int value_len);
+	SettingsHashItem *Get(const char *key, int key_len);
 
 	// Iterator
 	class CAT_EXPORT Iterator
@@ -176,6 +187,8 @@ class CAT_EXPORT Settings : public RefSingleton<Settings>
 	void OnInitialize();
 	void OnFinalize();
 
+	static const int MAX_TAB_RECURSION_DEPTH = 16; // Maximum number of layers in a settings key
+
 	RWLock _lock;
 
 	SettingsHashTable _table;
@@ -185,6 +198,8 @@ class CAT_EXPORT Settings : public RefSingleton<Settings>
 
 	std::string _settings_file;
 
+	bool readLine(SequentialFileReader &sfile, char *&first, int &first_len, char *&second, int &second_len, int &depth);
+	bool readTokens(SequentialFileReader &sfile, char *root_key, int root_key_len, int root_depth);
 	void readFile(SequentialFileReader &sfile);
 	void read(const char *file_path = CAT_SETTINGS_FILE, const char *override_file = CAT_SETTINGS_OVERRIDE_FILE);
 	void write();
