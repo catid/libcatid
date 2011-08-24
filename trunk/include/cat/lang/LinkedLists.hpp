@@ -309,7 +309,7 @@ public:
 	}
 
 	CAT_INLINE DListItem *head() { return _head; }
-	CAT_INLINE bool empty() { return _head != 0; }
+	CAT_INLINE bool empty() { return _head == 0; }
 
 	CAT_INLINE void Clear()
 	{
@@ -401,7 +401,7 @@ public:
 
 	CAT_INLINE DListItem *head() { return _head; }
 	CAT_INLINE DListItem *tail() { return _tail; }
-	CAT_INLINE bool empty() { return _head != 0; }
+	CAT_INLINE bool empty() { return _head == 0; }
 
 	CAT_INLINE void Clear()
 	{
@@ -589,7 +589,7 @@ public:
 		Clear();
 	}
 
-	CAT_INLINE bool empty() { return _head != 0; }
+	CAT_INLINE bool empty() { return _head == 0; }
 
 	CAT_INLINE void Clear()
 	{
