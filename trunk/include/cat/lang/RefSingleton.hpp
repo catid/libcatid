@@ -96,7 +96,7 @@ public:
 };
 
 // Internal class
-class RefSingletonImplBase
+class CAT_EXPORT RefSingletonImplBase
 {
 protected:
 	CAT_INLINE void Watch(RefSingletonBase *obj);
@@ -118,7 +118,7 @@ public:
 
 		if (_init) return &_instance;
 
-		RefSingleton<T> *ptr = &_instance;
+		RefSingleton<T> *ptr = static_cast< RefSingleton<T> * >( &_instance );
 		ptr->OnInitialize();
 		Watch(&_instance);
 
