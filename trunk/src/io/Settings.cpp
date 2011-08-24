@@ -328,8 +328,8 @@ bool Settings::readLine(SequentialFileReader &sfile, char *&first, int &first_le
 		}
 	}
 
-	// If EOL found, skip this line
-	if (!ch)
+	// If EOL found or non-data line, skip this line
+	if (!ch || !IsAlpha(ch))
 	{
 		// Set first_len to zero to indicate no data
 		first_len = 0;
@@ -422,7 +422,7 @@ bool Settings::readTokens(SequentialFileReader &sfile, char *root_key, int root_
 		if (key_len <= SETTINGS_STRMAX)
 		{
 			// If this is not a child of the root,
-			if (root_depth >= depth)
+			if (root_depth > 0 && root_depth >= depth)
 			{
 				// Return true to allow parent to process it
 				return true;

@@ -320,7 +320,7 @@ int MappedSequentialReader::ReadLine(char *outs, int len)
 			++count;
 		}
 
-		u8 *data = Read(1);
+		data = Read(1);
 		if (!data) break;
 	}
 
