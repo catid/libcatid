@@ -77,6 +77,8 @@ class CAT_EXPORT Logging : public Singleton<Logging>
 {
 	friend class Recorder;
 
+	void OnInitialize();
+
 public:
 	typedef Delegate3<void, EventSeverity, const char *, std::ostringstream &> Callback;
 
@@ -91,7 +93,6 @@ private:
 
 	int _log_threshold;
 
-	void OnInitialize();
 	void LogEvent(Recorder *recorder);
 
 public:

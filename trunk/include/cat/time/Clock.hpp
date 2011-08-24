@@ -37,6 +37,9 @@ namespace cat {
 
 class CAT_EXPORT Clock : public RefSingleton<Clock>
 {
+	void OnInitialize();
+	void OnFinalize();
+
 #ifdef CAT_OS_WINDOWS
 	// Windows version requires some initialization
 	static const int LOWEST_ACCEPTABLE_PERIOD = 10;
@@ -44,9 +47,6 @@ class CAT_EXPORT Clock : public RefSingleton<Clock>
     u32 _period;		// timegettime() and Windows scheduler period
 	double _inv_freq;	// Performance counter frequency (does not change, so cache it)
 #endif
-
-	void OnInitialize();
-	void OnFinalize();
 
 public:
     static u32 sec();			// Timestamp in seconds
