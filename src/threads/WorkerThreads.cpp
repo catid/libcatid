@@ -351,6 +351,8 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 
 //// WorkerThreads
 
+CAT_REF_SINGLETON(WorkerThreads);
+
 void WorkerThreads::OnInitialize()
 {
 	FinalizeBefore<Clock>();

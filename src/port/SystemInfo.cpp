@@ -220,6 +220,8 @@ static u32 GetAllocationGranularity()
 
 //// SystemInfo
 
+CAT_SINGLETON(SystemInfo);
+
 void SystemInfo::OnInitialize()
 {
 	_CacheLineBytes = GetCacheLineBytes();

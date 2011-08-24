@@ -46,12 +46,19 @@ SettingsHashKey::SettingsHashKey(const char *key, int len)
 }
 
 
-//// SettingsHashItem
+//// SettingsHashValue
 
-SettingsHashItem::SettingsHashItem(const char *key, int len, const char *value)
-	: SettingsHashKey(key, len)
+SettingsHashValue::SettingsHashValue(const char *value, int len)
 {
 	_value.SetFromRangeString(value, len);
+}
+
+
+//// SettingsHashItem
+
+SettingsHashItem::SettingsHashItem(const char *key, int key_len, const char *value, int value_len)
+	: SettingsHashKey(key, key_len), SettingsHashValue(value, value_len)
+{
 }
 
 
@@ -59,6 +66,8 @@ SettingsHashItem::SettingsHashItem(const char *key, int len, const char *value)
 
 void SettingsHashTable::Grow()
 {
+	CAT_INANE("SettingsHashTable") << "Growing";
+
 	u32 old_size = _allocated;
 
 	// Allocate larger bucket array
@@ -119,30 +128,54 @@ SettingsHashTable::~SettingsHashTable()
 	}
 }
 
-void SettingsHashTable::Insert(SettingsHashItem *new_item)
+void SettingsHashTable::Set(const char *key, int key_len, const char *value, int value_len)
 {
-	// If time to grow,
-	if (_used * GROW_THRESH >= _allocated)
-		Grow();
+	CAT_INANE("SettingsHashTable") << "Set[" << key << "] = " << value;
 
-	// Insert at first open table index after hash
-	u32 hash = new_item->Hash();
+	u32 hash = MurmurHash(key, key_len).Get32();
 	u32 mask = _allocated - 1;
 	u32 ii = hash & mask;
 
-	// Push into the bucket list
-	_buckets[ii].PushFront(new_item);
+	// For each item in the selected bucket,
+	for (iter jj = _buckets[ii]; jj; ++jj)
+	{
+		// If the hash matches and the key matches,
+		if (jj->Hash() == hash &&
+			*jj == key)
+		{
+			// Found it!
+			jj->SetValueStr(value);
+			return;
+		}
+	}
+
+	SettingsHashItem *item = new SettingsHashItem(key, key_len, value, value_len);
+	if (!item) return;
+
+	// If time to grow,
+	if (_used * GROW_THRESH >= _allocated)
+	{
+		Grow();
+
+		mask = _allocated - 1;
+		ii = hash & mask;
+	}
+
+	// Insert at first open table index after hash
+	_buckets[ii].PushFront(item);
 
 	++_used;
 }
 
-SettingsHashItem *SettingsHashTable::Lookup(SettingsHashKey &key)
+SettingsHashItem *SettingsHashTable::Get(const char *key, int key_len)
 {
+	CAT_INANE("SettingsHashTable") << "Get[" << key << "]";
+
 	// If nothing allocated,
 	if (!_allocated) return 0;
 
 	// Search used table indices after hash
-	u32 hash = key.Hash();
+	u32 hash = MurmurHash(key, key_len).Get32();
 	u32 mask = _allocated - 1;
 	u32 ii = hash & mask;
 
@@ -254,46 +287,186 @@ void Settings::read(const char *file_path, const char *override_file)
 	_readSettings = true;
 }
 
-void Settings::readFile(SequentialFileReader &sfile)
+bool Settings::readLine(SequentialFileReader &sfile, char *&first, int &first_len, char *&second, int &second_len, int &depth)
 {
-	char line[512];
+	static char line[512];
 	int count;
 
 	// For each line in the file,
-	while ((count = sfile.ReadLine(line, (int)sizeof(line))) >= 0)
+	if ((count = sfile.ReadLine(line, (int)sizeof(line))) < 0)
+		return false;
+
+	// Ignore blank lines (fairly common)
+	if (count == 0)
 	{
-		// Ignore blank lines (fairly common)
-		if (count == 0)
-			continue;
+		// Set first_len to zero to indicate no data
+		first_len = 0;
+		return true;
+	}
 
-		// Count the number of tabs and spaces at the front
-		char *first = line;
-		int tab_count = 0, space_count = 0;
+	// Count the number of tabs and spaces at the front
+	first = line;
+	int tab_count = 0, space_count = 0;
 
-		// While EOL not encountered,
-		char ch;
-		while ((ch = *first))
+	// While EOL not encountered,
+	char ch;
+	while ((ch = *first))
+	{
+		if (ch == ' ')
 		{
-			// Count whitespace
-			switch (*first)
-			{
-			case ' ':
-				++space_count;
-				++first;
-				break;
-
-			case '\t':
-				++tab_count;
-				++first;
-				break;
-
-			default:
-				{
-				}
-				break;
-			};
+			++space_count;
+			++first;
+		}
+		else if (ch == '\t')
+		{
+			++tab_count;
+			++first;
+		}
+		else
+		{
+			break;
 		}
 	}
+
+	// If EOL found, skip this line
+	if (!ch)
+	{
+		// Set first_len to zero to indicate no data
+		first_len = 0;
+		return true;
+	}
+
+	/*
+		Calculate depth from tab and space count
+
+		Round up front 2 spaces to an extra tab in case just
+		the last tab is replaced by spaces and the tab stops
+		are set at 2 characters (attempting to be clever about it)
+	*/
+	depth = tab_count + (space_count + 2) / 4;
+	if (depth > MAX_TAB_RECURSION_DEPTH) depth = MAX_TAB_RECURSION_DEPTH;
+
+	// Find the start of whitespace after first token
+	second = first + 1;
+
+	while ((ch = *second))
+	{
+		if (ch == ' ' || ch == '\t')
+			break;
+
+		++second;
+	}
+
+	// Get length of first token
+	first_len = (int)(second - first);
+	second_len = 0;
+
+	// If a second token is possible,
+	// NOTE: Second token is left pointing at an empty string here if no whitespace was found
+	if (ch)
+	{
+		// Terminate the first token
+		*second++ = '\0';
+
+		// Search for end of whitespace between tokens
+		while ((ch = *second))
+		{
+			if (ch == ' ' || ch == '\t')
+				++second;
+			else
+				break;
+		}
+
+		// If second token exists,
+		if (ch)
+		{
+			// Search for end of whitespace between tokens
+			char *end = second + 1;
+
+			// For each character until the end of the line,
+			while ((ch = *end))
+			{
+				// On the first whitespace character encountered,
+				if (ch == ' ' || ch == '\t')
+				{
+					// Terminate the second token and ignore the rest
+					*end = '\0';
+					break;
+				}
+			}
+
+			// Get length of first token
+			second_len = (int)(end - second);
+		}
+	}
+
+	// First and second tokens, their lengths, and the new depth are determined.
+	// The second token may be an empty string but is always a valid string.
+
+	return true;
+}
+
+bool Settings::readTokens(SequentialFileReader &sfile, char *root_key, int root_key_len, int root_depth)
+{
+	static char *first, *second;
+	static int first_len, second_len, depth;
+
+	// For each line until EOF,
+	while (readLine(sfile, first, first_len, second, second_len, depth))
+	{
+		// Skip blank lines
+		if (first_len == 0) continue;
+
+		// If there is space to append the first token to the end of the root key,
+		int key_len = root_key_len + 1 + first_len;
+		if (key_len <= SETTINGS_STRMAX)
+		{
+			// If this is not a child of the root,
+			if (root_depth >= depth)
+			{
+				// Return true to allow parent to process it
+				return true;
+			}
+
+			// Child of root, recurse
+			CAT_FOREVER
+			{
+				// Append first token to root key
+				root_key[root_key_len] = '.';
+				memcpy(root_key + root_key_len + 1, first, first_len);
+				root_key[key_len] = '\0';
+
+				// If second token is set,
+				if (second_len)
+				{
+					// Add this path to the hash table
+					_table.Set(root_key, key_len, second, second_len);
+				}
+
+				// Process and if EOF was encountered,
+				if (!readTokens(sfile, root_key, key_len, depth))
+					return false; // EOF
+
+				// Remove appended token(s)
+				root_key[root_key_len] = '\0';
+
+				// If this one belongs closer to the root,
+				if (root_depth > 0 && root_depth >= depth)
+					return true;
+			}
+		}
+	}
+
+	return false; // EOF
+}
+
+void Settings::readFile(SequentialFileReader &sfile)
+{
+	char root_key[SETTINGS_STRMAX+1];
+
+	root_key[0] = '\0';
+
+	readTokens(sfile, root_key, 0, 0);
 }
 
 void Settings::write()

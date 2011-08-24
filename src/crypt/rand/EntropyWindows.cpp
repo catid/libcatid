@@ -39,6 +39,8 @@ using namespace cat;
 #include <cat/math/BitMath.hpp>
 #include <cat/time/Clock.hpp>
 
+static Clock *m_clock = 0;
+
 // Include and link to various Windows libraries needed to collect system info
 #include <Psapi.h>
 #include <Lmcons.h>   // LAN-MAN constants for "UNLEN" username max length
@@ -104,6 +106,8 @@ bool FortunaFactory::InitializeEntropySources()
 	NTDLL = LoadLibraryA("NtDll.dll");
 	if (NTDLL)
 		NtQuerySystemInformation = (PtNtQuerySystemInformation)GetProcAddress(NTDLL, "NtQuerySystemInformation");
+
+	m_clock = Clock::ref();
 
     // Fire poll for entropy all goes into pool 0
     PollInvariantSources(0);
@@ -251,7 +255,7 @@ void FortunaFactory::PollSlowEntropySources(int pool_index)
     CryptGenRandom(hCryptProv, sizeof(Sources.system_prng), (BYTE*)Sources.system_prng);
 
     // Poll time in microseconds
-    Sources.this_request = Clock::usec();
+    Sources.this_request = m_clock->usec();
 
     // Time since last poll in microseconds
     static double last_request = 0;
@@ -288,7 +292,7 @@ void FortunaFactory::PollFastEntropySources(int pool_index)
     Sources.cycles_start = Clock::cycles();
 
     // Poll time in microseconds
-    Sources.this_request = Clock::usec();
+    Sources.this_request = m_clock->usec();
 
     // Time since last poll in microseconds
     static double last_request = 0;

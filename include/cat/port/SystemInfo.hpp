@@ -34,7 +34,7 @@
 namespace cat {
 
 
-class SystemInfo : public Singleton<SystemInfo>
+class CAT_EXPORT SystemInfo : public Singleton<SystemInfo>
 {
 	void OnInitialize();
 

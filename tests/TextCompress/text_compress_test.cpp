@@ -27,6 +27,8 @@
 using namespace std;
 using namespace cat;
 
+static Clock *m_clock = 0;
+
 #include <cat/codec/ChatText.stats>
 
 //#define GENERATING_TABLE
@@ -791,13 +793,7 @@ void RunHuffmanTests()
 
 int main(int argc, const char **argv)
 {
-	CommonLayer layer;
-
-	if (!layer.Startup("TextCompress.cfg"))
-	{
-		FatalStop("Unable to initialize framework!");
-		return -1;
-	}
+	m_clock = Clock::ref();
 
 #ifndef GENERATING_TABLE
     if (!TextStatsCollector::VerifyTableIntegrity(ChatText))
@@ -883,11 +879,11 @@ int main(int argc, const char **argv)
 #ifndef GENERATING_TABLE
                     uncompressed += chars;
 
-                    double start = Clock::usec();
+                    double start = m_clock->usec();
                     RangeEncoder re(comp, cmax);
                     re.Text(line, ChatText);
                     re.Finish();
-                    ctime += Clock::usec() - start;
+                    ctime += m_clock->usec() - start;
                     if (re.Fail())
                     {
                         CAT_WARN("Text Compression Test") << "Compression failure!";
@@ -898,10 +894,10 @@ int main(int argc, const char **argv)
                         int used = re.Used();
                         compressed += used;
 
-                        start = Clock::usec();
+                        start = m_clock->usec();
                         RangeDecoder rd(comp, used);
                         int count = rd.Text(decomp, dmax, ChatText) + 1;
-                        dtime += Clock::usec() - start;
+                        dtime += m_clock->usec() - start;
 
                         if (rd.Remaining() > 0)
                         {
@@ -1022,8 +1018,6 @@ int main(int argc, const char **argv)
 
     while (!getch())
         Sleep(100);
-
-	layer.Shutdown();
 
     return 0;
 }
