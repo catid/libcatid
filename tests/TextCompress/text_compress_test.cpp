@@ -799,6 +799,8 @@ int main(int argc, const char **argv)
 
 	m_clock = Clock::ref();
 
+	Settings::ref()->getStr("IOThreads.Test");
+
 #ifndef GENERATING_TABLE
     if (!TextStatsCollector::VerifyTableIntegrity(ChatText))
     {
