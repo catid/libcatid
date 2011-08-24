@@ -110,9 +110,10 @@ class CAT_EXPORT Singleton
 	friend class SingletonImpl<T>;
 
 	CAT_NO_COPY(Singleton);
-	CAT_INLINE Singleton() {}
 
 protected:
+	CAT_INLINE Singleton() {}
+
 	CAT_INLINE virtual void OnInitialize() {}
 
 public:

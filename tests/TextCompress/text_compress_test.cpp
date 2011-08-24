@@ -793,6 +793,10 @@ void RunHuffmanTests()
 
 int main(int argc, const char **argv)
 {
+	SystemInfo *sinfo = SystemInfo::ref();
+
+	CAT_INFO("TEST") << sinfo->GetProcessorCount();
+
 	m_clock = Clock::ref();
 
 #ifndef GENERATING_TABLE
