@@ -144,6 +144,45 @@ public:
 	{
 		return _str;
 	}
+
+	// Case-insensitive check if first 'len' characters of two strings match
+	bool CaseCompare(const char *str, int len)
+	{
+		char a, b, *fixed = _str;
+
+		// NOTE: str may not be nul-terminated
+
+		// For each character,
+		while (len--)
+		{
+			a = *fixed;
+			b = *str;
+
+			// If a character differs,
+			if (a != b)
+			{
+				// If a is upper case,
+				if (a >= 'A' && a <= 'Z')
+				{
+					// If switching it to lower case doesn't fix it,
+					if (a + 'a' - 'A' != b)
+						return false;
+				}
+				else // a is lower case
+				{
+					// If switching it to upper case doesn't fix it,
+					if (a + 'A' - 'a' != b)
+						return false;
+				}
+			}
+
+			// Next character for each string
+			++fixed;
+			++str;
+		}
+
+		return true;
+	}
 };
 
 

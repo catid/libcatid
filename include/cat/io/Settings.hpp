@@ -56,24 +56,45 @@ namespace cat {
 static const int SETTINGS_STRMAX = 256;
 
 
+//// SettingsKeyInput
+
+class SettingsKeyInput
+{
+	u32 _hash;
+	const char *_key;
+	int _len;
+
+public:
+	SettingsKeyInput(const char *key);
+	SettingsKeyInput(const char *key, int len);
+
+	CAT_INLINE u32 Hash() const { return _hash; }
+	CAT_INLINE const char *Key() const { return _key; }
+	CAT_INLINE int Length() const { return _len; }
+};
+
+
 //// SettingsHashKey
 
 class CAT_EXPORT SettingsHashKey
 {
 protected:
 	NulTermFixedStr<SETTINGS_STRMAX> _key;
+	int _len;
 	u32 _hash;
 
 public:
-	SettingsHashKey(const char *key, int len);
+	SettingsHashKey(const SettingsKeyInput &key);
 
 	//CAT_INLINE virtual ~SettingsHashKey() {}
 
 	CAT_INLINE u32 Hash() { return _hash; }
 
-	CAT_INLINE bool operator==(const char *key)
+	CAT_INLINE bool operator==(const SettingsKeyInput &key)
 	{
-		return iStrEqual(key, _key);
+		return _hash == key.Hash() &&
+			   _len == key.Length() &&
+			   _key.CaseCompare(key.Key(), key.Length());
 	}
 };
 
@@ -86,6 +107,7 @@ protected:
 	NulTermFixedStr<SETTINGS_STRMAX> _value;
 
 public:
+	CAT_INLINE SettingsHashValue() {}
 	SettingsHashValue(const char *key, int len);
 
 	//CAT_INLINE virtual ~SettingsHashValue() {}
@@ -93,6 +115,11 @@ public:
 	CAT_INLINE int GetValueInt() { return atoi(_value); }
 
 	CAT_INLINE const char *GetValueStr() { return _value; }
+
+	CAT_INLINE void SetValueRangeStr(const char *value, int len)
+	{
+		_value.SetFromRangeString(value, len);
+	}
 
 	CAT_INLINE void SetValueStr(const char *value)
 	{
@@ -113,7 +140,8 @@ class CAT_EXPORT SettingsHashItem : public SettingsHashKey, public SettingsHashV
 	friend class SettingsHashTable;
 
 public:
-	SettingsHashItem(const char *key, int key_len, const char *value, int value_len);
+	SettingsHashItem(const SettingsKeyInput &key);
+	SettingsHashItem(const SettingsKeyInput &key, const char *value, int value_len);
 
 	//CAT_INLINE virtual ~SettingsHashItem() {}
 };
@@ -141,8 +169,8 @@ public:
 	SettingsHashTable();
 	~SettingsHashTable();
 
-	void Set(const char *key, int key_len, const char *value, int value_len);
-	SettingsHashItem *Get(const char *key, int key_len);
+	SettingsHashItem *Lookup(const SettingsKeyInput &key); // Returns 0 if key not found
+	SettingsHashItem *Create(const SettingsKeyInput &key); // Creates if it does not exist yet
 
 	// Iterator
 	class CAT_EXPORT Iterator
