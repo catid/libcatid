@@ -36,13 +36,56 @@ using namespace cat;
 using namespace std;
 
 
+// Calculate settings key hash
+static u32 GetSettingsKeyHash(const char *key, int len)
+{
+	char lcase[SETTINGS_STRMAX];
+
+	if (len > SETTINGS_STRMAX)
+		len = SETTINGS_STRMAX;
+
+	// Copy key to temporary buffer all lower-case
+	for (int ii = 0; ii < len; ++ii)
+	{
+		char ch = key[ii];
+
+		if (ch >= 'A' && ch <= 'Z')
+			ch += 'a' - 'Z';
+
+		lcase[ii] = ch;
+	}
+
+	// Calculate hash from lower-case version
+	return MurmurHash(lcase, len).Get32();
+}
+
+
+//// SettingsKeyInput
+
+SettingsKeyInput::SettingsKeyInput(const char *key)
+{
+	int len = (int)strlen(key);
+
+	_hash = GetSettingsKeyHash(key, len);
+	_key = key;
+	_len = len;
+}
+
+SettingsKeyInput::SettingsKeyInput(const char *key, int len)
+{
+	_hash = GetSettingsKeyHash(key, len);
+	_key = key;
+	_len = len;
+}
+
+
 //// SettingsHashKey
 
-SettingsHashKey::SettingsHashKey(const char *key, int len)
+SettingsHashKey::SettingsHashKey(const SettingsKeyInput &key)
 {
-	_key.SetFromRangeString(key, len);
-
-	_hash = MurmurHash(key, len).Get32();
+	_key.SetFromRangeString(key.Key(), key.Length());
+	_hash = key.Hash();
+	_len = key.Length();
 }
 
 
@@ -56,8 +99,13 @@ SettingsHashValue::SettingsHashValue(const char *value, int len)
 
 //// SettingsHashItem
 
-SettingsHashItem::SettingsHashItem(const char *key, int key_len, const char *value, int value_len)
-	: SettingsHashKey(key, key_len), SettingsHashValue(value, value_len)
+SettingsHashItem::SettingsHashItem(const SettingsKeyInput &key)
+	: SettingsHashKey(key)
+{
+}
+
+SettingsHashItem::SettingsHashItem(const SettingsKeyInput &key, const char *value, int value_len)
+	: SettingsHashKey(key), SettingsHashValue(value, value_len)
 {
 }
 
@@ -131,66 +179,19 @@ SettingsHashTable::~SettingsHashTable()
 	}
 }
 
-void SettingsHashTable::Set(const char *key, int key_len, const char *value, int value_len)
+SettingsHashItem *SettingsHashTable::Lookup(const SettingsKeyInput &key)
 {
-	CAT_INANE("SettingsHashTable") << "Set[" << key << "] = " << value;
-
-	if (!_buckets && !Grow())
-		return;
-
-	u32 hash = MurmurHash(key, key_len).Get32();
-	u32 mask = _allocated - 1;
-	u32 ii = hash & mask;
-
-	// For each item in the selected bucket,
-	for (iter jj = _buckets[ii]; jj; ++jj)
-	{
-		// If the hash matches and the key matches,
-		if (jj->Hash() == hash &&
-			*jj == key)
-		{
-			// Found it!
-			jj->SetValueStr(value);
-			return;
-		}
-	}
-
-	SettingsHashItem *item = new SettingsHashItem(key, key_len, value, value_len);
-	if (!item) return;
-
-	// If time to grow,
-	if (_used * GROW_THRESH >= _allocated)
-	{
-		if (!Grow()) return;
-
-		mask = _allocated - 1;
-		ii = hash & mask;
-	}
-
-	// Insert at first open table index after hash
-	_buckets[ii].PushFront(item);
-
-	++_used;
-}
-
-SettingsHashItem *SettingsHashTable::Get(const char *key, int key_len)
-{
-	CAT_INANE("SettingsHashTable") << "Get[" << key << "]";
-
 	// If nothing allocated,
 	if (!_allocated) return 0;
 
 	// Search used table indices after hash
-	u32 hash = MurmurHash(key, key_len).Get32();
-	u32 mask = _allocated - 1;
-	u32 ii = hash & mask;
+	u32 ii = key.Hash() & (_allocated - 1);
 
 	// For each item in the selected bucket,
 	for (iter jj = _buckets[ii]; jj; ++jj)
 	{
-		// If the hash matches and the key matches,
-		if (jj->Hash() == hash &&
-			*jj == key)
+		// If the key matches,
+		if (*jj == key)
 		{
 			// Found it!
 			return jj;
@@ -198,6 +199,40 @@ SettingsHashItem *SettingsHashTable::Get(const char *key, int key_len)
 	}
 
 	return 0;
+}
+
+SettingsHashItem *SettingsHashTable::Create(const SettingsKeyInput &key)
+{
+	// Check if it exists already
+	SettingsHashItem *item = Lookup(key);
+	if (item) return item;
+
+	// If first allocation fails,
+	if (!_buckets && !Grow()) return 0;
+
+	// If cannot create an item,
+	item = new SettingsHashItem(key);
+	if (!item) return 0;
+
+	// If time to grow,
+	if (_used * GROW_THRESH >= _allocated)
+	{
+		// If grow fails,
+		if (!Grow())
+		{
+			delete item;
+			return 0;
+		}
+	}
+
+	// Insert in bucket corresponding to hash low bits
+	u32 bucket_index = key.Hash() & (_allocated - 1);
+	_buckets[bucket_index].PushFront(item);
+
+	// Increment used count to keep track of when to grow
+	++_used;
+
+	return item;
 }
 
 
@@ -450,7 +485,8 @@ int Settings::readTokens(SequentialFileReader &sfile, ParsedLine &parsed_line, c
 		if (parsed_line.second_len)
 		{
 			// Add this path to the hash table
-			_table.Set(root_key, key_len, parsed_line.second, parsed_line.second_len);
+			SettingsHashItem *item = _table.Create(SettingsKeyInput(root_key, key_len));
+			if (item) item->SetValueRangeStr(parsed_line.second, parsed_line.second_len);
 		}
 
 		int depth = parsed_line.depth;
@@ -507,14 +543,8 @@ void Settings::readFile(SequentialFileReader &sfile)
 	while (1 == readTokens(sfile, parsed_line, root_key, 0, 0));
 }
 
-void Settings::write()
-{
-	// TODO
-}
-
 int Settings::getInt(const char *name, int default_value)
 {
-	// TODO
 	return 0;
 }
 
@@ -530,6 +560,11 @@ void Settings::setInt(const char *name, int value)
 }
 
 void Settings::setStr(const char *name, const char *value)
+{
+	// TODO
+}
+
+void Settings::write()
 {
 	// TODO
 }
