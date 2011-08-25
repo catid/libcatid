@@ -198,8 +198,14 @@ class CAT_EXPORT Settings : public RefSingleton<Settings>
 
 	std::string _settings_file;
 
-	bool readLine(SequentialFileReader &sfile, char *&first, int &first_len, char *&second, int &second_len, int &depth);
-	bool readTokens(SequentialFileReader &sfile, char *root_key, int root_key_len, int root_depth);
+	struct ParsedLine
+	{
+		char *first, *second;
+		int first_len, second_len, depth;
+	};
+
+	bool readLine(SequentialFileReader &sfile, ParsedLine &parsed_line);
+	int readTokens(SequentialFileReader &sfile, ParsedLine &parsed_line, char *root_key, int root_key_len, int root_depth);
 	void readFile(SequentialFileReader &sfile);
 	void read(const char *file_path = CAT_SETTINGS_FILE, const char *override_file = CAT_SETTINGS_OVERRIDE_FILE);
 	void write();
