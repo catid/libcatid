@@ -287,7 +287,7 @@ void Settings::read(const char *file_path, const char *override_file)
 	_readSettings = true;
 }
 
-bool Settings::readLine(SequentialFileReader &sfile, char *&first, int &first_len, char *&second, int &second_len, int &depth)
+bool Settings::readLine(SequentialFileReader &sfile, ParsedLine &parsed_line)
 {
 	static char line[512];
 	int count;
@@ -300,12 +300,12 @@ bool Settings::readLine(SequentialFileReader &sfile, char *&first, int &first_le
 	if (count == 0)
 	{
 		// Set first_len to zero to indicate no data
-		first_len = 0;
+		parsed_line.first_len = 0;
 		return true;
 	}
 
 	// Count the number of tabs and spaces at the front
-	first = line;
+	char *first = line;
 	int tab_count = 0, space_count = 0;
 
 	// While EOL not encountered,
@@ -332,7 +332,7 @@ bool Settings::readLine(SequentialFileReader &sfile, char *&first, int &first_le
 	if (!ch || !IsAlpha(ch))
 	{
 		// Set first_len to zero to indicate no data
-		first_len = 0;
+		parsed_line.first_len = 0;
 		return true;
 	}
 
@@ -343,11 +343,12 @@ bool Settings::readLine(SequentialFileReader &sfile, char *&first, int &first_le
 		the last tab is replaced by spaces and the tab stops
 		are set at 2 characters (attempting to be clever about it)
 	*/
-	depth = tab_count + (space_count + 2) / 4;
+	int depth = tab_count + (space_count + 2) / 4;
 	if (depth > MAX_TAB_RECURSION_DEPTH) depth = MAX_TAB_RECURSION_DEPTH;
+	parsed_line.depth = depth;
 
 	// Find the start of whitespace after first token
-	second = first + 1;
+	char *second = first + 1;
 
 	while ((ch = *second))
 	{
@@ -357,12 +358,14 @@ bool Settings::readLine(SequentialFileReader &sfile, char *&first, int &first_le
 		++second;
 	}
 
-	// Get length of first token
-	first_len = (int)(second - first);
-	second_len = 0;
+	// Store first token
+	parsed_line.first_len = (int)(second - first);
+	parsed_line.first = first;
 
 	// If a second token is possible,
 	// NOTE: Second token is left pointing at an empty string here if no whitespace was found
+	int second_len = 0;
+
 	if (ch)
 	{
 		// Terminate the first token
@@ -403,70 +406,100 @@ bool Settings::readLine(SequentialFileReader &sfile, char *&first, int &first_le
 	// First and second tokens, their lengths, and the new depth are determined.
 	// The second token may be an empty string but is always a valid string.
 
+	parsed_line.second = second;
+	parsed_line.second_len = second_len;
+
 	return true;
 }
 
-bool Settings::readTokens(SequentialFileReader &sfile, char *root_key, int root_key_len, int root_depth)
+int Settings::readTokens(SequentialFileReader &sfile, ParsedLine &parsed_line, char *root_key, int root_key_len, int root_depth)
 {
-	static char *first, *second;
-	static int first_len, second_len, depth;
+	int eof = 0;
+
+	// If there is not enough space to append the first token to the end of the root key,
+	if (root_key_len + 1 + parsed_line.first_len > SETTINGS_STRMAX)
+	{
+		// Signal EOF here to avoid mis-attributing keys
+		CAT_WARN("Settings") << "Long line caused settings processing to abort early";
+		return 0;
+	}
+
+	// Append first token to root key
+	int key_len = root_key_len + parsed_line.first_len;
+	char *write_key = root_key + root_key_len;
+
+	if (root_key_len > 0)
+	{
+		root_key[root_key_len] = '.';
+		++write_key;
+	}
+
+	memcpy(write_key, parsed_line.first, parsed_line.first_len);
+	write_key[parsed_line.first_len] = '\0';
+
+	// If second token is set,
+	if (parsed_line.second_len)
+	{
+		// Add this path to the hash table
+		_table.Set(root_key, key_len, parsed_line.second, parsed_line.second_len);
+	}
+
+	int depth = parsed_line.depth;
 
 	// For each line until EOF,
-	while (readLine(sfile, first, first_len, second, second_len, depth))
+	while (readLine(sfile, parsed_line))
 	{
 		// Skip blank lines
-		if (first_len == 0) continue;
+		if (parsed_line.first_len == 0) continue;
 
-		// If there is space to append the first token to the end of the root key,
-		int key_len = root_key_len + 1 + first_len;
-		if (key_len <= SETTINGS_STRMAX)
+		// If this is not a child of the root,
+		if (root_depth >= parsed_line.depth)
 		{
-			// If this is not a child of the root,
-			if (root_depth > 0 && root_depth >= depth)
+			// Return code to allow parent to process it
+			eof = 1;
+			break;
+		}
+
+		// Process and if EOF was encountered,
+		int retval = readTokens(sfile, parsed_line, root_key, key_len, depth);
+		if (retval == 0)
+		{
+			break; // EOF
+		}
+		else if (retval == 1)
+		{
+			if (parsed_line.depth <= root_depth)
 			{
-				// Return true to allow parent to process it
-				return true;
-			}
-
-			// Child of root, recurse
-			CAT_FOREVER
-			{
-				// Append first token to root key
-				root_key[root_key_len] = '.';
-				memcpy(root_key + root_key_len + 1, first, first_len);
-				root_key[key_len] = '\0';
-
-				// If second token is set,
-				if (second_len)
-				{
-					// Add this path to the hash table
-					_table.Set(root_key, key_len, second, second_len);
-				}
-
-				// Process and if EOF was encountered,
-				if (!readTokens(sfile, root_key, key_len, depth))
-					return false; // EOF
-
-				// Remove appended token(s)
-				root_key[root_key_len] = '\0';
-
-				// If this one belongs closer to the root,
-				if (root_depth > 0 && root_depth >= depth)
-					return true;
+				eof = 1;
+				break;
 			}
 		}
 	}
 
-	return false; // EOF
+	// Remove appended token(s)
+	root_key[root_key_len] = '\0';
+
+	return eof; // EOF
 }
 
 void Settings::readFile(SequentialFileReader &sfile)
 {
 	char root_key[SETTINGS_STRMAX+1];
-
 	root_key[0] = '\0';
 
-	readTokens(sfile, root_key, 0, 0);
+	// For each line until EOF,
+	ParsedLine parsed_line;
+	while (readLine(sfile, parsed_line))
+	{
+		int retval;
+
+		do
+		{
+			retval = readTokens(sfile, parsed_line, root_key, 0, 0);
+			if (retval == 0)
+				return;
+		} while (retval == 1);
+	}
 }
 
 void Settings::write()
