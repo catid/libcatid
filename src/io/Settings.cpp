@@ -64,17 +64,18 @@ SettingsHashItem::SettingsHashItem(const char *key, int key_len, const char *val
 
 //// SettingsHashTable
 
-void SettingsHashTable::Grow()
+bool SettingsHashTable::Grow()
 {
-	CAT_INANE("SettingsHashTable") << "Growing";
-
+	// Calculate growth rate
 	u32 old_size = _allocated;
-
-	// Allocate larger bucket array
 	u32 new_size = old_size * GROW_RATE;
 	if (new_size < PREALLOC) new_size = PREALLOC;
+
+	CAT_INANE("SettingsHashTable") << "Growing to " << new_size << " buckets";
+
+	// Allocate larger bucket array
 	SList *new_buckets = new SList[new_size];
-	if (!new_buckets) return;
+	if (!new_buckets) return false;
 
 	// For each bucket,
 	u32 mask = new_size - 1;
@@ -92,6 +93,8 @@ void SettingsHashTable::Grow()
 
 	_buckets = new_buckets;
 	_allocated = new_size;
+
+	return true;
 }
 
 SettingsHashTable::SettingsHashTable()
@@ -132,6 +135,9 @@ void SettingsHashTable::Set(const char *key, int key_len, const char *value, int
 {
 	CAT_INANE("SettingsHashTable") << "Set[" << key << "] = " << value;
 
+	if (!_buckets && !Grow())
+		return;
+
 	u32 hash = MurmurHash(key, key_len).Get32();
 	u32 mask = _allocated - 1;
 	u32 ii = hash & mask;
@@ -155,7 +161,7 @@ void SettingsHashTable::Set(const char *key, int key_len, const char *value, int
 	// If time to grow,
 	if (_used * GROW_THRESH >= _allocated)
 	{
-		Grow();
+		if (!Grow()) return;
 
 		mask = _allocated - 1;
 		ii = hash & mask;
@@ -416,68 +422,73 @@ int Settings::readTokens(SequentialFileReader &sfile, ParsedLine &parsed_line, c
 {
 	int eof = 0;
 
-	// If there is not enough space to append the first token to the end of the root key,
-	if (root_key_len + 1 + parsed_line.first_len > SETTINGS_STRMAX)
+	do
 	{
-		// Signal EOF here to avoid mis-attributing keys
-		CAT_WARN("Settings") << "Long line caused settings processing to abort early";
-		return 0;
-	}
-
-	// Append first token to root key
-	int key_len = root_key_len + parsed_line.first_len;
-	char *write_key = root_key + root_key_len;
-
-	if (root_key_len > 0)
-	{
-		root_key[root_key_len] = '.';
-		++write_key;
-	}
-
-	memcpy(write_key, parsed_line.first, parsed_line.first_len);
-	write_key[parsed_line.first_len] = '\0';
-
-	// If second token is set,
-	if (parsed_line.second_len)
-	{
-		// Add this path to the hash table
-		_table.Set(root_key, key_len, parsed_line.second, parsed_line.second_len);
-	}
-
-	int depth = parsed_line.depth;
-
-	// For each line until EOF,
-	while (readLine(sfile, parsed_line))
-	{
-		// Skip blank lines
-		if (parsed_line.first_len == 0) continue;
-
-		// If this is not a child of the root,
-		if (root_depth >= parsed_line.depth)
+		// If there is not enough space to append the first token to the end of the root key,
+		if (root_key_len + 1 + parsed_line.first_len > SETTINGS_STRMAX)
 		{
-			// Return code to allow parent to process it
-			eof = 1;
+			// Signal EOF here to avoid mis-attributing keys
+			CAT_WARN("Settings") << "Long line caused settings processing to abort early";
+			return 0;
+		}
+
+		// Append first token to root key
+		int key_len = root_key_len + parsed_line.first_len;
+		char *write_key = root_key + root_key_len;
+
+		if (root_key_len > 0)
+		{
+			root_key[root_key_len] = '.';
+			++write_key;
+			++key_len;
+		}
+
+		memcpy(write_key, parsed_line.first, parsed_line.first_len);
+		write_key[parsed_line.first_len] = '\0';
+
+		// If second token is set,
+		if (parsed_line.second_len)
+		{
+			// Add this path to the hash table
+			_table.Set(root_key, key_len, parsed_line.second, parsed_line.second_len);
+		}
+
+		int depth = parsed_line.depth;
+
+		// For each line until EOF,
+		while (readLine(sfile, parsed_line))
+		{
+			// Skip blank lines
+			if (parsed_line.first_len == 0) continue;
+
+			// If new line depth is at or beneath the root,
+			if (root_depth >= parsed_line.depth)
+				eof = 1; // Pass it back to the root to handle
+			// If new line is a child of current depth,
+			else if (depth < parsed_line.depth)
+			{
+				// Otherwise the new line depth is deeper, so recurse and add onto the key
+				eof = readTokens(sfile, parsed_line, root_key, key_len, depth);
+
+				// If not EOF,
+				if (eof != 0)
+				{
+					// If new line depth is at the same level as current token,
+					if (root_depth < parsed_line.depth)
+						eof = 2; // Repeat whole routine again at this depth
+					else
+						eof = 1; // Pass it back to the root to handle
+				}
+			}
+			else // New line depth is at about the same level as current
+				eof = 2; // Repeat whole routine again at this depth
+
 			break;
 		}
 
-		// Process and if EOF was encountered,
-		int retval = readTokens(sfile, parsed_line, root_key, key_len, depth);
-		if (retval == 0)
-		{
-			break; // EOF
-		}
-		else if (retval == 1)
-		{
-			if (parsed_line.depth <= root_depth)
-			{
-				eof = 1;
-				break;
-			}
-		}
-	}
-
-	// Remove appended token(s)
-	root_key[root_key_len] = '\0';
+		// Remove appended token
+		root_key[root_key_len] = '\0';
+	} while (eof == 2);
 
 	return eof; // EOF
 }
@@ -489,17 +500,11 @@ void Settings::readFile(SequentialFileReader &sfile)
 
 	// For each line until EOF,
 	ParsedLine parsed_line;
-	while (readLine(sfile, parsed_line))
-	{
-		int retval;
+	if (!readLine(sfile, parsed_line))
+		return;
 
-		do
-		{
-			retval = readTokens(sfile, parsed_line, root_key, 0, 0);
-			if (retval == 0)
-				return;
-		} while (retval == 1);
-	}
+	// Bump tokens back to the next level while not EOF
+	while (1 == readTokens(sfile, parsed_line, root_key, 0, 0));
 }
 
 void Settings::write()

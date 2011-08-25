@@ -135,7 +135,7 @@ class CAT_EXPORT SettingsHashTable
 	SList *_buckets;
 	typedef SList::Iterator<SettingsHashItem> iter;
 
-	void Grow();
+	bool Grow();
 
 public:
 	SettingsHashTable();
