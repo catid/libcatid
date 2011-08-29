@@ -29,9 +29,11 @@
 #include <cat/io/Settings.hpp>
 #include <cat/parse/BufferTok.hpp>
 #include <cat/io/Logging.hpp>
+#include <cat/io/MappedFile.hpp>
+#include <cat/hash/Murmur.hpp>
+#include <fstream>
 #include <cstring>
 #include <cstdlib>
-#include <cat/hash/Murmur.hpp>
 using namespace cat;
 using namespace std;
 
@@ -271,82 +273,26 @@ SettingsHashTable::Iterator::Iterator(SettingsHashTable &head)
 }
 
 
-//// Settings
+//// SettingsParser
 
-CAT_REF_SINGLETON(Settings);
-
-void Settings::OnInitialize()
+bool SettingsParser::nextLine()
 {
-	_readSettings = false;
-	_modified = false;
-
-	read();
-}
-
-void Settings::OnFinalize()
-{
-	write();
-}
-
-void Settings::read(const char *file_path, const char *override_file)
-{
-	AutoWriteLock lock(_lock);
-
-	_settings_file = file_path;
-
-	SequentialFileReader sfile;
-
-	if (!sfile.Open(file_path))
-	{
-		CAT_WARN("Settings") << "Read: Unable to open " << file_path;
-		return;
-	}
-
-#ifdef CAT_SETTINGS_VERBOSE
-	CAT_INANE("Settings") << "Read: " << file_path;
-#endif
-
-	readFile(sfile);
-
-	// If override file exists,
-	if (sfile.Open(override_file))
-	{
-#ifdef CAT_SETTINGS_VERBOSE
-		CAT_INANE("Settings") << "Read: " << override_file;
-#endif
-
-		readFile(sfile);
-	}
-
-	// Delete the override settings file if settings request it
-	if (getInt("Override.Unlink", 0))
-	{
-		_unlink(override_file);
-		setInt("Override.Unlink", 0);
-	}
-
-	_readSettings = true;
-}
-
-bool Settings::readLine(SequentialFileReader &sfile, ParsedLine &parsed_line)
-{
-	static char line[512];
 	int count;
 
+	// Set _first_len to zero by default to indicate no data
+	_first_len = 0;
+
+	// TODO: Rewrite for zero-copy here.  Do EOL/EOF processing inline in this function
+
 	// For each line in the file,
-	if ((count = sfile.ReadLine(line, (int)sizeof(line))) < 0)
+	if ((count = readLine(_line, (int)sizeof(_line))) < 0)
 		return false;
 
 	// Ignore blank lines (fairly common)
-	if (count == 0)
-	{
-		// Set first_len to zero to indicate no data
-		parsed_line.first_len = 0;
-		return true;
-	}
+	if (count == 0) return true;
 
 	// Count the number of tabs and spaces at the front
-	char *first = line;
+	char *first = _line;
 	int tab_count = 0, space_count = 0;
 
 	// While EOL not encountered,
@@ -354,28 +300,17 @@ bool Settings::readLine(SequentialFileReader &sfile, ParsedLine &parsed_line)
 	while ((ch = *first))
 	{
 		if (ch == ' ')
-		{
 			++space_count;
-			++first;
-		}
 		else if (ch == '\t')
-		{
 			++tab_count;
-			++first;
-		}
 		else
-		{
 			break;
-		}
+
+		++first;
 	}
 
 	// If EOL found or non-data line, skip this line
-	if (!ch || !IsAlpha(ch))
-	{
-		// Set first_len to zero to indicate no data
-		parsed_line.first_len = 0;
-		return true;
-	}
+	if (!ch || !IsAlpha(ch)) return true;
 
 	/*
 		Calculate depth from tab and space count
@@ -386,7 +321,7 @@ bool Settings::readLine(SequentialFileReader &sfile, ParsedLine &parsed_line)
 	*/
 	int depth = tab_count + (space_count + 2) / 4;
 	if (depth > MAX_TAB_RECURSION_DEPTH) depth = MAX_TAB_RECURSION_DEPTH;
-	parsed_line.depth = depth;
+	_depth = depth;
 
 	// Find the start of whitespace after first token
 	char *second = first + 1;
@@ -400,8 +335,8 @@ bool Settings::readLine(SequentialFileReader &sfile, ParsedLine &parsed_line)
 	}
 
 	// Store first token
-	parsed_line.first_len = (int)(second - first);
-	parsed_line.first = first;
+	_first_len = (int)(second - first);
+	_first = first;
 
 	// If a second token is possible,
 	// NOTE: Second token is left pointing at an empty string here if no whitespace was found
@@ -446,14 +381,13 @@ bool Settings::readLine(SequentialFileReader &sfile, ParsedLine &parsed_line)
 
 	// First and second tokens, their lengths, and the new depth are determined.
 	// The second token may be an empty string but is always a valid string.
-
-	parsed_line.second = second;
-	parsed_line.second_len = second_len;
+	_second_len = second_len;
+	_second = second;
 
 	return true;
 }
 
-int Settings::readTokens(SequentialFileReader &sfile, ParsedLine &parsed_line, char *root_key, int root_key_len, int root_depth)
+int SettingsParser::readTokens(u32 file_offset, ParserState &parsed_line, char *root_key, int root_key_len, int root_depth)
 {
 	int eof = 0;
 
@@ -529,18 +463,139 @@ int Settings::readTokens(SequentialFileReader &sfile, ParsedLine &parsed_line, c
 	return eof; // EOF
 }
 
-void Settings::readFile(SequentialFileReader &sfile)
+bool SettingsParser::readSettingsFile(const char *file_path, SettingsHashTable *output_table, u8 **file_data, u32 *file_size)
 {
-	char root_key[SETTINGS_STRMAX+1];
-	root_key[0] = '\0';
+	CAT_DEBUG_ENFORCE(file_path && output_table);
 
-	// For each line until EOF,
-	ParsedLine parsed_line;
-	if (!readLine(sfile, parsed_line))
-		return;
+	// Open the file
+	MappedFile file;
+	if (!file.Open(file_path))
+	{
+		CAT_INFO("SettingsParser") << "Unable to open " << file_path;
+		return false;
+	}
+
+	// Ensure file is not too large
+	u64 file_length = file.GetLength();
+	if (file_length > MAX_SETTINGS_FILE_SIZE)
+	{
+		CAT_WARN("SettingsParser") << "Size too large for " << file_path;
+		return false;
+	}
+
+	// Ensure file is not empty
+	u32 nominal_length = (u32)file_length;
+	if (nominal_length <= 0)
+	{
+		CAT_INFO("SettingsParser") << "Ignoring empty file " << file_path;
+		return false;
+	}
+
+	// Open a view of the file
+	MappedView view;
+	if (!view.Open(&file))
+	{
+		CAT_WARN("SettingsParser") << "Unable to open view of " << file_path;
+		return false;
+	}
+
+	// Map a view of the entire file
+	if (!view.MapView(0, nominal_length))
+	{
+		CAT_WARN("SettingsParser") << "Unable to map view of " << file_path;
+		return false;
+	}
+
+	// Initialize parser
+	_file_data = view.GetFront();
+	_file_offset = 0;
+	_file_size = nominal_length;
+	_root_key[0] = '\0';
+	_store_offsets = false;
+
+	// If file data will be copied out,
+	if (file_data && file_size)
+	{
+		u8 *copy = new u8[nominal_length];
+		if (!copy)
+		{
+			CAT_WARN("SettingsParser") << "Out of memory allocating file buffer of bytes = " << nominal_length;
+			return false;
+		}
+
+		memcpy(copy, _file_data, nominal_length);
+
+		*file_data = copy;
+		*file_size = nominal_length;
+		_store_offsets = true;
+	}
+
+	// Kick off the parsing
+	if (!readLine())
+		return false;
 
 	// Bump tokens back to the next level while not EOF
-	while (1 == readTokens(sfile, parsed_line, root_key, 0, 0));
+	while (1 == readTokens(0, 0));
+}
+
+
+//// Settings
+
+CAT_REF_SINGLETON(Settings);
+
+void Settings::OnInitialize()
+{
+	_readSettings = false;
+	_modified = false;
+
+	read();
+}
+
+void Settings::OnFinalize()
+{
+	write();
+}
+
+void Settings::read(const char *settings_path, const char *override_path)
+{
+	AutoWriteLock lock(_lock);
+
+	_settings_path = settings_path;
+	_override_path = override_path;
+
+	if (!_file.Open(settings_path))
+	{
+		CAT_WARN("Settings") << "Read: Unable to open " << settings_path;
+		return;
+	}
+
+#ifdef CAT_SETTINGS_VERBOSE
+	CAT_INANE("Settings") << "Read: " << settings_path;
+#endif
+
+	readFile();
+
+	// If override file exists,
+	if (override_file && sfile.Open(override_file))
+	{
+#ifdef CAT_SETTINGS_VERBOSE
+		CAT_INANE("Settings") << "Read: " << override_file;
+#endif
+
+		// TODO: Need to make sure that the override changes
+		// values without mucking with the write() framework
+
+		readFile(sfile);
+	}
+
+	// Delete the override settings file if settings request it
+	if (getInt("Override.Unlink", 0))
+	{
+		remove(override_file);
+		setInt("Override.Unlink", 0);
+	}
+
+	_readSettings = true;
 }
 
 int Settings::getInt(const char *name, int default_value)

@@ -112,6 +112,9 @@ void CAT_EXPORT CopyToUppercaseString(const char *from, char *to);
 // Copies the input string to an output string replacing uppercase letters with their lowercase equivalents
 void CAT_EXPORT CopyToLowercaseString(const char *from, char *to);
 
+// Copies the contents of a line from a text file into a nul-terminated output buffer
+int CAT_EXPORT ReadLineFromTextFileBuffer(u8 *data, u32 remaining, char *outs, int len)
+
 
 //// Nul-Terminated Fixed-Length String
 
