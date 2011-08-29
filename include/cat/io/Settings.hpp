@@ -30,11 +30,9 @@
 #define CAT_SETTINGS_HPP
 
 #include <cat/threads/RWLock.hpp>
-#include <cat/io/MappedFile.hpp>
 #include <cat/lang/LinkedLists.hpp>
 #include <cat/lang/Strings.hpp>
 #include <cat/lang/RefSingleton.hpp>
-#include <fstream>
 
 /*
 	The settings file format is designed to be both human and machine readable.
@@ -208,14 +206,47 @@ public:
 };
 
 
+//// SettingsParser
+
+class CAT_EXPORT SettingsParser
+{
+	CAT_NO_COPY(SettingsParser);
+
+	static const int MAX_LINE_SIZE = 2048; // Maximum number of bytes per line in the file
+	static const int MAX_TAB_RECURSION_DEPTH = 16; // Maximum number of layers in a settings key
+	static const int MAX_SETTINGS_FILE_SIZE = 4000000; // Maximum number of bytes in file allowed
+
+	// File data
+	u8 *_file_data;
+	u32 _file_offset, _file_size;
+
+	// Parser data
+	char _line[MAX_LINE_SIZE];
+	char _root_key[SETTINGS_STRMAX+1];
+	char *_first, *_second;
+	int _first_len, _second_len, _depth;
+
+	// Output data
+	bool _store_offsets;
+	SettingsHashTable *_table;
+
+protected:
+	int readLine(char *outs, int len);
+	bool nextLine();
+	int readTokens(int root_key_len, int root_depth);
+
+public:
+	// Do not pass in the file data or file size pointers if the file is the override file
+	bool readSettingsFile(const char *file_path, SettingsHashTable *output_table, u8 **file_data = 0, u32 *file_size = 0);
+};
+
+
 //// Settings
 
 class CAT_EXPORT Settings : public RefSingleton<Settings>
 {
 	void OnInitialize();
 	void OnFinalize();
-
-	static const int MAX_TAB_RECURSION_DEPTH = 16; // Maximum number of layers in a settings key
 
 	RWLock _lock;
 
@@ -224,18 +255,11 @@ class CAT_EXPORT Settings : public RefSingleton<Settings>
 	bool _readSettings;	// Flag set when settings have been read from disk
 	bool _modified;		// Flag set when settings have been modified since last write
 
-	std::string _settings_file;
+	std::string _settings_path, _override_path;
+	u8 *_file_data;		// Pointer to settings file data in memory
+	u32 _file_size;		// Number of bytes in settings file
 
-	struct ParsedLine
-	{
-		char *first, *second;
-		int first_len, second_len, depth;
-	};
-
-	bool readLine(SequentialFileReader &sfile, ParsedLine &parsed_line);
-	int readTokens(SequentialFileReader &sfile, ParsedLine &parsed_line, char *root_key, int root_key_len, int root_depth);
-	void readFile(SequentialFileReader &sfile);
-	void read(const char *file_path = CAT_SETTINGS_FILE, const char *override_file = CAT_SETTINGS_OVERRIDE_FILE);
+	void read(const char *settings_path = CAT_SETTINGS_FILE, const char *override_path = CAT_SETTINGS_OVERRIDE_FILE);
 	void write();
 
 public:

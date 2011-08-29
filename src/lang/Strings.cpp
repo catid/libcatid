@@ -251,3 +251,65 @@ void cat::CopyToLowercaseString(const char *from, char *to)
 
 	*to = '\0';
 }
+
+// Copies the contents of a line from a text file into a nul-terminated output buffer
+int cat::ReadLineFromTextFileBuffer(u8 *data, u32 remaining, char *outs, int len)
+{
+	CAT_DEBUG_ENFORCE(data && outs && len > 1);
+
+	// Check if any data is available for reading
+	if (remaining <= 0) return -1;
+
+	// Initialize line parser state
+	u8 *eof = data + remaining;
+	char *out_first = outs;
+	char *eol = outs + len - 1; // Set one before the end for nul-terminator
+
+	// While there is room in the output buffer,
+	do
+	{
+		char ch = (char)*data++;
+
+		// If character is a line delimiter token,
+		if (ch == '\r')
+		{
+			// If EOF,
+			if (data >= eof) break;
+
+			// If next character is a NL/CR pair,
+			if ((char)*data == '\n')
+			{
+				// Skip it so that next call will not treat it as a blank line
+				++data;
+			}
+
+			break;
+		}
+		else if (ch == '\n')
+		{
+			// If EOF,
+			if (data >= eof) break;
+
+			// If next character is a NL/CR pair,
+			if ((char)*data == '\r')
+			{
+				// Skip it so that next call will not treat it as a blank line
+				++data;
+			}
+
+			break;
+		}
+		else
+		{
+			// Copy other characters directly
+			*outs++ = ch;
+		}
+
+		// Keep going while there is either more file or more line
+	} while (data < eof && outs < eol);
+
+	// Terminate the output line
+	*outs = '\0';
+
+	return (int)(outs - out_first);
+}
