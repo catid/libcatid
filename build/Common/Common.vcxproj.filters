@@ -129,6 +129,9 @@
     <ClCompile Include="..\..\src\lang\RefObject.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\io\RagdollFile.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\cat\AllCommon.hpp">
@@ -238,6 +241,9 @@
     </ClInclude>
     <ClInclude Include="..\..\include\cat\lang\RefObject.hpp">
       <Filter>Header Files\lang</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\io\RagdollFile.hpp">
+      <Filter>Header Files\io</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
