@@ -285,7 +285,7 @@ public:
 
 //// ragdoll::RagdollFile
 
-class CAT_EXPORT RagdollFile
+class CAT_EXPORT File
 {
 	HashTable _table;
 
@@ -297,8 +297,8 @@ class CAT_EXPORT RagdollFile
 	u32 _file_size;		// Number of bytes in settings file
 
 public:
-	RagdollFile();
-	~RagdollFile();
+	File();
+	~File();
 
 	bool Read(const char *file_path);
 	bool Override(const char *file_path);
@@ -306,6 +306,8 @@ public:
 	CAT_INLINE HashTable *GetTable() { return &_table; }
 };
 
+
+} // namespace ragdoll
 
 } // namespace cat
 
