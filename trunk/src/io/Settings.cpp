@@ -37,10 +37,18 @@ CAT_REF_SINGLETON(Settings);
 
 void Settings::OnInitialize()
 {
+	_file.Read(CAT_SETTINGS_FILE);
+	_file.Override(CAT_SETTINGS_OVERRIDE_FILE);
 }
 
 void Settings::OnFinalize()
 {
+	if (getInt("Override.Unlink") == 1)
+	{
+		std::remove(CAT_SETTINGS_OVERRIDE_FILE);
+	}
+
+	_file.Write(CAT_SETTINGS_FILE);
 }
 
 int Settings::getInt(const char *name, int default_value)

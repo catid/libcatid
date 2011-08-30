@@ -414,12 +414,12 @@ bool Parser::FindFirstToken(char *&data, char *eof)
 	// While EOF not encountered,
 	while (first < eof)
 	{
-		char ch = *first++;
+		char ch = *first;
 
 		if (ch == '\n')
 		{
-			if (first < eof && *first == '\r')
-				++first;
+			if (++first >= eof || *first != '\r')
+				--first;
 			break;
 		}
 		else if (ch == '\r')
@@ -453,7 +453,7 @@ bool Parser::FindFirstToken(char *&data, char *eof)
 			_depth = depth;
 
 			// Find second token starting from first token
-			if (!FindSecondToken(first, eof))
+			if (FindSecondToken(first, eof))
 			{
 				first = FindSecondTokenEnd(first, eof);
 			}
@@ -461,6 +461,8 @@ bool Parser::FindFirstToken(char *&data, char *eof)
 			data = first;
 			return true;
 		}
+
+		++first;
 	}
 
 	data = first;
@@ -488,7 +490,7 @@ int Parser::ReadTokens(int root_key_len, int root_depth)
 	do
 	{
 		// If there is not enough space to append the first token to the end of the root key,
-		if (root_key_len + 1 + parsed_line.first_len > MAX_CHARS)
+		if (root_key_len + 1 + _first_len > MAX_CHARS)
 		{
 			// Signal EOF here to avoid mis-attributing keys
 			CAT_WARN("Settings") << "Long line caused settings processing to abort early";
@@ -496,49 +498,49 @@ int Parser::ReadTokens(int root_key_len, int root_depth)
 		}
 
 		// Append first token to root key
-		int key_len = root_key_len + parsed_line.first_len;
-		char *write_key = root_key + root_key_len;
+		int key_len = root_key_len + _first_len;
+		char *write_key = _root_key + root_key_len;
 
 		if (root_key_len > 0)
 		{
-			root_key[root_key_len] = '.';
+			_root_key[root_key_len] = '.';
 			++write_key;
 			++key_len;
 		}
 
-		memcpy(write_key, parsed_line.first, parsed_line.first_len);
-		write_key[parsed_line.first_len] = '\0';
+		memcpy(write_key, _first, _first_len);
+		write_key[_first_len] = '\0';
 
 		// If second token is set,
-		if (parsed_line.second_len)
+		if (_second_len)
 		{
 			// Add this path to the hash table
-			HashItem *item = _table.Create(KeyInput(root_key, key_len));
-			if (item) item->SetValueRangeStr(parsed_line.second, parsed_line.second_len);
+			HashItem *item = _table->Create(KeyInput(_root_key, key_len));
+			if (item) item->SetValueRangeStr(_second, _second_len);
 		}
 
-		int depth = parsed_line.depth;
+		int depth = _depth;
 
 		// For each line until EOF,
-		while (readLine(sfile, parsed_line))
+		while (NextLine())
 		{
 			// Skip blank lines
-			if (parsed_line.first_len == 0) continue;
+			if (_first_len == 0) continue;
 
 			// If new line depth is at or beneath the root,
-			if (root_depth >= parsed_line.depth)
+			if (root_depth >= _depth)
 				eof = 1; // Pass it back to the root to handle
 			// If new line is a child of current depth,
-			else if (depth < parsed_line.depth)
+			else if (depth < _depth)
 			{
 				// Otherwise the new line depth is deeper, so recurse and add onto the key
-				eof = readTokens(sfile, parsed_line, root_key, key_len, depth);
+				eof = ReadTokens(key_len, depth);
 
 				// If not EOF,
 				if (eof != 0)
 				{
 					// If new line depth is at the same level as current token,
-					if (root_depth < parsed_line.depth)
+					if (root_depth < _depth)
 						eof = 2; // Repeat whole routine again at this depth
 					else
 						eof = 1; // Pass it back to the root to handle
@@ -551,7 +553,7 @@ int Parser::ReadTokens(int root_key_len, int root_depth)
 		}
 
 		// Remove appended token
-		root_key[root_key_len] = '\0';
+		_root_key[root_key_len] = '\0';
 	} while (eof == 2);
 
 	return eof; // EOF
@@ -630,12 +632,14 @@ bool Parser::Read(const char *file_path, HashTable *output_table, u8 **file_data
 
 	// Bump tokens back to the next level while not EOF
 	while (1 == ReadTokens(0, 0));
+
+	return true;
 }
 
 
 //// ragdoll::RagdollFile
 
-RagdollFile::RagdollFile()
+File::File()
 {
 	_readSettings = false;
 	_modified = false;
@@ -644,18 +648,25 @@ RagdollFile::RagdollFile()
 	_file_size = 0;
 }
 
-RagdollFile::~RagdollFile()
+File::~File()
 {
 	if (_file_data)
 		delete []_file_data;
 }
 
-bool RagdollFile::Read(const char *file_path)
+bool File::Read(const char *file_path)
 {
-
+	Parser parser;
+	return parser.Read(file_path, &_table, &_file_data, &_file_size);
 }
 
-bool RagdollFile::Override(const char *file_path)
+bool File::Override(const char *file_path)
 {
+	Parser parser;
+	return parser.Read(file_path, &_table);
+}
 
+bool File::Write(const char *file_path)
+{
+	return true;
 }
