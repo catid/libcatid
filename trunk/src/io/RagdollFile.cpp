@@ -276,112 +276,134 @@ HashTable::Iterator::Iterator(HashTable &head)
 
 //// ragdoll::Parser
 
-void Parser::FindEOL(char *&data, char *eof)
+char *Parser::FindEOL(char *data, char *eof)
 {
-	char *eol = data;
-
 	// While data pointer is within file,
-	while (eol < eof)
+	while (data < eof)
 	{
 		// Grab current character and point to next character
-		char ch = *eol++;
+		char ch = *data++;
 
 		if (ch == '\n')
 		{
-			if (eol < eof && *eol == '\r')
-				++eol;
+			if (data < eof && *data == '\r')
+				++data;
 			break;
 		}
 		else if (ch == '\r')
 		{
-			if (eol < eof && *eol == '\n')
-				++eol;
+			if (data < eof && *data == '\n')
+				++data;
 			break;
 		}
 	}
 
-	data = eol;
+	return data;
+}
+
+char *Parser::FindSecondTokenEnd(char *data, char *eof)
+{
+	// Find the start of whitespace after first token
+	char *second = data;
+	char *eol = second;
+	int len = 0;
+	while (++eol < eof)
+	{
+		char ch = *eol;
+
+		if (ch == '\r')
+		{
+			if (*eol == '\n')
+			{
+				--len;
+				++eol;
+			}
+			break;
+		}
+		else if (ch == '\n')
+		{
+			if (*eol == '\r')
+			{
+				--len;
+				++eol;
+			}
+			break;
+		}
+	}
+
+	_second_len = len + (int)(eol - second);
+	return second;
 }
 
 bool Parser::FindSecondToken(char *&data, char *eof)
 {
 	// Find the start of whitespace after first token
 	char *first = data;
-	char *second = first + 1;
-	char ch;
-	while (second < eof)
+	char *second = first;
+	int len = 0;
+	while (++second < eof)
 	{
-		ch = *second;
+		char ch = *second;
 
 		if (ch == '\r')
 		{
 			if (*second == '\n')
+			{
+				--len;
 				++second;
+			}
 			break;
 		}
 		else if (ch == '\n')
 		{
 			if (*second == '\r')
+			{
+				--len;
 				++second;
+			}
 			break;
 		}
 		else if (ch == ' ' || ch == '\t')
-			break;
-
-		++second;
-	}
-
-	// Store first token
-	_first_len = (int)(second - first);
-	_first = first;
-
-	// If a second token is possible,
-	// NOTE: Second token is left pointing at an empty string here if no whitespace was found
-	int second_len = 0;
-
-	if (ch)
-	{
-		// Terminate the first token
-		*second++ = '\0';
-
-		// Search for end of whitespace between tokens
-		while ((ch = *second))
 		{
-			if (ch == ' ' || ch == '\t')
-				++second;
-			else
-				break;
-		}
+			_first_len = (int)(second - first);
 
-		// If second token exists,
-		if (ch)
-		{
-			// Search for end of whitespace between tokens
-			char *end = second + 1;
-
-			// For each character until the end of the line,
-			while ((ch = *end))
+			// Now hunt for the beginning of the second token
+			while (++second < eof)
 			{
-				// On the first whitespace character encountered,
-				if (ch == ' ' || ch == '\t')
+				char ch = *second;
+
+				if (ch == '\r')
 				{
-					// Terminate the second token and ignore the rest
-					*end = '\0';
+					if (*second == '\n')
+					{
+						++second;
+					}
 					break;
+				}
+				else if (ch == '\n')
+				{
+					if (*second == '\r')
+					{
+						++second;
+					}
+					break;
+				}
+				else if (ch != ' ' && ch != '\t')
+				{
+					data = second;
+					_second = second;
+					return true;
 				}
 			}
 
-			// Get length of first token
-			second_len = (int)(end - second);
+			data = second;
+			return false;
 		}
 	}
 
-	// First and second tokens, their lengths, and the new depth are determined.
-	// The second token may be an empty string but is always a valid string.
-	_second_len = second_len;
-	_second = second;
-
-	return true;
+	_first_len = len + (int)(second - first);
+	data = second;
+	return false;
 }
 
 bool Parser::FindFirstToken(char *&data, char *eof)
@@ -412,11 +434,13 @@ bool Parser::FindFirstToken(char *&data, char *eof)
 			++tab_count;
 		else if (!IsAlpha(ch))
 		{
-			FindEOL(first, eof);
+			first = FindEOL(first, eof);
 			break;
 		}
 		else
 		{
+			_first = first;
+
 			/*
 				Calculate depth from tab and space count
 
@@ -429,7 +453,10 @@ bool Parser::FindFirstToken(char *&data, char *eof)
 			_depth = depth;
 
 			// Find second token starting from first token
-			FindSecondToken(first, eof);
+			if (!FindSecondToken(first, eof))
+			{
+				first = FindSecondTokenEnd(first, eof);
+			}
 
 			data = first;
 			return true;
@@ -442,8 +469,9 @@ bool Parser::FindFirstToken(char *&data, char *eof)
 
 bool Parser::NextLine()
 {
-	// Set _first_len to zero by default to indicate no data
+	// Initialize parser results
 	_first_len = 0;
+	_second_len = 0;
 
 	// Initialize the data pointers
 	char *data = (char*)_file_data + _file_offset;
@@ -543,7 +571,7 @@ bool Parser::Read(const char *file_path, HashTable *output_table, u8 **file_data
 
 	// Ensure file is not too large
 	u64 file_length = file.GetLength();
-	if (file_length > MAX_SETTINGS_FILE_SIZE)
+	if (file_length > MAX_FILE_SIZE)
 	{
 		CAT_WARN("Parser") << "Size too large for " << file_path;
 		return false;
@@ -597,7 +625,7 @@ bool Parser::Read(const char *file_path, HashTable *output_table, u8 **file_data
 	}
 
 	// Kick off the parsing
-	if (!ReadLine())
+	if (!NextLine())
 		return false;
 
 	// Bump tokens back to the next level while not EOF

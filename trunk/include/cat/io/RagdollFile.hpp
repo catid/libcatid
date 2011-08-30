@@ -272,7 +272,10 @@ class CAT_EXPORT Parser
 	HashTable *_table;
 
 	// Return pointer to the next character after the EOL starting from data, or returns eof if not found
-	static void FindEOL(char *&data, char *eof);
+	static char *FindEOL(char *data, char *eof);
+
+	// Return end of second token
+	char *FindSecondTokenEnd(char *data, char *eof);
 
 	// Return pointer to second token
 	bool FindSecondToken(char *&data, char *eof);
