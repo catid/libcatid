@@ -253,8 +253,6 @@ public:
 
 class CAT_EXPORT Parser
 {
-	CAT_NO_COPY(Parser);
-
 	static const int MAX_TAB_RECURSION_DEPTH = 16; // Maximum number of layers in a key
 	static const int MAX_FILE_SIZE = 4000000; // Maximum number of bytes in file allowed
 
@@ -312,6 +310,7 @@ public:
 
 	bool Read(const char *file_path);
 	bool Override(const char *file_path);
+	bool Write(const char *file_path);
 
 	CAT_INLINE HashTable *GetTable() { return &_table; }
 };

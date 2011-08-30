@@ -24,6 +24,7 @@
 #include <cat/AllCodec.hpp>
 #include <iostream>
 #include <conio.h> // getch()
+#include <fstream>
 using namespace std;
 using namespace cat;
 
