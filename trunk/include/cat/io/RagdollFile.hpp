@@ -255,7 +255,6 @@ class CAT_EXPORT Parser
 {
 	CAT_NO_COPY(Parser);
 
-	static const int MAX_LINE_SIZE = 2048; // Maximum number of bytes per line in the file
 	static const int MAX_TAB_RECURSION_DEPTH = 16; // Maximum number of layers in a key
 	static const int MAX_FILE_SIZE = 4000000; // Maximum number of bytes in file allowed
 
@@ -264,7 +263,6 @@ class CAT_EXPORT Parser
 	u32 _file_offset, _file_size;
 
 	// Parser data
-	char _line[MAX_LINE_SIZE];
 	char _root_key[MAX_CHARS+1];
 	char *_first, *_second;
 	int _first_len, _second_len, _depth;
@@ -272,6 +270,15 @@ class CAT_EXPORT Parser
 	// Output data
 	bool _store_offsets;
 	HashTable *_table;
+
+	// Return pointer to the next character after the EOL starting from data, or returns eof if not found
+	static void FindEOL(char *&data, char *eof);
+
+	// Return pointer to second token
+	bool FindSecondToken(char *&data, char *eof);
+
+	// Return false if line does not contain any tokens
+	bool FindFirstToken(char *&data, char *eof);
 
 protected:
 	bool NextLine();
