@@ -276,60 +276,56 @@ HashTable::Iterator::Iterator(HashTable &head)
 
 //// ragdoll::Parser
 
-bool Parser::NextLine()
+void Parser::FindEOL(char *&data, char *eof)
 {
-	int count;
+	char *eol = data;
 
-	// Set _first_len to zero by default to indicate no data
-	_first_len = 0;
-
-	// TODO: Rewrite for zero-copy here.  Do EOL/EOF processing inline in this function
-
-	// For each line in the file,
-	if ((count = readLine(_line, (int)sizeof(_line))) < 0)
-		return false;
-
-	// Ignore blank lines (fairly common)
-	if (count == 0) return true;
-
-	// Count the number of tabs and spaces at the front
-	char *first = _line;
-	int tab_count = 0, space_count = 0;
-
-	// While EOL not encountered,
-	char ch;
-	while ((ch = *first))
+	// While data pointer is within file,
+	while (eol < eof)
 	{
-		if (ch == ' ')
-			++space_count;
-		else if (ch == '\t')
-			++tab_count;
-		else
-			break;
+		// Grab current character and point to next character
+		char ch = *eol++;
 
-		++first;
+		if (ch == '\n')
+		{
+			if (eol < eof && *eol == '\r')
+				++eol;
+			break;
+		}
+		else if (ch == '\r')
+		{
+			if (eol < eof && *eol == '\n')
+				++eol;
+			break;
+		}
 	}
 
-	// If EOL found or non-data line, skip this line
-	if (!ch || !IsAlpha(ch)) return true;
+	data = eol;
+}
 
-	/*
-		Calculate depth from tab and space count
-
-		Round up front 2 spaces to an extra tab in case just
-		the last tab is replaced by spaces and the tab stops
-		are set at 2 characters (attempting to be clever about it)
-	*/
-	int depth = tab_count + (space_count + 2) / 4;
-	if (depth > MAX_TAB_RECURSION_DEPTH) depth = MAX_TAB_RECURSION_DEPTH;
-	_depth = depth;
-
+bool Parser::FindSecondToken(char *&data, char *eof)
+{
 	// Find the start of whitespace after first token
+	char *first = data;
 	char *second = first + 1;
-
-	while ((ch = *second))
+	char ch;
+	while (second < eof)
 	{
-		if (ch == ' ' || ch == '\t')
+		ch = *second;
+
+		if (ch == '\r')
+		{
+			if (*second == '\n')
+				++second;
+			break;
+		}
+		else if (ch == '\n')
+		{
+			if (*second == '\r')
+				++second;
+			break;
+		}
+		else if (ch == ' ' || ch == '\t')
 			break;
 
 		++second;
@@ -386,6 +382,75 @@ bool Parser::NextLine()
 	_second = second;
 
 	return true;
+}
+
+bool Parser::FindFirstToken(char *&data, char *eof)
+{
+	int tab_count = 0, space_count = 0;
+	char *first = data;
+
+	// While EOF not encountered,
+	while (first < eof)
+	{
+		char ch = *first++;
+
+		if (ch == '\n')
+		{
+			if (first < eof && *first == '\r')
+				++first;
+			break;
+		}
+		else if (ch == '\r')
+		{
+			if (first < eof && *first == '\n')
+				++first;
+			break;
+		}
+		else if (ch == ' ')
+			++space_count;
+		else if (ch == '\t')
+			++tab_count;
+		else if (!IsAlpha(ch))
+		{
+			FindEOL(first, eof);
+			break;
+		}
+		else
+		{
+			/*
+				Calculate depth from tab and space count
+
+				Round up front 2 spaces to an extra tab in case just
+				the last tab is replaced by spaces and the tab stops
+				are set at 2 characters (attempting to be clever about it)
+			*/
+			int depth = tab_count + (space_count + 2) / 4;
+			if (depth > MAX_TAB_RECURSION_DEPTH) depth = MAX_TAB_RECURSION_DEPTH;
+			_depth = depth;
+
+			// Find second token starting from first token
+			FindSecondToken(first, eof);
+
+			data = first;
+			return true;
+		}
+	}
+
+	data = first;
+	return false;
+}
+
+bool Parser::NextLine()
+{
+	// Set _first_len to zero by default to indicate no data
+	_first_len = 0;
+
+	// Initialize the data pointers
+	char *data = (char*)_file_data + _file_offset;
+	char *eof = (char*)_file_data + _file_size;
+	if (data >= eof) return false;
+
+	return FindFirstToken(data, eof);
 }
 
 int Parser::ReadTokens(int root_key_len, int root_depth)
