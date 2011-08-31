@@ -757,6 +757,26 @@ void File::SetInt(const char *key, int value)
 
 int File::GetInt(const char *key, int defaultValue)
 {
+	// Add this path to the hash table
+	KeyInput key_input(key);
+	HashItem *item = _table.Lookup(key_input);
+	if (item) return item->GetValueInt();
+
+	// If default value is not undefined,
+	if (defaultValue != 0)
+	{
+		// Create a new item for this key
+		item = _table.Create(key_input);
+		if (item)
+		{
+			// Push onto the new list
+			_new_list.PushBack(item);
+
+			item->SetValueStr(defaultValue);
+		}
+	}
+
+	return defaultValue;
 }
 
 bool File::Write(const char *file_path, bool force)
