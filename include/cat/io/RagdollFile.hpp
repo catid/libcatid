@@ -94,6 +94,14 @@ namespace cat {
 namespace ragdoll {
 
 
+class KeyInput;
+class HashKey;
+class HashValue;
+class HashItem;
+class HashTable;
+class File;
+class Parser;
+
 static const int MAX_CHARS = 256;
 
 
@@ -178,7 +186,7 @@ public:
 
 //// ragdoll::HashItem
 
-class CAT_EXPORT HashItem : public HashKey, public HashValue, public SListItem
+class CAT_EXPORT HashItem : public HashKey, public HashValue, public SListItem, public DListItem
 {
 	friend class HashTable;
 
@@ -275,7 +283,7 @@ class CAT_EXPORT Parser
 
 	// Output data
 	bool _store_offsets;
-	HashTable *_table;
+	ragdoll::File *_output_file;
 
 	// Return pointer to the next character after the EOL starting from data, or returns eof if not found
 	static char *FindEOL(char *data, char *eof);
@@ -295,7 +303,7 @@ protected:
 
 public:
 	// Do not pass in the file data or file size pointers if the file is the override file
-	bool Read(const char *file_path, HashTable *output_table, u8 **file_data = 0, u32 *file_size = 0);
+	bool Read(const char *file_path, File *output_file, u8 **file_data = 0, u32 *file_size = 0);
 };
 
 
@@ -303,8 +311,12 @@ public:
 
 class CAT_EXPORT File
 {
+	friend class ragdoll::Parser;
+
 	std::string _settings_path;
 	HashTable _table;	// Hash table containing key-value pairs
+	DList _existing;	// List of keys from the file with valid file offsets
+	DList _new_list;	// List of keys that were not in the file
 	u8 *_file_data;		// Pointer to settings file data in memory
 	u32 _file_size;		// Number of bytes in settings file
 	bool _dirty;		// Flag set when database has been modified since last write
@@ -321,6 +333,12 @@ public:
 
 	// Call this to indicate that the table has been modified and needs to be written to disk
 	CAT_INLINE void MarkDirty() { _dirty = true; }
+
+	void Set(const char *key, const char *value);
+	const char *Get(const char *key, const char *defaultValue = "");
+
+	void SetInt(const char *key, int value);
+	int GetInt(const char *key, int defaultValue = 0);
 };
 
 

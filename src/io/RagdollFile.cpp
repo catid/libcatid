@@ -105,7 +105,6 @@ HashValue::HashValue(const char *value, int len)
 HashItem::HashItem(const KeyInput &key)
 	: HashKey(key)
 {
-	_key_end_offset = 0;
 }
 
 
@@ -202,15 +201,11 @@ HashItem *HashTable::Lookup(const KeyInput &key)
 
 HashItem *HashTable::Create(const KeyInput &key)
 {
-	// Check if it exists already
-	HashItem *item = Lookup(key);
-	if (item) return item;
-
 	// If first allocation fails,
 	if (!_buckets && !Grow()) return 0;
 
 	// If cannot create an item,
-	item = new HashItem(key);
+	HashItem *item = new HashItem(key);
 	if (!item) return 0;
 
 	// If time to grow,
@@ -514,7 +509,26 @@ int Parser::ReadTokens(int root_key_len, int root_depth)
 		write_key[_first_len] = '\0';
 
 		// Add this path to the hash table
-		HashItem *item = _table->Create(KeyInput(_root_key, key_len));
+		KeyInput key_input(_root_key, key_len);
+		HashItem *item = _output_file->_table.Lookup(key_input);
+		if (!item)
+		{
+			// Create a new item for this key
+			item = _output_file->_table.Create(key_input);
+			if (item)
+			{
+				// Push onto the existing list
+				_output_file->_existing.PushBack(item);
+			}
+		}
+		else
+		{
+			// Erase previous entry for item and append it to the back
+			_output_file->_existing.Erase(item);
+			_output_file->_existing.PushBack(item);
+		}
+
+		// Update item value
 		if (item)
 		{
 			// Calculate key end offset and end of line offset
@@ -575,11 +589,11 @@ int Parser::ReadTokens(int root_key_len, int root_depth)
 	return eof;
 }
 
-bool Parser::Read(const char *file_path, HashTable *output_table, u8 **file_data, u32 *file_size)
+bool Parser::Read(const char *file_path, File *output_file, u8 **file_data, u32 *file_size)
 {
-	CAT_DEBUG_ENFORCE(file_path && output_table);
+	CAT_DEBUG_ENFORCE(file_path && output_file);
 
-	_table = output_table;
+	_output_file = output_file;
 
 	// Open the file
 	MappedFile file;
@@ -673,17 +687,76 @@ File::~File()
 bool File::Read(const char *file_path)
 {
 	Parser parser;
-	return parser.Read(file_path, &_table, &_file_data, &_file_size);
+	return parser.Read(file_path, this, &_file_data, &_file_size);
 }
 
 bool File::Override(const char *file_path)
 {
 	Parser parser;
-	if (!parser.Read(file_path, &_table))
+	if (!parser.Read(file_path, this))
 		return false;
 
 	MarkDirty();
 	return true;
+}
+
+void File::Set(const char *key, const char *value)
+{
+	if (value[0] == '\0') return;
+
+	// Add this path to the hash table
+	KeyInput key_input(key);
+	HashItem *item = _table.Lookup(key_input);
+	if (!item)
+	{
+		// Create a new item for this key
+		item = _table.Create(key_input);
+		if (item)
+		{
+			// Push onto the new list
+			_new_list.PushBack(item);
+		}
+	}
+
+	// Update item value
+	if (item)
+	{
+		item->SetValueStr(value);
+
+		MarkDirty();
+	}
+}
+
+const char *File::Get(const char *key, const char *defaultValue)
+{
+	// Add this path to the hash table
+	KeyInput key_input(key);
+	HashItem *item = _table.Lookup(key_input);
+	if (item) return item->GetValueStr();
+
+	// If default value is not undefined,
+	if (defaultValue[0] != '\0')
+	{
+		// Create a new item for this key
+		item = _table.Create(key_input);
+		if (item)
+		{
+			// Push onto the new list
+			_new_list.PushBack(item);
+
+			item->SetValueStr(defaultValue);
+		}
+	}
+
+	return defaultValue;
+}
+
+void File::SetInt(const char *key, int value)
+{
+}
+
+int File::GetInt(const char *key, int defaultValue)
+{
 }
 
 bool File::Write(const char *file_path, bool force)

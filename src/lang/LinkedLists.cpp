@@ -34,22 +34,22 @@ using namespace cat;
 
 void DListForward::PushFront(DListItem *item)
 {
-	CAT_FDLL_PUSH_FRONT(_head, item, _next, _prev);
+	CAT_FDLL_PUSH_FRONT(_head, item, _dl_next, _dl_prev);
 }
 
 void DListForward::InsertBefore(DListItem *item, DListItem *before)
 {
-	CAT_FDLL_INSERT_BEFORE(_head, item, before, _next, _prev);
+	CAT_FDLL_INSERT_BEFORE(_head, item, before, _dl_next, _dl_prev);
 }
 
 void DListForward::InsertAfter(DListItem *item, DListItem *after)
 {
-	CAT_FDLL_INSERT_AFTER(_head, item, after, _next, _prev);
+	CAT_FDLL_INSERT_AFTER(_head, item, after, _dl_next, _dl_prev);
 }
 
 void DListForward::Erase(DListItem *item)
 {
-	CAT_FDLL_ERASE(_head, item, _next, _prev);
+	CAT_FDLL_ERASE(_head, item, _dl_next, _dl_prev);
 }
 
 
@@ -57,27 +57,27 @@ void DListForward::Erase(DListItem *item)
 
 void DList::PushFront(DListItem *item)
 {
-	CAT_BDLL_PUSH_FRONT(_head, _tail, item, _next, _prev);
+	CAT_BDLL_PUSH_FRONT(_head, _tail, item, _dl_next, _dl_prev);
 }
 
 void DList::PushBack(DListItem *item)
 {
-	CAT_BDLL_PUSH_FRONT(_head, _tail, item, _next, _prev);
+	CAT_BDLL_PUSH_FRONT(_head, _tail, item, _dl_next, _dl_prev);
 }
 
 void DList::InsertBefore(DListItem *item, DListItem *before)
 {
-	CAT_BDLL_INSERT_BEFORE(_head, _tail, item, before, _next, _prev);
+	CAT_BDLL_INSERT_BEFORE(_head, _tail, item, before, _dl_next, _dl_prev);
 }
 
 void DList::InsertAfter(DListItem *item, DListItem *after)
 {
-	CAT_BDLL_INSERT_AFTER(_head, _tail, item, after, _next, _prev);
+	CAT_BDLL_INSERT_AFTER(_head, _tail, item, after, _dl_next, _dl_prev);
 }
 
 void DList::Erase(DListItem *item)
 {
-	CAT_BDLL_ERASE(_head, _tail, item, _next, _prev);
+	CAT_BDLL_ERASE(_head, _tail, item, _dl_next, _dl_prev);
 }
 
 
@@ -85,15 +85,15 @@ void DList::Erase(DListItem *item)
 
 void SList::PushFront(SListItem *item)
 {
-	CAT_FSLL_PUSH_FRONT(_head, item, _next, _prev);
+	CAT_FSLL_PUSH_FRONT(_head, item, _sl_next, _sl_prev);
 }
 
 void SList::InsertAfter(SListItem *item, SListItem *after)
 {
-	CAT_FSLL_INSERT_AFTER(_head, item, after, _next, _prev);
+	CAT_FSLL_INSERT_AFTER(_head, item, after, _sl_next, _sl_prev);
 }
 
 void SList::EraseAfter(SListItem *item, SListItem *after)
 {
-	CAT_FSLL_ERASE_AFTER(_head, item, after, _next, _prev);
+	CAT_FSLL_ERASE_AFTER(_head, item, after, _sl_next, _sl_prev);
 }
