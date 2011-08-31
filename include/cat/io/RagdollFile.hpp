@@ -257,8 +257,7 @@ class CAT_EXPORT Parser
 	static const int MAX_FILE_SIZE = 4000000; // Maximum number of bytes in file allowed
 
 	// File data
-	u8 *_file_data;
-	u32 _file_offset, _file_size;
+	char *_file_data, *_eof;
 
 	// Parser data
 	char _root_key[MAX_CHARS+1];
