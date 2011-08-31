@@ -153,6 +153,8 @@ public:
 
 	//CAT_INLINE virtual ~HashValue() {}
 
+	CAT_INLINE void ClearValue() { _value.Clear(); }
+
 	CAT_INLINE int GetValueInt() { return atoi(_value); }
 
 	CAT_INLINE const char *GetValueStr() { return _value; }
@@ -180,9 +182,16 @@ class CAT_EXPORT HashItem : public HashKey, public HashValue, public SListItem
 {
 	friend class HashTable;
 
+	u32 _key_end_offset, _eol_offset;
+
 public:
 	HashItem(const KeyInput &key);
-	HashItem(const KeyInput &key, const char *value, int value_len);
+
+	CAT_INLINE void SetFileOffsets(u32 key_end_offset = 0, u32 eol_offset = 0)
+	{
+		_key_end_offset = key_end_offset;
+		_eol_offset = eol_offset;
+	}
 
 	//CAT_INLINE virtual ~HashItem() {}
 };
@@ -196,7 +205,7 @@ class CAT_EXPORT HashTable
 
 	CAT_NO_COPY(HashTable);
 
-	static const u32 PREALLOC = 16;
+	static const u32 PREALLOC = 32;
 	static const u32 GROW_THRESH = 2;
 	static const u32 GROW_RATE = 2;
 
@@ -257,11 +266,11 @@ class CAT_EXPORT Parser
 	static const int MAX_FILE_SIZE = 4000000; // Maximum number of bytes in file allowed
 
 	// File data
-	char *_file_data, *_eof;
+	char *_file_front, *_file_data, *_eof;
 
 	// Parser data
 	char _root_key[MAX_CHARS+1];
-	char *_first, *_second;
+	char *_first, *_second, *_eol;
 	int _first_len, _second_len, _depth;
 
 	// Output data
@@ -294,14 +303,11 @@ public:
 
 class CAT_EXPORT File
 {
-	HashTable _table;
-
-	bool _readSettings;	// Flag set when settings have been read from disk
-	bool _modified;		// Flag set when settings have been modified since last write
-
 	std::string _settings_path;
+	HashTable _table;	// Hash table containing key-value pairs
 	u8 *_file_data;		// Pointer to settings file data in memory
 	u32 _file_size;		// Number of bytes in settings file
+	bool _dirty;		// Flag set when database has been modified since last write
 
 public:
 	File();
@@ -312,6 +318,9 @@ public:
 	bool Write(const char *file_path);
 
 	CAT_INLINE HashTable *GetTable() { return &_table; }
+
+	// Call this to indicate that the table has been modified and needs to be written to disk
+	CAT_INLINE void MarkDirty() { _dirty = true; }
 };
 
 

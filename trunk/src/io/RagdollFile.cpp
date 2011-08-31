@@ -107,11 +107,6 @@ HashItem::HashItem(const KeyInput &key)
 {
 }
 
-HashItem::HashItem(const KeyInput &key, const char *value, int value_len)
-	: HashKey(key), HashValue(value, value_len)
-{
-}
-
 
 //// ragdoll::HashTable
 
@@ -282,20 +277,22 @@ char *Parser::FindEOL(char *data, char *eof)
 	while (data < eof)
 	{
 		// Grab current character and point to next character
-		char ch = *data++;
+		char ch = *data;
 
 		if (ch == '\n')
 		{
-			if (data < eof && *data == '\r')
-				++data;
+			if (++data >= eof) break;
+			if (*data == '\r') ++data;
 			break;
 		}
 		else if (ch == '\r')
 		{
-			if (data < eof && *data == '\n')
-				++data;
+			if (++data >= eof) break;
+			if (*data == '\n') ++data;
 			break;
 		}
+
+		++data;
 	}
 
 	return data;
@@ -335,6 +332,7 @@ char *Parser::FindSecondTokenEnd(char *data, char *eof)
 	}
 
 	_second_len = len + (int)(eol - second);
+	_eol = _second + _second_len;
 	return second;
 }
 
@@ -350,6 +348,7 @@ bool Parser::FindSecondToken(char *&data, char *eof)
 
 		if (ch == '\r')
 		{
+			_eol = second;
 			--len;
 			if (++second >= eof) break;
 			if (*second == '\n')
@@ -361,6 +360,7 @@ bool Parser::FindSecondToken(char *&data, char *eof)
 		}
 		else if (ch == '\n')
 		{
+			_eol = second;
 			--len;
 			if (++second >= eof) break;
 			if (*second == '\r')
@@ -381,12 +381,14 @@ bool Parser::FindSecondToken(char *&data, char *eof)
 
 				if (ch == '\r')
 				{
+					_eol = second;
 					if (++second >= eof) break;
 					if (*second == '\n') ++second;
 					break;
 				}
 				else if (ch == '\n')
 				{
+					_eol = second;
 					if (++second >= eof) break;
 					if (*second == '\r') ++second;
 					break;
@@ -477,6 +479,7 @@ bool Parser::NextLine()
 	// Initialize parser results
 	_first_len = 0;
 	_second_len = 0;
+	_eol = 0;
 
 	return FindFirstToken(_file_data, _eof);
 }
@@ -509,12 +512,26 @@ int Parser::ReadTokens(int root_key_len, int root_depth)
 		memcpy(write_key, _first, _first_len);
 		write_key[_first_len] = '\0';
 
-		// If second token is set,
-		if (_second_len)
+		// Add this path to the hash table
+		HashItem *item = _table->Create(KeyInput(_root_key, key_len));
+		if (item)
 		{
-			// Add this path to the hash table
-			HashItem *item = _table->Create(KeyInput(_root_key, key_len));
-			if (item) item->SetValueRangeStr(_second, _second_len);
+			// Calculate key end offset and end of line offset
+			u32 key_end_offset = (u32)(_first + _first_len - _file_front);
+			u32 eol_offset;
+
+			if (!_eol)
+				eol_offset = (u32)(_eof - _file_front);
+			else
+				eol_offset = (u32)(_eol - _file_front);
+
+			item->SetFileOffsets(key_end_offset, eol_offset);
+
+			// If second token is set,
+			if (_second_len > 0)
+				item->SetValueRangeStr(_second, _second_len);
+			else
+				item->ClearValue();
 		}
 
 		int depth = _depth;
@@ -554,7 +571,7 @@ int Parser::ReadTokens(int root_key_len, int root_depth)
 		_root_key[root_key_len] = '\0';
 	} while (eof == 2);
 
-	return eof; // EOF
+	return eof;
 }
 
 bool Parser::Read(const char *file_path, HashTable *output_table, u8 **file_data, u32 *file_size)
@@ -603,7 +620,7 @@ bool Parser::Read(const char *file_path, HashTable *output_table, u8 **file_data
 	}
 
 	// Initialize parser
-	_file_data = (char*)view.GetFront();
+	_file_front = _file_data = (char*)view.GetFront();
 	_eof = _file_data + nominal_length;
 	_root_key[0] = '\0';
 	_store_offsets = false;
@@ -640,8 +657,7 @@ bool Parser::Read(const char *file_path, HashTable *output_table, u8 **file_data
 
 File::File()
 {
-	_readSettings = false;
-	_modified = false;
+	_dirty = false;
 
 	_file_data = 0;
 	_file_size = 0;
@@ -662,7 +678,11 @@ bool File::Read(const char *file_path)
 bool File::Override(const char *file_path)
 {
 	Parser parser;
-	return parser.Read(file_path, &_table);
+	if (!parser.Read(file_path, &_table))
+		return false;
+
+	MarkDirty();
+	return true;
 }
 
 bool File::Write(const char *file_path)

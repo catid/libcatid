@@ -124,6 +124,11 @@ class NulTermFixedStr
 	char _str[MAX_LEN+1];
 
 public:
+	CAT_INLINE void Clear()
+	{
+		_str[0] = '\0';
+	}
+
 	CAT_INLINE void SetFromRangeString(const char *str, int len)
 	{
 		if (len > MAX_LEN)
