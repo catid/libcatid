@@ -105,6 +105,7 @@ HashValue::HashValue(const char *value, int len)
 HashItem::HashItem(const KeyInput &key)
 	: HashKey(key)
 {
+	_key_end_offset = 0;
 }
 
 
@@ -685,7 +686,17 @@ bool File::Override(const char *file_path)
 	return true;
 }
 
-bool File::Write(const char *file_path)
+bool File::Write(const char *file_path, bool force)
 {
+	if (!force && !_dirty) return true;
+
+	// Create linked list on startup, walk it on shutdown to write out the file
+
+	// For new keys, search for root of the key, and then insert in order (how?)
+
+	// Write to file_path + .tmp file
+
+	// Move to file_path
+
 	return true;
 }
