@@ -187,7 +187,7 @@ class CAT_EXPORT HashItem : public HashKey, public HashValue, public SListItem
 public:
 	HashItem(const KeyInput &key);
 
-	CAT_INLINE void SetFileOffsets(u32 key_end_offset = 0, u32 eol_offset = 0)
+	CAT_INLINE void SetFileOffsets(u32 key_end_offset, u32 eol_offset)
 	{
 		_key_end_offset = key_end_offset;
 		_eol_offset = eol_offset;
@@ -315,7 +315,7 @@ public:
 
 	bool Read(const char *file_path);
 	bool Override(const char *file_path);
-	bool Write(const char *file_path);
+	bool Write(const char *file_path, bool force = false);
 
 	CAT_INLINE HashTable *GetTable() { return &_table; }
 
