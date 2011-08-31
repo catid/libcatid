@@ -272,7 +272,7 @@ class CAT_EXPORT DListItem
 	friend class DListForward;
 	friend class DListIteratorBase;
 
-	DListItem *_next, *_prev;
+	DListItem *_dl_next, *_dl_prev;
 };
 
 
@@ -285,12 +285,12 @@ protected:
 public:
 	CAT_INLINE DListItem *GetNext()
 	{
-		return _item->_next;
+		return _item->_dl_next;
 	}
 
 	CAT_INLINE DListItem *GetPrev()
 	{
-		return _item->_prev;
+		return _item->_dl_prev;
 	}
 };
 
@@ -562,7 +562,7 @@ class CAT_EXPORT SListItem
 	friend class SList;
 	friend class SListIteratorBase;
 
-	SListItem *_next;
+	SListItem *_sl_next;
 };
 
 
@@ -639,7 +639,7 @@ public:
 
 			_prev = 0;
 			_item = head;
-			_next = head ? head->_next : 0;
+			_next = head ? head->_sl_next : 0;
 		}
 
 		CAT_INLINE Iterator &operator=(SList &list)
@@ -648,7 +648,7 @@ public:
 
 			_prev = 0;
 			_item = head;
-			_next = head ? head->_next : 0;
+			_next = head ? head->_sl_next : 0;
 
 			return *this;
 		}
@@ -672,7 +672,7 @@ public:
 		{
 			_prev = _item;
 			_item = _next;
-			_next = _next ? _next->_next : 0;
+			_next = _next ? _next->_sl_next : 0;
 
 			return *this;
 		}
