@@ -303,7 +303,6 @@ char *Parser::FindEOL(char *data, char *eof)
 
 char *Parser::FindSecondTokenEnd(char *data, char *eof)
 {
-	// Find the start of whitespace after first token
 	char *second = data;
 	char *eol = second;
 	int len = 0;
@@ -313,19 +312,23 @@ char *Parser::FindSecondTokenEnd(char *data, char *eof)
 
 		if (ch == '\r')
 		{
+			--len;
+			if (++eol >= eof) break;
 			if (*eol == '\n')
 			{
-				--len;
 				++eol;
+				--len;
 			}
 			break;
 		}
 		else if (ch == '\n')
 		{
+			--len;
+			if (++eol >= eof) break;
 			if (*eol == '\r')
 			{
-				--len;
 				++eol;
+				--len;
 			}
 			break;
 		}
@@ -347,19 +350,23 @@ bool Parser::FindSecondToken(char *&data, char *eof)
 
 		if (ch == '\r')
 		{
+			--len;
+			if (++second >= eof) break;
 			if (*second == '\n')
 			{
-				--len;
 				++second;
+				--len;
 			}
 			break;
 		}
 		else if (ch == '\n')
 		{
+			--len;
+			if (++second >= eof) break;
 			if (*second == '\r')
 			{
-				--len;
 				++second;
+				--len;
 			}
 			break;
 		}
@@ -374,18 +381,14 @@ bool Parser::FindSecondToken(char *&data, char *eof)
 
 				if (ch == '\r')
 				{
-					if (*second == '\n')
-					{
-						++second;
-					}
+					if (++second >= eof) break;
+					if (*second == '\n') ++second;
 					break;
 				}
 				else if (ch == '\n')
 				{
-					if (*second == '\r')
-					{
-						++second;
-					}
+					if (++second >= eof) break;
+					if (*second == '\r') ++second;
 					break;
 				}
 				else if (ch != ' ' && ch != '\t')
@@ -418,15 +421,17 @@ bool Parser::FindFirstToken(char *&data, char *eof)
 
 		if (ch == '\n')
 		{
-			if (++first >= eof || *first != '\r')
-				--first;
-			break;
+			if (++first >= eof) break;
+			if (*first == '\r') ++first;
+			data = first;
+			return true;
 		}
 		else if (ch == '\r')
 		{
-			if (first < eof && *first == '\n')
-				++first;
-			break;
+			if (++first >= eof) break;
+			if (*first == '\n') ++first;
+			data = first;
+			return true;
 		}
 		else if (ch == ' ')
 			++space_count;
@@ -434,8 +439,8 @@ bool Parser::FindFirstToken(char *&data, char *eof)
 			++tab_count;
 		else if (!IsAlpha(ch))
 		{
-			first = FindEOL(first, eof);
-			break;
+			data = FindEOL(first + 1, eof);
+			return true;
 		}
 		else
 		{
@@ -454,9 +459,7 @@ bool Parser::FindFirstToken(char *&data, char *eof)
 
 			// Find second token starting from first token
 			if (FindSecondToken(first, eof))
-			{
 				first = FindSecondTokenEnd(first, eof);
-			}
 
 			data = first;
 			return true;
@@ -475,12 +478,7 @@ bool Parser::NextLine()
 	_first_len = 0;
 	_second_len = 0;
 
-	// Initialize the data pointers
-	char *data = (char*)_file_data + _file_offset;
-	char *eof = (char*)_file_data + _file_size;
-	if (data >= eof) return false;
-
-	return FindFirstToken(data, eof);
+	return FindFirstToken(_file_data, _eof);
 }
 
 int Parser::ReadTokens(int root_key_len, int root_depth)
@@ -563,6 +561,8 @@ bool Parser::Read(const char *file_path, HashTable *output_table, u8 **file_data
 {
 	CAT_DEBUG_ENFORCE(file_path && output_table);
 
+	_table = output_table;
+
 	// Open the file
 	MappedFile file;
 	if (!file.Open(file_path))
@@ -603,9 +603,8 @@ bool Parser::Read(const char *file_path, HashTable *output_table, u8 **file_data
 	}
 
 	// Initialize parser
-	_file_data = view.GetFront();
-	_file_offset = 0;
-	_file_size = nominal_length;
+	_file_data = (char*)view.GetFront();
+	_eof = _file_data + nominal_length;
 	_root_key[0] = '\0';
 	_store_offsets = false;
 
