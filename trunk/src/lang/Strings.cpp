@@ -237,7 +237,13 @@ void cat::CopyToUppercaseString(const char *from, char *to)
 {
 	char ch;
 
-	while ((ch = *from++)) *to++ = (char)std::toupper(ch);
+	while ((ch = *from++))
+	{
+		if (ch >= 'a' && ch <= 'z')
+			ch += 'A' - 'a';
+
+		*to++ = ch;
+	}
 
 	*to = '\0';
 }
@@ -247,7 +253,13 @@ void cat::CopyToLowercaseString(const char *from, char *to)
 {
 	char ch;
 
-	while ((ch = *from++)) *to++ = (char)std::tolower(ch);
+	while ((ch = *from++))
+	{
+		if (ch >= 'A' && ch <= 'Z')
+			ch += 'a' - 'A';
+
+		*to++ = ch;
+	}
 
 	*to = '\0';
 }

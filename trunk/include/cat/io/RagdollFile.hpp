@@ -116,6 +116,12 @@ class CAT_EXPORT KeyInput
 public:
 	KeyInput(const char *key);
 	KeyInput(const char *key, int len);
+	CAT_INLINE KeyInput(const char *key, int len, u32 hash)
+	{
+		_key = key;
+		_len = len;
+		_hash = hash;
+	}
 
 	CAT_INLINE u32 Hash() const { return _hash; }
 	CAT_INLINE const char *Key() const { return _key; }
@@ -137,6 +143,8 @@ public:
 
 	//CAT_INLINE virtual ~HashKey() {}
 
+	CAT_INLINE const char *Key() { return _key; }
+	CAT_INLINE int Length() { return _len; }
 	CAT_INLINE u32 Hash() { return _hash; }
 
 	CAT_INLINE bool operator==(const KeyInput &key)
@@ -313,6 +321,8 @@ class CAT_EXPORT File
 {
 	friend class ragdoll::Parser;
 
+	typedef DList::ForwardIterator<HashItem> iter;
+
 	std::string _settings_path;
 	HashTable _table;	// Hash table containing key-value pairs
 	DList _existing;	// List of keys from the file with valid file offsets
@@ -321,6 +331,9 @@ class CAT_EXPORT File
 	u32 _file_size;		// Number of bytes in settings file
 	bool _dirty;		// Flag set when database has been modified since last write
 
+	// Call this to indicate that the table has been modified and needs to be written to disk
+	CAT_INLINE void MarkDirty() { _dirty = true; }
+
 public:
 	File();
 	~File();
@@ -328,11 +341,6 @@ public:
 	bool Read(const char *file_path);
 	bool Override(const char *file_path);
 	bool Write(const char *file_path, bool force = false);
-
-	CAT_INLINE HashTable *GetTable() { return &_table; }
-
-	// Call this to indicate that the table has been modified and needs to be written to disk
-	CAT_INLINE void MarkDirty() { _dirty = true; }
 
 	void Set(const char *key, const char *value);
 	const char *Get(const char *key, const char *defaultValue = "");

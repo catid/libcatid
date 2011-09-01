@@ -42,7 +42,7 @@ using namespace ragdoll;
 // Calculate key hash
 static u32 GetKeyHash(const char *key, int len)
 {
-	char lcase[MAX_CHARS];
+	char lcase[MAX_CHARS+1];
 
 	if (len > MAX_CHARS)
 		len = MAX_CHARS;
@@ -745,6 +745,8 @@ const char *File::Get(const char *key, const char *defaultValue)
 			_new_list.PushBack(item);
 
 			item->SetValueStr(defaultValue);
+
+			MarkDirty();
 		}
 	}
 
@@ -753,6 +755,29 @@ const char *File::Get(const char *key, const char *defaultValue)
 
 void File::SetInt(const char *key, int value)
 {
+	if (value == 0) return;
+
+	// Add this path to the hash table
+	KeyInput key_input(key);
+	HashItem *item = _table.Lookup(key_input);
+	if (!item)
+	{
+		// Create a new item for this key
+		item = _table.Create(key_input);
+		if (item)
+		{
+			// Push onto the new list
+			_new_list.PushBack(item);
+		}
+	}
+
+	// Update item value
+	if (item)
+	{
+		item->SetValueInt(value);
+
+		MarkDirty();
+	}
 }
 
 int File::GetInt(const char *key, int defaultValue)
@@ -772,7 +797,9 @@ int File::GetInt(const char *key, int defaultValue)
 			// Push onto the new list
 			_new_list.PushBack(item);
 
-			item->SetValueStr(defaultValue);
+			item->SetValueInt(defaultValue);
+
+			MarkDirty();
 		}
 	}
 
@@ -784,6 +811,37 @@ bool File::Write(const char *file_path, bool force)
 	if (!force && !_dirty) return true;
 
 	// Create linked list on startup, walk it on shutdown to write out the file
+	for (iter ii = _new_list; ii; ++ii)
+	{
+		const char *overall_key = ii->Key();
+		int overall_len = ii->Length();
+
+		// Copy as lower-case
+		char lowercase_key[MAX_CHARS+1];
+		CopyToLowercaseString(overall_key, lowercase_key);
+
+		// Strip off dotted parts until we find it in the hash table
+		for (int jj = overall_len - 1; jj > 1; --jj)
+		{
+			if (lowercase_key[jj] == '.')
+				lowercase_key[jj] = '\0';
+
+			// Create a key from the string
+			u32 hash = MurmurHash(lowercase_key, jj).Get32();
+			KeyInput key(lowercase_key, jj, hash);
+
+			// Lookup the parent item
+			HashItem *item = _table.Lookup(key);
+			if (item)
+			{
+				// TODO
+			}
+			else
+			{
+				// TODO
+			}
+		}
+	}
 
 	// For new keys, search for root of the key, and then insert in order (how?)
 
@@ -791,5 +849,6 @@ bool File::Write(const char *file_path, bool force)
 
 	// Move to file_path
 
+	_dirty = false;
 	return true;
 }
