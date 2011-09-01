@@ -280,17 +280,21 @@ class CAT_EXPORT DListItem
 class CAT_EXPORT DListIteratorBase
 {
 protected:
-	DListItem *_item;
+	DListItem *_item, *_next;
 
 public:
 	CAT_INLINE DListItem *GetNext()
 	{
-		return _item->_dl_next;
+		DListItem *next = _next;
+		if (next) _next = next->_dl_next;
+		return next;
 	}
 
 	CAT_INLINE DListItem *GetPrev()
 	{
-		return _item->_dl_prev;
+		DListItem *prev = _next;
+		if (prev) _next = prev->_dl_prev;
+		return prev;
 	}
 };
 
@@ -335,7 +339,7 @@ public:
 		When iterating forward through the list,
 		use the following mechanism:
 
-		for (DListForward::Iterator<MyObject> ii = list.head(); ii; ++ii)
+		for (DListForward::Iterator<MyObject> ii = list; ii; ++ii)
 	*/
 	template<class T>
 	class Iterator : public DListIteratorBase
@@ -346,14 +350,20 @@ public:
 			_item = 0;
 		}
 
-		CAT_INLINE Iterator(DListItem *item)
+		CAT_INLINE Iterator(DListForward &list)
 		{
+			DListItem *item = list._head;
+
 			_item = item;
+			if (item) _next = item->_dl_next;
 		}
 
-		CAT_INLINE Iterator &operator=(DListItem *item)
+		CAT_INLINE Iterator &operator=(DListForward &list)
 		{
+			DListItem *item = list._head;
+
 			_item = item;
+			if (item) _next = item->_dl_next;
 			return *this;
 		}
 
@@ -430,25 +440,31 @@ public:
 		When iterating forward through the list,
 		use the following mechanism:
 
-		for (DList::Iterator<MyObject> ii = list.head(); ii; ++ii)
+		for (DList::ForwardIterator<MyObject> ii = list; ii; ++ii)
 	*/
 	template<class T>
-	class Iterator : public DListIteratorBase
+	class ForwardIterator : public DListIteratorBase
 	{
 	public:
-		CAT_INLINE Iterator()
+		CAT_INLINE ForwardIterator()
 		{
 			_item = 0;
 		}
 
-		CAT_INLINE Iterator(DListItem *item)
+		CAT_INLINE ForwardIterator(DList &list)
 		{
+			DListItem *item = list._head;
+
 			_item = item;
+			if (item) _next = item->_dl_next;
 		}
 
-		CAT_INLINE Iterator &operator=(DListItem *item)
+		CAT_INLINE ForwardIterator &operator=(DList &list)
 		{
+			DListItem *item = list._head;
+
 			_item = item;
+			if (item) _next = item->_dl_next;
 			return *this;
 		}
 
@@ -462,24 +478,61 @@ public:
 			return static_cast<T*>( _item );
 		}
 
-		CAT_INLINE Iterator &operator++() // pre-increment
+		CAT_INLINE ForwardIterator &operator++() // pre-increment
 		{
 			_item = GetNext();
 			return *this;
 		}
 
-		CAT_INLINE Iterator &operator++(int) // post-increment
+		CAT_INLINE ForwardIterator &operator++(int) // post-increment
 		{
 			return ++*this;
 		}
+	};
 
-		CAT_INLINE Iterator &operator--() // pre-decrement
+	template<class T>
+	class BackIterator : public DListIteratorBase
+	{
+	public:
+		CAT_INLINE BackIterator()
+		{
+			_item = 0;
+		}
+
+		CAT_INLINE BackIterator(DList &list)
+		{
+			DListItem *item = list._tail;
+
+			_item = item;
+			if (item) _next = item->_dl_prev;
+		}
+
+		CAT_INLINE BackIterator &operator=(DList &list)
+		{
+			DListItem *item = list._tail;
+
+			_item = item;
+			if (item) _next = item->_dl_prev;
+			return *this;
+		}
+
+		CAT_INLINE operator T *()
+		{
+			return static_cast<T*>( _item );
+		}
+
+		CAT_INLINE T *operator->()
+		{
+			return static_cast<T*>( _item );
+		}
+
+		CAT_INLINE BackIterator &operator--() // pre-decrement
 		{
 			_item = GetPrev();
 			return *this;
 		}
 
-		CAT_INLINE Iterator &operator--(int) // post-decrement
+		CAT_INLINE BackIterator &operator--(int) // post-decrement
 		{
 			return --*this;
 		}

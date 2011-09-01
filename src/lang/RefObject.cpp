@@ -189,10 +189,8 @@ void RefObjects::BuryDeadites()
 	dead_list.Steal(_dead_list);
 	m_refobjects_lock.Leave();
 
-	for (iter next = 0, ii = dead_list.head(); ii; ii = next)
+	for (iter ii = dead_list; ii; ++ii)
 	{
-		next = ii.GetNext();
-
 		if (ii->OnRefObjectFinalize())
 			delete ii;
 	}
@@ -221,7 +219,7 @@ bool RefObjects::ThreadFunction(void *param)
 	CAT_INANE("RefObjects") << "Reaper destroying remaining active objects...";
 
 	// For each remaining active object,
-	for (iter ii = _active_list.head(); ii; ++ii)
+	for (iter ii = _active_list; ii; ++ii)
 	{
 		ii->Destroy(CAT_REFOBJECT_FILE_LINE);
 	}
@@ -240,32 +238,29 @@ bool RefObjects::ThreadFunction(void *param)
 	CAT_FOREVER
 	{
 		// Troll for zero reference counts
-		for (iter next = 0, ii = _active_list.head(); ii; ii = next)
+		for (iter ii = _active_list; ii; ++ii)
 		{
-			next = ii.GetNext();
-
 			// If reference count hits zero,
-			if (ii->_ref_count == 0)
+			if (ii->_ref_count != 0) continue;
+
+#if defined(CAT_TRACE_REFOBJECT)
+			CAT_INANE("RefObjects") << ii->GetRefObjectName() << "#" << ii.GetRef() << " finalizing";
+#endif
+
+			_active_list.Erase(ii);
+
+			// If object finalizing requests memory freed,
+			if (ii->OnRefObjectFinalize())
 			{
 #if defined(CAT_TRACE_REFOBJECT)
-				CAT_INANE("RefObjects") << ii->GetRefObjectName() << "#" << ii.GetRef() << " finalizing";
+				CAT_INANE("RefObjects") << ii->GetRefObjectName() << "#" << ii.GetRef() << " freeing memory";
 #endif
 
-				_active_list.Erase(ii);
-
-				// If object finalizing requests memory freed,
-				if (ii->OnRefObjectFinalize())
-				{
-#if defined(CAT_TRACE_REFOBJECT)
-					CAT_INANE("RefObjects") << ii->GetRefObjectName() << "#" << ii.GetRef() << " freeing memory";
-#endif
-
-					delete ii;
-				}
-
-				// Reset hang counter
-				hang_counter = 0;
+				delete ii;
 			}
+
+			// Reset hang counter
+			hang_counter = 0;
 		}
 
 		// Quit when active list is empty
@@ -277,13 +272,12 @@ bool RefObjects::ThreadFunction(void *param)
 		else
 		{
 			// Find smallest ref count object
-			iter smallest_obj = _active_list.head();
+			iter smallest_obj = _active_list;
 			u32 smallest_ref_count = smallest_obj->_ref_count;
 
-			for (iter next = 0, ii = smallest_obj.GetNext(); ii; ii = next)
+			iter ii = _active_list;
+			while (++ii)
 			{
-				next = ii.GetNext();
-
 				if (ii->_ref_count < smallest_ref_count)
 				{
 					smallest_ref_count = ii->_ref_count;
