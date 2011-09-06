@@ -204,6 +204,9 @@ class CAT_EXPORT HashItem : public HashKey, public HashValue, public SListItem, 
 public:
 	HashItem(const KeyInput &key);
 
+	CAT_INLINE void MarkNew() { _key_end_offset = 0; }
+	CAT_INLINE bool IsNew() { return _key_end_offset == 0; }
+
 	CAT_INLINE void SetFileOffsets(u32 key_end_offset, u32 eol_offset)
 	{
 		_key_end_offset = key_end_offset;
