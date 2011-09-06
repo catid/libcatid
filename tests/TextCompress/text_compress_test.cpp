@@ -508,6 +508,8 @@ int Huff_CompressPacket( unsigned char *msg, int offset, int cursize ) {
 
 void RunHuffmanTests()
 {
+	int huffman_count = Settings::ref()->getInt("Huffman.Count", 100);
+
 	MersenneTwister mt;
 
 	if (!mt.Initialize())
