@@ -589,7 +589,7 @@ int Parser::ReadTokens(int root_key_len, int root_depth)
 	return eof;
 }
 
-bool Parser::Read(const char *file_path, File *output_file, u8 **file_data, u32 *file_size)
+bool Parser::Read(const char *file_path, File *output_file, char **file_data, u32 *file_size)
 {
 	CAT_DEBUG_ENFORCE(file_path && output_file);
 
@@ -643,7 +643,7 @@ bool Parser::Read(const char *file_path, File *output_file, u8 **file_data, u32 
 	// If file data will be copied out,
 	if (file_data && file_size)
 	{
-		u8 *copy = new u8[nominal_length];
+		char *copy = new char[nominal_length];
 		if (!copy)
 		{
 			CAT_WARN("Parser") << "Out of memory allocating file buffer of bytes = " << nominal_length;
@@ -704,13 +704,13 @@ void File::Set(const char *key, const char *value)
 {
 	CAT_DEBUG_ENFORCE(key && value);
 
-	if (value[0] == '\0') return;
-
 	// Add this path to the hash table
 	KeyInput key_input(key);
 	HashItem *item = _table.Lookup(key_input);
 	if (!item)
 	{
+		if (value[0] == '\0') return;
+
 		// Create a new item for this key
 		item = _table.Create(key_input);
 		if (item)
@@ -761,13 +761,13 @@ void File::SetInt(const char *key, int value)
 {
 	CAT_DEBUG_ENFORCE(key);
 
-	if (value == 0) return;
-
 	// Add this path to the hash table
 	KeyInput key_input(key);
 	HashItem *item = _table.Lookup(key_input);
 	if (!item)
 	{
+		if (value == 0) return;
+
 		// Create a new item for this key
 		item = _table.Create(key_input);
 		if (item)
@@ -818,8 +818,6 @@ void File::Set(const char *key, const char *value, RWLock *lock)
 {
 	CAT_DEBUG_ENFORCE(key && lock && value);
 
-	if (value[0] == '\0') return;
-
 	lock->WriteLock();
 
 	// Add this path to the hash table
@@ -827,6 +825,12 @@ void File::Set(const char *key, const char *value, RWLock *lock)
 	HashItem *item = _table.Lookup(key_input);
 	if (!item)
 	{
+		if (value[0] == '\0')
+		{
+			lock->WriteUnlock();
+			return;
+		}
+
 		// Create a new item for this key
 		item = _table.Create(key_input);
 		if (item)
@@ -892,8 +896,6 @@ void File::SetInt(const char *key, int value, RWLock *lock)
 {
 	CAT_DEBUG_ENFORCE(key && lock);
 
-	if (value == 0) return;
-
 	lock->WriteLock();
 
 	// Add this path to the hash table
@@ -901,6 +903,12 @@ void File::SetInt(const char *key, int value, RWLock *lock)
 	HashItem *item = _table.Lookup(key_input);
 	if (!item)
 	{
+		if (value == 0)
+		{
+			lock->WriteUnlock();
+			return;
+		}
+
 		// Create a new item for this key
 		item = _table.Create(key_input);
 		if (item)
@@ -908,6 +916,9 @@ void File::SetInt(const char *key, int value, RWLock *lock)
 			// Push onto the new list
 			_new_list.PushBack(item);
 		}
+	}
+	else
+	{
 	}
 
 	// Update item value
@@ -1012,7 +1023,19 @@ bool File::Write(const char *file_path, bool force)
 
 	if (!force && !_dirty) return true;
 
-	// Create linked list on startup, walk it on shutdown to write out the file
+	// Construct temporary file path
+	string temp_path = file_path;
+	temp_path += ".tmp";
+
+	// Attempt to open the temporary file for write
+	ofstream file(temp_path);
+	if (!file)
+	{
+		CAT_WARN("Ragdoll") << "Unable to open output file " << file_path;
+		return false;
+	}
+
+	// For each new item in the list,
 	for (iter ii = _new_list; ii; ++ii)
 	{
 		const char *overall_key = ii->Key();
@@ -1029,9 +1052,41 @@ bool File::Write(const char *file_path, bool force)
 		}
 	}
 
-	// Write to file_path + .tmp file
+	// For each modified item,
+	u32 copy_start = 0;
+	for (iter ii = _modified; ii; ++ii)
+	{
+		u32 key_end_offset, eol_offset;
+		ii->GetFileOffsets(key_end_offset, eol_offset);
 
-	// Move to file_path
+		u32 copy_bytes = key_end_offset - copy_start;
+
+		if (copy_bytes > 0)
+			file.write(_file_data + copy_start, copy_bytes);
+
+		copy_start = eol_offset;
+
+		// TODO: Insert new data here
+	}
+
+	// Copy remainder of file
+	if (copy_start < _file_size)
+	{
+		u32 copy_bytes = _file_size - copy_start;
+
+		if (copy_bytes > 0)
+			file.write(_file_data + copy_start, copy_bytes);
+	}
+
+	// Flush and close the file
+	file.flush();
+	file.close();
+
+	// Delete file
+	std::remove(file_path);
+
+	// Move it to the final path
+	std::rename(temp_path.c_str(), file_path);
 
 	_dirty = false;
 	return true;
