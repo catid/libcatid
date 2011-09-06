@@ -515,17 +515,6 @@ int Parser::ReadTokens(int root_key_len, int root_depth)
 		{
 			// Create a new item for this key
 			item = _output_file->_table.Create(key_input);
-			if (item)
-			{
-				// Push onto the existing list
-				_output_file->_existing.PushBack(item);
-			}
-		}
-		else
-		{
-			// Erase previous entry for item and append it to the back
-			_output_file->_existing.Erase(item);
-			_output_file->_existing.PushBack(item);
 		}
 
 		// Update item value
@@ -716,7 +705,14 @@ void File::Set(const char *key, const char *value)
 		if (item)
 		{
 			// Push onto the new list
-			_new_list.PushBack(item);
+			item->MarkNew();
+		}
+	}
+	else
+	{
+		if (!item->IsNew())
+		{
+			_modified.PushBack(item);
 		}
 	}
 
@@ -919,6 +915,7 @@ void File::SetInt(const char *key, int value, RWLock *lock)
 	}
 	else
 	{
+		_modified.PushBack(item);
 	}
 
 	// Update item value
