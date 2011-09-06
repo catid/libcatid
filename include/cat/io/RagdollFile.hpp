@@ -200,7 +200,6 @@ class CAT_EXPORT HashItem : public HashKey, public HashValue, public SListItem, 
 	friend class HashTable;
 
 	u32 _key_end_offset, _eol_offset;
-	bool _dirty;
 
 public:
 	HashItem(const KeyInput &key);
@@ -209,6 +208,12 @@ public:
 	{
 		_key_end_offset = key_end_offset;
 		_eol_offset = eol_offset;
+	}
+
+	CAT_INLINE void GetFileOffsets(u32 &key_end_offset, u32 &eol_offset)
+	{
+		key_end_offset = _key_end_offset;
+		eol_offset = _eol_offset;
 	}
 
 	//CAT_INLINE virtual ~HashItem() {}
@@ -313,7 +318,7 @@ protected:
 
 public:
 	// Do not pass in the file data or file size pointers if the file is the override file
-	bool Read(const char *file_path, File *output_file, u8 **file_data = 0, u32 *file_size = 0);
+	bool Read(const char *file_path, File *output_file, char **file_data = 0, u32 *file_size = 0);
 };
 
 
@@ -327,10 +332,10 @@ class CAT_EXPORT File
 
 	std::string _settings_path;
 	HashTable _table;	// Hash table containing key-value pairs
-	DList _existing;	// List of keys from the file with valid file offsets
+	DList _modified;	// List of keys from the file that have been modified
 	DList _new_list;	// List of keys that were not in the file
-	u8 *_file_data;		// Pointer to settings file data in memory
-	u32 _file_size;		// Number of bytes in settings file
+	char *_file_data;	// Pointer to file data in memory
+	u32 _file_size;		// Number of bytes in file
 	bool _dirty;		// Flag set when database has been modified since last write
 
 	// Call this to indicate that the table has been modified and needs to be written to disk
