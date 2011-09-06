@@ -37,6 +37,8 @@ CAT_REF_SINGLETON(Settings);
 
 void Settings::OnInitialize()
 {
+	AutoWriteLock lock(_lock);
+
 	_file.Read(CAT_SETTINGS_FILE);
 	_file.Override(CAT_SETTINGS_OVERRIDE_FILE);
 }
@@ -48,26 +50,29 @@ void Settings::OnFinalize()
 		std::remove(CAT_SETTINGS_OVERRIDE_FILE);
 	}
 
+	AutoWriteLock lock(_lock);
+
 	_file.Write(CAT_SETTINGS_FILE);
 }
 
 int Settings::getInt(const char *name, int default_value)
 {
-	return 0;
+	return _file.GetInt(name, default_value, &_lock);
 }
 
-const char *Settings::getStr(const char *name, const char *default_value)
+std::string Settings::getStr(const char *name, const char *default_value)
 {
-	// TODO
-	return "";
+	std::string value;
+	_file.Get(name, default_value, value, &_lock);
+	return value;
 }
 
 void Settings::setInt(const char *name, int value)
 {
-	// TODO
+	_file.SetInt(name, value, &_lock);
 }
 
 void Settings::setStr(const char *name, const char *value)
 {
-	// TODO
+	_file.Set(name, value, &_lock);
 }

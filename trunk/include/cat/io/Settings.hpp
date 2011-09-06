@@ -51,7 +51,7 @@ class CAT_EXPORT Settings : public RefSingleton<Settings>
 
 public:
 	int getInt(const char *name, int default_value = 0);
-	const char *getStr(const char *name, const char *default_value = "");
+	std::string getStr(const char *name, const char *default_value = "");
 
 	void setInt(const char *name, int value);
 	void setStr(const char *name, const char *value);

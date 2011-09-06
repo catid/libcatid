@@ -31,6 +31,7 @@
 
 #include <cat/lang/LinkedLists.hpp>
 #include <cat/lang/Strings.hpp>
+#include <cat/threads/RWLock.hpp>
 #include <string>
 
 /*
@@ -199,6 +200,7 @@ class CAT_EXPORT HashItem : public HashKey, public HashValue, public SListItem, 
 	friend class HashTable;
 
 	u32 _key_end_offset, _eol_offset;
+	bool _dirty;
 
 public:
 	HashItem(const KeyInput &key);
@@ -334,6 +336,8 @@ class CAT_EXPORT File
 	// Call this to indicate that the table has been modified and needs to be written to disk
 	CAT_INLINE void MarkDirty() { _dirty = true; }
 
+	bool WriteNewKey(char *key, int key_len, HashItem *item);
+
 public:
 	File();
 	~File();
@@ -347,6 +351,13 @@ public:
 
 	void SetInt(const char *key, int value);
 	int GetInt(const char *key, int defaultValue = 0);
+
+	// Thread-safe versions:
+	void Set(const char *key, const char *value, RWLock *lock);
+	void Get(const char *key, const char *defaultValue, std::string &out_value, RWLock *lock);
+
+	void SetInt(const char *key, int value, RWLock *lock);
+	int GetInt(const char *key, int defaultValue, RWLock *lock);
 };
 
 

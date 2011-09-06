@@ -702,6 +702,8 @@ bool File::Override(const char *file_path)
 
 void File::Set(const char *key, const char *value)
 {
+	CAT_DEBUG_ENFORCE(key && value);
+
 	if (value[0] == '\0') return;
 
 	// Add this path to the hash table
@@ -729,6 +731,8 @@ void File::Set(const char *key, const char *value)
 
 const char *File::Get(const char *key, const char *defaultValue)
 {
+	CAT_DEBUG_ENFORCE(key && defaultValue);
+
 	// Add this path to the hash table
 	KeyInput key_input(key);
 	HashItem *item = _table.Lookup(key_input);
@@ -755,6 +759,8 @@ const char *File::Get(const char *key, const char *defaultValue)
 
 void File::SetInt(const char *key, int value)
 {
+	CAT_DEBUG_ENFORCE(key);
+
 	if (value == 0) return;
 
 	// Add this path to the hash table
@@ -782,6 +788,8 @@ void File::SetInt(const char *key, int value)
 
 int File::GetInt(const char *key, int defaultValue)
 {
+	CAT_DEBUG_ENFORCE(key);
+
 	// Add this path to the hash table
 	KeyInput key_input(key);
 	HashItem *item = _table.Lookup(key_input);
@@ -806,8 +814,202 @@ int File::GetInt(const char *key, int defaultValue)
 	return defaultValue;
 }
 
+void File::Set(const char *key, const char *value, RWLock *lock)
+{
+	CAT_DEBUG_ENFORCE(key && lock && value);
+
+	if (value[0] == '\0') return;
+
+	lock->WriteLock();
+
+	// Add this path to the hash table
+	KeyInput key_input(key);
+	HashItem *item = _table.Lookup(key_input);
+	if (!item)
+	{
+		// Create a new item for this key
+		item = _table.Create(key_input);
+		if (item)
+		{
+			// Push onto the new list
+			_new_list.PushBack(item);
+		}
+	}
+
+	// Update item value
+	if (item)
+	{
+		item->SetValueStr(value);
+
+		MarkDirty();
+	}
+
+	lock->WriteUnlock();
+}
+
+void File::Get(const char *key, const char *defaultValue, std::string &out_value, RWLock *lock)
+{
+	CAT_DEBUG_ENFORCE(key && lock && defaultValue);
+
+	lock->ReadLock();
+
+	// Add this path to the hash table
+	KeyInput key_input(key);
+	HashItem *item = _table.Lookup(key_input);
+	if (item)
+	{
+		out_value = item->GetValueStr();
+		lock->ReadUnlock();
+		return;
+	}
+
+	lock->ReadUnlock();
+
+	// If default value is not undefined,
+	if (defaultValue[0] != '\0')
+	{
+		lock->WriteLock();
+
+		// Create a new item for this key
+		item = _table.Create(key_input);
+		if (item)
+		{
+			// Push onto the new list
+			_new_list.PushBack(item);
+
+			item->SetValueStr(defaultValue);
+
+			MarkDirty();
+		}
+
+		lock->WriteUnlock();
+	}
+
+	out_value = defaultValue;
+}
+
+void File::SetInt(const char *key, int value, RWLock *lock)
+{
+	CAT_DEBUG_ENFORCE(key && lock);
+
+	if (value == 0) return;
+
+	lock->WriteLock();
+
+	// Add this path to the hash table
+	KeyInput key_input(key);
+	HashItem *item = _table.Lookup(key_input);
+	if (!item)
+	{
+		// Create a new item for this key
+		item = _table.Create(key_input);
+		if (item)
+		{
+			// Push onto the new list
+			_new_list.PushBack(item);
+		}
+	}
+
+	// Update item value
+	if (item)
+	{
+		item->SetValueInt(value);
+
+		MarkDirty();
+	}
+
+	lock->WriteUnlock();
+}
+
+int File::GetInt(const char *key, int defaultValue, RWLock *lock)
+{
+	CAT_DEBUG_ENFORCE(key && lock);
+
+	lock->ReadLock();
+
+	// Add this path to the hash table
+	KeyInput key_input(key);
+	HashItem *item = _table.Lookup(key_input);
+	if (item)
+	{
+		int value = item->GetValueInt();
+		lock->ReadUnlock();
+		return value;
+	}
+
+	lock->ReadUnlock();
+
+	// If default value is not undefined,
+	if (defaultValue != 0)
+	{
+		lock->WriteLock();
+
+		// Create a new item for this key
+		item = _table.Create(key_input);
+		if (item)
+		{
+			// Push onto the new list
+			_new_list.PushBack(item);
+
+			item->SetValueInt(defaultValue);
+
+			MarkDirty();
+		}
+
+		lock->WriteUnlock();
+	}
+
+	return defaultValue;
+}
+
+bool File::WriteNewKey(char *key, int key_len, HashItem *item)
+{
+	// Strip off dotted parts until we find it in the hash table
+	for (int jj = key_len - 1; jj > 1; --jj)
+	{
+		if (key[jj] == '.')
+		{
+			key[jj] = '\0';
+
+			// Create a key from the string
+			u32 hash = MurmurHash(key, jj).Get32();
+			KeyInput key_input(key, jj, hash);
+
+			// Lookup the parent item
+			HashItem *item = _table.Lookup(key_input);
+			if (item)
+			{
+				// TODO
+
+				return true;
+			}
+			else
+			{
+				if (WriteNewKey(key, jj, item))
+				{
+					// TODO
+
+					return true;
+				}
+				else
+				{
+					// TODO
+
+					return false;
+				}
+			}
+
+			key[jj] = '.';
+		}
+	}
+
+	return false;
+}
+
 bool File::Write(const char *file_path, bool force)
 {
+	CAT_DEBUG_ENFORCE(file_path);
+
 	if (!force && !_dirty) return true;
 
 	// Create linked list on startup, walk it on shutdown to write out the file
@@ -820,30 +1022,12 @@ bool File::Write(const char *file_path, bool force)
 		char lowercase_key[MAX_CHARS+1];
 		CopyToLowercaseString(overall_key, lowercase_key);
 
-		// Strip off dotted parts until we find it in the hash table
-		for (int jj = overall_len - 1; jj > 1; --jj)
+		// If not able to insert under an existing key,
+		if (!WriteNewKey(lowercase_key, overall_len, ii))
 		{
-			if (lowercase_key[jj] == '.')
-				lowercase_key[jj] = '\0';
-
-			// Create a key from the string
-			u32 hash = MurmurHash(lowercase_key, jj).Get32();
-			KeyInput key(lowercase_key, jj, hash);
-
-			// Lookup the parent item
-			HashItem *item = _table.Lookup(key);
-			if (item)
-			{
-				// TODO
-			}
-			else
-			{
-				// TODO
-			}
+			// TODO: Write it to the end
 		}
 	}
-
-	// For new keys, search for root of the key, and then insert in order (how?)
 
 	// Write to file_path + .tmp file
 
