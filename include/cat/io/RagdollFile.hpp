@@ -195,11 +195,20 @@ public:
 
 //// ragdoll::HashItem
 
-class CAT_EXPORT HashItem : public HashKey, public HashValue, public SListItem, public DListItem
+class CAT_EXPORT HashItem : public HashKey, public HashValue, public SListItem
 {
 	friend class HashTable;
+	friend class Parser;
+	friend class File;
 
+	// Location of key value in original file
 	u32 _key_end_offset, _eol_offset;
+
+	// Tab depth of key
+	int _depth;
+
+	// Next item in the modified list
+	HashItem *_mod_next;
 
 public:
 	HashItem(const KeyInput &key);
@@ -335,14 +344,10 @@ class CAT_EXPORT File
 
 	std::string _settings_path;
 	HashTable _table;	// Hash table containing key-value pairs
-	DList _modified;	// List of keys from the file that have been modified
-	DList _new_list;	// List of keys that were not in the file
+	HashItem *_modded;	// List of keys from the file that have been modified
+	HashItem *_newest;	// List of keys that were not in the file
 	char *_file_data;	// Pointer to file data in memory
 	u32 _file_size;		// Number of bytes in file
-	bool _dirty;		// Flag set when database has been modified since last write
-
-	// Call this to indicate that the table has been modified and needs to be written to disk
-	CAT_INLINE void MarkDirty() { _dirty = true; }
 
 	bool WriteNewKey(char *key, int key_len, HashItem *item);
 

@@ -529,7 +529,9 @@ int Parser::ReadTokens(int root_key_len, int root_depth)
 			else
 				eol_offset = (u32)(_eol - _file_front);
 
-			item->SetFileOffsets(key_end_offset, eol_offset);
+			item->_key_end_offset = key_end_offset;
+			item->_eol_offset = eol_offset;
+			item->_depth = _depth;
 
 			// If second token is set,
 			if (_second_len > 0)
@@ -538,9 +540,8 @@ int Parser::ReadTokens(int root_key_len, int root_depth)
 				item->ClearValue();
 		}
 
-		int depth = _depth;
-
 		// For each line until EOF,
+		int depth = _depth;
 		while (NextLine())
 		{
 			// Skip blank lines
@@ -661,10 +662,11 @@ bool Parser::Read(const char *file_path, File *output_file, char **file_data, u3
 
 File::File()
 {
-	_dirty = false;
-
 	_file_data = 0;
 	_file_size = 0;
+
+	_modded = 0;
+	_newest = 0;
 }
 
 File::~File()
@@ -685,7 +687,6 @@ bool File::Override(const char *file_path)
 	if (!parser.Read(file_path, this))
 		return false;
 
-	MarkDirty();
 	return true;
 }
 
@@ -705,6 +706,7 @@ void File::Set(const char *key, const char *value)
 		if (item)
 		{
 			// Push onto the new list
+			CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
 			item->MarkNew();
 		}
 	}
@@ -712,17 +714,12 @@ void File::Set(const char *key, const char *value)
 	{
 		if (!item->IsNew())
 		{
-			_modified.PushBack(item);
+			CAT_FSLL_PUSH_FRONT(_modded, item, _mod_next);
 		}
 	}
 
 	// Update item value
-	if (item)
-	{
-		item->SetValueStr(value);
-
-		MarkDirty();
-	}
+	if (item) item->SetValueStr(value);
 }
 
 const char *File::Get(const char *key, const char *defaultValue)
@@ -742,11 +739,10 @@ const char *File::Get(const char *key, const char *defaultValue)
 		if (item)
 		{
 			// Push onto the new list
-			_new_list.PushBack(item);
+			CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
+			item->MarkNew();
 
 			item->SetValueStr(defaultValue);
-
-			MarkDirty();
 		}
 	}
 
@@ -769,17 +765,20 @@ void File::SetInt(const char *key, int value)
 		if (item)
 		{
 			// Push onto the new list
-			_new_list.PushBack(item);
+			CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
+			item->MarkNew();
+		}
+	}
+	else
+	{
+		if (!item->IsNew())
+		{
+			CAT_FSLL_PUSH_FRONT(_modded, item, _mod_next);
 		}
 	}
 
 	// Update item value
-	if (item)
-	{
-		item->SetValueInt(value);
-
-		MarkDirty();
-	}
+	if (item) item->SetValueInt(value);
 }
 
 int File::GetInt(const char *key, int defaultValue)
@@ -799,11 +798,10 @@ int File::GetInt(const char *key, int defaultValue)
 		if (item)
 		{
 			// Push onto the new list
-			_new_list.PushBack(item);
+			CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
+			item->MarkNew();
 
 			item->SetValueInt(defaultValue);
-
-			MarkDirty();
 		}
 	}
 
@@ -832,17 +830,20 @@ void File::Set(const char *key, const char *value, RWLock *lock)
 		if (item)
 		{
 			// Push onto the new list
-			_new_list.PushBack(item);
+			CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
+			item->MarkNew();
+		}
+	}
+	else
+	{
+		if (!item->IsNew())
+		{
+			CAT_FSLL_PUSH_FRONT(_modded, item, _mod_next);
 		}
 	}
 
 	// Update item value
-	if (item)
-	{
-		item->SetValueStr(value);
-
-		MarkDirty();
-	}
+	if (item) item->SetValueStr(value);
 
 	lock->WriteUnlock();
 }
@@ -875,11 +876,10 @@ void File::Get(const char *key, const char *defaultValue, std::string &out_value
 		if (item)
 		{
 			// Push onto the new list
-			_new_list.PushBack(item);
+			CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
+			item->MarkNew();
 
 			item->SetValueStr(defaultValue);
-
-			MarkDirty();
 		}
 
 		lock->WriteUnlock();
@@ -910,21 +910,20 @@ void File::SetInt(const char *key, int value, RWLock *lock)
 		if (item)
 		{
 			// Push onto the new list
-			_new_list.PushBack(item);
+			CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
+			item->MarkNew();
 		}
 	}
 	else
 	{
-		_modified.PushBack(item);
+		if (!item->IsNew())
+		{
+			CAT_FSLL_PUSH_FRONT(_modded, item, _mod_next);
+		}
 	}
 
 	// Update item value
-	if (item)
-	{
-		item->SetValueInt(value);
-
-		MarkDirty();
-	}
+	if (item) item->SetValueInt(value);
 
 	lock->WriteUnlock();
 }
@@ -957,17 +956,103 @@ int File::GetInt(const char *key, int defaultValue, RWLock *lock)
 		if (item)
 		{
 			// Push onto the new list
-			_new_list.PushBack(item);
+			CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
+			item->MarkNew();
 
 			item->SetValueInt(defaultValue);
-
-			MarkDirty();
 		}
 
 		lock->WriteUnlock();
 	}
 
 	return defaultValue;
+}
+
+/*
+	MergeSort for a linked list of modified items
+
+	Sorts by location in the file
+*/
+static HashItem *SortHashItems(HashItem *head)
+{
+    int insize = 1;
+
+    CAT_FOREVER
+	{
+        HashItem *p = head, *tail = 0;
+        head = 0;
+
+        int nmerges = 0;  /* count number of merges we do in this pass */
+
+        while (p)
+		{
+            nmerges++;  /* there exists a merge to be done */
+
+			/* step `insize' places along from p */
+            HashItem *q = p;
+            int psize = 0;
+
+            for (int i = 0; i < insize; i++)
+			{
+                psize++;
+			    q = q->next;
+                if (!q) break;
+            }
+
+            /* if q hasn't fallen off end, we have two lists to merge */
+            qsize = insize;
+
+            /* now we have two lists; merge them */
+            while (psize > 0 || (qsize > 0 && q))
+			{
+                /* decide whether next element of merge comes from p or q */
+                if (psize == 0)
+				{
+					/* p is empty; e must come from q. */
+				    e = q; q = q->next; qsize--;
+				}
+				else if (qsize == 0 || !q)
+				{
+					/* q is empty; e must come from p. */
+					e = p; p = p->next; psize--;
+				}
+				else if (cmp(p,q) <= 0)
+				{
+					/* First element of p is lower (or same);
+					 * e must come from p. */
+					e = p; p = p->next; psize--;
+				}
+				else
+				{
+					/* First element of q is lower; e must come from q. */
+					e = q; q = q->next; qsize--;
+				}
+
+                /* add the next element to the merged list */
+				if (tail)
+					tail->next = e;
+				else
+					list = e;
+
+				/* Maintain reverse pointers in a doubly linked list. */
+				e->prev = tail;
+
+				tail = e;
+            }
+
+            /* now p has stepped `insize' places along, and q has too */
+            p = q;
+        }
+
+	    tail->next = NULL;
+
+        /* If we have done only one merge, we're finished. */
+        if (nmerges <= 1)   /* allow for nmerges==0, the empty list case */
+            return list;
+
+        /* Otherwise repeat, merging lists twice the size */
+        insize *= 2;
+    }
 }
 
 bool File::WriteNewKey(char *key, int key_len, HashItem *item)
@@ -1018,7 +1103,7 @@ bool File::Write(const char *file_path, bool force)
 {
 	CAT_DEBUG_ENFORCE(file_path);
 
-	if (!force && !_dirty) return true;
+	if (!force && (!_newest && !_modded)) return true;
 
 	// Construct temporary file path
 	string temp_path = file_path;
