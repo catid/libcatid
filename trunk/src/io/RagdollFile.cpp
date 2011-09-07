@@ -515,22 +515,33 @@ int Parser::ReadTokens(int root_key_len, int root_depth)
 		{
 			// Create a new item for this key
 			item = _output_file->_table.Create(key_input);
+			item->_enlisted = false;
 		}
 
 		// Update item value
 		if (item)
 		{
-			// Calculate key end offset and end of line offset
-			u32 key_end_offset = (u32)(_first + _first_len - _file_front);
-			u32 eol_offset;
+			if (_store_offsets)
+			{
+				// Calculate key end offset and end of line offset
+				u32 key_end_offset = (u32)(_first + _first_len - _file_front);
+				u32 eol_offset;
 
-			if (!_eol)
-				eol_offset = (u32)(_eof - _file_front);
+				if (!_eol)
+					eol_offset = (u32)(_eof - _file_front);
+				else
+					eol_offset = (u32)(_eol - _file_front);
+
+				item->_key_end_offset = key_end_offset;
+				item->_eol_offset = eol_offset;
+			}
 			else
-				eol_offset = (u32)(_eol - _file_front);
+			{
+				// Push onto the new list
+				CAT_FSLL_PUSH_FRONT(_output_file->_newest, item, _mod_next);
+				item->_enlisted = true;
+			}
 
-			item->_key_end_offset = key_end_offset;
-			item->_eol_offset = eol_offset;
 			item->_depth = _depth;
 
 			// If second token is set,

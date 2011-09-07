@@ -39,6 +39,8 @@
 
 	A human-readable/writable hierarchical key-value data store via text files.
 
+	It is optimized for faster read and access times, sacrificing the 
+
 	I felt the itch to write a new settings file format for my online game code.
 	The goals are hierarchical key-value pairs, increased performance, smaller
 	file sizes, and clean and simple look&feel.  I'll compare it to XML.
