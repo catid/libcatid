@@ -85,15 +85,15 @@ void DList::Erase(DListItem *item)
 
 void SList::PushFront(SListItem *item)
 {
-	CAT_FSLL_PUSH_FRONT(_head, item, _sl_next, _sl_prev);
+	CAT_FSLL_PUSH_FRONT(_head, item, _sl_next);
 }
 
 void SList::InsertAfter(SListItem *item, SListItem *after)
 {
-	CAT_FSLL_INSERT_AFTER(_head, item, after, _sl_next, _sl_prev);
+	CAT_FSLL_INSERT_AFTER(_head, item, after, _sl_next);
 }
 
 void SList::EraseAfter(SListItem *item, SListItem *after)
 {
-	CAT_FSLL_ERASE_AFTER(_head, item, after, _sl_next, _sl_prev);
+	CAT_FSLL_ERASE_AFTER(_head, item, after, _sl_next);
 }

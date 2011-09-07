@@ -569,10 +569,10 @@ public:
 	next: Name of member variable pointer to next list item
 	prev: Name of member variable pointer to previous list item
 */
-#define CAT_FSLL_PUSH_FRONT(head, obj, next, prev)	\
-{													\
-	(obj)->next = head;								\
-	head = obj;										\
+#define CAT_FSLL_PUSH_FRONT(head, obj, next)	\
+{												\
+	(obj)->next = head;							\
+	head = obj;									\
 }
 
 /*
@@ -584,10 +584,10 @@ public:
 	next: Name of member variable pointer to next list item
 	prev: Name of member variable pointer to previous list item
 */
-#define CAT_FSLL_INSERT_AFTER(head, obj, another, next, prev)	\
-{																\
-	(obj)->next = (another)->next;								\
-	(another)->next = obj;										\
+#define CAT_FSLL_INSERT_AFTER(head, obj, another, next)	\
+{														\
+	(obj)->next = (another)->next;						\
+	(another)->next = obj;								\
 }
 
 /*
@@ -599,10 +599,10 @@ public:
 	next: Name of member variable pointer to next list item
 	prev: Name of member variable pointer to previous list item
 */
-#define CAT_FSLL_ERASE_AFTER(head, obj, another, next, prev)	\
-{																\
-	if (another)	(another)->next = (obj)->next;				\
-	else			head = (obj)->next;							\
+#define CAT_FSLL_ERASE_AFTER(head, obj, another, next)	\
+{														\
+	if (another)	(another)->next = (obj)->next;		\
+	else			head = (obj)->next;					\
 }
 
 
