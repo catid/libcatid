@@ -209,24 +209,13 @@ class CAT_EXPORT HashItem : public HashKey, public HashValue, public SListItem
 
 	// Next item in the modified list
 	HashItem *_mod_next;
+	bool _enlisted;
+
+	// Skip list used for faster sorting of the modified list
+	HashItem *_skip_next;
 
 public:
 	HashItem(const KeyInput &key);
-
-	CAT_INLINE void MarkNew() { _key_end_offset = 0; }
-	CAT_INLINE bool IsNew() { return _key_end_offset == 0; }
-
-	CAT_INLINE void SetFileOffsets(u32 key_end_offset, u32 eol_offset)
-	{
-		_key_end_offset = key_end_offset;
-		_eol_offset = eol_offset;
-	}
-
-	CAT_INLINE void GetFileOffsets(u32 &key_end_offset, u32 &eol_offset)
-	{
-		key_end_offset = _key_end_offset;
-		eol_offset = _eol_offset;
-	}
 
 	//CAT_INLINE virtual ~HashItem() {}
 };
@@ -349,6 +338,13 @@ class CAT_EXPORT File
 	char *_file_data;	// Pointer to file data in memory
 	u32 _file_size;		// Number of bytes in file
 
+	// Sort the modded list
+	void SortModifiedItems();
+
+	// Merge newest items into the modded list
+	HashItem *MergeNewestItems();
+
+	// Recursively write new keys into the newest list
 	bool WriteNewKey(char *key, int key_len, HashItem *item);
 
 public:
