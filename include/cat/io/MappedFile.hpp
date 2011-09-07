@@ -36,7 +36,7 @@
 #endif
 
 /*
-	Memory-mapped files are a fairly good compromise for performance.
+	Memory-mapped files are a fairly good compromise between performance and flexibility.
 
 	Compared with asynchronous io, memory-mapped files are:
 		+ Much easier to implement in a portable way
@@ -81,7 +81,9 @@ public:
     MappedFile();
     ~MappedFile();
 
-	bool Open(const char *path, bool random_access = false); // Returns false on error (file not found, etc)
+	// Opens the file for shared read-only access with other applications
+	// Returns false on error (file not found, etc)
+	bool Open(const char *path, bool random_access = false);
 	void Close();
 
 	CAT_INLINE u64 GetLength() { return _len; }
