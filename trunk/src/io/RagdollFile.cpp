@@ -707,19 +707,21 @@ void File::Set(const char *key, const char *value)
 		{
 			// Push onto the new list
 			CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
-			item->MarkNew();
+			item->_enlisted = true;
+
+			item->SetValueStr(value);
 		}
 	}
-	else
+	else 
 	{
-		if (!item->IsNew())
+		if (!item->_enlisted)
 		{
 			CAT_FSLL_PUSH_FRONT(_modded, item, _mod_next);
+			item->_enlisted = true;
 		}
-	}
 
-	// Update item value
-	if (item) item->SetValueStr(value);
+		item->SetValueStr(value);
+	}
 }
 
 const char *File::Get(const char *key, const char *defaultValue)
@@ -740,7 +742,7 @@ const char *File::Get(const char *key, const char *defaultValue)
 		{
 			// Push onto the new list
 			CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
-			item->MarkNew();
+			item->_enlisted = true;
 
 			item->SetValueStr(defaultValue);
 		}
@@ -766,19 +768,21 @@ void File::SetInt(const char *key, int value)
 		{
 			// Push onto the new list
 			CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
-			item->MarkNew();
+			item->_enlisted = true;
+
+			item->SetValueInt(value);
 		}
 	}
 	else
 	{
-		if (!item->IsNew())
+		if (!item->_enlisted)
 		{
 			CAT_FSLL_PUSH_FRONT(_modded, item, _mod_next);
+			item->_enlisted = true;
 		}
-	}
 
-	// Update item value
-	if (item) item->SetValueInt(value);
+		item->SetValueInt(value);
+	}
 }
 
 int File::GetInt(const char *key, int defaultValue)
@@ -799,7 +803,7 @@ int File::GetInt(const char *key, int defaultValue)
 		{
 			// Push onto the new list
 			CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
-			item->MarkNew();
+			item->_enlisted = true;
 
 			item->SetValueInt(defaultValue);
 		}
@@ -819,31 +823,30 @@ void File::Set(const char *key, const char *value, RWLock *lock)
 	HashItem *item = _table.Lookup(key_input);
 	if (!item)
 	{
-		if (value[0] == '\0')
+		if (value[0] != '\0')
 		{
-			lock->WriteUnlock();
-			return;
-		}
+			// Create a new item for this key
+			item = _table.Create(key_input);
+			if (item)
+			{
+				// Push onto the new list
+				CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
+				item->_enlisted = true;
 
-		// Create a new item for this key
-		item = _table.Create(key_input);
-		if (item)
-		{
-			// Push onto the new list
-			CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
-			item->MarkNew();
+				item->SetValueStr(value);
+			}
 		}
 	}
 	else
 	{
-		if (!item->IsNew())
+		if (!item->_enlisted)
 		{
 			CAT_FSLL_PUSH_FRONT(_modded, item, _mod_next);
+			item->_enlisted = true;
 		}
-	}
 
-	// Update item value
-	if (item) item->SetValueStr(value);
+		item->SetValueStr(value);
+	}
 
 	lock->WriteUnlock();
 }
@@ -877,7 +880,7 @@ void File::Get(const char *key, const char *defaultValue, std::string &out_value
 		{
 			// Push onto the new list
 			CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
-			item->MarkNew();
+			item->_enlisted = true;
 
 			item->SetValueStr(defaultValue);
 		}
@@ -899,31 +902,30 @@ void File::SetInt(const char *key, int value, RWLock *lock)
 	HashItem *item = _table.Lookup(key_input);
 	if (!item)
 	{
-		if (value == 0)
+		if (value != 0)
 		{
-			lock->WriteUnlock();
-			return;
-		}
+			// Create a new item for this key
+			item = _table.Create(key_input);
+			if (item)
+			{
+				// Push onto the new list
+				CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
+				item->_enlisted = true;
 
-		// Create a new item for this key
-		item = _table.Create(key_input);
-		if (item)
-		{
-			// Push onto the new list
-			CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
-			item->MarkNew();
+				item->SetValueInt(value);
+			}
 		}
 	}
 	else
 	{
-		if (!item->IsNew())
+		if (!item->_enlisted)
 		{
 			CAT_FSLL_PUSH_FRONT(_modded, item, _mod_next);
+			item->_enlisted = true;
 		}
-	}
 
-	// Update item value
-	if (item) item->SetValueInt(value);
+		item->SetValueInt(value);
+	}
 
 	lock->WriteUnlock();
 }
@@ -957,7 +959,7 @@ int File::GetInt(const char *key, int defaultValue, RWLock *lock)
 		{
 			// Push onto the new list
 			CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
-			item->MarkNew();
+			item->_enlisted = true;
 
 			item->SetValueInt(defaultValue);
 		}
@@ -969,90 +971,185 @@ int File::GetInt(const char *key, int defaultValue, RWLock *lock)
 }
 
 /*
-	MergeSort for a linked list of modified items
+	MergeSort for the singly-linked list of modified items
 
 	Sorts by location in the file
 */
-static HashItem *SortHashItems(HashItem *head)
+void File::SortModifiedItems()
 {
-    int insize = 1;
+    int nmerges, insize = 1;
+	HashItem *head = _modded;
 
-    CAT_FOREVER
+    do
 	{
         HashItem *p = head, *tail = 0;
         head = 0;
-
-        int nmerges = 0;  /* count number of merges we do in this pass */
+        nmerges = 0;
 
         while (p)
 		{
-            nmerges++;  /* there exists a merge to be done */
+            ++nmerges;
 
-			/* step `insize' places along from p */
             HashItem *q = p;
             int psize = 0;
 
-            for (int i = 0; i < insize; i++)
+            for (int ii = 0; ii < insize; ii++)
 			{
                 psize++;
-			    q = q->next;
+				q = q->_mod_next;
                 if (!q) break;
             }
 
-            /* if q hasn't fallen off end, we have two lists to merge */
-            qsize = insize;
-
-            /* now we have two lists; merge them */
+            int qsize = insize;
             while (psize > 0 || (qsize > 0 && q))
 			{
-                /* decide whether next element of merge comes from p or q */
+				HashItem *e;
+
                 if (psize == 0)
 				{
-					/* p is empty; e must come from q. */
-				    e = q; q = q->next; qsize--;
+				    e = q; q = q->_mod_next; --qsize;
 				}
 				else if (qsize == 0 || !q)
 				{
-					/* q is empty; e must come from p. */
-					e = p; p = p->next; psize--;
+					e = p; p = p->_mod_next; --psize;
 				}
-				else if (cmp(p,q) <= 0)
+				else if (p->_key_end_offset <= q->_key_end_offset)
 				{
-					/* First element of p is lower (or same);
-					 * e must come from p. */
-					e = p; p = p->next; psize--;
+					e = p; p = p->_mod_next; --psize;
 				}
 				else
 				{
-					/* First element of q is lower; e must come from q. */
-					e = q; q = q->next; qsize--;
+					e = q; q = q->_mod_next; --qsize;
 				}
 
-                /* add the next element to the merged list */
 				if (tail)
-					tail->next = e;
+					tail->_mod_next = e;
 				else
-					list = e;
-
-				/* Maintain reverse pointers in a doubly linked list. */
-				e->prev = tail;
+					head = e;
 
 				tail = e;
             }
 
-            /* now p has stepped `insize' places along, and q has too */
             p = q;
         }
 
-	    tail->next = NULL;
-
-        /* If we have done only one merge, we're finished. */
-        if (nmerges <= 1)   /* allow for nmerges==0, the empty list case */
-            return list;
-
-        /* Otherwise repeat, merging lists twice the size */
+	    tail->_mod_next = 0;
         insize *= 2;
-    }
+    } while (nmerges > 1);
+
+	_modded = head;
+}
+
+void File::SortModifiedItems()
+{
+	HashItem *head = _modded;
+
+	_modded = head;
+}
+
+/*
+	Merge two sorted linked lists:
+	Newest items are merged into the modified items list.
+
+	If both items have the same key-end-offset, then it will
+	use the modified list to match the proper write order.
+*/
+HashItem *File::MergeNewestItems()
+{
+	// If nothing is new,
+	HashItem *n = _newest;
+	if (!n) return; 
+
+	// If nothing is old,
+	HashItem *m = _modded;
+	if (!m)
+	{
+		_modded = _newest;
+		return;
+	}
+
+	// Initialize new head and tail
+	u32 noff = n->_key_end_offset;
+	u32 moff = m->_key_end_offset;
+	HashItem *head;
+	if (noff < moff)
+	{
+		// Set n as head
+		head = n;
+
+		// Get next n
+		n = n->_mod_next;
+		if (!n)
+		{
+			// Append remainder of m list
+			head->_mod_next = m;
+			return head;
+		}
+
+		// Update n offset
+		noff = n->_key_end_offset;
+	}
+	else
+	{
+		// Set m as head
+		head = m;
+
+		// Get next m
+		m = m->_mod_next;
+		if (!m)
+		{
+			// Append remainder of n list
+			head->_mod_next = n;
+			return head;
+		}
+
+		// Update m offset
+		moff = m->_key_end_offset;
+	}
+
+	HashItem *tail = head;
+	CAT_FOREVER
+	{
+		// If n should be next,
+		if (noff < moff)
+		{
+			// Append n
+			tail->_mod_next = n;
+			tail = n;
+
+			// Get next n
+			n = n->_mod_next;
+			if (!n)
+			{
+				// Append remainder of m list
+				tail->_mod_next = m;
+				break;
+			}
+
+			// Update n offset
+			noff = n->_key_end_offset;
+		}
+		else
+		{
+			// Append m
+			tail->_mod_next = m;
+			tail = m;
+
+			// Get next m
+			m = m->_mod_next;
+			if (!m)
+			{
+				// Append remainder of n list
+				tail->_mod_next = n;
+				break;
+			}
+
+			// Update m offset
+			moff = m->_key_end_offset;
+		}
+	}
+
+	return head;
 }
 
 bool File::WriteNewKey(char *key, int key_len, HashItem *item)
@@ -1117,8 +1214,11 @@ bool File::Write(const char *file_path, bool force)
 		return false;
 	}
 
+	// Sort the modified items in increasing order
+	SortModifiedItems();
+
 	// For each new item in the list,
-	for (iter ii = _new_list; ii; ++ii)
+	for (iter ii = _newest; ii; ++ii)
 	{
 		const char *overall_key = ii->Key();
 		int overall_len = ii->Length();
@@ -1136,11 +1236,10 @@ bool File::Write(const char *file_path, bool force)
 
 	// For each modified item,
 	u32 copy_start = 0;
-	for (iter ii = _modified; ii; ++ii)
+	for (HashItem *write_node = MergeNewestItems(); write_node; write_node = write_node->_mod_next)
 	{
-		u32 key_end_offset, eol_offset;
-		ii->GetFileOffsets(key_end_offset, eol_offset);
-
+		u32 key_end_offset = write_node->_key_end_offset;
+		u32 eol_offset = write_node->_eol_offset;
 		u32 copy_bytes = key_end_offset - copy_start;
 
 		if (copy_bytes > 0)
@@ -1170,6 +1269,5 @@ bool File::Write(const char *file_path, bool force)
 	// Move it to the final path
 	std::rename(temp_path.c_str(), file_path);
 
-	_dirty = false;
 	return true;
 }
