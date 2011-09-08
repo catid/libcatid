@@ -988,74 +988,73 @@ int File::GetInt(const char *key, int defaultValue, RWLock *lock)
 */
 void File::SortModifiedItems()
 {
-    int nmerges, insize = 1;
 	HashItem *head = _modded;
+	int frame_size = 1;
 
-    do
+	CAT_FOREVER
 	{
-        HashItem *p = head, *tail = 0;
-        head = 0;
-        nmerges = 0;
+		HashItem *a = head;
+		HashItem *tail = 0;
 
-        while (p)
+		while (a)
 		{
-            ++nmerges;
+			HashItem *b = a->_skip_next;
 
-            HashItem *q = p;
-            int psize = 0;
-
-            for (int ii = 0; ii < insize; ii++)
+			if (!b)
 			{
-                psize++;
-				q = q->_mod_next;
-                if (!q) break;
-            }
+				_modded = head;
+				return;
+			}
 
-            int qsize = insize;
-            while (psize > 0 || (qsize > 0 && q))
+			u32 aoff = a->_key_end_offset;
+			u32 boff = b->_key_end_offset;
+
+			int ii;
+			for (ii = 0; ii < frame_size; ++ii)
 			{
-				HashItem *e;
+				// In cases where both are equal, preserve order
+				if (aoff <= boff)
+				{
+					if (tail) tail->_mod_next = a;
+					else head = a;
+					tail = a;
 
-                if (psize == 0)
-				{
-				    e = q; q = q->_mod_next; --qsize;
-				}
-				else if (qsize == 0 || !q)
-				{
-					e = p; p = p->_mod_next; --psize;
-				}
-				else if (p->_key_end_offset <= q->_key_end_offset)
-				{
-					e = p; p = p->_mod_next; --psize;
+					a = a->_mod_next;
+					if (!a)
+					{
+						tail->_mod_next = b;
+						break;
+					}
+					aoff = a->_key_end_offset;
 				}
 				else
 				{
-					e = q; q = q->_mod_next; --qsize;
+					if (tail) tail->_mod_next = b;
+					else head = b;
+					tail = b;
+
+					b = b->_mod_next;
+					if (!b)
+					{
+						tail->_mod_next = a;
+						break;
+					}
+					aoff = b->_key_end_offset;
 				}
+			}
 
-				if (tail)
-					tail->_mod_next = e;
-				else
-					head = e;
+			// Find end of frame
+			for (; ii < frame_size; ++ii)
+			{
+				if (!tail) break;
+				tail = tail->_mod_next;
+			}
 
-				tail = e;
-            }
+			head->_skip_next = a = tail;
+		}
 
-            p = q;
-        }
-
-	    tail->_mod_next = 0;
-        insize *= 2;
-    } while (nmerges > 1);
-
-	_modded = head;
-}
-
-void File::SortModifiedItems()
-{
-	HashItem *head = _modded;
-
-	_modded = head;
+		frame_size *= 2;
+	}
 }
 
 /*
@@ -1229,7 +1228,7 @@ bool File::Write(const char *file_path, bool force)
 	SortModifiedItems();
 
 	// For each new item in the list,
-	for (iter ii = _newest; ii; ++ii)
+	for (HashItem *ii = _newest; ii; ii = ii->_mod_next)
 	{
 		const char *overall_key = ii->Key();
 		int overall_len = ii->Length();
