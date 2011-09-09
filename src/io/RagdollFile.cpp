@@ -1052,14 +1052,15 @@ int File::GetInt(const char *key, int defaultValue, RWLock *lock)
 }
 
 /*
-	MergeSort for the singly-linked list of modified items
+	MergeSort for a singly-linked list
 
-	Sorts by location in the file
+	Preserves existing order for items that have the same position
 */
-void File::SortModifiedItems()
+HashItem *File::SortItems(HashItem *head)
 {
-	HashItem *head = _modded;
 	int frame_size = 1;
+
+	// TODO: This is not implemented yet
 
 	CAT_FOREVER
 	{
@@ -1072,8 +1073,7 @@ void File::SortModifiedItems()
 
 			if (!b)
 			{
-				_modded = head;
-				return;
+				return head;
 			}
 
 			u32 aoff = a->_key_end_offset;
@@ -1125,6 +1125,8 @@ void File::SortModifiedItems()
 
 		frame_size *= 2;
 	}
+
+	return head;
 }
 
 /*

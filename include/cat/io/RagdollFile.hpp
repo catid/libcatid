@@ -365,7 +365,7 @@ class CAT_EXPORT File
 	HashItem *_newest;	// List of keys that were not in the file
 
 	// Sort the modded list
-	void SortModifiedItems();
+	static HashItem *SortItems(HashItem *head);
 
 	// Merge a high priority and low priority list together
 	static HashItem *MergeItems(HashItem *hi_prio, HashItem *lo_prio);
