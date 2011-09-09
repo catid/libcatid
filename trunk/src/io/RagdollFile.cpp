@@ -729,27 +729,26 @@ bool Parser::Read(const char *file_path, File *output_file, bool is_override)
 
 File::File()
 {
-	_file_data = 0;
-	_file_size = 0;
-
 	_modded = 0;
 	_newest = 0;
 }
 
 File::~File()
 {
-	if (_file_data)
-		delete []_file_data;
 }
 
 bool File::Read(const char *file_path)
 {
+	CAT_DEBUG_ENFORCE(file_path);
+
 	Parser parser;
 	return parser.Read(file_path, this);
 }
 
 bool File::Override(const char *file_path)
 {
+	CAT_DEBUG_ENFORCE(file_path);
+
 	Parser parser;
 	if (!parser.Read(file_path, this, true))
 		return false;
@@ -782,6 +781,7 @@ void File::Set(const char *key, const char *value)
 	}
 	else 
 	{
+		// If item is not listed yet,
 		if (!item->_enlisted)
 		{
 			CAT_FSLL_PUSH_FRONT(_modded, item, _mod_next);
@@ -845,6 +845,7 @@ void File::SetInt(const char *key, int value)
 	}
 	else
 	{
+		// If item is not listed yet,
 		if (!item->_enlisted)
 		{
 			CAT_FSLL_PUSH_FRONT(_modded, item, _mod_next);
@@ -911,6 +912,7 @@ void File::Set(const char *key, const char *value, RWLock *lock)
 	}
 	else
 	{
+		// If item is not listed yet,
 		if (!item->_enlisted)
 		{
 			CAT_FSLL_PUSH_FRONT(_modded, item, _mod_next);
@@ -992,6 +994,7 @@ void File::SetInt(const char *key, int value, RWLock *lock)
 	}
 	else
 	{
+		// If item is not listed yet,
 		if (!item->_enlisted)
 		{
 			CAT_FSLL_PUSH_FRONT(_modded, item, _mod_next);
@@ -1277,8 +1280,8 @@ bool File::Write(const char *file_path, bool force)
 	if (!force && (!_newest && !_modded)) return true;
 
 	// Cache view
-	u8 *front = _view.GetFront();
-	u32 eof = _view.GetLength();
+	const char *front = (const char*)_view.GetFront();
+	u32 file_length = _view.GetLength();
 
 	// Construct temporary file path
 	string temp_path = file_path;
@@ -1321,7 +1324,7 @@ bool File::Write(const char *file_path, bool force)
 		u32 copy_bytes = key_end_offset - copy_start;
 
 		if (copy_bytes > 0)
-			file.write(_file_data + copy_start, copy_bytes);
+			file.write(front + copy_start, copy_bytes);
 
 		copy_start = eol_offset;
 
@@ -1329,12 +1332,12 @@ bool File::Write(const char *file_path, bool force)
 	}
 
 	// Copy remainder of file
-	if (copy_start < _file_size)
+	if (copy_start < file_length)
 	{
-		u32 copy_bytes = _file_size - copy_start;
+		u32 copy_bytes = file_length - copy_start;
 
 		if (copy_bytes > 0)
-			file.write(_file_data + copy_start, copy_bytes);
+			file.write(front + copy_start, copy_bytes);
 	}
 
 	// Flush and close the file
