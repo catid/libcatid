@@ -29,7 +29,6 @@
 #include <cat/io/RagdollFile.hpp>
 #include <cat/parse/BufferTok.hpp>
 #include <cat/io/Logging.hpp>
-#include <cat/io/MappedFile.hpp>
 #include <cat/hash/Murmur.hpp>
 #include <fstream>
 #include <cstring>
@@ -39,46 +38,106 @@ using namespace std;
 using namespace ragdoll;
 
 
-// Calculate key hash
-static u32 GetKeyHash(const char *key, int len)
+//// ragdoll::SanitizedKey
+
+static int SanitizeKeyString(const char *key, char *sanitized_string)
 {
-	char lcase[MAX_CHARS+1];
+	char ch, *outs = sanitized_string;
+	bool seen_punct = false;
 
-	if (len > MAX_CHARS)
-		len = MAX_CHARS;
-
-	// Copy key to temporary buffer all lower-case
-	for (int ii = 0; ii < len; ++ii)
+	while ((ch = *key++))
 	{
-		char ch = key[ii];
-
 		if (ch >= 'A' && ch <= 'Z')
-			ch += 'a' - 'Z';
-
-		lcase[ii] = ch;
+		{
+			if (seen_punct)
+			{
+				*outs++ = '.';
+				seen_punct = false;
+			}
+			*outs++ = ch + 'a' - 'Z';
+		}
+		else if (ch >= 'a' && ch <= 'z' ||
+			ch >= '0' && ch <= '9')
+		{
+			if (seen_punct)
+			{
+				*outs++ = '.';
+				seen_punct = false;
+			}
+			*outs++ = ch;
+		}
+		else
+		{
+			if (outs != sanitized_string)
+				seen_punct = true;
+		}
 	}
 
-	// Calculate hash from lower-case version
-	return MurmurHash(lcase, len).Get32();
+	*outs = '\0';
+
+	return (int)(outs - sanitized_string);
+}
+
+static int SanitizeKeyRangeString(const char *key, int len, char *sanitized_string)
+{
+	char ch, *outs = sanitized_string;
+	bool seen_punct = false;
+
+	while (len-- > 0)
+	{
+		ch = *key++;
+
+		if (ch >= 'A' && ch <= 'Z')
+		{
+			if (seen_punct)
+			{
+				*outs++ = '.';
+				seen_punct = false;
+			}
+			*outs++ = ch + 'a' - 'Z';
+		}
+		else if (ch >= 'a' && ch <= 'z' ||
+			ch >= '0' && ch <= '9')
+		{
+			if (seen_punct)
+			{
+				*outs++ = '.';
+				seen_punct = false;
+			}
+			*outs++ = ch;
+		}
+		else
+		{
+			if (outs != sanitized_string)
+				seen_punct = true;
+		}
+	}
+
+	*outs = '\0';
+
+	return (int)(outs - sanitized_string);
+}
+
+SanitizedKey::SanitizedKey(const char *key)
+{
+	_len = SanitizeKeyString(key, _key);
+	_hash = MurmurHash(_key, _len).Get32();
+}
+
+SanitizedKey::SanitizedKey(const char *key, int len)
+{
+	_len = SanitizeKeyRangeString(key, len, _key);
+	_hash = MurmurHash(_key, _len).Get32();
 }
 
 
 //// ragdoll::KeyInput
 
-KeyInput::KeyInput(const char *key)
+KeyInput::KeyInput(SanitizedKey &key)
 {
-	int len = (int)strlen(key);
-
-	_hash = GetKeyHash(key, len);
-	_key = key;
-	_len = len;
-}
-
-KeyInput::KeyInput(const char *key, int len)
-{
-	_hash = GetKeyHash(key, len);
-	_key = key;
-	_len = len;
+	_key = key.Key();
+	_len = key.Length();
+	_hash = key.Hash();
 }
 
 
@@ -509,7 +568,8 @@ int Parser::ReadTokens(int root_key_len, int root_depth)
 		write_key[_first_len] = '\0';
 
 		// Add this path to the hash table
-		KeyInput key_input(_root_key, key_len);
+		SanitizedKey san_key(_root_key, key_len);
+		KeyInput key_input(san_key);
 		HashItem *item = _output_file->_table.Lookup(key_input);
 		if (!item)
 		{
@@ -521,7 +581,7 @@ int Parser::ReadTokens(int root_key_len, int root_depth)
 		// Update item value
 		if (item)
 		{
-			if (_store_offsets)
+			if (_is_override)
 			{
 				// Calculate key end offset and end of line offset
 				u32 key_end_offset = (u32)(_first + _first_len - _file_front);
@@ -590,22 +650,37 @@ int Parser::ReadTokens(int root_key_len, int root_depth)
 	return eof;
 }
 
-bool Parser::Read(const char *file_path, File *output_file, char **file_data, u32 *file_size)
+bool Parser::Read(const char *file_path, File *output_file, bool is_override)
 {
 	CAT_DEBUG_ENFORCE(file_path && output_file);
 
 	_output_file = output_file;
+	_is_override = is_override;
+
+	MappedFile local_file, *file;
+	MappedView local_view, *view;
+
+	// If using local mapped file,
+	if (is_override)
+	{
+		file = &local_file;
+		view = &local_view;
+	}
+	else
+	{
+		file = &_output_file->_file;
+		view = &_output_file->_view;
+	}
 
 	// Open the file
-	MappedFile file;
-	if (!file.Open(file_path))
+	if (!file->Open(file_path))
 	{
 		CAT_INFO("Parser") << "Unable to open " << file_path;
 		return false;
 	}
 
 	// Ensure file is not too large
-	u64 file_length = file.GetLength();
+	u64 file_length = file->GetLength();
 	if (file_length > MAX_FILE_SIZE)
 	{
 		CAT_WARN("Parser") << "Size too large for " << file_path;
@@ -621,42 +696,23 @@ bool Parser::Read(const char *file_path, File *output_file, char **file_data, u3
 	}
 
 	// Open a view of the file
-	MappedView view;
-	if (!view.Open(&file))
+	if (!view->Open(file))
 	{
 		CAT_WARN("Parser") << "Unable to open view of " << file_path;
 		return false;
 	}
 
 	// Map a view of the entire file
-	if (!view.MapView(0, nominal_length))
+	if (!view->MapView(0, nominal_length))
 	{
 		CAT_WARN("Parser") << "Unable to map view of " << file_path;
 		return false;
 	}
 
 	// Initialize parser
-	_file_front = _file_data = (char*)view.GetFront();
+	_file_front = _file_data = (char*)view->GetFront();
 	_eof = _file_data + nominal_length;
 	_root_key[0] = '\0';
-	_store_offsets = false;
-
-	// If file data will be copied out,
-	if (file_data && file_size)
-	{
-		char *copy = new char[nominal_length];
-		if (!copy)
-		{
-			CAT_WARN("Parser") << "Out of memory allocating file buffer of bytes = " << nominal_length;
-			return false;
-		}
-
-		memcpy(copy, _file_data, nominal_length);
-
-		*file_data = copy;
-		*file_size = nominal_length;
-		_store_offsets = true;
-	}
 
 	// Kick off the parsing
 	if (!NextLine())
@@ -689,13 +745,13 @@ File::~File()
 bool File::Read(const char *file_path)
 {
 	Parser parser;
-	return parser.Read(file_path, this, &_file_data, &_file_size);
+	return parser.Read(file_path, this);
 }
 
 bool File::Override(const char *file_path)
 {
 	Parser parser;
-	if (!parser.Read(file_path, this))
+	if (!parser.Read(file_path, this, true))
 		return false;
 
 	return true;
@@ -706,7 +762,8 @@ void File::Set(const char *key, const char *value)
 	CAT_DEBUG_ENFORCE(key && value);
 
 	// Add this path to the hash table
-	KeyInput key_input(key);
+	SanitizedKey san_key(key);
+	KeyInput key_input(san_key);
 	HashItem *item = _table.Lookup(key_input);
 	if (!item)
 	{
@@ -740,7 +797,8 @@ const char *File::Get(const char *key, const char *defaultValue)
 	CAT_DEBUG_ENFORCE(key && defaultValue);
 
 	// Add this path to the hash table
-	KeyInput key_input(key);
+	SanitizedKey san_key(key);
+	KeyInput key_input(san_key);
 	HashItem *item = _table.Lookup(key_input);
 	if (item) return item->GetValueStr();
 
@@ -767,7 +825,8 @@ void File::SetInt(const char *key, int value)
 	CAT_DEBUG_ENFORCE(key);
 
 	// Add this path to the hash table
-	KeyInput key_input(key);
+	SanitizedKey san_key(key);
+	KeyInput key_input(san_key);
 	HashItem *item = _table.Lookup(key_input);
 	if (!item)
 	{
@@ -801,7 +860,8 @@ int File::GetInt(const char *key, int defaultValue)
 	CAT_DEBUG_ENFORCE(key);
 
 	// Add this path to the hash table
-	KeyInput key_input(key);
+	SanitizedKey san_key(key);
+	KeyInput key_input(san_key);
 	HashItem *item = _table.Lookup(key_input);
 	if (item) return item->GetValueInt();
 
@@ -830,7 +890,8 @@ void File::Set(const char *key, const char *value, RWLock *lock)
 	lock->WriteLock();
 
 	// Add this path to the hash table
-	KeyInput key_input(key);
+	SanitizedKey san_key(key);
+	KeyInput key_input(san_key);
 	HashItem *item = _table.Lookup(key_input);
 	if (!item)
 	{
@@ -869,7 +930,8 @@ void File::Get(const char *key, const char *defaultValue, std::string &out_value
 	lock->ReadLock();
 
 	// Add this path to the hash table
-	KeyInput key_input(key);
+	SanitizedKey san_key(key);
+	KeyInput key_input(san_key);
 	HashItem *item = _table.Lookup(key_input);
 	if (item)
 	{
@@ -909,7 +971,8 @@ void File::SetInt(const char *key, int value, RWLock *lock)
 	lock->WriteLock();
 
 	// Add this path to the hash table
-	KeyInput key_input(key);
+	SanitizedKey san_key(key);
+	KeyInput key_input(san_key);
 	HashItem *item = _table.Lookup(key_input);
 	if (!item)
 	{
@@ -948,7 +1011,8 @@ int File::GetInt(const char *key, int defaultValue, RWLock *lock)
 	lock->ReadLock();
 
 	// Add this path to the hash table
-	KeyInput key_input(key);
+	SanitizedKey san_key(key);
+	KeyInput key_input(san_key);
 	HashItem *item = _table.Lookup(key_input);
 	if (item)
 	{
@@ -1212,6 +1276,10 @@ bool File::Write(const char *file_path, bool force)
 
 	if (!force && (!_newest && !_modded)) return true;
 
+	// Cache view
+	u8 *front = _view.GetFront();
+	u32 eof = _view.GetLength();
+
 	// Construct temporary file path
 	string temp_path = file_path;
 	temp_path += ".tmp";
@@ -1272,6 +1340,10 @@ bool File::Write(const char *file_path, bool force)
 	// Flush and close the file
 	file.flush();
 	file.close();
+
+	// Close view of actual file
+	_view.Close();
+	_file.Close();
 
 	// Delete file
 	std::remove(file_path);
