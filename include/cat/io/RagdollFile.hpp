@@ -32,6 +32,7 @@
 #include <cat/lang/LinkedLists.hpp>
 #include <cat/lang/Strings.hpp>
 #include <cat/threads/RWLock.hpp>
+#include <cat/io/MappedFile.hpp>
 #include <string>
 
 /*
@@ -97,6 +98,7 @@ namespace cat {
 namespace ragdoll {
 
 
+class SanitizedKey;
 class KeyInput;
 class HashKey;
 class HashValue;
@@ -108,17 +110,34 @@ class Parser;
 static const int MAX_CHARS = 256;
 
 
+//// ragdoll::SanitizedKey
+
+class CAT_EXPORT SanitizedKey
+{
+	char _key[MAX_CHARS+1];
+	int _len;
+	u32 _hash;
+
+public:
+	SanitizedKey(const char *key);
+	SanitizedKey(const char *key, int len);
+
+	CAT_INLINE u32 Hash() const { return _hash; }
+	CAT_INLINE const char *Key() const { return _key; }
+	CAT_INLINE int Length() const { return _len; }
+};
+
+
 //// ragdoll::KeyInput
 
 class CAT_EXPORT KeyInput
 {
-	u32 _hash;
 	const char *_key;
 	int _len;
+	u32 _hash;
 
 public:
-	KeyInput(const char *key);
-	KeyInput(const char *key, int len);
+	KeyInput(SanitizedKey &key);
 	CAT_INLINE KeyInput(const char *key, int len, u32 hash)
 	{
 		_key = key;
@@ -154,7 +173,7 @@ public:
 	{
 		return _hash == key.Hash() &&
 			   _len == key.Length() &&
-			   _key.CaseCompare(key.Key(), key.Length());
+			   memcmp(_key, key.Key(), _len) == 0;
 	}
 };
 
@@ -300,7 +319,7 @@ class CAT_EXPORT Parser
 	int _first_len, _second_len, _depth;
 
 	// Output data
-	bool _store_offsets;
+	bool _is_override;
 	ragdoll::File *_output_file;
 
 	// Return pointer to the next character after the EOL starting from data, or returns eof if not found
@@ -320,8 +339,7 @@ protected:
 	int ReadTokens(int root_key_len, int root_depth);
 
 public:
-	// Do not pass in the file data or file size pointers if the file is the override file
-	bool Read(const char *file_path, File *output_file, char **file_data = 0, u32 *file_size = 0);
+	bool Read(const char *file_path, File *output_file, bool is_override = false);
 };
 
 
@@ -333,12 +351,12 @@ class CAT_EXPORT File
 
 	typedef DList::ForwardIterator<HashItem> iter;
 
-	std::string _settings_path;
+	MappedFile _file;	// Memory-mapped data file
+	MappedView _view;	// View of memory-mapped data file
+
 	HashTable _table;	// Hash table containing key-value pairs
 	HashItem *_modded;	// List of keys from the file that have been modified
 	HashItem *_newest;	// List of keys that were not in the file
-	char *_file_data;	// Pointer to file data in memory
-	u32 _file_size;		// Number of bytes in file
 
 	// Sort the modded list
 	void SortModifiedItems();
