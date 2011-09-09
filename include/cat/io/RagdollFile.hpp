@@ -99,7 +99,7 @@ namespace ragdoll {
 
 
 class SanitizedKey;
-class KeyInput;
+class KeyAdapter;
 class HashKey;
 class HashValue;
 class HashItem;
@@ -128,17 +128,23 @@ public:
 };
 
 
-//// ragdoll::KeyInput
+//// ragdoll::KeyAdapter
 
-class CAT_EXPORT KeyInput
+class CAT_EXPORT KeyAdapter
 {
 	const char *_key;
 	int _len;
 	u32 _hash;
 
 public:
-	KeyInput(SanitizedKey &key);
-	CAT_INLINE KeyInput(const char *key, int len, u32 hash)
+	CAT_INLINE KeyAdapter::KeyAdapter(SanitizedKey &key)
+	{
+		_key = key.Key();
+		_len = key.Length();
+		_hash = key.Hash();
+	}
+
+	CAT_INLINE KeyAdapter(const char *key, int len, u32 hash)
 	{
 		_key = key;
 		_len = len;
@@ -161,7 +167,7 @@ protected:
 	u32 _hash;
 
 public:
-	HashKey(const KeyInput &key);
+	HashKey(const KeyAdapter &key);
 
 	//CAT_INLINE virtual ~HashKey() {}
 
@@ -169,7 +175,7 @@ public:
 	CAT_INLINE int Length() { return _len; }
 	CAT_INLINE u32 Hash() { return _hash; }
 
-	CAT_INLINE bool operator==(const KeyInput &key)
+	CAT_INLINE bool operator==(const KeyAdapter &key)
 	{
 		return _hash == key.Hash() &&
 			   _len == key.Length() &&
@@ -236,7 +242,7 @@ class CAT_EXPORT HashItem : public HashKey, public HashValue, public SListItem
 	HashItem *_skip_next;
 
 public:
-	HashItem(const KeyInput &key);
+	HashItem(const KeyAdapter &key);
 
 	//CAT_INLINE virtual ~HashItem() {}
 };
@@ -264,8 +270,8 @@ public:
 	HashTable();
 	~HashTable();
 
-	HashItem *Lookup(const KeyInput &key); // Returns 0 if key not found
-	HashItem *Create(const KeyInput &key); // Creates if it does not exist yet
+	HashItem *Lookup(const KeyAdapter &key); // Returns 0 if key not found
+	HashItem *Create(const KeyAdapter &key); // Creates if it does not exist yet
 
 	// Iterator
 	class CAT_EXPORT Iterator
@@ -361,8 +367,8 @@ class CAT_EXPORT File
 	// Sort the modded list
 	void SortModifiedItems();
 
-	// Merge newest items into the modded list
-	HashItem *MergeNewestItems();
+	// Merge a high priority and low priority list together
+	static HashItem *MergeItems(HashItem *hi_prio, HashItem *lo_prio);
 
 	// Recursively write new keys into the newest list
 	bool WriteNewKey(char *key, int key_len, HashItem *item);

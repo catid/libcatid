@@ -131,19 +131,9 @@ SanitizedKey::SanitizedKey(const char *key, int len)
 }
 
 
-//// ragdoll::KeyInput
-
-KeyInput::KeyInput(SanitizedKey &key)
-{
-	_key = key.Key();
-	_len = key.Length();
-	_hash = key.Hash();
-}
-
-
 //// ragdoll::HashKey
 
-HashKey::HashKey(const KeyInput &key)
+HashKey::HashKey(const KeyAdapter &key)
 {
 	_key.SetFromRangeString(key.Key(), key.Length());
 	_hash = key.Hash();
@@ -161,7 +151,7 @@ HashValue::HashValue(const char *value, int len)
 
 //// ragdoll::HashItem
 
-HashItem::HashItem(const KeyInput &key)
+HashItem::HashItem(const KeyAdapter &key)
 	: HashKey(key)
 {
 }
@@ -236,7 +226,7 @@ HashTable::~HashTable()
 	}
 }
 
-HashItem *HashTable::Lookup(const KeyInput &key)
+HashItem *HashTable::Lookup(const KeyAdapter &key)
 {
 	// If nothing allocated,
 	if (!_allocated) return 0;
@@ -258,7 +248,7 @@ HashItem *HashTable::Lookup(const KeyInput &key)
 	return 0;
 }
 
-HashItem *HashTable::Create(const KeyInput &key)
+HashItem *HashTable::Create(const KeyAdapter &key)
 {
 	// If first allocation fails,
 	if (!_buckets && !Grow()) return 0;
@@ -569,19 +559,37 @@ int Parser::ReadTokens(int root_key_len, int root_depth)
 
 		// Add this path to the hash table
 		SanitizedKey san_key(_root_key, key_len);
-		KeyInput key_input(san_key);
+		KeyAdapter key_input(san_key);
 		HashItem *item = _output_file->_table.Lookup(key_input);
 		if (!item)
 		{
 			// Create a new item for this key
 			item = _output_file->_table.Create(key_input);
-			item->_enlisted = false;
+
+			if (!_is_override)
+			{
+				item->_enlisted = false;
+			}
+			else
+			{
+				// Push onto the new list
+				CAT_FSLL_PUSH_FRONT(_output_file->_modded, item, _mod_next);
+				item->_enlisted = true;
+			}
+		}
+		else
+		{
+			if (!item->_enlisted)
+			{
+				// Push onto the new list
+				CAT_FSLL_PUSH_FRONT(_output_file->_newest, item, _mod_next);
+			}
 		}
 
 		// Update item value
 		if (item)
 		{
-			if (_is_override)
+			if (!_is_override)
 			{
 				// Calculate key end offset and end of line offset
 				u32 key_end_offset = (u32)(_first + _first_len - _file_front);
@@ -741,19 +749,14 @@ bool File::Read(const char *file_path)
 {
 	CAT_DEBUG_ENFORCE(file_path);
 
-	Parser parser;
-	return parser.Read(file_path, this);
+	return Parser().Read(file_path, this);
 }
 
 bool File::Override(const char *file_path)
 {
 	CAT_DEBUG_ENFORCE(file_path);
 
-	Parser parser;
-	if (!parser.Read(file_path, this, true))
-		return false;
-
-	return true;
+	return Parser().Read(file_path, this, true);
 }
 
 void File::Set(const char *key, const char *value)
@@ -762,7 +765,7 @@ void File::Set(const char *key, const char *value)
 
 	// Add this path to the hash table
 	SanitizedKey san_key(key);
-	KeyInput key_input(san_key);
+	KeyAdapter key_input(san_key);
 	HashItem *item = _table.Lookup(key_input);
 	if (!item)
 	{
@@ -798,7 +801,7 @@ const char *File::Get(const char *key, const char *defaultValue)
 
 	// Add this path to the hash table
 	SanitizedKey san_key(key);
-	KeyInput key_input(san_key);
+	KeyAdapter key_input(san_key);
 	HashItem *item = _table.Lookup(key_input);
 	if (item) return item->GetValueStr();
 
@@ -826,7 +829,7 @@ void File::SetInt(const char *key, int value)
 
 	// Add this path to the hash table
 	SanitizedKey san_key(key);
-	KeyInput key_input(san_key);
+	KeyAdapter key_input(san_key);
 	HashItem *item = _table.Lookup(key_input);
 	if (!item)
 	{
@@ -862,7 +865,7 @@ int File::GetInt(const char *key, int defaultValue)
 
 	// Add this path to the hash table
 	SanitizedKey san_key(key);
-	KeyInput key_input(san_key);
+	KeyAdapter key_input(san_key);
 	HashItem *item = _table.Lookup(key_input);
 	if (item) return item->GetValueInt();
 
@@ -892,7 +895,7 @@ void File::Set(const char *key, const char *value, RWLock *lock)
 
 	// Add this path to the hash table
 	SanitizedKey san_key(key);
-	KeyInput key_input(san_key);
+	KeyAdapter key_input(san_key);
 	HashItem *item = _table.Lookup(key_input);
 	if (!item)
 	{
@@ -933,7 +936,7 @@ void File::Get(const char *key, const char *defaultValue, std::string &out_value
 
 	// Add this path to the hash table
 	SanitizedKey san_key(key);
-	KeyInput key_input(san_key);
+	KeyAdapter key_input(san_key);
 	HashItem *item = _table.Lookup(key_input);
 	if (item)
 	{
@@ -974,7 +977,7 @@ void File::SetInt(const char *key, int value, RWLock *lock)
 
 	// Add this path to the hash table
 	SanitizedKey san_key(key);
-	KeyInput key_input(san_key);
+	KeyAdapter key_input(san_key);
 	HashItem *item = _table.Lookup(key_input);
 	if (!item)
 	{
@@ -1015,7 +1018,7 @@ int File::GetInt(const char *key, int defaultValue, RWLock *lock)
 
 	// Add this path to the hash table
 	SanitizedKey san_key(key);
-	KeyInput key_input(san_key);
+	KeyAdapter key_input(san_key);
 	HashItem *item = _table.Lookup(key_input);
 	if (item)
 	{
@@ -1126,24 +1129,17 @@ void File::SortModifiedItems()
 
 /*
 	Merge two sorted linked lists:
-	Newest items are merged into the modified items list.
-
-	If both items have the same key-end-offset, then it will
-	use the modified list to match the proper write order.
+	Higher priority list wins when both are at the same offset.
 */
-HashItem *File::MergeNewestItems()
+HashItem *File::MergeItems(HashItem *hi_prio, HashItem *lo_prio)
 {
-	// If nothing is new,
-	HashItem *n = _newest;
-	if (!n) return; 
+	// If nothing in hi prio list,
+	HashItem *m = hi_prio;
+	if (!m) return lo_prio; 
 
-	// If nothing is old,
-	HashItem *m = _modded;
-	if (!m)
-	{
-		_modded = _newest;
-		return;
-	}
+	// If nothing in lo prio list,
+	HashItem *n = lo_prio;
+	if (!n) return m;
 
 	// Initialize new head and tail
 	u32 noff = n->_key_end_offset;
@@ -1206,7 +1202,7 @@ HashItem *File::MergeNewestItems()
 			// Update n offset
 			noff = n->_key_end_offset;
 		}
-		else
+		else // if m == n or m > n,
 		{
 			// Append m
 			tail->_mod_next = m;
@@ -1240,7 +1236,7 @@ bool File::WriteNewKey(char *key, int key_len, HashItem *item)
 
 			// Create a key from the string
 			u32 hash = MurmurHash(key, jj).Get32();
-			KeyInput key_input(key, jj, hash);
+			KeyAdapter key_input(key, jj, hash);
 
 			// Lookup the parent item
 			HashItem *item = _table.Lookup(key_input);
@@ -1282,6 +1278,8 @@ bool File::Write(const char *file_path, bool force)
 	// Cache view
 	const char *front = (const char*)_view.GetFront();
 	u32 file_length = _view.GetLength();
+
+	CAT_DEBUG_ENFORCE(front || !_modded) << "Modded items but no open file";
 
 	// Construct temporary file path
 	string temp_path = file_path;
