@@ -475,6 +475,12 @@ union Float32 {
 
 //// String and buffer macros ////
 
+#if defined(CAT_OS_WINDOWS)
+# define CAT_NEWLINE "\r\n"
+#else
+# define CAT_NEWLINE "\n"
+#endif
+
 #define CAT_FOREVER for (;;)
 
 // Same as strncpy() in all ways except that the result is guaranteed to

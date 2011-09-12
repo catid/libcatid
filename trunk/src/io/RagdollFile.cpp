@@ -1365,48 +1365,74 @@ HashItem *File::MergeItems(HashItem *hi_prio, HashItem *lo_prio)
 	return head;
 }
 
-bool File::WriteNewKey(char *key, int key_len, HashItem *item)
+u32 File::WriteNewKey(char *key, int key_len, HashItem *front, HashItem *end)
 {
 	// Strip off dotted parts until we find it in the hash table
 	for (int jj = key_len - 1; jj > 1; --jj)
 	{
-		if (key[jj] == '.')
+		// Search for next dot
+		if (key[jj] != '.') continue;
+
+		// Create a key from the parent part of the string
+		u32 hash = MurmurHash(key, jj).Get32();
+		KeyAdapter key_input(key, jj, hash);
+
+		// Lookup the parent item
+		HashItem *parent = _table.Lookup(key_input);
+		if (parent)
 		{
-			key[jj] = '\0';
-
-			// Create a key from the string
-			u32 hash = MurmurHash(key, jj).Get32();
-			KeyAdapter key_input(key, jj, hash);
-
-			// Lookup the parent item
-			HashItem *item = _table.Lookup(key_input);
-			if (item)
+			if (parent->_enlisted)
 			{
-				// TODO
-
-				return true;
+				// Insert after parent
+				end->_mod_next = parent->_mod_next;
+				parent->_mod_next = front;
 			}
 			else
 			{
-				if (WriteNewKey(key, jj, item))
-				{
-					// TODO
+				// NOTE: New items at end are all enlisted so will not get here with a new-item parent
 
-					return true;
-				}
-				else
-				{
-					// TODO
-
-					return false;
-				}
+				// Insert at front of the modified list
+				end->_mod_next = _modded;
+				_modded = front;
 			}
 
-			key[jj] = '.';
+			// Return end-of-line offset of parent
+			return parent->_eol_offset ? parent->_eol_offset : parent->_key_end_offset;
+		}
+		else
+		{
+			// Create a hash table entry for this key
+			HashItem *item = _table.Create(key_input);
+			if (!item)
+			{
+				CAT_FATAL("Ragdoll") << "Out of memory";
+				return 0;
+			}
+
+			// NOTE: Will not find this item as a parent during recursion
+			// so leaving the item uninitialized for now is okay.
+
+			// Recurse to find parent
+			u32 offset = WriteNewKey(key, jj, item, end);
+
+			// Go ahead and fill in the item
+			item->_enlisted = true;
+			item->_key_end_offset = offset;
+			item->_eol_offset = 0; // Indicate it is a new item that needs new item processing
+			item->_mod_next = front;
+			return offset;
 		}
 	}
 
-	return false;
+	// TODO: Set _depth
+
+	// Did not find the parent at all, so this is a completely new item
+
+	// Insert at the front of the eof list
+	end->_mod_next = _eof_head;
+	_eof_head = front;
+
+	return 0;
 }
 
 bool File::Write(const char *file_path, bool force)
@@ -1433,42 +1459,71 @@ bool File::Write(const char *file_path, bool force)
 		return false;
 	}
 
-	// Sort the modified items in increasing order
-	HashItem *head = _modded;
-	HashItem *newest = _newest;
-	head = SortItems(_newest);
+	// Initialize eof list head
+	_eof_head = 0;
 
 	// For each new item in the list,
-	for (HashItem *ii = _newest; ii; ii = ii->_mod_next)
+	for (HashItem *next, *ii = _newest; ii; ii = next)
 	{
-		const char *overall_key = ii->Key();
-		int overall_len = ii->Length();
+		// Cache next in list
+		next = ii->_mod_next;
 
-		// Copy as lower-case
-		char lowercase_key[MAX_CHARS+1];
-		CopyToLowercaseString(overall_key, lowercase_key);
+		// Sanitize the key string
+		char sanitized_key[MAX_CHARS+1];
+		int sanitized_len = SanitizeKeyString(ii->Key(), sanitized_key);
 
-		// If not able to insert under an existing key,
-		if (!WriteNewKey(lowercase_key, overall_len, ii))
-		{
-			// TODO: Write it to the end
-		}
+		// Write new key list into the mod or eof list
+		WriteNewKey(sanitized_key, sanitized_len, ii);
 	}
 
-	// For each modified item,
+	// Sort the modified items in increasing order and merge the merge-items
 	u32 copy_start = 0;
-	for (HashItem *write_node = MergeItems(head, newest); write_node; write_node = write_node->_mod_next)
+	for (HashItem *ii = SortItems(_modded); ii; ii = ii->_mod_next)
 	{
-		u32 key_end_offset = write_node->_key_end_offset;
-		u32 eol_offset = write_node->_eol_offset;
+		u32 key_end_offset = ii->_key_end_offset;
 		u32 copy_bytes = key_end_offset - copy_start;
 
+		// Write original file data up to the start of the key
 		if (copy_bytes > 0)
 			file.write(front + copy_start, copy_bytes);
 
-		copy_start = eol_offset;
+		// If modifying a value of an existing key,
+		u32 eol_offset = ii->_eol_offset;
+		if (eol_offset)
+		{
+			// NOTE: EOL offset points at the next character after the original value
 
-		// TODO: Insert new data here
+			// If value is set,
+			if (ii->_value[0])
+			{
+				// If there was no original value,
+				if (eol_offset == key_end_offset)
+				{
+					// Write a tab after the key
+					file.write("\t", 1);
+				}
+
+				// Write the new value string
+				file.write(ii->_value, (int)strlen(ii->_value));
+			}
+
+			// NOTE: No need to write a new line here
+
+			copy_start = eol_offset;
+		}
+		else
+		{
+			// Write a new line
+			file.write(CAT_NEWLINE, (int)strlen(CAT_NEWLINE));
+
+			int jj = ii->_depth;
+			while (jj--)
+			{
+				
+			}
+
+			copy_start = key_end_offset;
+		}
 	}
 
 	// Copy remainder of file
@@ -1479,6 +1534,8 @@ bool File::Write(const char *file_path, bool force)
 		if (copy_bytes > 0)
 			file.write(front + copy_start, copy_bytes);
 	}
+
+	// TODO: EOF list here
 
 	// Flush and close the file
 	file.flush();
