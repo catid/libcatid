@@ -1066,10 +1066,8 @@ HashItem *File::SortItems(HashItem *head)
 {
 	if (!head) return 0;
 
-	// TODO: Need to assign _skip_next in retrospect
-
 	// Unroll first loop where consecutive pairs are put in order
-	HashItem *a = head, *tail = 0;
+	HashItem *a = head, *tail = 0, *skip_last = 0;
 	do
 	{
 		// Grab second item in pair
@@ -1095,7 +1093,7 @@ HashItem *File::SortItems(HashItem *head)
 			tail = b;
 
 			// Maintain skip list for next pass
-			a->_skip_next = next_pair;
+			skip_last = a;
 		}
 		else // pair is out of order
 		{
@@ -1104,15 +1102,24 @@ HashItem *File::SortItems(HashItem *head)
 			b->_mod_next = a;
 
 			// Link b to previous node
-			if (tail) tail->_mod_next = b;
+			if (tail)
+			{
+				tail->_mod_next = b;
+
+				// Fix skip list from last pass
+				CAT_DEBUG_ENFORCE(skip_last);
+				skip_last->_skip_next = b;
+			}
 			else head = b;
 
 			// Remember a as previous node
 			tail = a;
 
 			// Maintain skip list for next pass
-			b->_skip_next = next_pair;
+			skip_last = b;
 		}
+
+		skip_last->_skip_next = next_pair;
 
 		// Continue at next pair
 		a = next_pair;
@@ -1123,7 +1130,8 @@ HashItem *File::SortItems(HashItem *head)
 	CAT_FOREVER
 	{
 		// Unroll first list merge for exit condition
-		HashItem *a = head, *tail = 0;
+		a = head;
+		tail = 0;
 
 		// Grab start of second list
 		HashItem *b = a->_skip_next;
@@ -1133,10 +1141,6 @@ HashItem *File::SortItems(HashItem *head)
 
 		// Remember pointer to next list
 		HashItem *next_list = b->_skip_next;
-
-		// First item in the new list will be either a or b
-		// b already has next list pointer set, so just update a
-		a->_skip_next = next_list;
 
 		// Cache a, b offsets
 		u32 aoff = a->_key_end_offset, boff = b->_key_end_offset;
@@ -1186,6 +1190,15 @@ HashItem *File::SortItems(HashItem *head)
 					// Link remainder of a-items to end
 					tail->_mod_next = a;
 
+					// Need to fix the final next pointer of the appended a-items
+					HashItem *prev;
+					do
+					{
+						prev = a;
+						a = a->_mod_next;
+					} while (a != b_head);
+					prev->_mod_next = b;
+
 					// Done with this step size
 					break;
 				}
@@ -1195,6 +1208,9 @@ HashItem *File::SortItems(HashItem *head)
 			}
 		}
 
+		// Remember start of merged list for fixing the skip list later
+		skip_last = head;
+
 		// Second and following merges
 		while ((a = next_list))
 		{
@@ -1202,10 +1218,19 @@ HashItem *File::SortItems(HashItem *head)
 			b = a->_skip_next;
 
 			// If no second list, done with this step size
-			if (!b) break;
+			if (!b)
+			{
+				// Fix skip list
+				skip_last->_skip_next = a;
+
+				break;
+			}
 
 			// Remember pointer to next list
 			next_list = b->_skip_next;
+
+			// Remember previous tail for fixing the skip list later
+			HashItem *prev_tail = tail;
 
 			// First item in the new list will be either a or b
 			// b already has next list pointer set, so just update a
@@ -1266,7 +1291,15 @@ HashItem *File::SortItems(HashItem *head)
 					boff = b->_key_end_offset;
 				}
 			}
+
+			// Determine segment head and fix skip list
+			HashItem *seg_head = prev_tail->_mod_next;
+			skip_last->_skip_next = seg_head;
+			skip_last = seg_head;
 		}
+
+		// Fix final skip list pointer
+		skip_last->_skip_next = 0;
 
 		// Double step size
 		step_size *= 2;
