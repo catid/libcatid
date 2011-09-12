@@ -375,9 +375,6 @@ class CAT_EXPORT File
 	// Sort a list
 	static HashItem *SortItems(HashItem *head);
 
-	// Merge a high priority and low priority list together
-	static HashItem *MergeItems(HashItem *hi_prio, HashItem *lo_prio);
-
 	// Recursively write new keys into the newest list
 	HashItem *_eof_head; // List of keys to be written to eof
 	int _key_depth;

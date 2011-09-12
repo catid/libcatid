@@ -139,9 +139,11 @@ SanitizedKey::SanitizedKey(const char *key, int len)
 
 HashKey::HashKey(const KeyAdapter &key)
 {
-	_key.SetFromRangeString(key.Key(), key.Length());
+	int len = key.Length();
+
+	_key.SetFromRangeString(key.Key(), len);
 	_hash = key.Hash();
-	_len = key.Length();
+	_len = len;
 }
 
 
@@ -1303,104 +1305,6 @@ HashItem *File::SortItems(HashItem *head)
 
 		// Double step size
 		step_size *= 2;
-	}
-
-	return head;
-}
-
-/*
-	Merge two sorted linked lists:
-	Higher priority list wins when both are at the same offset.
-*/
-HashItem *File::MergeItems(HashItem *hi_prio, HashItem *lo_prio)
-{
-	// If nothing in hi prio list,
-	HashItem *m = hi_prio;
-	if (!m) return lo_prio; 
-
-	// If nothing in lo prio list,
-	HashItem *n = lo_prio;
-	if (!n) return m;
-
-	// Initialize new head and tail
-	u32 noff = n->_key_end_offset;
-	u32 moff = m->_key_end_offset;
-	HashItem *head;
-	if (noff < moff)
-	{
-		// Set n as head
-		head = n;
-
-		// Get next n
-		n = n->_mod_next;
-		if (!n)
-		{
-			// Append remainder of m list
-			head->_mod_next = m;
-			return head;
-		}
-
-		// Update n offset
-		noff = n->_key_end_offset;
-	}
-	else
-	{
-		// Set m as head
-		head = m;
-
-		// Get next m
-		m = m->_mod_next;
-		if (!m)
-		{
-			// Append remainder of n list
-			head->_mod_next = n;
-			return head;
-		}
-
-		// Update m offset
-		moff = m->_key_end_offset;
-	}
-
-	HashItem *tail = head;
-	CAT_FOREVER
-	{
-		// If n should be next,
-		if (noff < moff)
-		{
-			// Append n
-			tail->_mod_next = n;
-			tail = n;
-
-			// Get next n
-			n = n->_mod_next;
-			if (!n)
-			{
-				// Append remainder of m list
-				tail->_mod_next = m;
-				break;
-			}
-
-			// Update n offset
-			noff = n->_key_end_offset;
-		}
-		else // if m == n or m > n,
-		{
-			// Append m
-			tail->_mod_next = m;
-			tail = m;
-
-			// Get next m
-			m = m->_mod_next;
-			if (!m)
-			{
-				// Append remainder of n list
-				tail->_mod_next = n;
-				break;
-			}
-
-			// Update m offset
-			moff = m->_key_end_offset;
-		}
 	}
 
 	return head;
