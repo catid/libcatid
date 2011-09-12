@@ -54,7 +54,7 @@ static int SanitizeKeyString(const char *key, char *sanitized_string)
 				*outs++ = '.';
 				seen_punct = false;
 			}
-			*outs++ = ch + 'a' - 'Z';
+			*outs++ = ch + 'a' - 'A';
 		}
 		else if (ch >= 'a' && ch <= 'z' ||
 			ch >= '0' && ch <= '9')
@@ -94,7 +94,7 @@ static int SanitizeKeyRangeString(const char *key, int len, char *sanitized_stri
 				*outs++ = '.';
 				seen_punct = false;
 			}
-			*outs++ = ch + 'a' - 'Z';
+			*outs++ = ch + 'a' - 'A';
 		}
 		else if (ch >= 'a' && ch <= 'z' ||
 			ch >= '0' && ch <= '9')
@@ -1058,72 +1058,210 @@ int File::GetInt(const char *key, int defaultValue, RWLock *lock)
 */
 HashItem *File::SortItems(HashItem *head)
 {
-	int frame_size = 1;
+	if (!head) return 0;
 
-	// TODO: This is not implemented yet
+	// Unroll first loop where consecutive pairs are put in order
+	HashItem *a = head, *tail = 0;
+	do
+	{
+		// Grab second item in pair
+		HashItem *b = a->_mod_next;
 
+		// If no second item in pair,
+		if (!b)
+		{
+			// Initialize the skip pointer to null
+			a->_skip_next = 0;
+
+			// Done with this step size!
+			break;
+		}
+
+		// Remember next pair in case swap occurs
+		HashItem *next_pair = b->_mod_next;
+
+		// If current pair are already in order,
+		if (a->_key_end_offset <= b->_key_end_offset)
+		{
+			// Remember b as previous node
+			tail = b;
+
+			// Maintain skip list for next pass
+			a->_skip_next = next_pair;
+		}
+		else // pair is out of order
+		{
+			// Fix a, b next pointers
+			a->_mod_next = next_pair;
+			b->_mod_next = a;
+
+			// Link b to previous node
+			if (tail) tail->_mod_next = b;
+			else head = b;
+
+			// Remember a as previous node
+			tail = a;
+
+			// Maintain skip list for next pass
+			b->_skip_next = next_pair;
+		}
+
+		// Continue at next pair
+		a = next_pair;
+	} while (a);
+
+	// Continue from step size of 2
+	int step_size = 2;
 	CAT_FOREVER
 	{
-		HashItem *a = head;
-		HashItem *tail = 0;
+		// Unroll first list merge for exit condition
+		HashItem *a = head, *tail = 0;
 
-		while (a)
+		// Grab start of second list
+		HashItem *b = a->_skip_next;
+
+		// If no second list, sorting is done
+		if (!b) break;
+
+		// Remember pointer to next list
+		HashItem *next_list = b->_skip_next;
+
+		// First item in the new list will be either a or b
+		// b already has next list pointer set, so just update a
+		a->_skip_next = next_list;
+
+		// Cache a, b offsets
+		u32 aoff = a->_key_end_offset, boff = b->_key_end_offset;
+
+		// Merge two lists together until step size is exceeded
+		int b_remaining = step_size;
+		HashItem *b_head = b;
+		CAT_FOREVER
 		{
-			HashItem *b = a->_skip_next;
-
-			if (!b)
+			// In cases where both are equal, preserve order
+			if (aoff <= boff)
 			{
-				return head;
+				// Set a as tail
+				if (tail) tail->_mod_next = a;
+				else head = a;
+				tail = a;
+
+				// Grab next a
+				a = a->_mod_next;
+
+				// If ran out of a-items,
+				if (a == b_head)
+				{
+					// Link remainder of b-items to the end
+					tail->_mod_next = b;
+
+					// Done with this step size
+					break;
+				}
+
+				// Update cache of a-offset
+				aoff = a->_key_end_offset;
 			}
+			else
+			{
+				// Set b as tail
+				if (tail) tail->_mod_next = b;
+				else head = b;
+				tail = b;
 
-			u32 aoff = a->_key_end_offset;
-			u32 boff = b->_key_end_offset;
+				// Grab next b
+				b = b->_mod_next;
 
-			int ii;
-			for (ii = 0; ii < frame_size; ++ii)
+				// If ran out of b-items,
+				if (--b_remaining == 0 || !b)
+				{
+					// Link remainder of a-items to end
+					tail->_mod_next = a;
+
+					// Done with this step size
+					break;
+				}
+
+				// Update cache of b-offset
+				boff = b->_key_end_offset;
+			}
+		}
+
+		// Second and following merges
+		while ((a = next_list))
+		{
+			// Grab start of second list
+			b = a->_skip_next;
+
+			// If no second list, done with this step size
+			if (!b) break;
+
+			// Remember pointer to next list
+			next_list = b->_skip_next;
+
+			// First item in the new list will be either a or b
+			// b already has next list pointer set, so just update a
+			a->_skip_next = next_list;
+
+			// Cache a, b offsets
+			aoff = a->_key_end_offset;
+			boff = b->_key_end_offset;
+
+			// Merge two lists together until step size is exceeded
+			b_remaining = step_size;
+			b_head = b;
+			CAT_FOREVER
 			{
 				// In cases where both are equal, preserve order
 				if (aoff <= boff)
 				{
-					if (tail) tail->_mod_next = a;
-					else head = a;
+					// Set a as tail
+					tail->_mod_next = a;
 					tail = a;
 
+					// Grab next a
 					a = a->_mod_next;
-					if (!a)
+
+					// If ran out of a-items,
+					if (a == b_head)
 					{
+						// Link remainder of b-items to the end
 						tail->_mod_next = b;
+
+						// Done with this step size
 						break;
 					}
+
+					// Update cache of a-offset
 					aoff = a->_key_end_offset;
 				}
 				else
 				{
-					if (tail) tail->_mod_next = b;
-					else head = b;
+					// Set b as tail
+					tail->_mod_next = b;
 					tail = b;
 
+					// Grab next b
 					b = b->_mod_next;
-					if (!b)
+
+					// If ran out of b-items,
+					if (--b_remaining == 0 || !b)
 					{
+						// Link remainder of a-items to end
 						tail->_mod_next = a;
+
+						// Done with this step size
 						break;
 					}
-					aoff = b->_key_end_offset;
+
+					// Update cache of b-offset
+					boff = b->_key_end_offset;
 				}
 			}
-
-			// Find end of frame
-			for (; ii < frame_size; ++ii)
-			{
-				if (!tail) break;
-				tail = tail->_mod_next;
-			}
-
-			head->_skip_next = a = tail;
 		}
 
-		frame_size *= 2;
+		// Double step size
+		step_size *= 2;
 	}
 
 	return head;
@@ -1296,7 +1434,9 @@ bool File::Write(const char *file_path, bool force)
 	}
 
 	// Sort the modified items in increasing order
-	SortModifiedItems();
+	HashItem *head = _modded;
+	HashItem *newest = _newest;
+	head = SortItems(_newest);
 
 	// For each new item in the list,
 	for (HashItem *ii = _newest; ii; ii = ii->_mod_next)
@@ -1317,7 +1457,7 @@ bool File::Write(const char *file_path, bool force)
 
 	// For each modified item,
 	u32 copy_start = 0;
-	for (HashItem *write_node = MergeNewestItems(); write_node; write_node = write_node->_mod_next)
+	for (HashItem *write_node = MergeItems(head, newest); write_node; write_node = write_node->_mod_next)
 	{
 		u32 key_end_offset = write_node->_key_end_offset;
 		u32 eol_offset = write_node->_eol_offset;
