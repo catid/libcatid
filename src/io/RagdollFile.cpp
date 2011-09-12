@@ -1509,12 +1509,8 @@ static void WriteItemValue(HashItem *item, ofstream &file)
 	// If value is not set, abort
 	if (!value[0]) return;
 
-	// If there was no original value,
-	if (item->GetEOLOffset() <= item->GetKeyEndOffset())
-	{
-		// Write a tab after the key
-		file.write(TAB_STRING, 1);
-	}
+	// Write a tab after the key
+	file.write(TAB_STRING, 1);
 
 	// Write the new value string
 	file.write(value, (int)strlen(value));
@@ -1551,7 +1547,7 @@ bool File::Write(const char *file_path, bool force)
 	temp_path += ".tmp";
 
 	// Attempt to open the temporary file for write
-	ofstream file(temp_path);
+	ofstream file(temp_path, ios::binary);
 	if (!file)
 	{
 		CAT_WARN("Ragdoll") << "Unable to open output file " << file_path;
