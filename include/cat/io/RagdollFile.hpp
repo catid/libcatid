@@ -229,7 +229,11 @@ class CAT_EXPORT HashItem : public HashKey, public HashValue, public SListItem
 	friend class File;
 
 	// Location of key value in original file
-	u32 _key_end_offset, _eol_offset;
+	u32 _key_end_offset;
+
+	// Location of end of key value field in original file
+	// 0 = Not in original file
+	u32 _eol_offset;
 
 	// Tab depth of key
 	int _depth;
@@ -364,14 +368,15 @@ class CAT_EXPORT File
 	HashItem *_modded;	// List of keys from the file that have been modified
 	HashItem *_newest;	// List of keys that were not in the file
 
-	// Sort the modded list
+	// Sort a list
 	static HashItem *SortItems(HashItem *head);
 
 	// Merge a high priority and low priority list together
 	static HashItem *MergeItems(HashItem *hi_prio, HashItem *lo_prio);
 
 	// Recursively write new keys into the newest list
-	bool WriteNewKey(char *key, int key_len, HashItem *item);
+	HashItem *_eof_head; // List of keys to be written to eof
+	u32 WriteNewKey(char *key, int key_len, HashItem *front, HashItem *end);
 
 public:
 	File();
