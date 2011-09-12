@@ -249,6 +249,10 @@ public:
 	HashItem(const KeyAdapter &key);
 
 	//CAT_INLINE virtual ~HashItem() {}
+
+	CAT_INLINE u32 GetKeyEndOffset() { return _key_end_offset; }
+	CAT_INLINE u32 GetEOLOffset() { return _eol_offset; }
+	CAT_INLINE int GetDepth() { return _depth; }
 };
 
 
@@ -317,7 +321,7 @@ public:
 
 class CAT_EXPORT Parser
 {
-	static const int MAX_TAB_RECURSION_DEPTH = 16; // Maximum number of layers in a key
+	static const int MAX_TAB_RECURSION_DEPTH = 16; // Maximum number of layers in a key (change TAB_STRING in .cpp if this changes!)
 	static const int MAX_FILE_SIZE = 4000000; // Maximum number of bytes in file allowed
 
 	// File data
@@ -376,6 +380,7 @@ class CAT_EXPORT File
 
 	// Recursively write new keys into the newest list
 	HashItem *_eof_head; // List of keys to be written to eof
+	int _key_depth;
 	u32 WriteNewKey(char *key, int key_len, HashItem *front, HashItem *end);
 
 public:
