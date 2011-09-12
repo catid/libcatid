@@ -321,9 +321,6 @@ public:
 
 class CAT_EXPORT Parser
 {
-	static const int MAX_TAB_RECURSION_DEPTH = 16; // Maximum number of layers in a key (change TAB_STRING in .cpp if this changes!)
-	static const int MAX_FILE_SIZE = 4000000; // Maximum number of bytes in file allowed
-
 	// File data
 	char *_file_front, *_file_data, *_eof;
 
@@ -353,6 +350,9 @@ protected:
 	int ReadTokens(int root_key_len, int root_depth);
 
 public:
+	static const int MAX_TAB_RECURSION_DEPTH = 16; // Maximum number of layers in a key (change TAB_STRING in .cpp if this changes!)
+	static const int MAX_FILE_SIZE = 4000000; // Maximum number of bytes in file allowed
+
 	bool Read(const char *file_path, File *output_file, bool is_override = false);
 };
 
