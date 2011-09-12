@@ -38,6 +38,10 @@ using namespace std;
 using namespace ragdoll;
 
 
+// Keep in synch with MAX_TAB_RECURSION_DEPTH
+static const char *TAB_STRING = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t";
+
+
 //// ragdoll::SanitizedKey
 
 static int SanitizeKeyString(const char *key, char *sanitized_string)
@@ -1060,6 +1064,8 @@ HashItem *File::SortItems(HashItem *head)
 {
 	if (!head) return 0;
 
+	// TODO: Need to assign _skip_next in retrospect
+
 	// Unroll first loop where consecutive pairs are put in order
 	HashItem *a = head, *tail = 0;
 	do
@@ -1377,10 +1383,11 @@ u32 File::WriteNewKey(char *key, int key_len, HashItem *front, HashItem *end)
 		u32 hash = MurmurHash(key, jj).Get32();
 		KeyAdapter key_input(key, jj, hash);
 
-		// Lookup the parent item
+		// Look up the parent item
 		HashItem *parent = _table.Lookup(key_input);
 		if (parent)
 		{
+			// If parent is already enlisted,
 			if (parent->_enlisted)
 			{
 				// Insert after parent
@@ -1395,6 +1402,9 @@ u32 File::WriteNewKey(char *key, int key_len, HashItem *front, HashItem *end)
 				end->_mod_next = _modded;
 				_modded = front;
 			}
+
+			// Remember key depth
+			_key_depth = parent->_depth;
 
 			// Return end-of-line offset of parent
 			return parent->_eol_offset ? parent->_eol_offset : parent->_key_end_offset;
@@ -1420,11 +1430,11 @@ u32 File::WriteNewKey(char *key, int key_len, HashItem *front, HashItem *end)
 			item->_key_end_offset = offset;
 			item->_eol_offset = 0; // Indicate it is a new item that needs new item processing
 			item->_mod_next = front;
+			item->_depth = ++_key_depth;
+			item->ClearValue();
 			return offset;
 		}
 	}
-
-	// TODO: Set _depth
 
 	// Did not find the parent at all, so this is a completely new item
 
@@ -1432,7 +1442,58 @@ u32 File::WriteNewKey(char *key, int key_len, HashItem *front, HashItem *end)
 	end->_mod_next = _eof_head;
 	_eof_head = front;
 
+	// Remember key depth
+	_key_depth = -1;
+
 	return 0;
+}
+
+static void WriteFinalKeyPart(HashItem *item, ofstream &file)
+{
+	// Cache key
+	const char *key = item->Key();
+	int len = item->Length();
+
+	// Search for final part of key
+	int ii = len - 1;
+	while (ii >= 0 && IsAlphanumeric(key[ii]))
+		--ii;
+
+	// Write it
+	int write_count = len - ii - 1;
+	if (write_count > 0) file.write(key + ii + 1, write_count);
+}
+
+static void WriteItemValue(HashItem *item, ofstream &file)
+{
+	const char *value = item->GetValueStr();
+
+	// If value is not set, abort
+	if (!value[0]) return;
+
+	// If there was no original value,
+	if (item->GetEOLOffset() <= item->GetKeyEndOffset())
+	{
+		// Write a tab after the key
+		file.write(TAB_STRING, 1);
+	}
+
+	// Write the new value string
+	file.write(value, (int)strlen(value));
+}
+
+static void WriteItem(HashItem *item, ofstream &file)
+{
+	// Write a new line
+	file.write("\n", 1);
+
+	// Write tabs up to the depth
+	int depth = item->GetDepth();
+	if (depth > 0) file.write(TAB_STRING, depth);
+
+	WriteFinalKeyPart(item, file);
+
+	WriteItemValue(item, file);
 }
 
 bool File::Write(const char *file_path, bool force)
@@ -1473,7 +1534,15 @@ bool File::Write(const char *file_path, bool force)
 		int sanitized_len = SanitizeKeyString(ii->Key(), sanitized_key);
 
 		// Write new key list into the mod or eof list
-		WriteNewKey(sanitized_key, sanitized_len, ii);
+		_key_depth = 0;
+		u32 offset = WriteNewKey(sanitized_key, sanitized_len, ii, ii);
+
+		// Go ahead and fill in the item
+		ii->_enlisted = true;
+		ii->_key_end_offset = offset;
+		ii->_eol_offset = 0; // Indicate it is a new item that needs new item processing
+		// ii->_mod_next already set
+		ii->_depth = ++_key_depth;
 	}
 
 	// Sort the modified items in increasing order and merge the merge-items
@@ -1493,19 +1562,7 @@ bool File::Write(const char *file_path, bool force)
 		{
 			// NOTE: EOL offset points at the next character after the original value
 
-			// If value is set,
-			if (ii->_value[0])
-			{
-				// If there was no original value,
-				if (eol_offset == key_end_offset)
-				{
-					// Write a tab after the key
-					file.write("\t", 1);
-				}
-
-				// Write the new value string
-				file.write(ii->_value, (int)strlen(ii->_value));
-			}
+			WriteItemValue(ii, file);
 
 			// NOTE: No need to write a new line here
 
@@ -1513,14 +1570,7 @@ bool File::Write(const char *file_path, bool force)
 		}
 		else
 		{
-			// Write a new line
-			file.write(CAT_NEWLINE, (int)strlen(CAT_NEWLINE));
-
-			int jj = ii->_depth;
-			while (jj--)
-			{
-				
-			}
+			WriteItem(ii, file);
 
 			copy_start = key_end_offset;
 		}
@@ -1535,7 +1585,9 @@ bool File::Write(const char *file_path, bool force)
 			file.write(front + copy_start, copy_bytes);
 	}
 
-	// TODO: EOF list here
+	// For each EOF item,
+	for (HashItem *ii = _eof_head; ii; ii = ii->_mod_next)
+		WriteItem(ii, file);
 
 	// Flush and close the file
 	file.flush();
