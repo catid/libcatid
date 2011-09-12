@@ -743,6 +743,8 @@ File::File()
 {
 	_modded = 0;
 	_newest = 0;
+
+	CAT_DEBUG_ENFORCE(strlen(TAB_STRING) > Parser::MAX_TAB_RECURSION_DEPTH) << "Need to add more tabs to TAB_STRING";
 }
 
 File::~File()
@@ -1432,6 +1434,9 @@ u32 File::WriteNewKey(char *key, int key_len, HashItem *front, HashItem *end)
 			item->_mod_next = front;
 			item->_depth = ++_key_depth;
 			item->ClearValue();
+
+			CAT_DEBUG_ENFORCE(_key_depth <= Parser::MAX_TAB_RECURSION_DEPTH);
+
 			return offset;
 		}
 	}
