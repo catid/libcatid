@@ -80,6 +80,7 @@
 #include <cat/rand/IRandom.hpp>
 #include <cat/crypt/hash/Skein.hpp>
 #include <cat/threads/Mutex.hpp>
+#include <cat/lang/RefSingleton.hpp>
 
 
 // Defining CAT_NO_ENTROPY_THREAD will remove dependencies on pthreads and not

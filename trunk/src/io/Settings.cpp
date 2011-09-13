@@ -37,10 +37,18 @@ CAT_REF_SINGLETON(Settings);
 
 void Settings::OnInitialize()
 {
+	FinalizeBefore<Logging>();
+
 	AutoWriteLock lock(_lock);
 
 	_file.Read(CAT_SETTINGS_FILE);
 	_file.Override(CAT_SETTINGS_OVERRIDE_FILE);
+
+	lock.Release();
+
+	// Initialize logging threshold
+	EventSeverity threshold = (EventSeverity)getInt("Log.Threshold", 0);
+	Logging::ref()->SetThreshold(threshold);
 }
 
 void Settings::OnFinalize()

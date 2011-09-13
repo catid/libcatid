@@ -777,7 +777,9 @@ void File::Set(const char *key, const char *value)
 	HashItem *item = _table.Lookup(key_input);
 	if (!item)
 	{
+#if !defined(CAT_RAGDOLL_STORE_EMPTY)
 		if (value[0] == '\0') return;
+#endif
 
 		// Create a new item for this key
 		item = _table.Create(key_input);
@@ -814,7 +816,9 @@ const char *File::Get(const char *key, const char *defaultValue)
 	if (item) return item->GetValueStr();
 
 	// If default value is not undefined,
+#if !defined(CAT_RAGDOLL_STORE_EMPTY)
 	if (defaultValue[0] != '\0')
+#endif
 	{
 		// Create a new item for this key
 		item = _table.Create(key_input);
@@ -841,7 +845,9 @@ void File::SetInt(const char *key, int value)
 	HashItem *item = _table.Lookup(key_input);
 	if (!item)
 	{
+#if !defined(CAT_RAGDOLL_STORE_EMPTY)
 		if (value == 0) return;
+#endif
 
 		// Create a new item for this key
 		item = _table.Create(key_input);
@@ -878,7 +884,9 @@ int File::GetInt(const char *key, int defaultValue)
 	if (item) return item->GetValueInt();
 
 	// If default value is not undefined,
+#if !defined(CAT_RAGDOLL_STORE_EMPTY)
 	if (defaultValue != 0)
+#endif
 	{
 		// Create a new item for this key
 		item = _table.Create(key_input);
@@ -907,7 +915,9 @@ void File::Set(const char *key, const char *value, RWLock *lock)
 	HashItem *item = _table.Lookup(key_input);
 	if (!item)
 	{
+#if !defined(CAT_RAGDOLL_STORE_EMPTY)
 		if (value[0] != '\0')
+#endif
 		{
 			// Create a new item for this key
 			item = _table.Create(key_input);
@@ -956,7 +966,9 @@ void File::Get(const char *key, const char *defaultValue, std::string &out_value
 	lock->ReadUnlock();
 
 	// If default value is not undefined,
+#if !defined(CAT_RAGDOLL_STORE_EMPTY)
 	if (defaultValue[0] != '\0')
+#endif
 	{
 		lock->WriteLock();
 
@@ -989,7 +1001,9 @@ void File::SetInt(const char *key, int value, RWLock *lock)
 	HashItem *item = _table.Lookup(key_input);
 	if (!item)
 	{
+#if !defined(CAT_RAGDOLL_STORE_EMPTY)
 		if (value != 0)
+#endif
 		{
 			// Create a new item for this key
 			item = _table.Create(key_input);
@@ -1038,7 +1052,9 @@ int File::GetInt(const char *key, int defaultValue, RWLock *lock)
 	lock->ReadUnlock();
 
 	// If default value is not undefined,
+#if !defined(CAT_RAGDOLL_STORE_EMPTY)
 	if (defaultValue != 0)
+#endif
 	{
 		lock->WriteLock();
 
