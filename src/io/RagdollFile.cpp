@@ -44,6 +44,49 @@ static const char *TAB_STRING = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t";
 
 //// ragdoll::SanitizedKey
 
+static int SanitizeKeyStringCase(const char *key, char *sanitized_string, char *case_string)
+{
+	char ch, *outs = sanitized_string, *outc = case_string;
+	bool seen_punct = false;
+
+	while ((ch = *key++))
+	{
+		if (ch >= 'A' && ch <= 'Z')
+		{
+			if (seen_punct)
+			{
+				*outs++ = '.';
+				*outc++ = '.';
+				seen_punct = false;
+			}
+			*outc++ = ch;
+			*outs++ = ch + 'a' - 'A';
+		}
+		else if (ch >= 'a' && ch <= 'z' ||
+			ch >= '0' && ch <= '9')
+		{
+			if (seen_punct)
+			{
+				*outs++ = '.';
+				*outc++ = '.';
+				seen_punct = false;
+			}
+			*outc++ = ch;
+			*outs++ = ch;
+		}
+		else
+		{
+			if (outs != sanitized_string)
+				seen_punct = true;
+		}
+	}
+
+	*outc = '\0';
+	*outs = '\0';
+
+	return (int)(outs - sanitized_string);
+}
+
 static int SanitizeKeyString(const char *key, char *sanitized_string)
 {
 	char ch, *outs = sanitized_string;
@@ -1355,7 +1398,7 @@ HashItem *File::SortItems(HashItem *head)
 	return head;
 }
 
-u32 File::WriteNewKey(char *key, int key_len, HashItem *front, HashItem *end)
+u32 File::WriteNewKey(const char *case_key, const char *key, int key_len, HashItem *front, HashItem *end)
 {
 	// Strip off dotted parts until we find it in the hash table
 	for (int jj = key_len - 1; jj > 1; --jj)
@@ -1365,10 +1408,9 @@ u32 File::WriteNewKey(char *key, int key_len, HashItem *front, HashItem *end)
 
 		// Create a key from the parent part of the string
 		u32 hash = MurmurHash(key, jj).Get32();
-		KeyAdapter key_input(key, jj, hash);
 
 		// Look up the parent item
-		HashItem *parent = _table.Lookup(key_input);
+		HashItem *parent = _table.Lookup(KeyAdapter(key, jj, hash));
 		if (parent)
 		{
 			// If parent is already enlisted,
@@ -1396,7 +1438,7 @@ u32 File::WriteNewKey(char *key, int key_len, HashItem *front, HashItem *end)
 		else
 		{
 			// Create a hash table entry for this key
-			HashItem *item = _table.Create(key_input);
+			HashItem *item = _table.Create(KeyAdapter(case_key, jj, hash));
 			if (!item)
 			{
 				CAT_FATAL("Ragdoll") << "Out of memory";
@@ -1407,7 +1449,7 @@ u32 File::WriteNewKey(char *key, int key_len, HashItem *front, HashItem *end)
 			// so leaving the item uninitialized for now is okay.
 
 			// Recurse to find parent
-			u32 offset = WriteNewKey(key, jj, item, end);
+			u32 offset = WriteNewKey(case_key, key, jj, item, end);
 
 			// Go ahead and fill in the item
 			item->_enlisted = true;
@@ -1513,12 +1555,12 @@ bool File::Write(const char *file_path, bool force)
 		next = ii->_mod_next;
 
 		// Sanitize the key string
-		char sanitized_key[MAX_CHARS+1];
-		int sanitized_len = SanitizeKeyString(ii->Key(), sanitized_key);
+		char sanitized_key[MAX_CHARS+1], case_key[MAX_CHARS+1];
+		int sanitized_len = SanitizeKeyStringCase(ii->Key(), sanitized_key, case_key);
 
 		// Write new key list into the mod or eof list
 		_key_depth = 0;
-		u32 offset = WriteNewKey(sanitized_key, sanitized_len, ii, ii);
+		u32 offset = WriteNewKey(case_key, sanitized_key, sanitized_len, ii, ii);
 
 		// Go ahead and fill in the item
 		ii->_enlisted = true;

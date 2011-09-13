@@ -162,15 +162,16 @@ public:
 class CAT_EXPORT HashKey
 {
 protected:
+	NulTermFixedStr<MAX_CHARS> _case_key;
 	NulTermFixedStr<MAX_CHARS> _key;
 	int _len;
 	u32 _hash;
 
 public:
 	HashKey(const KeyAdapter &key);
-
 	//CAT_INLINE virtual ~HashKey() {}
 
+	CAT_INLINE const char *CaseKey() { return _case_key; }
 	CAT_INLINE const char *Key() { return _key; }
 	CAT_INLINE int Length() { return _len; }
 	CAT_INLINE u32 Hash() { return _hash; }
@@ -194,7 +195,6 @@ protected:
 public:
 	CAT_INLINE HashValue() {}
 	HashValue(const char *key, int len);
-
 	//CAT_INLINE virtual ~HashValue() {}
 
 	CAT_INLINE void ClearValue() { _value.Clear(); }
@@ -247,7 +247,6 @@ class CAT_EXPORT HashItem : public HashKey, public HashValue, public SListItem
 
 public:
 	HashItem(const KeyAdapter &key);
-
 	//CAT_INLINE virtual ~HashItem() {}
 
 	CAT_INLINE u32 GetKeyEndOffset() { return _key_end_offset; }
@@ -378,7 +377,7 @@ class CAT_EXPORT File
 	// Recursively write new keys into the newest list
 	HashItem *_eof_head; // List of keys to be written to eof
 	int _key_depth;
-	u32 WriteNewKey(char *key, int key_len, HashItem *front, HashItem *end);
+	u32 WriteNewKey(const char *case_key, const char *key, int key_len, HashItem *front, HashItem *end);
 
 public:
 	File();
