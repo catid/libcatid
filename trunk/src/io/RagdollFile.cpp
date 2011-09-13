@@ -1512,6 +1512,9 @@ bool File::Write(const char *file_path, bool force)
 
 			copy_start = key_end_offset;
 		}
+
+		// Remove enlisted flag
+		ii->_enlisted = false;
 	}
 
 	// Copy remainder of file
@@ -1525,7 +1528,12 @@ bool File::Write(const char *file_path, bool force)
 
 	// For each EOF item,
 	for (HashItem *ii = _eof_head; ii; ii = ii->_mod_next)
+	{
 		WriteItem(ii, file);
+
+		// Remove enlisted flag
+		ii->_enlisted = false;
+	}
 
 	// Flush and close the file
 	file.flush();
@@ -1540,6 +1548,10 @@ bool File::Write(const char *file_path, bool force)
 
 	// Move it to the final path
 	std::rename(temp_path.c_str(), file_path);
+
+	// Clear the list of new and modded entries
+	_newest = 0;
+	_modded = 0;
 
 	return true;
 }
