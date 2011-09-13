@@ -76,6 +76,9 @@ namespace cat {
 #define CAT_SETTINGS_OVERRIDE_FILE "Override.cfg"
 #endif
 
+// Enable Ragdoll-based files to store empty keys
+#define CAT_RAGDOLL_STORE_EMPTY
+
 
 } // namespace cat
 
