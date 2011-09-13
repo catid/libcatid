@@ -508,6 +508,8 @@ int Huff_CompressPacket( unsigned char *msg, int offset, int cursize ) {
 
 void RunHuffmanTests()
 {
+	int huffman_count = Settings::ref()->getInt("Huffman.Count", 100);
+
 	MersenneTwister mt;
 
 	if (!mt.Initialize())
@@ -793,9 +795,668 @@ void RunHuffmanTests()
 }
 
 
+
+
+
+
+
+
+
+
+#include <stdio.h>
+
+/*
+ * Demonstration code for sorting a linked list.
+ * 
+ * The algorithm used is Mergesort, because that works really well
+ * on linked lists, without requiring the O(N) extra space it needs
+ * when you do it on arrays.
+ * 
+ * This code can handle singly and doubly linked lists, and
+ * circular and linear lists too. For any serious application,
+ * you'll probably want to remove the conditionals on `is_circular'
+ * and `is_double' to adapt the code to your own purpose. 
+ * 
+ */
+
+/*
+ * This file is copyright 2001 Simon Tatham.
+ * 
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT.  IN NO EVENT SHALL SIMON TATHAM BE LIABLE FOR
+ * ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+ * CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+#define FALSE 0
+#define TRUE 1
+
+typedef struct element element;
+
+struct element {
+    int _key_end_offset;
+    element *_mod_next;
+    element *_skip_next;
+};
+
+CAT_INLINE int cmp(element *a, element *b) {
+    return a->_key_end_offset - b->_key_end_offset;
+}
+
+/*
+ * This is the actual sort function. Notice that it returns the new
+ * head of the list. (It has to, because the head will not
+ * generally be the same element after the sort.) So unlike sorting
+ * an array, where you can do
+ * 
+ *     sort(myarray);
+ * 
+ * you now have to do
+ * 
+ *     list = listsort(mylist);
+ */
+element *listsort(element *list) {
+    element *p, *q, *e, *tail, *oldhead;
+    int insize, nmerges, psize, qsize, i;
+
+    /*
+     * Silly special case: if `list' was passed in as NULL, return
+     * NULL immediately.
+     */
+    if (!list)
+	return NULL;
+
+    insize = 1;
+
+    while (1) {
+        p = list;
+	oldhead = list;		       /* only used for circular linkage */
+        list = NULL;
+        tail = NULL;
+
+        nmerges = 0;  /* count number of merges we do in this pass */
+
+        while (p) {
+            nmerges++;  /* there exists a merge to be done */
+            /* step `insize' places along from p */
+            q = p;
+            psize = 0;
+            for (i = 0; i < insize; i++) {
+                psize++;
+		    q = q->_mod_next;
+                if (!q) break;
+            }
+
+            /* if q hasn't fallen off end, we have two lists to merge */
+            qsize = insize;
+
+            /* now we have two lists; merge them */
+            while (psize > 0 || (qsize > 0 && q)) {
+
+                /* decide whether next element of merge comes from p or q */
+                if (psize == 0) {
+		    /* p is empty; e must come from q. */
+		    e = q; q = q->_mod_next; qsize--;
+		} else if (qsize == 0 || !q) {
+		    /* q is empty; e must come from p. */
+		    e = p; p = p->_mod_next; psize--;
+		} else if (cmp(p,q) <= 0) {
+		    /* First element of p is lower (or same);
+		     * e must come from p. */
+		    e = p; p = p->_mod_next; psize--;
+		} else {
+		    /* First element of q is lower; e must come from q. */
+		    e = q; q = q->_mod_next; qsize--;
+		}
+
+                /* add the next element to the merged list */
+		if (tail) {
+		    tail->_mod_next = e;
+		} else {
+		    list = e;
+		}
+		tail = e;
+            }
+
+            /* now p has stepped `insize' places along, and q has too */
+            p = q;
+        }
+	    tail->_mod_next = NULL;
+
+        /* If we have done only one merge, we're finished. */
+        if (nmerges <= 1)   /* allow for nmerges==0, the empty list case */
+            return list;
+
+        /* Otherwise repeat, merging lists twice the size */
+        insize *= 2;
+    }
+}
+
+
+
+
+
+void printlist(element *head)
+{
+		printf("Order: ");
+		element *p = head;
+		do {
+		    printf(" %d", p->_key_end_offset);
+		    p = p->_mod_next;
+		} while (p != NULL);
+		printf("\n");
+
+		printf("Skips: ");
+		p = head;
+		do {
+		    printf(" %d", p->_key_end_offset);
+			p = p->_skip_next;
+		} while (p != NULL);
+		printf("\n");
+}
+
+
+/*
+	MergeSort for a singly-linked list
+
+	Preserves existing order for items that have the same position
+*/
+element *listsort2(element *head)
+{
+	if (!head) return 0;
+
+	// Unroll first loop where consecutive pairs are put in order
+	element *a = head, *tail = 0, *skip_last = 0;
+	do
+	{
+		// Grab second item in pair
+		element *b = a->_mod_next;
+
+		// If no second item in pair,
+		if (!b)
+		{
+			// Initialize the skip pointer to null
+			a->_skip_next = 0;
+
+			// Done with this step size!
+			break;
+		}
+
+		//cout << "Pair loop: " << a << "(" << a->_key_end_offset << ") - " << b << "(" << b->_key_end_offset << ")" << endl;
+
+		// Remember next pair in case swap occurs
+		element *next_pair = b->_mod_next;
+
+		// If current pair are already in order,
+		if (a->_key_end_offset <= b->_key_end_offset)
+		{
+			// Remember b as previous node
+			tail = b;
+
+			// Maintain skip list for next pass
+			skip_last = a;
+
+			//cout << "Pair loop: Kept order." << endl;
+		}
+		else // pair is out of order
+		{
+			// Fix a, b next pointers
+			a->_mod_next = next_pair;
+			b->_mod_next = a;
+
+			// Link b to previous node
+			if (tail)
+			{
+				tail->_mod_next = b;
+
+				// Fix skip list from last pass
+				CAT_DEBUG_ENFORCE(skip_last);
+				skip_last->_skip_next = b;
+			}
+			else head = b;
+
+			// Remember a as previous node
+			tail = a;
+
+			// Maintain skip list for next pass
+			skip_last = b;
+
+			//cout << "Pair loop: Swapped order." << endl;
+		}
+
+		skip_last->_skip_next = next_pair;
+
+		// Continue at next pair
+		a = next_pair;
+	} while (a);
+
+	// Continue from step size of 2
+	int step_size = 2;
+	CAT_FOREVER
+	{
+		//printlist(head);
+
+		// Unroll first list merge for exit condition
+		a = head;
+		tail = 0;
+
+		// Grab start of second list
+		element *b = a->_skip_next;
+
+		// If no second list, sorting is done
+		if (!b)
+		{
+			//cout << "Step " << step_size << " loop: List head " << a << "(" << a->_key_end_offset << ") - No second list so we are done." << endl;
+			break;
+		}
+
+		//cout << "Step " << step_size << " loop: List heads " << a << "(" << a->_key_end_offset << ") - " << b << "(" << b->_key_end_offset << ")" << endl;
+
+		// Remember pointer to next list
+		element *next_list = b->_skip_next;
+
+		// Cache a, b offsets
+		u32 aoff = a->_key_end_offset, boff = b->_key_end_offset;
+
+		// Merge two lists together until step size is exceeded
+		int b_remaining = step_size;
+		element *b_head = b;
+		CAT_FOREVER
+		{
+			//cout << "Step " << step_size << " loop: Comparing " << a << "(" << a->_key_end_offset << ":" << aoff << ") - " << b << "(" << b->_key_end_offset << ":" << boff << ")" << endl;
+
+			// In cases where both are equal, preserve order
+			if (aoff <= boff)
+			{
+				// Set a as tail
+				if (tail) tail->_mod_next = a;
+				else head = a;
+				tail = a;
+
+				// Grab next a
+				a = a->_mod_next;
+
+				// If ran out of a-items,
+				if (a == b_head)
+				{
+					// Link remainder of b-items to the end
+					tail->_mod_next = b;
+
+					// Fix tail pointer
+					while (--b_remaining > 0)
+					{
+						element *next = b->_mod_next;
+						if (!next) break;
+						b = next;
+					}
+					tail = b;
+
+					//cout << "Step " << step_size << " loop: Ran out of a-items, linked b-items to end." << endl;
+
+					// Done with this step size
+					break;
+				}
+
+				// Update cache of a-offset
+				aoff = a->_key_end_offset;
+			}
+			else
+			{
+				// Set b as tail
+				if (tail) tail->_mod_next = b;
+				else head = b;
+				tail = b;
+
+				// Grab next b
+				b = b->_mod_next;
+
+				// If ran out of b-items,
+				if (--b_remaining == 0 || !b)
+				{
+					// Link remainder of a-items to end
+					tail->_mod_next = a;
+
+					// Need to fix the final next pointer of the appended a-items
+					element *prev;
+					do
+					{
+						prev = a;
+						a = a->_mod_next;
+					} while (a != b_head);
+					prev->_mod_next = b;
+					tail = prev;
+
+					//cout << "Step " << step_size << " loop: Ran out of b-items, linked a-items to end." << endl;
+
+					// Done with this step size
+					break;
+				}
+
+				// Update cache of b-offset
+				boff = b->_key_end_offset;
+			}
+		}
+
+		//printlist(head);
+
+		// Remember start of merged list for fixing the skip list later
+		skip_last = head;
+
+		// Second and following merges
+		while ((a = next_list))
+		{
+			// Grab start of second list
+			b = a->_skip_next;
+
+			// If no second list, done with this step size
+			if (!b)
+			{
+				// Fix skip list
+				skip_last->_skip_next = a;
+
+				break;
+			}
+
+			// Remember pointer to next list
+			next_list = b->_skip_next;
+
+			// Remember previous tail for fixing the skip list later
+			element *prev_tail = tail;
+
+			// First item in the new list will be either a or b
+			// b already has next list pointer set, so just update a
+			a->_skip_next = next_list;
+
+			// Cache a, b offsets
+			aoff = a->_key_end_offset;
+			boff = b->_key_end_offset;
+
+			// Merge two lists together until step size is exceeded
+			b_remaining = step_size;
+			b_head = b;
+			CAT_FOREVER
+			{
+				//cout << "Step " << step_size << " loop: Main Comparing " << a << "(" << a->_key_end_offset << ":" << aoff << ") - " << b << "(" << b->_key_end_offset << ":" << boff << ")" << endl;
+
+				// In cases where both are equal, preserve order
+				if (aoff <= boff)
+				{
+					// Set a as tail
+					tail->_mod_next = a;
+					tail = a;
+
+					// Grab next a
+					a = a->_mod_next;
+
+					// If ran out of a-items,
+					if (a == b_head)
+					{
+						// Link remainder of b-items to the end
+						tail->_mod_next = b;
+
+						// Fix tail pointer
+						while (--b_remaining > 0)
+						{
+							element *next = b->_mod_next;
+							if (!next) break;
+							b = next;
+						}
+						tail = b;
+
+						// Done with this step size
+						break;
+					}
+
+					// Update cache of a-offset
+					aoff = a->_key_end_offset;
+				}
+				else
+				{
+					// Set b as tail
+					tail->_mod_next = b;
+					tail = b;
+
+					// Grab next b
+					b = b->_mod_next;
+
+					// If ran out of b-items,
+					if (--b_remaining == 0 || !b)
+					{
+						// Link remainder of a-items to end
+						tail->_mod_next = a;
+
+						// Need to fix the final next pointer of the appended a-items
+						element *prev;
+						do
+						{
+							prev = a;
+							a = a->_mod_next;
+						} while (a != b_head);
+						prev->_mod_next = b;
+						tail = prev;
+
+						// Done with this step size
+						break;
+					}
+
+					// Update cache of b-offset
+					boff = b->_key_end_offset;
+				}
+			}
+
+			// Determine segment head and fix skip list
+			element *seg_head = prev_tail->_mod_next;
+			skip_last->_skip_next = seg_head;
+			skip_last = seg_head;
+		}
+
+		// Fix final skip list pointer
+		skip_last->_skip_next = next_list;
+
+		// Double step size
+		step_size *= 2;
+	}
+
+	return head;
+}
+
+
+
+
+
+
+
+
+
+
+
+/*
+ * Small test rig with three test orders. The list length 13 is
+ * chosen because that means some passes will have an extra list at
+ * the end and some will not.
+ */
+
+int main2(void) {
+	const int LEN = 15;
+	element *head, *p;
+    int i, j;
+	element input[LEN];
+
+	MersenneTwister mt;
+	mt.Initialize();
+	const int TRIALS = 100;
+	u64 cycles;
+
+
+
+
+
+	cycles = 0;
+
+	for (int trial = 0; trial < TRIALS; ++trial)
+	{
+		head = &input[0];
+
+		for (i = 0; i < LEN; ++i)
+		{
+			input[i]._key_end_offset = i;
+			if (i < LEN-1) input[i]._mod_next = &input[i+1];
+			else input[i]._mod_next = 0;
+		}
+
+		for (i = 1; i < LEN; ++i)
+		{
+			for (j = 0; j <= i; ++j)
+			{
+				u32 swap = mt.GenerateUnbiased(0, i);
+
+				int temp = input[j]._key_end_offset;
+				input[j]._key_end_offset = input[swap]._key_end_offset;
+				input[swap]._key_end_offset = temp;
+			}
+		}
+
+		u32 start = m_clock->cycles();
+		head = listsort2(head);
+		u32 end = m_clock->cycles();
+		cycles += end - start;
+
+		int expected = 0;
+		for (element *n = head; n; n = n->_mod_next)
+		{
+			if (n->_key_end_offset != expected)
+			{
+				cout << "NewFail!" << endl;
+				break;
+			}
+
+			++expected;
+		}
+
+		if (expected != LEN)
+		{
+			cout << "NewFail2!" << endl;
+		}
+	}
+
+	u32 new_avg = (u32)(cycles / TRIALS);
+
+	cout << "New average cycles = " << new_avg << endl;
+
+
+
+	cycles = 0;
+
+	for (int trial = 0; trial < TRIALS; ++trial)
+	{
+		head = &input[0];
+
+		for (i = 0; i < LEN; ++i)
+		{
+			input[i]._key_end_offset = i;
+			if (i < LEN-1) input[i]._mod_next = &input[i+1];
+			else input[i]._mod_next = 0;
+		}
+
+		for (i = 1; i < LEN; ++i)
+		{
+			for (j = 0; j <= i; ++j)
+			{
+				u32 swap = mt.GenerateUnbiased(0, i);
+
+				int temp = input[j]._key_end_offset;
+				input[j]._key_end_offset = input[swap]._key_end_offset;
+				input[swap]._key_end_offset = temp;
+			}
+		}
+
+		u32 start = m_clock->cycles();
+		head = listsort(head);
+		u32 end = m_clock->cycles();
+		cycles += end - start;
+
+		int expected = 0;
+		for (element *n = head; n; n = n->_mod_next)
+		{
+			if (n->_key_end_offset != expected)
+			{
+				cout << "OldFail!" << endl;
+				break;
+			}
+
+			++expected;
+		}
+
+		if (expected != LEN)
+		{
+			cout << "OldFail2!" << endl;
+		}
+	}
+
+	u32 old_avg = (u32)(cycles / TRIALS);
+
+	cout << "Old average cycles = " << old_avg << endl;
+
+
+
+
+
+
+
+
+	return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 int main(int argc, const char **argv)
 {
+	main2();
+
+	SystemInfo *sinfo = SystemInfo::ref();
+
+	CAT_INFO("TEST") << sinfo->GetProcessorCount();
+
 	m_clock = Clock::ref();
+
+	Settings::ref()->getStr("IOThreads.Test");
+
+	//Settings::ref()->getInt("level0a");
+	//Settings::ref()->getInt("level0a.level1");
+	//Settings::ref()->getInt("level0a.level1.level2a");
+	Settings::ref()->setInt("level0a.level1.level2a.level3a", 4);
+	Settings::ref()->setInt("level0a.level1.level2a.level3b", 5);
+	Settings::ref()->setInt("level0a.level1.level2b", 6);
+	Settings::ref()->setInt("level0b", 7);
 
 #ifndef GENERATING_TABLE
     if (!TextStatsCollector::VerifyTableIntegrity(ChatText))
