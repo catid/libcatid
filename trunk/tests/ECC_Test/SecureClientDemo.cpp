@@ -22,30 +22,42 @@
 using namespace std;
 using namespace cat;
 
+static Clock *m_clock = 0;
+static BigTwistedEdwards *tls_math = 0;
+static FortunaOutput *tls_csprng = 0;
+
+
+//// SecureClientDemo
+
+SecureClientDemo::SecureClientDemo()
+{
+	m_clock = Clock::ref();
+}
+
 void SecureClientDemo::OnCookie(BigTwistedEdwards *math, FortunaOutput *csprng, u8 *buffer)
 {
     //cout << "Client: Got cookie from the server" << endl;
 
-    double t1 = Clock::usec();
+    double t1 = m_clock->usec();
 	if (!tun_client.Verify(math, buffer, 4, buffer + 4, CAT_DEMO_BYTES*2))
 	{
         cout << "Client: Unable to verify signature" << endl;
         return;
 	}
-    double t2 = Clock::usec();
+    double t2 = m_clock->usec();
 
     cout << "Client: Verifying signature time = " << (t2 - t1) << " usec" << endl;
 
     u8 challenge[CAT_C2S_CHALLENGE_BYTES + CAT_S2C_COOKIE_BYTES];
 
-    t1 = Clock::usec();
+    t1 = m_clock->usec();
     if (!tun_client.GenerateChallenge(math, csprng, challenge, CAT_C2S_CHALLENGE_BYTES))
     {
         cout << "Client: Unable to generate challenge" << endl;
         return;
     }
     memcpy(challenge + CAT_C2S_CHALLENGE_BYTES, buffer, CAT_S2C_COOKIE_BYTES); // copy cookie
-    t2 = Clock::usec();
+    t2 = m_clock->usec();
 
     cout << "Client: Filling challenge message time = " << (t2 - t1) << " usec" << endl;
 
@@ -56,7 +68,7 @@ void SecureClientDemo::OnCookie(BigTwistedEdwards *math, FortunaOutput *csprng, 
 
 void SecureClientDemo::OnAnswer(BigTwistedEdwards *math, u8 *buffer)
 {
-    double t1 = Clock::usec();
+    double t1 = m_clock->usec();
 	Skein key_hash;
     if (!tun_client.ProcessAnswer(math, buffer, CAT_S2C_ANSWER_BYTES, &key_hash) ||
 		!tun_client.KeyEncryption(&key_hash, &auth_enc, "SecureDemoStream1"))
@@ -64,7 +76,7 @@ void SecureClientDemo::OnAnswer(BigTwistedEdwards *math, u8 *buffer)
         cout << "Client: Ignoring invalid answer from server" << endl;
         return;
     }
-    double t2 = Clock::usec();
+    double t2 = m_clock->usec();
     cout << "Client: Processing answer time = " << (t2 - t1) << " usec" << endl;
 
 	tun_client.SecureErasePrivateKey();
@@ -80,7 +92,7 @@ void SecureClientDemo::OnConnect()
 
     u8 buffer[1500 + AuthenticatedEncryption::OVERHEAD_BYTES] = {0};
 
-    double t1 = Clock::usec();
+    double t1 = m_clock->usec();
 
     buffer[0] = 0; // type 0 message = proof at offset 5
 
@@ -99,7 +111,7 @@ void SecureClientDemo::OnConnect()
 	u64 iv = auth_enc.GrabIVRange(1);
     auth_enc.Encrypt(iv, buffer, bytes);
 
-    double t2 = Clock::usec();
+    double t2 = m_clock->usec();
 
     cout << "Client: Message 0 construction time = " << (t2 - t1) << " usec" << endl;
 
@@ -131,7 +143,7 @@ void SecureClientDemo::OnSessionMessage(u8 *buffer, u32 bytes)
 
     //cout << "Client: Sending ping message #" << id << endl;
 
-    double t1 = Clock::usec();
+    double t1 = m_clock->usec();
 
     u8 response[1500 + AuthenticatedEncryption::OVERHEAD_BYTES] = {0};
 
@@ -144,15 +156,12 @@ void SecureClientDemo::OnSessionMessage(u8 *buffer, u32 bytes)
 	u64 iv = auth_enc.GrabIVRange(1);
 	auth_enc.Encrypt(iv, response, response_bytes);
 
-    double t2 = Clock::usec();
+    double t2 = m_clock->usec();
 
     cout << "Client: Message " << id << " construction time = " << (t2 - t1) << " usec" << endl;
 
     server_ref->OnDatagram(my_addr, response, response_bytes);
 }
-
-static BigTwistedEdwards *tls_math = 0;
-static FortunaOutput *tls_csprng = 0;
 
 void SecureClientDemo::Reset(SecureServerDemo *cserver_ref, TunnelPublicKey &public_key)
 {
@@ -170,7 +179,7 @@ void SecureClientDemo::Reset(SecureServerDemo *cserver_ref, TunnelPublicKey &pub
     my_addr = Address(0x76543210, 0xcdef);
     success = false;
 
-    double t1 = Clock::usec();
+    double t1 = m_clock->usec();
 
     if (!tun_client.Initialize(tls_math, public_key))
     {
@@ -178,7 +187,7 @@ void SecureClientDemo::Reset(SecureServerDemo *cserver_ref, TunnelPublicKey &pub
         return;
     }
 
-    double t2 = Clock::usec();
+    double t2 = m_clock->usec();
 
     cout << "Client: Initialization time = " << (t2 - t1) << " usec" << endl;
 }
@@ -206,10 +215,10 @@ void SecureClientDemo::OnDatagram(const Address &source, u8 *buffer, u32 bytes)
 
     if (connected)
     {
-        double t1 = Clock::usec();
+        double t1 = m_clock->usec();
         if (auth_enc.Decrypt(buffer, bytes))
         {
-            double t2 = Clock::usec();
+            double t2 = m_clock->usec();
             cout << "Client: Decryption overhead time = " << (t2 - t1) << " usec" << endl;
             OnSessionMessage(buffer, bytes);
         }

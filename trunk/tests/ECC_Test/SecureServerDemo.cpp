@@ -24,6 +24,23 @@
 using namespace std;
 using namespace cat;
 
+static Clock *m_clock = 0;
+static BigTwistedEdwards *tls_math = 0;
+static FortunaOutput *tls_csprng = 0;
+
+
+//// SecureServerDemo
+
+SecureServerDemo::SecureServerDemo()
+{
+	m_clock = Clock::ref();
+}
+
+SecureServerDemo::~SecureServerDemo()
+{
+	Cleanup();
+}
+
 void SecureServerDemo::OnHello(BigTwistedEdwards *math, FortunaOutput *csprng, const Address &source, u8 *buffer)
 {
     if (*(u32*)buffer != getLE(0xca7eed))
@@ -37,13 +54,13 @@ void SecureServerDemo::OnHello(BigTwistedEdwards *math, FortunaOutput *csprng, c
     u8 response[CAT_S2C_COOKIE_BYTES];
     *(u32*)response = getLE(cookie_jar.Generate(source.ip, source.port));
 
-    double t1 = Clock::usec();
+    double t1 = m_clock->usec();
 	if (!tun_server.Sign(math, csprng, response, 4, response + 4, CAT_DEMO_BYTES*2))
 	{
 		cout << "Server: Signature generation failure" << endl;
 		return;
 	}
-    double t2 = Clock::usec();
+    double t2 = m_clock->usec();
 
     cout << "Server: Signature generation time = " << (t2 - t1) << " usec" << endl;
 
@@ -67,7 +84,7 @@ void SecureServerDemo::OnChallenge(BigTwistedEdwards *math, FortunaOutput *csprn
 
     u8 answer[CAT_S2C_ANSWER_BYTES];
 
-    double t1 = Clock::usec();
+    double t1 = m_clock->usec();
 
 	Skein key_hash;
 
@@ -79,7 +96,7 @@ void SecureServerDemo::OnChallenge(BigTwistedEdwards *math, FortunaOutput *csprn
         return;
     }
 
-    double t2 = Clock::usec();
+    double t2 = m_clock->usec();
 
     cout << "Server: Processing challenge took " << (t2 - t1) << " usec" << endl;
 
@@ -114,21 +131,16 @@ void SecureServerDemo::OnSessionMessage(Connection *client, u8 *buffer, u32 byte
         return;
     }
 
-    double t1 = Clock::usec();
+    double t1 = m_clock->usec();
 	bytes += AuthenticatedEncryption::OVERHEAD_BYTES;
 	u64 iv = client->auth_enc.GrabIVRange(1);
     client->auth_enc.Encrypt(iv, response, bytes);
-    double t2 = Clock::usec();
+    double t2 = m_clock->usec();
     cout << "Server: Encryption time = " << (t2 - t1) << " usec" << endl;
 
     //cout << "Server: Sending pong message back to client" << endl;
 
     client_ref->OnDatagram(my_addr, response, bytes);
-}
-
-SecureServerDemo::~SecureServerDemo()
-{
-	Cleanup();
 }
 
 void SecureServerDemo::Cleanup()
@@ -141,9 +153,6 @@ void SecureServerDemo::Cleanup()
 
     connections.clear();
 }
-
-static BigTwistedEdwards *tls_math = 0;
-static FortunaOutput *tls_csprng = 0;
 
 void SecureServerDemo::Reset(SecureClientDemo *cclient_ref, TunnelKeyPair &key_pair)
 {
@@ -176,13 +185,13 @@ void SecureServerDemo::OnDatagram(const Address &source, u8 *buffer, u32 bytes)
 
     if (client)
     {
-        double t1 = Clock::usec();
+        double t1 = m_clock->usec();
         if (!client->auth_enc.Decrypt(buffer, bytes))
         {
             cout << "Server: Ignoring invalid session message" << endl;
             return;
         }
-        double t2 = Clock::usec();
+        double t2 = m_clock->usec();
         cout << "Server: Decryption time = " << (t2 - t1) << " usec" << endl;
 
         OnSessionMessage(client, buffer, bytes);

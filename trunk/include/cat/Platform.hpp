@@ -256,7 +256,7 @@ namespace cat {
 
 #elif defined(__i386__) || defined(i386) || defined(intel) || defined(_M_IX86) || \
 	  defined(__ia64) || defined(__ia64__) || defined(__x86_64) || defined(_M_IA64) || \
-	  defined(_M_X64)
+	  defined(_M_X64) || defined(_M_I86) || defined(sun386) || defined(__OS2__)
 # define CAT_ISA_X86
 
 #elif defined(TARGET_CPU_ARM)
@@ -265,8 +265,17 @@ namespace cat {
 #elif defined(__mips__)
 # define CAT_ISA_MIPS
 
-#elif defined(__ALPHA__)
+#elif defined(__alpha__) || defined(__alpha)
 # define CAT_ISA_ALPHA
+
+#elif defined(vax) || defined(vms) || defined(VMS) || defined(__VMS)
+# define CAT_ISA_VMS
+
+#elif defined(AVR)
+# define CAT_ISA_ATMEGA
+
+#elif defined(AMIGA)
+# define CAT_ISA_AMIGA
 
 #else
 # define CAT_ISA_UNKNOWN
@@ -282,20 +291,79 @@ namespace cat {
 
 //// Endianness ////
 
-// Okay -- Technically IA64 and PPC can switch endianness with an MSR bit
-// flip, but come on no one does that!  ...Right?
-// If it's not right, make sure that one of the first two flags are defined.
-#if defined(__LITTLE_ENDIAN__)
+// If no override for endianness from Config.hpp,
+#if !defined(CAT_ENDIAN_BIG) && !defined(CAT_ENDIAN_LITTLE)
+
+#if defined(BIG_ENDIAN) && defined(LITTLE_ENDIAN)
+# if defined(BYTE_ORDER) && BYTE_ORDER == BIG_ENDIAN
+#  define CAT_ENDIAN_BIG
+# elif defined(BYTE_ORDER) && BYTE_ORDER == LITTLE_ENDIAN
+#  define CAT_ENDIAN_LITTLE
+# endif
+#elif defined(BIG_ENDIAN)
+# define CAT_ENDIAN_BIG
+#elif defined(LITTLE_ENDIAN)
 # define CAT_ENDIAN_LITTLE
+#endif
+
+#if defined(_BIG_ENDIAN) && defined(_LITTLE_ENDIAN)
+# if defined(_BYTE_ORDER) && _BYTE_ORDER == _BIG_ENDIAN
+#  define CAT_ENDIAN_BIG
+# elif defined(_BYTE_ORDER) && _BYTE_ORDER == _LITTLE_ENDIAN
+#  define CAT_ENDIAN_LITTLE
+# endif
+#elif defined(_BIG_ENDIAN)
+# define CAT_ENDIAN_BIG
+#elif defined(_LITTLE_ENDIAN)
+# define CAT_ENDIAN_LITTLE
+#endif
+
+#if defined(__BIG_ENDIAN) && defined(__LITTLE_ENDIAN)
+# if defined(__BYTE_ORDER) && __BYTE_ORDER == __BIG_ENDIAN
+#  define CAT_ENDIAN_BIG
+# elif defined(__BYTE_ORDER) && __BYTE_ORDER == __LITTLE_ENDIAN
+#  define CAT_ENDIAN_LITTLE
+# endif
+#elif defined(__BIG_ENDIAN)
+# define CAT_ENDIAN_BIG
+#elif defined(__LITTLE_ENDIAN)
+# define CAT_ENDIAN_LITTLE
+#endif
+
+#if defined(__BIG_ENDIAN__) && defined(__LITTLE_ENDIAN__)
+# if defined(__BYTE_ORDER__) && __BYTE_ORDER__== __BIG_ENDIAN__
+#  define CAT_ENDIAN_BIG
+# elif defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __LITTLE_ENDIAN__
+#  define CAT_ENDIAN_LITTLE
+# endif
 #elif defined(__BIG_ENDIAN__)
 # define CAT_ENDIAN_BIG
-#elif defined(CAT_ISA_X86)
+#elif defined(__LITTLE_ENDIAN__)
 # define CAT_ENDIAN_LITTLE
-#elif defined(CAT_ISA_PPC)
-# define CAT_ENDIAN_BIG
-#else
-# define CAT_ENDIAN_UNKNOWN /* Must be detected at runtime */
 #endif
+
+// If no overrides defined, try to base it on ISA
+// Okay -- Technically IA64 and PPC can switch endianness with an MSR bit
+// But come on no one does that!  ...Right?
+// If it's not right, make sure that one of the override flags in Config.hpp are defined.
+
+#if !defined(CAT_ENDIAN_BIG) && !defined(CAT_ENDIAN_LITTLE)
+# if defined(CAT_ISA_X86) || defined(CAT_ISA_VMS) || defined(CAT_ISA_ATMEGA)
+#  define CAT_ENDIAN_LITTLE
+# elif defined(CAT_ISA_PPC) || defined(CAT_ISA_AMIGA)
+#  define CAT_ENDIAN_BIG
+// Here are some other ISA that are not explicitly defined above:
+# elif defined(applec) || defined(__AS400__) || defined(_CRAY) || defined(__hppa) || \
+	   defined(__hp9000) || defined(ibm370) || defined(mc68000) || defined(m68k) || \
+	   defined(__MRC__) || defined(__MVS__) || defined(sparc) || defined(__sparc) || \
+	   defined(__VOS__) || defined(__TANDEM) || defined(__VMCMS__)
+#  define CAT_ENDIAN_BIG
+# else
+#  define CAT_ENDIAN_UNKNOWN /* Must be detected at runtime */
+# endif
+#endif
+
+#endif // #if !defined(CAT_ENDIAN_BIG) && !defined(CAT_ENDIAN_LITTLE)
 
 
 //// Word Size ////

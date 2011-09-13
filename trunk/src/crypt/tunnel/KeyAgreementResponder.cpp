@@ -37,7 +37,7 @@ bool KeyAgreementResponder::AllocateMemory()
 {
     FreeMemory();
 
-    b = AlignedAllocator::ii->AcquireArray<Leg>(KeyLegs * 15);
+    b = AlignedAllocator::ref()->AcquireArray<Leg>(KeyLegs * 15);
     B = b + KeyLegs;
 	B_neutral = B + KeyLegs*2;
 	y[0] = B_neutral + KeyLegs*2;
@@ -50,18 +50,20 @@ bool KeyAgreementResponder::AllocateMemory()
 
 void KeyAgreementResponder::FreeMemory()
 {
-    if (b)
+ 	AlignedAllocator *allocator = AlignedAllocator::ref();
+
+   if (b)
     {
         CAT_SECURE_CLR(b, KeyBytes);
         CAT_SECURE_CLR(y[0], KeyBytes);
         CAT_SECURE_CLR(y[1], KeyBytes);
-        AlignedAllocator::ii->Delete(b);
+        allocator->Delete(b);
         b = 0;
     }
 
 	if (G_MultPrecomp)
 	{
-		AlignedAllocator::ii->Delete(G_MultPrecomp);
+		allocator->Delete(G_MultPrecomp);
 		G_MultPrecomp = 0;
 	}
 }
@@ -317,7 +319,7 @@ bool KeyAgreementResponder::VerifyInitiatorIdentity(BigTwistedEdwards *math,
 	math->PtSiMultiply(G_MultPrecomp, I_MultPrecomp, 8, s, 0, e, 0, Kp);
 	math->SaveAffineX(Kp, Kp);
 
-	AlignedAllocator::ii->Delete(I_MultPrecomp);
+	AlignedAllocator::ref()->Delete(I_MultPrecomp);
 
 	// e' = H(IRN || RRN || K')
 	Skein H;

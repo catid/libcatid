@@ -37,8 +37,6 @@ CAT_REF_SINGLETON(Settings);
 
 void Settings::OnInitialize()
 {
-	FinalizeBefore<Logging>();
-
 	AutoWriteLock lock(_lock);
 
 	_file.Read(CAT_SETTINGS_FILE);

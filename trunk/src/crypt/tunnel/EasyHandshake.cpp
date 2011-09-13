@@ -33,39 +33,8 @@ using namespace cat;
 
 //// EasyHandshake
 
-static Mutex handshake_lock;
-static u32 handshake_references = 0;
-static bool handshake_init_success;
-
-bool EasyHandshake::Initialize()
-{
-	AutoMutex lock(handshake_lock);
-
-	// If this is the first reference,
-	if (!handshake_references++)
-	{
-		handshake_init_success = Clock::Initialize() && FortunaFactory::ref()->Initialize();
-	}
-
-	return handshake_init_success;
-}
-
-void EasyHandshake::Shutdown()
-{
-	AutoMutex lock(handshake_lock);
-
-	// Reduce reference count; if no references remain,
-	if (handshake_references > 0 && !--handshake_references)
-	{
-		FortunaFactory::ref()->Shutdown();
-		Clock::Shutdown();
-	}
-}
-
 EasyHandshake::EasyHandshake()
 {
-	EasyHandshake::Initialize();
-
 	// We really only need one of these per thread
 	tls_math = KeyAgreementCommon::InstantiateMath(BITS);
 
