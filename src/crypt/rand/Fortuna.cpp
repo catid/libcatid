@@ -108,14 +108,15 @@ void FortunaOutput::Generate(void *buffer, int bytes)
 
 //// FortunaFactory
 
+CAT_REF_SINGLETON(FortunaFactory);
+
 void FortunaFactory::OnInitialize()
 {
-	FinalizeBefore<Logging>();
-
 	m_factory = this;
 
 	MasterSeedRevision = 0;
 	reseed_counter = 0;
+	_valid = false;
 
 	// Initialize all the pools
 	for (int ii = 0; ii < ENTROPY_POOLS; ++ii)
@@ -134,6 +135,8 @@ void FortunaFactory::OnInitialize()
 		CAT_WARN("FortunaFactory") << "Unable to initially seed entropy sources";
 		return;
 	}
+
+	_valid = true;
 }
 
 void FortunaFactory::OnFinalize()

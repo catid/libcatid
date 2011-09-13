@@ -35,7 +35,7 @@ bool KeyAgreementInitiator::AllocateMemory()
 {
     FreeMemory();
 
-    B = AlignedAllocator::ii->AcquireArray<Leg>(KeyLegs * 17);
+    B = AlignedAllocator::ref()->AcquireArray<Leg>(KeyLegs * 17);
     a = B + KeyLegs*4;
     A = a + KeyLegs;
     hB = A + KeyLegs*4;
@@ -47,40 +47,42 @@ bool KeyAgreementInitiator::AllocateMemory()
 
 void KeyAgreementInitiator::FreeMemory()
 {
+	AlignedAllocator *allocator = AlignedAllocator::ref();
+
     if (B)
     {
         CAT_SECURE_CLR(a, KeyBytes);
-        AlignedAllocator::ii->Delete(B);
+        allocator->Delete(B);
         B = 0;
     }
 
 	if (G_MultPrecomp)
 	{
-		AlignedAllocator::ii->Delete(G_MultPrecomp);
+		allocator->Delete(G_MultPrecomp);
 		G_MultPrecomp = 0;
  	}
 
 	if (B_MultPrecomp)
 	{
-		AlignedAllocator::ii->Delete(B_MultPrecomp);
+		allocator->Delete(B_MultPrecomp);
 		B_MultPrecomp = 0;
 	}
 
 	if (Y_MultPrecomp)
 	{
-		AlignedAllocator::ii->Delete(Y_MultPrecomp);
+		allocator->Delete(Y_MultPrecomp);
 		Y_MultPrecomp = 0;
 	}
 
 	if (I_private)
 	{
-		AlignedAllocator::ii->Delete(I_private);
+		allocator->Delete(I_private);
 		I_private = 0;
 	}
 
 	if (I_public)
 	{
-		AlignedAllocator::ii->Delete(I_public);
+		allocator->Delete(I_public);
 		I_public = 0;
 	}
 }
@@ -177,14 +179,14 @@ bool KeyAgreementInitiator::SetIdentity(BigTwistedEdwards *math, TunnelKeyPair &
 	// Allocate space for private key if needed
 	if (!I_private)
 	{
-		I_private = (Leg*)AlignedAllocator::ii->Acquire(KeyBytes);
+		I_private = (Leg*)AlignedAllocator::ref()->Acquire(KeyBytes);
 		if (!I_private) return false;
 	}
 
 	// Allocate space for public key if needed
 	if (!I_public)
 	{
-		I_public = (Leg*)AlignedAllocator::ii->Acquire(KeyBytes*2);
+		I_public = (Leg*)AlignedAllocator::ref()->Acquire(KeyBytes*2);
 		if (!I_public) return false;
 	}
 

@@ -162,6 +162,8 @@ protected:
 	u32 reseed_counter;
 	Skein Pool[ENTROPY_POOLS];
 
+	bool _valid;
+
 	bool Reseed();
 	void GetNextKey(FortunaOutput *output);
 	bool InitializeEntropySources();
@@ -175,6 +177,9 @@ protected:
 
 	// Called during finalization
 	virtual void OnFinalize();
+
+public:
+	bool Valid() { return _valid; }
 };
 
 

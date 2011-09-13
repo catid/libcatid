@@ -44,8 +44,8 @@ namespace cat {
 //#define CAT_OMIT_SERVER_CODE
 
 // If you know the endianness of your target, uncomment one of these for better performance.
-//#define __LITTLE_ENDIAN__
-//#define __BIG_ENDIAN__
+//#define CAT_ENDIAN_BIG
+//#define CAT_ENDIAN_LITTLE
 
 // If you want to use faster 384-bit or 512-bit math, define this:
 //#define CAT_UNROLL_OVER_256_BITS

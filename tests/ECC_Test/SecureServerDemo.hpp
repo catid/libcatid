@@ -129,6 +129,7 @@ protected:
     void OnSessionMessage(Connection *client, u8 *buffer, u32 bytes);
 
 public:
+	SecureServerDemo();
 	~SecureServerDemo();
 
     void Reset(SecureClientDemo *client_ref, TunnelKeyPair &key_pair);

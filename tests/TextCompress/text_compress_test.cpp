@@ -1294,7 +1294,7 @@ element *listsort2(element *head)
 
 int main2(void) {
 	const int LEN = 15;
-	element *head, *p;
+	element *head;
     int i, j;
 	element input[LEN];
 

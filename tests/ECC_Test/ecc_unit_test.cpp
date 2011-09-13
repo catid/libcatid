@@ -34,6 +34,8 @@
 using namespace std;
 using namespace cat;
 
+static Clock *m_clock = 0;
+
 // Generate candidate values for c for the ECC.cpp code
 void GenerateCandidatePrimes();
 
@@ -905,7 +907,7 @@ void HandshakeTest()
 	{
 		// Offline:
 
-		double t0 = Clock::usec();
+		double t0 = m_clock->usec();
 
 		TunnelKeyPair key_pair;
 
@@ -916,7 +918,7 @@ void HandshakeTest()
 			return;
 		}
 
-		double t1 = Clock::usec();
+		double t1 = m_clock->usec();
 
 		cout << "Key Pair Generation time = " << t1 - t0 << " usec" << endl;
 /*
@@ -1043,11 +1045,11 @@ void TestSHA256()
 {
 	const char *msg = "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq";
 
-	double t1 = Clock::usec();
+	double t1 = m_clock->usec();
 	SHA256 sha;
 	sha.Crunch(msg, (u32)strlen(msg));
 	const u8 *out = sha.Finish();
-	double t2 = Clock::usec();
+	double t2 = m_clock->usec();
 
 	static u32 test_array[8] = {
 		0x248d6a61, 0xd20638b8, 0xe5c02693, 0x0c3e6039,
@@ -1067,7 +1069,7 @@ void TestSHA256()
 
 	cout << "SUCCESS: SHA-256 output matches example output. Time: " << (t2 - t1) << " usec" << endl;
 
-	cout << "SHA-256 ran in " << Clock::MeasureClocks(1000, SHA256OneRun) << " clock cycles (median of test data)" << endl;
+	cout << "SHA-256 ran in " << m_clock->MeasureClocks(1000, SHA256OneRun) << " clock cycles (median of test data)" << endl;
 }
 
 void SHA512OneRun()
@@ -1083,11 +1085,11 @@ void TestSHA512()
 {
 	const char *msg = "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu";
 
-	double t1 = Clock::usec();
+	double t1 = m_clock->usec();
 	SHA512 sha;
 	sha.Crunch(msg, (u32)strlen(msg));
 	const u8 *out = sha.Finish();
-	double t2 = Clock::usec();
+	double t2 = m_clock->usec();
 
 	static u64 test_array[8] = {
 		0x8e959b75dae313daLL, 0x8cf4f72814fc143fLL, 0x8f7779c6eb9f7fa1LL, 0x7299aeadb6889018LL,
@@ -1107,18 +1109,18 @@ void TestSHA512()
 
 	cout << "SUCCESS: SHA-512 output matches example output. Time: " << (t2 - t1) << " usec" << endl;
 
-	cout << "SHA-512 ran in " << Clock::MeasureClocks(1000, SHA512OneRun) << " clock cycles (median of test data)" << endl;
+	cout << "SHA-512 ran in " << m_clock->MeasureClocks(1000, SHA512OneRun) << " clock cycles (median of test data)" << endl;
 }
 
 void TestSHA384()
 {
 	const char *msg = "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu";
 
-	double t1 = Clock::usec();
+	double t1 = m_clock->usec();
 	SHA512 sha(384);
 	sha.Crunch(msg, (u32)strlen(msg));
 	const u8 *out = sha.Finish();
-	double t2 = Clock::usec();
+	double t2 = m_clock->usec();
 
 	static u64 test_array[6] = {
 		0x09330c33f71147e8LL, 0x3d192fc782cd1b47LL, 0x53111b173b3b05d2LL, 0x2fa08086e3b0f712LL,
@@ -1139,6 +1141,62 @@ void TestSHA384()
 	cout << "SUCCESS: SHA-384 output matches example output. Time: " << (t2 - t1) << " usec" << endl;
 }
 */
+
+int ParseHexText(const char *text, u8 *data, int data_max_len)
+{
+	char ch;
+	int high_nibble = 0;
+	bool seen_high = false;
+	int data_len = 0;
+
+	while ((ch = *text++))
+	{
+		int nibble;
+
+		if (ch >= 'A' && ch <= 'F')
+			nibble = ch - 'A' + 10;
+		else if (ch >= 'a' && ch <= 'f')
+			nibble = ch - 'a' + 10;
+		else if (ch >= '0' && ch <= '9')
+			nibble = ch - '0';
+		else
+			continue;
+
+		if (!seen_high)
+		{
+			seen_high = true;
+			high_nibble = nibble;
+		}
+		else
+		{
+			*data++ = (high_nibble << 4) | nibble;
+			if (++data_len >= data_max_len)
+				return data_len;
+			seen_high = false;
+		}
+	}
+
+	return data_len;
+}
+
+bool VerifyCryptHash(ICryptHash *hash, const char *msg, const char *expected)
+{
+	u8 msg_data[512];
+	int msg_bytes = ParseHexText(msg, msg_data, sizeof(msg_data));
+
+	u8 expected_data[512];
+	int expected_bytes = ParseHexText(expected, expected_data, sizeof(expected_data));
+
+	u8 actual_data[512];
+	int actual_bytes = hash->GetDigestByteCount();
+
+	hash->Crunch(msg_data, msg_bytes);
+	hash->End();
+	hash->Generate(actual_data, actual_bytes);
+
+	return actual_bytes == expected_bytes && SecureEqual(actual_data, expected_data, actual_bytes);
+}
+
 void Skein256OneRun()
 {
 	static const u8 key[] = { 0x06 };
@@ -1159,37 +1217,44 @@ void Skein256OneRun()
 
 void TestSkein256()
 {
-	static const char *key = "My voice is my passport.  Authenticate me.";
-	static const char *msg = "Too many secrets.";
-
-	double t1 = Clock::usec();
 	Skein hash;
+
+	// Test vectors from Skein paper
 	hash.BeginKey(256);
-	hash.CrunchString(key);
-	hash.End();
-	hash.BeginMAC();
-	hash.CrunchString(msg);
-	hash.End();
-
-	u64 out[8];
-	hash.Generate(out, sizeof(out));
-	double t2 = Clock::usec();
-
-	static u64 test_array[sizeof(out)/sizeof(u64)] = {
-		0x8ea14aee067ca142LL, 0x338ac1b352251261LL, 0x7dea57cfc6dfc250LL, 0x7cdaf009047c1ba0LL,
-		0x970e5db911b0159cLL, 0xdcc97035fee1be22LL, 0xd76fd0e9198e8c61LL, 0x7e9062f06e46564fLL
-	};
-
-	for (int ii = 0; ii < sizeof(test_array)/sizeof(u64); ++ii)
+	if (!VerifyCryptHash(&hash,
+		"FF",
+		"0B 98 DC D1 98 EA 0E 50 A7 A2 44 C4 44 E2 5C 23"
+		"DA 30 C1 0F C9 A1 F2 70 A6 63 7F 1F 34 E6 7E D2"))
 	{
-		if (out[ii] != getLE(test_array[ii]))
-		{
-			cout << "FAILURE: Skein-256 output does not match example output" << endl;
-			return;
-		}
+		cout << "FAIL: Skein-256 output does not match test vector 1." << endl;
+		return;
 	}
 
-	cout << "SUCCESS: Skein-256 output matches example output. Time: " << (t2 - t1) << " usec" << endl;
+	hash.BeginKey(256);
+	if (!VerifyCryptHash(&hash,
+		"FF FE FD FC FB FA F9 F8 F7 F6 F5 F4 F3 F2 F1 F0"
+		"EF EE ED EC EB EA E9 E8 E7 E6 E5 E4 E3 E2 E1 E0",
+		"8D 0F A4 EF 77 7F D7 59 DF D4 04 4E 6F 6A 5A C3"
+		"C7 74 AE C9 43 DC FC 07 92 7B 72 3B 5D BF 40 8B"))
+	{
+		cout << "FAIL: Skein-256 output does not match test vector 2." << endl;
+		return;
+	}
+
+	hash.BeginKey(256);
+	if (!VerifyCryptHash(&hash,
+		"FF FE FD FC FB FA F9 F8 F7 F6 F5 F4 F3 F2 F1 F0"
+		"EF EE ED EC EB EA E9 E8 E7 E6 E5 E4 E3 E2 E1 E0"
+		"DF DE DD DC DB DA D9 D8 D7 D6 D5 D4 D3 D2 D1 D0"
+		"CF CE CD CC CB CA C9 C8 C7 C6 C5 C4 C3 C2 C1 C0",
+		"DF 28 E9 16 63 0D 0B 44 C4 A8 49 DC 9A 02 F0 7A"
+		"07 CB 30 F7 32 31 82 56 B1 5D 86 5A C4 AE 16 2F"))
+	{
+		cout << "FAIL: Skein-256 output does not match test vector 3." << endl;
+		return;
+	}
+
+	cout << "SUCCESS: Skein-256 output matches all test vectors" << endl;
 
 	cout << "Skein-256 ran in " << Clock::MeasureClocks(1000, Skein256OneRun) << " clock cycles (median of test data)" << endl;
 }
@@ -1214,41 +1279,58 @@ void Skein512OneRun()
 
 void TestSkein512()
 {
-	static const char *key = "My voice is my passport.  Authenticate me.";
-	static const char *msg = "Too many secrets.";
-
-	double t1 = Clock::usec();
 	Skein hash;
+
+	// Test vectors from Skein paper
 	hash.BeginKey(512);
-	hash.CrunchString(key);
-	hash.End();
-	hash.BeginMAC();
-	hash.CrunchString(msg);
-	hash.End();
-
-	u64 out[16];
-	hash.Generate(out, sizeof(out));
-	double t2 = Clock::usec();
-
-	static u64 test_array[sizeof(out)/sizeof(u64)] = {
-		0xc4698ec13779acefLL, 0x3af40635857457d6LL, 0xb636346dc4cca13bLL, 0x75f22f61f78c2297LL,
-		0x1187202cc2c5050aLL, 0x15c9007602ad0e5bLL, 0x56477ef18a3a5d83LL, 0x120a78bc06db754aLL,
-		0xdd18db6b142e5253LL, 0xf9cab38ccb33b32cLL, 0x736af3f7549790a5LL, 0x75f8e5a3c86aa564LL,
-		0x1ec048271ebb6148LL, 0x2e5d0fb3b251f87fLL, 0x66c2bf4fa7908eeeLL, 0x6ff3e167f54bb92dLL
-	};
-
-	for (int ii = 0; ii < sizeof(test_array)/sizeof(u64); ++ii)
+	if (!VerifyCryptHash(&hash,
+		"FF",
+		"71 B7 BC E6 FE 64 52 22 7B 9C ED 60 14 24 9E 5B"
+		"F9 A9 75 4C 3A D6 18 CC C4 E0 AA E1 6B 31 6C C8"
+		"CA 69 8D 86 43 07 ED 3E 80 B6 EF 15 70 81 2A C5"
+		"27 2D C4 09 B5 A0 12 DF 2A 57 91 02 F3 40 61 7A"))
 	{
-		if (out[ii] != getLE(test_array[ii]))
-		{
-			cout << "FAILURE: Skein-512 output does not match example output" << endl;
-			return;
-		}
+		cout << "FAIL: Skein-512 output does not match test vector 1." << endl;
+		return;
 	}
 
-	cout << "SUCCESS: Skein-512 output matches example output. Time: " << (t2 - t1) << " usec" << endl;
+	hash.BeginKey(512);
+	if (!VerifyCryptHash(&hash,
+		"FF FE FD FC FB FA F9 F8 F7 F6 F5 F4 F3 F2 F1 F0"
+		"EF EE ED EC EB EA E9 E8 E7 E6 E5 E4 E3 E2 E1 E0"
+		"DF DE DD DC DB DA D9 D8 D7 D6 D5 D4 D3 D2 D1 D0"
+		"CF CE CD CC CB CA C9 C8 C7 C6 C5 C4 C3 C2 C1 C0",
+		"45 86 3B A3 BE 0C 4D FC 27 E7 5D 35 84 96 F4 AC"
+		"9A 73 6A 50 5D 93 13 B4 2B 2F 5E AD A7 9F C1 7F"
+		"63 86 1E 94 7A FB 1D 05 6A A1 99 57 5A D3 F8 C9"
+		"A3 CC 17 80 B5 E5 FA 4C AE 05 0E 98 98 76 62 5B"))
+	{
+		cout << "FAIL: Skein-512 output does not match test vector 2." << endl;
+		return;
+	}
 
-	cout << "Skein-512 ran in " << Clock::MeasureClocks(1000, Skein512OneRun) << " clock cycles (median of test data)" << endl;
+	hash.BeginKey(512);
+	if (!VerifyCryptHash(&hash,
+		"FF FE FD FC FB FA F9 F8 F7 F6 F5 F4 F3 F2 F1 F0"
+		"EF EE ED EC EB EA E9 E8 E7 E6 E5 E4 E3 E2 E1 E0"
+		"DF DE DD DC DB DA D9 D8 D7 D6 D5 D4 D3 D2 D1 D0"
+		"CF CE CD CC CB CA C9 C8 C7 C6 C5 C4 C3 C2 C1 C0"
+		"BF BE BD BC BB BA B9 B8 B7 B6 B5 B4 B3 B2 B1 B0"
+		"AF AE AD AC AB AA A9 A8 A7 A6 A5 A4 A3 A2 A1 A0"
+		"9F 9E 9D 9C 9B 9A 99 98 97 96 95 94 93 92 91 90"
+		"8F 8E 8D 8C 8B 8A 89 88 87 86 85 84 83 82 81 80",
+		"91 CC A5 10 C2 63 C4 DD D0 10 53 0A 33 07 33 09"
+		"62 86 31 F3 08 74 7E 1B CB AA 90 E4 51 CA B9 2E"
+		"51 88 08 7A F4 18 87 73 A3 32 30 3E 66 67 A7 A2"
+		"10 85 6F 74 21 39 00 00 71 F4 8E 8B A2 A5 AD B7"))
+	{
+		cout << "FAIL: Skein-512 output does not match test vector 3." << endl;
+		return;
+	}
+
+	cout << "SUCCESS: Skein-512 output matches all test vectors." << endl;
+
+	cout << "Skein-512 ran in " << m_clock->MeasureClocks(1000, Skein512OneRun) << " clock cycles (median of test data)" << endl;
 }
 
 static int cc_bytes;
@@ -1278,7 +1360,7 @@ void TestChaCha()
 	for (int ii = 0; ii < 7; ++ii)
 	{
 		cc_bytes = TIMING_BYTES[ii];
-		cout << cc_bytes << " bytes: " << Clock::MeasureClocks(1000, ChaChaOnce)/(float)cc_bytes << " cycles/byte" << endl;
+		cout << cc_bytes << " bytes: " << m_clock->MeasureClocks(1000, ChaChaOnce)/(float)cc_bytes << " cycles/byte" << endl;
 	}
 }
 
@@ -1381,17 +1463,7 @@ void GeneratePassword()
 
 int main()
 {
-	CommonLayer layer;
-
-	if (!layer.Startup("TestECC.cfg"))
-		return 1;
-
-	FortunaFactory *factory = 0;
-	if (!RefObjects::AcquireSingleton(factory, CAT_REFOBJECT_FILE_LINE))
-	{
-		cout << "FAILURE: Unable to initialize the Fortuna factory" << endl;
-		return 1;
-	}
+	m_clock = Clock::ref();
 
 	GeneratePassword();
 	GeneratePassword();
