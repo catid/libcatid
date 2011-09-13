@@ -31,14 +31,16 @@
 #include <cat/threads/Atomic.hpp>
 using namespace cat;
 
-static FortunaFactory singleton;
-FortunaFactory *FortunaFactory::ref() { return &singleton; }
+static FortunaFactory *m_factory = 0;
 
-u32 FortunaFactory::MasterSeedRevision = 0;
-Skein FortunaFactory::MasterSeed;
+
+//// FortunaOutput
 
 FortunaOutput::FortunaOutput()
 {
+	// Initialize factory if needed, which will set m_factory
+	FortunaFactory::ref();
+
 	Reseed();
 }
 
@@ -52,7 +54,7 @@ FortunaOutput::~FortunaOutput()
 
 void FortunaOutput::Reseed()
 {
-	FortunaFactory::ref()->GetNextKey(this);
+	m_factory->GetNextKey(this);
 
 	OutputHash.Generate(CachedRandomBytes, OUTPUT_CACHE_BYTES);
 	used_bytes = 0;
@@ -69,7 +71,7 @@ u32 FortunaOutput::Generate()
 // Generate a variable number of random bytes
 void FortunaOutput::Generate(void *buffer, int bytes)
 {
-	if (SeedRevision != FortunaFactory::MasterSeedRevision)
+	if (SeedRevision != m_factory->MasterSeedRevision)
 		Reseed();
 
 	int remaining = OUTPUT_CACHE_BYTES - used_bytes;
@@ -105,6 +107,40 @@ void FortunaOutput::Generate(void *buffer, int bytes)
 
 
 //// FortunaFactory
+
+void FortunaFactory::OnInitialize()
+{
+	FinalizeBefore<Logging>();
+
+	m_factory = this;
+
+	MasterSeedRevision = 0;
+	reseed_counter = 0;
+
+	// Initialize all the pools
+	for (int ii = 0; ii < ENTROPY_POOLS; ++ii)
+		Pool[ii].BeginKey(POOL_BITS);
+
+	// Initialize the various OS-dependent entropy sources
+	if (!InitializeEntropySources())
+	{
+		CAT_WARN("FortunaFactory") << "Unable to initialize entropy sources";
+		return;
+	}
+
+	// Reseed the pools from the entropy sources
+	if (!Reseed())
+	{
+		CAT_WARN("FortunaFactory") << "Unable to initially seed entropy sources";
+		return;
+	}
+}
+
+void FortunaFactory::OnFinalize()
+{
+	// Block and wait for entropy collection thread to end
+	ShutdownEntropySources();
+}
 
 void FortunaFactory::GetNextKey(FortunaOutput *output)
 {
@@ -175,42 +211,4 @@ bool FortunaFactory::Reseed()
 	// MasterSeed is now ready to generate!
 
 	return true;
-}
-
-// Start the entropy generator
-bool FortunaFactory::Initialize()
-{
-	if (_initialized)
-		return true;
-
-	MasterSeedRevision = 0;
-	reseed_counter = 0;
-
-	// Initialize all the pools
-	for (int ii = 0; ii < ENTROPY_POOLS; ++ii)
-		Pool[ii].BeginKey(POOL_BITS);
-
-	// Initialize the various OS-dependent entropy sources
-	if (!InitializeEntropySources())
-		return false;
-
-	// Reseed the pools from the entropy sources
-	if (!Reseed())
-		return false;
-
-	_initialized = true;
-
-	return true;
-}
-
-// Stop the entropy generator
-void FortunaFactory::Shutdown()
-{
-	if (_initialized)
-	{
-		// Block and wait for entropy collection thread to end
-		ShutdownEntropySources();
-
-		_initialized = false;
-	}
 }

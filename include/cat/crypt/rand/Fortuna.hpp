@@ -111,11 +111,9 @@ class FortunaFactory;
 // Factory for constructing FortunaOutput objects
 class CAT_EXPORT FortunaFactory
 #if !defined(CAT_NO_ENTROPY_THREAD)
-	: public Thread
+	: public Thread, public RefSingleton<FortunaFactory>
 #endif
 {
-	CAT_NO_COPY(FortunaFactory);
-
 	friend class FortunaOutput;
 
 	Mutex _lock;
@@ -158,10 +156,9 @@ protected:
 	static const int POOL_BYTES = POOL_BITS / 8;
 	static const int POOL_QWORDS = POOL_BYTES / sizeof(u64);
 
-	static u32 MasterSeedRevision; // Should not roll over for 13 years if incremented once every RESEED_MIN_TIME
-	static Skein MasterSeed;
+	u32 MasterSeedRevision; // Should not roll over for 13 years if incremented once every RESEED_MIN_TIME
+	Skein MasterSeed;
 
-	bool _initialized;
 	u32 reseed_counter;
 	Skein Pool[ENTROPY_POOLS];
 
@@ -173,16 +170,11 @@ protected:
 	void PollFastEntropySources(int pool);
 	void ShutdownEntropySources();
 
-public:
-	CAT_INLINE FortunaFactory() { _initialized = false; }
+	// Called during initialization
+	virtual void OnInitialize();
 
-	static FortunaFactory *ref();
-
-	// Start the entropy generator
-	bool Initialize();
-
-	// Stop the entropy generator
-	void Shutdown();
+	// Called during finalization
+	virtual void OnFinalize();
 };
 
 
