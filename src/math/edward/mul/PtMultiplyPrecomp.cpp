@@ -36,7 +36,7 @@ Leg *BigTwistedEdwards::PtMultiplyPrecompAlloc(int w)
 {
     int points = 1 + (1 << (w - 1));
 
-	Leg *out = AlignedAllocator::ii->AcquireArray<Leg>(points * POINT_STRIDE);
+	Leg *out = AlignedAllocator::ref()->AcquireArray<Leg>(points * POINT_STRIDE);
 
     return out;
 }
