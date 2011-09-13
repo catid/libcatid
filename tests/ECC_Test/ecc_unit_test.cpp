@@ -1190,6 +1190,7 @@ bool VerifyCryptHash(ICryptHash *hash, const char *msg, const char *expected)
 	u8 actual_data[512];
 	int actual_bytes = hash->GetDigestByteCount();
 
+	hash->BeginMAC();
 	hash->Crunch(msg_data, msg_bytes);
 	hash->End();
 	hash->Generate(actual_data, actual_bytes);

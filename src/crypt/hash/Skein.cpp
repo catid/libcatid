@@ -77,10 +77,12 @@ bool Skein::BeginKey(int bits)
 {
 	if (bits <= 256) {
 		digest_bytes = 256 / 8;
+		digest_bytes_shift = 5;
 		digest_words = 256 / 64;
 		hash_func = &Skein::HashComputation256;
 	} else if (bits <= 512) {
 		digest_bytes = 512 / 8;
+		digest_bytes_shift = 6;
 		digest_words = 512 / 64;
 		hash_func = &Skein::HashComputation512;
 	} else return false;
@@ -90,7 +92,7 @@ bool Skein::BeginKey(int bits)
 	{
 	case 160: memcpy(State, State0_160, sizeof(State0_160)); break;
 	case 224: memcpy(State, State0_224, sizeof(State0_224)); break;
-	//case 256: memcpy(State, State0_256, sizeof(State0_256)); break;
+	case 256: memcpy(State, State0_256, sizeof(State0_256)); break;
 	case 384: memcpy(State, State0_384, sizeof(State0_384)); break;
 	case 512: memcpy(State, State0_512, sizeof(State0_512)); break;
 	default: GenerateInitialState(bits);
@@ -188,10 +190,13 @@ void Skein::Crunch(const void *_message, int bytes)
 	// If the remaining bytes of the message overflows the workspace,
 	if (bytes > digest_bytes)
 	{
+		// Hash whole digest blocks at a time
 		int eat_bytes = bytes - 1;
 
 		// Hash directly from the message
-		(this->*hash_func)(buffer, eat_bytes / digest_bytes, bytes, State);
+		u32 hash_blocks = eat_bytes >> digest_bytes_shift;
+		u32 block_bytes = hash_blocks << digest_bytes_shift;
+		(this->*hash_func)(buffer, hash_blocks, block_bytes, State);
 
 		// Eat those bytes of the message
 		eat_bytes &= ~(digest_bytes-1);

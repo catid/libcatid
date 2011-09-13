@@ -70,6 +70,8 @@ protected:
     static const u32 SKEIN_VERSION = 1;
     static const u64 SCHEMA_VER = ((u64)SKEIN_VERSION << 32) | ID_STRING_LE;
 
+	static const u64 KS_PARITY = 0x1BD11BDAA9FC1A22ULL;
+
     static const int MAX_BITS = 512;
     static const int MAX_WORDS = MAX_BITS / 64;
     static const int MAX_BYTES = MAX_BITS / 8;
@@ -77,7 +79,7 @@ protected:
     u64 Tweak[2];
     u64 State[MAX_WORDS];
     u8 Work[MAX_BYTES];
-    int used_bytes, digest_words;
+    int used_bytes, digest_words, digest_bytes_shift;
     u64 output_block_counter;
     bool output_prng_mode;
 
