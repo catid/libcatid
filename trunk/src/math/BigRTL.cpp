@@ -37,7 +37,7 @@ BigRTL::BigRTL(int regs, int bits)
     library_regs = regs + BIG_OVERHEAD;
 
     // Align library memory accesses to a 16-byte boundary
-	library_memory = AlignedAllocator::ii->AcquireArray<Leg>(library_legs * library_regs);
+	library_memory = AlignedAllocator::ref()->AcquireArray<Leg>(library_legs * library_regs);
 }
 
 BigRTL::~BigRTL()
@@ -46,7 +46,7 @@ BigRTL::~BigRTL()
     {
         // Clear and free memory for registers
         CAT_SECURE_CLR(library_memory, library_legs * library_regs * sizeof(Leg));
-        AlignedAllocator::ii->Delete(library_memory);
+        AlignedAllocator::ref()->Delete(library_memory);
     }
 }
 
