@@ -384,22 +384,27 @@ public:
 	File();
 	~File();
 
+	// Read and override settings from a file
 	bool Read(const char *file_path);
 	bool Override(const char *file_path);
-	bool Write(const char *file_path, bool force = false);
 
+	// Accessors
 	void Set(const char *key, const char *value);
 	const char *Get(const char *key, const char *defaultValue = "");
 
 	void SetInt(const char *key, int value);
 	int GetInt(const char *key, int defaultValue = 0);
 
-	// Thread-safe versions:
+	// Thread-safe accessors:
 	void Set(const char *key, const char *value, RWLock *lock);
 	void Get(const char *key, const char *defaultValue, std::string &out_value, RWLock *lock);
 
 	void SetInt(const char *key, int value, RWLock *lock);
 	int GetInt(const char *key, int defaultValue, RWLock *lock);
+
+	// NOTE: Currently calling Write will close the memory-mapped original file, meaning after
+	//		 the write operation, the file cannot be written again without re-reading the file.
+	bool Write(const char *file_path, bool force = false);
 };
 
 

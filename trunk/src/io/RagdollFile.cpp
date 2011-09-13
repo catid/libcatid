@@ -1169,6 +1169,15 @@ HashItem *File::SortItems(HashItem *head)
 					// Link remainder of b-items to the end
 					tail->_mod_next = b;
 
+					// Fix tail pointer
+					while (--b_remaining > 0)
+					{
+						HashItem *next = b->_mod_next;
+						if (!next) break;
+						b = next;
+					}
+					tail = b;
+
 					// Done with this step size
 					break;
 				}
@@ -1200,6 +1209,7 @@ HashItem *File::SortItems(HashItem *head)
 						a = a->_mod_next;
 					} while (a != b_head);
 					prev->_mod_next = b;
+					tail = prev;
 
 					// Done with this step size
 					break;
@@ -1263,6 +1273,15 @@ HashItem *File::SortItems(HashItem *head)
 						// Link remainder of b-items to the end
 						tail->_mod_next = b;
 
+						// Fix tail pointer
+						while (--b_remaining > 0)
+						{
+							HashItem *next = b->_mod_next;
+							if (!next) break;
+							b = next;
+						}
+						tail = b;
+
 						// Done with this step size
 						break;
 					}
@@ -1285,6 +1304,16 @@ HashItem *File::SortItems(HashItem *head)
 						// Link remainder of a-items to end
 						tail->_mod_next = a;
 
+						// Need to fix the final next pointer of the appended a-items
+						HashItem *prev;
+						do
+						{
+							prev = a;
+							a = a->_mod_next;
+						} while (a != b_head);
+						prev->_mod_next = b;
+						tail = prev;
+
 						// Done with this step size
 						break;
 					}
@@ -1301,7 +1330,7 @@ HashItem *File::SortItems(HashItem *head)
 		}
 
 		// Fix final skip list pointer
-		skip_last->_skip_next = 0;
+		skip_last->_skip_next = next_list;
 
 		// Double step size
 		step_size *= 2;
