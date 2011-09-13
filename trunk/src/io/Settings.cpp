@@ -47,7 +47,7 @@ void Settings::OnInitialize()
 	lock.Release();
 
 	// Initialize logging threshold
-	EventSeverity threshold = (EventSeverity)getInt("Log.Threshold", 0);
+	EventSeverity threshold = (EventSeverity)getInt("Log.Threshold", LVL_INFO);
 	Logging::ref()->SetThreshold(threshold);
 }
 
