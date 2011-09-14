@@ -162,7 +162,6 @@ public:
 class CAT_EXPORT HashKey
 {
 protected:
-	NulTermFixedStr<MAX_CHARS> _case_key;
 	NulTermFixedStr<MAX_CHARS> _key;
 	int _len;
 	u32 _hash;
@@ -171,7 +170,6 @@ public:
 	HashKey(const KeyAdapter &key);
 	//CAT_INLINE virtual ~HashKey() {}
 
-	CAT_INLINE const char *CaseKey() { return _case_key; }
 	CAT_INLINE const char *Key() { return _key; }
 	CAT_INLINE int Length() { return _len; }
 	CAT_INLINE u32 Hash() { return _hash; }
@@ -242,6 +240,9 @@ class CAT_EXPORT HashItem : public HashKey, public HashValue, public SListItem
 	HashItem *_mod_next;
 	bool _enlisted;
 
+	// If in the new list, this is populated with the correct case for the key
+	NulTermFixedStr<MAX_CHARS> _case_key;
+
 	// Skip list used for faster sorting of the modified list
 	HashItem *_skip_next;
 
@@ -249,9 +250,10 @@ public:
 	HashItem(const KeyAdapter &key);
 	//CAT_INLINE virtual ~HashItem() {}
 
-	CAT_INLINE u32 GetKeyEndOffset() { return _key_end_offset; }
-	CAT_INLINE u32 GetEOLOffset() { return _eol_offset; }
-	CAT_INLINE int GetDepth() { return _depth; }
+	CAT_INLINE char *CaseKey() { return _case_key; }
+	CAT_INLINE u32 KeyEndOffset() { return _key_end_offset; }
+	CAT_INLINE u32 EOLOffset() { return _eol_offset; }
+	CAT_INLINE int Depth() { return _depth; }
 };
 
 

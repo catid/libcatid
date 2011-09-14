@@ -44,9 +44,9 @@ static const char *TAB_STRING = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t";
 
 //// ragdoll::SanitizedKey
 
-static int SanitizeKeyStringCase(const char *key, char *sanitized_string, char *case_string)
+static int SanitizeKeyStringCase(const char *key, /*char *sanitized_string,*/ char *case_string)
 {
-	char ch, *outs = sanitized_string, *outc = case_string;
+	char ch, /* *outs = sanitized_string,*/ *outc = case_string;
 	bool seen_punct = false;
 
 	while ((ch = *key++))
@@ -55,36 +55,36 @@ static int SanitizeKeyStringCase(const char *key, char *sanitized_string, char *
 		{
 			if (seen_punct)
 			{
-				*outs++ = '.';
+				//*outs++ = '.';
 				*outc++ = '.';
 				seen_punct = false;
 			}
 			*outc++ = ch;
-			*outs++ = ch + 'a' - 'A';
+			//*outs++ = ch + 'a' - 'A';
 		}
 		else if (ch >= 'a' && ch <= 'z' ||
 			ch >= '0' && ch <= '9')
 		{
 			if (seen_punct)
 			{
-				*outs++ = '.';
+				//*outs++ = '.';
 				*outc++ = '.';
 				seen_punct = false;
 			}
 			*outc++ = ch;
-			*outs++ = ch;
+			//*outs++ = ch;
 		}
 		else
 		{
-			if (outs != sanitized_string)
+			if (outc != case_string)
 				seen_punct = true;
 		}
 	}
 
 	*outc = '\0';
-	*outs = '\0';
+	//*outs = '\0';
 
-	return (int)(outs - sanitized_string);
+	return (int)(outc - case_string);
 }
 
 static int SanitizeKeyString(const char *key, char *sanitized_string)
@@ -616,22 +616,23 @@ int Parser::ReadTokens(int root_key_len, int root_depth)
 			item = _output_file->_table.Create(key_input);
 
 			if (!_is_override)
-			{
 				item->_enlisted = false;
-			}
 			else
 			{
 				// Push onto the new list
-				CAT_FSLL_PUSH_FRONT(_output_file->_modded, item, _mod_next);
+				CAT_FSLL_PUSH_FRONT(_output_file->_newest, item, _mod_next);
 				item->_enlisted = true;
+
+				item->_case_key.SetFromRangeString(_root_key, key_len);
 			}
 		}
 		else
 		{
 			if (!item->_enlisted)
 			{
-				// Push onto the new list
-				CAT_FSLL_PUSH_FRONT(_output_file->_newest, item, _mod_next);
+				// Push onto the modded list
+				CAT_FSLL_PUSH_FRONT(_output_file->_modded, item, _mod_next);
+				item->_enlisted = true;
 			}
 		}
 
@@ -651,12 +652,6 @@ int Parser::ReadTokens(int root_key_len, int root_depth)
 
 				item->_key_end_offset = key_end_offset;
 				item->_eol_offset = eol_offset;
-			}
-			else
-			{
-				// Push onto the new list
-				CAT_FSLL_PUSH_FRONT(_output_file->_newest, item, _mod_next);
-				item->_enlisted = true;
 			}
 
 			item->_depth = _depth;
@@ -832,6 +827,8 @@ void File::Set(const char *key, const char *value)
 			CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
 			item->_enlisted = true;
 
+			SanitizeKeyStringCase(key, item->CaseKey());
+
 			item->SetValueStr(value);
 		}
 	}
@@ -871,6 +868,8 @@ const char *File::Get(const char *key, const char *defaultValue)
 			CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
 			item->_enlisted = true;
 
+			SanitizeKeyStringCase(key, item->CaseKey());
+
 			item->SetValueStr(defaultValue);
 		}
 	}
@@ -899,6 +898,8 @@ void File::SetInt(const char *key, int value)
 			// Push onto the new list
 			CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
 			item->_enlisted = true;
+
+			SanitizeKeyStringCase(key, item->CaseKey());
 
 			item->SetValueInt(value);
 		}
@@ -939,6 +940,8 @@ int File::GetInt(const char *key, int defaultValue)
 			CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
 			item->_enlisted = true;
 
+			SanitizeKeyStringCase(key, item->CaseKey());
+
 			item->SetValueInt(defaultValue);
 		}
 	}
@@ -969,6 +972,8 @@ void File::Set(const char *key, const char *value, RWLock *lock)
 				// Push onto the new list
 				CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
 				item->_enlisted = true;
+
+				SanitizeKeyStringCase(key, item->CaseKey());
 
 				item->SetValueStr(value);
 			}
@@ -1023,6 +1028,8 @@ void File::Get(const char *key, const char *defaultValue, std::string &out_value
 			CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
 			item->_enlisted = true;
 
+			SanitizeKeyStringCase(key, item->CaseKey());
+
 			item->SetValueStr(defaultValue);
 		}
 
@@ -1055,6 +1062,8 @@ void File::SetInt(const char *key, int value, RWLock *lock)
 				// Push onto the new list
 				CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
 				item->_enlisted = true;
+
+				SanitizeKeyStringCase(key, item->CaseKey());
 
 				item->SetValueInt(value);
 			}
@@ -1108,6 +1117,8 @@ int File::GetInt(const char *key, int defaultValue, RWLock *lock)
 			// Push onto the new list
 			CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
 			item->_enlisted = true;
+
+			SanitizeKeyStringCase(key, item->CaseKey());
 
 			item->SetValueInt(defaultValue);
 		}
@@ -1438,7 +1449,7 @@ u32 File::WriteNewKey(const char *case_key, const char *key, int key_len, HashIt
 		else
 		{
 			// Create a hash table entry for this key
-			HashItem *item = _table.Create(KeyAdapter(case_key, jj, hash));
+			HashItem *item = _table.Create(KeyAdapter(key, jj, hash));
 			if (!item)
 			{
 				CAT_FATAL("Ragdoll") << "Out of memory";
@@ -1457,6 +1468,7 @@ u32 File::WriteNewKey(const char *case_key, const char *key, int key_len, HashIt
 			item->_eol_offset = 0; // Indicate it is a new item that needs new item processing
 			item->_mod_next = front;
 			item->_depth = ++_key_depth;
+			item->_case_key.SetFromRangeString(case_key, jj);
 			item->ClearValue();
 
 			CAT_DEBUG_ENFORCE(_key_depth <= Parser::MAX_TAB_RECURSION_DEPTH);
@@ -1480,7 +1492,7 @@ u32 File::WriteNewKey(const char *case_key, const char *key, int key_len, HashIt
 static void WriteFinalKeyPart(HashItem *item, ofstream &file)
 {
 	// Cache key
-	const char *key = item->Key();
+	const char *key = item->CaseKey();
 	int len = item->Length();
 
 	// Search for final part of key
@@ -1513,7 +1525,7 @@ static void WriteItem(HashItem *item, ofstream &file)
 	file.write("\n", 1);
 
 	// Write tabs up to the depth
-	int depth = item->GetDepth();
+	int depth = item->Depth();
 	if (depth > 0) file.write(TAB_STRING, depth);
 
 	WriteFinalKeyPart(item, file);
@@ -1554,13 +1566,9 @@ bool File::Write(const char *file_path, bool force)
 		// Cache next in list
 		next = ii->_mod_next;
 
-		// Sanitize the key string
-		char sanitized_key[MAX_CHARS+1], case_key[MAX_CHARS+1];
-		int sanitized_len = SanitizeKeyStringCase(ii->Key(), sanitized_key, case_key);
-
 		// Write new key list into the mod or eof list
 		_key_depth = 0;
-		u32 offset = WriteNewKey(case_key, sanitized_key, sanitized_len, ii, ii);
+		u32 offset = WriteNewKey(ii->CaseKey(), ii->Key(), ii->Length(), ii, ii);
 
 		// Go ahead and fill in the item
 		ii->_enlisted = true;

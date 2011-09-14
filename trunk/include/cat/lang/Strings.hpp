@@ -148,7 +148,7 @@ public:
 		IntegerToArray(x, _str, sizeof(_str), radix);
 	}
 
-	CAT_INLINE operator const char*()
+	CAT_INLINE operator char*()
 	{
 		return _str;
 	}
