@@ -375,11 +375,6 @@ bool AuthenticatedEncryption::Encrypt(u64 &next_iv, u8 *buffer, u32 buf_bytes)
 	u32 msg_bytes = buf_bytes - OVERHEAD_BYTES;
     u8 *overhead = buffer + buf_bytes - OVERHEAD_BYTES;
 
-	if (msg_bytes > 2000)
-	{
-		int x = 0;
-	}
-
 	// Outgoing IV increments by one each time, and starts one ahead of remotely generated IV
 	u64 iv = next_iv;
 	next_iv = iv + 1;

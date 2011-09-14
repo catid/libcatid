@@ -106,8 +106,7 @@ void SecureClientDemo::OnConnect()
     }
 
     // Encrypt it
-	u32 bytes = 1500;
-	bytes += AuthenticatedEncryption::OVERHEAD_BYTES;
+	u32 bytes = 1500 + AuthenticatedEncryption::OVERHEAD_BYTES;
 	u64 iv = auth_enc.GrabIVRange(1);
     auth_enc.Encrypt(iv, buffer, bytes);
 
@@ -151,8 +150,7 @@ void SecureClientDemo::OnSessionMessage(u8 *buffer, u32 bytes)
 
     *(u32*)&response[1] = id;
 
-	u32 response_bytes = 1500;
-	response_bytes += AuthenticatedEncryption::OVERHEAD_BYTES;
+	u32 response_bytes = 1500 + AuthenticatedEncryption::OVERHEAD_BYTES;
 	u64 iv = auth_enc.GrabIVRange(1);
 	auth_enc.Encrypt(iv, response, response_bytes);
 
@@ -218,6 +216,7 @@ void SecureClientDemo::OnDatagram(const Address &source, u8 *buffer, u32 bytes)
         double t1 = m_clock->usec();
         if (auth_enc.Decrypt(buffer, bytes))
         {
+			bytes -= AuthenticatedEncryption::OVERHEAD_BYTES;
             double t2 = m_clock->usec();
             cout << "Client: Decryption overhead time = " << (t2 - t1) << " usec" << endl;
             OnSessionMessage(buffer, bytes);

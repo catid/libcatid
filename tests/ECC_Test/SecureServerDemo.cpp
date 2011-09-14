@@ -191,6 +191,8 @@ void SecureServerDemo::OnDatagram(const Address &source, u8 *buffer, u32 bytes)
             cout << "Server: Ignoring invalid session message" << endl;
             return;
         }
+		bytes -= AuthenticatedEncryption::OVERHEAD_BYTES;
+
         double t2 = m_clock->usec();
         cout << "Server: Decryption time = " << (t2 - t1) << " usec" << endl;
 
