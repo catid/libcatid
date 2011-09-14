@@ -1448,15 +1448,15 @@ int main(int argc, const char **argv)
 
 	m_clock = Clock::ref();
 
-	Settings::ref()->getStr("IOThreads.Test");
+	Settings::ref()->getInt("IOThreads.Test", 1337);
 
 	//Settings::ref()->getInt("level0a");
 	//Settings::ref()->getInt("level0a.level1");
 	//Settings::ref()->getInt("level0a.level1.level2a");
-	Settings::ref()->setInt("level0a.level1.level2a.level3a", 4);
-	Settings::ref()->setInt("level0a.level1.level2a.level3b", 5);
-	Settings::ref()->setInt("level0a.level1.level2b", 6);
-	Settings::ref()->setInt("level0b", 7);
+	Settings::ref()->getInt("level0a.level1.level2a.level3a", 4);
+	Settings::ref()->getInt("level0a.level1.level2a.level3b", 5);
+	Settings::ref()->getInt("level0a.level1.level2b", 6);
+	Settings::ref()->getInt("level0b", 7);
 
 #ifndef GENERATING_TABLE
     if (!TextStatsCollector::VerifyTableIntegrity(ChatText))
