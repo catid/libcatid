@@ -62,7 +62,6 @@ class CAT_EXPORT AsyncFile : public RefObject, public IOThreadsAssociator
 {
 	friend class IOThread;
 
-	IOLayer *_iolayer;
 	HANDLE _file;
 
 public:
@@ -74,7 +73,6 @@ public:
 
 	CAT_INLINE bool Valid() { return _file != INVALID_HANDLE_VALUE; }
 	CAT_INLINE HANDLE GetHandle() { return _file; }
-	CAT_INLINE IOLayer *GetIOLayer() { return _iolayer; }
 
 	/*
 		In read mode, Open() will fail if the file does not exist.

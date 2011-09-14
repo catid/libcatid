@@ -642,7 +642,7 @@ std::string UNetAddr::IPToString() const
 		// Because inet_ntop() is not supported in Windows XP, only Vista+
 		if (SOCKET_ERROR == WSAAddressToStringA((sockaddr*)&addr6, sizeof(addr6),
 												0, addr_str6, &str_len6))
-			return Sockets::GetLastErrorString()();
+			return Sockets::GetLastErrorString();
 
 		return addr_str6;
 	}
@@ -661,7 +661,7 @@ std::string UNetAddr::IPToString() const
 		// Because inet_ntop() is not supported in Windows XP, only Vista+
 		if (SOCKET_ERROR == WSAAddressToStringA((sockaddr*)&addr4, sizeof(addr4),
 												0, addr_str4, &str_len4))
-			return Sockets::GetLastErrorString()();
+			return Sockets::GetLastErrorString();
 
 		return addr_str4;
 	}

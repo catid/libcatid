@@ -43,6 +43,9 @@
     <Filter Include="Header Files\parse">
       <UniqueIdentifier>{7856b8fc-5136-40b6-95e0-0f7fe03d7053}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\net">
+      <UniqueIdentifier>{ba6ce859-6681-4c41-ad20-3936cd3c2c87}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\time\Clock.cpp">
@@ -130,6 +133,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\io\RagdollFile.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\net\Sockets.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -244,6 +250,9 @@
     </ClInclude>
     <ClInclude Include="..\..\include\cat\io\RagdollFile.hpp">
       <Filter>Header Files\io</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\net\Sockets.hpp">
+      <Filter>Header Files\net</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

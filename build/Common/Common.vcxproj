@@ -175,6 +175,7 @@
     <ClCompile Include="..\..\src\mem\IAllocator.cpp" />
     <ClCompile Include="..\..\src\mem\LargeAllocator.cpp" />
     <ClCompile Include="..\..\src\mem\StdAllocator.cpp" />
+    <ClCompile Include="..\..\src\net\Sockets.cpp" />
     <ClCompile Include="..\..\src\parse\Base64.cpp" />
     <ClCompile Include="..\..\src\parse\BufferTok.cpp" />
     <ClCompile Include="..\..\src\port\SystemInfo.cpp" />
@@ -214,6 +215,7 @@
     <ClInclude Include="..\..\include\cat\mem\LargeAllocator.hpp" />
     <ClInclude Include="..\..\include\cat\mem\ResizableBuffer.hpp" />
     <ClInclude Include="..\..\include\cat\mem\StdAllocator.hpp" />
+    <ClInclude Include="..\..\include\cat\net\Sockets.hpp" />
     <ClInclude Include="..\..\include\cat\parse\Base64.hpp" />
     <ClInclude Include="..\..\include\cat\parse\BufferStream.hpp" />
     <ClInclude Include="..\..\include\cat\parse\BufferTok.hpp" />

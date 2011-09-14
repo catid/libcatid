@@ -52,6 +52,8 @@
 
 #include <cat/math/BitMath.hpp>
 
+#include <cat/net/Sockets.hpp>
+
 #include <cat/port/SystemInfo.hpp>
 #include <cat/port/EndianNeutral.hpp>
 
