@@ -32,6 +32,16 @@
 #include <cat/mem/ResizableBuffer.hpp>
 #include <cat/threads/WorkerThreads.hpp>
 
+#if defined(CAT_OS_WINDOWS)
+# include <cat/iocp/IOThreadPools.hpp>
+# include <cat/iocp/AsyncFile.hpp>
+# include <cat/iocp/UDPEndpoint.hpp>
+#else
+# include <cat/io/AsyncFile.hpp>
+# include <cat/io/IOThreadPools.hpp>
+# include <cat/io/UDPEndpoint.hpp>
+#endif
+
 namespace cat {
 
 
