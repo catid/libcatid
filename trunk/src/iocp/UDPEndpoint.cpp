@@ -29,33 +29,26 @@
 #include <cat/iocp/UDPEndpoint.hpp>
 #include <cat/io/Logging.hpp>
 #include <cat/io/Settings.hpp>
-#include <cat/io/IOLayer.hpp>
 #include <cat/io/Buffers.hpp>
 #include <MSWSock.h>
 using namespace std;
 using namespace cat;
 
-static IOThreadPools *m_thread_pools = 0;
-static IAllocator *m_recv_allocator = 0;
-
 bool UDPEndpoint::OnRefObjectInitialize()
 {
-	if (!RefObjects::Require(m_thread_pools, CAT_REFOBJECT_FILE_LINE))
-		return false;
-
-	m_recv_allocator = m_thread_pools->GetRecvAllocator();
+	IOThreadPools::ref();
 
 	return true;
 }
 
 void UDPEndpoint::OnRefObjectDestroy()
 {
-	_socket.Close();
+	Close();
 }
 
 bool UDPEndpoint::OnRefObjectFinalize()
 {
-	m_thread_pools->DissociatePrivate(_pool);
+	IOThreadPools::ref()->DissociatePrivate(_pool);
 
 	return true;
 }

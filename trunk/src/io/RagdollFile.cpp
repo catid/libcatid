@@ -620,7 +620,7 @@ int Parser::ReadTokens(int root_key_len, int root_depth)
 			else
 			{
 				// Push onto the new list
-				CAT_FSLL_PUSH_FRONT(_output_file->_newest, item, _mod_next);
+				CAT_FSLL_PUSH_FRONT(_output_file->_newest, item, _sort_next);
 				item->_enlisted = true;
 
 				item->_case_key.SetFromRangeString(_root_key, key_len);
@@ -631,7 +631,7 @@ int Parser::ReadTokens(int root_key_len, int root_depth)
 			if (!item->_enlisted)
 			{
 				// Push onto the modded list
-				CAT_FSLL_PUSH_FRONT(_output_file->_modded, item, _mod_next);
+				CAT_FSLL_PUSH_FRONT(_output_file->_modded, item, _sort_next);
 				item->_enlisted = true;
 			}
 		}
@@ -650,7 +650,7 @@ int Parser::ReadTokens(int root_key_len, int root_depth)
 				else
 					eol_offset = (u32)(_eol - _file_front);
 
-				item->_key_end_offset = key_end_offset;
+				item->_sort_value = key_end_offset;
 				item->_eol_offset = eol_offset;
 			}
 
@@ -824,7 +824,7 @@ void File::Set(const char *key, const char *value)
 		if (item)
 		{
 			// Push onto the new list
-			CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
+			CAT_FSLL_PUSH_FRONT(_newest, item, _sort_next);
 			item->_enlisted = true;
 
 			SanitizeKeyStringCase(key, item->CaseKey());
@@ -837,7 +837,7 @@ void File::Set(const char *key, const char *value)
 		// If item is not listed yet,
 		if (!item->_enlisted)
 		{
-			CAT_FSLL_PUSH_FRONT(_modded, item, _mod_next);
+			CAT_FSLL_PUSH_FRONT(_modded, item, _sort_next);
 			item->_enlisted = true;
 		}
 
@@ -865,7 +865,7 @@ const char *File::Get(const char *key, const char *defaultValue)
 		if (item)
 		{
 			// Push onto the new list
-			CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
+			CAT_FSLL_PUSH_FRONT(_newest, item, _sort_next);
 			item->_enlisted = true;
 
 			SanitizeKeyStringCase(key, item->CaseKey());
@@ -896,7 +896,7 @@ void File::SetInt(const char *key, int value)
 		if (item)
 		{
 			// Push onto the new list
-			CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
+			CAT_FSLL_PUSH_FRONT(_newest, item, _sort_next);
 			item->_enlisted = true;
 
 			SanitizeKeyStringCase(key, item->CaseKey());
@@ -909,7 +909,7 @@ void File::SetInt(const char *key, int value)
 		// If item is not listed yet,
 		if (!item->_enlisted)
 		{
-			CAT_FSLL_PUSH_FRONT(_modded, item, _mod_next);
+			CAT_FSLL_PUSH_FRONT(_modded, item, _sort_next);
 			item->_enlisted = true;
 		}
 
@@ -937,7 +937,7 @@ int File::GetInt(const char *key, int defaultValue)
 		if (item)
 		{
 			// Push onto the new list
-			CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
+			CAT_FSLL_PUSH_FRONT(_newest, item, _sort_next);
 			item->_enlisted = true;
 
 			SanitizeKeyStringCase(key, item->CaseKey());
@@ -970,7 +970,7 @@ void File::Set(const char *key, const char *value, RWLock *lock)
 			if (item)
 			{
 				// Push onto the new list
-				CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
+				CAT_FSLL_PUSH_FRONT(_newest, item, _sort_next);
 				item->_enlisted = true;
 
 				SanitizeKeyStringCase(key, item->CaseKey());
@@ -984,7 +984,7 @@ void File::Set(const char *key, const char *value, RWLock *lock)
 		// If item is not listed yet,
 		if (!item->_enlisted)
 		{
-			CAT_FSLL_PUSH_FRONT(_modded, item, _mod_next);
+			CAT_FSLL_PUSH_FRONT(_modded, item, _sort_next);
 			item->_enlisted = true;
 		}
 
@@ -1025,7 +1025,7 @@ void File::Get(const char *key, const char *defaultValue, std::string &out_value
 		if (item)
 		{
 			// Push onto the new list
-			CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
+			CAT_FSLL_PUSH_FRONT(_newest, item, _sort_next);
 			item->_enlisted = true;
 
 			SanitizeKeyStringCase(key, item->CaseKey());
@@ -1060,7 +1060,7 @@ void File::SetInt(const char *key, int value, RWLock *lock)
 			if (item)
 			{
 				// Push onto the new list
-				CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
+				CAT_FSLL_PUSH_FRONT(_newest, item, _sort_next);
 				item->_enlisted = true;
 
 				SanitizeKeyStringCase(key, item->CaseKey());
@@ -1074,7 +1074,7 @@ void File::SetInt(const char *key, int value, RWLock *lock)
 		// If item is not listed yet,
 		if (!item->_enlisted)
 		{
-			CAT_FSLL_PUSH_FRONT(_modded, item, _mod_next);
+			CAT_FSLL_PUSH_FRONT(_modded, item, _sort_next);
 			item->_enlisted = true;
 		}
 
@@ -1115,7 +1115,7 @@ int File::GetInt(const char *key, int defaultValue, RWLock *lock)
 		if (item)
 		{
 			// Push onto the new list
-			CAT_FSLL_PUSH_FRONT(_newest, item, _mod_next);
+			CAT_FSLL_PUSH_FRONT(_newest, item, _sort_next);
 			item->_enlisted = true;
 
 			SanitizeKeyStringCase(key, item->CaseKey());
@@ -1127,286 +1127,6 @@ int File::GetInt(const char *key, int defaultValue, RWLock *lock)
 	}
 
 	return defaultValue;
-}
-
-/*
-	MergeSort for a singly-linked list
-
-	Preserves existing order for items that have the same position
-*/
-HashItem *File::SortItems(HashItem *head)
-{
-	if (!head) return 0;
-
-	// Unroll first loop where consecutive pairs are put in order
-	HashItem *a = head, *tail = 0, *skip_last = 0;
-	do
-	{
-		// Grab second item in pair
-		HashItem *b = a->_mod_next;
-
-		// If no second item in pair,
-		if (!b)
-		{
-			// Initialize the skip pointer to null
-			a->_skip_next = 0;
-
-			// Done with this step size!
-			break;
-		}
-
-		// Remember next pair in case swap occurs
-		HashItem *next_pair = b->_mod_next;
-
-		// If current pair are already in order,
-		if (a->_key_end_offset <= b->_key_end_offset)
-		{
-			// Remember b as previous node
-			tail = b;
-
-			// Maintain skip list for next pass
-			skip_last = a;
-		}
-		else // pair is out of order
-		{
-			// Fix a, b next pointers
-			a->_mod_next = next_pair;
-			b->_mod_next = a;
-
-			// Link b to previous node
-			if (tail)
-			{
-				tail->_mod_next = b;
-
-				// Fix skip list from last pass
-				CAT_DEBUG_ENFORCE(skip_last);
-				skip_last->_skip_next = b;
-			}
-			else head = b;
-
-			// Remember a as previous node
-			tail = a;
-
-			// Maintain skip list for next pass
-			skip_last = b;
-		}
-
-		skip_last->_skip_next = next_pair;
-
-		// Continue at next pair
-		a = next_pair;
-	} while (a);
-
-	// Continue from step size of 2
-	int step_size = 2;
-	CAT_FOREVER
-	{
-		// Unroll first list merge for exit condition
-		a = head;
-		tail = 0;
-
-		// Grab start of second list
-		HashItem *b = a->_skip_next;
-
-		// If no second list, sorting is done
-		if (!b) break;
-
-		// Remember pointer to next list
-		HashItem *next_list = b->_skip_next;
-
-		// Cache a, b offsets
-		u32 aoff = a->_key_end_offset, boff = b->_key_end_offset;
-
-		// Merge two lists together until step size is exceeded
-		int b_remaining = step_size;
-		HashItem *b_head = b;
-		CAT_FOREVER
-		{
-			// In cases where both are equal, preserve order
-			if (aoff <= boff)
-			{
-				// Set a as tail
-				if (tail) tail->_mod_next = a;
-				else head = a;
-				tail = a;
-
-				// Grab next a
-				a = a->_mod_next;
-
-				// If ran out of a-items,
-				if (a == b_head)
-				{
-					// Link remainder of b-items to the end
-					tail->_mod_next = b;
-
-					// Fix tail pointer
-					while (--b_remaining > 0)
-					{
-						HashItem *next = b->_mod_next;
-						if (!next) break;
-						b = next;
-					}
-					tail = b;
-
-					// Done with this step size
-					break;
-				}
-
-				// Update cache of a-offset
-				aoff = a->_key_end_offset;
-			}
-			else
-			{
-				// Set b as tail
-				if (tail) tail->_mod_next = b;
-				else head = b;
-				tail = b;
-
-				// Grab next b
-				b = b->_mod_next;
-
-				// If ran out of b-items,
-				if (--b_remaining == 0 || !b)
-				{
-					// Link remainder of a-items to end
-					tail->_mod_next = a;
-
-					// Need to fix the final next pointer of the appended a-items
-					HashItem *prev;
-					do
-					{
-						prev = a;
-						a = a->_mod_next;
-					} while (a != b_head);
-					prev->_mod_next = b;
-					tail = prev;
-
-					// Done with this step size
-					break;
-				}
-
-				// Update cache of b-offset
-				boff = b->_key_end_offset;
-			}
-		}
-
-		// Remember start of merged list for fixing the skip list later
-		skip_last = head;
-
-		// Second and following merges
-		while ((a = next_list))
-		{
-			// Grab start of second list
-			b = a->_skip_next;
-
-			// If no second list, done with this step size
-			if (!b)
-			{
-				// Fix skip list
-				skip_last->_skip_next = a;
-
-				break;
-			}
-
-			// Remember pointer to next list
-			next_list = b->_skip_next;
-
-			// Remember previous tail for fixing the skip list later
-			HashItem *prev_tail = tail;
-
-			// First item in the new list will be either a or b
-			// b already has next list pointer set, so just update a
-			a->_skip_next = next_list;
-
-			// Cache a, b offsets
-			aoff = a->_key_end_offset;
-			boff = b->_key_end_offset;
-
-			// Merge two lists together until step size is exceeded
-			b_remaining = step_size;
-			b_head = b;
-			CAT_FOREVER
-			{
-				// In cases where both are equal, preserve order
-				if (aoff <= boff)
-				{
-					// Set a as tail
-					tail->_mod_next = a;
-					tail = a;
-
-					// Grab next a
-					a = a->_mod_next;
-
-					// If ran out of a-items,
-					if (a == b_head)
-					{
-						// Link remainder of b-items to the end
-						tail->_mod_next = b;
-
-						// Fix tail pointer
-						while (--b_remaining > 0)
-						{
-							HashItem *next = b->_mod_next;
-							if (!next) break;
-							b = next;
-						}
-						tail = b;
-
-						// Done with this step size
-						break;
-					}
-
-					// Update cache of a-offset
-					aoff = a->_key_end_offset;
-				}
-				else
-				{
-					// Set b as tail
-					tail->_mod_next = b;
-					tail = b;
-
-					// Grab next b
-					b = b->_mod_next;
-
-					// If ran out of b-items,
-					if (--b_remaining == 0 || !b)
-					{
-						// Link remainder of a-items to end
-						tail->_mod_next = a;
-
-						// Need to fix the final next pointer of the appended a-items
-						HashItem *prev;
-						do
-						{
-							prev = a;
-							a = a->_mod_next;
-						} while (a != b_head);
-						prev->_mod_next = b;
-						tail = prev;
-
-						// Done with this step size
-						break;
-					}
-
-					// Update cache of b-offset
-					boff = b->_key_end_offset;
-				}
-			}
-
-			// Determine segment head and fix skip list
-			HashItem *seg_head = prev_tail->_mod_next;
-			skip_last->_skip_next = seg_head;
-			skip_last = seg_head;
-		}
-
-		// Fix final skip list pointer
-		skip_last->_skip_next = next_list;
-
-		// Double step size
-		step_size *= 2;
-	}
-
-	return head;
 }
 
 u32 File::WriteNewKey(const char *case_key, const char *key, int key_len, HashItem *front, HashItem *end)
@@ -1428,15 +1148,15 @@ u32 File::WriteNewKey(const char *case_key, const char *key, int key_len, HashIt
 			if (parent->_enlisted)
 			{
 				// Insert after parent
-				end->_mod_next = parent->_mod_next;
-				parent->_mod_next = front;
+				end->_sort_next = parent->_sort_next;
+				parent->_sort_next = front;
 			}
 			else
 			{
 				// NOTE: New items at end are all enlisted so will not get here with a new-item parent
 
 				// Insert at front of the modified list
-				end->_mod_next = _modded;
+				end->_sort_next = _modded;
 				_modded = front;
 			}
 
@@ -1444,7 +1164,7 @@ u32 File::WriteNewKey(const char *case_key, const char *key, int key_len, HashIt
 			_key_depth = parent->_depth;
 
 			// Return end-of-line offset of parent
-			return parent->_eol_offset ? parent->_eol_offset : parent->_key_end_offset;
+			return parent->_eol_offset ? parent->_eol_offset : parent->_sort_value;
 		}
 		else
 		{
@@ -1464,9 +1184,9 @@ u32 File::WriteNewKey(const char *case_key, const char *key, int key_len, HashIt
 
 			// Go ahead and fill in the item
 			item->_enlisted = true;
-			item->_key_end_offset = offset;
+			item->_sort_value = offset;
 			item->_eol_offset = 0; // Indicate it is a new item that needs new item processing
-			item->_mod_next = front;
+			item->_sort_next = front;
 			item->_depth = ++_key_depth;
 			item->_case_key.SetFromRangeString(case_key, jj);
 			item->ClearValue();
@@ -1480,7 +1200,7 @@ u32 File::WriteNewKey(const char *case_key, const char *key, int key_len, HashIt
 	// Did not find the parent at all, so this is a completely new item
 
 	// Insert at the front of the eof list
-	end->_mod_next = _eof_head;
+	end->_sort_next = _eof_head;
 	_eof_head = front;
 
 	// Remember key depth
@@ -1564,7 +1284,7 @@ bool File::Write(const char *file_path, bool force)
 	for (HashItem *next, *ii = _newest; ii; ii = next)
 	{
 		// Cache next in list
-		next = ii->_mod_next;
+		next = ii->_sort_next;
 
 		// Write new key list into the mod or eof list
 		_key_depth = 0;
@@ -1572,7 +1292,7 @@ bool File::Write(const char *file_path, bool force)
 
 		// Go ahead and fill in the item
 		ii->_enlisted = true;
-		ii->_key_end_offset = offset;
+		ii->_sort_value = offset;
 		ii->_eol_offset = 0; // Indicate it is a new item that needs new item processing
 		// ii->_mod_next already set
 		ii->_depth = ++_key_depth;
@@ -1580,9 +1300,9 @@ bool File::Write(const char *file_path, bool force)
 
 	// Sort the modified items in increasing order and merge the merge-items
 	u32 copy_start = 0;
-	for (HashItem *ii = SortItems(_modded); ii; ii = ii->_mod_next)
+	for (HashItem *ii = HashItem::MergeSort(_modded); ii; ii = ii->_sort_next)
 	{
-		u32 key_end_offset = ii->_key_end_offset;
+		u32 key_end_offset = ii->_sort_value;
 		u32 copy_bytes = key_end_offset - copy_start;
 
 		// Write original file data up to the start of the key
@@ -1622,7 +1342,7 @@ bool File::Write(const char *file_path, bool force)
 	}
 
 	// For each EOF item,
-	for (HashItem *ii = _eof_head; ii; ii = ii->_mod_next)
+	for (HashItem *ii = _eof_head; ii; ii = ii->_sort_next)
 	{
 		WriteItem(ii, file);
 

@@ -339,7 +339,9 @@ public:
 		When iterating forward through the list,
 		use the following mechanism:
 
-		for (DListForward::Iterator<MyObject> ii = list; ii; ++ii)
+		typedef DListForward::Iterator<MyObject> iter;
+
+		for (iter ii = list; ii; ++ii)
 	*/
 	template<class T>
 	class Iterator : public DListIteratorBase
@@ -440,7 +442,9 @@ public:
 		When iterating forward through the list,
 		use the following mechanism:
 
-		for (DList::ForwardIterator<MyObject> ii = list; ii; ++ii)
+		typedef DList::ForwardIterator<MyObject> iter;
+
+		for (iter ii = list; ii; ++ii)
 	*/
 	template<class T>
 	class ForwardIterator : public DListIteratorBase
@@ -675,7 +679,9 @@ public:
 		When iterating forward through the list,
 		use the following mechanism:
 
-		for (SList::Iterator<MyObject> ii = list.head(); ii; ++ii)
+		typedef SList::Iterator<MyObject> iter;
+
+		for (iter ii = list; ii; ++ii)
 	*/
 	template<class T>
 	class Iterator : public SListIteratorBase
