@@ -31,6 +31,7 @@
 
 #include <cat/lang/LinkedLists.hpp>
 #include <cat/lang/Strings.hpp>
+#include <cat/lang/MergeSort.hpp>
 #include <cat/threads/RWLock.hpp>
 #include <cat/io/MappedFile.hpp>
 #include <string>
@@ -220,14 +221,14 @@ public:
 
 //// ragdoll::HashItem
 
-class CAT_EXPORT HashItem : public HashKey, public HashValue, public SListItem
+class CAT_EXPORT HashItem : public HashKey, public HashValue, public SListItem, public SortableItem<HashItem, u32>
 {
 	friend class HashTable;
 	friend class Parser;
 	friend class File;
 
-	// Location of key value in original file
-	u32 _key_end_offset;
+	// Pointer to next modified item in _sort_next
+	// Location of key value in original file stored in _sort_value
 
 	// Location of end of key value field in original file
 	// 0 = Not in original file
@@ -237,21 +238,17 @@ class CAT_EXPORT HashItem : public HashKey, public HashValue, public SListItem
 	int _depth;
 
 	// Next item in the modified list
-	HashItem *_mod_next;
 	bool _enlisted;
 
 	// If in the new list, this is populated with the correct case for the key
 	NulTermFixedStr<MAX_CHARS> _case_key;
-
-	// Skip list used for faster sorting of the modified list
-	HashItem *_skip_next;
 
 public:
 	HashItem(const KeyAdapter &key);
 	//CAT_INLINE virtual ~HashItem() {}
 
 	CAT_INLINE char *CaseKey() { return _case_key; }
-	CAT_INLINE u32 KeyEndOffset() { return _key_end_offset; }
+	CAT_INLINE u32 KeyEndOffset() { return _sort_value; }
 	CAT_INLINE u32 EOLOffset() { return _eol_offset; }
 	CAT_INLINE int Depth() { return _depth; }
 };
@@ -372,9 +369,6 @@ class CAT_EXPORT File
 	HashTable _table;	// Hash table containing key-value pairs
 	HashItem *_modded;	// List of keys from the file that have been modified
 	HashItem *_newest;	// List of keys that were not in the file
-
-	// Sort a list
-	static HashItem *SortItems(HashItem *head);
 
 	// Recursively write new keys into the newest list
 	HashItem *_eof_head; // List of keys to be written to eof

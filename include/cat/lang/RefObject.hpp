@@ -62,14 +62,14 @@ class CAT_EXPORT RefObjects : Thread, public RefSingleton<RefObjects>
 {
 	friend class RefObject;
 
+	void OnInitialize();
+	void OnFinalize();
+
 	DListForward _active_list, _dead_list;
 	typedef DListForward::Iterator<RefObject> iter;
 
 	bool _shutdown, _initialized;
 	WaitableFlag _shutdown_flag;
-
-	void OnInitialize();
-	void OnFinalize();
 
 	void Kill(RefObject *obj);
 	void BuryDeadites();

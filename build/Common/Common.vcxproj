@@ -205,6 +205,7 @@
     <ClInclude Include="..\..\include\cat\io\RagdollFile.hpp" />
     <ClInclude Include="..\..\include\cat\io\Settings.hpp" />
     <ClInclude Include="..\..\include\cat\lang\Delegates.hpp" />
+    <ClInclude Include="..\..\include\cat\lang\MergeSort.hpp" />
     <ClInclude Include="..\..\include\cat\lang\RefObject.hpp" />
     <ClInclude Include="..\..\include\cat\lang\RefSingleton.hpp" />
     <ClInclude Include="..\..\include\cat\lang\Singleton.hpp" />

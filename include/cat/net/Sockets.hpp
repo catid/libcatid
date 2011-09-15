@@ -260,7 +260,7 @@ public:
 //// UDP Socket
 
 // Adds functions only used for UDP sockets
-class UDPSocket : public Socket
+class CAT_EXPORT UDPSocket : public Socket
 {
 public:
 	CAT_INLINE virtual ~UDPSocket() {}
@@ -282,7 +282,7 @@ public:
 //// TCP Socket
 
 // Adds functions only used for TCP sockets
-class TCPSocket : public Socket
+class CAT_EXPORT TCPSocket : public Socket
 {
 public:
 	CAT_INLINE virtual ~TCPSocket() {}

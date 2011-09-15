@@ -180,7 +180,7 @@ public:
 
 
 // A collection of IOThreadPools
-class CAT_EXPORT IOThreadPools : RefSingleton<IOThreadPools>
+class CAT_EXPORT IOThreadPools : public RefSingleton<IOThreadPools>
 {
 	void OnInitialize();
 	void OnFinalize();

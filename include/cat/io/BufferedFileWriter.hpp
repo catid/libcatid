@@ -29,7 +29,7 @@
 #ifndef CAT_BUFFERED_FILE_WRITER_HPP
 #define CAT_BUFFERED_FILE_WRITER_HPP
 
-#include <cat/io/IOLayer.hpp>
+#include <cat/io/Buffers.hpp>
 
 /*
 	This implementation of a polled file reader is designed for maximum

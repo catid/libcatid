@@ -63,6 +63,7 @@
 #include <cat/lang/Singleton.hpp>
 #include <cat/lang/RefSingleton.hpp>
 #include <cat/lang/RefObject.hpp>
+#include <cat/lang/MergeSort.hpp>
 
 #include <cat/io/Logging.hpp>
 #include <cat/io/MappedFile.hpp>

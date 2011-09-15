@@ -46,6 +46,7 @@
 namespace cat {
 
 struct ReadBuffer;
+struct WriteBuffer;
 
 
 enum AsyncFileModes
@@ -68,7 +69,6 @@ public:
 	AsyncFile();
 	virtual ~AsyncFile();
 
-	static const u32 RefObjectGUID = 0x00080001; // Global Unique IDentifier for acquiring RefObject singletons
 	CAT_INLINE const char *GetRefObjectName() { return "AsyncFile"; }
 
 	CAT_INLINE bool Valid() { return _file != INVALID_HANDLE_VALUE; }
