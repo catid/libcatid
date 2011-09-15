@@ -87,12 +87,11 @@ bool UDPEndpoint::Initialize(Port port, bool ignoreUnreachable, bool RequestIPv6
 	_buffers_posted = 0;
 
 	// Associate with IOThreadPools
-	_pool = m_thread_pools->AssociatePrivate(this);
+	_pool = IOThreadPools::ref()->AssociatePrivate(this);
 	if (!_pool)
 	{
 		CAT_FATAL("UDPEndpoint") << "Unable to associate with IOThreadPools";
-		CloseSocket(s);
-		_socket = SOCKET_ERROR;
+		Close();
 		ReleaseRef(CAT_REFOBJECT_FILE_LINE); // Release temporary references keeping the object alive until function returns
 		return false;
 	}
@@ -101,8 +100,7 @@ bool UDPEndpoint::Initialize(Port port, bool ignoreUnreachable, bool RequestIPv6
 	if (PostReads(UDP_SIMULTANEOUS_READS) == 0)
 	{
 		CAT_FATAL("UDPEndpoint") << "No reads could be launched";
-		CloseSocket(s);
-		_socket = SOCKET_ERROR;
+		Close();
 		ReleaseRef(CAT_REFOBJECT_FILE_LINE); // Release temporary reference keeping the object alive until function returns
 		return false;
 	}
@@ -128,7 +126,7 @@ bool UDPEndpoint::PostRead(RecvBuffer *buffer)
 
 	// Queue up a WSARecvFrom()
 	DWORD flags = 0, bytes;
-	int result = WSARecvFrom(_socket, &wsabuf, 1, &bytes, &flags,
+	int result = WSARecvFrom(GetHandle(), &wsabuf, 1, &bytes, &flags,
 		reinterpret_cast<sockaddr*>( &buffer->iointernal.addr ),
 		&buffer->iointernal.addr_len, &buffer->iointernal.ov, 0); 
 

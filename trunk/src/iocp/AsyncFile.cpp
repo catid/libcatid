@@ -29,15 +29,12 @@
 #include <cat/iocp/AsyncFile.hpp>
 #include <cat/io/Logging.hpp>
 #include <cat/io/Settings.hpp>
-#include <cat/io/IOLayer.hpp>
 using namespace std;
 using namespace cat;
 
-static IOThreadPools *m_io_thread_pools = 0;
-
 bool AsyncFile::OnRefObjectInitialize()
 {
-	return RefObjects::Require(m_io_thread_pools, CAT_REFOBJECT_FILE_LINE);
+	return true;
 }
 
 void AsyncFile::OnRefObjectDestroy()
@@ -87,7 +84,7 @@ bool AsyncFile::Open(const char *file_path, u32 async_file_modes)
 	_file = CreateFile(file_path, modes, 0, 0, creation, flags, 0);
 	if (!_file) return false;
 
-	if (!m_io_thread_pools->AssociateShared(this))
+	if (!IOThreadPools::ref()->AssociateShared(this))
 	{
 		Close();
 		return false;
