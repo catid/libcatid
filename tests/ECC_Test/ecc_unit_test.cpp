@@ -401,6 +401,7 @@ void CheckTatePairing()
 int GenerateCurveParameterC()
 {
 	FortunaOutput *out = new FortunaOutput;
+	CAT_ENFORCE(out->Valid());
 
 	const int bits = 256;
 

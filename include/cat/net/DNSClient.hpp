@@ -36,7 +36,6 @@
 #ifndef CAT_DNS_CLIENT_HPP
 #define CAT_DNS_CLIENT_HPP
 
-#include <cat/io/IOLayer.hpp>
 #include <cat/threads/WaitableFlag.hpp>
 #include <cat/crypt/rand/Fortuna.hpp>
 #include <cat/lang/Delegates.hpp>
