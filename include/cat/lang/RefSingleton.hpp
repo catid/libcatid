@@ -63,6 +63,13 @@ namespace cat {
 		{
 			m_clock = Use<Clock>(); // Add a reference to Clock RefSingleton so order of finalization is correct.
 
+			// Optionally check if Clock initialized successfully
+			if (!IsInitialized())
+			{
+				// No need to return a failure here, this singleton can no longer be successfully initialized
+				// since one of its dependencies could not initialize.
+			}
+
 			return true;
 		}
 
