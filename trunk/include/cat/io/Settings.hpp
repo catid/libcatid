@@ -42,7 +42,7 @@ namespace cat {
 
 class CAT_EXPORT Settings : public RefSingleton<Settings>
 {
-	void OnInitialize();
+	bool OnInitialize();
 	void OnFinalize();
 
 	RWLock _lock;

@@ -35,7 +35,7 @@ using namespace cat;
 
 CAT_REF_SINGLETON(Settings);
 
-void Settings::OnInitialize()
+bool Settings::OnInitialize()
 {
 	AutoWriteLock lock(_lock);
 
@@ -47,6 +47,8 @@ void Settings::OnInitialize()
 	// Initialize logging threshold
 	EventSeverity threshold = (EventSeverity)getInt("Log.Threshold", LVL_INFO);
 	Logging::ref()->SetThreshold(threshold);
+
+	return true;
 }
 
 void Settings::OnFinalize()

@@ -83,18 +83,17 @@ void RefObject::OnZeroReferences(const char *file_line)
 
 CAT_REF_SINGLETON(RefObjects);
 
-void RefObjects::OnInitialize()
+bool RefObjects::OnInitialize()
 {
 	_shutdown = false;
 
 	if (!Thread::StartThread())
 	{
 		CAT_FATAL("RefObjects") << "Unable to start reaper thread";
-		_initialized = false;
-		return;
+		return false;
 	}
 
-	_initialized = true;
+	return true;
 }
 
 Mutex &RefObjects::GetGlobalLock()
@@ -106,7 +105,7 @@ bool RefObjects::Watch(const char *file_line, RefObject *&obj)
 {
 	if (!obj) return false;
 
-	if (!_initialized || _shutdown)
+	if (!IsInitialized() || _shutdown)
 	{
 		delete obj;
 		obj = 0;
@@ -304,6 +303,5 @@ bool RefObjects::ThreadFunction(void *param)
 
 	CAT_INANE("RefObjects") << "...Reaper going to sleep in a quiet field of dead objects";
 
-	_initialized = false;
 	return true;
 }
