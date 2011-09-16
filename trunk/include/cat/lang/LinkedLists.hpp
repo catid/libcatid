@@ -272,6 +272,7 @@ class CAT_EXPORT DListItem
 	friend class DListForward;
 	friend class DListIteratorBase;
 
+protected:
 	DListItem *_dl_next, *_dl_prev;
 };
 
@@ -619,6 +620,7 @@ class CAT_EXPORT SListItem
 	friend class SList;
 	friend class SListIteratorBase;
 
+protected:
 	SListItem *_sl_next;
 };
 

@@ -34,6 +34,8 @@ using namespace cat;
 
 static const u32 INITIAL_TIMERS_ALLOCATED = 16;
 
+static Clock *m_clock = 0;
+
 
 //// WorkerThread
 
@@ -262,8 +264,6 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 		return false;
 	}
 
-	Clock *clock = Clock::ref();
-
 	u32 tick_interval = master->_tick_interval;
 	u32 next_tick = 0; // Tick right away
 
@@ -271,7 +271,7 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 
 	while (!_kill_flag)
 	{
-		u32 now = clock->msec();
+		u32 now = m_clock->msec();
 
 		// Check if an event is waiting or the timer interval is up
 		bool check_events = false;
@@ -295,7 +295,7 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 				if (_event_flag.Wait(wait_time))
 					check_events = true;
 
-				now = clock->msec();
+				now = m_clock->msec();
 			}
 		}
 
@@ -355,7 +355,7 @@ CAT_REF_SINGLETON(WorkerThreads);
 
 bool WorkerThreads::OnInitialize()
 {
-	FinalizeBefore<Clock>();
+	m_clock = Use<Clock>();
 
 	_tick_interval = 10;
 	_worker_count = 2;
