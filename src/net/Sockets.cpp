@@ -165,7 +165,7 @@ bool UDPSocket::DontFragment(bool df)
 
 CAT_REF_SINGLETON(Sockets);
 
-void Sockets::OnInitialize()
+bool Sockets::OnInitialize()
 {
 #if defined(CAT_OS_WINDOWS)
 	WSADATA wsaData;
@@ -174,8 +174,11 @@ void Sockets::OnInitialize()
 	if (NO_ERROR != WSAStartup(MAKEWORD(2, 2), &wsaData))
 	{
 		CAT_FATAL("Sockets") << "Unable to initialize Winsock 2.2";
+		return false;
 	}
 #endif
+
+	return true;
 }
 
 void Sockets::OnFinalize()

@@ -148,7 +148,7 @@ public:
 // A pool of worker threads
 class CAT_EXPORT WorkerThreads : public RefSingleton<WorkerThreads>
 {
-	void OnInitialize();
+	bool OnInitialize();
 	void OnFinalize();
 
 	friend class WorkerThread;

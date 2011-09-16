@@ -37,7 +37,7 @@ namespace cat {
 
 class CAT_EXPORT Clock : public RefSingleton<Clock>
 {
-	void OnInitialize();
+	bool OnInitialize();
 	void OnFinalize();
 
 #ifdef CAT_OS_WINDOWS

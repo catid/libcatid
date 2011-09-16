@@ -182,7 +182,7 @@ public:
 // A collection of IOThreadPools
 class CAT_EXPORT IOThreadPools : public RefSingleton<IOThreadPools>
 {
-	void OnInitialize();
+	bool OnInitialize();
 	void OnFinalize();
 
 	IOThreadImports _imports;

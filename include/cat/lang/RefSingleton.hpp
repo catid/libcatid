@@ -48,7 +48,7 @@ namespace cat {
 
 		class Settings : public RefSingleton<Settings>
 		{
-			void OnInitialize();
+			bool OnInitialize();
 			void OnFinalize();
 			// No ctor or dtor
 
@@ -56,9 +56,11 @@ namespace cat {
 
 		CAT_REF_SINGLETON(Settings);
 
-		void Settings::OnInitialize()
+		bool Settings::OnInitialize()
 		{
 			FinalizeBefore<Clock>(); // Add a reference to Clock RefSingleton so order of finalization is correct.
+
+			return true;
 		}
 
 		void Settings::OnFinalize()
@@ -89,7 +91,7 @@ protected:
 
 	void AddRefSingletonReference(u32 *ref_counter);
 
-	virtual void OnInitialize() = 0;
+	virtual bool OnInitialize() = 0;
 	virtual void OnFinalize() = 0;
 
 public:
@@ -120,7 +122,7 @@ public:
 		if (_init) return &_instance;
 
 		RefSingleton<T> *ptr = &_instance;
-		ptr->OnInitialize();
+		ptr->_init_success = ptr->OnInitialize();
 		Watch(&_instance);
 
 		CAT_FENCE_COMPILER;
@@ -140,9 +142,11 @@ class CAT_EXPORT RefSingleton : public RefSingletonBase
 
 	CAT_INLINE u32 *GetRefCount() { return T::get_refcount_ptr(); }
 
+	bool _init_success;
+
 protected:
 	// Called during initialization
-	CAT_INLINE virtual void OnInitialize() {}
+	CAT_INLINE virtual bool OnInitialize() { return true; }
 
 	// Called during finalization
 	CAT_INLINE virtual void OnFinalize() {}
@@ -156,6 +160,8 @@ protected:
 
 public:
 	CAT_INLINE virtual ~RefSingleton<T>() {}
+
+	CAT_INLINE bool IsInitialized() { return _init_success; }
 
 	static T *ref();
 	static u32 *get_refcount_ptr();

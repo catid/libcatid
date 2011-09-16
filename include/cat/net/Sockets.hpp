@@ -294,7 +294,7 @@ public:
 // Internal class
 class CAT_EXPORT Sockets : public RefSingleton<Sockets>
 {
-	void OnInitialize();
+	bool OnInitialize();
 	void OnFinalize();
 
 public:

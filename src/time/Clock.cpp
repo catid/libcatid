@@ -58,7 +58,7 @@ using namespace std;
 
 CAT_REF_SINGLETON(Clock);
 
-void Clock::OnInitialize()
+bool Clock::OnInitialize()
 {
 #if defined(CAT_OS_WINDOWS)
 
@@ -75,6 +75,8 @@ void Clock::OnInitialize()
 	_inv_freq = 1.0 / static_cast<double>(freq.QuadPart);
 
 #endif
+
+	return true;
 }
 
 void Clock::OnFinalize()

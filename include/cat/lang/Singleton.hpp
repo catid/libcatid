@@ -47,7 +47,7 @@
 
 			class SystemInfo : Singleton<SystemInfo>
 			{
-				void OnInitialize(); // optional
+				bool OnInitialize(); // optional
 
 				...
 
@@ -55,9 +55,11 @@
 
 			CAT_SINGLETON(SystemInfo);
 
-			void SystemInfo::OnInitialize() // optional
+			bool SystemInfo::OnInitialize() // optional
 			{
 				...
+
+				return true;
 			}
 
 		To access a member of the singleton instance:

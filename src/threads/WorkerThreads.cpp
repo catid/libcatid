@@ -353,7 +353,7 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 
 CAT_REF_SINGLETON(WorkerThreads);
 
-void WorkerThreads::OnInitialize()
+bool WorkerThreads::OnInitialize()
 {
 	FinalizeBefore<Clock>();
 
@@ -371,7 +371,7 @@ void WorkerThreads::OnInitialize()
 	if (!_workers)
 	{
 		CAT_FATAL("WorkerThreads") << "Out of memory while allocating " << worker_count << " worker thread objects";
-		return;
+		return false;
 	}
 
 	// For each worker,
@@ -380,14 +380,14 @@ void WorkerThreads::OnInitialize()
 		// Start its thread
 		if (!_workers[ii].StartThread(this))
 		{
-			CAT_FATAL("WorkerThreads") << "StartThread error " << GetLastError();
-			return;
+			CAT_WARN("WorkerThreads") << "StartThread error " << GetLastError();
+			return ii > 0; // Indicate success if at least one thread was started successfully
 		}
 
 		_workers[ii].SetIdealCore(ii);
 	}
 
-	return;
+	return true;
 }
 
 void WorkerThreads::OnFinalize()
