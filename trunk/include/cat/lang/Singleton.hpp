@@ -55,9 +55,18 @@
 
 			CAT_SINGLETON(SystemInfo);
 
+			static Clock *m_clock = 0;
+
 			bool SystemInfo::OnInitialize() // optional
 			{
-				...
+				m_clock = Use<Clock>(); // Use the Clock singleton
+
+				// Optionally check if Clock initialized successfully
+				if (!IsInitialized())
+				{
+					// No need to return a failure here, this singleton can no longer be successfully initialized
+					// since one of its dependencies could not initialize.
+				}
 
 				return true;
 			}
