@@ -44,30 +44,32 @@ Mutex &cat::GetRefSingletonMutex()
 
 void RefSingletonBase::MergeSort(SList &list)
 {
-	if (!head) return 0;
+	if (list.Empty()) return;
+
+	RefSingletonBase *head = static_cast<RefSingletonBase*>( list.Head() );
 
 	// Unroll first loop where consecutive pairs are put in order
 	RefSingletonBase *a = head, *tail = 0, *skip_last = 0;
 	do
 	{
 		// Grab second item in pair
-		RefSingletonBase *b = a->_sort_next;
+		RefSingletonBase *b = static_cast<RefSingletonBase*>( a->_sl_next );
 
 		// If no second item in pair,
 		if (!b)
 		{
 			// Initialize the skip pointer to null
-			a->_sort_skip = 0;
+			a->_skip_next = 0;
 
 			// Done with this step size!
 			break;
 		}
 
 		// Remember next pair in case swap occurs
-		RefSingletonBase *next_pair = b->_sort_next;
+		RefSingletonBase *next_pair = static_cast<RefSingletonBase*>( b->_sl_next );
 
 		// If current pair are already in order,
-		if (a->_sort_value <= b->_sort_value)
+		if (a->_final_priority <= b->_final_priority)
 		{
 			// Remember b as previous node
 			tail = b;
@@ -78,17 +80,17 @@ void RefSingletonBase::MergeSort(SList &list)
 		else // pair is out of order
 		{
 			// Fix a, b next pointers
-			a->_sort_next = next_pair;
-			b->_sort_next = a;
+			a->_sl_next = next_pair;
+			b->_sl_next = a;
 
 			// Link b to previous node
 			if (tail)
 			{
-				tail->_sort_next = b;
+				tail->_sl_next = b;
 
 				// Fix skip list from last pass
 				CAT_DEBUG_ENFORCE(skip_last);
-				skip_last->_sort_skip = b;
+				skip_last->_skip_next = b;
 			}
 			else head = b;
 
@@ -99,7 +101,7 @@ void RefSingletonBase::MergeSort(SList &list)
 			skip_last = b;
 		}
 
-		skip_last->_sort_skip = next_pair;
+		skip_last->_skip_next = next_pair;
 
 		// Continue at next pair
 		a = next_pair;
@@ -114,16 +116,16 @@ void RefSingletonBase::MergeSort(SList &list)
 		tail = 0;
 
 		// Grab start of second list
-		RefSingletonBase *b = a->_sort_skip;
+		RefSingletonBase *b = a->_skip_next;
 
 		// If no second list, sorting is done
 		if (!b) break;
 
 		// Remember pointer to next list
-		RefSingletonBase *next_list = b->_sort_skip;
+		RefSingletonBase *next_list = b->_skip_next;
 
 		// Cache a, b offsets
-		u32 aoff = a->_sort_value, boff = b->_sort_value;
+		u32 aoff = a->_final_priority, boff = b->_final_priority;
 
 		// Merge two lists together until step size is exceeded
 		int b_remaining = step_size;
@@ -134,23 +136,23 @@ void RefSingletonBase::MergeSort(SList &list)
 			if (aoff <= boff)
 			{
 				// Set a as tail
-				if (tail) tail->_sort_next = a;
+				if (tail) tail->_sl_next = a;
 				else head = a;
 				tail = a;
 
 				// Grab next a
-				a = a->_sort_next;
+				a = static_cast<RefSingletonBase*>( a->_sl_next );
 
 				// If ran out of a-items,
 				if (a == b_head)
 				{
 					// Link remainder of b-items to the end
-					tail->_sort_next = b;
+					tail->_sl_next = b;
 
 					// Fix tail pointer
 					while (--b_remaining > 0)
 					{
-						RefSingletonBase *next = b->_sort_next;
+						RefSingletonBase *next = static_cast<RefSingletonBase*>( b->_sl_next );
 						if (!next) break;
 						b = next;
 					}
@@ -161,32 +163,32 @@ void RefSingletonBase::MergeSort(SList &list)
 				}
 
 				// Update cache of a-offset
-				aoff = a->_sort_value;
+				aoff = a->_final_priority;
 			}
 			else
 			{
 				// Set b as tail
-				if (tail) tail->_sort_next = b;
+				if (tail) tail->_sl_next = b;
 				else head = b;
 				tail = b;
 
 				// Grab next b
-				b = b->_sort_next;
+				b = static_cast<RefSingletonBase*>( b->_sl_next );
 
 				// If ran out of b-items,
 				if (--b_remaining == 0 || !b)
 				{
 					// Link remainder of a-items to end
-					tail->_sort_next = a;
+					tail->_sl_next = a;
 
 					// Need to fix the final next pointer of the appended a-items
 					RefSingletonBase *prev;
 					do
 					{
 						prev = a;
-						a = a->_sort_next;
+						a = static_cast<RefSingletonBase*>( a->_sl_next );
 					} while (a != b_head);
-					prev->_sort_next = b;
+					prev->_sl_next = b;
 					tail = prev;
 
 					// Done with this step size
@@ -194,7 +196,7 @@ void RefSingletonBase::MergeSort(SList &list)
 				}
 
 				// Update cache of b-offset
-				boff = b->_sort_value;
+				boff = b->_final_priority;
 			}
 		}
 
@@ -205,30 +207,30 @@ void RefSingletonBase::MergeSort(SList &list)
 		while ((a = next_list))
 		{
 			// Grab start of second list
-			b = a->_sort_skip;
+			b = a->_skip_next;
 
 			// If no second list, done with this step size
 			if (!b)
 			{
 				// Fix skip list
-				skip_last->_sort_skip = a;
+				skip_last->_skip_next = a;
 
 				break;
 			}
 
 			// Remember pointer to next list
-			next_list = b->_sort_skip;
+			next_list = b->_skip_next;
 
 			// Remember previous tail for fixing the skip list later
 			RefSingletonBase *prev_tail = tail;
 
 			// First item in the new list will be either a or b
 			// b already has next list pointer set, so just update a
-			a->_sort_skip = next_list;
+			a->_skip_next = next_list;
 
 			// Cache a, b offsets
-			aoff = a->_sort_value;
-			boff = b->_sort_value;
+			aoff = a->_final_priority;
+			boff = b->_final_priority;
 
 			// Merge two lists together until step size is exceeded
 			b_remaining = step_size;
@@ -239,22 +241,22 @@ void RefSingletonBase::MergeSort(SList &list)
 				if (aoff <= boff)
 				{
 					// Set a as tail
-					tail->_sort_next = a;
+					tail->_sl_next = a;
 					tail = a;
 
 					// Grab next a
-					a = a->_sort_next;
+					a = static_cast<RefSingletonBase*>( a->_sl_next );
 
 					// If ran out of a-items,
 					if (a == b_head)
 					{
 						// Link remainder of b-items to the end
-						tail->_sort_next = b;
+						tail->_sl_next = b;
 
 						// Fix tail pointer
 						while (--b_remaining > 0)
 						{
-							RefSingletonBase *next = b->_sort_next;
+							RefSingletonBase *next = static_cast<RefSingletonBase*>( b->_sl_next );
 							if (!next) break;
 							b = next;
 						}
@@ -265,31 +267,31 @@ void RefSingletonBase::MergeSort(SList &list)
 					}
 
 					// Update cache of a-offset
-					aoff = a->_sort_value;
+					aoff = a->_final_priority;
 				}
 				else
 				{
 					// Set b as tail
-					tail->_sort_next = b;
+					tail->_sl_next = b;
 					tail = b;
 
 					// Grab next b
-					b = b->_sort_next;
+					b = static_cast<RefSingletonBase*>( b->_sl_next );
 
 					// If ran out of b-items,
 					if (--b_remaining == 0 || !b)
 					{
 						// Link remainder of a-items to end
-						tail->_sort_next = a;
+						tail->_sl_next = a;
 
 						// Need to fix the final next pointer of the appended a-items
 						RefSingletonBase *prev;
 						do
 						{
 							prev = a;
-							a = a->_sort_next;
+							a = static_cast<RefSingletonBase*>( a->_sl_next );
 						} while (a != b_head);
-						prev->_sort_next = b;
+						prev->_sl_next = b;
 						tail = prev;
 
 						// Done with this step size
@@ -297,24 +299,24 @@ void RefSingletonBase::MergeSort(SList &list)
 					}
 
 					// Update cache of b-offset
-					boff = b->_sort_value;
+					boff = b->_final_priority;
 				}
 			}
 
 			// Determine segment head and fix skip list
-			RefSingletonBase *seg_head = prev_tail->_sort_next;
-			skip_last->_sort_skip = seg_head;
+			RefSingletonBase *seg_head = static_cast<RefSingletonBase*>( prev_tail->_sl_next );
+			skip_last->_skip_next = seg_head;
 			skip_last = seg_head;
 		}
 
 		// Fix final skip list pointer
-		skip_last->_sort_skip = next_list;
+		skip_last->_skip_next = next_list;
 
 		// Double step size
 		step_size *= 2;
 	}
 
-	return head;
+	list = head;
 }
 
 
@@ -354,10 +356,10 @@ void RefSingletons::OnFinalize()
 	RefSingletonBase::MergeSort(dregs);
 
 	// For each bin in order,
-	for (int bin = 0; bin < BIN_COUNT; ++bin)
+	for (int prio = 0; prio < BIN_COUNT; ++prio)
 	{
 		// For each active singleton in the bin,
-		for (iter ii = _active_list; ii; ++ii)
+		for (iter ii = bins[prio]; ii; ++ii)
 		{
 			ii->OnFinalize();
 		}

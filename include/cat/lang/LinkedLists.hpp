@@ -648,7 +648,9 @@ public:
 		Clear();
 	}
 
-	CAT_INLINE bool empty() { return _head == 0; }
+	CAT_INLINE bool Empty() { return _head == 0; }
+
+	CAT_INLINE SListItem *Head() { return _head; }
 
 	CAT_INLINE void Clear()
 	{
@@ -657,6 +659,11 @@ public:
 	CAT_INLINE SList &operator=(SList &list)
 	{
 		_head = list._head;
+		return *this;
+	}
+	CAT_INLINE SList &operator=(SListItem *item)
+	{
+		_head = item;
 		return *this;
 	}
 	CAT_INLINE void Steal(SList &list)

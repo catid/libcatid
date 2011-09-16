@@ -259,7 +259,7 @@ HashTable::~HashTable()
 			SList &bucket = _buckets[ii];
 
 			// If bucket is not empty,
-			if (!bucket.empty())
+			if (!bucket.Empty())
 			{
 				// For each item in the bucket,
 				for (iter ii = bucket; ii; ++ii)
