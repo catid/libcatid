@@ -94,7 +94,8 @@ public:
 		if (_init) return &_instance;
 
 		Singleton<T> *ptr = &_instance;
-		ptr->_init_success = ptr->OnInitialize();
+		ptr->_init_success = true;
+		if (!ptr->OnInitialize()) ptr->_init_success = false;
 
 		CAT_FENCE_COMPILER;
 
@@ -118,7 +119,25 @@ class CAT_EXPORT Singleton
 protected:
 	CAT_INLINE Singleton() {}
 
+	// Called during initialization
 	CAT_INLINE virtual bool OnInitialize() { return true; }
+
+	// Call only from OnInitialize() to declare which other Singletons are used
+	template<class S>
+	CAT_INLINE S *Use()
+	{
+		S *instance = S::ref();
+		if (!instance) return 0;
+
+		// If initialization failed,
+		if (!instance->IsInitialized())
+		{
+			// Initialization has failed for this one too
+			_init_success = false;
+		}
+
+		return instance;
+	}
 
 public:
 	CAT_INLINE virtual ~Singleton() {}
