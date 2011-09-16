@@ -31,6 +31,7 @@
 
 #include <cat/lang/Singleton.hpp>
 #include <cat/lang/LinkedLists.hpp>
+#include <cat/io/Logging.hpp>
 
 namespace cat {
 
@@ -38,7 +39,7 @@ namespace cat {
 /*
 	RefSingleton builds on the Singleton class, to add OnFinalize().
 
-	When the order of finalization matters, RefSingleton objects may call the FinalizeBefore<>();
+	When the order of finalization matters, RefSingleton objects may call the DependsOn<>();
 	function inside of their OnInitialize() member.  This function creates a reference counted
 	relationship between the two objects.  Circular references will cause this system to break.
 
@@ -56,9 +57,11 @@ namespace cat {
 
 		CAT_REF_SINGLETON(Settings);
 
+		static Clock *m_clock = 0;
+
 		bool Settings::OnInitialize()
 		{
-			FinalizeBefore<Clock>(); // Add a reference to Clock RefSingleton so order of finalization is correct.
+			m_clock = Use<Clock>(); // Add a reference to Clock RefSingleton so order of finalization is correct.
 
 			return true;
 		}
@@ -78,24 +81,35 @@ class CAT_EXPORT RefSingletonBase : public SListItem
 
 	CAT_NO_COPY(RefSingletonBase);
 
-	virtual u32 *GetRefCount() = 0;
-	void ReleaseRefs();
+protected:
+	u32 _final_priority; // shutdown order (lower = sooner)
+	bool _init_success; // OnInitialize() return value
+	RefSingletonBase *_skip_next; // for merge sort
 
-	static const int REFS_PREALLOC = 8;
-	u32 _refs_count;
-	u32 *_refs_prealloc[REFS_PREALLOC];
-	u32 **_refs_extended;
+	void UpdatePriority(RefSingletonBase *instance)
+	{
+		u32 prio = instance->_final_priority;
+		CAT_DEBUG_ENFORCE(prio == 0) << "Circular dependency detected!  This is not supported!";
+
+		// If their priority will bump mine,
+		if (_final_priority >= prio)
+		{
+			// Make my priority lower
+			_final_priority = prio + 1;
+		}
+	}
 
 protected:
-	RefSingletonBase();
-
-	void AddRefSingletonReference(u32 *ref_counter);
-
 	virtual bool OnInitialize() = 0;
 	virtual void OnFinalize() = 0;
 
 public:
+	CAT_INLINE RefSingletonBase() {}
 	CAT_INLINE virtual ~RefSingletonBase() {}
+
+	CAT_INLINE bool IsInitialized() { return _init_success; }
+
+	static void MergeSort(SList &list);
 };
 
 // Internal class
@@ -122,7 +136,12 @@ public:
 		if (_init) return &_instance;
 
 		RefSingleton<T> *ptr = &_instance;
+		ptr->_final_priority = 0;
 		ptr->_init_success = ptr->OnInitialize();
+#if defined(CAT_DEBUG)
+		if (ptr->_final_priority <= 0)
+			ptr->_final_priority = 1;
+#endif
 		Watch(&_instance);
 
 		CAT_FENCE_COMPILER;
@@ -140,10 +159,6 @@ class CAT_EXPORT RefSingleton : public RefSingletonBase
 {
 	friend class RefSingletonImpl<T>;
 
-	CAT_INLINE u32 *GetRefCount() { return T::get_refcount_ptr(); }
-
-	bool _init_success;
-
 protected:
 	// Called during initialization
 	CAT_INLINE virtual bool OnInitialize() { return true; }
@@ -153,27 +168,27 @@ protected:
 
 	// Call only from OnInitialize() to declare which other RefSingletons are used
 	template<class S>
-	CAT_INLINE void FinalizeBefore()
+	CAT_INLINE S *Use()
 	{
-		AddRefSingletonReference(S::get_refcount_ptr());
+		S *instance = S::ref();
+		if (!instance) return 0;
+
+		UpdatePriority(instance);
+
+		return instance;
 	}
 
 public:
 	CAT_INLINE virtual ~RefSingleton<T>() {}
 
-	CAT_INLINE bool IsInitialized() { return _init_success; }
-
 	static T *ref();
-	static u32 *get_refcount_ptr();
 };
 
 
 // In the C file for the object, use this macro:
 #define CAT_REF_SINGLETON(T)										\
 static cat::RefSingletonImpl<T> m_T_rss;							\
-template<> T *RefSingleton<T>::ref() { return m_T_rss.GetRef(); }	\
-static u32 m_T_rcnt = 0;											\
-template<> u32 *RefSingleton<T>::get_refcount_ptr() { return &m_T_rcnt; }
+template<> T *RefSingleton<T>::ref() { return m_T_rss.GetRef(); }
 
 
 // Internal free function

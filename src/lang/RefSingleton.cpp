@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -42,75 +42,279 @@ Mutex &cat::GetRefSingletonMutex()
 
 //// RefSingletonBase
 
-RefSingletonBase::RefSingletonBase()
+void RefSingletonBase::MergeSort(SList &list)
 {
-	_refs_count = 0;
-}
+	if (!head) return 0;
 
-void RefSingletonBase::AddRefSingletonReference(u32 *ref_counter)
-{
-	u32 ii = _refs_count++;
-
-	if (ii < REFS_PREALLOC)
+	// Unroll first loop where consecutive pairs are put in order
+	RefSingletonBase *a = head, *tail = 0, *skip_last = 0;
+	do
 	{
-		_refs_prealloc[ii] = ref_counter;
-	}
-	else
-	{
-		ii -= REFS_PREALLOC;
+		// Grab second item in pair
+		RefSingletonBase *b = a->_sort_next;
 
-		// Reallocate every time ii has under 2 bits set
-		if (ii < REFS_PREALLOC)
+		// If no second item in pair,
+		if (!b)
 		{
-			if (ii == 0)
+			// Initialize the skip pointer to null
+			a->_sort_skip = 0;
+
+			// Done with this step size!
+			break;
+		}
+
+		// Remember next pair in case swap occurs
+		RefSingletonBase *next_pair = b->_sort_next;
+
+		// If current pair are already in order,
+		if (a->_sort_value <= b->_sort_value)
+		{
+			// Remember b as previous node
+			tail = b;
+
+			// Maintain skip list for next pass
+			skip_last = a;
+		}
+		else // pair is out of order
+		{
+			// Fix a, b next pointers
+			a->_sort_next = next_pair;
+			b->_sort_next = a;
+
+			// Link b to previous node
+			if (tail)
 			{
-				_refs_extended = new u32*[REFS_PREALLOC];
-				if (!_refs_extended) { --_refs_count; return; }
+				tail->_sort_next = b;
+
+				// Fix skip list from last pass
+				CAT_DEBUG_ENFORCE(skip_last);
+				skip_last->_sort_skip = b;
+			}
+			else head = b;
+
+			// Remember a as previous node
+			tail = a;
+
+			// Maintain skip list for next pass
+			skip_last = b;
+		}
+
+		skip_last->_sort_skip = next_pair;
+
+		// Continue at next pair
+		a = next_pair;
+	} while (a);
+
+	// Continue from step size of 2
+	int step_size = 2;
+	CAT_FOREVER
+	{
+		// Unroll first list merge for exit condition
+		a = head;
+		tail = 0;
+
+		// Grab start of second list
+		RefSingletonBase *b = a->_sort_skip;
+
+		// If no second list, sorting is done
+		if (!b) break;
+
+		// Remember pointer to next list
+		RefSingletonBase *next_list = b->_sort_skip;
+
+		// Cache a, b offsets
+		u32 aoff = a->_sort_value, boff = b->_sort_value;
+
+		// Merge two lists together until step size is exceeded
+		int b_remaining = step_size;
+		RefSingletonBase *b_head = b;
+		CAT_FOREVER
+		{
+			// In cases where both are equal, preserve order
+			if (aoff <= boff)
+			{
+				// Set a as tail
+				if (tail) tail->_sort_next = a;
+				else head = a;
+				tail = a;
+
+				// Grab next a
+				a = a->_sort_next;
+
+				// If ran out of a-items,
+				if (a == b_head)
+				{
+					// Link remainder of b-items to the end
+					tail->_sort_next = b;
+
+					// Fix tail pointer
+					while (--b_remaining > 0)
+					{
+						RefSingletonBase *next = b->_sort_next;
+						if (!next) break;
+						b = next;
+					}
+					tail = b;
+
+					// Done with this step size
+					break;
+				}
+
+				// Update cache of a-offset
+				aoff = a->_sort_value;
+			}
+			else
+			{
+				// Set b as tail
+				if (tail) tail->_sort_next = b;
+				else head = b;
+				tail = b;
+
+				// Grab next b
+				b = b->_sort_next;
+
+				// If ran out of b-items,
+				if (--b_remaining == 0 || !b)
+				{
+					// Link remainder of a-items to end
+					tail->_sort_next = a;
+
+					// Need to fix the final next pointer of the appended a-items
+					RefSingletonBase *prev;
+					do
+					{
+						prev = a;
+						a = a->_sort_next;
+					} while (a != b_head);
+					prev->_sort_next = b;
+					tail = prev;
+
+					// Done with this step size
+					break;
+				}
+
+				// Update cache of b-offset
+				boff = b->_sort_value;
 			}
 		}
-		else if (!CAT_AT_LEAST_2_BITS(ii))
-		{
-			u32 **new_extended = new u32*[ii + 1];
-			if (!new_extended) { --_refs_count; return; }
 
-			// If old data exists,
-			if (_refs_extended)
+		// Remember start of merged list for fixing the skip list later
+		skip_last = head;
+
+		// Second and following merges
+		while ((a = next_list))
+		{
+			// Grab start of second list
+			b = a->_sort_skip;
+
+			// If no second list, done with this step size
+			if (!b)
 			{
-				memcpy(new_extended, _refs_extended, sizeof(u32*) * ii);
-				delete []_refs_extended;
+				// Fix skip list
+				skip_last->_sort_skip = a;
+
+				break;
 			}
 
-			_refs_extended = new_extended;
+			// Remember pointer to next list
+			next_list = b->_sort_skip;
+
+			// Remember previous tail for fixing the skip list later
+			RefSingletonBase *prev_tail = tail;
+
+			// First item in the new list will be either a or b
+			// b already has next list pointer set, so just update a
+			a->_sort_skip = next_list;
+
+			// Cache a, b offsets
+			aoff = a->_sort_value;
+			boff = b->_sort_value;
+
+			// Merge two lists together until step size is exceeded
+			b_remaining = step_size;
+			b_head = b;
+			CAT_FOREVER
+			{
+				// In cases where both are equal, preserve order
+				if (aoff <= boff)
+				{
+					// Set a as tail
+					tail->_sort_next = a;
+					tail = a;
+
+					// Grab next a
+					a = a->_sort_next;
+
+					// If ran out of a-items,
+					if (a == b_head)
+					{
+						// Link remainder of b-items to the end
+						tail->_sort_next = b;
+
+						// Fix tail pointer
+						while (--b_remaining > 0)
+						{
+							RefSingletonBase *next = b->_sort_next;
+							if (!next) break;
+							b = next;
+						}
+						tail = b;
+
+						// Done with this step size
+						break;
+					}
+
+					// Update cache of a-offset
+					aoff = a->_sort_value;
+				}
+				else
+				{
+					// Set b as tail
+					tail->_sort_next = b;
+					tail = b;
+
+					// Grab next b
+					b = b->_sort_next;
+
+					// If ran out of b-items,
+					if (--b_remaining == 0 || !b)
+					{
+						// Link remainder of a-items to end
+						tail->_sort_next = a;
+
+						// Need to fix the final next pointer of the appended a-items
+						RefSingletonBase *prev;
+						do
+						{
+							prev = a;
+							a = a->_sort_next;
+						} while (a != b_head);
+						prev->_sort_next = b;
+						tail = prev;
+
+						// Done with this step size
+						break;
+					}
+
+					// Update cache of b-offset
+					boff = b->_sort_value;
+				}
+			}
+
+			// Determine segment head and fix skip list
+			RefSingletonBase *seg_head = prev_tail->_sort_next;
+			skip_last->_sort_skip = seg_head;
+			skip_last = seg_head;
 		}
 
-		_refs_extended[ii] = ref_counter;
-	}
-}
+		// Fix final skip list pointer
+		skip_last->_sort_skip = next_list;
 
-void RefSingletonBase::ReleaseRefs()
-{
-	int count = _refs_count;
-
-	for (int ii = 0; ii < REFS_PREALLOC && ii < count; ++ii)
-	{
-		u32 *cnt = _refs_prealloc[ii];
-
-		*cnt = *cnt - 1;
+		// Double step size
+		step_size *= 2;
 	}
 
-	int extended_count = count - REFS_PREALLOC;
-
-	if (extended_count > 0 && _refs_extended)
-	{
-		for (int ii = 0; ii < extended_count; ++ii)
-		{
-			u32 *cnt = _refs_extended[ii];
-
-			*cnt = *cnt - 1;
-		}
-
-		delete []_refs_extended;
-	}
+	return head;
 }
 
 
@@ -131,37 +335,40 @@ bool RefSingletons::OnInitialize()
 
 void RefSingletons::OnFinalize()
 {
-	// While there are still active singletons,
-	while (!_active_list.empty())
-	{
-		bool locked = true;
+	// Bin-sort active singletons
+	static const int BIN_COUNT = 16;
+	SList bins[BIN_COUNT];
+	SList dregs;
 
-		// For each active singleton,
+	// For each active singleton,
+	for (iter ii = _active_list; ii; ++ii)
+	{
+		u32 prio = ii->_final_priority;
+		if (prio < BIN_COUNT)
+			bins[prio].PushFront(ii);
+		else
+			dregs.PushFront(ii);
+	}
+
+	// TODO: Sort remainder list
+	RefSingletonBase::MergeSort(dregs);
+
+	// For each bin in order,
+	for (int bin = 0; bin < BIN_COUNT; ++bin)
+	{
+		// For each active singleton in the bin,
 		for (iter ii = _active_list; ii; ++ii)
 		{
-			u32 *ref_count = ii->GetRefCount();
-
-			// If reference count reaches zero,
-			if (*ref_count == 0)
-			{
-				ii->OnFinalize();
-				ii->ReleaseRefs();
-
-				_active_list.Erase(ii);
-
-				locked = false;
-			}
-		}
-
-		// If locked up due to dangling references,
-		if (locked)
-		{
-			CAT_FATAL("RefSingleton") << "Unable to gracefully finalize all the RefSingletons due to dangling references.  Forcing the rest...";
-
-			for (iter ii = _active_list; ii; ++ii)
-				ii->OnFinalize();
-
-			break;
+			ii->OnFinalize();
 		}
 	}
+
+	// For each remaining singleton,
+	for (iter ii = dregs; ii; ++ii)
+	{
+		ii->OnFinalize();
+	}
+
+	// NOTE: No need to clear the list since it is not accessed after this point
+	//_active_list.Clear();
 }
