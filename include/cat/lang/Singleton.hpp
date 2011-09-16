@@ -92,7 +92,7 @@ public:
 		if (_init) return &_instance;
 
 		Singleton<T> *ptr = &_instance;
-		ptr->OnInitialize();
+		ptr->_init_success = ptr->OnInitialize();
 
 		CAT_FENCE_COMPILER;
 
@@ -111,13 +111,18 @@ class CAT_EXPORT Singleton
 
 	CAT_NO_COPY(Singleton);
 
+	bool _init_success;
+
 protected:
 	CAT_INLINE Singleton() {}
 
-	CAT_INLINE virtual void OnInitialize() {}
+	CAT_INLINE virtual bool OnInitialize() { return true; }
 
 public:
 	CAT_INLINE virtual ~Singleton() {}
+
+	// Call to check return code of initialization
+	CAT_INLINE bool IsInitialized() { return _init_success; }
 
 	static T *ref();
 };

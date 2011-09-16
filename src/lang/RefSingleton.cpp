@@ -123,10 +123,10 @@ void RefSingletons::OnExit()
 
 CAT_SINGLETON(RefSingletons);
 
-void RefSingletons::OnInitialize()
+bool RefSingletons::OnInitialize()
 {
 	// Register shutdown callback
-	atexit(&RefSingletons::OnExit);
+	return 0 == atexit(&RefSingletons::OnExit);
 }
 
 void RefSingletons::OnFinalize()

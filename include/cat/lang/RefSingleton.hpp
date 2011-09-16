@@ -183,7 +183,7 @@ class CAT_EXPORT RefSingletons : public Singleton<RefSingletons>
 
 	static void OnExit();
 
-	void OnInitialize();
+	bool OnInitialize();
 	void OnFinalize();
 
 	template<class T>
