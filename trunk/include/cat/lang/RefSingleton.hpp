@@ -86,7 +86,7 @@ protected:
 	bool _init_success; // OnInitialize() return value
 	RefSingletonBase *_skip_next; // for merge sort
 
-	void UpdatePriority(RefSingletonBase *instance)
+	CAT_INLINE void UpdatePriority(RefSingletonBase *instance)
 	{
 		u32 prio = instance->_final_priority;
 		CAT_DEBUG_ENFORCE(prio == 0) << "Circular dependency detected!  This is not supported!";
@@ -96,6 +96,13 @@ protected:
 		{
 			// Make my priority lower
 			_final_priority = prio + 1;
+		}
+
+		// If initialization failed,
+		if (!instance->IsInitialized())
+		{
+			// Initialization has failed for this one too
+			_init_success = false;
 		}
 	}
 
@@ -135,13 +142,19 @@ public:
 
 		if (_init) return &_instance;
 
+		// Initialize the object and record result, allowing Use<> to override
+		// NOTE: This way inside OnInitialize() the singleton can check if
+		// any dependencies failed with a single IsInitialized() check
 		RefSingleton<T> *ptr = &_instance;
 		ptr->_final_priority = 0;
-		ptr->_init_success = ptr->OnInitialize();
+		ptr->_init_success = true;
+		if (!ptr->OnInitialize()) ptr->_init_success = false;
+
 #if defined(CAT_DEBUG)
 		if (ptr->_final_priority <= 0)
 			ptr->_final_priority = 1;
 #endif
+
 		Watch(&_instance);
 
 		CAT_FENCE_COMPILER;

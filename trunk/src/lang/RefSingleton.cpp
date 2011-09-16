@@ -352,7 +352,7 @@ void RefSingletons::OnFinalize()
 			dregs.PushFront(ii);
 	}
 
-	// TODO: Sort remainder list
+	// Sort remainder list
 	RefSingletonBase::MergeSort(dregs);
 
 	// For each bin in order,
