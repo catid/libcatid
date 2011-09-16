@@ -222,10 +222,12 @@ static u32 GetAllocationGranularity()
 
 CAT_SINGLETON(SystemInfo);
 
-void SystemInfo::OnInitialize()
+bool SystemInfo::OnInitialize()
 {
 	_CacheLineBytes = ::GetCacheLineBytes();
 	_ProcessorCount = ::GetProcessorCount();
 	_PageSize = ::GetPageSize();
 	_AllocationGranularity = ::GetAllocationGranularity();
+
+	return true;
 }

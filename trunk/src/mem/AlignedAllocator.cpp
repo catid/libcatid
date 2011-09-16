@@ -62,9 +62,11 @@ static u32 m_cacheline_bytes;
 
 CAT_SINGLETON(AlignedAllocator);
 
-void AlignedAllocator::OnInitialize()
+bool AlignedAllocator::OnInitialize()
 {
 	m_cacheline_bytes = SystemInfo::ref()->GetCacheLineBytes();
+
+	return true;
 }
 
 // Allocates memory aligned to a CPU cache-line byte boundary from the heap

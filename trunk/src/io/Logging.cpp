@@ -158,11 +158,13 @@ void cat::DefaultLogCallback(EventSeverity severity, const char *source, std::os
 
 CAT_SINGLETON(Logging);
 
-void Logging::OnInitialize()
+bool Logging::OnInitialize()
 {
 	_callback = Callback::FromFree<&DefaultLogCallback>();
 	_log_threshold = LVL_INANE;
 	_service = false;
+
+	return true;
 }
 
 void Logging::SetLogCallback(const Callback &cb)

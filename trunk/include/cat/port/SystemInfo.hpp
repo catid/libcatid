@@ -36,7 +36,7 @@ namespace cat {
 
 class CAT_EXPORT SystemInfo : public Singleton<SystemInfo>
 {
-	void OnInitialize();
+	bool OnInitialize();
 
 	// Number of bytes in each CPU cache line
 	u32 _CacheLineBytes;
