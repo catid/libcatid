@@ -185,6 +185,7 @@ class CAT_EXPORT FortunaOutput : public IRandom
 
 	static const int OUTPUT_CACHE_BYTES = FortunaFactory::POOL_BYTES * 8; // Arbitrary
 
+	bool _valid;
 	u32 thread_id, SeedRevision;
 	Skein OutputHash;
 	u8 CachedRandomBytes[OUTPUT_CACHE_BYTES];
@@ -198,6 +199,9 @@ class CAT_EXPORT FortunaOutput : public IRandom
 public:
 	FortunaOutput();
 	~FortunaOutput();
+
+	// Check if the output is actually random or not
+	CAT_INLINE bool Valid() { return _valid; }
 
 	// Generate a 32-bit random number
 	u32 Generate();

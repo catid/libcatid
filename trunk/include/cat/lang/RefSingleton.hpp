@@ -86,6 +86,17 @@ protected:
 	bool _init_success; // OnInitialize() return value
 	RefSingletonBase *_skip_next; // for merge sort
 
+	template<class S>
+	CAT_INLINE void UpdatePriority(Singleton<S> *instance)
+	{
+		// If initialization failed,
+		if (!instance->IsInitialized())
+		{
+			// Initialization has failed for this one too
+			_init_success = false;
+		}
+	}
+
 	CAT_INLINE void UpdatePriority(RefSingletonBase *instance)
 	{
 		u32 prio = instance->_final_priority;

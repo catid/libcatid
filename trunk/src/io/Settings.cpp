@@ -30,6 +30,8 @@
 #include <cat/io/Logging.hpp>
 using namespace cat;
 
+static Logging *m_logging = 0;
+
 
 //// Settings
 
@@ -37,6 +39,8 @@ CAT_REF_SINGLETON(Settings);
 
 bool Settings::OnInitialize()
 {
+	m_logging = Use<Logging>();
+
 	AutoWriteLock lock(_lock);
 
 	_file.Read(CAT_SETTINGS_FILE);
@@ -46,7 +50,7 @@ bool Settings::OnInitialize()
 
 	// Initialize logging threshold
 	EventSeverity threshold = (EventSeverity)getInt("Log.Threshold", LVL_INFO);
-	Logging::ref()->SetThreshold(threshold);
+	m_logging->SetThreshold(threshold);
 
 	return true;
 }

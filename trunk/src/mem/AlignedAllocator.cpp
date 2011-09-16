@@ -64,7 +64,7 @@ CAT_SINGLETON(AlignedAllocator);
 
 bool AlignedAllocator::OnInitialize()
 {
-	m_cacheline_bytes = SystemInfo::ref()->GetCacheLineBytes();
+	m_cacheline_bytes = Use<SystemInfo>()->GetCacheLineBytes();
 
 	return true;
 }

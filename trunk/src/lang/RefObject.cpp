@@ -29,6 +29,7 @@
 #include <cat/lang/RefObject.hpp>
 using namespace cat;
 
+static RefObjects *m_refobjects = 0;
 static Mutex m_refobjects_lock;
 
 
@@ -75,7 +76,7 @@ void RefObject::OnZeroReferences(const char *file_line)
 	CAT_WARN("RefObject") << GetRefObjectName() << "#" << this << " zero refs at " << file_line;
 #endif
 
-	RefObjects::ref()->Kill(this);
+	m_refobjects->Kill(this);
 }
 
 
@@ -85,6 +86,8 @@ CAT_REF_SINGLETON(RefObjects);
 
 bool RefObjects::OnInitialize()
 {
+	m_refobjects = this;
+
 	_shutdown = false;
 
 	if (!Thread::StartThread())

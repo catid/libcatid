@@ -39,7 +39,7 @@ static FortunaFactory *m_factory = 0;
 FortunaOutput::FortunaOutput()
 {
 	// Initialize factory if needed, which will set m_factory
-	FortunaFactory::ref();
+	_valid = FortunaFactory::ref()->IsInitialized();
 
 	Reseed();
 }

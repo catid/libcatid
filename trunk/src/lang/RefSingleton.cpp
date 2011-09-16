@@ -29,6 +29,9 @@
 #include <cat/lang/RefSingleton.hpp>
 using namespace cat;
 
+static RefSingletons *m_ref_singletons = 0;
+
+
 
 //// Mutex
 
@@ -324,13 +327,15 @@ void RefSingletonBase::MergeSort(SList &list)
 
 void RefSingletons::OnExit()
 {
-	RefSingletons::ref()->OnFinalize();
+	m_ref_singletons->OnFinalize();
 }
 
 CAT_SINGLETON(RefSingletons);
 
 bool RefSingletons::OnInitialize()
 {
+	m_ref_singletons = this;
+
 	// Register shutdown callback
 	return 0 == atexit(&RefSingletons::OnExit);
 }
