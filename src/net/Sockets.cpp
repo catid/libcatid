@@ -139,7 +139,7 @@ bool UDPSocket::IgnoreUnreachable(bool ignore)
 	// After that call IgnoreUnreachable() to avoid spoofed ICMP exploits.
 
 	DWORD behavior = ignore ? FALSE : TRUE;
-	if (ioctlsocket(GetHandle(), SIO_UDP_CONNRESET, &behavior) == SOCKET_ERROR)
+	if (ioctlsocket(GetSocket(), SIO_UDP_CONNRESET, &behavior) == SOCKET_ERROR)
 	{
 		CAT_WARN("UDPSocket") << "Unable to ignore ICMP Unreachable: " << Sockets::GetLastErrorString();
 		return false;
@@ -151,7 +151,7 @@ bool UDPSocket::IgnoreUnreachable(bool ignore)
 bool UDPSocket::DontFragment(bool df)
 {
 	DWORD behavior = df ? TRUE : FALSE;
-	if (setsockopt(GetHandle(), IPPROTO_IP, IP_DONTFRAGMENT, (const char*)&behavior, sizeof(behavior)))
+	if (setsockopt(GetSocket(), IPPROTO_IP, IP_DONTFRAGMENT, (const char*)&behavior, sizeof(behavior)))
 	{
 		CAT_WARN("UDPSocket") << "Unable to change don't fragment bit: " << Sockets::GetLastErrorString();
 		return false;

@@ -34,6 +34,8 @@
 using namespace std;
 using namespace cat;
 
+static UDPReceiveAllocator m_recv_allocator
+
 bool UDPEndpoint::OnRefObjectInitialize()
 {
 	IOThreadPools::ref();
@@ -126,7 +128,7 @@ bool UDPEndpoint::PostRead(RecvBuffer *buffer)
 
 	// Queue up a WSARecvFrom()
 	DWORD flags = 0, bytes;
-	int result = WSARecvFrom(GetHandle(), &wsabuf, 1, &bytes, &flags,
+	int result = WSARecvFrom(GetSocket(), &wsabuf, 1, &bytes, &flags,
 		reinterpret_cast<sockaddr*>( &buffer->iointernal.addr ),
 		&buffer->iointernal.addr_len, &buffer->iointernal.ov, 0); 
 
@@ -134,7 +136,7 @@ bool UDPEndpoint::PostRead(RecvBuffer *buffer)
 	// we get an error code other than ERROR_IO_PENDING.
 	if (result && WSAGetLastError() != ERROR_IO_PENDING)
 	{
-		CAT_FATAL("UDPEndpoint") << "WSARecvFrom error: " << Sockets::GetLastErrorString()();
+		CAT_FATAL("UDPEndpoint") << "WSARecvFrom error: " << Sockets::GetLastErrorString();
 		return false;
 	}
 

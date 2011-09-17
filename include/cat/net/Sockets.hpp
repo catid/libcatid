@@ -249,7 +249,7 @@ public:
 	CAT_INLINE bool Valid() { return _s != INVALID_SOCKET; }
 	CAT_INLINE bool SupportsIPv4() { return _support4; }
 	CAT_INLINE bool SupportsIPv6() { return _support6; }
-	CAT_INLINE SocketHandle GetHandle() { return _s; }
+	CAT_INLINE SocketHandle GetSocket() { return _s; }
 
 	Port GetPort();
 
