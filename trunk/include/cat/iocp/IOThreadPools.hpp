@@ -186,7 +186,6 @@ class CAT_EXPORT IOThreadPools : public RefSingleton<IOThreadPools>
 	void OnFinalize();
 
 	IOThreadImports _imports;
-	BufferAllocator *_recv_allocator;
 
 	Mutex _lock;
 	DListForward _private_pools;
@@ -195,7 +194,6 @@ class CAT_EXPORT IOThreadPools : public RefSingleton<IOThreadPools>
 	IOThreadPool _shared_pool;
 
 public:
-	CAT_INLINE BufferAllocator *GetRecvAllocator() { return _recv_allocator; }
 	CAT_INLINE IOThreadImports *GetIOThreadImports() { return &_imports; }
 
 	IOThreadPool *AssociatePrivate(IOThreadsAssociator *associator);

@@ -53,6 +53,12 @@ public:
 	int getInt(const char *name, int default_value = 0);
 	std::string getStr(const char *name, const char *default_value = "");
 
+	// Helper function that includes min/max counts on a setting
+	CAT_INLINE int getInt(const char *name, int default_value, int min_value, int max_value)
+	{
+		return Bound(min_value, max_value, getInt(name, default_value));
+	}
+
 	void setInt(const char *name, int value);
 	void setStr(const char *name, const char *value);
 };

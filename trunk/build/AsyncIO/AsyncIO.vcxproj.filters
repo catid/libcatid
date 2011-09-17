@@ -19,6 +19,9 @@
     <Filter Include="Header Files\io">
       <UniqueIdentifier>{7a52efdb-8cc6-4b47-84aa-49bcac5a6298}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\net">
+      <UniqueIdentifier>{05029127-b0fa-4866-ae81-e2826028c931}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\iocp\UDPEndpoint.cpp">
@@ -37,6 +40,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\iocp\IOThreadPools.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\net\UDPRecvAllocator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -64,6 +70,9 @@
     </ClInclude>
     <ClInclude Include="..\..\include\cat\iocp\IOThreadPools.hpp">
       <Filter>Header Files\iocp</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\net\UDPRecvAllocator.hpp">
+      <Filter>Header Files\net</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

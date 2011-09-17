@@ -169,6 +169,7 @@
     <ClCompile Include="..\..\src\io\PolledFileReader.cpp" />
     <ClCompile Include="..\..\src\iocp\IOThreadPools.cpp" />
     <ClCompile Include="..\..\src\iocp\UDPEndpoint.cpp" />
+    <ClCompile Include="..\..\src\net\UDPRecvAllocator.cpp" />
     <ClCompile Include="Precompiled.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
@@ -184,6 +185,7 @@
     <ClInclude Include="..\..\include\cat\io\BufferedFileWriter.hpp" />
     <ClInclude Include="..\..\include\cat\io\Buffers.hpp" />
     <ClInclude Include="..\..\include\cat\io\PolledFileReader.hpp" />
+    <ClInclude Include="..\..\include\cat\net\UDPRecvAllocator.hpp" />
     <ClInclude Include="Precompiled.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

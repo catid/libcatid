@@ -39,6 +39,8 @@
 #include <cat/io/BufferedFileWriter.hpp>
 #include <cat/io/PolledFileReader.hpp>
 
+#include <cat/net/UDPRecvAllocator.hpp>
+
 #if defined(CAT_COMPILER_MSVC) && defined(CAT_BUILD_DLL)
 # pragma warning(pop)
 #endif
