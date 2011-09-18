@@ -74,10 +74,9 @@ class CAT_EXPORT RefObjects : Thread, public RefSingleton<RefObjects>
 	void Kill(RefObject *obj);
 	void BuryDeadites();
 	bool ThreadFunction(void *param);
-
-public:
 	bool Watch(const char *file_line, RefObject *&obj);	// Will delete and nullify object if it fails to initialize
 
+public:
 	static Mutex &GetGlobalLock();
 };
 
