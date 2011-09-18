@@ -355,7 +355,7 @@ CAT_REF_SINGLETON(WorkerThreads);
 
 bool WorkerThreads::OnInitialize()
 {
-	m_clock = Use<Clock>();
+	Use(m_clock);
 
 	_tick_interval = 10;
 	_worker_count = 2;

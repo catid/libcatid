@@ -59,7 +59,8 @@
 
 			bool SystemInfo::OnInitialize() // optional
 			{
-				m_clock = Use<Clock>(); // Use the Clock singleton
+				Use(m_clock); // Use the Clock singleton
+				//m_clock = Use<Clock>(); // Alternative way, also returns a pointer to Clock
 
 				// Optionally check if Clock initialized successfully
 				if (!IsInitialized())
@@ -136,16 +137,22 @@ protected:
 	CAT_INLINE S *Use()
 	{
 		S *instance = S::ref();
-		if (!instance) return 0;
 
 		// If initialization failed,
-		if (!instance->IsInitialized())
+		if (!instance || !instance->IsInitialized())
 		{
 			// Initialization has failed for this one too
 			_init_success = false;
 		}
 
 		return instance;
+	}
+
+	// Alternative way to use another singleton
+	template<class S>
+	CAT_INLINE S *Use(S *&s)
+	{
+		return (s = Use<S>());
 	}
 
 public:

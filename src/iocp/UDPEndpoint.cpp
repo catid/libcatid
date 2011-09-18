@@ -30,15 +30,23 @@
 #include <cat/io/Logging.hpp>
 #include <cat/io/Settings.hpp>
 #include <cat/io/Buffers.hpp>
+#include <cat/net/UDPRecvAllocator.hpp>
 #include <MSWSock.h>
 using namespace std;
 using namespace cat;
 
-static UDPReceiveAllocator m_recv_allocator
+static UDPRecvAllocator *m_recv_allocator = 0;
+static IOThreadPools *m_io_thread_pools = 0;
+static StdAllocator *m_std_allocator = 0;
+
+
+//// UDPEndpoint
 
 bool UDPEndpoint::OnRefObjectInitialize()
 {
-	IOThreadPools::ref();
+	Use(m_io_thread_pools);
+	Use(m_std_allocator);
+	Use(m_recv_allocator);
 
 	return true;
 }
@@ -114,7 +122,7 @@ bool UDPEndpoint::Initialize(Port port, bool ignoreUnreachable, bool RequestIPv6
 }
 
 
-//// Begin Event
+//// Begin Events
 
 bool UDPEndpoint::PostRead(RecvBuffer *buffer)
 {
@@ -230,7 +238,7 @@ bool UDPEndpoint::Write(const BatchSet &buffers, u32 count, const NetAddr &addr)
 	// If in the process of shutdown or input invalid,
 	if (IsShutdown() || !addr.Unwrap(out_addr, addr_len))
 	{
-		StdAllocator::ii->ReleaseBatch(buffers);
+		StdAllocator::ref()->ReleaseBatch(buffers);
 		return false;
 	}
 
