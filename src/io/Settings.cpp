@@ -39,8 +39,6 @@ CAT_REF_SINGLETON(Settings);
 
 bool Settings::OnInitialize()
 {
-	Use(m_logging);
-
 	AutoWriteLock lock(_lock);
 
 	_file.Read(CAT_SETTINGS_FILE);
@@ -50,7 +48,7 @@ bool Settings::OnInitialize()
 
 	// Initialize logging threshold
 	EventSeverity threshold = (EventSeverity)getInt("Log.Threshold", LVL_INFO);
-	m_logging->SetThreshold(threshold);
+	Use(m_logging)->SetThreshold(threshold);
 
 	return true;
 }
