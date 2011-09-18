@@ -44,9 +44,7 @@ static StdAllocator *m_std_allocator = 0;
 
 bool UDPEndpoint::OnRefObjectInitialize()
 {
-	Use(m_io_thread_pools);
-	Use(m_std_allocator);
-	Use(m_recv_allocator);
+	Use(m_io_thread_pools, m_std_allocator, m_recv_allocator);
 
 	return true;
 }
