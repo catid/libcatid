@@ -39,7 +39,7 @@ CAT_REF_SINGLETON(Settings);
 
 bool Settings::OnInitialize()
 {
-	m_logging = Use<Logging>();
+	Use(m_logging);
 
 	AutoWriteLock lock(_lock);
 

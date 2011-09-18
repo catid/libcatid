@@ -97,7 +97,7 @@ protected:
 	CAT_INLINE void UpdatePriority(Singleton<S> *instance)
 	{
 		// If initialization failed,
-		if (!instance->IsInitialized())
+		if (!instance || !instance->IsInitialized())
 		{
 			// Initialization has failed for this one too
 			_init_success = false;
@@ -106,6 +106,13 @@ protected:
 
 	CAT_INLINE void UpdatePriority(RefSingletonBase *instance)
 	{
+		// If instance could not be acquired,
+		if (!instance)
+		{
+			_init_success = false;
+			return;
+		}
+
 		u32 prio = instance->_final_priority;
 		CAT_DEBUG_ENFORCE(prio == 0) << "Circular dependency detected!  This is not supported!";
 
@@ -202,11 +209,17 @@ protected:
 	CAT_INLINE S *Use()
 	{
 		S *instance = S::ref();
-		if (!instance) return 0;
 
 		UpdatePriority(instance);
 
 		return instance;
+	}
+
+	// Alternative way to use another singleton
+	template<class S>
+	CAT_INLINE S *Use(S *&s)
+	{
+		return (s = Use<S>());
 	}
 
 public:

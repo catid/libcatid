@@ -164,6 +164,26 @@ public:
 	virtual const char *GetRefObjectName() = 0;
 
 protected:
+	// Declare usage of another singleton, which will also affect initialization success
+	template<class S>
+	CAT_INLINE S *Use()
+	{
+		S *instance = S::ref();
+		if (!instance || !instance->IsInitialized())
+		{
+
+		}
+
+		return instance;
+	}
+
+	// Alternative way to use another singleton
+	template<class S>
+	CAT_INLINE S *Use(S *&s)
+	{
+		return (s = Use<S>());
+	}
+
 	// Called when an object is constructed.
 	// Allows the object to reference itself on instantiation and report startup
 	// errors without putting it in the constructor where it doesn't belong.
