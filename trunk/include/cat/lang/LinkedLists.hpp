@@ -313,8 +313,8 @@ public:
 		Clear();
 	}
 
-	CAT_INLINE DListItem *head() { return _head; }
-	CAT_INLINE bool empty() { return _head == 0; }
+	CAT_INLINE DListItem *Head() { return _head; }
+	CAT_INLINE bool Empty() { return _head == 0; }
 
 	CAT_INLINE void Clear()
 	{
@@ -353,6 +353,7 @@ public:
 			_item = 0;
 		}
 
+		// Initialize to head of list
 		CAT_INLINE Iterator(DListForward &list)
 		{
 			DListItem *item = list._head;
@@ -360,13 +361,25 @@ public:
 			_item = item;
 			if (item) _next = item->_dl_next;
 		}
-
 		CAT_INLINE Iterator &operator=(DListForward &list)
 		{
 			DListItem *item = list._head;
 
 			_item = item;
 			if (item) _next = item->_dl_next;
+			return *this;
+		}
+
+		// Initialize to an arbitrary position in the list
+		CAT_INLINE Iterator(DListItem *head)
+		{
+			_item = head;
+			if (head) _next = head->_dl_next;
+		}
+		CAT_INLINE Iterator &operator=(DListItem *head)
+		{
+			_item = head;
+			if (head) _next = head->_dl_next;
 			return *this;
 		}
 
@@ -412,9 +425,9 @@ public:
 		Clear();
 	}
 
-	CAT_INLINE DListItem *head() { return _head; }
-	CAT_INLINE DListItem *tail() { return _tail; }
-	CAT_INLINE bool empty() { return _head == 0; }
+	CAT_INLINE DListItem *Head() { return _head; }
+	CAT_INLINE DListItem *Tail() { return _tail; }
+	CAT_INLINE bool Empty() { return _head == 0; }
 
 	CAT_INLINE void Clear()
 	{
@@ -648,9 +661,8 @@ public:
 		Clear();
 	}
 
-	CAT_INLINE bool Empty() { return _head == 0; }
-
 	CAT_INLINE SListItem *Head() { return _head; }
+	CAT_INLINE bool Empty() { return _head == 0; }
 
 	CAT_INLINE void Clear()
 	{

@@ -479,15 +479,7 @@ bool IOThreadPools::DissociatePrivate(IOThreadPool *pool)
 
 	AutoMutex lock(_lock);
 
-	// For each pool,
-	for (pools_iter ii = _private_pools.head(); ii; ++ii)
-	{
-		if (pool == ii)
-		{
-			_private_pools.Erase(ii);
-			break;
-		}
-	}
+	_private_pools.Erase(pool);
 
 	return success;
 }

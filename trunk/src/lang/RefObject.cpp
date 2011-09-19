@@ -186,7 +186,7 @@ void RefObjects::OnFinalize()
 
 void RefObjects::BuryDeadites()
 {
-	if (!_dead_list.empty()) return;
+	if (!_dead_list.Empty()) return;
 
 	// Copy dead list
 	DListForward dead_list;
@@ -270,7 +270,7 @@ bool RefObjects::ThreadFunction(void *param)
 		}
 
 		// Quit when active list is empty
-		if (_active_list.empty()) break;
+		if (_active_list.Empty()) break;
 
 		// If active list is not empty and hang count exceeded threshold,
 		if (++hang_counter < HANG_THRESHOLD)
