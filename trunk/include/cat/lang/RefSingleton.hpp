@@ -89,7 +89,7 @@ class CAT_EXPORT RefSingletonBase : public SListItem
 	CAT_NO_COPY(RefSingletonBase);
 
 protected:
-	u32 _final_priority; // shutdown order (lower = sooner)
+	int _final_priority; // shutdown order (lower = sooner)
 	bool _init_success; // OnInitialize() return value
 	RefSingletonBase *_skip_next; // for merge sort
 
@@ -114,7 +114,7 @@ protected:
 		}
 
 		u32 prio = instance->_final_priority;
-		CAT_DEBUG_ENFORCE(prio == 0) << "Circular dependency detected!  This is not supported!";
+		CAT_DEBUG_ENFORCE(prio >= 0) << "Circular dependency detected!  This is not supported!";
 
 		// If their priority will bump mine,
 		if (_final_priority >= prio)
@@ -171,14 +171,13 @@ public:
 		// NOTE: This way inside OnInitialize() the singleton can check if
 		// any dependencies failed with a single IsInitialized() check
 		RefSingleton<T> *ptr = &_instance;
-		ptr->_final_priority = 0;
+		ptr->_final_priority = -1;
 		ptr->_init_success = true;
 		if (!ptr->OnInitialize()) ptr->_init_success = false;
 
-#if defined(CAT_DEBUG)
-		if (ptr->_final_priority <= 0)
+		// If final priority not set, initialize it to 1
+		if (ptr->_final_priority < 0)
 			ptr->_final_priority = 1;
-#endif
 
 		Watch(&_instance);
 
@@ -241,6 +240,12 @@ protected:
 		s1 = Use<S1>();
 		s2 = Use<S2>();
 		s3 = Use<S3>();
+	}
+
+	// Set the final priority to zero so that it is among the first to finalize
+	CAT_INLINE void FinalizeFirst()
+	{
+		_final_priority = 0;
 	}
 
 public:
