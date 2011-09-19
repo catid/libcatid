@@ -32,17 +32,17 @@
 using namespace std;
 using namespace cat;
 
-bool AsyncFile::OnRefObjectInitialize()
+bool AsyncFile::OnInitialize()
 {
 	return true;
 }
 
-void AsyncFile::OnRefObjectDestroy()
+void AsyncFile::OnDestroy()
 {
 	Close();
 }
 
-bool AsyncFile::OnRefObjectFinalize()
+bool AsyncFile::OnFinalize()
 {
 	return true;
 }

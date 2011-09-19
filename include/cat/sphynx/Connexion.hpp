@@ -94,9 +94,9 @@ public:
 protected:
 	template<class T> CAT_INLINE T *GetServer() { return static_cast<T*>( _parent ); }
 
-	virtual bool OnRefObjectInitialize();
-	virtual void OnRefObjectDestroy();
-	virtual bool OnRefObjectFinalize();
+	virtual bool OnInitialize();
+	virtual void OnDestroy();
+	virtual bool OnFinalize();
 
 	virtual void OnConnect(SphynxTLS *tls) = 0;
 	virtual void OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count) = 0;

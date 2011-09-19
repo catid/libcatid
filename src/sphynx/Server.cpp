@@ -42,18 +42,18 @@ using namespace sphynx;
 static WorkerThreads *m_worker_threads = 0;
 static Settings *m_settings = 0;
 
-bool Server::OnRefObjectInitialize()
+bool Server::OnInitialize()
 {
-	return UDPEndpoint::OnRefObjectInitialize() &&
+	return UDPEndpoint::OnInitialize() &&
 		RefObjects::Require(m_worker_threads, CAT_REFOBJECT_FILE_LINE) &&
 		RefObjects::Require(m_settings, CAT_REFOBJECT_FILE_LINE);
 }
 
-void Server::OnRefObjectDestroy()
+void Server::OnDestroy()
 {
 	_conn_map.ShutdownAll();
 
-	UDPEndpoint::OnRefObjectDestroy();
+	UDPEndpoint::OnDestroy();
 }
 
 void Server::OnRecvRouting(const BatchSet &buffers)

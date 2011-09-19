@@ -63,7 +63,7 @@ void RefObject::Destroy(const char *file_line)
 #endif
 	{
 		// Notify the derived class on the first shutdown request
-		OnRefObjectDestroy();
+		OnDestroy();
 
 		// Release the initial reference to allow Finalize()
 		ReleaseRef(file_line);
@@ -131,7 +131,7 @@ bool RefObjects::Watch(const char *file_line, RefObject *obj)
 		return false;
 	}
 
-	if (!obj->OnRefObjectInitialize())
+	if (!obj->OnInitialize())
 	{
 #if defined(CAT_TRACE_REFOBJECT)
 		CAT_WARN("RefObjects") << obj->GetRefObjectName() << "#" << obj << " failed to initialize at " << file_line;
@@ -188,7 +188,7 @@ void RefObjects::BuryDeadites()
 
 	for (iter ii = dead_list; ii; ++ii)
 	{
-		if (ii->OnRefObjectFinalize())
+		if (ii->OnFinalize())
 			delete ii;
 	}
 }
@@ -247,7 +247,7 @@ bool RefObjects::ThreadFunction(void *param)
 			_active_list.Erase(ii);
 
 			// If object finalizing requests memory freed,
-			if (ii->OnRefObjectFinalize())
+			if (ii->OnFinalize())
 			{
 #if defined(CAT_TRACE_REFOBJECT)
 				CAT_INANE("RefObjects") << ii->GetRefObjectName() << "#" << ii.GetRef() << " freeing memory";
@@ -287,7 +287,7 @@ bool RefObjects::ThreadFunction(void *param)
 			_active_list.Erase(smallest_obj);
 
 			// If object finalizing requests memory freed,
-			if (smallest_obj->OnRefObjectFinalize())
+			if (smallest_obj->OnFinalize())
 			{
 				CAT_FATAL("RefObjects") << smallest_obj->GetRefObjectName() << "#" << smallest_obj.GetRef() << " freeing memory for forced finalize";
 
