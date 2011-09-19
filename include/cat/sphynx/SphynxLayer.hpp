@@ -30,7 +30,6 @@
 #define CAT_SPHYNX_LAYER_HPP
 
 #include <cat/sphynx/Common.hpp>
-#include <cat/io/IOLayer.hpp>
 #include <cat/math/BigTwistedEdwards.hpp>
 #include <cat/crypt/rand/Fortuna.hpp>
 #include <cat/net/DNSClient.hpp>

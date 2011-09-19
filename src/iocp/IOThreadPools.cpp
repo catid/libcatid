@@ -27,7 +27,6 @@
 */
 
 #include <cat/iocp/IOThreadPools.hpp>
-#include <cat/io/IOLayer.hpp>
 #include <cat/io/Buffers.hpp>
 #include <cat/time/Clock.hpp>
 #include <cat/port/SystemInfo.hpp>

@@ -113,7 +113,7 @@ protected:
 			return;
 		}
 
-		u32 prio = instance->_final_priority;
+		int prio = instance->_final_priority;
 		CAT_DEBUG_ENFORCE(prio >= 0) << "Circular dependency detected!  This is not supported!";
 
 		// If their priority will bump mine,
