@@ -37,18 +37,17 @@ PolledFileReader::PolledFileReader()
 	u32 cache_size = Settings::ref()->getInt("File.ReadAheadCacheSize", 1024*1024*2);
 
 	// Make it a multiple of the page size
-	cache_size -= cache_size % system_info.PageSize;
-
+	cache_size -= cache_size % SystemInfo::ref()->GetPageSize();
 	_cache_size = cache_size;
 
 	// Allocate cache space and split it into two buffers
-	_cache[0] = (u8*)LargeAllocator::ii->Acquire(cache_size * 2);
+	_cache[0] = (u8*)LargeAllocator::ref()->Acquire(cache_size * 2);
 	_cache[1] = _cache[0] + cache_size;
 }
 
 PolledFileReader::~PolledFileReader()
 {
-	LargeAllocator::ii->Release(_cache[0]);
+	LargeAllocator::ref()->Release(_cache[0]);
 }
 
 bool PolledFileReader::Open(const char *file_path, u32 worker_id)
