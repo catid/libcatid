@@ -75,11 +75,21 @@ class CAT_EXPORT RefObjects : Thread, public RefSingleton<RefObjects>
 	void BuryDeadites();
 	bool ThreadFunction(void *param);
 
-public:
 	// NOTE: Will delete and nullify object if it fails to initialize
-	bool Initialize(const char *file_line, RefObject *&obj);
+	bool Watch(const char *file_line, RefObject *obj);
 
-	static Mutex &GetGlobalLock();
+public:
+	// Acquire a RefObject with a default constructor
+	template<class T>
+	static T *Acquire(const char *file_line, T *&obj)
+	{
+		obj = new T;
+
+		if (obj && !RefObjects::ref()->Watch(file_line, obj))
+			obj = 0;
+
+		return obj;
+	}
 };
 
 

@@ -103,19 +103,13 @@ bool RefObjects::OnInitialize()
 	return true;
 }
 
-Mutex &RefObjects::GetGlobalLock()
-{
-	return m_refobjects_lock;
-}
-
-bool RefObjects::Initialize(const char *file_line, RefObject *&obj)
+bool RefObjects::Watch(const char *file_line, RefObject *obj)
 {
 	if (!obj) return false;
 
 	if (!IsInitialized() || _shutdown)
 	{
 		delete obj;
-		obj = 0;
 
 #if defined(CAT_TRACE_REFOBJECT)
 		CAT_INANE("RefObjects") << obj->GetRefObjectName() << "#" << obj << " refused to watch during bad state at " << file_line;
@@ -130,7 +124,6 @@ bool RefObjects::Initialize(const char *file_line, RefObject *&obj)
 		lock.Release();
 
 		delete obj;
-		obj = 0;
 
 #if defined(CAT_TRACE_REFOBJECT)
 		CAT_INANE("RefObjects") << obj->GetRefObjectName() << "#" << obj << " refused to watch during shutdown at " << file_line;
@@ -147,8 +140,6 @@ bool RefObjects::Initialize(const char *file_line, RefObject *&obj)
 		obj->Destroy(file_line);
 
 		_dead_list.PushFront(obj);
-
-		obj = 0;
 
 		return false;
 	}

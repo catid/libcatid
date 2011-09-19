@@ -1,6 +1,10 @@
 #include <cat/AllAsyncIO.hpp>
 using namespace cat;
 
+static SystemInfo *m_system_info = 0;
+static Clock *m_clock = 0;
+static LargeAllocator *m_large_allocator = 0;
+
 class AsyncTestTLS : public IWorkerTLS
 {
 public:
@@ -53,7 +57,7 @@ class ReadTester
 			{
 				if (AccumulateFilePiece(data_bytes))
 				{
-					double delta = Clock::usec() - m_start_time;
+					double delta = m_clock->usec() - m_start_time;
 
 					double rate = m_file_total / delta;
 
@@ -111,7 +115,7 @@ public:
 	{
 		// Start timing before file object is created
 
-		m_start_time = Clock::usec();
+		m_start_time = m_clock->usec();
 
 		m_file_chunk_size = chunk_size;
 		m_file_parallelism = parallelism;
@@ -124,7 +128,12 @@ public:
 			return false;
 		}
 
-		_file = RefObjects::Acquire<AsyncFile>(CAT_REFOBJECT_FILE_LINE);
+		RefObjects::Acquire(CAT_REFOBJECT_FILE_LINE, _file);
+		if (!_file)
+		{
+			CAT_WARN("AsyncFileBench") << "Unable to acquire AsyncFile";
+			return false;
+		}
 
 		if (!_file->Open(file_path, ASYNCFILE_READ | (no_buffer ? ASYNCFILE_NOBUFFER : 0) | (seq ? ASYNCFILE_SEQUENTIAL : 0)))
 		{
@@ -141,7 +150,7 @@ public:
 			_buffers[ii].callback.SetMember<ReadTester, &ReadTester::OnRead>(this);
 			_buffers[ii].worker_id = 0;
 
-			_data[ii] = (u8*)LargeAllocator::ii->Acquire(m_file_chunk_size);
+			_data[ii] = (u8*)m_large_allocator->Acquire(m_file_chunk_size);
 
 			if (!_data[ii])
 			{
@@ -214,7 +223,7 @@ class WriteTester
 			{
 				if (AccumulateFilePiece(data_bytes))
 				{
-					double delta = Clock::usec() - m_start_time;
+					double delta = m_clock->usec() - m_start_time;
 
 					double rate = m_file_total / delta;
 
@@ -256,6 +265,7 @@ public:
 		_buffers = 0;
 		_flag = flag;
 		_data = 0;
+		_reader = 0;
 	}
 	~WriteTester()
 	{
@@ -288,7 +298,7 @@ public:
 		_chunk_size = chunk_size;
 		_file_path = file_path;
 
-		m_start_time = Clock::usec();
+		m_start_time = m_clock->usec();
 
 		m_file_chunk_size = chunk_size;
 		m_file_parallelism = parallelism;
@@ -301,7 +311,8 @@ public:
 			return false;
 		}
 
-		_file = RefObjects::Acquire<AsyncFile>(CAT_REFOBJECT_FILE_LINE);
+		RefObjects::Acquire(CAT_REFOBJECT_FILE_LINE, _file);
+		if (!_file) return false;
 
 		_unlink(file_path);
 
@@ -323,7 +334,7 @@ public:
 			_buffers[ii].callback.SetMember<WriteTester, &WriteTester::OnWrite>(this);
 			_buffers[ii].worker_id = 0;
 
-			_data[ii] = (u8*)LargeAllocator::ii->Acquire(m_file_chunk_size);
+			_data[ii] = (u8*)m_large_allocator->Acquire(m_file_chunk_size);
 
 			if (!_data[ii])
 			{
@@ -642,18 +653,16 @@ int RunCRC7Tests()
 
 int main(int argc, char **argv)
 {
-	if (!IOLayer::ref()->Startup<AsyncTestTLS>("AsyncFileBench.cfg"))
-	{
-		FatalStop("Unable to initialize framework!");
-		return 1;
-	}
-
 	RunCRC7Tests();
 
-	CAT_WARN("AsyncFileBench") << "Allocation granularity = " << system_info.AllocationGranularity;
-	CAT_WARN("AsyncFileBench") << "Cache line bytes = " << system_info.CacheLineBytes;
-	CAT_WARN("AsyncFileBench") << "Page size = " << system_info.PageSize;
-	CAT_WARN("AsyncFileBench") << "Processor count = " << system_info.ProcessorCount;
+	m_system_info = SystemInfo::ref();
+	m_clock = Clock::ref();
+	m_large_allocator = LargeAllocator::ref();
+
+	CAT_WARN("AsyncFileBench") << "Allocation granularity = " << m_system_info->GetAllocationGranularity();
+	CAT_WARN("AsyncFileBench") << "Cache line bytes = " << m_system_info->GetCacheLineBytes();
+	CAT_WARN("AsyncFileBench") << "Page size = " << m_system_info->GetPageSize();
+	CAT_WARN("AsyncFileBench") << "Processor count = " << m_system_info->GetProcessorCount();
 
 	GetHarddiskDump();
 	GetCdRomDump();
@@ -665,8 +674,6 @@ int main(int argc, char **argv)
 	{
 		flag.Wait();
 	}
-
-	IOLayer::ref()->Shutdown();
 
 	return 0;
 }
