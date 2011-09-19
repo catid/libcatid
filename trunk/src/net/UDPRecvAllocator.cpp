@@ -30,6 +30,11 @@
 #include <cat/io/Settings.hpp>
 using namespace cat;
 
+
+//// UDPRecvAllocator
+
+CAT_REF_SINGLETON(UDPRecvAllocator);
+
 bool UDPRecvAllocator::OnInitialize()
 {
 	// Grab buffer count

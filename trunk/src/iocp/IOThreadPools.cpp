@@ -34,9 +34,12 @@
 #include <cat/io/Settings.hpp>
 using namespace cat;
 
-static WorkerThreads *m_worker_threads = 0;
 static IOThreadPools *m_io_thread_pools = 0;
+static WorkerThreads *m_worker_threads = 0;
 static Settings *m_settings = 0;
+static StdAllocator *m_std_allocator = 0;
+static Clock *m_clock = 0;
+static SystemInfo *m_system_info = 0;
 
 
 //// IOThread
@@ -171,7 +174,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreadPool *master, OVERLAPPED_ENTR
 	if (sendq.head)
 	{
 		sendq.tail->batch_next = 0;
-		StdAllocator::ii->ReleaseBatch(sendq);
+		m_std_allocator->ReleaseBatch(sendq);
 
 		sendq.Clear();
 	}
@@ -202,7 +205,7 @@ void IOThread::UseVistaAPI(IOThreadPool *master)
 
 	while (pGetQueuedCompletionStatusEx(port, entries, max_io_gather, &ulEntriesRemoved, INFINITE, FALSE))
 	{
-		u32 event_time = Clock::msec();
+		u32 event_time = m_clock->msec();
 
 		// Quit if we received the quit signal
 		if (HandleCompletion(master, entries, ulEntriesRemoved, event_time, sendq, recvq, prev_recv_endpoint, recv_count))
@@ -233,7 +236,7 @@ void IOThread::UsePreVistaAPI(IOThreadPool *master)
 	{
 		BOOL bResult = GetQueuedCompletionStatus(port, &bytes, &key, &ov, INFINITE);
 
-		u32 event_time = Clock::msec();
+		u32 event_time = m_clock->msec();
 
 		// Attempt to pull off a number of events at a time
 		do 
@@ -292,7 +295,7 @@ bool IOThreadPool::Startup(u32 max_worker_count)
 	}
 
 	// Initialize the worker count to the number of processors
-	u32 worker_count = system_info.ProcessorCount;
+	u32 worker_count = m_system_info->GetProcessorCount();
 	if (worker_count < 1) worker_count = 1;
 
 	// If worker count override is set,
@@ -423,63 +426,45 @@ void IOThreadImports::Initialize()
 
 //// IOThreadPools
 
-void IOThreadPools::OnInitialize()
-{
-	_recv_allocator = 0;
+CAT_REF_SINGLETON(IOThreadPools);
 
+bool IOThreadPools::OnInitialize()
+{
 	_imports.Initialize();
 
 	m_io_thread_pools = this;
-	m_worker_threads = WorkerThreads::ref();
-	m_settings = Settings::ref();
 
-	FinalizeBefore<WorkerThreads>();
-	FinalizeBefore<Settings>();
+	Use(m_worker_threads, m_settings, m_std_allocator, m_clock, m_system_info);
 
-	u32 iothreads_buffer_count = m_settings->getInt("IOThreadPools.BufferCount", IOTHREADS_BUFFER_COUNT);
-
-	_recv_allocator = new BufferAllocator(sizeof(RecvBuffer) + IOTHREADS_BUFFER_READ_BYTES, iothreads_buffer_count);
-
-	if (!_recv_allocator || !_recv_allocator->Valid())
-	{
-		CAT_FATAL("IOThreadPools") << "Out of memory while allocating " << IOTHREADS_BUFFER_COUNT << " buffers for a shared pool";
-		return false;
-	}
-
-	return _shared_pool.Startup();
+	return IsInitialized() && _shared_pool.Startup();
 }
 
 void IOThreadPools::OnFinalize()
 {
-	// If allocator was created,
-	if (_recv_allocator)
-	{
-		delete _recv_allocator;
-		_recv_allocator = 0;
-	}
-
 	// For each pool,
-	for (pools_iter ii = _private_pools.head(); ii; ++ii)
+	for (pools_iter ii = _private_pools; ii; ++ii)
 		ii->Shutdown();
 
 	_private_pools.Clear();
 
 	_shared_pool.Shutdown();
-
-	return true;
 }
 
 IOThreadPool *IOThreadPools::AssociatePrivate(IOThreadsAssociator *associator)
 {
 	AutoMutex lock(_lock);
 
-	_private_pools.PushFront(new IOThreadPool());
+	IOThreadPool *pool = new IOThreadPool;
+	if (!pool) return false;
 
-	pools_iter ii = _private_pools.head();
+	_private_pools.PushFront(pool);
+
+	pools_iter ii = _private_pools;
 
 	if (!ii->Startup(1) || !ii->Associate(associator))
 	{
 		_private_pools.Erase(ii);
+		delete pool;
 		return 0;
 	}
 
