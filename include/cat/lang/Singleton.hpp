@@ -157,23 +157,26 @@ protected:
 	template<class S0, class S1>
 	CAT_INLINE void Use(S0 *&s0, S1 *&s1)
 	{
-		s0 = Use<S0>();
-		s1 = Use<S1>();
+		Use(s0);
+		Use(s1);
 	}
 	template<class S0, class S1, class S2>
 	CAT_INLINE void Use(S0 *&s0, S1 *&s1, S2 *&s2)
 	{
-		s0 = Use<S0>();
-		s1 = Use<S1>();
-		s2 = Use<S2>();
+		Use(s0, s1);
+		Use(s2);
 	}
 	template<class S0, class S1, class S2, class S3>
 	CAT_INLINE void Use(S0 *&s0, S1 *&s1, S2 *&s2, S3 *&s3)
 	{
-		s0 = Use<S0>();
-		s1 = Use<S1>();
-		s2 = Use<S2>();
-		s3 = Use<S3>();
+		Use(s0, s1, s2);
+		Use(s3);
+	}
+	template<class S0, class S1, class S2, class S3, class S4>
+	CAT_INLINE void Use(S0 *&s0, S1 *&s1, S2 *&s2, S3 *&s3, S4 *&s4)
+	{
+		Use(s0, s1, s2, s3);
+		Use(s4);
 	}
 
 public:

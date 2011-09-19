@@ -257,7 +257,7 @@ bool UDPEndpoint::Write(const BatchSet &buffers, u32 count, const NetAddr &addr)
 		buffer->iointernal.io_type = IOTYPE_UDP_SEND;
 
 		// Fire off a WSASendTo() and forget about it
-		int result = WSASendTo(GetHandle(), &wsabuf, 1, 0, 0,
+		int result = WSASendTo(GetSocket(), &wsabuf, 1, 0, 0,
 			reinterpret_cast<const sockaddr*>( &out_addr ),
 			addr_len, &buffer->iointernal.ov, 0);
 
@@ -265,9 +265,9 @@ bool UDPEndpoint::Write(const BatchSet &buffers, u32 count, const NetAddr &addr)
 		// we get an error code other than ERROR_IO_PENDING.
 		if (result && WSAGetLastError() != ERROR_IO_PENDING)
 		{
-			CAT_WARN("UDPEndpoint") << "WSASendTo error: " << Sockets::GetLastErrorString()();
+			CAT_WARN("UDPEndpoint") << "WSASendTo error: " << Sockets::GetLastErrorString();
 
-			StdAllocator::ii->Release(node);
+			m_std_allocator->Release(node);
 			ReleaseRef(CAT_REFOBJECT_FILE_LINE);
 			continue;
 		}
