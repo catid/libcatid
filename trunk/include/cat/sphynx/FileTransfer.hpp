@@ -30,7 +30,6 @@
 #define CAT_SPHYNX_FILE_TRANSFER_HPP
 
 #include <cat/sphynx/Transport.hpp>
-#include <cat/io/IOLayer.hpp>
 #include <vector>
 #include <queue> // priority_queue<>
 
