@@ -86,6 +86,9 @@ CAT_REF_SINGLETON(RefObjects);
 
 bool RefObjects::OnInitialize()
 {
+	// Finalize before all other singletons, since the RefObjects are designed to shut down first
+	FinalizeFirst();
+
 	m_refobjects = this;
 
 	_shutdown = false;
