@@ -258,9 +258,9 @@ DNSClient::DNSClient()
 	_worker_id = INVALID_WORKER_ID;
 }
 
-bool DNSClient::OnRefObjectInitialize()
+bool DNSClient::OnInitialize()
 {
-	if (!UDPEndpoint::OnRefObjectInitialize() ||
+	if (!UDPEndpoint::OnInitialize() ||
 		!RefObjects::Require(m_worker_threads, CAT_REFOBJECT_FILE_LINE) ||
 		!RefObjects::Require(m_settings, CAT_REFOBJECT_FILE_LINE))
 	{
@@ -297,7 +297,7 @@ bool DNSClient::OnRefObjectInitialize()
 	return true;
 }
 
-bool DNSClient::OnRefObjectFinalize()
+bool DNSClient::OnFinalize()
 {
 	// For each cache node,
 	for (DNSRequest *node = _cache_head, *next; node; node = next)
@@ -313,7 +313,7 @@ bool DNSClient::OnRefObjectFinalize()
 
 	CAT_ENFORCE(_request_queue_size == 0) << "Request queue not empty during cleanup";
 
-	return UDPEndpoint::OnRefObjectFinalize();
+	return UDPEndpoint::OnFinalize();
 }
 
 bool DNSClient::GetServerAddr()

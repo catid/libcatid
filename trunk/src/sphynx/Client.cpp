@@ -44,9 +44,9 @@ static WorkerThreads *m_worker_threads = 0;
 static Settings *m_settings = 0;
 static DNSClient *m_dns_client = 0;
 
-bool Client::OnRefObjectInitialize()
+bool Client::OnInitialize()
 {
-	return UDPEndpoint::OnRefObjectInitialize() &&
+	return UDPEndpoint::OnInitialize() &&
 		RefObjects::Require(m_worker_threads, CAT_REFOBJECT_FILE_LINE) &&
 		RefObjects::Require(m_settings, CAT_REFOBJECT_FILE_LINE) &&
 		RefObjects::Require(m_dns_client, CAT_REFOBJECT_FILE_LINE);

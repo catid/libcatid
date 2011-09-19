@@ -33,17 +33,17 @@
 using namespace cat;
 using namespace sphynx;
 
-bool Connexion::OnRefObjectInitialize()
+bool Connexion::OnInitialize()
 {
 	return true;
 }
 
-void Connexion::OnRefObjectDestroy()
+void Connexion::OnDestroy()
 {
 	_parent->_conn_map.Remove(this);
 }
 
-bool Connexion::OnRefObjectFinalize()
+bool Connexion::OnFinalize()
 {
 	_parent->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
 

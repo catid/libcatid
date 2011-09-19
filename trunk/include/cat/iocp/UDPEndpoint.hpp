@@ -105,9 +105,9 @@ protected:
 
 	virtual void OnRecvRouting(const BatchSet &buffers) = 0;
 
-	virtual bool OnRefObjectInitialize();
-	virtual void OnRefObjectDestroy();
-	virtual bool OnRefObjectFinalize();
+	virtual bool OnInitialize();
+	virtual void OnDestroy();
+	virtual bool OnFinalize();
 };
 
 

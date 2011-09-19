@@ -91,9 +91,9 @@ public:
 	bool Write(WriteBuffer *buffer, u64 offset, void *data, u32 bytes);
 
 protected:
-	virtual bool OnRefObjectInitialize();
-	virtual void OnRefObjectDestroy();
-	virtual bool OnRefObjectFinalize();
+	virtual bool OnInitialize();
+	virtual void OnDestroy();
+	virtual bool OnFinalize();
 };
 
 

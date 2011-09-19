@@ -675,5 +675,7 @@ int main(int argc, char **argv)
 		flag.Wait();
 	}
 
+	cin.get();
+
 	return 0;
 }

@@ -155,9 +155,9 @@ public:
 	bool Resolve(const char *hostname, DNSDelegate callback, RefObject *holdRef = 0);
 
 protected:
-	virtual bool OnRefObjectInitialize();
-	//virtual void OnRefObjectDestroy();
-	virtual bool OnRefObjectFinalize();
+	virtual bool OnInitialize();
+	//virtual void OnDestroy();
+	virtual bool OnFinalize();
 
 	virtual void OnRecvRouting(const BatchSet &buffers);
 

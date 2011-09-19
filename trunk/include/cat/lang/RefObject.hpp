@@ -224,19 +224,19 @@ protected:
 	// errors without putting it in the constructor where it doesn't belong.
 	// Return false to delete the object immediately.
 	// Especially handy for using RefObjects as a plugin system.
-	CAT_INLINE virtual bool OnRefObjectInitialize() { return true; }
+	CAT_INLINE virtual bool OnInitialize() { return true; }
 
 	// Called when a shutdown is in progress.
 	// The object should release any internally held references.
 	// such as private threads that are working on the object.
-	// Always called and before OnRefObjectFinalize().
+	// Always called and before OnFinalize().
 	// Proper implementation of derived classes should call the parent version.
-	CAT_INLINE virtual void OnRefObjectDestroy() {}
+	CAT_INLINE virtual void OnDestroy() {}
 
 	// Called when object has no more references.
 	// Return true to delete the object.
-	// Always called and after OnRefObjectDestroy().
-	CAT_INLINE virtual bool OnRefObjectFinalize() { return true; }
+	// Always called and after OnDestroy().
+	CAT_INLINE virtual bool OnFinalize() { return true; }
 };
 
 

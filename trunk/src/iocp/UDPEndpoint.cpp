@@ -42,19 +42,19 @@ static StdAllocator *m_std_allocator = 0;
 
 //// UDPEndpoint
 
-bool UDPEndpoint::OnRefObjectInitialize()
+bool UDPEndpoint::OnInitialize()
 {
 	Use(m_io_thread_pools, m_std_allocator, m_recv_allocator);
 
 	return true;
 }
 
-void UDPEndpoint::OnRefObjectDestroy()
+void UDPEndpoint::OnDestroy()
 {
 	Close();
 }
 
-bool UDPEndpoint::OnRefObjectFinalize()
+bool UDPEndpoint::OnFinalize()
 {
 	IOThreadPools::ref()->DissociatePrivate(_pool);
 
