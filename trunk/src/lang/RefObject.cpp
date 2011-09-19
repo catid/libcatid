@@ -87,6 +87,7 @@ CAT_REF_SINGLETON(RefObjects);
 bool RefObjects::OnInitialize()
 {
 	// Finalize before all other singletons, since the RefObjects are designed to shut down first
+	// as they are not compatible with the RefSingleton finalization-order framework
 	FinalizeFirst();
 
 	m_refobjects = this;
@@ -107,7 +108,7 @@ Mutex &RefObjects::GetGlobalLock()
 	return m_refobjects_lock;
 }
 
-bool RefObjects::Watch(const char *file_line, RefObject *&obj)
+bool RefObjects::Initialize(const char *file_line, RefObject *&obj)
 {
 	if (!obj) return false;
 
