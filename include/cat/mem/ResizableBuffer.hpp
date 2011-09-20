@@ -53,7 +53,7 @@ public:
 		if (allocated < RESIZABLE_BUFFER_PREALLOCATION)
 			allocated = RESIZABLE_BUFFER_PREALLOCATION;
 
-		T *buffer = StdAllocator::ii->AcquireTrailing<T>(allocated);
+		T *buffer = StdAllocator::ref()->AcquireTrailing<T>(allocated);
 		if (!buffer) return 0;
 
 		//buffer->allocated_bytes = trailing_bytes;
@@ -77,7 +77,7 @@ public:
 		// Grow buffer ahead of requested bytes according to golden ratio
 		new_trailing_bytes = (new_trailing_bytes << 3) / 5;
 
-		buffer = StdAllocator::ii->ResizeTrailing(buffer, new_trailing_bytes);
+		buffer = StdAllocator::ref()->ResizeTrailing(buffer, new_trailing_bytes);
 		if (!buffer) return 0;
 
 		buffer->SetBytes(new_trailing_bytes);
@@ -93,7 +93,7 @@ public:
 
 	static CAT_INLINE void Release(T *buffer)
 	{
-		StdAllocator::ii->Release(buffer);
+		StdAllocator::ref()->Release(buffer);
 	}
 
 	static CAT_INLINE void Release(u8 *ptr)

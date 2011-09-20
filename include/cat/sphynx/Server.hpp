@@ -59,12 +59,11 @@ public:
 	Server();
 	virtual ~Server();
 
-	static const u32 RefObjectGUID = 0x00020001; // Global Unique IDentifier for acquiring RefObject singletons
 	CAT_INLINE const char *GetRefObjectName() { return "Server"; }
 
-	static bool InitializeKey(SphynxTLS *tls, TunnelKeyPair &key_pair, const char *pair_file_path, const char *public_file_path);
+	static bool InitializeKey(TunnelKeyPair &key_pair, const char *pair_file_path, const char *public_file_path);
 
-	bool StartServer(SphynxTLS *tls, Port port, TunnelKeyPair &key_pair, const char *session_key);
+	bool StartServer(Port port, TunnelKeyPair &key_pair, const char *session_key);
 
 protected:
 	// Must return a new instance of your Connexion derivation
@@ -81,9 +80,8 @@ protected:
 	//virtual bool OnFinalize();
 
 	virtual void OnRecvRouting(const BatchSet &buffers);
-
-	virtual void OnWorkerRecv(IWorkerTLS *tls, const BatchSet &buffers);
-	virtual void OnWorkerTick(IWorkerTLS *tls, u32 now);
+	virtual void OnRecv(const BatchSet &buffers);
+	virtual void OnTick(u32 now);
 };
 
 

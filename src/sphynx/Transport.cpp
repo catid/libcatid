@@ -34,6 +34,7 @@ using namespace cat;
 using namespace sphynx;
 
 static StdAllocator *m_std_allocator = 0;
+static Clock *m_clock = 0;
 
 CAT_TLS TransportTLS m_transport_tls;
 
@@ -338,6 +339,7 @@ Transport::Transport()
 {
 	// Acquire standard allocator
 	m_std_allocator = StdAllocator::ref();
+	m_clock = Clock::ref();
 
 	// Receive state
 	CAT_OBJCLR(_got_reliable);
@@ -2141,7 +2143,7 @@ void Transport::WriteQueuedReliable()
 		return;
 
 	// Use the same ts_firstsend for all messages delivered now, to insure they are clustered on retransmission
-	u32 now = Clock::msec();
+	u32 now = m_clock->msec();
 
 	// Calculate bandwidth available for this transmission
 	s32 bandwidth = _send_flow.GetRemainingBytes(now);

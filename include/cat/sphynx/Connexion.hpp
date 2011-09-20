@@ -63,7 +63,7 @@ class CAT_EXPORT Connexion : public Transport, public RefObject
 	AuthenticatedEncryption _auth_enc;
 
 	virtual bool WriteDatagrams(const BatchSet &buffers, u32 count);
-	virtual void OnInternal(SphynxTLS *tls, u32 recv_time, BufferStream msg, u32 bytes);
+	virtual void OnInternal(u32 recv_time, BufferStream msg, u32 bytes);
 	virtual void OnDisconnectComplete();
 
 	virtual void OnRecv(const BatchSet &buffers);
@@ -73,7 +73,6 @@ public:
 	Connexion();
 	CAT_INLINE virtual ~Connexion() {}
 
-	static const u32 RefObjectGUID = 0x00050001; // Global Unique IDentifier for acquiring RefObject singletons
 	CAT_INLINE const char *GetRefObjectName() { return "Connexion"; }
 
 	CAT_INLINE const NetAddr &GetAddress() { return _client_addr; }
@@ -82,7 +81,7 @@ public:
 	CAT_INLINE u32 GetWorkerID() { return _worker_id; }
 
 	// Current local time
-	CAT_INLINE u32 getLocalTime() { return Clock::msec(); }
+	u32 getLocalTime();
 
 	// Decompress a timestamp on server from client; byte order must be fixed before decoding
 	CAT_INLINE u32 decodeClientTimestamp(u32 local_time, u16 timestamp) { return BiasedReconstructCounter<16>(local_time, TS_COMPRESS_FUTURE_TOLERANCE, timestamp); }
@@ -97,9 +96,9 @@ protected:
 	virtual void OnDestroy();
 	virtual bool OnFinalize();
 
-	virtual void OnConnect(SphynxTLS *tls) = 0;
-	virtual void OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count) = 0;
-	virtual void OnTick(SphynxTLS *tls, u32 now) = 0;
+	virtual void OnConnect() = 0;
+	virtual void OnMessages(IncomingMessage msgs[], u32 count) = 0;
+	virtual void OnCycle(u32 now) = 0;
 	virtual void OnDisconnectReason(u8 reason) = 0; // Called to help explain why a disconnect is happening
 };
 
