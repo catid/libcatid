@@ -39,6 +39,7 @@
 #include <cat/threads/WaitableFlag.hpp>
 #include <cat/crypt/rand/Fortuna.hpp>
 #include <cat/lang/Delegates.hpp>
+#include <cat/lang/LinkedLists.hpp>
 
 namespace cat {
 
@@ -68,10 +69,8 @@ struct DNSCallback
 	RefObject *ref;
 };
 
-struct DNSRequest
+struct DNSRequest : public DListItem
 {
-	DNSRequest *last, *next;
-
 	u32 first_post_time; // Timestamp for first post, for timeout
 	u32 last_post_time; // Timestamp for last post, for retries and cache
 
@@ -95,14 +94,14 @@ class DNSClient : public UDPEndpoint
 
 	FortunaOutput *_csprng;
 
+	typedef DList::ForwardIterator<DNSRequest> iter;
+
 	Mutex _request_lock;
-	DNSRequest *_request_head;
-	DNSRequest *_request_tail;
+	DList _request_list;
 	int _request_queue_size;
 
 	Mutex _cache_lock;
-	DNSRequest *_cache_head;
-	DNSRequest *_cache_tail;
+	DList _cache_list;
 	int _cache_size;
 
 	bool GetUnusedID(u16 &id); // not thread-safe, caller must lock
@@ -161,8 +160,8 @@ protected:
 
 	virtual void OnRecvRouting(const BatchSet &buffers);
 
-	virtual void OnWorkerRecv(IWorkerTLS *tls, const BatchSet &buffers);
-	virtual void OnWorkerTick(IWorkerTLS *tls, u32 now);
+	virtual void OnRecv(const BatchSet &buffers);
+	virtual void OnTick(u32 now);
 };
 
 
