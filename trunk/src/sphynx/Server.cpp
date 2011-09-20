@@ -27,11 +27,9 @@
 */
 
 #include <cat/sphynx/Server.hpp>
-#include <cat/mem/AlignedAllocator.hpp>
 #include <cat/io/Logging.hpp>
 #include <cat/io/Settings.hpp>
-#include <cat/time/Clock.hpp>
-#include <cat/hash/Murmur.hpp>
+#include <cat/threads/WorkerThreads.hpp>
 #include <cat/crypt/SecureEqual.hpp>
 #include <cat/crypt/tunnel/Keys.hpp>
 using namespace std;
@@ -43,9 +41,9 @@ static Settings *m_settings = 0;
 
 bool Server::OnInitialize()
 {
-	return UDPEndpoint::OnInitialize() &&
-		RefObjects::Require(m_worker_threads, CAT_REFOBJECT_FILE_LINE) &&
-		RefObjects::Require(m_settings, CAT_REFOBJECT_FILE_LINE);
+	UDPEndpoint::OnInitialize();
+
+	Use(m_worker_threads, m_settings);
 }
 
 void Server::OnDestroy()
@@ -102,7 +100,7 @@ void Server::OnRecvRouting(const BatchSet &buffers)
 				if (conn)
 				{
 					worker_id = conn->GetWorkerID();
-					buffer->callback.SetMember<Connexion, &Connexion::OnWorkerRecv>(conn);
+					buffer->callback.SetMember<Connexion, &Connexion::OnRecv>(conn);
 				}
 				else
 				{
@@ -111,7 +109,7 @@ void Server::OnRecvRouting(const BatchSet &buffers)
 						connect_worker = 0;
 
 					worker_id = connect_worker;
-					buffer->callback.SetMember<Server, &Server::OnWorkerRecv>(this);
+					buffer->callback.SetMember<Server, &Server::OnRecv>(this);
 				}
 
 				// Compare to this buffer next time
@@ -122,7 +120,7 @@ void Server::OnRecvRouting(const BatchSet &buffers)
 		{
 			// Another packet from the same connexion
 			conn->AddRef(CAT_REFOBJECT_FILE_LINE);
-			buffer->callback.SetMember<Connexion, &Connexion::OnWorkerRecv>(conn);
+			buffer->callback.SetMember<Connexion, &Connexion::OnRecv>(conn);
 		}
 		else
 		{
@@ -176,9 +174,8 @@ void Server::OnRecvRouting(const BatchSet &buffers)
 		ReleaseRecvBuffers(garbage, garbage_count);
 }
 
-void Server::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
+void Server::OnRecv(const BatchSet &buffers)
 {
-	SphynxTLS *tls = static_cast<SphynxTLS*>( itls );
 	u32 buffer_count = 0;
 
 	// For each buffer received,
@@ -319,7 +316,7 @@ void Server::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 				conn->InitializePayloadBytes(Is6());
 
 				// Assign to a worker
-				conn->_worker_id = m_worker_threads->AssignTimer(conn, WorkerTimerDelegate::FromMember<Connexion, &Connexion::OnWorkerTick>(conn));
+				conn->_worker_id = m_worker_threads->AssignTimer(conn, WorkerTimerDelegate::FromMember<Connexion, &Connexion::OnTick>(conn));
 
 				if (!Write(pkt, S2C_ANSWER_LEN, buffer->GetAddr()))
 				{
@@ -339,7 +336,7 @@ void Server::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 					// When the Connexion dies, it will release this reference
 					AddRef(CAT_REFOBJECT_FILE_LINE);
 
-					conn->OnConnect(tls);
+					conn->OnConnect();
 
 					// Do not shutdown the object
 					conn.Forget();
@@ -353,9 +350,9 @@ void Server::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 	ReleaseRecvBuffers(buffers, buffer_count);
 }
 
-void Server::OnWorkerTick(IWorkerTLS *tls, u32 now)
+void Server::OnTick(u32 now)
 {
-	// Not synchronous with OnWorkerRecv() callback because offline events are distributed between threads
+	// Not synchronous with OnRecv() callback because offline events are distributed between threads
 }
 
 Server::Server()
@@ -367,15 +364,8 @@ Server::~Server()
 {
 }
 
-bool Server::StartServer(SphynxTLS *tls, Port port, TunnelKeyPair &key_pair, const char *session_key)
+bool Server::StartServer(Port port, TunnelKeyPair &key_pair, const char *session_key)
 {
-	// If objects were not created,
-	if (!tls->Valid())
-	{
-		CAT_WARN("Server") << "Failed to initialize: Unable to create thread local storage";
-		return false;
-	}
-
 	// Seed components
 	_cookie_jar.Initialize(tls->csprng);
 	_conn_map.Initialize(tls->csprng);
@@ -403,7 +393,7 @@ bool Server::StartServer(SphynxTLS *tls, Port port, TunnelKeyPair &key_pair, con
 	if (!Bind(only_ipv4, port, true, kernelReceiveBufferBytes))
 	{
 		CAT_WARN("Server") << "Failed to initialize: Unable to bind handshake port "
-			<< port << ". " << Sockets::GetLastErrorString()();
+			<< port << ". " << Sockets::GetLastErrorString();
 		return false;
 	}
 
@@ -448,18 +438,12 @@ bool Server::PostConnectionError(const NetAddr &dest, SphynxError err)
 	return Write(pkt, S2C_ERROR_LEN, dest);
 }
 
-bool Server::InitializeKey(SphynxTLS *tls, TunnelKeyPair &key_pair, const char *pair_path, const char *public_path)
+bool Server::InitializeKey(TunnelKeyPair &key_pair, const char *pair_path, const char *public_path)
 {
 	if (key_pair.LoadFile(pair_path))
 	{
 		CAT_INFO("Server") << "Key pair loaded successfully from disk";
 		return true;
-	}
-
-	if (!tls->Valid())
-	{
-		CAT_INFO("Server") << "Generating new key pair failed: TLS invalid";
-		return false;
 	}
 
 	if (!key_pair.Generate(tls->math, tls->csprng))

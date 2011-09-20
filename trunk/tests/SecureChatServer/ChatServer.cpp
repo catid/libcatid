@@ -165,18 +165,22 @@ int main()
 {
 	CAT_INFO("Server") << "Secure Chat Server 2.0";
 
-	GameServer *server = RefObjects::Acquire<GameServer>(CAT_REFOBJECT_FILE_LINE);
-	const Port SERVER_PORT = 22000;
+	GameServer *server;
+	if (!RefObjects::Acquire(CAT_REFOBJECT_FILE_LINE, server))
+	{
+		CAT_FATAL("Server") << "Unable to acquire server object";
+		return 0;
+	}
 
-	SphynxTLS tls;
+	const Port SERVER_PORT = 22000;
 
 	TunnelKeyPair key_pair;
 
-	if (!Server::InitializeKey(&tls, key_pair, "KeyPair.bin", "PublicKey.bin"))
+	if (!Server::InitializeKey(key_pair, "KeyPair.bin", "PublicKey.bin"))
 	{
 		CAT_FATAL("Server") << "Unable to get key pair";
 	}
-	else if (!server->StartServer(&tls, SERVER_PORT, key_pair, "Chat"))
+	else if (!server->StartServer(SERVER_PORT, key_pair, "Chat"))
 	{
 		CAT_FATAL("Server") << "Unable to start server";
 	}
