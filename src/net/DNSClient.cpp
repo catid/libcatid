@@ -122,13 +122,13 @@ void DNSClient::OnRecvRouting(const BatchSet &buffers)
 		RecvBuffer *buffer = static_cast<RecvBuffer*>( node );
 
 		// Set the receive callback
-		buffer->callback.SetMember<DNSClient, &DNSClient::OnWorkerRecv>(this);
+		buffer->callback.SetMember<DNSClient, &DNSClient::OnRecv>(this);
 	}
 
 	m_worker_threads->DeliverBuffers(WQPRIO_HI, GetWorkerID(), buffers);
 }
 
-void DNSClient::OnWorkerRecv(IWorkerTLS *tls, const BatchSet &buffers)
+void DNSClient::OnRecv(const BatchSet &buffers)
 {
 	u32 buffer_count = 0;
 	for (BatchHead *node = buffers.head; node; node = node->batch_next)
@@ -137,7 +137,7 @@ void DNSClient::OnWorkerRecv(IWorkerTLS *tls, const BatchSet &buffers)
 		RecvBuffer *buffer = static_cast<RecvBuffer*>( node );
 
 		SetRemoteAddress(buffer);
-		buffer->callback.SetMember<DNSClient, &DNSClient::OnWorkerRecv>(this);
+		buffer->callback.SetMember<DNSClient, &DNSClient::OnRecv>(this);
 
 		// If packet source is not the server, ignore this packet
 		if (_server_addr != buffer->addr)
@@ -215,32 +215,23 @@ void DNSClient::OnWorkerRecv(IWorkerTLS *tls, const BatchSet &buffers)
 	ReleaseRecvBuffers(buffers, buffer_count);
 }
 
-void DNSClient::OnWorkerTick(IWorkerTLS *tls, u32 now)
+void DNSClient::OnTick(u32 now)
 {
 	AutoMutex lock(_request_lock);
 
 	// For each pending request,
-	for (DNSRequest *req_next, *req = _request_head; req; req = req_next)
+	for (iter ii = _request_list; ii; ++ii)
 	{
-		req_next = req->next; // cached for deletion
-
 		// NOTE: In the case of a shutdown, the repost time of 300 ms will cause proper cleanup.
 
 		// If the request has timed out or reposting failed,
-		if (((s32)(now - req->first_post_time) >= DNSREQ_TIMEOUT) ||
-			((s32)(now - req->last_post_time) >= DNSREQ_REPOST_TIME && !PostDNSPacket(req, now)))
+		if (((s32)(now - ii->first_post_time) >= DNSREQ_TIMEOUT) ||
+			((s32)(now - ii->last_post_time) >= DNSREQ_REPOST_TIME && !PostDNSPacket(ii, now)))
 		{
-			// Unlink from doubly-linked list
-			DNSRequest *next = req->next;
-			DNSRequest *last = req->last;
-
-			if (next) next->last = last;
-			else _request_tail = last;
-			if (last) last->next = next;
-			else _request_head = next;
+			_request_list.Erase(ii);
 			--_request_queue_size;
 
-			NotifyRequesters(req);
+			NotifyRequesters(ii);
 		}
 	}
 }
@@ -249,10 +240,7 @@ DNSClient::DNSClient()
 {
 	_server_addr.Invalidate();
 
-	_cache_head = _cache_tail = 0;
 	_cache_size = 0;
-
-	_request_head = _request_tail = 0;
 	_request_queue_size = 0;
 
 	_worker_id = INVALID_WORKER_ID;
@@ -260,18 +248,14 @@ DNSClient::DNSClient()
 
 bool DNSClient::OnInitialize()
 {
-	if (!UDPEndpoint::OnInitialize() ||
-		!RefObjects::Require(m_worker_threads, CAT_REFOBJECT_FILE_LINE) ||
-		!RefObjects::Require(m_settings, CAT_REFOBJECT_FILE_LINE))
-	{
-		return false;
-	}
+	UDPEndpoint::OnInitialize();
+
+	Use(m_worker_threads, m_settings);
 
 	// Attempt to get a CSPRNG
-	if (!(_csprng = new FortunaOutput))
+	if (!(_csprng = new FortunaOutput) || !_csprng->Valid())
 	{
-		CAT_WARN("DNSClient") << "Out of memory: Unable to get a CSPRNG";
-		Destroy(CAT_REFOBJECT_FILE_LINE);
+		CAT_WARN("DNSClient") << "Unable to get a CSPRNG";
 		return false;
 	}
 
@@ -279,18 +263,19 @@ bool DNSClient::OnInitialize()
 	if (!BindToRandomPort(true))
 	{
 		CAT_WARN("DNSClient") << "Initialization failure: Unable to bind to any port";
-		Destroy(CAT_REFOBJECT_FILE_LINE);
 		return false;
 	}
 
+	// Stop here if not initialized
+	if (!IsInitialized()) return false;
+
 	// Assign to a worker
-	_worker_id = m_worker_threads->AssignTimer(this, WorkerTimerDelegate::FromMember<DNSClient, &DNSClient::OnWorkerTick>(this));
+	_worker_id = m_worker_threads->AssignTimer(this, WorkerTimerDelegate::FromMember<DNSClient, &DNSClient::OnTick>(this));
 
 	// Attempt to get server address from operating system
 	if (!GetServerAddr())
 	{
 		CAT_WARN("DNSClient") << "Initialization failure: Unable to discover DNS server address";
-		Destroy(CAT_REFOBJECT_FILE_LINE);
 		return false;
 	}
 
@@ -300,15 +285,11 @@ bool DNSClient::OnInitialize()
 bool DNSClient::OnFinalize()
 {
 	// For each cache node,
-	for (DNSRequest *node = _cache_head, *next; node; node = next)
-	{
-		next = node->next;
-
-		delete node;
-	}
+	for (iter ii = _cache_list; ii; ++ii)
+		delete ii;
 
 	// Clear cache
-	_cache_head = _cache_tail = 0;
+	_cache_list.Clear();
 	_cache_size = 0;
 
 	CAT_ENFORCE(_request_queue_size == 0) << "Request queue not empty during cleanup";
