@@ -106,6 +106,7 @@ class CAT_EXPORT RefObject : DListItem
 #endif
 
 	volatile u32 _ref_count, _shutdown;
+	bool _init_success;
 
 	void OnZeroReferences(const char *file_line);
 
@@ -115,6 +116,7 @@ public:
 
 	void Destroy(const char *file_line);
 
+	CAT_INLINE bool IsInitialized() { return _init_success; }
 	CAT_INLINE bool IsShutdown() { return _shutdown != 0; }
 
 	CAT_INLINE void AddRef(const char *file_line, s32 times = 1)
@@ -180,10 +182,9 @@ protected:
 	CAT_INLINE S *Use()
 	{
 		S *instance = S::ref();
-		if (!instance || !instance->IsInitialized())
-		{
 
-		}
+		if (!instance || !instance->IsInitialized())
+			_init_success = false;
 
 		return instance;
 	}

@@ -100,7 +100,7 @@ void WorkerThread::DeliverBuffers(u32 priority, const BatchSet &buffers)
 	_event_flag.Set();
 }
 
-void WorkerThread::TickTimers(IWorkerTLS *tls, u32 now)
+void WorkerThread::TickTimers(u32 now)
 {
 	u32 timers_count = _timers_count;
 
@@ -121,7 +121,7 @@ void WorkerThread::TickTimers(IWorkerTLS *tls, u32 now)
 		}
 		else
 		{
-			timer->callback(tls, now);
+			timer->callback(now);
 		}
 	}
 
@@ -153,7 +153,7 @@ void WorkerThread::TickTimers(IWorkerTLS *tls, u32 now)
 	}
 }
 
-static CAT_INLINE void ExecuteWorkQueue(IWorkerTLS *tls, const BatchSet &queue)
+static CAT_INLINE void ExecuteWorkQueue(const BatchSet &queue)
 {
 	// If there is nothing in the queue,
 	if (!queue.head) return;
@@ -194,12 +194,12 @@ static CAT_INLINE void ExecuteWorkQueue(IWorkerTLS *tls, const BatchSet &queue)
 			if (batch_head->callback == next->callback)
 			{
 				// Run the speckle in between now and keep accumulating to batch
-				last->callback(tls, last);
+				last->callback(last);
 			}
 			else
 			{
 				// Otherwise it is time to flush the batch and start anew
-				batch_head->callback(tls, batch);
+				batch_head->callback(batch);
 
 				// Set new batch to oldest one still unprocessed
 				batch = last;
@@ -219,7 +219,7 @@ static CAT_INLINE void ExecuteWorkQueue(IWorkerTLS *tls, const BatchSet &queue)
 	{
 		batch.PushBack(last);
 
-		last->callback(tls, batch);
+		last->callback(batch);
 	}
 
 #else // CAT_WORKER_THREADS_REORDER_EVENTS
@@ -239,7 +239,7 @@ static CAT_INLINE void ExecuteWorkQueue(IWorkerTLS *tls, const BatchSet &queue)
 			buffers.tail = last;
 			last->batch_next = 0;
 
-			last->callback(tls, buffers);
+			last->callback(buffers);
 
 			if (!next) break;
 
@@ -257,16 +257,8 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 {
 	WorkerThreads *master = (WorkerThreads*)vmaster;
 
-	IWorkerTLS *tls = master->_tls_builder->Build();
-	if (!tls || !tls->Valid())
-	{
-		CAT_FATAL("WorkerThread") << "Failure building thread local storage";
-		return false;
-	}
-
 	u32 tick_interval = master->_tick_interval;
 	u32 next_tick = 0; // Tick right away
-
 	IWorkerTimer *head = 0, *tail = 0;
 
 	while (!_kill_flag)
@@ -311,7 +303,7 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 					_workqueues[ii].queued.Clear();
 					_workqueues[ii].lock.Leave();
 
-					ExecuteWorkQueue(tls, queue);
+					ExecuteWorkQueue(queue);
 				} // end if queue seems full
 			} // next priority level
 		} // end if check_events
@@ -319,7 +311,7 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 		// If tick interval is up,
 		if ((s32)(now - next_tick) >= 0)
 		{
-			TickTimers(tls, now);
+			TickTimers(now);
 
 			// Set up next tick
 			next_tick += tick_interval;
@@ -359,9 +351,7 @@ bool WorkerThreads::OnInitialize()
 
 	_tick_interval = 10;
 	_worker_count = 2;
-
 	_workers = 0;
-	_tls_builder = 0;
 	_round_robin_worker_id = 0;
 
 	u32 worker_count = _worker_count;
@@ -384,6 +374,7 @@ bool WorkerThreads::OnInitialize()
 			return ii > 0; // Indicate success if at least one thread was started successfully
 		}
 
+		// Try to tie each thread to an ideal processor core to help with scheduling
 		_workers[ii].SetIdealCore(ii);
 	}
 
@@ -420,13 +411,6 @@ void WorkerThreads::OnFinalize()
 	{
 		delete []_workers;
 		_workers = 0;
-	}
-
-	// Free TLS builder object
-	if (_tls_builder)
-	{
-		delete _tls_builder;
-		_tls_builder = 0;
 	}
 }
 

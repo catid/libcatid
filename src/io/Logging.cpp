@@ -161,8 +161,13 @@ CAT_SINGLETON(Logging);
 bool Logging::OnInitialize()
 {
 	_callback = Callback::FromFree<&DefaultLogCallback>();
-	_log_threshold = LVL_INANE;
 	_service = false;
+
+#if defined(CAT_DEBUG)
+	_log_threshold = LVL_INANE;
+#else
+	_log_threshold = LVL_INFO;
+#endif
 
 	return true;
 }

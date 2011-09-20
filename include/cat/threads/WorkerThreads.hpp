@@ -39,8 +39,6 @@
 namespace cat {
 
 
-class IWorkerTLS;
-class IWorkerTLSBuilder;
 class IWorkerTimer;
 class WorkerThread;
 class WorkerThreads;
@@ -50,35 +48,8 @@ static const u32 MAX_WORKER_THREADS = 32;
 static const u32 INVALID_WORKER_ID = ~(u32)0;
 
 
-// Interface for worker thread-local storage
-class CAT_EXPORT IWorkerTLS
-{
-public:
-	CAT_INLINE virtual ~IWorkerTLS() {}
-
-	virtual bool Valid() = 0;
-};
-
-class CAT_EXPORT IWorkerTLSBuilder
-{
-public:
-	CAT_INLINE virtual ~IWorkerTLSBuilder() {}
-
-	virtual IWorkerTLS *Build() = 0;
-};
-
-template<class LocalStorageT>
-class CAT_EXPORT WorkerTLSBuilder : public IWorkerTLSBuilder
-{
-public:
-	CAT_INLINE virtual ~WorkerTLSBuilder() {}
-
-	IWorkerTLS *Build() { return new LocalStorageT; }
-};
-
-
 // A buffer specialized for handling by the worker threads
-typedef Delegate2<void, IWorkerTLS *, const BatchSet &> WorkerDelegate;
+typedef Delegate1<void, const BatchSet &> WorkerDelegate;
 
 struct WorkerBuffer : public BatchHead
 {
@@ -87,7 +58,7 @@ struct WorkerBuffer : public BatchHead
 
 
 // An element in the timer object array
-typedef Delegate2<void, IWorkerTLS *, u32> WorkerTimerDelegate;
+typedef Delegate1<void, u32> WorkerTimerDelegate;
 
 struct WorkerTimer
 {
@@ -130,7 +101,7 @@ class CAT_EXPORT WorkerThread : public Thread
 	WorkerTimer *_timers;
 	u32 _timers_count, _timers_allocated;
 
-	void TickTimers(IWorkerTLS *tls, u32 now); // locks if needed
+	void TickTimers(u32 now); // locks if needed
 
 public:
 	WorkerThread();
@@ -159,8 +130,6 @@ class CAT_EXPORT WorkerThreads : public RefSingleton<WorkerThreads>
 	WorkerThread *_workers;
 
 	u32 _round_robin_worker_id;
-
-	IWorkerTLSBuilder *_tls_builder;
 
 public:
 	CAT_INLINE virtual ~WorkerThreads() {}
