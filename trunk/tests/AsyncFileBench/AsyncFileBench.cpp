@@ -122,8 +122,7 @@ public:
 			return false;
 		}
 
-		RefObjects::Acquire(CAT_REFOBJECT_FILE_LINE, _file);
-		if (!_file)
+		if (!RefObjects::Acquire(CAT_REFOBJECT_FILE_LINE, _file))
 		{
 			CAT_WARN("AsyncFileBench") << "Unable to acquire AsyncFile";
 			return false;
@@ -305,8 +304,11 @@ public:
 			return false;
 		}
 
-		RefObjects::Acquire(CAT_REFOBJECT_FILE_LINE, _file);
-		if (!_file) return false;
+		if (!RefObjects::Acquire(CAT_REFOBJECT_FILE_LINE, _file))
+		{
+			CAT_WARN("AsyncFileBench") << "Unable to acquire file object";
+			return false;
+		}
 
 		_unlink(file_path);
 
@@ -500,7 +502,7 @@ bool Main(WriteTester *writer, char **argv, int argc)
 		seq = atoi(argv[2]);
 		parallelism = atoi(argv[3]);
 		chunk_size = atoi(argv[4]);
-		file_path = "writer.tst";
+		file_path = "writer2.tst";
 	}
 	else
 	{
