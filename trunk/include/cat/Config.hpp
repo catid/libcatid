@@ -60,7 +60,7 @@ namespace cat {
 //#define CAT_DEBUG_LEAKS
 
 // Enable RefObject debug trace mode
-#define CAT_TRACE_REFOBJECT
+//#define CAT_TRACE_REFOBJECT
 
 // Enable event re-ordering for better batching in WorkerThreads
 #define CAT_WORKER_THREADS_REORDER_EVENTS

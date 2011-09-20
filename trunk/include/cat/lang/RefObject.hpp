@@ -36,6 +36,10 @@
 #include <cat/lang/LinkedLists.hpp>
 #include <cat/lang/RefSingleton.hpp>
 
+#if !defined(CAT_TRACE_REFOBJECT) && defined(CAT_DEBUG)
+#define CAT_TRACE_REFOBJECT
+#endif
+
 #if defined(CAT_TRACE_REFOBJECT)
 #include <cat/io/Logging.hpp>
 #endif
