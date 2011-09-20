@@ -35,9 +35,6 @@
     <ClCompile Include="..\..\src\sphynx\Connexion.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\sphynx\SphynxLayer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\net\DNSClient.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -74,9 +71,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\include\cat\net\DNSClient.hpp">
-      <Filter>Header Files\sphynx</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\include\cat\sphynx\SphynxLayer.hpp">
       <Filter>Header Files\sphynx</Filter>
     </ClInclude>
     <ClInclude Include="..\..\include\cat\sphynx\FileTransfer.hpp">

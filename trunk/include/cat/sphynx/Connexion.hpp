@@ -32,7 +32,6 @@
 #include <cat/sphynx/Transport.hpp>
 #include <cat/threads/WorkerThreads.hpp>
 #include <cat/lang/RefObject.hpp>
-#include <cat/sphynx/SphynxLayer.hpp>
 
 namespace cat {
 
@@ -67,8 +66,8 @@ class CAT_EXPORT Connexion : public Transport, public RefObject
 	virtual void OnInternal(SphynxTLS *tls, u32 recv_time, BufferStream msg, u32 bytes);
 	virtual void OnDisconnectComplete();
 
-	virtual void OnWorkerRecv(IWorkerTLS *tls, const BatchSet &buffers);
-	virtual void OnWorkerTick(IWorkerTLS *tls, u32 now);
+	virtual void OnRecv(const BatchSet &buffers);
+	virtual void OnTick(u32 now);
 
 public:
 	Connexion();

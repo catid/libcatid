@@ -34,7 +34,6 @@
 #include <cat/hash/Murmur.hpp>
 #include <cat/crypt/SecureEqual.hpp>
 #include <cat/crypt/tunnel/Keys.hpp>
-#include <cat/sphynx/SphynxLayer.hpp>
 using namespace std;
 using namespace cat;
 using namespace sphynx;
