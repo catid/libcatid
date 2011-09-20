@@ -5,12 +5,6 @@ static SystemInfo *m_system_info = 0;
 static Clock *m_clock = 0;
 static LargeAllocator *m_large_allocator = 0;
 
-class AsyncTestTLS : public IWorkerTLS
-{
-public:
-	virtual bool Valid() { return true; }
-};
-
 class ReadTester
 {
 	u8 m_padding1[CAT_DEFAULT_CACHE_LINE_SIZE];
@@ -44,7 +38,7 @@ class ReadTester
 		return Atomic::Add(&m_file_progress, size) == (m_file_total - size);
 	}
 
-	void OnRead(IWorkerTLS *tls, const BatchSet &batch)
+	void OnRead(const BatchSet &batch)
 	{
 		for (BatchHead *next, *node = batch.head; node; node = next)
 		{
@@ -210,7 +204,7 @@ class WriteTester
 		return Atomic::Add(&m_file_progress, size) >= (m_file_total - size);
 	}
 
-	void OnWrite(IWorkerTLS *tls, const BatchSet &batch)
+	void OnWrite(const BatchSet &batch)
 	{
 		for (BatchHead *next, *node = batch.head; node; node = next)
 		{

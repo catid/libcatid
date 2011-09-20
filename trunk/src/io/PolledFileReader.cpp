@@ -151,7 +151,7 @@ bool PolledFileReader::Read(u8 *buffer, u32 requested, u32 &bytes_read)
 	return true;
 }
 
-void PolledFileReader::OnFirstRead(IWorkerTLS *tls, const BatchSet &buffers)
+void PolledFileReader::OnFirstRead(const BatchSet &buffers)
 {
 	// For each buffer,
 	for (BatchHead *node = buffers.head; node; node = node->batch_next)
@@ -188,7 +188,7 @@ void PolledFileReader::OnFirstRead(IWorkerTLS *tls, const BatchSet &buffers)
 	}
 }
 
-void PolledFileReader::OnRead(IWorkerTLS *tls, const BatchSet &buffers)
+void PolledFileReader::OnRead(const BatchSet &buffers)
 {
 	// For each buffer,
 	for (BatchHead *node = buffers.head; node; node = node->batch_next)

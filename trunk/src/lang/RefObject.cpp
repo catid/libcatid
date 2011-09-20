@@ -107,6 +107,7 @@ bool RefObjects::Watch(const char *file_line, RefObject *obj)
 {
 	if (!obj) return false;
 
+	// If RefObjects singleton is not initialized or RefObjects is shutdown,
 	if (!IsInitialized() || _shutdown)
 	{
 		delete obj;
@@ -119,6 +120,7 @@ bool RefObjects::Watch(const char *file_line, RefObject *obj)
 
 	AutoMutex lock(m_refobjects_lock);
 
+	// If RefObjects is shut down,
 	if (_shutdown)
 	{
 		lock.Release();
@@ -131,14 +133,22 @@ bool RefObjects::Watch(const char *file_line, RefObject *obj)
 		return false;
 	}
 
-	if (!obj->OnInitialize())
+	// If OnInitialize() returns false, or Use() indicated a dependency failure via _init_success == false,
+	obj->_init_success = true;
+	if (!obj->OnInitialize() || !obj->_init_success)
 	{
 #if defined(CAT_TRACE_REFOBJECT)
 		CAT_WARN("RefObjects") << obj->GetRefObjectName() << "#" << obj << " failed to initialize at " << file_line;
 #endif
+		// NOTE: We will need to go through the normal destruction process now since we started initialization
 
+		// Set init success flag to false just in case it is used in their OnDestroy() or OnFinalize() members
+		obj->_init_success = false;
+
+		// So destroy the object
 		obj->Destroy(file_line);
 
+		// And push it on the dead list for finalization
 		_dead_list.PushFront(obj);
 
 		return false;
@@ -148,6 +158,7 @@ bool RefObjects::Watch(const char *file_line, RefObject *obj)
 	CAT_WARN("RefObjects") << obj->GetRefObjectName() << "#" << obj << " active and watched at " << file_line;
 #endif
 
+	// Add to the active list while lock is held
 	_active_list.PushFront(obj);
 
 	return true;

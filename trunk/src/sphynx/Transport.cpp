@@ -33,23 +33,12 @@ using namespace std;
 using namespace cat;
 using namespace sphynx;
 
-#if defined(CAT_TRANSPORT_RANDOMIZE_LENGTH)
+static StdAllocator *m_std_allocator = 0;
 
-// LUT for unif->exp RV with a mean of 8 bytes
-static const u8 CAT_RAND_PAD_EXP[256] = {
-	44, 38, 35, 33, 31, 30, 28, 27, 26, 25, 25, 24, 23, 23, 22, 22, 21, 21, 20,
-	20, 20, 19, 19, 18, 18, 18, 17, 17, 17, 17, 16, 16, 16, 16, 15, 15, 15, 15,
-	15, 14, 14, 14, 14, 14, 13, 13, 13, 13, 13, 13, 12, 12, 12, 12, 12, 12, 12,
-	11, 11, 11, 11, 11, 11, 11, 10, 10, 10, 10, 10, 10, 10, 10, 10, 9, 9, 9, 9,
-	9, 9, 9, 9, 9, 9, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 7, 7, 7, 7, 7, 7, 7, 7,
-	7, 7, 7, 7, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 5, 5, 5, 5, 5, 5, 5,
-	5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-	4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2,
-	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1,
-	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0
-};
+CAT_TLS TransportTLS m_transport_tls;
+
+
+//// Transport Random Padding
 
 bool Transport::InitializeRandPad(AuthenticatedEncryption &auth_enc)
 {
@@ -68,6 +57,24 @@ bool Transport::InitializeRandPad(AuthenticatedEncryption &auth_enc)
 
 	return true;
 }
+
+#if defined(CAT_TRANSPORT_RANDOMIZE_LENGTH)
+
+// LUT for unif->exp RV with a mean of 8 bytes
+static const u8 CAT_RAND_PAD_EXP[256] = {
+	44, 38, 35, 33, 31, 30, 28, 27, 26, 25, 25, 24, 23, 23, 22, 22, 21, 21, 20,
+	20, 20, 19, 19, 18, 18, 18, 17, 17, 17, 17, 16, 16, 16, 16, 15, 15, 15, 15,
+	15, 14, 14, 14, 14, 14, 13, 13, 13, 13, 13, 13, 12, 12, 12, 12, 12, 12, 12,
+	11, 11, 11, 11, 11, 11, 11, 10, 10, 10, 10, 10, 10, 10, 10, 10, 9, 9, 9, 9,
+	9, 9, 9, 9, 9, 9, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 7, 7, 7, 7, 7, 7, 7, 7,
+	7, 7, 7, 7, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 5, 5, 5, 5, 5, 5, 5,
+	5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+	4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2,
+	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1,
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0
+};
 
 bool Transport::RandPadDatagram(SendBuffer *&buffer, u32 &data_bytes)
 {
@@ -129,7 +136,7 @@ CAT_INLINE void SendQueue::FreeMemory()
 	for (OutgoingMessage *node = head, *next; node; node = next)
 	{
 		next = node->next;
-		StdAllocator::ii->Release(node);
+		m_std_allocator->Release(node);
 	}
 }
 
@@ -217,7 +224,7 @@ CAT_INLINE void OutOfOrderQueue::FreeMemory()
 	for (RecvQueue *node = head, *next; node; node = next)
 	{
 		next = node->next;
-		StdAllocator::ii->Release(node);
+		m_std_allocator->Release(node);
 	}
 }
 
@@ -260,7 +267,7 @@ void Transport::FreeSentNode(OutgoingMessage *node)
 				// If message has completed sending,
 				if (full_data_node->huge_remaining == 0)
 				{
-					StdAllocator::ii->Release(full_data_node);
+					m_std_allocator->Release(full_data_node);
 				}
 			}
 			else
@@ -268,16 +275,16 @@ void Transport::FreeSentNode(OutgoingMessage *node)
 				// If message has completed sending,
 				if (full_data_node->sent_bytes >= full_data_node->GetBytes())
 				{
-					StdAllocator::ii->Release(full_data_node);
+					m_std_allocator->Release(full_data_node);
 				}
 			}
 		}
 	}
 
-	StdAllocator::ii->Release(node);
+	m_std_allocator->Release(node);
 }
 
-CAT_INLINE void Transport::QueueFragFree(SphynxTLS *tls, u8 *data)
+CAT_INLINE void Transport::QueueFragFree(TransportTLS *tls, u8 *data)
 {
 	// Add to the free frag list
 	u32 count = tls->free_list_count;
@@ -285,7 +292,7 @@ CAT_INLINE void Transport::QueueFragFree(SphynxTLS *tls, u8 *data)
 	tls->free_list_count = ++count;
 }
 
-void Transport::QueueDelivery(SphynxTLS *tls, u32 stream, u8 *data, u32 data_bytes, bool huge_fragment)
+void Transport::QueueDelivery(TransportTLS *tls, u32 stream, u8 *data, u32 data_bytes, bool huge_fragment)
 {
 	u32 depth = tls->delivery_queue_depth;
 
@@ -295,11 +302,11 @@ void Transport::QueueDelivery(SphynxTLS *tls, u32 stream, u8 *data, u32 data_byt
 	msg->bytes = data_bytes;
 	msg->huge_fragment = huge_fragment;
 
-	if (++depth < SphynxTLS::DELIVERY_QUEUE_DEPTH)
+	if (++depth < TransportTLS::DELIVERY_QUEUE_DEPTH)
 		tls->delivery_queue_depth = depth;
 	else
 	{
-		OnMessages(tls, tls->delivery_queue, depth);
+		OnMessages(tls->delivery_queue, depth);
 		tls->delivery_queue_depth = 0;
 
 		// Free memory for fragments
@@ -309,12 +316,12 @@ void Transport::QueueDelivery(SphynxTLS *tls, u32 stream, u8 *data, u32 data_byt
 	}
 }
 
-void Transport::DeliverQueued(SphynxTLS *tls)
+void Transport::DeliverQueued(TransportTLS *tls)
 {
 	u32 depth = tls->delivery_queue_depth;
 	if (depth > 0)
 	{
-		OnMessages(tls, tls->delivery_queue, depth);
+		OnMessages(tls->delivery_queue, depth);
 		tls->delivery_queue_depth = 0;
 
 		// Free memory for fragments
@@ -329,6 +336,9 @@ void Transport::DeliverQueued(SphynxTLS *tls)
 
 Transport::Transport()
 {
+	// Acquire standard allocator
+	m_std_allocator = StdAllocator::ref();
+
 	// Receive state
 	CAT_OBJCLR(_got_reliable);
 
@@ -366,7 +376,7 @@ Transport::~Transport()
 	for (BatchHead *next, *node = _outgoing_datagrams.head; node; node = next)
 	{
 		next = node->batch_next;
-		StdAllocator::ii->Release(node);
+		m_std_allocator->Release(node);
 	}
 
 	// For each stream,
@@ -426,17 +436,13 @@ bool Transport::InitializeTransportSecurity(bool is_initiator, AuthenticatedEncr
 	if (!auth_enc.GenerateKey(!is_initiator ? "ws2_32.dll" : "winsock.ocx", _next_recv_expected_id, sizeof(_next_recv_expected_id)))
 		return false;
 
-#if defined(CAT_TRANSPORT_RANDOMIZE_LENGTH)
-
 	if (!InitializeRandPad(auth_enc))
 		return false;
-
-#endif // CAT_TRANSPORT_RANDOMIZE_LENGTH
 
 	return true;
 }
 
-void Transport::TickTransport(SphynxTLS *tls, u32 now)
+void Transport::TickTransport(u32 now)
 {
 	// If disconnected,
 	if (IsDisconnected())
@@ -484,9 +490,10 @@ void Transport::TickTransport(SphynxTLS *tls, u32 now)
 	FlushWrites();
 }
 
-void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
+void Transport::OnTransportDatagrams(const BatchSet &delivery)
 {
 	// Initialize the delivery queue
+	TransportTLS *tls = &m_transport_tls;
 	tls->delivery_queue_depth = 0;
 	tls->free_list_count = 0;
 
@@ -608,7 +615,7 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 						if (super_opcode == SOP_DATA)
 							QueueDelivery(tls, stream, data, data_bytes, false);
 						else if (super_opcode == SOP_INTERNAL)
-							OnInternal(tls, recv_time, data, data_bytes);
+							OnInternal(recv_time, data, data_bytes);
 						else CAT_WARN("Transport") << "Invalid reliable super opcode ignored";
 					}
 					else CAT_WARN("Transport") << "Zero-length reliable message ignored";
@@ -637,7 +644,7 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 				else if (super_opcode == SOP_ACK)
 					OnACK(recv_time, data, data_bytes);
 				else if (super_opcode == SOP_INTERNAL)
-					OnInternal(tls, recv_time, data, data_bytes);
+					OnInternal(recv_time, data, data_bytes);
 			}
 			else if (hdr == HDR_NOP)
 			{
@@ -662,7 +669,7 @@ void Transport::OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery)
 	}
 }
 
-void Transport::RunReliableReceiveQueue(SphynxTLS *tls, u32 recv_time, u32 ack_id, u32 stream)
+void Transport::RunReliableReceiveQueue(TransportTLS *tls, u32 recv_time, u32 ack_id, u32 stream)
 {
 	RecvQueue *node = _recv_wait[stream].head;
 
@@ -697,7 +704,7 @@ void Transport::RunReliableReceiveQueue(SphynxTLS *tls, u32 recv_time, u32 ack_i
 			if (super_opcode == SOP_DATA)
 				QueueDelivery(tls, stream, old_data, old_data_bytes, false);
 			else if (super_opcode == SOP_INTERNAL)
-				OnInternal(tls, recv_time, old_data, old_data_bytes);
+				OnInternal(recv_time, old_data, old_data_bytes);
 
 			// NOTE: Unordered stream writes zero-length messages
 			// to the receive queue since it processes immediately
@@ -708,7 +715,7 @@ void Transport::RunReliableReceiveQueue(SphynxTLS *tls, u32 recv_time, u32 ack_i
 		++next_ack_id;
 
 		RecvQueue *next = node->next;
-		StdAllocator::ii->Release(node);
+		m_std_allocator->Release(node);
 		node = next;
 	} while (node && node->id == next_ack_id);
 
@@ -719,7 +726,7 @@ void Transport::RunReliableReceiveQueue(SphynxTLS *tls, u32 recv_time, u32 ack_i
 	_got_reliable[stream] = true;
 }
 
-void Transport::StoreReliableOutOfOrder(SphynxTLS *tls, u32 recv_time, u8 *data, u32 data_bytes, u32 ack_id, u32 stream, u32 super_opcode)
+void Transport::StoreReliableOutOfOrder(TransportTLS *tls, u32 recv_time, u8 *data, u32 data_bytes, u32 ack_id, u32 stream, u32 super_opcode)
 {
 	// If too many out of order arrivals already,
 	u32 count = _recv_wait[stream].size;
@@ -784,7 +791,7 @@ void Transport::StoreReliableOutOfOrder(SphynxTLS *tls, u32 recv_time, u8 *data,
 			if (super_opcode == SOP_DATA)
 				QueueDelivery(tls, stream, data, data_bytes, false);
 			else if (super_opcode == SOP_INTERNAL)
-				OnInternal(tls, recv_time, data, data_bytes);
+				OnInternal(recv_time, data, data_bytes);
 
 			stored_bytes = 0;
 		}
@@ -799,7 +806,7 @@ void Transport::StoreReliableOutOfOrder(SphynxTLS *tls, u32 recv_time, u8 *data,
 		stored_bytes = data_bytes;
 	}
 
-	RecvQueue *new_node = StdAllocator::ii->AcquireTrailing<RecvQueue>(stored_bytes);
+	RecvQueue *new_node = m_std_allocator->AcquireTrailing<RecvQueue>(stored_bytes);
 	if (!new_node)
 	{
 		CAT_WARN("Transport") << "Out of memory for incoming packet queue";
@@ -829,7 +836,7 @@ void Transport::StoreReliableOutOfOrder(SphynxTLS *tls, u32 recv_time, u8 *data,
 	_recv_wait[stream].size = count + 1;
 }
 
-void Transport::OnFragment(SphynxTLS *tls, u32 recv_time, u8 *data, u32 bytes, u32 stream)
+void Transport::OnFragment(TransportTLS *tls, u32 recv_time, u8 *data, u32 bytes, u32 stream)
 {
 	//INFO("Transport") << "OnFragment " << bytes << ":" << HexDumpString(data, bytes);
 
@@ -1059,7 +1066,7 @@ bool Transport::WriteReliableZeroCopy(StreamMode stream, u8 *msg, u32 msg_bytes,
 
 bool Transport::WriteHuge(StreamMode stream, IHugeSource *source)
 {
-	SendHuge *node = StdAllocator::ii->AcquireObject<SendHuge>();
+	SendHuge *node = m_std_allocator->AcquireObject<SendHuge>();
 	if (!node) return false;
 
 	// Fill the object
@@ -1388,7 +1395,7 @@ u32 Transport::RetransmitLost(u32 now)
 	return loss_count;
 }
 
-bool Transport::PostMTUProbe(SphynxTLS *tls, u32 mtu)
+bool Transport::PostMTUProbe(u32 mtu)
 {
 	CAT_INANE("Transport") << "Posting MTU Probe";
 
@@ -1413,7 +1420,24 @@ bool Transport::PostMTUProbe(SphynxTLS *tls, u32 mtu)
 	pkt[0] = (u8)((SOP_INTERNAL << SOP_SHIFT) | C_MASK | (data_bytes & BLO_MASK));
 	pkt[1] = (u8)(data_bytes >> BHI_SHIFT);
 	pkt[2] = IOP_C2S_MTU_PROBE;
-	tls->csprng->Generate(pkt + 3, data_bytes + 1);
+
+	// Fill payload with random bytes
+	u8 key_stream[64];
+	_rand_pad_csprng.GenerateKeyStream((u32*)key_stream);
+	u32 pad_count = data_bytes + 1;
+	u8 *pkt_pad = pkt + 3;
+
+	// For each 64 byte chunk,
+	while (pad_count >= 64)
+	{
+		memcpy(pkt_pad, key_stream, 64);
+		pkt_pad += 64;
+		pad_count -=64;
+	}
+
+	// For last chunk < 64 bytes,
+	if (pad_count > 0)
+		memcpy(pkt_pad, key_stream, pad_count);
 
 	bool success = WriteDatagram(pkt, payload_bytes);
 
@@ -1886,7 +1910,7 @@ bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s
 		if (fragmented)
 		{
 			SendFrag *frag;
-			do frag = StdAllocator::ii->AcquireObject<SendFrag>();
+			do frag = m_std_allocator->AcquireObject<SendFrag>();
 			while (!frag);
 
 			// Fill fragment object
@@ -2016,7 +2040,7 @@ bool Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream, s32 remai
 
 		// Acquire a fragment
 		SendFrag *frag;
-		do frag = StdAllocator::ii->AcquireTrailing<SendFrag>(copy_bytes);
+		do frag = m_std_allocator->AcquireTrailing<SendFrag>(copy_bytes);
 		while (!frag);
 
 		// Read data into fragment
@@ -2039,7 +2063,7 @@ bool Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream, s32 remai
 				else
 				{
 					// Abort transmit for now
-					StdAllocator::ii->Release(frag);
+					m_std_allocator->Release(frag);
 					break;
 				}
 			}

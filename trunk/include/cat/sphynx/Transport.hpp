@@ -35,7 +35,6 @@
 #include <cat/time/Clock.hpp>
 #include <cat/math/BitMath.hpp>
 #include <cat/sphynx/FlowControl.hpp>
-#include <cat/sphynx/SphynxLayer.hpp>
 
 namespace cat {
 
@@ -274,6 +273,19 @@ struct OutOfOrderQueue
 };
 
 
+// Thread local storage container
+struct TransportTLS
+{
+	static const u32 DELIVERY_QUEUE_DEPTH = 128;
+
+	// Used internally by the Sphynx Transport layer to queue up messages for delivery
+	sphynx::IncomingMessage delivery_queue[DELIVERY_QUEUE_DEPTH];
+	u32 delivery_queue_depth;
+	u8 *free_list[DELIVERY_QUEUE_DEPTH];
+	u32 free_list_count;
+};
+
+
 // The transport layer
 class CAT_EXPORT Transport
 {
@@ -363,7 +375,6 @@ class CAT_EXPORT Transport
 	BatchSet _outgoing_datagrams;
 	u32 _outgoing_datagrams_count, _outgoing_datagrams_bytes;
 
-#if defined(CAT_TRANSPORT_RANDOMIZE_LENGTH)
 	// Random padding state
 	ChaChaOutput _rand_pad_csprng;
 	u8 _rand_pad_source[64];
@@ -371,6 +382,8 @@ class CAT_EXPORT Transport
 	u32 _rand_pad_index;
 
 	bool InitializeRandPad(AuthenticatedEncryption &auth_enc);
+
+#if defined(CAT_TRANSPORT_RANDOMIZE_LENGTH)
 	bool RandPadDatagram(SendBuffer *&buffer, u32 &data_bytes);
 #endif // CAT_TRANSPORT_RANDOMIZE_LENGTH
 
@@ -397,16 +410,16 @@ class CAT_EXPORT Transport
 	u32 RetransmitLost(u32 now); // Returns estimated number of lost packets
 
 	// Queue a fragment for freeing
-	CAT_INLINE void QueueFragFree(SphynxTLS *tls, u8 *data);
+	CAT_INLINE void QueueFragFree(TransportTLS *tls, u8 *data);
 
 	// Queue received data for user processing
-	void QueueDelivery(SphynxTLS *tls, u32 stream, u8 *data, u32 data_bytes, bool huge_fragment);
+	void QueueDelivery(TransportTLS *tls, u32 stream, u8 *data, u32 data_bytes, bool huge_fragment);
 
 	// Deliver messages to user in one big batch
-	CAT_INLINE void DeliverQueued(SphynxTLS *tls);
+	CAT_INLINE void DeliverQueued(TransportTLS *tls);
 
-	void RunReliableReceiveQueue(SphynxTLS *tls, u32 recv_time, u32 ack_id, u32 stream);
-	void StoreReliableOutOfOrder(SphynxTLS *tls, u32 recv_time, u8 *data, u32 bytes, u32 ack_id, u32 stream, u32 super_opcode);
+	void RunReliableReceiveQueue(TransportTLS *tls, u32 recv_time, u32 ack_id, u32 stream);
+	void StoreReliableOutOfOrder(TransportTLS *tls, u32 recv_time, u8 *data, u32 bytes, u32 ack_id, u32 stream, u32 super_opcode);
 
 	// Starting at a given node, walk the send queue forward until available bytes of bandwidth are expended
 	// Returns the last node to send or 0 if no nodes remain
@@ -427,7 +440,7 @@ class CAT_EXPORT Transport
 	void Retransmit(u32 stream, OutgoingMessage *node, u32 now); // Does not hold the send lock!
 	void WriteACK();
 	void OnACK(u32 recv_time, u8 *data, u32 data_bytes);
-	void OnFragment(SphynxTLS *tls, u32 recv_time, u8 *data, u32 bytes, u32 stream);
+	void OnFragment(TransportTLS *tls, u32 recv_time, u8 *data, u32 bytes, u32 stream);
 
 public:
 	Transport();
@@ -460,8 +473,8 @@ public:
 	CAT_INLINE bool IsDisconnected() { return _disconnect_reason != DISCO_CONNECTED; }
 	CAT_INLINE bool WriteDisconnect(u8 reason) { return WriteOOB(IOP_DISCO, &reason, 1, SOP_INTERNAL); }
 
-	void TickTransport(SphynxTLS *tls, u32 now);
-	void OnTransportDatagrams(SphynxTLS *tls, const BatchSet &delivery);
+	void TickTransport(u32 now);
+	void OnTransportDatagrams(const BatchSet &delivery);
 
 protected:
 	// Maximum transfer unit (MTU) in UDP payload bytes, excluding _udpip_bytes
@@ -492,11 +505,11 @@ protected:
 		return WriteDatagrams(buffer, 1);
 	}
 
-	virtual void OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count) = 0;
-	virtual void OnInternal(SphynxTLS *tls, u32 recv_time, BufferStream msg, u32 bytes) = 0; // precondition: bytes > 0
+	virtual void OnMessages(IncomingMessage msgs[], u32 count) = 0;
+	virtual void OnInternal(u32 recv_time, BufferStream msg, u32 bytes) = 0; // precondition: bytes > 0
 	virtual void OnDisconnectReason(u8 reason) = 0; // Called to help explain why a disconnect is happening
 
-	bool PostMTUProbe(SphynxTLS *tls, u32 mtu);
+	bool PostMTUProbe(u32 mtu);
 
 	void OnFlowControlWrite(u32 bytes);
 };
