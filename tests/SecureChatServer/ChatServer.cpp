@@ -163,12 +163,6 @@ bool GameServer::AcceptNewConnexion(const NetAddr &src)
 
 int main()
 {
-	if (!SphynxLayer::ref()->Startup("Server.cfg"))
-	{
-		FatalStop("Unable to initialize framework!");
-		return 1;
-	}
-
 	CAT_INFO("Server") << "Secure Chat Server 2.0";
 
 	GameServer *server = RefObjects::Acquire<GameServer>(CAT_REFOBJECT_FILE_LINE);
@@ -195,8 +189,6 @@ int main()
 			Clock::sleep(100);
 		}
 	}
-
-	SphynxLayer::ref()->Shutdown();
 
 	return 0;
 }

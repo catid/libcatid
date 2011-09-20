@@ -30,34 +30,6 @@
 using namespace cat;
 using namespace sphynx;
 
-
-static SphynxLayer layer;
-static Mutex layer_mutex;
-static u32 layer_counter = 0;
-static bool layer_active = false;
-
-static void StartLayer()
-{
-	AutoMutex lock(layer_mutex);
-
-	if (++layer_counter == 1)
-	{
-		layer_active = layer.Startup();
-	}
-}
-
-static void EndLayer()
-{
-	AutoMutex lock(layer_mutex);
-
-	if (--layer_counter == 0)
-	{
-		layer_active = false;
-		layer.Shutdown();
-	}
-}
-
-
 EasySphynxClient::InternalSphynxClient::InternalSphynxClient()
 {
 	_parent = 0;

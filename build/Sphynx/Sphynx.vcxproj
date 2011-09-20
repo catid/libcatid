@@ -26,7 +26,6 @@
     <ClCompile Include="..\..\src\sphynx\FileTransfer.cpp" />
     <ClCompile Include="..\..\src\sphynx\FlowControl.cpp" />
     <ClCompile Include="..\..\src\sphynx\Server.cpp" />
-    <ClCompile Include="..\..\src\sphynx\SphynxLayer.cpp" />
     <ClCompile Include="..\..\src\sphynx\Transport.cpp" />
     <ClCompile Include="Precompiled.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
@@ -46,7 +45,6 @@
     <ClInclude Include="..\..\include\cat\sphynx\FileTransfer.hpp" />
     <ClInclude Include="..\..\include\cat\sphynx\FlowControl.hpp" />
     <ClInclude Include="..\..\include\cat\sphynx\Server.hpp" />
-    <ClInclude Include="..\..\include\cat\sphynx\SphynxLayer.hpp" />
     <ClInclude Include="..\..\include\cat\sphynx\Transport.hpp" />
     <ClInclude Include="Precompiled.hpp" />
   </ItemGroup>

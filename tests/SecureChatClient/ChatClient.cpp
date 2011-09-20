@@ -96,12 +96,6 @@ public:
 
 int main(int argc, char *argv[])
 {
-	if (!SphynxLayer::ref()->Startup("Client.cfg"))
-	{
-		FatalStop("Unable to initialize framework!");
-		return 1;
-	}
-
 	CAT_INFO("Client") << "Secure Chat Client 2.0";
 
 	SphynxTLS tls;
@@ -139,8 +133,6 @@ int main(int argc, char *argv[])
 			Clock::sleep(100);
 		}
 	}
-
-	SphynxLayer::ref()->Shutdown();
 
 	return 0;
 }
