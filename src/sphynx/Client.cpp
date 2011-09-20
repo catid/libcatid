@@ -46,9 +46,9 @@ static DNSClient *m_dns_client = 0;
 
 bool Client::OnInitialize()
 {
-	UDPEndpoint::OnInitialize();
-
 	Use(_clock, m_worker_threads, m_settings, m_dns_client);
+
+	return UDPEndpoint::OnInitialize();
 }
 
 void Client::OnDisconnectComplete()
