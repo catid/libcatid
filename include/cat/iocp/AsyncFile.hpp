@@ -49,12 +49,17 @@ struct ReadBuffer;
 struct WriteBuffer;
 
 
-enum AsyncFileModes
+enum AsyncFileFlags
 {
+	// Open for read and/or write?
 	ASYNCFILE_READ = 1,
 	ASYNCFILE_WRITE = 2,
+
+	// Select whether the data will be accessed sequentially or randomly
 	ASYNCFILE_RANDOM = 4,
 	ASYNCFILE_SEQUENTIAL = 8,
+
+	// Only a good idea for infrequently accessed data or in combination with manual memory caching
 	ASYNCFILE_NOBUFFER = 16
 };
 
@@ -77,6 +82,8 @@ public:
 	/*
 		In read mode, Open() will fail if the file does not exist.
 		In write mode, Open() will create the file if it does not exist.
+
+		async_file_modes may be any combination of AsyncFileFlags
 	*/
 	bool Open(const char *file_path, u32 async_file_modes);
 	void Close();
