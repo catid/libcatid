@@ -92,7 +92,7 @@ class CAT_EXPORT FileTransferSink
 
 	void Close();
 
-	void OnWrite(IWorkerTLS *tls, const BatchSet &buffers);
+	void OnWrite(const BatchSet &buffers);
 
 public:
 	FileTransferSink();

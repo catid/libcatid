@@ -69,6 +69,7 @@ class CAT_EXPORT Client : public UDPEndpoint, public Transport
 	u32 _next_sync_time;
 	u32 _sync_attempts;
 
+	Clock *_clock;
 	struct TimesPingSample {
 		u32 rtt;
 		s32 delta;
@@ -86,32 +87,30 @@ class CAT_EXPORT Client : public UDPEndpoint, public Transport
 	bool OnDNSResolve(const char *hostname, const NetAddr *array, int array_length);
 
 	virtual bool WriteDatagrams(const BatchSet &buffers, u32 count);
-	virtual void OnInternal(SphynxTLS *tls, u32 recv_time, BufferStream msg, u32 bytes);
+	virtual void OnInternal(u32 recv_time, BufferStream msg, u32 bytes);
 	virtual void OnDisconnectComplete();
 
 	void ConnectFail(SphynxError err);
 
-	bool InitialConnect(SphynxTLS *tls, TunnelPublicKey &public_key, const char *session_key);
+	bool InitialConnect(TunnelPublicKey &public_key, const char *session_key);
 	bool FinalConnect(const NetAddr &addr);
 
-	virtual void OnWorkerRecv(IWorkerTLS *tls, const BatchSet &buffers);
-	virtual void OnWorkerTick(IWorkerTLS *tls, u32 now);
-
 	virtual void OnRecvRouting(const BatchSet &buffers);
+	virtual void OnRecv(const BatchSet &buffers);
+	virtual void OnWorkerTick(u32 now);
 
 public:
 	Client();
 	CAT_INLINE virtual ~Client() {}
 
-	static const u32 RefObjectGUID = 0x00030001; // Global Unique IDentifier for acquiring RefObject singletons
 	CAT_INLINE const char *GetRefObjectName() { return "Client"; }
 
 	// Once you call Connect(), the object may be deleted at any time.  If you want to keep a reference to it, AddRef() before calling
-	bool Connect(SphynxTLS *tls, const char *hostname, Port port, TunnelPublicKey &public_key, const char *session_key);
-	bool Connect(SphynxTLS *tls, const NetAddr &addr, TunnelPublicKey &public_key, const char *session_key);
+	bool Connect(const char *hostname, Port port, TunnelPublicKey &public_key, const char *session_key);
+	bool Connect(const NetAddr &addr, TunnelPublicKey &public_key, const char *session_key);
 
 	// Current local time
-	CAT_INLINE u32 getLocalTime() { return Clock::msec(); }
+	CAT_INLINE u32 getLocalTime() { return _clock->msec(); }
 
 	// Convert from local time to server time
 	CAT_INLINE u32 toServerTime(u32 local_time) { return local_time + _ts_delta; }
@@ -137,9 +136,9 @@ protected:
 	CAT_INLINE u32 GetWorkerID() { return _worker_id; }
 
 	virtual void OnConnectFail(sphynx::SphynxError err) = 0;
-	virtual void OnConnect(SphynxTLS *tls) = 0;
-	virtual void OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count) = 0;
-	virtual void OnTick(SphynxTLS *tls, u32 now) = 0;
+	virtual void OnConnect() = 0;
+	virtual void OnMessages(IncomingMessage msgs[], u32 count) = 0;
+	virtual void OnCycle(u32 now) = 0;
 	virtual void OnDisconnectReason(u8 reason) = 0; // Called to help explain why a disconnect is happening
 };
 

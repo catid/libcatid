@@ -125,7 +125,6 @@ public:
 	DNSClient();
 	CAT_INLINE virtual ~DNSClient() {}
 
-	static const u32 RefObjectGUID = 0x00040001; // Global Unique IDentifier for acquiring RefObject singletons
 	CAT_INLINE const char *GetRefObjectName() { return "DNSClient"; }
 
 	CAT_INLINE u32 GetWorkerID() { return _worker_id; }

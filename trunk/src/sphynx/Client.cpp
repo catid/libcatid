@@ -46,10 +46,9 @@ static DNSClient *m_dns_client = 0;
 
 bool Client::OnInitialize()
 {
-	return UDPEndpoint::OnInitialize() &&
-		RefObjects::Require(m_worker_threads, CAT_REFOBJECT_FILE_LINE) &&
-		RefObjects::Require(m_settings, CAT_REFOBJECT_FILE_LINE) &&
-		RefObjects::Require(m_dns_client, CAT_REFOBJECT_FILE_LINE);
+	UDPEndpoint::OnInitialize();
+
+	Use(_clock, m_worker_threads, m_settings, m_dns_client);
 }
 
 void Client::OnDisconnectComplete()
@@ -88,7 +87,7 @@ void Client::OnRecvRouting(const BatchSet &buffers)
 		// If packet source is the server,
 		if (_server_addr == buffer->addr || buffer->data_bytes == 0)
 		{
-			buffer->callback.SetMember<Client, &Client::OnWorkerRecv>(this);
+			buffer->callback.SetMember<Client, &Client::OnRecv>(this);
 			delivery.PushBack(buffer);
 		}
 		else
@@ -107,9 +106,8 @@ void Client::OnRecvRouting(const BatchSet &buffers)
 		ReleaseRecvBuffers(garbage, garbage_count);
 }
 
-void Client::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
+void Client::OnRecv(const BatchSet &buffers)
 {
-	SphynxTLS *tls = static_cast<SphynxTLS*>( itls );
 	u32 buffer_count = 0;
 	BatchHead *node = buffers.head;
 
@@ -172,7 +170,7 @@ void Client::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 					_key_agreement_initiator.KeyEncryption(&key_hash, &_auth_enc, _session_key) &&
 					InitializeTransportSecurity(true, _auth_enc))
 				{
-					_last_recv_tsc = _next_sync_time = _mtu_discovery_time = Clock::msec();
+					_last_recv_tsc = _next_sync_time = _mtu_discovery_time = _clock->msec();
 					_mtu_discovery_attempts = 2;
 					_sync_attempts = 0;
 
@@ -184,14 +182,14 @@ void Client::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 
 						_mtu_discovery_attempts = 0;
 					}
-					else if (!PostMTUProbe(tls, MAXIMUM_MTU) ||
-							 !PostMTUProbe(tls, MEDIUM_MTU))
+					else if (!PostMTUProbe(MAXIMUM_MTU) ||
+							 !PostMTUProbe(MEDIUM_MTU))
 					{
 						CAT_WARN("Client") << "Unable to detect MTU: First probe post failure";
 					}
 
 					_connected = true;
-					OnConnect(tls);
+					OnConnect();
 
 					// If we have already received the first encrypted message, keep processing
 					node = node->batch_next;
@@ -246,7 +244,7 @@ void Client::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 		// Process all datagrams that decrypted properly
 		if (delivery.head)
 		{
-			OnTransportDatagrams(tls, delivery);
+			OnTransportDatagrams(delivery);
 			_last_recv_tsc = Clock::msec_fast();;
 		}
 	}
@@ -254,10 +252,8 @@ void Client::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 	ReleaseRecvBuffers(buffers, buffer_count);
 }
 
-void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)
+void Client::OnTick(u32 now)
 {
-	SphynxTLS *tls = static_cast<SphynxTLS*>( itls );
-
 	if (!_connected)
 	{
 		if ((s32)(now - _first_hello_post) >= CONNECT_TIMEOUT)
@@ -279,7 +275,7 @@ void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)
 			_hello_post_interval *= 2;
 		}
 
-		OnTick(tls, now);
+		OnCycle(tls, now);
 	}
 	else
 	{
@@ -287,7 +283,7 @@ void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)
 		if (IsDisconnected())
 		{
 			// Still tick transport layer because it is delivering IOP_DISCO messages
-			TickTransport(tls, now);
+			TickTransport(now);
 		}
 		else
 		{
@@ -324,7 +320,7 @@ void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)
 					}
 					else
 					{
-						if (!PostMTUProbe(tls, MAXIMUM_MTU))
+						if (!PostMTUProbe(MAXIMUM_MTU))
 						{
 							CAT_WARN("Client") << "Unable to detect MTU: Probe post failure";
 						}
@@ -342,9 +338,9 @@ void Client::OnWorkerTick(IWorkerTLS *itls, u32 now)
 			}
 
 			// Do derived class tick event so any messages posted do not need to wait for the next tick
-			OnTick(tls, now);
+			OnCycle(now);
 
-			TickTransport(tls, now);
+			TickTransport(now);
 
 			// Send a keep-alive after the silence limit expires
 			if ((s32)(now - _last_send_msec) >= SILENCE_LIMIT)
@@ -373,14 +369,8 @@ Client::Client()
 	_worker_id = INVALID_WORKER_ID;
 }
 
-bool Client::InitialConnect(SphynxTLS *tls, TunnelPublicKey &public_key, const char *session_key)
+bool Client::InitialConnect(TunnelPublicKey &public_key, const char *session_key)
 {
-	if (!tls->Valid())
-	{
-		CAT_WARN("Client") << "Failed to connect: Invalid thread local storage";
-		return false;
-	}
-
 	if (!public_key.Valid())
 	{
 		CAT_WARN("Client") << "Failed to connect: Invalid server public key provided";
@@ -461,9 +451,9 @@ bool Client::FinalConnect(const NetAddr &addr)
 	return true;
 }
 
-bool Client::Connect(SphynxTLS *tls, const char *hostname, Port port, TunnelPublicKey &public_key, const char *session_key)
+bool Client::Connect(const char *hostname, Port port, TunnelPublicKey &public_key, const char *session_key)
 {
-	if (!InitialConnect(tls, public_key, session_key))
+	if (!InitialConnect(public_key, session_key))
 	{
 		ConnectFail(ERR_CLIENT_INVALID_KEY);
 		return false;
@@ -480,9 +470,9 @@ bool Client::Connect(SphynxTLS *tls, const char *hostname, Port port, TunnelPubl
 	return true;
 }
 
-bool Client::Connect(SphynxTLS *tls, const NetAddr &addr, TunnelPublicKey &public_key, const char *session_key)
+bool Client::Connect(const NetAddr &addr, TunnelPublicKey &public_key, const char *session_key)
 {
-	if (!InitialConnect(tls, public_key, session_key) ||
+	if (!InitialConnect(public_key, session_key) ||
 		!FinalConnect(addr))
 	{
 		return false;
@@ -509,7 +499,7 @@ bool Client::OnDNSResolve(const char *hostname, const NetAddr *addrs, int count)
 		} entropy_source;
 
 		entropy_source.port = GetCachedPort();
-		entropy_source.time = Clock::usec();
+		entropy_source.time = _clock->usec();
 		entropy_source.count = count;
 
 		u32 n = MurmurGenerateUnbiased(&entropy_source, sizeof(entropy_source), 0, count - 1);
@@ -607,7 +597,7 @@ bool Client::WriteDatagrams(const BatchSet &buffers, u32 count)
 	return true;
 }
 
-void Client::OnInternal(SphynxTLS *tls, u32 recv_time, BufferStream data, u32 bytes)
+void Client::OnInternal(u32 recv_time, BufferStream data, u32 bytes)
 {
 	switch (data[0])
 	{

@@ -33,8 +33,20 @@
 using namespace cat;
 using namespace sphynx;
 
+static Clock *m_clock = 0;
+
+
+//// Connexion
+
+u32 Connexion::getLocalTime()
+{
+	return m_clock->msec();
+}
+
 bool Connexion::OnInitialize()
 {
+	Use(m_clock);
+
 	return true;
 }
 
@@ -55,9 +67,8 @@ void Connexion::OnDisconnectComplete()
 	Destroy(CAT_REFOBJECT_FILE_LINE);
 }
 
-void Connexion::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
+void Connexion::OnRecv(const BatchSet &buffers)
 {
-	SphynxTLS *tls = static_cast<SphynxTLS*>( itls );
 	u32 buffer_count = 0;
 
 	BatchSet delivery;
@@ -137,7 +148,7 @@ void Connexion::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 				delivery.tail = old_head;
 		}
 		*/
-		OnTransportDatagrams(tls, delivery);
+		OnTransportDatagrams(delivery);
 		_seen_encrypted = true;
 		_last_recv_tsc = Clock::msec_fast();
 	}
@@ -147,22 +158,20 @@ void Connexion::OnWorkerRecv(IWorkerTLS *itls, const BatchSet &buffers)
 	ReleaseRef(CAT_REFOBJECT_FILE_LINE, buffer_count);
 }
 
-void Connexion::OnWorkerTick(IWorkerTLS *itls, u32 now)
+void Connexion::OnTick(u32 now)
 {
-	SphynxTLS *tls = static_cast<SphynxTLS*>( itls );
-
 	// If in graceful disconnect,
 	if (IsDisconnected())
 	{
 		// Still tick transport layer because it is delivering IOP_DISCO messages
-		TickTransport(tls, now);
+		TickTransport(now);
 	}
 	else
 	{
 		// Do derived class tick event so any messages posted do not need to wait for the next tick
-		OnTick(tls, now);
+		OnTick(now);
 
-		TickTransport(tls, now);
+		TickTransport(now);
 
 		// If no packets have been received,
 		if ((s32)(now - _last_recv_tsc) >= TIMEOUT_DISCONNECT)
@@ -210,7 +219,7 @@ bool Connexion::WriteDatagrams(const BatchSet &buffers, u32 count)
 	return _parent->Write(buffers, count, _client_addr);
 }
 
-void Connexion::OnInternal(SphynxTLS *tls, u32 recv_time, BufferStream data, u32 bytes)
+void Connexion::OnInternal(u32 recv_time, BufferStream data, u32 bytes)
 {
 	switch (data[0])
 	{
@@ -239,7 +248,7 @@ void Connexion::OnInternal(SphynxTLS *tls, u32 recv_time, BufferStream data, u32
 		{
 			u32 *client_timestamp = reinterpret_cast<u32*>( data + 1 );
 
-			u32 stamps[3] = { *client_timestamp, getLE(recv_time), getLE(Clock::msec()) };
+			u32 stamps[3] = { *client_timestamp, getLE(recv_time), getLE(m_clock->msec()) };
 
 			WriteOOB(IOP_S2C_TIME_PONG, stamps, sizeof(stamps), SOP_INTERNAL);
 
