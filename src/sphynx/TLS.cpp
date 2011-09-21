@@ -33,6 +33,16 @@ using namespace sphynx;
 
 //// TLS
 
+static CAT_TLS *m_tls = 0;
+
+TLS *TLS::ref()
+{
+	if (m_tls) return m_tls;
+
+	m_tls = new TLS;
+	return m_tls;
+}
+
 TLS::TLS()
 {
 	_valid = false;
