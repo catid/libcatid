@@ -35,6 +35,7 @@ using namespace cat;
 static const u32 INITIAL_TIMERS_ALLOCATED = 16;
 
 static Clock *m_clock = 0;
+static SystemInfo *m_system_info = 0;
 
 
 //// WorkerThread
@@ -347,10 +348,10 @@ CAT_REF_SINGLETON(WorkerThreads);
 
 bool WorkerThreads::OnInitialize()
 {
-	Use(m_clock);
+	Use(m_clock, m_system_info);
 
 	_tick_interval = 10;
-	_worker_count = 2;
+	_worker_count = m_system_info->GetProcessorCount();
 	_workers = 0;
 	_round_robin_worker_id = 0;
 

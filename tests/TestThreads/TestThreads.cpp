@@ -11,12 +11,6 @@ struct RandomBuffer : WorkerBuffer
 	u32 x;
 };
 
-class TestWorkerTLS : public IWorkerTLS
-{
-public:
-	virtual bool Valid() { return true; }
-};
-
 class TestWorker
 {
 public:
@@ -24,7 +18,7 @@ public:
 	{
 	}
 
-	void OnEvents(IWorkerTLS *tls, const BatchSet &buffers)
+	void OnEvents(const BatchSet &buffers)
 	{
 		for (BatchHead *node = buffers.head; node; node = node->batch_next)
 		{
@@ -67,8 +61,6 @@ int main()
 	{
 		Clock::sleep(100);
 	}
-
-	layer.Shutdown();
 
 	return 0;
 }
