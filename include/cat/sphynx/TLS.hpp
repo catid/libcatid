@@ -55,6 +55,7 @@ public:
 	CAT_INLINE FortunaOutput *CSPRNG() { return _csprng; }
 
 	static TLS *ref();
+	static void deref();
 };
 
 
