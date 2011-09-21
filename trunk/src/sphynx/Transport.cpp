@@ -36,7 +36,7 @@ using namespace sphynx;
 static StdAllocator *m_std_allocator = 0;
 static Clock *m_clock = 0;
 
-CAT_TLS TransportTLS m_transport_tls;
+static CAT_TLS TransportTLS m_transport_tls;
 
 
 //// Transport Random Padding

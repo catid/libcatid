@@ -53,6 +53,8 @@ public:
 	CAT_INLINE bool Valid() { return _valid; }
 	CAT_INLINE BigTwistedEdwards *Math() { return _math; }
 	CAT_INLINE FortunaOutput *CSPRNG() { return _csprng; }
+
+	static TLS *ref();
 };
 
 
