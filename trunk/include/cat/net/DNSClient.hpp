@@ -61,10 +61,8 @@ typedef Delegate3<bool, const char *, const NetAddr *, int> DNSDelegate;
 
 //// DNSRequest
 
-struct DNSCallback
+struct DNSCallback : public SListItem
 {
-	DNSCallback *next;
-
 	DNSDelegate cb;
 	RefObject *ref;
 };
@@ -77,7 +75,7 @@ struct DNSRequest : public DListItem
 	// Our copy of the hostname string
 	char hostname[HOSTNAME_MAXLEN+1];
 	u16 id; // Random request ID
-	DNSCallback callback_head;
+	SList callbacks;
 
 	// For caching purposes
 	NetAddr responses[DNSCACHE_MAX_RESP];
@@ -94,7 +92,8 @@ class DNSClient : public UDPEndpoint
 
 	FortunaOutput *_csprng;
 
-	typedef DList::ForwardIterator<DNSRequest> iter;
+	typedef DList::ForwardIterator<DNSRequest> rqiter;
+	typedef SList::Iterator<DNSCallback> cbiter;
 
 	Mutex _request_lock;
 	DList _request_list;

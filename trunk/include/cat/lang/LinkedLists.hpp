@@ -420,6 +420,11 @@ class CAT_EXPORT DList
 	DListItem *_head, *_tail;
 
 public:
+	CAT_INLINE DList(DListItem *head, DListItem *tail)
+	{
+		_head = head;
+		_tail = tail;
+	}
 	CAT_INLINE DList()
 	{
 		Clear();
@@ -451,6 +456,9 @@ public:
 	void InsertBefore(DListItem *item, DListItem *before);
 	void InsertAfter(DListItem *item, DListItem *after);
 	void Erase(DListItem *item);
+
+	// Remove list at and after item from this list, and return what was removed
+	DList Chop(DListItem *item);
 
 	/*
 		When iterating forward through the list,
