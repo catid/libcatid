@@ -120,6 +120,7 @@ class CAT_EXPORT FortunaFactory : public RefSingleton<FortunaFactory>
 	virtual void OnFinalize();
 
 	Mutex _lock;
+	Mutex _precreated_lock;
 
 #if defined(CAT_OS_WINDOWS) && !defined(CAT_OS_WINDOWS_CE)
 
@@ -175,6 +176,7 @@ protected:
 
 public:
 	// May return 0 if creation or initialization fails
+	// The returned instance is lockless until it needs to reseed
 	FortunaOutput *Create();
 };
 

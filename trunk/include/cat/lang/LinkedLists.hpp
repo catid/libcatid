@@ -469,6 +469,7 @@ public:
 			_item = 0;
 		}
 
+		// Set to list head
 		CAT_INLINE ForwardIterator(DList &list)
 		{
 			DListItem *item = list._head;
@@ -476,7 +477,6 @@ public:
 			_item = item;
 			if (item) _next = item->_dl_next;
 		}
-
 		CAT_INLINE ForwardIterator &operator=(DList &list)
 		{
 			DListItem *item = list._head;
@@ -486,11 +486,23 @@ public:
 			return *this;
 		}
 
+		// Set to list item
+		CAT_INLINE ForwardIterator(DListItem *item)
+		{
+			_item = item;
+			if (item) _next = item->_dl_next;
+		}
+		CAT_INLINE ForwardIterator &operator=(DListItem *item)
+		{
+			_item = item;
+			if (item) _next = item->_dl_next;
+			return *this;
+		}
+
 		CAT_INLINE operator T *()
 		{
 			return static_cast<T*>( _item );
 		}
-
 		CAT_INLINE T *operator->()
 		{
 			return static_cast<T*>( _item );
@@ -501,7 +513,6 @@ public:
 			_item = GetNext();
 			return *this;
 		}
-
 		CAT_INLINE ForwardIterator &operator++(int) // post-increment
 		{
 			return ++*this;
@@ -517,6 +528,7 @@ public:
 			_item = 0;
 		}
 
+		// Set to list tail
 		CAT_INLINE BackIterator(DList &list)
 		{
 			DListItem *item = list._tail;
@@ -524,7 +536,6 @@ public:
 			_item = item;
 			if (item) _next = item->_dl_prev;
 		}
-
 		CAT_INLINE BackIterator &operator=(DList &list)
 		{
 			DListItem *item = list._tail;
@@ -534,11 +545,23 @@ public:
 			return *this;
 		}
 
+		// Set to list item
+		CAT_INLINE BackIterator(DListItem *item)
+		{
+			_item = item;
+			if (item) _next = item->_dl_prev;
+		}
+		CAT_INLINE BackIterator &operator=(DListItem *item)
+		{
+			_item = item;
+			if (item) _next = item->_dl_prev;
+			return *this;
+		}
+
 		CAT_INLINE operator T *()
 		{
 			return static_cast<T*>( _item );
 		}
-
 		CAT_INLINE T *operator->()
 		{
 			return static_cast<T*>( _item );
@@ -549,7 +572,6 @@ public:
 			_item = GetPrev();
 			return *this;
 		}
-
 		CAT_INLINE BackIterator &operator--(int) // post-decrement
 		{
 			return --*this;

@@ -72,8 +72,8 @@ bool TLS::Initialize()
 
 	Finalize();
 
-	_csprng = new FortunaOutput;
-	if (!_csprng || !_csprng->Valid())
+	_csprng = FortunaFactory::ref()->Create();
+	if (!_csprng)
 	{
 		CAT_FATAL("TLS") << "Unable to get a valid CSPRNG";
 		return false;

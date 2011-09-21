@@ -152,8 +152,7 @@ bool FileTransferSource::TransferFile(u32 worker_id, u8 opcode, const std::strin
 		return false;
 	}
 
-	file->reader = RefObjects::Acquire<PolledFileReader>(CAT_REFOBJECT_FILE_LINE);
-	if (!file->reader)
+	if (!RefObjects::Create(CAT_REFOBJECT_FILE_LINE, file->reader))
 	{
 		CAT_WARN("FileTransferSource") << "Out of memory: Unable to allocate PolledFileReader";
 		return false;

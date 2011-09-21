@@ -259,14 +259,15 @@ bool DNSClient::OnInitialize()
 	if (!IsInitialized()) return false;
 
 	// Attempt to get a CSPRNG
-	if (!(_csprng = new FortunaOutput) || !_csprng->Valid())
+	_csprng = Use<FortunaFactory>()->Create();
+	if (!_csprng)
 	{
 		CAT_WARN("DNSClient") << "Unable to get a CSPRNG";
 		return false;
 	}
 
 	// Attempt to bind to any port; ignore ICMP unreachable messages
-	if (!BindToRandomPort(true))
+	if (!BindToRandomPort())
 	{
 		CAT_WARN("DNSClient") << "Initialization failure: Unable to bind to any port";
 		return false;
@@ -415,7 +416,7 @@ bool DNSClient::GetServerAddr()
 
 	// Return success if server address is now valid
 	if (_server_addr.Valid() &&
-		_server_addr.Convert(Is6()))
+		_server_addr.Convert(SupportsIPv6()))
 	{
 		CAT_INANE("DNSClient") << "Using nameserver at " << _server_addr.IPToString();
 	}
@@ -427,7 +428,7 @@ bool DNSClient::GetServerAddr()
 
 		// Attempt to get server address from anycast DNS server string
 		if (!_server_addr.SetFromString(ANYCAST_DNS_SERVER, 53) ||
-			!_server_addr.Convert(Is6()))
+			!_server_addr.Convert(SupportsIPv6()))
 		{
 			CAT_FATAL("DNSClient") << "Unable to resolve anycast address " << ANYCAST_DNS_SERVER;
 			return false;
@@ -437,7 +438,7 @@ bool DNSClient::GetServerAddr()
 	return true;
 }
 
-bool DNSClient::BindToRandomPort(bool ignoreUnreachable)
+bool DNSClient::BindToRandomPort()
 {
 	// NOTE: Ignores ICMP unreachable errors from DNS server; prefers timeouts
 
@@ -445,8 +446,9 @@ bool DNSClient::BindToRandomPort(bool ignoreUnreachable)
 	// This is the standard fix for Dan Kaminsky's DNS exploit
 	const int RANDOM_BIND_ATTEMPTS_MAX = 16;
 
-	// Get SupportIPv6 flag from settings
-	bool only_ipv4 = m_settings->getInt("DNSClient.SupportIPv6", 0) == 0;
+	// Get settings
+	bool request_ip6 = m_settings->getInt("Sphynx.DNSClient.RequestIPv6", 0) != 0;
+	bool require_ip4 = m_settings->getInt("Sphynx.DNSClient.RequireIPv4", 1) != 0;
 
 	// Try to use a more random port
 	int tries = RANDOM_BIND_ATTEMPTS_MAX;
@@ -456,12 +458,12 @@ bool DNSClient::BindToRandomPort(bool ignoreUnreachable)
 		Port port = (u16)_csprng->Generate();
 
 		// If bind succeeded,
-		if (port >= 1024 && Bind(only_ipv4, port, ignoreUnreachable))
+		if (port >= 1024 && Initialize(port, true, request_ip6, require_ip4))
 			return true;
 	}
 
 	// Fall back to OS-chosen port
-	return Bind(only_ipv4, 0, ignoreUnreachable);
+	return Initialize(0, true, request_ip6, require_ip4);
 }
 
 bool DNSClient::PostDNSPacket(DNSRequest *req, u32 now)
@@ -525,13 +527,7 @@ bool DNSClient::PerformLookup(DNSRequest *req)
 
 	req->first_post_time = now;
 
-	// Insert at end of list
-	req->next = 0;
-	req->last = _request_tail;
-	if (_request_tail) _request_tail->next = req;
-	else _request_head = req;
-	_request_tail = req;
-
+	_request_list.PushBack(req);
 	++_request_queue_size;
 
 	return true;
@@ -544,27 +540,15 @@ void DNSClient::CacheAdd(DNSRequest *req)
 		_cache_size++;
 	else
 	{
-		// Remove oldest one from cache
-		DNSRequest *tokill = _cache_tail;
-
-		if (tokill)
+		iter ii = _cache_list.Tail();
+		if (ii)
 		{
-			DNSRequest *last = tokill->last;
-
-			_cache_tail = last;
-			if (last) last->next = 0;
-			else _cache_head = 0;
-
-			delete tokill;
+			_cache_list.Erase(ii);
+			delete ii;
 		}
 	}
 
-	// Insert at head
-	req->next = _cache_head;
-	req->last = 0;
-	if (_cache_head) _cache_head->last = req;
-	else _cache_tail = req;
-	_cache_head = req;
+	_cache_list.PushFront(req);
 
 	// Set update time
 	req->last_post_time = Clock::msec_fast();
