@@ -22,10 +22,10 @@ public:
 
 	virtual void OnDestroy();
 	virtual bool OnFinalize();
-	virtual void OnConnect(SphynxTLS *tls);
-	virtual void OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count);
+	virtual void OnConnect();
+	virtual void OnMessages(IncomingMessage msgs[], u32 count);
 	virtual void OnDisconnectReason(u8 reason);
-	virtual void OnTick(SphynxTLS *tls, u32 now);
+	virtual void OnCycle(u32 now);
 };
 
 class GameServer : public Server
@@ -63,7 +63,7 @@ bool GameConnexion::OnFinalize()
 	return Connexion::OnFinalize();
 }
 
-void GameConnexion::OnConnect(SphynxTLS *tls)
+void GameConnexion::OnConnect()
 {
 	CAT_WARN("Connexion") << "-- CONNECTED";
 
@@ -78,7 +78,7 @@ void GameConnexion::OnConnect(SphynxTLS *tls)
 	GetServer<GameServer>()->_collexion.Insert(this);
 }
 
-void GameConnexion::OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count)
+void GameConnexion::OnMessages(IncomingMessage msgs[], u32 count)
 {
 	for (u32 ii = 0; ii < count; ++ii)
 	{
@@ -122,7 +122,7 @@ void GameConnexion::OnDisconnectReason(u8 reason)
 		ii->WriteReliable(STREAM_1, OP_USER_PART, &key, sizeof(key));
 }
 
-void GameConnexion::OnTick(SphynxTLS *tls, u32 now)
+void GameConnexion::OnCycle(u32 now)
 {
 	//WARN("Connexion") << "-- TICK " << now;
 }
@@ -148,7 +148,7 @@ Connexion *GameServer::NewConnexion()
 {
 	CAT_WARN("Server") << "-- Allocating a new Connexion";
 
-	return RefObjects::Acquire<GameConnexion>(CAT_REFOBJECT_FILE_LINE);
+	return RefObjects::Create<GameConnexion>(CAT_REFOBJECT_FILE_LINE);
 }
 
 bool GameServer::AcceptNewConnexion(const NetAddr &src)
@@ -166,7 +166,7 @@ int main()
 	CAT_INFO("Server") << "Secure Chat Server 2.0";
 
 	GameServer *server;
-	if (!RefObjects::Acquire(CAT_REFOBJECT_FILE_LINE, server))
+	if (!RefObjects::Create(CAT_REFOBJECT_FILE_LINE, server))
 	{
 		CAT_FATAL("Server") << "Unable to acquire server object";
 		return 0;

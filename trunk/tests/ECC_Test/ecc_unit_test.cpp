@@ -400,8 +400,8 @@ void CheckTatePairing()
 
 int GenerateCurveParameterC()
 {
-	FortunaOutput *out = new FortunaOutput;
-	CAT_ENFORCE(out->Valid());
+	FortunaOutput *out = FortunaFactory::ref()->Create();
+	CAT_ENFORCE(out);
 
 	const int bits = 256;
 
@@ -472,7 +472,8 @@ bool TestCurveParameters()
 	for (int ii = 0; ii < 3; ++ii)
 	{
 		cout << "Testing curve parameters for " << BITS[ii] << "-bit modulus:" << endl;
-		FortunaOutput *out = new FortunaOutput;
+		FortunaOutput *out = FortunaFactory::ref()->Create();
+		CAT_ENFORCE(out);
 		BigTwistedEdwards *x = KeyAgreementCommon::InstantiateMath(BITS[ii]);
 
 		Leg *a = x->Get(0);
@@ -902,7 +903,8 @@ void ECCTest()
 void HandshakeTest()
 {
 	BigTwistedEdwards *tls_math = KeyAgreementCommon::InstantiateMath(CAT_DEMO_BITS);
-	FortunaOutput *tls_csprng = new FortunaOutput;
+	FortunaOutput *tls_csprng = FortunaFactory::ref()->Create();
+	CAT_ENFORCE(tls_csprng && tls_math);
 
 	for (int ii = 0; ii < 5; ++ii)
 	{
@@ -1384,43 +1386,45 @@ Leg *stt;
 
 void ECCSetup()
 {
-  FortunaOutput *output = new FortunaOutput;
+	FortunaOutput *output = FortunaFactory::ref()->Create();
+	CAT_ENFORCE(output);
 
-  xt = KeyAgreementCommon::InstantiateMath(256);
-  ptt = xt->Get(0);
-  rtt = xt->Get(4);
-  gtt = xt->Get(5);
-  utt = xt->Get(9);
-  stt = xt->Get(13);
+	xt = KeyAgreementCommon::InstantiateMath(256);
+	ptt = xt->Get(0);
+	rtt = xt->Get(4);
+	gtt = xt->Get(5);
+	utt = xt->Get(9);
+	stt = xt->Get(13);
 
-  xt->PtGenerate(output, gtt);
-  xt->SaveAffineXY(gtt, stt, stt + xt->Legs());
+	xt->PtGenerate(output, gtt);
+	xt->SaveAffineXY(gtt, stt, stt + xt->Legs());
 
-  delete output;
+	delete output;
 }
 
 
 
 void ECCSpeed()
 {
-  if (!xt->LoadVerifyAffineXY(stt, stt + xt->Legs(), utt) ||
-	xt->IsAffineIdentity(utt))
-  {
-	cout << "Error!" << endl;
-  }
+	if (!xt->LoadVerifyAffineXY(stt, stt + xt->Legs(), utt) ||
+		xt->IsAffineIdentity(utt))
+	{
+		cout << "Error!" << endl;
+	}
 
-  xt->PtDoubleZ1(utt, utt);
-  xt->PtEDouble(utt, utt);
+	xt->PtDoubleZ1(utt, utt);
+	xt->PtEDouble(utt, utt);
 
-  xt->PtMultiply(utt, xt->GetCurveQ(), 0, ptt);
-  xt->SaveAffineX(ptt, rtt);
+	xt->PtMultiply(utt, xt->GetCurveQ(), 0, ptt);
+	xt->SaveAffineX(ptt, rtt);
 }
 
 
 
 void GeneratePassword()
 {
-	FortunaOutput *output = new FortunaOutput;
+	FortunaOutput *output = FortunaFactory::ref()->Create();
+	CAT_ENFORCE(output);
 
 	cout << "Password: ";
 

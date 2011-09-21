@@ -40,7 +40,7 @@ EasyHandshake::EasyHandshake()
 
 	// Since ref() is not thread-safe usually it is called once
 	// during startup before multiple threads start using this object
-	tls_csprng = new FortunaOutput;
+	tls_csprng = FortunaFactory::ref()->Create();
 }
 
 EasyHandshake::~EasyHandshake()
