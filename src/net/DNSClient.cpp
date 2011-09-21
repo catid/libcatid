@@ -238,6 +238,8 @@ void DNSClient::OnTick(u32 now)
 
 DNSClient::DNSClient()
 {
+	_csprng = 0;
+
 	_server_addr.Invalidate();
 
 	_cache_size = 0;
@@ -248,9 +250,13 @@ DNSClient::DNSClient()
 
 bool DNSClient::OnInitialize()
 {
-	UDPEndpoint::OnInitialize();
+	if (!UDPEndpoint::OnInitialize())
+		return false;
 
 	Use(m_worker_threads, m_settings);
+
+	// Stop here if not initialized
+	if (!IsInitialized()) return false;
 
 	// Attempt to get a CSPRNG
 	if (!(_csprng = new FortunaOutput) || !_csprng->Valid())
@@ -265,9 +271,6 @@ bool DNSClient::OnInitialize()
 		CAT_WARN("DNSClient") << "Initialization failure: Unable to bind to any port";
 		return false;
 	}
-
-	// Stop here if not initialized
-	if (!IsInitialized()) return false;
 
 	// Assign to a worker
 	_worker_id = m_worker_threads->AssignTimer(this, WorkerTimerDelegate::FromMember<DNSClient, &DNSClient::OnTick>(this));
@@ -291,6 +294,11 @@ bool DNSClient::OnFinalize()
 	// Clear cache
 	_cache_list.Clear();
 	_cache_size = 0;
+
+	if (_csprng)
+	{
+		delete _csprng;
+	}
 
 	CAT_ENFORCE(_request_queue_size == 0) << "Request queue not empty during cleanup";
 

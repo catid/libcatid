@@ -109,12 +109,15 @@ class FortunaFactory;
 
 
 // Factory for constructing FortunaOutput objects
-class CAT_EXPORT FortunaFactory
+class CAT_EXPORT FortunaFactory : public RefSingleton<FortunaFactory>
 #if !defined(CAT_NO_ENTROPY_THREAD)
-	: public Thread, public RefSingleton<FortunaFactory>
+	, public Thread
 #endif
 {
 	friend class FortunaOutput;
+
+	virtual bool OnInitialize();
+	virtual void OnFinalize();
 
 	Mutex _lock;
 
@@ -170,11 +173,9 @@ protected:
 	void PollFastEntropySources(int pool);
 	void ShutdownEntropySources();
 
-	// Called during initialization
-	virtual bool OnInitialize();
-
-	// Called during finalization
-	virtual void OnFinalize();
+public:
+	// May return 0 if creation or initialization fails
+	FortunaOutput *Create();
 };
 
 
@@ -183,9 +184,11 @@ class CAT_EXPORT FortunaOutput : public IRandom
 {
 	friend class FortunaFactory;
 
+	CAT_NO_COPY(FortunaOutput);
+	FortunaOutput();
+
 	static const int OUTPUT_CACHE_BYTES = FortunaFactory::POOL_BYTES * 8; // Arbitrary
 
-	bool _valid;
 	u32 thread_id, SeedRevision;
 	Skein OutputHash;
 	u8 CachedRandomBytes[OUTPUT_CACHE_BYTES];
@@ -193,15 +196,8 @@ class CAT_EXPORT FortunaOutput : public IRandom
 
 	void Reseed();
 
-	FortunaOutput(FortunaOutput&) {}
-	FortunaOutput &operator=(FortunaOutput &) { return *this; }
-
 public:
-	FortunaOutput();
 	~FortunaOutput();
-
-	// Check if the output is actually random or not
-	CAT_INLINE bool Valid() { return _valid; }
 
 	// Generate a 32-bit random number
 	u32 Generate();

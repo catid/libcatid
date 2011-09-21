@@ -38,9 +38,6 @@ static FortunaFactory *m_factory = 0;
 
 FortunaOutput::FortunaOutput()
 {
-	// Initialize factory if needed, which will set m_factory
-	_valid = FortunaFactory::ref()->IsInitialized();
-
 	Reseed();
 }
 
@@ -213,4 +210,13 @@ bool FortunaFactory::Reseed()
 	// MasterSeed is now ready to generate!
 
 	return true;
+}
+
+FortunaOutput *FortunaFactory::Create()
+{
+	// If factory is not initialized,
+	if (!IsInitialized())
+		return 0;
+
+	return new FortunaOutput;
 }

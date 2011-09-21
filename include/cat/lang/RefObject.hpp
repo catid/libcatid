@@ -85,9 +85,21 @@ class CAT_EXPORT RefObjects : Thread, public RefSingleton<RefObjects>
 public:
 	// Acquire a RefObject with a default constructor
 	template<class T>
-	static T *Acquire(const char *file_line, T *&obj)
+	static T *Create(const char *file_line, T *&obj)
 	{
 		obj = new T;
+
+		if (obj && !RefObjects::ref()->Watch(file_line, obj))
+			obj = 0;
+
+		return obj;
+	}
+
+	// Alternative way
+	template<class T>
+	static T *Create(const char *file_line)
+	{
+		T *obj = new T;
 
 		if (obj && !RefObjects::ref()->Watch(file_line, obj))
 			obj = 0;
@@ -214,8 +226,8 @@ protected:
 	template<class S0, class S1, class S2, class S3>
 	CAT_INLINE void Use(S0 *&s0, S1 *&s1, S2 *&s2, S3 *&s3)
 	{
-		Use(s0, s1, s2);
-		Use(s3);
+		Use(s0, s1);
+		Use(s2, s3);
 	}
 	template<class S0, class S1, class S2, class S3, class S4>
 	CAT_INLINE void Use(S0 *&s0, S1 *&s1, S2 *&s2, S3 *&s3, S4 *&s4)
