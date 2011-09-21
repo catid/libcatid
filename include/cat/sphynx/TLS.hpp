@@ -56,8 +56,9 @@ public:
 	CAT_INLINE BigTwistedEdwards *Math() { return _math; }
 	CAT_INLINE FortunaOutput *CSPRNG() { return _csprng; }
 
+	// Use these two functions together to manage TLS
+	// in actual thread local storage instead of on the heap
 	static TLS *ref();
-
 	void RemoveRef();
 };
 
