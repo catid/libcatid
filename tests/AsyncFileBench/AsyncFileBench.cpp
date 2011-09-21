@@ -122,7 +122,7 @@ public:
 			return false;
 		}
 
-		if (!RefObjects::Acquire(CAT_REFOBJECT_FILE_LINE, _file))
+		if (!RefObjects::Create(CAT_REFOBJECT_FILE_LINE, _file))
 		{
 			CAT_WARN("AsyncFileBench") << "Unable to acquire AsyncFile";
 			return false;
@@ -304,7 +304,7 @@ public:
 			return false;
 		}
 
-		if (!RefObjects::Acquire(CAT_REFOBJECT_FILE_LINE, _file))
+		if (!RefObjects::Create(CAT_REFOBJECT_FILE_LINE, _file))
 		{
 			CAT_WARN("AsyncFileBench") << "Unable to acquire file object";
 			return false;

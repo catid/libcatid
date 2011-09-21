@@ -33,7 +33,7 @@ using namespace sphynx;
 
 //// TLS
 
-static CAT_TLS *m_tls = 0;
+static CAT_TLS TLS *m_tls = 0;
 
 TLS *TLS::ref()
 {
