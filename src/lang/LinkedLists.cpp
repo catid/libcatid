@@ -80,6 +80,30 @@ void DList::Erase(DListItem *item)
 	CAT_BDLL_ERASE(_head, _tail, item, _dl_next, _dl_prev);
 }
 
+DList DList::Chop(DListItem *item)
+{
+	if (!item)
+	{
+		DList result;
+		Steal(result);
+		return result;
+	}
+
+	// Get first item in removed list
+	DListItem *tail = item->_dl_prev;
+
+	// Set up new list
+	item->_dl_prev = 0;
+	DListItem *old_tail = _tail;
+
+	// Fix current list
+	if (tail) tail->_dl_next = 0;
+	else _head = 0;
+	_tail = tail;
+
+	return DList(item, old_tail);
+}
+
 
 //// Forward-iterating singly-linked list
 

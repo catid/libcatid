@@ -220,7 +220,7 @@ void DNSClient::OnTick(u32 now)
 	AutoMutex lock(_request_lock);
 
 	// For each pending request,
-	for (iter ii = _request_list; ii; ++ii)
+	for (rqiter ii = _request_list; ii; ++ii)
 	{
 		// NOTE: In the case of a shutdown, the repost time of 300 ms will cause proper cleanup.
 
@@ -289,7 +289,7 @@ bool DNSClient::OnInitialize()
 bool DNSClient::OnFinalize()
 {
 	// For each cache node,
-	for (iter ii = _cache_list; ii; ++ii)
+	for (rqiter ii = _cache_list; ii; ++ii)
 		delete ii;
 
 	// Clear cache
@@ -540,7 +540,7 @@ void DNSClient::CacheAdd(DNSRequest *req)
 		_cache_size++;
 	else
 	{
-		iter ii = _cache_list.Tail();
+		rqiter ii = _cache_list.Tail();
 		if (ii)
 		{
 			_cache_list.Erase(ii);
@@ -559,31 +559,24 @@ DNSRequest *DNSClient::CacheGet(const char *hostname)
 	u32 now = Clock::msec_fast();
 
 	// For each cache entry,
-	for (DNSRequest *req = _cache_head; req; req = req->next)
+	for (rqiter ii = _cache_list; ii; ++ii)
 	{
 		// If the cache has not expired,
-		if ((s32)(now - req->last_post_time) < DNSCACHE_TIMEOUT)
+		if ((s32)(now - ii->last_post_time) < DNSCACHE_TIMEOUT)
 		{
 			// If hostname of cached request equals the new request,
-			if (iStrEqual(req->hostname, hostname))
-				return req;
+			if (iStrEqual(ii->hostname, hostname))
+				return ii;
 		}
 		else
 		{
-			// Unlink remainder of list (they will all be old)
-			DNSRequest *last = req->last;
-
-			_cache_tail = last;
-			if (last) last->next = 0;
-			else _cache_head = 0;
+			DList kills = _cache_list.Chop(ii);
 
 			// For each item that was unlinked,
-			for (DNSRequest *next, *tokill = req; tokill; tokill = next)
+			for (rqiter ii = kills; ii; ++ii)
 			{
-				next = tokill->next;
-
 				// Delete each item
-				delete tokill;
+				delete ii;
 
 				// Reduce the cache size
 				--_cache_size;
@@ -599,15 +592,7 @@ DNSRequest *DNSClient::CacheGet(const char *hostname)
 
 void DNSClient::CacheKill(DNSRequest *req)
 {
-	// Unlink from doubly-linked list
-	DNSRequest *last = req->last;
-	DNSRequest *next = req->next;
-
-	if (last) last->next = next;
-	else _cache_head = next;
-	if (next) next->last = last;
-	else _cache_tail = last;
-
+	_cache_list.Erase(req);
 	--_cache_size;
 
 	// Free memory
@@ -635,10 +620,10 @@ bool DNSClient::GetUnusedID(u16 &unused_id)
 
 		// For each pending request,
 		already_used = false;
-		for (DNSRequest *req = _request_head; req; req = req->next)
+		for (rqiter ii = _request_list; ii; ++ii)
 		{
 			// If the ID is already used,
-			if (req->id == id)
+			if (ii->id == id)
 			{
 				// Try again
 				already_used = true;
@@ -760,9 +745,9 @@ bool DNSClient::Resolve(const char *hostname, DNSDelegate callback, RefObject *h
 
 	AutoMutex req_lock(_request_lock);
 
-	for (DNSRequest *req = _request_head; req; req = req->next)
+	for (rqiter ii = _request_list; ii; ++ii)
 	{
-		if (iStrEqual(req->hostname, hostname))
+		if (iStrEqual(ii->hostname, hostname))
 		{
 			DNSCallback *cb = new DNSCallback;
 			if (!cb) return false;
@@ -771,8 +756,7 @@ bool DNSClient::Resolve(const char *hostname, DNSDelegate callback, RefObject *h
 
 			cb->cb = callback;
 			cb->ref = holdRef;
-			cb->next = req->callback_head.next;
-			req->callback_head.next = cb;
+			ii->callbacks.PushFront(cb);
 
 			return true;
 		}
@@ -792,11 +776,19 @@ bool DNSClient::Resolve(const char *hostname, DNSDelegate callback, RefObject *h
 	DNSRequest *request = new DNSRequest;
 	if (!request) return false;
 
+	// Create a new callback
+	DNSCallback *cb = new DNSCallback;
+	if (!cb)
+	{
+		delete request;
+		return false;
+	}
+
 	// Fill request
 	CAT_STRNCPY(request->hostname, hostname, sizeof(request->hostname));
-	request->callback_head.ref = holdRef;
-	request->callback_head.cb = callback;
-	request->callback_head.next = 0;
+	cb->ref = holdRef;
+	cb->cb = callback;
+	request->callbacks.PushFront(cb);
 	request->id = id;
 	request->num_responses = 0;
 
@@ -815,22 +807,15 @@ bool DNSClient::Resolve(const char *hostname, DNSDelegate callback, RefObject *h
 DNSRequest *DNSClient::PullRequest(u16 id)
 {
 	// For each pending request,
-	for (DNSRequest *req = _request_head; req; req = req->next)
+	for (rqiter ii = _request_list; ii; ++ii)
 	{
 		// If ID matches,
-		if (req->id == id)
+		if (ii->id == id)
 		{
-			// Remove from doubly-linked list
-			DNSRequest *last = req->last;
-			DNSRequest *next = req->next;
-
-			if (last) last->next = next;
-			else _request_head = next;
-			if (next) next->last = last;
-			else _request_tail = last;
+			_request_list.Erase(ii);
 			--_request_queue_size;
 
-			return req;
+			return ii;
 		}
 	}
 
@@ -841,29 +826,23 @@ void DNSClient::NotifyRequesters(DNSRequest *req)
 {
 	bool add_to_cache = false;
 
-	// Invoke the callback
-	add_to_cache |= req->callback_head.cb(req->hostname, req->responses, req->num_responses);
-
-	// Release ref if requested
-	RefObject::Release(req->callback_head.ref);
-
 	// For each requester,
-	for (DNSCallback *cbnext, *cb = req->callback_head.next; cb; cb = cbnext)
+	for (cbiter ii = req->callbacks; ii; ++ii)
 	{
-		cbnext = cb->next; // cache for deletion
-
 		// Invoke the callback
-		add_to_cache |= cb->cb(req->hostname, req->responses, req->num_responses);
+		add_to_cache |= ii->cb(req->hostname, req->responses, req->num_responses);
 
 		// Release ref if requested
-		RefObject::Release(cb->ref);
+		RefObject::Release(ii->ref);
 
-		delete cb;
+		delete ii;
 	}
 
 	// If any of the callbacks requested us to add it to the cache,
 	if (add_to_cache)
 	{
+		req->callbacks.Clear();
+
 		AutoMutex lock(_cache_lock);
 		CacheAdd(req);
 	}
