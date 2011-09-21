@@ -52,6 +52,7 @@ class BigRTL
 protected:
     int library_legs;
     Leg *library_memory;
+	bool _valid;
 
 protected:
     static Leg CAT_FASTCALL ShiftRight(int legs, const Leg *in, int shift, Leg *out);
@@ -73,6 +74,8 @@ protected:
 public:
     BigRTL(int regs, int bits);
     ~BigRTL();
+
+	CAT_INLINE bool Valid() { return _valid; }
 
 public:
     Leg * CAT_FASTCALL Get(int reg_index);

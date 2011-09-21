@@ -27,8 +27,8 @@
 */
 
 #include <cat/sphynx/TLS.hpp>
-using namespace sphynx;
 using namespace cat;
+using namespace sphynx;
 
 
 //// TLS
@@ -58,7 +58,7 @@ bool TLS::Initialize()
 		return false;
 	}
 
-	_math = new BigTwistedEdwards;
+	_math = KeyAgreementCommon::InstantiateMath(256);
 	if (!_math || !_math->Valid())
 	{
 		CAT_FATAL("TLS") << "Unable to get a valid math object";

@@ -28,16 +28,26 @@
 
 #include <cat/math/BigRTL.hpp>
 #include <cat/mem/AlignedAllocator.hpp>
+#include <cat/io/Logging.hpp>
 #include <cstring>
 using namespace cat;
 
 BigRTL::BigRTL(int regs, int bits)
 {
-    library_legs = bits / (8 * sizeof(Leg));
+	_valid = false;
+
+	library_legs = bits / (8 * sizeof(Leg));
     library_regs = regs + BIG_OVERHEAD;
 
     // Align library memory accesses to a 16-byte boundary
 	library_memory = AlignedAllocator::ref()->AcquireArray<Leg>(library_legs * library_regs);
+	if (!library_memory)
+	{
+		CAT_FATAL("BigRTL") << "Unable to allocate leg array for maths";
+		return;
+	}
+
+	_valid = true;
 }
 
 BigRTL::~BigRTL()
