@@ -37,10 +37,21 @@ static CAT_TLS *m_tls = 0;
 
 TLS *TLS::ref()
 {
+	// If instance is set,
 	if (m_tls) return m_tls;
 
+	// Otherwise create an instance
 	m_tls = new TLS;
 	return m_tls;
+}
+
+void TLS::deref()
+{
+	if (m_tls)
+	{
+		delete m_tls;
+		m_tls = 0;
+	}
 }
 
 TLS::TLS()
