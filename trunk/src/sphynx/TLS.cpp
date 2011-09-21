@@ -37,33 +37,31 @@ static CAT_TLS TLS *m_tls = 0;
 
 TLS *TLS::ref()
 {
+	TLS *tls = m_tls;
+
 	// If instance is not set,
-	if (!m_tls)
+	if (!tls)
 	{
 		// Create an instance
-		m_tls = new TLS;
-		if (!m_tls) return 0;
+		tls = new TLS;
+		if (!tls) return 0;
+
+		// Validate it
+		if (!tls->Valid())
+		{
+			delete tls;
+			return 0;
+		}
+
+		// Store it as the global copy
+		m_tls = tls;
+		return tls;
 	}
 
-	// If instance is not valid,
-	if (!m_tls->Initialize())
-	{
-		delete m_tls;
-		m_tls = 0;
-		return 0;
-	}
+	// Increment reference count
+	tls->_ref_count++;
 
-	return m_tls;
-}
-
-void TLS::deref()
-{
-	// If instance is set and no more references remain,
-	if (m_tls && m_tls->Finalize())
-	{
-		delete m_tls;
-		m_tls = 0;
-	}
+	return tls;
 }
 
 TLS::TLS()
@@ -71,6 +69,9 @@ TLS::TLS()
 	_ref_count = 0;
 	_math = 0;
 	_csprng = 0;
+
+	if (Initialize())
+		_ref_count = 1;
 }
 
 TLS::~TLS()
@@ -78,14 +79,19 @@ TLS::~TLS()
 	Finalize();
 }
 
+void TLS::RemoveRef()
+{
+	// If no more references remain,
+	if (--_ref_count <= 0)
+	{
+		m_tls = 0;
+
+		delete this;
+	}
+}
+
 bool TLS::Initialize()
 {
-	if (_ref_count > 0)
-	{
-		_ref_count++;
-		return true;
-	}
-
 	Finalize();
 
 	_csprng = FortunaFactory::ref()->Create();
@@ -102,31 +108,20 @@ bool TLS::Initialize()
 		return false;
 	}
 
-	_ref_count = 1;
 	return true;
 }
 
-bool TLS::Finalize()
+void TLS::Finalize()
 {
-	// If no more references remain,
-	if (--_ref_count <= 0)
+	if (_csprng)
 	{
-		// Free objects
-		if (_csprng)
-		{
-			delete _csprng;
-			_csprng = 0;
-		}
-		if (_math)
-		{
-			delete _math;
-			_math = 0;
-		}
-
-		// Return true to indicate no more references
-		return true;
+		delete _csprng;
+		_csprng = 0;
 	}
 
-	// Return false to indicate that references remain
-	return false;
+	if (_math)
+	{
+		delete _math;
+		_math = 0;
+	}
 }

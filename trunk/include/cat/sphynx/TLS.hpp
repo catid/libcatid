@@ -44,12 +44,9 @@ class TLS
 	FortunaOutput *_csprng;
 	int _ref_count;
 
-	// Returns true if initialize succeeds
-	// Increments reference count if already initialized
+	// Returns true if initialization succeeds
 	bool Initialize();
-
-	// Returns true if no references remain
-	bool Finalize();
+	void Finalize();
 
 public:
 	TLS();
@@ -60,7 +57,8 @@ public:
 	CAT_INLINE FortunaOutput *CSPRNG() { return _csprng; }
 
 	static TLS *ref();
-	static void deref();
+
+	void RemoveRef();
 };
 
 
@@ -76,12 +74,12 @@ public:
 	}
 	CAT_INLINE ~AutoTLS()
 	{
-		TLS::deref();
+		if (_tls) _tls->RemoveRef();
 	}
-	CAT_INLINE operator TLS *()
-	{
-		return _tls;
-	}
+
+	CAT_INLINE bool Valid() { return _tls != 0; }
+
+	CAT_INLINE TLS *operator->() { return _tls; }
 };
 
 
