@@ -30,27 +30,29 @@
 using namespace cat;
 
 BigTwistedEdwards::BigTwistedEdwards(int regs, int bits, int modulusC, int paramD, const u8 *Q, const u8 *GenPt)
-    : BigPseudoMersenne(regs + TE_OVERHEAD, bits, modulusC)
+	: BigPseudoMersenne(regs + TE_OVERHEAD, bits, modulusC)
 {
-    te_regs = regs + TE_OVERHEAD;
-    curve_d = paramD;
+	CAT_DEBUG_ENFORCE(Q && GenPt);
 
-    YOFF = library_legs;
-    TOFF = library_legs * 2;
-    ZOFF = library_legs * 3;
-    POINT_STRIDE = library_legs * POINT_REGS;
+	te_regs = regs + TE_OVERHEAD;
+	curve_d = paramD;
 
-    A = Get(te_regs - 1);
-    B = Get(te_regs - 2);
-    C = Get(te_regs - 3);
-    D = Get(te_regs - 4);
-    E = Get(te_regs - 5);
-    F = Get(te_regs - 6);
-    G = Get(te_regs - 7);
-    H = Get(te_regs - 8);
+	YOFF = library_legs;
+	TOFF = library_legs * 2;
+	ZOFF = library_legs * 3;
+	POINT_STRIDE = library_legs * POINT_REGS;
+
+	A = Get(te_regs - 1);
+	B = Get(te_regs - 2);
+	C = Get(te_regs - 3);
+	D = Get(te_regs - 4);
+	E = Get(te_regs - 5);
+	F = Get(te_regs - 6);
+	G = Get(te_regs - 7);
+	H = Get(te_regs - 8);
 	CurveQ = Get(te_regs - 9);
-    TempPt = Get(te_regs - 13);
-    Generator = Get(te_regs - 17);
+	TempPt = Get(te_regs - 13);
+	Generator = Get(te_regs - 17);
 
 	Load(GenPt, RegBytes(), Generator);
 	Load(GenPt + RegBytes(), RegBytes(), Generator + library_legs);
@@ -62,41 +64,51 @@ BigTwistedEdwards::BigTwistedEdwards(int regs, int bits, int modulusC, int param
 // Unpack an Extended Projective point (X,Y,T,Z) from affine point (x,y)
 void BigTwistedEdwards::PtUnpack(Leg *inout)
 {
-    MrMultiply(inout+XOFF, inout+YOFF, inout+TOFF);
-    CopyX(1, inout+ZOFF);
+	CAT_DEBUG_ENFORCE(inout);
+
+	MrMultiply(inout+XOFF, inout+YOFF, inout+TOFF);
+	CopyX(1, inout+ZOFF);
 }
 
 // Set a point to the identity
 void BigTwistedEdwards::PtIdentity(Leg *inout)
 {
-    CopyX(0, inout+XOFF);
-    CopyX(1, inout+YOFF);
-    CopyX(0, inout+TOFF);
-    CopyX(1, inout+ZOFF);
+	CAT_DEBUG_ENFORCE(inout);
+
+	CopyX(0, inout+XOFF);
+	CopyX(1, inout+YOFF);
+	CopyX(0, inout+TOFF);
+	CopyX(1, inout+ZOFF);
 }
 
 void BigTwistedEdwards::PtCopy(const Leg *in, Leg *out)
 {
-    Copy(in+XOFF, out+XOFF);
-    Copy(in+YOFF, out+YOFF);
-    Copy(in+TOFF, out+TOFF);
-    Copy(in+ZOFF, out+ZOFF);
+	CAT_DEBUG_ENFORCE(in && out);
+
+	Copy(in+XOFF, out+XOFF);
+	Copy(in+YOFF, out+YOFF);
+	Copy(in+TOFF, out+TOFF);
+	Copy(in+ZOFF, out+ZOFF);
 }
 
 // out(X,Y) = (X,Y) without attempting to convert to affine from projective
 void BigTwistedEdwards::SaveProjectiveXY(const Leg *in, void *out_x, void *out_y)
 {
-    Save(in+XOFF, out_x, RegBytes());
-    Save(in+YOFF, out_y, RegBytes());
+	CAT_DEBUG_ENFORCE(in && out_x && out_y);
+
+	Save(in+XOFF, out_x, RegBytes());
+	Save(in+YOFF, out_y, RegBytes());
 }
 
 // out(X,Y,Z,T) = (in_x,in_y), returns false if the coordinates are invalid
 bool BigTwistedEdwards::LoadVerifyAffineXY(const void *in_x, const void *in_y, Leg *out)
 {
-    Load(in_x, RegBytes(), out+XOFF);
-    Load(in_y, RegBytes(), out+YOFF);
+	CAT_DEBUG_ENFORCE(in_x && in_y && out);
 
-    return PtValidAffine(out);
+	Load(in_x, RegBytes(), out+XOFF);
+	Load(in_y, RegBytes(), out+YOFF);
+
+	return PtValidAffine(out);
 }
 
 // Strangely enough, including these all in the same source file improves performance
