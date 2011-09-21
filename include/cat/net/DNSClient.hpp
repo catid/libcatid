@@ -114,7 +114,7 @@ class DNSClient : public UDPEndpoint
 	void CacheKill(DNSRequest *req); // Assumes already in cache
 
 	bool GetServerAddr();
-	bool BindToRandomPort(bool ignoreUnreachable);
+	bool BindToRandomPort();
 	bool PostDNSPacket(DNSRequest *req, u32 now);
 	bool PerformLookup(DNSRequest *req); // not thread-safe, caller must lock
 
