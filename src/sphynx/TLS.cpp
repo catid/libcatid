@@ -30,24 +30,36 @@
 using namespace cat;
 using namespace sphynx;
 
+static CAT_TLS TLS *m_tls = 0;
+
 
 //// TLS
 
-static CAT_TLS TLS *m_tls = 0;
-
 TLS *TLS::ref()
 {
-	// If instance is set,
-	if (m_tls) return m_tls;
+	// If instance is not set,
+	if (!m_tls)
+	{
+		// Create an instance
+		m_tls = new TLS;
+		if (!m_tls) return 0;
+	}
 
-	// Otherwise create an instance
-	m_tls = new TLS;
+	// If instance is not valid,
+	if (!m_tls->Initialize())
+	{
+		delete m_tls;
+		m_tls = 0;
+		return 0;
+	}
+
 	return m_tls;
 }
 
 void TLS::deref()
 {
-	if (m_tls)
+	// If instance is set and no more references remain,
+	if (m_tls && m_tls->Finalize())
 	{
 		delete m_tls;
 		m_tls = 0;
@@ -56,7 +68,7 @@ void TLS::deref()
 
 TLS::TLS()
 {
-	_valid = false;
+	_ref_count = 0;
 	_math = 0;
 	_csprng = 0;
 }
@@ -68,7 +80,11 @@ TLS::~TLS()
 
 bool TLS::Initialize()
 {
-	if (_valid) return true;
+	if (_ref_count > 0)
+	{
+		_ref_count++;
+		return true;
+	}
 
 	Finalize();
 
@@ -86,23 +102,31 @@ bool TLS::Initialize()
 		return false;
 	}
 
-	_valid = true;
+	_ref_count = 1;
 	return true;
 }
 
-void TLS::Finalize()
+bool TLS::Finalize()
 {
-	if (_csprng)
+	// If no more references remain,
+	if (--_ref_count <= 0)
 	{
-		delete _csprng;
-		_csprng = 0;
+		// Free objects
+		if (_csprng)
+		{
+			delete _csprng;
+			_csprng = 0;
+		}
+		if (_math)
+		{
+			delete _math;
+			_math = 0;
+		}
+
+		// Return true to indicate no more references
+		return true;
 	}
 
-	if (_math)
-	{
-		delete _math;
-		_math = 0;
-	}
-
-	_valid = false;
+	// Return false to indicate that references remain
+	return false;
 }

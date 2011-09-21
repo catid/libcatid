@@ -43,6 +43,10 @@ class CAT_EXPORT Server : public UDPEndpoint
 {
 	friend class Connexion;
 
+	static const int MIN_KERNEL_RECV_BUFFER = 1000000;
+	static const int DEFAULT_KERNEL_RECV_BUFFER = 8000000;
+	static const int MAX_KERNEL_RECV_BUFFER = 32000000;
+
 	static const int SESSION_KEY_BYTES = 32;
 	char _session_key[SESSION_KEY_BYTES];
 
