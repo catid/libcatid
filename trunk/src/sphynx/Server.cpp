@@ -32,6 +32,7 @@
 #include <cat/threads/WorkerThreads.hpp>
 #include <cat/crypt/SecureEqual.hpp>
 #include <cat/crypt/tunnel/Keys.hpp>
+#include <cat/sphynx/TLS.hpp>
 using namespace std;
 using namespace cat;
 using namespace sphynx;
@@ -254,6 +255,14 @@ void Server::OnRecv(const BatchSet &buffers)
 				continue;
 			}
 
+			TLS *tls = TLS::ref();
+			if (!tls)
+			{
+				CAT_FATAL("Server") << "Ignoring challenge: Unable to get TLS object";
+				PostConnectionError(buffer->GetAddr(), ERR_SERVER_ERROR);
+				continue;
+			}
+
 			u8 *pkt = SendBuffer::Acquire(S2C_ANSWER_LEN);
 			u8 *challenge = data + 1 + 4 + 4;
 
@@ -266,7 +275,7 @@ void Server::OnRecv(const BatchSet &buffers)
 				CAT_WARN("Server") << "Ignoring challenge: Unable to allocate post buffer";
 			}
 			// If challenge is invalid,
-			else if (!_key_agreement_responder.ProcessChallenge(tls->math, tls->csprng,
+			else if (!_key_agreement_responder.ProcessChallenge(tls->Math(), tls->CSPRNG(),
 																challenge, CHALLENGE_BYTES,
 																pkt + 1, ANSWER_BYTES, &key_hash))
 			{
@@ -313,7 +322,7 @@ void Server::OnRecv(const BatchSet &buffers)
 				conn->_client_addr = buffer->GetAddr();
 				conn->_last_recv_tsc = buffer->event_msec;
 				conn->_parent = this;
-				conn->InitializePayloadBytes(Is6());
+				conn->InitializePayloadBytes(SupportsIPv6());
 
 				// Assign to a worker
 				conn->_worker_id = m_worker_threads->AssignTimer(conn, WorkerTimerDelegate::FromMember<Connexion, &Connexion::OnTick>(conn));
@@ -366,12 +375,14 @@ Server::~Server()
 
 bool Server::StartServer(Port port, TunnelKeyPair &key_pair, const char *session_key)
 {
+	AutoTLS tls;
+
 	// Seed components
-	_cookie_jar.Initialize(tls->csprng);
-	_conn_map.Initialize(tls->csprng);
+	_cookie_jar.Initialize(tls->CSPRNG());
+	_conn_map.Initialize(tls->CSPRNG());
 
 	// Initialize key agreement responder
-	if (!_key_agreement_responder.Initialize(tls->math, tls->csprng, key_pair))
+	if (!_key_agreement_responder.Initialize(tls->Math(), tls->CSPRNG(), key_pair))
 	{
 		CAT_WARN("Server") << "Failed to initialize: Key pair is invalid";
 		return false;
@@ -383,14 +394,14 @@ bool Server::StartServer(Port port, TunnelKeyPair &key_pair, const char *session
 	// Copy public key
 	_public_key = key_pair;
 
-	// Get SupportIPv6 flag from settings
-	bool only_ipv4 = m_settings->getInt("Sphynx.Server.SupportIPv6", 0) == 0;
-
-	// Get kernel receive buffer size
-	int kernelReceiveBufferBytes = m_settings->getInt("Sphynx.Server.KernelReceiveBuffer", 8000000);
+	// Get settings
+	bool request_ip6 = m_settings->getInt("Sphynx.Server.RequestIPv6", 0) != 0;
+	bool require_ip4 = m_settings->getInt("Sphynx.Server.RequireIPv4", 1) != 0;
+	int kernelReceiveBufferBytes = m_settings->getInt("Sphynx.Server.KernelReceiveBuffer",
+		DEFAULT_KERNEL_RECV_BUFFER, MIN_KERNEL_RECV_BUFFER, MAX_KERNEL_RECV_BUFFER);
 
 	// Attempt to bind to the server port
-	if (!Bind(only_ipv4, port, true, kernelReceiveBufferBytes))
+	if (!Initialize(port, true, request_ip6, require_ip4, kernelReceiveBufferBytes))
 	{
 		CAT_WARN("Server") << "Failed to initialize: Unable to bind handshake port "
 			<< port << ". " << Sockets::GetLastErrorString();

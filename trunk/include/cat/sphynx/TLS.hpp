@@ -37,25 +37,51 @@ namespace cat {
 namespace sphynx {
 
 
+// Thread-local-storage (TLS) for Sphynx
 class TLS
 {
 	BigTwistedEdwards *_math;
 	FortunaOutput *_csprng;
-	bool _valid;
+	int _ref_count;
+
+	// Returns true if initialize succeeds
+	// Increments reference count if already initialized
+	bool Initialize();
+
+	// Returns true if no references remain
+	bool Finalize();
 
 public:
 	TLS();
 	~TLS();
 
-	bool Initialize();
-	void Finalize();
-
-	CAT_INLINE bool Valid() { return _valid; }
+	CAT_INLINE bool Valid() { return _ref_count > 0; }
 	CAT_INLINE BigTwistedEdwards *Math() { return _math; }
 	CAT_INLINE FortunaOutput *CSPRNG() { return _csprng; }
 
 	static TLS *ref();
 	static void deref();
+};
+
+
+// Automatically deref when AutoTLS goes out of scope
+class AutoTLS
+{
+	TLS *_tls;
+
+public:
+	CAT_INLINE AutoTLS()
+	{
+		_tls = TLS::ref();
+	}
+	CAT_INLINE ~AutoTLS()
+	{
+		TLS::deref();
+	}
+	CAT_INLINE operator TLS *()
+	{
+		return _tls;
+	}
 };
 
 

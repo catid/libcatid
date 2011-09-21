@@ -413,7 +413,7 @@ bool Client::InitialConnect(TunnelPublicKey &public_key, const char *session_key
 	}
 
 	// Initialize max payload bytes
-	InitializePayloadBytes(Is6());
+	InitializePayloadBytes(SupportsIPv6());
 
 	return true;
 }
@@ -429,7 +429,7 @@ bool Client::FinalConnect(const NetAddr &addr)
 	_server_addr = addr;
 
 	// Convert server address if needed
-	if (!_server_addr.Convert(Is6()))
+	if (!_server_addr.Convert(SupportsIPv6()))
 	{
 		ConnectFail(ERR_CLIENT_SERVER_ADDR);
 		return false;
