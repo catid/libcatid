@@ -431,7 +431,7 @@ bool DNSClientEndpoint::BindToRandomPort()
 	const int RANDOM_BIND_ATTEMPTS_MAX = 16;
 
 	// Get settings
-	bool request_ip6 = m_settings->getInt("Sphynx.DNSClient.RequestIPv6", 0) != 0;
+	bool request_ip6 = m_settings->getInt("Sphynx.DNSClient.RequestIPv6", 1) != 0;
 	bool require_ip4 = m_settings->getInt("Sphynx.DNSClient.RequireIPv4", 1) != 0;
 
 	// Try to use a more random port

@@ -21,7 +21,6 @@ class GameClient : public Client
 	};
 
 public:
-
 	CAT_INLINE const char *GetRefObjectName() { return "GameClient"; }
 
 	virtual void OnConnectFail(sphynx::SphynxError err)
