@@ -47,7 +47,7 @@ bool Settings::OnInitialize()
 	lock.Release();
 
 	// Initialize logging threshold
-	EventSeverity threshold = (EventSeverity)getInt("IO.Log.Threshold", LVL_INFO);
+	EventSeverity threshold = (EventSeverity)getInt("IO.Log.Threshold", DEFAULT_LOG_LEVEL);
 	Use(m_logging)->SetThreshold(threshold);
 
 	return true;
