@@ -47,6 +47,9 @@ unsigned int __stdcall Thread::ThreadWrapper(void *this_object)
 
 	thread_object->_thread_running = false;
 
+	// Invoke any thread-atexit() callbacks
+	Thread::InvokeAtExit();
+
 	return exitCode;
 }
 
@@ -59,6 +62,9 @@ void *Thread::ThreadWrapper(void *this_object)
 	bool success = thread_object->ThreadFunction(thread_object->caller_param);
 
 	thread_object->_thread_running = false;
+
+	// Invoke any thread-atexit() callbacks
+	Thread::InvokeAtExit();
 
 	return (void*)(success ? 0 : 1);
 }

@@ -29,7 +29,7 @@
 #ifndef CAT_THREAD_HPP
 #define CAT_THREAD_HPP
 
-#include <cat/Platform.hpp>
+#include <cat/lang/Delegates.hpp>
 
 #if defined(CAT_OS_WINDOWS)
 # include <cat/port/WindowsInclude.hpp>
