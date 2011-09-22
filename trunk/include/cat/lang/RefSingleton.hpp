@@ -117,7 +117,7 @@ protected:
 		CAT_DEBUG_ENFORCE(prio >= 0) << "Circular dependency detected!  This is not supported!";
 
 		// If their priority will bump mine,
-		if (_final_priority >= prio)
+		if (_final_priority <= prio)
 		{
 			// Make my priority lower
 			_final_priority = prio + 1;
