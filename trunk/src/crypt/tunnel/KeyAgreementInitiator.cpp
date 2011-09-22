@@ -308,7 +308,7 @@ bool KeyAgreementInitiator::ProcessAnswerWithIdentity(TunnelTLS *tls,
 	CAT_DEBUG_ENFORCE(tls && tls->Valid() && proof_bytes == KeyBytes*5);
 
 	BigTwistedEdwards *math = tls->Math();
-	FortunaFactory *csprng = tls->CSPRNG();
+	FortunaOutput *csprng = tls->CSPRNG();
 
 	// Fill endian-neutral public key for initiator
 	memcpy(identity_proof, I_public, KeyBytes * 2);

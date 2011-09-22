@@ -213,6 +213,7 @@
     <ClInclude Include="..\..\include\cat\crypt\tunnel\KeyAgreementInitiator.hpp" />
     <ClInclude Include="..\..\include\cat\crypt\tunnel\KeyAgreementResponder.hpp" />
     <ClInclude Include="..\..\include\cat\crypt\tunnel\Keys.hpp" />
+    <ClInclude Include="..\..\include\cat\crypt\tunnel\TLS.hpp" />
     <ClInclude Include="Precompiled.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -68,5 +68,8 @@
     <ClInclude Include="..\..\include\cat\crypt\tunnel\Keys.hpp">
       <Filter>Header Files\tunnel</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\include\cat\crypt\tunnel\TLS.hpp">
+      <Filter>Header Files\tunnel</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
