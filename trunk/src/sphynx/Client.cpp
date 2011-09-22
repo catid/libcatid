@@ -256,7 +256,7 @@ void Client::OnRecv(const BatchSet &buffers)
 	ReleaseRecvBuffers(buffers, buffer_count);
 }
 
-void Client::OnCycle(u32 now)
+void Client::OnTick(u32 now)
 {
 	if (!_connected)
 	{
