@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -199,4 +199,78 @@ bool cat::SetNormalPriority()
 #else
 	return false;
 #endif
+}
+
+
+//// Thread AtExit callbacks
+
+class ThreadAtExitCaller
+{
+	static const int MAX_CALLBACKS = 16;
+
+	int _count;
+	Thread::AtExitCallback _callbacks[MAX_CALLBACKS];
+
+public:
+	ThreadAtExitCaller()
+	{
+		_count = 0;
+	}
+
+	bool Register(const Thread::AtExitCallback &cb)
+	{
+		if (_count >= MAX_CALLBACKS)
+		{
+			CAT_FATAL("Thread") << "Too many thread-atexit() callbacks";
+			return false;
+		}
+
+		_callbacks[_count++] = cb;
+
+		return true;
+	}
+
+	void Invoke()
+	{
+		// For each callback,
+		for (int ii = 0; ii < _count; ++ii)
+		{
+			// Invoke it
+			_callbacks[ii]();
+		}
+	}
+};
+
+static CAT_TLS ThreadAtExitCaller *m_caller = 0;
+
+bool Thread::AtExit(const AtExitCallback &cb)
+{
+	ThreadAtExitCaller *caller = m_caller;
+
+	// If caller needs to be allocated,
+	if (!caller)
+	{
+		caller = new ThreadAtExitCaller;
+		if (!caller)
+		{
+			CAT_FATAL("Thread") << "Out of memory";
+			return false;
+		}
+
+		m_caller = caller;
+	}
+
+	// Register callback
+	return caller->Register(cb);
+}
+
+void Thread::InvokeAtExit()
+{
+	ThreadAtExitCaller *caller = m_caller;
+	if (!caller) return;
+
+	caller->Invoke();
+
+	delete caller;
+	m_caller = 0;
 }
