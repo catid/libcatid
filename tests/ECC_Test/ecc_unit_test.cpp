@@ -902,8 +902,8 @@ void ECCTest()
 */
 void HandshakeTest()
 {
-	AutoTunnelTLS tls;
-	CAT_ENFORCE(tls);
+	TunnelTLS *tls = TunnelTLS::ref();
+	CAT_ENFORCE(tls && tls->Valid());
 
 	for (int ii = 0; ii < 5; ++ii)
 	{
