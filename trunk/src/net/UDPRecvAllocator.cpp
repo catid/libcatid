@@ -47,6 +47,5 @@ bool UDPRecvAllocator::OnInitialize()
 
 void UDPRecvAllocator::OnFinalize()
 {
-	if (_allocator)
-		delete _allocator;
+	if (_allocator) delete _allocator;
 }
