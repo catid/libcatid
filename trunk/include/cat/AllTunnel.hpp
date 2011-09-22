@@ -39,3 +39,5 @@
 #include <cat/crypt/tunnel/AuthenticatedEncryption.hpp>
 
 #include <cat/crypt/tunnel/EasyHandshake.hpp>
+
+#include <cat/crypt/tunnel/TLS.hpp>

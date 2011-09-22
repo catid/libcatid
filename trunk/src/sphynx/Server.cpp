@@ -258,7 +258,7 @@ void Server::OnRecv(const BatchSet &buffers)
 				continue;
 			}
 
-			AutoTunnelTLS tls;
+			TunnelTLS *tls = TunnelTLS::ref();
 			if (!tls)
 			{
 				CAT_FATAL("Server") << "Ignoring challenge: Unable to get TLS object";
@@ -377,7 +377,7 @@ Server::~Server()
 
 bool Server::StartServer(Port port, TunnelKeyPair &key_pair, const char *session_key)
 {
-	AutoTunnelTLS tls;
+	TunnelTLS *tls = TunnelTLS::ref();
 
 	// Seed components
 	_cookie_jar.Initialize(tls->CSPRNG());
@@ -453,7 +453,7 @@ bool Server::PostConnectionError(const NetAddr &dest, SphynxError err)
 
 bool Server::InitializeKey(TunnelKeyPair &key_pair, const char *pair_path, const char *public_path)
 {
-	AutoTunnelTLS tls;
+	TunnelTLS *tls = TunnelTLS::ref();
 
 	if (key_pair.LoadFile(pair_path))
 	{

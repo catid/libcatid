@@ -217,33 +217,39 @@ class ThreadAtExitCaller
 	int _count;
 	Thread::AtExitCallback _callbacks[MAX_CALLBACKS];
 
+	void Invoke()
+	{
+		// For each callback,
+		for (int ii = 0, count = _count; ii < count; ++ii)
+		{
+			// Invoke it
+			_callbacks[ii]();
+		}
+	}
+
 public:
 	ThreadAtExitCaller()
 	{
 		_count = 0;
 	}
+	~ThreadAtExitCaller()
+	{ 
+		// Invoke callbacks
+		Invoke();
+	}
 
 	bool Register(const Thread::AtExitCallback &cb)
 	{
+		// If no more room,
 		if (_count >= MAX_CALLBACKS)
 		{
 			CAT_FATAL("Thread") << "Too many thread-atexit() callbacks";
 			return false;
 		}
 
+		// Insert at end of callbacks array
 		_callbacks[_count++] = cb;
-
 		return true;
-	}
-
-	void Invoke()
-	{
-		// For each callback,
-		for (int ii = 0; ii < _count; ++ii)
-		{
-			// Invoke it
-			_callbacks[ii]();
-		}
 	}
 };
 
@@ -272,11 +278,11 @@ bool Thread::AtExit(const AtExitCallback &cb)
 
 void Thread::InvokeAtExit()
 {
+	// If none were added, abort
 	ThreadAtExitCaller *caller = m_caller;
 	if (!caller) return;
 
-	caller->Invoke();
-
+	// Invoke thread-atexit() callbacks and free memory for callback list
 	delete caller;
 	m_caller = 0;
 }
