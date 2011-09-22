@@ -32,6 +32,9 @@
 using namespace cat;
 using namespace sphynx;
 
+
+//// Address hashing helper functions
+
 static CAT_INLINE u32 flood_hash_addr(const NetAddr &addr, u32 salt)
 {
 	u32 key;
@@ -87,6 +90,9 @@ static CAT_INLINE u32 map_hash_addr(const NetAddr &addr, u32 ip_salt, u32 port_s
 
 	return key;
 }
+
+
+//// ConnexionMap
 
 ConnexionMap::ConnexionMap()
 {

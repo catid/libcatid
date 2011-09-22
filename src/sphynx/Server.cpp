@@ -32,13 +32,16 @@
 #include <cat/threads/WorkerThreads.hpp>
 #include <cat/crypt/SecureEqual.hpp>
 #include <cat/crypt/tunnel/Keys.hpp>
-#include <cat/sphynx/TLS.hpp>
+#include <cat/crypt/tunnel/TLS.hpp>
 using namespace std;
 using namespace cat;
 using namespace sphynx;
 
 static WorkerThreads *m_worker_threads = 0;
 static Settings *m_settings = 0;
+
+
+//// Server
 
 bool Server::OnInitialize()
 {
@@ -255,7 +258,7 @@ void Server::OnRecv(const BatchSet &buffers)
 				continue;
 			}
 
-			TLS *tls = TLS::ref();
+			AutoTunnelTLS tls;
 			if (!tls)
 			{
 				CAT_FATAL("Server") << "Ignoring challenge: Unable to get TLS object";
@@ -275,8 +278,7 @@ void Server::OnRecv(const BatchSet &buffers)
 				CAT_WARN("Server") << "Ignoring challenge: Unable to allocate post buffer";
 			}
 			// If challenge is invalid,
-			else if (!_key_agreement_responder.ProcessChallenge(tls->Math(), tls->CSPRNG(),
-																challenge, CHALLENGE_BYTES,
+			else if (!_key_agreement_responder.ProcessChallenge(tls, challenge, CHALLENGE_BYTES,
 																pkt + 1, ANSWER_BYTES, &key_hash))
 			{
 				CAT_WARN("Server") << "Ignoring challenge: Invalid";
@@ -375,14 +377,14 @@ Server::~Server()
 
 bool Server::StartServer(Port port, TunnelKeyPair &key_pair, const char *session_key)
 {
-	AutoTLS tls;
+	AutoTunnelTLS tls;
 
 	// Seed components
 	_cookie_jar.Initialize(tls->CSPRNG());
 	_conn_map.Initialize(tls->CSPRNG());
 
 	// Initialize key agreement responder
-	if (!_key_agreement_responder.Initialize(tls->Math(), tls->CSPRNG(), key_pair))
+	if (!_key_agreement_responder.Initialize(tls, key_pair))
 	{
 		CAT_WARN("Server") << "Failed to initialize: Key pair is invalid";
 		return false;
@@ -451,13 +453,15 @@ bool Server::PostConnectionError(const NetAddr &dest, SphynxError err)
 
 bool Server::InitializeKey(TunnelKeyPair &key_pair, const char *pair_path, const char *public_path)
 {
+	AutoTunnelTLS tls;
+
 	if (key_pair.LoadFile(pair_path))
 	{
 		CAT_INFO("Server") << "Key pair loaded successfully from disk";
 		return true;
 	}
 
-	if (!key_pair.Generate(tls->math, tls->csprng))
+	if (!key_pair.Generate(tls))
 	{
 		CAT_INFO("Server") << "Generating new key pair failed";
 		return false;

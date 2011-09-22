@@ -33,6 +33,9 @@
 using namespace cat;
 using namespace sphynx;
 
+
+//// FlowControl
+
 FlowControl::FlowControl()
 {
 	_bandwidth_low_limit = 3000;

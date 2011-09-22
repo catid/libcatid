@@ -31,6 +31,9 @@
 using namespace cat;
 using namespace sphynx;
 
+
+//// FileTransferSource
+
 FileTransferSource::FileTransferSource()
 {
 }

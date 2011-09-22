@@ -44,6 +44,9 @@ static WorkerThreads *m_worker_threads = 0;
 static Settings *m_settings = 0;
 static DNSClient *m_dns_client = 0;
 
+
+//// Client
+
 bool Client::OnInitialize()
 {
 	Use(_clock, m_worker_threads, m_settings, m_dns_client);
