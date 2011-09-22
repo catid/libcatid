@@ -172,7 +172,8 @@ void SecureClientDemo::Reset(SecureServerDemo *cserver_ref, TunnelPublicKey &pub
 {
     //cout << "Client: Reset!" << endl;
 
-	AutoTunnelTLS tls;
+	TunnelTLS *tls = TunnelTLS::ref();
+	CAT_ENFORCE(tls && tls->Valid());
 
     server_ref = cserver_ref;
     server_addr = cserver_ref->GetAddress();
@@ -208,7 +209,8 @@ void SecureClientDemo::OnDatagram(const Address &source, u8 *buffer, u32 bytes)
 {
     //cout << "Client: Got packet (" << bytes << " bytes)" << endl;
 
-	AutoTunnelTLS tls;
+	TunnelTLS *tls = TunnelTLS::ref();
+	CAT_ENFORCE(tls && tls->Valid());
 
     if (source != server_addr)
     {
