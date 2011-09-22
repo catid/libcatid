@@ -903,7 +903,7 @@ void ECCTest()
 void HandshakeTest()
 {
 	AutoTunnelTLS tls;
-	CAT_ENFORCE(tls.Valid());
+	CAT_ENFORCE(tls);
 
 	for (int ii = 0; ii < 5; ++ii)
 	{

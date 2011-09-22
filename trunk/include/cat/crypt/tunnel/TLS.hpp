@@ -76,8 +76,6 @@ public:
 		if (_tls) _tls->Release();
 	}
 
-	CAT_INLINE bool Valid() { return _tls != 0; }
-
 	CAT_INLINE TunnelTLS *operator->() { return _tls; }
 	CAT_INLINE operator TunnelTLS *() { return _tls; }
 };
