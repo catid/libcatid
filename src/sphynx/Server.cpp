@@ -378,6 +378,7 @@ Server::~Server()
 bool Server::StartServer(Port port, TunnelKeyPair &key_pair, const char *session_key)
 {
 	TunnelTLS *tls = TunnelTLS::ref();
+	if (!tls) return false;
 
 	// Seed components
 	_cookie_jar.Initialize(tls->CSPRNG());
@@ -454,6 +455,7 @@ bool Server::PostConnectionError(const NetAddr &dest, SphynxError err)
 bool Server::InitializeKey(TunnelKeyPair &key_pair, const char *pair_path, const char *public_path)
 {
 	TunnelTLS *tls = TunnelTLS::ref();
+	if (!tls) return false;
 
 	if (key_pair.LoadFile(pair_path))
 	{

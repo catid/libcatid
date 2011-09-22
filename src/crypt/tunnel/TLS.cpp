@@ -60,7 +60,6 @@ TunnelTLS *TunnelTLS::ref()
 
 		// Store it as the global copy
 		m_tls = tls;
-		return tls;
 	}
 
 	return tls;

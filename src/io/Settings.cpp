@@ -55,7 +55,7 @@ bool Settings::OnInitialize()
 
 void Settings::OnFinalize()
 {
-	if (getInt("IO.Settings.UnlinkOverrideCfg") == 1)
+	if (getInt("IO.Settings.UnlinkOverride") == 1)
 	{
 		std::remove(CAT_SETTINGS_OVERRIDE_FILE);
 	}
