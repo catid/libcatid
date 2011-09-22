@@ -169,7 +169,7 @@ void Connexion::OnTick(u32 now)
 	else
 	{
 		// Do derived class tick event so any messages posted do not need to wait for the next tick
-		OnTick(now);
+		OnCycle(now);
 
 		TickTransport(now);
 
