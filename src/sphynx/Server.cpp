@@ -326,6 +326,14 @@ void Server::OnRecv(const BatchSet &buffers)
 				conn->_parent = this;
 				conn->InitializePayloadBytes(SupportsIPv6());
 
+				// If we have come this far, then there is now a reference to this Server object
+				// in the Connexion.  So we need to add to our reference count at this point to
+				// avoid a race condition.
+
+				// Add a reference to the server on behalf of the Connexion
+				// When the Connexion dies, it will release this reference
+				AddRef(CAT_REFOBJECT_FILE_LINE);
+
 				// Assign to a worker
 				conn->_worker_id = m_worker_threads->AssignTimer(conn, WorkerTimerDelegate::FromMember<Connexion, &Connexion::OnTick>(conn));
 
@@ -342,10 +350,6 @@ void Server::OnRecv(const BatchSet &buffers)
 				else if (!IsShutdown())
 				{
 					CAT_WARN("Server") << "Accepted challenge and posted answer.  Client connected";
-
-					// Add a reference to the server on behalf of the Connexion
-					// When the Connexion dies, it will release this reference
-					AddRef(CAT_REFOBJECT_FILE_LINE);
 
 					conn->OnConnect();
 
