@@ -85,12 +85,13 @@ struct DNSRequest : public DListItem
 
 //// DNSClient
 
-class DNSClient : public UDPEndpoint
+class DNSClient : public RefSingleton<DNSClient>
 {
+	UDPEndpoint *_endpoint;
+	FortunaOutput *_csprng;
+
 	NetAddr _server_addr;
 	u32 _worker_id;
-
-	FortunaOutput *_csprng;
 
 	typedef DList::ForwardIterator<DNSRequest> rqiter;
 	typedef SList::Iterator<DNSCallback> cbiter;

@@ -49,7 +49,9 @@ static DNSClient *m_dns_client = 0;
 
 bool Client::OnInitialize()
 {
-	Use(_clock, m_worker_threads, m_settings, m_dns_client);
+	Use(_clock, m_worker_threads, m_settings);
+
+	m_dns_client
 
 	return UDPEndpoint::OnInitialize();
 }
@@ -167,9 +169,10 @@ void Client::OnRecv(const BatchSet &buffers)
 			else if (bytes == S2C_ANSWER_LEN && data[0] == S2C_ANSWER)
 			{
 				Skein key_hash;
+				AutoTunnelTLS tls;
 
 				// Process answer from server, ignore invalid
-				if (_key_agreement_initiator.ProcessAnswer(tls->math, data + 1, ANSWER_BYTES, &key_hash) &&
+				if (_key_agreement_initiator.ProcessAnswer(tls, data + 1, ANSWER_BYTES, &key_hash) &&
 					_key_agreement_initiator.KeyEncryption(&key_hash, &_auth_enc, _session_key) &&
 					InitializeTransportSecurity(true, _auth_enc))
 				{
@@ -255,7 +258,7 @@ void Client::OnRecv(const BatchSet &buffers)
 	ReleaseRecvBuffers(buffers, buffer_count);
 }
 
-void Client::OnTick(u32 now)
+void Client::OnCycle(u32 now)
 {
 	if (!_connected)
 	{
@@ -278,7 +281,7 @@ void Client::OnTick(u32 now)
 			_hello_post_interval *= 2;
 		}
 
-		OnCycle(tls, now);
+		OnCycle(now);
 	}
 	else
 	{
@@ -329,7 +332,7 @@ void Client::OnTick(u32 now)
 						}
 
 						if (_max_payload_bytes < MEDIUM_MTU - _udpip_bytes - SPHYNX_OVERHEAD &&
-							!PostMTUProbe(tls, MEDIUM_MTU))
+							!PostMTUProbe(MEDIUM_MTU))
 						{
 							CAT_WARN("Client") << "Unable to detect MTU: Probe post failure";
 						}
@@ -380,16 +383,17 @@ bool Client::InitialConnect(TunnelPublicKey &public_key, const char *session_key
 		return false;
 	}
 
+	AutoTunnelTLS tls;
+
 	// Verify public key and initialize crypto library with it
-	if (!_key_agreement_initiator.Initialize(tls->math, public_key))
+	if (!_key_agreement_initiator.Initialize(tls, public_key))
 	{
 		CAT_WARN("Client") << "Failed to connect: Corrupted server public key provided";
 		return false;
 	}
 
 	// Generate a challenge for the server
-	if (!_key_agreement_initiator.GenerateChallenge(tls->math, tls->csprng,
-										_cached_challenge, CHALLENGE_BYTES))
+	if (!_key_agreement_initiator.GenerateChallenge(tls, _cached_challenge, CHALLENGE_BYTES))
 	{
 		CAT_WARN("Client") << "Failed to connect: Cannot generate crypto-challenge";
 		return false;
@@ -401,15 +405,14 @@ bool Client::InitialConnect(TunnelPublicKey &public_key, const char *session_key
 	// Copy public key
 	_server_public_key = public_key;
 
-	// Get SupportIPv6 flag from settings
-	bool only_ipv4 = m_settings->getInt("Sphynx.Client.SupportIPv6", 0) == 0;
-
-	// Get kernel receive buffer size
-	int kernelReceiveBufferBytes =
-		m_settings->getInt("Sphynx.Client.KernelReceiveBuffer", 1000000);
+	// Get settings
+	bool request_ip6 = m_settings->getInt("Sphynx.Client.RequestIPv6", 0) != 0;
+	bool require_ip4 = m_settings->getInt("Sphynx.Client.RequireIPv4", 1) != 0;
+	int kernelReceiveBufferBytes = m_settings->getInt("Sphynx.Client.KernelReceiveBuffer",
+		DEFAULT_KERNEL_RECV_BUFFER, MIN_KERNEL_RECV_BUFFER, MAX_KERNEL_RECV_BUFFER);
 
 	// Attempt to bind to any port and accept ICMP errors initially
-	if (!Bind(only_ipv4, 0, false, kernelReceiveBufferBytes))
+	if (!Initialize(0, true, request_ip6, require_ip4, kernelReceiveBufferBytes))
 	{
 		CAT_WARN("Client") << "Failed to connect: Unable to bind to any port";
 		return false;
@@ -501,7 +504,7 @@ bool Client::OnDNSResolve(const char *hostname, const NetAddr *addrs, int count)
 			double time;
 		} entropy_source;
 
-		entropy_source.port = GetCachedPort();
+		entropy_source.port = GetPort();
 		entropy_source.time = _clock->usec();
 		entropy_source.count = count;
 
@@ -557,7 +560,7 @@ bool Client::WriteHello()
 
 bool Client::WriteTimePing()
 {
-	u32 timestamp = Clock::msec();
+	u32 timestamp = _clock->msec();
 
 	// Write it out-of-band to avoid delays in transmission
 	return WriteOOB(IOP_C2S_TIME_PING, &timestamp, 4, SOP_INTERNAL);

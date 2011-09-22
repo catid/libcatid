@@ -258,8 +258,7 @@ bool FileTransferSink::OnFileStart(u32 worker_id, BufferStream msg, u32 bytes)
 		return false;
 	}
 
-	_file = RefObjects::Acquire<AsyncFile>(CAT_REFOBJECT_FILE_LINE);
-	if (!_file)
+	if (!RefObjects::Create(CAT_REFOBJECT_FILE_LINE, _file))
 	{
 		CAT_WARN("FileTransferSink") << "Out of memory allocating AsyncFile object";
 		return false;
@@ -288,7 +287,7 @@ bool FileTransferSink::OnFileStart(u32 worker_id, BufferStream msg, u32 bytes)
 	return true;
 }
 
-void FileTransferSink::OnWrite(IWorkerTLS *tls, const BatchSet &buffers)
+void FileTransferSink::OnWrite(const BatchSet &buffers)
 {
 	for (BatchHead *next, *head = buffers.head; head; head = next)
 	{
