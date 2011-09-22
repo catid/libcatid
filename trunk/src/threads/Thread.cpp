@@ -42,14 +42,15 @@ unsigned int __stdcall Thread::ThreadWrapper(void *this_object)
 
 	unsigned int exitCode = success ? 0 : 1;
 
-	// Using _beginthreadex() and _endthreadex() since _endthread() calls CloseHandle()
-	_endthreadex(exitCode);
-
 	thread_object->_thread_running = false;
 
 	// Invoke any thread-atexit() callbacks
 	Thread::InvokeAtExit();
 
+	// Using _beginthreadex() and _endthreadex() since _endthread() calls CloseHandle()
+	_endthreadex(exitCode);
+
+	// Should not get here
 	return exitCode;
 }
 
