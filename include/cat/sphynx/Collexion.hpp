@@ -237,24 +237,26 @@ public:
 template<class T>
 bool Collexion<T>::DoubleTable()
 {
+	StdAllocator *allocator = StdAllocator::ref();
+
 	u32 new_allocated = _allocated << 1;
 	if (new_allocated < MIN_ALLOCATED) new_allocated = MIN_ALLOCATED;
 
 	// Allocate secondary table
 	u32 new_bytes2 = sizeof(CollexionElement2) * new_allocated;
 	CollexionElement2 *new_table2 = static_cast<CollexionElement2*>(
-		StdAllocator::ii->Acquire(new_bytes2) );
+		allocator->Acquire(new_bytes2) );
 
 	if (!new_table2) return false;
 
 	// Allocate primary table
 	u32 new_bytes = sizeof(CollexionElement<T>) * new_allocated;
 	CollexionElement<T> *new_table = static_cast<CollexionElement<T> *>(
-		StdAllocator::ii->Acquire(new_bytes) );
+		allocator->Acquire(new_bytes) );
 
 	if (!new_table)
 	{
-		StdAllocator::ii->Release(new_table2);
+		allocator->Release(new_table2);
 		return false;
 	}
 
@@ -308,8 +310,8 @@ bool Collexion<T>::DoubleTable()
 
 	// Resulting linked list starting with _first-1 will extend until e->next == 0
 
-	if (_table2) StdAllocator::ii->Release(_table2);
-	if (_table) StdAllocator::ii->Release(_table);
+	if (_table2) allocator->Release(_table2);
+	if (_table) allocator->Release(_table);
 
 	_table = new_table;
 	_table2 = new_table2;
@@ -321,9 +323,11 @@ bool Collexion<T>::DoubleTable()
 template<class T>
 Collexion<T>::~Collexion()
 {
+	StdAllocator *allocator = StdAllocator::ref();
+
 	if (_table2)
 	{
-		StdAllocator::ii->Release(_table2);
+		allocator->Release(_table2);
 	}
 
 	// If table doesn't exist, return
@@ -340,7 +344,7 @@ Collexion<T>::~Collexion()
 	}
 
 	// Release table memory
-	StdAllocator::ii->Release(_table);
+	allocator->Release(_table);
 }
 
 template<class T>
