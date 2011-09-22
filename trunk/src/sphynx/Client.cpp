@@ -404,7 +404,7 @@ bool Client::InitialConnect(TunnelPublicKey &public_key, const char *session_key
 	_server_public_key = public_key;
 
 	// Get settings
-	bool request_ip6 = m_settings->getInt("Sphynx.Client.RequestIPv6", 0) != 0;
+	bool request_ip6 = m_settings->getInt("Sphynx.Client.RequestIPv6", 1) != 0;
 	bool require_ip4 = m_settings->getInt("Sphynx.Client.RequireIPv4", 1) != 0;
 	int kernelReceiveBufferBytes = m_settings->getInt("Sphynx.Client.KernelReceiveBuffer",
 		DEFAULT_KERNEL_RECV_BUFFER, MIN_KERNEL_RECV_BUFFER, MAX_KERNEL_RECV_BUFFER);

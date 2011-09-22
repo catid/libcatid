@@ -402,7 +402,7 @@ bool Server::StartServer(Port port, TunnelKeyPair &key_pair, const char *session
 	_public_key = key_pair;
 
 	// Get settings
-	bool request_ip6 = m_settings->getInt("Sphynx.Server.RequestIPv6", 0) != 0;
+	bool request_ip6 = m_settings->getInt("Sphynx.Server.RequestIPv6", 1) != 0;
 	bool require_ip4 = m_settings->getInt("Sphynx.Server.RequireIPv4", 1) != 0;
 	int kernelReceiveBufferBytes = m_settings->getInt("Sphynx.Server.KernelReceiveBuffer",
 		DEFAULT_KERNEL_RECV_BUFFER, MIN_KERNEL_RECV_BUFFER, MAX_KERNEL_RECV_BUFFER);
