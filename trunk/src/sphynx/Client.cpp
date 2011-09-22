@@ -49,9 +49,7 @@ static DNSClient *m_dns_client = 0;
 
 bool Client::OnInitialize()
 {
-	Use(_clock, m_worker_threads, m_settings);
-
-	m_dns_client
+	Use(_clock, m_worker_threads, m_settings, m_dns_client);
 
 	return UDPEndpoint::OnInitialize();
 }
@@ -452,7 +450,7 @@ bool Client::FinalConnect(const NetAddr &addr)
 	}
 
 	// Assign to a worker
-	_worker_id = m_worker_threads->AssignTimer(this, WorkerTimerDelegate::FromMember<Client, &Client::OnWorkerTick>(this));
+	_worker_id = m_worker_threads->AssignTimer(this, WorkerTimerDelegate::FromMember<Client, &Client::OnTick>(this));
 
 	return true;
 }

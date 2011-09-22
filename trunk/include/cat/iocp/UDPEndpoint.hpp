@@ -87,6 +87,7 @@ public:
     virtual ~UDPEndpoint();
 
 	CAT_INLINE const char *GetRefObjectName() { return "UDPEndpoint"; }
+	CAT_INLINE HANDLE GetHandle() { return (HANDLE)GetSocket(); }
 
 	bool Initialize(Port port = 0, bool ignoreUnreachable = true, bool RequestIPv6 = true, bool RequireIPv4 = true, int kernelReceiveBufferBytes = 0);
 

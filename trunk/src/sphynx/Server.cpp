@@ -45,9 +45,9 @@ static Settings *m_settings = 0;
 
 bool Server::OnInitialize()
 {
-	UDPEndpoint::OnInitialize();
-
 	Use(m_worker_threads, m_settings);
+
+	return UDPEndpoint::OnInitialize();
 }
 
 void Server::OnDestroy()

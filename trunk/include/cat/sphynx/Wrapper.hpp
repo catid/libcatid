@@ -42,10 +42,10 @@ class EasySphynxClient
 		void OnDestroy();
 		bool OnFinalize();
 		void OnConnectFail(cat::sphynx::SphynxError err);
-		void OnConnect(cat::SphynxTLS *tls);
-		void OnMessages(cat::SphynxTLS *tls, cat::sphynx::IncomingMessage msgs[], cat::u32 count);
+		void OnConnect();
+		void OnMessages(cat::sphynx::IncomingMessage msgs[], cat::u32 count);
 		void OnDisconnectReason(cat::u8 reason);
-		void OnTick(cat::SphynxTLS *tls, cat::u32 now);
+		void OnCycle(cat::u32 now);
 
 	public:
 		InternalSphynxClient();
