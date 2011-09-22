@@ -28,6 +28,7 @@
 
 #ifndef CAT_I_ALLOCATOR_HPP
 #define CAT_I_ALLOCATOR_HPP
+
 #include <cat/Platform.hpp>
 #include <new>
 
