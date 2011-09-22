@@ -124,7 +124,7 @@ int main(int argc, char *argv[])
 	char *hostname = "127.0.0.1";
 	if (argc >= 2) hostname = argv[1];
 
-	if (!client->Connect(hostname, 22000, public_key, "Chat"))
+	if (!client->Connect(hostname, 22000, public_key, "Chat2"))
 	{
 		CAT_FATAL("Client") << "Unable to connect to server";
 	}
