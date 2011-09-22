@@ -199,7 +199,7 @@ void IOThread::UseVistaAPI(IOThreadPool *master)
 	UDPEndpoint *prev_recv_endpoint = 0;
 	u32 recv_count = 0;
 
-	u32 max_io_gather = m_settings->getInt("IOThread.MaxIOGather", MAX_IO_GATHER);
+	u32 max_io_gather = m_settings->getInt("IO.IOThreadPool.MaxIOGather", MAX_IO_GATHER);
 	if (max_io_gather > MAX_IO_GATHER) max_io_gather = MAX_IO_GATHER;
 	if (max_io_gather < 1) max_io_gather = 1;
 
@@ -299,7 +299,7 @@ bool IOThreadPool::Startup(u32 max_worker_count)
 	if (worker_count < 1) worker_count = 1;
 
 	// If worker count override is set,
-	u32 worker_count_override = m_settings->getInt("IOThreadPool.WorkerCount", 0);
+	u32 worker_count_override = m_settings->getInt("IO.IOThreadPool.WorkerCount", 0);
 	if (worker_count_override != 0)
 	{
 		// Use it instead of the number of processors

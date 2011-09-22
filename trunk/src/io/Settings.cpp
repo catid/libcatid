@@ -47,7 +47,7 @@ bool Settings::OnInitialize()
 	lock.Release();
 
 	// Initialize logging threshold
-	EventSeverity threshold = (EventSeverity)getInt("Log.Threshold", LVL_INFO);
+	EventSeverity threshold = (EventSeverity)getInt("IO.Log.Threshold", LVL_INFO);
 	Use(m_logging)->SetThreshold(threshold);
 
 	return true;
@@ -55,7 +55,7 @@ bool Settings::OnInitialize()
 
 void Settings::OnFinalize()
 {
-	if (getInt("Override.Unlink") == 1)
+	if (getInt("IO.Settings.UnlinkOverrideCfg") == 1)
 	{
 		std::remove(CAT_SETTINGS_OVERRIDE_FILE);
 	}

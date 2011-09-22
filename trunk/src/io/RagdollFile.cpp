@@ -664,6 +664,7 @@ int Parser::ReadTokens(int root_key_len, int root_depth)
 		}
 
 		// For each line until EOF,
+		eof = 0;
 		int depth = _depth;
 		while (NextLine())
 		{

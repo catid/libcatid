@@ -34,7 +34,7 @@ using namespace cat;
 
 PolledFileReader::PolledFileReader()
 {
-	u32 cache_size = Settings::ref()->getInt("File.ReadAheadCacheSize", 1024*1024*2);
+	u32 cache_size = Settings::ref()->getInt("IO.PolledFileReader.ReadAheadCacheSize", 1024*1024*2);
 
 	// Make it a multiple of the page size
 	cache_size -= cache_size % SystemInfo::ref()->GetPageSize();
