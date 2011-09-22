@@ -33,12 +33,15 @@
 #include <cat/port/EndianNeutral.hpp>
 #include <cat/io/Settings.hpp>
 #include <cat/io/Buffers.hpp>
+#include <cat/crypt/rand/Fortuna.hpp>
 #include <cstdio>
 #include <fstream>
 using namespace cat;
 
 static WorkerThreads *m_worker_threads = 0;
 static Settings *m_settings = 0;
+static FortunaOutput *m_csprng = 0;
+static DNSClient *m_dns_client = 0;
 
 /*
 	DNS protocol:
@@ -112,9 +115,9 @@ enum QClasses
 };
 
 
-//// DNSClient
+//// DNSClientEndpoint
 
-void DNSClient::OnRecvRouting(const BatchSet &buffers)
+void DNSClientEndpoint::OnRecvRouting(const BatchSet &buffers)
 {
 	// For each message,
 	for (BatchHead *node = buffers.head; node; node = node->batch_next)
@@ -122,13 +125,13 @@ void DNSClient::OnRecvRouting(const BatchSet &buffers)
 		RecvBuffer *buffer = static_cast<RecvBuffer*>( node );
 
 		// Set the receive callback
-		buffer->callback.SetMember<DNSClient, &DNSClient::OnRecv>(this);
+		buffer->callback.SetMember<DNSClient, &DNSClientEndpoint::OnRecv>(this);
 	}
 
-	m_worker_threads->DeliverBuffers(WQPRIO_HI, GetWorkerID(), buffers);
+	m_worker_threads->DeliverBuffers(WQPRIO_HI, _worker_id, buffers);
 }
 
-void DNSClient::OnRecv(const BatchSet &buffers)
+void DNSClientEndpoint::OnRecv(const BatchSet &buffers)
 {
 	u32 buffer_count = 0;
 	for (BatchHead *node = buffers.head; node; node = node->batch_next)
@@ -137,7 +140,7 @@ void DNSClient::OnRecv(const BatchSet &buffers)
 		RecvBuffer *buffer = static_cast<RecvBuffer*>( node );
 
 		SetRemoteAddress(buffer);
-		buffer->callback.SetMember<DNSClient, &DNSClient::OnRecv>(this);
+		buffer->callback.SetMember<DNSClient, &DNSClientEndpoint::OnRecv>(this);
 
 		// If packet source is not the server, ignore this packet
 		if (_server_addr != buffer->addr)
@@ -215,7 +218,7 @@ void DNSClient::OnRecv(const BatchSet &buffers)
 	ReleaseRecvBuffers(buffers, buffer_count);
 }
 
-void DNSClient::OnTick(u32 now)
+void DNSClientEndpoint::OnTick(u32 now)
 {
 	AutoMutex lock(_request_lock);
 
@@ -236,35 +239,17 @@ void DNSClient::OnTick(u32 now)
 	}
 }
 
-DNSClient::DNSClient()
+bool DNSClientEndpoint::OnInitialize()
 {
-	_csprng = 0;
-
 	_server_addr.Invalidate();
 
 	_cache_size = 0;
 	_request_queue_size = 0;
 
 	_worker_id = INVALID_WORKER_ID;
-}
 
-bool DNSClient::OnInitialize()
-{
 	if (!UDPEndpoint::OnInitialize())
 		return false;
-
-	Use(m_worker_threads, m_settings);
-
-	// Stop here if not initialized
-	if (!IsInitialized()) return false;
-
-	// Attempt to get a CSPRNG
-	_csprng = Use<FortunaFactory>()->Create();
-	if (!_csprng)
-	{
-		CAT_WARN("DNSClient") << "Unable to get a CSPRNG";
-		return false;
-	}
 
 	// Attempt to bind to any port; ignore ICMP unreachable messages
 	if (!BindToRandomPort())
@@ -274,7 +259,7 @@ bool DNSClient::OnInitialize()
 	}
 
 	// Assign to a worker
-	_worker_id = m_worker_threads->AssignTimer(this, WorkerTimerDelegate::FromMember<DNSClient, &DNSClient::OnTick>(this));
+	_worker_id = m_worker_threads->AssignTimer(this, WorkerTimerDelegate::FromMember<DNSClient, &DNSClientEndpoint::OnTick>(this));
 
 	// Attempt to get server address from operating system
 	if (!GetServerAddr())
@@ -283,11 +268,15 @@ bool DNSClient::OnInitialize()
 		return false;
 	}
 
+	m_dns_client->SetEndpoint(this);
+
 	return true;
 }
 
-bool DNSClient::OnFinalize()
+bool DNSClientEndpoint::OnFinalize()
 {
+	m_dns_client->SetEndpoint(0);
+
 	// For each cache node,
 	for (rqiter ii = _cache_list; ii; ++ii)
 		delete ii;
@@ -296,14 +285,12 @@ bool DNSClient::OnFinalize()
 	_cache_list.Clear();
 	_cache_size = 0;
 
-	if (_csprng) delete _csprng;
-
 	CAT_ENFORCE(_request_queue_size == 0) << "Request queue not empty during cleanup";
 
 	return UDPEndpoint::OnFinalize();
 }
 
-bool DNSClient::GetServerAddr()
+bool DNSClientEndpoint::GetServerAddr()
 {
 	// Mark server address as invalid
 	_server_addr.Invalidate();
@@ -435,7 +422,7 @@ bool DNSClient::GetServerAddr()
 	return true;
 }
 
-bool DNSClient::BindToRandomPort()
+bool DNSClientEndpoint::BindToRandomPort()
 {
 	// NOTE: Ignores ICMP unreachable errors from DNS server; prefers timeouts
 
@@ -463,7 +450,7 @@ bool DNSClient::BindToRandomPort()
 	return Initialize(0, true, request_ip6, require_ip4);
 }
 
-bool DNSClient::PostDNSPacket(DNSRequest *req, u32 now)
+bool DNSClientEndpoint::PostDNSPacket(DNSRequest *req, u32 now)
 {
 	// Allocate send buffer
 	int str_len = (int)strlen(req->hostname);
@@ -515,7 +502,7 @@ bool DNSClient::PostDNSPacket(DNSRequest *req, u32 now)
 	return Write(pkt, bytes, _server_addr);
 }
 
-bool DNSClient::PerformLookup(DNSRequest *req)
+bool DNSClientEndpoint::PerformLookup(DNSRequest *req)
 {
 	u32 now = Clock::msec_fast();
 
@@ -530,7 +517,7 @@ bool DNSClient::PerformLookup(DNSRequest *req)
 	return true;
 }
 
-void DNSClient::CacheAdd(DNSRequest *req)
+void DNSClientEndpoint::CacheAdd(DNSRequest *req)
 {
 	// If still growing cache,
 	if (_cache_size < DNSCACHE_MAX_REQS)
@@ -551,7 +538,7 @@ void DNSClient::CacheAdd(DNSRequest *req)
 	req->last_post_time = Clock::msec_fast();
 }
 
-DNSRequest *DNSClient::CacheGet(const char *hostname)
+DNSRequest *DNSClientEndpoint::CacheGet(const char *hostname)
 {
 	u32 now = Clock::msec_fast();
 
@@ -587,7 +574,7 @@ DNSRequest *DNSClient::CacheGet(const char *hostname)
 	return 0;
 }
 
-void DNSClient::CacheKill(DNSRequest *req)
+void DNSClientEndpoint::CacheKill(DNSRequest *req)
 {
 	_cache_list.Erase(req);
 	--_cache_size;
@@ -596,7 +583,7 @@ void DNSClient::CacheKill(DNSRequest *req)
 	delete req;
 }
 
-bool DNSClient::GetUnusedID(u16 &unused_id)
+bool DNSClientEndpoint::GetUnusedID(u16 &unused_id)
 {
 	// If too many requests already pending,
 	if (_request_queue_size >= DNSREQ_MAX_SIMUL)
@@ -634,7 +621,7 @@ bool DNSClient::GetUnusedID(u16 &unused_id)
 	return true;
 }
 
-bool DNSClient::IsValidHostname(const char *hostname)
+bool DNSClientEndpoint::IsValidHostname(const char *hostname)
 {
 	int str_len = (int)strlen(hostname);
 
@@ -698,7 +685,7 @@ bool DNSClient::IsValidHostname(const char *hostname)
 	return true;
 }
 
-bool DNSClient::Resolve(const char *hostname, DNSDelegate callback, RefObject *holdRef)
+bool DNSClientEndpoint::Resolve(const char *hostname, DNSDelegate callback, RefObject *holdRef)
 {
 	// If DNSClient is shutdown,
 	if (IsShutdown())
@@ -801,7 +788,7 @@ bool DNSClient::Resolve(const char *hostname, DNSDelegate callback, RefObject *h
 	return true;
 }
 
-DNSRequest *DNSClient::PullRequest(u16 id)
+DNSRequest *DNSClientEndpoint::PullRequest(u16 id)
 {
 	// For each pending request,
 	for (rqiter ii = _request_list; ii; ++ii)
@@ -819,7 +806,7 @@ DNSRequest *DNSClient::PullRequest(u16 id)
 	return 0;
 }
 
-void DNSClient::NotifyRequesters(DNSRequest *req)
+void DNSClientEndpoint::NotifyRequesters(DNSRequest *req)
 {
 	bool add_to_cache = false;
 
@@ -849,7 +836,7 @@ void DNSClient::NotifyRequesters(DNSRequest *req)
 	}
 }
 
-void DNSClient::ProcessDNSResponse(DNSRequest *req, int qdcount, int ancount, u8 *data, u32 bytes)
+void DNSClientEndpoint::ProcessDNSResponse(DNSRequest *req, int qdcount, int ancount, u8 *data, u32 bytes)
 {
 	u32 offset = DNS_HDRLEN;
 
@@ -920,4 +907,50 @@ void DNSClient::ProcessDNSResponse(DNSRequest *req, int qdcount, int ancount, u8
 			return;
 		}
 	}
+}
+
+
+//// DNSClient
+
+CAT_REF_SINGLETON(DNSClient);
+
+bool DNSClient::OnInitialize()
+{
+	_endpoint = 0;
+	m_dns_client = this;
+
+	CAT_ENFORCE(_lock.Valid());
+
+	Use(m_worker_threads, m_settings);
+
+	// Attempt to get a CSPRNG
+	m_csprng = Use<FortunaFactory>()->Create();
+	if (!m_csprng)
+	{
+		CAT_WARN("DNSClient") << "Unable to get a CSPRNG";
+		return false;
+	}
+
+	// Stop here if not initialized
+	if (!IsInitialized()) return false;
+
+	return RefObjects::Create(CAT_REFOBJECT_FILE_LINE, _endpoint);
+}
+
+void DNSClient::OnFinalize()
+{
+	if (m_csprng) delete m_csprng;
+}
+
+bool DNSClient::Resolve(const char *hostname, DNSDelegate callback, RefObject *holdRef)
+{
+	AutoMutex lock(_lock);
+
+	if (!_endpoint)
+	{
+		CAT_WARN("DNSClient") << "Unable to service DNS request: Endpoint unavailable";
+		return false;
+	}
+
+	return _endpoint->Resolve(hostname, callback, holdRef);
 }

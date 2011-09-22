@@ -37,7 +37,6 @@
 #define CAT_DNS_CLIENT_HPP
 
 #include <cat/threads/WaitableFlag.hpp>
-#include <cat/crypt/rand/Fortuna.hpp>
 #include <cat/lang/Delegates.hpp>
 #include <cat/lang/LinkedLists.hpp>
 
@@ -83,12 +82,12 @@ struct DNSRequest : public DListItem
 };
 
 
-//// DNSClient
+//// DNSClientEndpoint
 
-class DNSClient : public RefSingleton<DNSClient>
+class DNSClientEndpoint : public UDPEndpoint
 {
-	UDPEndpoint *_endpoint;
-	FortunaOutput *_csprng;
+	bool OnInitialize();
+	bool OnFinalize();
 
 	NetAddr _server_addr;
 	u32 _worker_id;
@@ -122,13 +121,37 @@ class DNSClient : public RefSingleton<DNSClient>
 	void NotifyRequesters(DNSRequest *req);
 
 public:
-	DNSClient();
-	CAT_INLINE virtual ~DNSClient() {}
+	CAT_INLINE const char *GetRefObjectName() { return "DNSClientEndpoint"; }
 
-	CAT_INLINE const char *GetRefObjectName() { return "DNSClient"; }
+	bool Resolve(const char *hostname, DNSDelegate callback, RefObject *holdRef = 0);
 
-	CAT_INLINE u32 GetWorkerID() { return _worker_id; }
+protected:
+	void OnRecvRouting(const BatchSet &buffers);
+	void OnRecv(const BatchSet &buffers);
+	void OnTick(u32 now);
+};
 
+
+//// DNSClient
+
+class DNSClient : public RefSingleton<DNSClient>
+{
+	friend class DNSClientEndpoint;
+
+	bool OnInitialize();
+	void OnFinalize();
+
+	Mutex _lock;
+	DNSClientEndpoint *_endpoint;
+
+	CAT_INLINE void SetEndpoint(DNSClientEndpoint *endpoint)
+	{
+		_lock.Enter();
+		_endpoint = endpoint;
+		_lock.Leave();
+	}
+
+public:
 	/*
 		If hostname is numeric or in the cache, the callback function will be invoked
 		immediately from the requesting thread, rather than from another thread.
@@ -151,16 +174,6 @@ public:
 		If Resolve() returns false, no callback will be generated.
 	*/
 	bool Resolve(const char *hostname, DNSDelegate callback, RefObject *holdRef = 0);
-
-protected:
-	virtual bool OnInitialize();
-	//virtual void OnDestroy();
-	virtual bool OnFinalize();
-
-	virtual void OnRecvRouting(const BatchSet &buffers);
-
-	virtual void OnRecv(const BatchSet &buffers);
-	virtual void OnTick(u32 now);
 };
 
 
