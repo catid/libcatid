@@ -60,6 +60,13 @@ enum EventSeverity
 	LVL_SILENT, // invalid for an actual event's level, valid value for a threshold
 };
 
+#if defined(CAT_DEBUG)
+	static const int DEFAULT_LOG_LEVEL = LVL_INANE;
+#else
+	static const int DEFAULT_LOG_LEVEL = LVL_INFO;
+#endif
+
+
 
 //// Utility
 

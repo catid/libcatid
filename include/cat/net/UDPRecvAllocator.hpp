@@ -43,8 +43,8 @@ namespace cat {
 class UDPRecvAllocator : public RefSingleton<UDPRecvAllocator>
 {
 	static const int MAX_BUFFER_COUNT = 100000;
-	static const int DEFAULT_BUFFER_COUNT = 1000;
-	static const int MIN_BUFFER_COUNT = 100;
+	static const int DEFAULT_BUFFER_COUNT = 10000;
+	static const int MIN_BUFFER_COUNT = 1000;
 
 	BufferAllocator *_allocator;
 

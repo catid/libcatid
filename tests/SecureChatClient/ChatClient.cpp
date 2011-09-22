@@ -105,36 +105,41 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	GameClient *client;
-	if (!RefObjects::Create(CAT_REFOBJECT_FILE_LINE, client))
-	{
-		CAT_FATAL("Client") << "Unable to create game client object";
-		return 2;
-	}
-
-	// loopback: 127.0.0.1
-	// desktop: 10.1.1.142
-	// linux: 10.1.1.146
-	// netbook: 10.1.1.110
-	// coldfront: 68.84.166.22
-	// workstation: 10.15.40.161
-	// Patrick: 10.15.40.77
-	// stew 2 caws: 80.3.22.26
 	char *hostname = "127.0.0.1";
+	static const int PORT = 22000;
+	static const char *SESSION_KEY = "Chat";
 	if (argc >= 2) hostname = argv[1];
 
-	if (!client->Connect(hostname, 22000, public_key, "Chat"))
+	for (int ii = 0; ii < 10; ++ii)
 	{
-		CAT_FATAL("Client") << "Unable to connect to server";
-	}
-	else
-	{
-		CAT_INFO("Client") << "Press a key to terminate";
-
-		while (!kbhit())
+		GameClient *client;
+		if (!RefObjects::Create(CAT_REFOBJECT_FILE_LINE, client))
 		{
-			Clock::sleep(100);
+			CAT_FATAL("Client") << "Unable to create game client object";
+			return 2;
 		}
+
+		// loopback: 127.0.0.1
+		// desktop: 10.1.1.142
+		// linux: 10.1.1.146
+		// netbook: 10.1.1.110
+		// coldfront: 68.84.166.22
+		// workstation: 10.15.40.161
+		// Patrick: 10.15.40.77
+		// stew 2 caws: 80.3.22.26
+
+		if (!client->Connect(hostname, PORT, public_key, SESSION_KEY))
+		{
+			CAT_FATAL("Client") << "Unable to connect to server";
+			return 3;
+		}
+	}
+
+	CAT_INFO("Client") << "Press a key to terminate";
+
+	while (!kbhit())
+	{
+		Clock::sleep(100);
 	}
 
 	return 0;
