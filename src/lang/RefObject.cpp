@@ -113,7 +113,7 @@ bool RefObjects::Watch(const char *file_line, RefObject *obj)
 		delete obj;
 
 #if defined(CAT_TRACE_REFOBJECT)
-		CAT_INANE("RefObjects") << obj->GetRefObjectName() << "#" << obj << " refused to watch during bad state at " << file_line;
+		CAT_INANE("RefObjects") << " refused to watch during bad state at " << file_line;
 #endif
 		return false;
 	}
