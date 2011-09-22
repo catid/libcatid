@@ -33,6 +33,9 @@
 using namespace cat;
 using namespace std;
 
+
+//// TunnelKeyPair
+
 TunnelKeyPair::TunnelKeyPair()
 {
 	_key_bytes = 0;
@@ -145,12 +148,11 @@ bool TunnelKeyPair::SaveFile(const char *file_path)
 	return keyfile.good();
 }
 
-bool TunnelKeyPair::Generate(BigTwistedEdwards *math, FortunaOutput *csprng)
+bool TunnelKeyPair::Generate(TunnelTLS *tls)
 {
-#if defined(CAT_USER_ERROR_CHECKING)
-	if (!math || !csprng) return false;
-#endif
+	CAT_DEBUG_ENFORCE(tls && tls->Valid());
 
+	BigTwistedEdwards *math = tls->Math();
 	int bits = math->RegBytes() * 8;
 
 	// Validate and accept number of bits
@@ -161,7 +163,7 @@ bool TunnelKeyPair::Generate(BigTwistedEdwards *math, FortunaOutput *csprng)
 	Leg *B = math->Get(1);
 
 	// Generate private key
-	GenerateKey(math, csprng, b);
+	GenerateKey(tls, b);
 
 	// Generate public key
 	math->PtMultiply(math->GetGenerator(), b, 0, B);

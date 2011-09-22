@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -32,6 +32,7 @@
 #include <cat/crypt/tunnel/KeyAgreement.hpp>
 #include <cat/crypt/tunnel/AuthenticatedEncryption.hpp>
 #include <cat/crypt/tunnel/Keys.hpp>
+#include <cat/crypt/tunnel/TLS.hpp>
 
 namespace cat {
 
@@ -59,21 +60,21 @@ public:
 	KeyAgreementInitiator();
 	~KeyAgreementInitiator();
 
-	bool Initialize(BigTwistedEdwards *math, TunnelPublicKey &public_key);
+	bool Initialize(TunnelTLS *tls, TunnelPublicKey &public_key);
 
 	// Call after Initialize()
-	bool SetIdentity(BigTwistedEdwards *math, TunnelKeyPair &key_pair);
+	bool SetIdentity(TunnelTLS *tls, TunnelKeyPair &key_pair);
 
 public:
-	bool GenerateChallenge(BigTwistedEdwards *math, FortunaOutput *csprng,
+	bool GenerateChallenge(TunnelTLS *tls,
 						   u8 *initiator_challenge, int challenge_bytes);
 
-	bool ProcessAnswer(BigTwistedEdwards *math,
+	bool ProcessAnswer(TunnelTLS *tls,
 					   const u8 *responder_answer, int answer_bytes,
 					   Skein *key_hash);
 
 	// Will fail if SetIdentity() has not been called
-	bool ProcessAnswerWithIdentity(BigTwistedEdwards *math, FortunaOutput *csprng,
+	bool ProcessAnswerWithIdentity(TunnelTLS *tls,
 								   const u8 *responder_answer, int answer_bytes,
 								   Skein *key_hash,
 								   u8 *identity_proof, int proof_bytes);
@@ -88,7 +89,7 @@ public:
 	void SecureErasePrivateKey();
 
 public:
-	bool Verify(BigTwistedEdwards *math,
+	bool Verify(TunnelTLS *tls,
 				const u8 *message, int message_bytes,
 				const u8 *signature, int signature_bytes);
 };
