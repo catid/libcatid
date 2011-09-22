@@ -31,6 +31,7 @@
 
 #include <cat/crypt/tunnel/KeyAgreement.hpp>
 #include <cat/crypt/rand/Fortuna.hpp>
+#include <cat/crypt/tunnel/TLS.hpp>
 #include <string>
 
 namespace cat {
@@ -62,7 +63,7 @@ public:
 	bool LoadFile(const char *file_path);
 	bool SaveFile(const char *file_path);
 
-	bool Generate(BigTwistedEdwards *math, FortunaOutput *csprng);
+	bool Generate(TunnelTLS *tls);
 };
 
 

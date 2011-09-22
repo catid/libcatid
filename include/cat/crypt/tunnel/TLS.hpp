@@ -34,11 +34,9 @@
 
 namespace cat {
 
-namespace sphynx {
 
-
-// Thread-local-storage (TLS) for Sphynx
-class TLS
+// Thread-local-storage (TLS) for Tunnel
+class TunnelTLS
 {
 	BigTwistedEdwards *_math;
 	FortunaOutput *_csprng;
@@ -49,8 +47,8 @@ class TLS
 	void Finalize();
 
 public:
-	TLS();
-	~TLS();
+	TunnelTLS();
+	~TunnelTLS();
 
 	CAT_INLINE bool Valid() { return _ref_count > 0; }
 	CAT_INLINE BigTwistedEdwards *Math() { return _math; }
@@ -58,33 +56,31 @@ public:
 
 	// Use these two functions together to manage TLS
 	// in actual thread local storage instead of on the heap
-	static TLS *ref();
-	void RemoveRef();
+	static TunnelTLS *ref();
+	void Release();
 };
 
 
-// Automatically deref when AutoTLS goes out of scope
-class AutoTLS
+// Automatically acquire and release when AutoTLS goes out of scope
+class AutoTunnelTLS
 {
-	TLS *_tls;
+	TunnelTLS *_tls;
 
 public:
-	CAT_INLINE AutoTLS()
+	CAT_INLINE AutoTunnelTLS()
 	{
-		_tls = TLS::ref();
+		_tls = TunnelTLS::ref();
 	}
-	CAT_INLINE ~AutoTLS()
+	CAT_INLINE ~AutoTunnelTLS()
 	{
-		if (_tls) _tls->RemoveRef();
+		if (_tls) _tls->Release();
 	}
 
 	CAT_INLINE bool Valid() { return _tls != 0; }
 
-	CAT_INLINE TLS *operator->() { return _tls; }
+	CAT_INLINE TunnelTLS *operator->() { return _tls; }
 };
 
-
-} // namespace sphynx
 
 } // namespace cat
 

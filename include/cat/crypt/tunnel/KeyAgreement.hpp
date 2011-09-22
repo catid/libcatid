@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -31,6 +31,7 @@
 
 #include <cat/math/BigTwistedEdwards.hpp>
 #include <cat/crypt/rand/Fortuna.hpp>
+#include <cat/crypt/tunnel/TLS.hpp>
 
 namespace cat {
 
@@ -205,7 +206,7 @@ protected:
 
 public:
 	// Generates an unbiased random key in the range 1 < key < q
-	void GenerateKey(BigTwistedEdwards *math, IRandom *prng, Leg *key);
+	void GenerateKey(TunnelTLS *tls, Leg *key);
 };
 
 

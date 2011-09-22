@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -32,6 +32,9 @@
 #include <cat/mem/AlignedAllocator.hpp>
 #include <cat/time/Clock.hpp>
 using namespace cat;
+
+
+//// KeyAgreementResponder
 
 bool KeyAgreementResponder::AllocateMemory()
 {
@@ -79,13 +82,17 @@ KeyAgreementResponder::~KeyAgreementResponder()
 	FreeMemory();
 }
 
-void KeyAgreementResponder::Rekey(BigTwistedEdwards *math, FortunaOutput *csprng)
+void KeyAgreementResponder::Rekey(TunnelTLS *tls)
 {
+	CAT_DEBUG_ENFORCE(tls && tls->Valid());
+
+	BigTwistedEdwards *math = tls->Math();
+
 	// NOTE: This function is very fragile because it has to be thread-safe
 	u32 NextY = ActiveY ^ 1;
 
 	// y = ephemeral key
-	GenerateKey(math, csprng, y[NextY]);
+	GenerateKey(tls, y[NextY]);
 
 	// Y = y * G
 	Leg *Y = Y_neutral[NextY];
@@ -107,17 +114,17 @@ void KeyAgreementResponder::Rekey(BigTwistedEdwards *math, FortunaOutput *csprng
 #endif // CAT_NO_ATOMIC_RESPONDER
 }
 
-bool KeyAgreementResponder::Initialize(BigTwistedEdwards *math, FortunaOutput *csprng, TunnelKeyPair &key_pair)
+bool KeyAgreementResponder::Initialize(TunnelTLS *tls, TunnelKeyPair &key_pair)
 {
-	if (!key_pair.Valid()) return false;
+	CAT_DEBUG_ENFORCE(tls && tls->Valid());
 
-#if defined(CAT_USER_ERROR_CHECKING)
-	if (!math || !csprng) return false;
-#endif
+	if (!key_pair.Valid()) return false;
 
 #if defined(CAT_NO_ATOMIC_RESPONDER)
 	if (!m_thread_id_mutex.Valid()) return false;
 #endif // CAT_NO_ATOMIC_RESPONDER
+
+	BigTwistedEdwards *math = tls->Math();
 
 	int bits = math->RegBytes() * 8;
 
@@ -155,20 +162,19 @@ bool KeyAgreementResponder::Initialize(BigTwistedEdwards *math, FortunaOutput *c
 	// Initialize re-keying
 	ChallengeCount = 0;
 	ActiveY = 0;
-	Rekey(math, csprng);
+	Rekey(tls);
 
     return true;
 }
 
-bool KeyAgreementResponder::ProcessChallenge(BigTwistedEdwards *math, FortunaOutput *csprng,
+bool KeyAgreementResponder::ProcessChallenge(TunnelTLS *tls,
 											 const u8 *initiator_challenge, int challenge_bytes,
                                              u8 *responder_answer, int answer_bytes, Skein *key_hash)
 {
-#if defined(CAT_USER_ERROR_CHECKING)
-	// Verify that inputs are of the correct length
-	if (!math || !csprng || challenge_bytes != KeyBytes*2 || answer_bytes != KeyBytes*4)
-		return false;
-#endif
+	CAT_DEBUG_ENFORCE(tls && tls->Valid() && challenge_bytes == KeyBytes*2 && answer_bytes == KeyBytes*4);
+
+	BigTwistedEdwards *math = tls->Math();
+	FortunaOutput *csprng = tls->CSPRNG();
 
     Leg *A = math->Get(0);
     Leg *S = math->Get(8);
@@ -206,7 +212,7 @@ bool KeyAgreementResponder::ProcessChallenge(BigTwistedEdwards *math, FortunaOut
 
 	// Check if it is time to rekey
 	if (Atomic::Add(&ChallengeCount, 1) == 100)
-		Rekey(math, csprng);
+		Rekey(tls);
 
 #endif // CAT_NO_ATOMIC_RESPONDER
 
@@ -261,15 +267,14 @@ bool KeyAgreementResponder::ProcessChallenge(BigTwistedEdwards *math, FortunaOut
 	return true;
 }
 
-bool KeyAgreementResponder::VerifyInitiatorIdentity(BigTwistedEdwards *math,
+bool KeyAgreementResponder::VerifyInitiatorIdentity(TunnelTLS *tls,
 													const u8 *responder_answer, int answer_bytes,
 													const u8 *proof, int proof_bytes,
 													u8 *public_key, int public_bytes)
 {
-#if defined(CAT_USER_ERROR_CHECKING)
-	// Verify that inputs are of the correct length
-	if (!math || proof_bytes != KeyBytes*5 || answer_bytes != KeyBytes*4 || public_bytes != KeyBytes*2) return false;
-#endif
+	CAT_DEBUG_ENFORCE(tls && tls->Valid() && proof_bytes == KeyBytes*5 && answer_bytes == KeyBytes*4 && public_bytes == KeyBytes*2);
+
+	BigTwistedEdwards *math = tls->Math();
 
 	/*
 		Format of identity buffer:
@@ -340,14 +345,13 @@ bool KeyAgreementResponder::VerifyInitiatorIdentity(BigTwistedEdwards *math,
 }
 
 
-bool KeyAgreementResponder::Sign(BigTwistedEdwards *math, FortunaOutput *csprng,
+bool KeyAgreementResponder::Sign(TunnelTLS *tls,
 								 const u8 *message, int message_bytes,
 								 u8 *signature, int signature_bytes)
 {
-#if defined(CAT_USER_ERROR_CHECKING)
-	// Verify that inputs are of the correct length
-	if (!math || !csprng || signature_bytes != KeyBytes*2) return false;
-#endif
+	CAT_DEBUG_ENFORCE(tls && tls->Valid() && signature_bytes == KeyBytes*2 && message_bytes >= 0);
+
+	BigTwistedEdwards *math = tls->Math();
 
     Leg *k = math->Get(0);
     Leg *K = math->Get(1);
@@ -359,7 +363,7 @@ bool KeyAgreementResponder::Sign(BigTwistedEdwards *math, FortunaOutput *csprng,
 		do {
 
 			// k = ephemeral key
-			GenerateKey(math, csprng, k);
+			GenerateKey(tls, k);
 
 			// K = k * G
 			math->PtMultiply(G_MultPrecomp, 8, k, 0, K);

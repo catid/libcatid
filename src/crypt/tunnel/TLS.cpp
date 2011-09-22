@@ -26,24 +26,23 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/sphynx/TLS.hpp>
+#include <cat/crypt/tunnel/TLS.hpp>
 using namespace cat;
-using namespace sphynx;
 
-static CAT_TLS TLS *m_tls = 0;
+static CAT_TLS TunnelTLS *m_tls = 0;
 
 
 //// TLS
 
-TLS *TLS::ref()
+TunnelTLS *TunnelTLS::ref()
 {
-	TLS *tls = m_tls;
+	TunnelTLS *tls = m_tls;
 
 	// If instance is not set,
 	if (!tls)
 	{
 		// Create an instance
-		tls = new TLS;
+		tls = new TunnelTLS;
 		if (!tls) return 0;
 
 		// Validate it
@@ -64,7 +63,7 @@ TLS *TLS::ref()
 	return tls;
 }
 
-TLS::TLS()
+TunnelTLS::TunnelTLS()
 {
 	_ref_count = 0;
 	_math = 0;
@@ -74,12 +73,12 @@ TLS::TLS()
 		_ref_count = 1;
 }
 
-TLS::~TLS()
+TunnelTLS::~TunnelTLS()
 {
 	Finalize();
 }
 
-void TLS::RemoveRef()
+void TunnelTLS::Release()
 {
 	// If no more references remain,
 	if (--_ref_count <= 0)
@@ -90,7 +89,7 @@ void TLS::RemoveRef()
 	}
 }
 
-bool TLS::Initialize()
+bool TunnelTLS::Initialize()
 {
 	Finalize();
 
@@ -111,7 +110,7 @@ bool TLS::Initialize()
 	return true;
 }
 
-void TLS::Finalize()
+void TunnelTLS::Finalize()
 {
 	if (_csprng)
 	{

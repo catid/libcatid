@@ -39,6 +39,9 @@
     <ClCompile Include="..\..\src\crypt\tunnel\Keys.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\crypt\tunnel\TLS.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\cat\AllTunnel.hpp">

@@ -102,11 +102,14 @@ BigTwistedEdwards *KeyAgreementCommon::InstantiateMath(int bits)
 }
 
 // Generates an unbiased random key in the range 1 < key < q
-void KeyAgreementCommon::GenerateKey(BigTwistedEdwards *math, IRandom *prng, Leg *key)
+void KeyAgreementCommon::GenerateKey(TunnelTLS *tls, Leg *key)
 {
+	BigTwistedEdwards *math = tls->Math();
+	FortunaOutput *csprng = tls->CSPRNG();
+
 	do
 	{
-		prng->Generate(key, KeyBytes);
+		csprng->Generate(key, KeyBytes);
 
 		// Turn off the high bit(s) to speed up unbiased key generation
 		// NOTE: Only works for the values of q above

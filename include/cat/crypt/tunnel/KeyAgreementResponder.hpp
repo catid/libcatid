@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -33,6 +33,7 @@
 #include <cat/crypt/tunnel/AuthenticatedEncryption.hpp>
 #include <cat/threads/Atomic.hpp>
 #include <cat/crypt/tunnel/Keys.hpp>
+#include <cat/crypt/tunnel/TLS.hpp>
 
 #if defined(CAT_NO_ATOMIC_ADD) || defined(CAT_NO_ATOMIC_SET)
 # include <cat/threads/Mutex.hpp>
@@ -44,12 +45,12 @@ namespace cat {
 
 class CAT_EXPORT KeyAgreementResponder : public KeyAgreementCommon
 {
-    Leg *b; // Responder's private key (kept secret)
-    Leg *B; // Responder's public key (pre-shared with initiator)
-	Leg *B_neutral; // Endian-neutral B
-    Leg *G_MultPrecomp; // 8-bit table for multiplication
-    Leg *y[2]; // Responder's ephemeral private key (kept secret)
-    Leg *Y_neutral[2]; // Responder's ephemeral public key (shared online with initiator)
+    Leg *b;				// Responder's private key (kept secret)
+    Leg *B;				// Responder's public key (pre-shared with initiator)
+	Leg *B_neutral;		// Endian-neutral B
+    Leg *G_MultPrecomp;	// 8-bit table for multiplication
+    Leg *y[2];			// Responder's ephemeral private key (kept secret)
+    Leg *Y_neutral[2];	// Responder's ephemeral public key (shared online with initiator)
 
 #if defined(CAT_NO_ATOMIC_RESPONDER)
 	Mutex m_thread_id_mutex;
@@ -58,7 +59,7 @@ class CAT_EXPORT KeyAgreementResponder : public KeyAgreementCommon
 	volatile u32 ChallengeCount;
 	volatile u32 ActiveY;
 
-	void Rekey(BigTwistedEdwards *math, FortunaOutput *csprng);
+	void Rekey(TunnelTLS *tls);
     bool AllocateMemory();
     void FreeMemory();
 
@@ -66,10 +67,10 @@ public:
     KeyAgreementResponder();
     ~KeyAgreementResponder();
 
-    bool Initialize(BigTwistedEdwards *math, FortunaOutput *csprng, TunnelKeyPair &key_pair);
+    bool Initialize(TunnelTLS *tls, TunnelKeyPair &key_pair);
 
 public:
-    bool ProcessChallenge(BigTwistedEdwards *math, FortunaOutput *csprng,
+    bool ProcessChallenge(TunnelTLS *tls,
 						  const u8 *initiator_challenge, int challenge_bytes,
                           u8 *responder_answer, int answer_bytes, Skein *key_hash);
 
@@ -79,13 +80,13 @@ public:
 	}
 
 	// Public key is filled if proof succeeds, and will return true
-	bool VerifyInitiatorIdentity(BigTwistedEdwards *math,
+	bool VerifyInitiatorIdentity(TunnelTLS *tls,
 								 const u8 *responder_answer, int answer_bytes,
 								 const u8 *proof, int proof_bytes,
 								 u8 *public_key, int public_bytes);
 
 public:
-    bool Sign(BigTwistedEdwards *math, FortunaOutput *csprng,
+    bool Sign(TunnelTLS *tls,
 			  const u8 *message, int message_bytes,
 			  u8 *signature, int signature_bytes);
 };

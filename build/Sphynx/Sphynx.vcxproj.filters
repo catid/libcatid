@@ -41,9 +41,6 @@
     <ClCompile Include="..\..\src\sphynx\FileTransfer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\sphynx\TLS.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Precompiled.hpp">
@@ -80,9 +77,6 @@
       <Filter>Header Files\sphynx</Filter>
     </ClInclude>
     <ClInclude Include="..\..\include\cat\sphynx\Transport.hpp">
-      <Filter>Header Files\sphynx</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\include\cat\sphynx\TLS.hpp">
       <Filter>Header Files\sphynx</Filter>
     </ClInclude>
   </ItemGroup>
