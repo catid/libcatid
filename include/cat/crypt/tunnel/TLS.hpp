@@ -40,7 +40,6 @@ class TunnelTLS
 {
 	BigTwistedEdwards *_math;
 	FortunaOutput *_csprng;
-	int _ref_count;
 
 	// Returns true if initialization succeeds
 	bool Initialize();
@@ -50,7 +49,7 @@ public:
 	TunnelTLS();
 	~TunnelTLS();
 
-	CAT_INLINE bool Valid() { return _ref_count > 0; }
+	CAT_INLINE bool Valid() { return _csprng && _math; }
 	CAT_INLINE BigTwistedEdwards *Math() { return _math; }
 	CAT_INLINE FortunaOutput *CSPRNG() { return _csprng; }
 
@@ -58,26 +57,6 @@ public:
 	// in actual thread local storage instead of on the heap
 	static TunnelTLS *ref();
 	void Release();
-};
-
-
-// Automatically acquire and release when AutoTLS goes out of scope
-class AutoTunnelTLS
-{
-	TunnelTLS *_tls;
-
-public:
-	CAT_INLINE AutoTunnelTLS()
-	{
-		_tls = TunnelTLS::ref();
-	}
-	CAT_INLINE ~AutoTunnelTLS()
-	{
-		if (_tls) _tls->Release();
-	}
-
-	CAT_INLINE TunnelTLS *operator->() { return _tls; }
-	CAT_INLINE operator TunnelTLS *() { return _tls; }
 };
 
 

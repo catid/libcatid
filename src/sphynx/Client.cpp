@@ -167,7 +167,7 @@ void Client::OnRecv(const BatchSet &buffers)
 			else if (bytes == S2C_ANSWER_LEN && data[0] == S2C_ANSWER)
 			{
 				Skein key_hash;
-				AutoTunnelTLS tls;
+				TunnelTLS *tls = TunnelTLS::ref();
 
 				// Process answer from server, ignore invalid
 				if (_key_agreement_initiator.ProcessAnswer(tls, data + 1, ANSWER_BYTES, &key_hash) &&
@@ -381,7 +381,7 @@ bool Client::InitialConnect(TunnelPublicKey &public_key, const char *session_key
 		return false;
 	}
 
-	AutoTunnelTLS tls;
+	TunnelTLS *tls = TunnelTLS::ref();
 
 	// Verify public key and initialize crypto library with it
 	if (!_key_agreement_initiator.Initialize(tls, public_key))

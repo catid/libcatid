@@ -328,6 +328,9 @@ void RefSingletonBase::MergeSort(SList &list)
 void RefSingletons::OnExit()
 {
 	m_ref_singletons->OnFinalize();
+
+	// Invoke any remaining thread-atexit() callbacks for thread of termination
+	Thread::InvokeAtExit();
 }
 
 CAT_SINGLETON(RefSingletons);

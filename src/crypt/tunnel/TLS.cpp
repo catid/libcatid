@@ -27,6 +27,7 @@
 */
 
 #include <cat/crypt/tunnel/TLS.hpp>
+#include <cat/threads/Thread.hpp>
 using namespace cat;
 
 static CAT_TLS TunnelTLS *m_tls = 0;
@@ -43,11 +44,16 @@ TunnelTLS *TunnelTLS::ref()
 	{
 		// Create an instance
 		tls = new TunnelTLS;
-		if (!tls) return 0;
+		if (!tls)
+		{
+			CAT_FATAL("Tunnel") << "Out of memory";
+			return 0;
+		}
 
 		// Validate it
 		if (!tls->Valid())
 		{
+			CAT_FATAL("Tunnel") << "Unable to acquire Math or CSPRNG object";
 			delete tls;
 			return 0;
 		}
@@ -57,20 +63,15 @@ TunnelTLS *TunnelTLS::ref()
 		return tls;
 	}
 
-	// Increment reference count
-	tls->_ref_count++;
-
 	return tls;
 }
 
 TunnelTLS::TunnelTLS()
 {
-	_ref_count = 0;
 	_math = 0;
 	_csprng = 0;
 
-	if (Initialize())
-		_ref_count = 1;
+	Initialize();
 }
 
 TunnelTLS::~TunnelTLS()
@@ -80,18 +81,14 @@ TunnelTLS::~TunnelTLS()
 
 void TunnelTLS::Release()
 {
-	// If no more references remain,
-	if (--_ref_count <= 0)
-	{
-		m_tls = 0;
-
-		delete this;
-	}
+	m_tls = 0;
+	delete this;
 }
 
 bool TunnelTLS::Initialize()
 {
-	Finalize();
+	// Register for thread-atexit() to clean up this object
+	Thread::AtExit(Thread::AtExitCallback::FromMember<TunnelTLS, &TunnelTLS::Release>(this));
 
 	_csprng = FortunaFactory::ref()->Create();
 	if (!_csprng)
