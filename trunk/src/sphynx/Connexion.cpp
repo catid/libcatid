@@ -52,12 +52,12 @@ bool Connexion::OnInitialize()
 
 void Connexion::OnDestroy()
 {
-	_parent->_conn_map.Remove(this);
+	if (_parent) _parent->_conn_map.Remove(this);
 }
 
 bool Connexion::OnFinalize()
 {
-	_parent->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
+	if (_parent) _parent->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
 
 	return true;
 }
