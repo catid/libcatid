@@ -43,6 +43,10 @@ namespace sphynx {
 // Base class for a Sphynx client
 class CAT_EXPORT Client : public UDPEndpoint, public Transport
 {
+	static const int MIN_KERNEL_RECV_BUFFER = 1000000;
+	static const int DEFAULT_KERNEL_RECV_BUFFER = 8000000;
+	static const int MAX_KERNEL_RECV_BUFFER = 32000000;
+
 	char _session_key[SESSION_KEY_BYTES];
 
 	KeyAgreementInitiator _key_agreement_initiator;

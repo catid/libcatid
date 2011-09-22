@@ -296,10 +296,7 @@ bool DNSClient::OnFinalize()
 	_cache_list.Clear();
 	_cache_size = 0;
 
-	if (_csprng)
-	{
-		delete _csprng;
-	}
+	if (_csprng) delete _csprng;
 
 	CAT_ENFORCE(_request_queue_size == 0) << "Request queue not empty during cleanup";
 
