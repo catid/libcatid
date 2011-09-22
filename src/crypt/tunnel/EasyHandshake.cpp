@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -31,37 +31,30 @@
 #include <cat/time/Clock.hpp>
 using namespace cat;
 
+
 //// EasyHandshake
 
-EasyHandshake::EasyHandshake()
-{
-	// We really only need one of these per thread
-	tls_math = KeyAgreementCommon::InstantiateMath(BITS);
+CAT_REF_SINGLETON(EasyHandshake);
 
-	// Since ref() is not thread-safe usually it is called once
-	// during startup before multiple threads start using this object
-	tls_csprng = FortunaFactory::ref()->Create();
+bool EasyHandshake::OnInitialize()
+{
+	_tls = new TunnelTLS;
+	return _tls && _tls->Valid();
 }
 
-EasyHandshake::~EasyHandshake()
+void EasyHandshake::OnFinalize()
 {
-	if (tls_math) delete tls_math;
-	if (tls_csprng) delete tls_csprng;
-
-	EasyHandshake::Shutdown();
+	if (_tls) delete _tls;
 }
 
 bool EasyHandshake::GenerateServerKey(TunnelKeyPair &key_pair)
 {
-	return key_pair.Generate(tls_math, tls_csprng);
+	return key_pair.Generate(_tls);
 }
 
-bool EasyHandshake::GenerateRandomNumber(void *out_num, int bytes)
+void EasyHandshake::GenerateRandomNumber(void *out_num, int bytes)
 {
-	if (!tls_csprng) return false;
-
-	tls_csprng->Generate(out_num, bytes);
-	return true;
+	_tls->CSPRNG()->Generate(out_num, bytes);
 }
 
 
@@ -69,15 +62,12 @@ bool EasyHandshake::GenerateRandomNumber(void *out_num, int bytes)
 
 ServerEasyHandshake::ServerEasyHandshake()
 {
-}
-
-ServerEasyHandshake::~ServerEasyHandshake()
-{
+	_tls = EasyHandshake::ref()->GetTLS();
 }
 
 void ServerEasyHandshake::FillCookieJar(CookieJar *jar)
 {
-	if (tls_csprng) jar->Initialize(tls_csprng);
+	jar->Initialize(_tls->CSPRNG());
 }
 
 bool ServerEasyHandshake::Initialize(TunnelKeyPair &key_pair)
@@ -85,7 +75,7 @@ bool ServerEasyHandshake::Initialize(TunnelKeyPair &key_pair)
 	if (!key_pair.Valid()) return false;
 
 	// Initialize the tunnel server object using the provided key
-	return tun_server.Initialize(tls_math, tls_csprng, key_pair);
+	return _tun_server.Initialize(_tls, key_pair);
 }
 
 bool ServerEasyHandshake::ProcessChallenge(const void *in_challenge, void *out_answer, AuthenticatedEncryption *auth_enc)
@@ -98,9 +88,9 @@ bool ServerEasyHandshake::ProcessChallenge(const void *in_challenge, void *out_a
 
 	// Process and validate the client challenge.  This is an expensive operation
 	// where most of the magic of the handshake occurs
-	if (!tun_server.ProcessChallenge(tls_math, tls_csprng,
-									 challenge, CHALLENGE_BYTES,
-									 answer, ANSWER_BYTES, &key_hash))
+	if (!_tun_server.ProcessChallenge(_tls,
+									  challenge, CHALLENGE_BYTES,
+									  answer, ANSWER_BYTES, &key_hash))
 	{
 		return false;
 	}
@@ -111,7 +101,7 @@ bool ServerEasyHandshake::ProcessChallenge(const void *in_challenge, void *out_a
 	// handshake.  This would be useful for encrypting several different channels,
 	// such as one handshake being used to key and encrypt a TCP stream and UDP
 	// packets, or multiple TCP streams keyed from the same handshake, etc
-	if (!tun_server.KeyEncryption(&key_hash, auth_enc, "NtQuerySystemInformation"))
+	if (!_tun_server.KeyEncryption(&key_hash, auth_enc, "NtQuerySystemInformation"))
 		return false;
 
 	return true;
@@ -125,7 +115,7 @@ bool ServerEasyHandshake::VerifyInitiatorIdentity(const void *in_answer /* EasyH
 	const u8 *ident = reinterpret_cast<const u8*>( in_proof );
 	u8 *public_key = reinterpret_cast<u8*>( out_public_key );
 
-	return tun_server.VerifyInitiatorIdentity(tls_math, answer, ANSWER_BYTES, ident, IDENTITY_BYTES, public_key, PUBLIC_KEY_BYTES);
+	return _tun_server.VerifyInitiatorIdentity(_tls, answer, ANSWER_BYTES, ident, IDENTITY_BYTES, public_key, PUBLIC_KEY_BYTES);
 }
 
 
@@ -133,22 +123,19 @@ bool ServerEasyHandshake::VerifyInitiatorIdentity(const void *in_answer /* EasyH
 
 ClientEasyHandshake::ClientEasyHandshake()
 {
-}
-
-ClientEasyHandshake::~ClientEasyHandshake()
-{
+	_tls = EasyHandshake::ref()->GetTLS();
 }
 
 bool ClientEasyHandshake::Initialize(TunnelPublicKey &public_key)
 {
 	// Initialize the tunnel client with the given public key
-	return tun_client.Initialize(tls_math, public_key);
+	return _tun_client.Initialize(_tls, public_key);
 }
 
 bool ClientEasyHandshake::SetIdentity(TunnelKeyPair &key_pair)
 {
 	// Initialize the tunnel client's identity
-	return tun_client.SetIdentity(tls_math, key_pair);
+	return _tun_client.SetIdentity(_tls, key_pair);
 }
 
 bool ClientEasyHandshake::GenerateChallenge(void *out_challenge)
@@ -156,7 +143,7 @@ bool ClientEasyHandshake::GenerateChallenge(void *out_challenge)
 	u8 *challenge = reinterpret_cast<u8*>( out_challenge );
 
 	// Generate a challenge
-	return tun_client.GenerateChallenge(tls_math, tls_csprng, challenge, CHALLENGE_BYTES);
+	return _tun_client.GenerateChallenge(_tls, challenge, CHALLENGE_BYTES);
 }
 
 bool ClientEasyHandshake::ProcessAnswer(const void *in_answer, AuthenticatedEncryption *auth_enc)
@@ -168,7 +155,7 @@ bool ClientEasyHandshake::ProcessAnswer(const void *in_answer, AuthenticatedEncr
 
 	// Process and validate the server's answer to our challenge.
 	// This is an expensive operation
-	if (!tun_client.ProcessAnswer(tls_math, answer, ANSWER_BYTES, &key_hash))
+	if (!_tun_client.ProcessAnswer(_tls, answer, ANSWER_BYTES, &key_hash))
 		return false;
 
 	// Normally you would have the ability to key several authenticated encryption
@@ -177,11 +164,11 @@ bool ClientEasyHandshake::ProcessAnswer(const void *in_answer, AuthenticatedEncr
 	// handshake.  This would be useful for encrypting several different channels,
 	// such as one handshake being used to key and encrypt a TCP stream and UDP
 	// packets, or multiple TCP streams keyed from the same handshake, etc
-	if (!tun_client.KeyEncryption(&key_hash, auth_enc, "NtQuerySystemInformation"))
+	if (!_tun_client.KeyEncryption(&key_hash, auth_enc, "NtQuerySystemInformation"))
 		return false;
 
 	// Erase the ephemeral private key we used for the handshake now that it is done
-	tun_client.SecureErasePrivateKey();
+	_tun_client.SecureErasePrivateKey();
 
 	return true;
 }
@@ -196,7 +183,7 @@ bool ClientEasyHandshake::ProcessAnswerWithIdentity(const void *in_answer, void 
 
 	// Process and validate the server's answer to our challenge.
 	// This is an expensive operation
-	if (!tun_client.ProcessAnswerWithIdentity(tls_math, tls_csprng, answer, ANSWER_BYTES, &key_hash, ident, IDENTITY_BYTES))
+	if (!_tun_client.ProcessAnswerWithIdentity(_tls, answer, ANSWER_BYTES, &key_hash, ident, IDENTITY_BYTES))
 		return false;
 
 	// Normally you would have the ability to key several authenticated encryption
@@ -205,11 +192,11 @@ bool ClientEasyHandshake::ProcessAnswerWithIdentity(const void *in_answer, void 
 	// handshake.  This would be useful for encrypting several different channels,
 	// such as one handshake being used to key and encrypt a TCP stream and UDP
 	// packets, or multiple TCP streams keyed from the same handshake, etc
-	if (!tun_client.KeyEncryption(&key_hash, auth_enc, "NtQuerySystemInformation"))
+	if (!_tun_client.KeyEncryption(&key_hash, auth_enc, "NtQuerySystemInformation"))
 		return false;
 
 	// Erase the ephemeral private key we used for the handshake now that it is done
-	tun_client.SecureErasePrivateKey();
+	_tun_client.SecureErasePrivateKey();
 
 	return true;
 }

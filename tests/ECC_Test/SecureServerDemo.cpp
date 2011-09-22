@@ -1,20 +1,29 @@
 /*
-    Copyright 2009 Christopher A. Taylor
+	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
 
-    This file is part of LibCat.
+	Redistribution and use in source and binary forms, with or without
+	modification, are permitted provided that the following conditions are met:
 
-    LibCat is free software: you can redistribute it and/or modify
-    it under the terms of the Lesser GNU General Public License as
-    published by the Free Software Foundation, either version 3 of
-    the License, or (at your option) any later version.
+	* Redistributions of source code must retain the above copyright notice,
+	  this list of conditions and the following disclaimer.
+	* Redistributions in binary form must reproduce the above copyright notice,
+	  this list of conditions and the following disclaimer in the documentation
+	  and/or other materials provided with the distribution.
+	* Neither the name of LibCat nor the names of its contributors may be used
+	  to endorse or promote products derived from this software without
+	  specific prior written permission.
 
-    LibCat is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    Lesser GNU General Public License for more details.
-
-    You should have received a copy of the Lesser GNU General Public
-    License along with LibCat.  If not, see <http://www.gnu.org/licenses/>.
+	THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+	AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+	IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+	ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+	LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+	CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+	SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+	INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+	CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+	ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+	POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include "SecureServerDemo.hpp"
@@ -25,8 +34,6 @@ using namespace std;
 using namespace cat;
 
 static Clock *m_clock = 0;
-static BigTwistedEdwards *tls_math = 0;
-static FortunaOutput *tls_csprng = 0;
 
 
 //// SecureServerDemo
@@ -41,7 +48,7 @@ SecureServerDemo::~SecureServerDemo()
 	Cleanup();
 }
 
-void SecureServerDemo::OnHello(BigTwistedEdwards *math, FortunaOutput *csprng, const Address &source, u8 *buffer)
+void SecureServerDemo::OnHello(TunnelTLS *tls, const Address &source, u8 *buffer)
 {
     if (*(u32*)buffer != getLE(0xca7eed))
     {
@@ -55,7 +62,7 @@ void SecureServerDemo::OnHello(BigTwistedEdwards *math, FortunaOutput *csprng, c
     *(u32*)response = getLE(cookie_jar.Generate(source.ip, source.port));
 
     double t1 = m_clock->usec();
-	if (!tun_server.Sign(math, csprng, response, 4, response + 4, CAT_DEMO_BYTES*2))
+	if (!tun_server.Sign(tls, response, 4, response + 4, CAT_DEMO_BYTES*2))
 	{
 		cout << "Server: Signature generation failure" << endl;
 		return;
@@ -67,7 +74,7 @@ void SecureServerDemo::OnHello(BigTwistedEdwards *math, FortunaOutput *csprng, c
     client_ref->OnDatagram(my_addr, response, sizeof(response));
 }
 
-void SecureServerDemo::OnChallenge(BigTwistedEdwards *math, FortunaOutput *csprng, const Address &source, u8 *buffer)
+void SecureServerDemo::OnChallenge(TunnelTLS *tls, const Address &source, u8 *buffer)
 {
     u32 *cookie = (u32*)(buffer + CAT_C2S_CHALLENGE_BYTES);
 
@@ -88,7 +95,7 @@ void SecureServerDemo::OnChallenge(BigTwistedEdwards *math, FortunaOutput *csprn
 
 	Skein key_hash;
 
-	if (!tun_server.ProcessChallenge(math, csprng, buffer, CAT_C2S_CHALLENGE_BYTES, answer, CAT_S2C_ANSWER_BYTES, &key_hash) ||
+	if (!tun_server.ProcessChallenge(tls, buffer, CAT_C2S_CHALLENGE_BYTES, answer, CAT_S2C_ANSWER_BYTES, &key_hash) ||
 		!tun_server.KeyEncryption(&key_hash, &client->auth_enc, "SecureDemoStream1"))
     {
         cout << "Server: Ignoring invalid challenge message" << endl;
@@ -158,18 +165,14 @@ void SecureServerDemo::Reset(SecureClientDemo *cclient_ref, TunnelKeyPair &key_p
 {
     //cout << "Server: Reset!" << endl;
 
-	if (!tls_math)
-	{
-		tls_math = KeyAgreementCommon::InstantiateMath(CAT_DEMO_BITS);
-		tls_csprng = FortunaFactory::ref()->Create();
-		CAT_ENFORCE(tls_csprng);
-	}
+	AutoTunnelTLS tls;
+	CAT_ENFORCE(tls->Valid());
 
     client_ref = cclient_ref;
     my_addr = Address(0x11223344, 0x5566);
-    cookie_jar.Initialize(tls_csprng);
+    cookie_jar.Initialize(tls->CSPRNG());
 
-    if (!tun_server.Initialize(tls_math, tls_csprng, key_pair))
+    if (!tun_server.Initialize(tls, key_pair))
     {
         cout << "Server: Unable to initialize" << endl;
         return;
@@ -181,6 +184,7 @@ void SecureServerDemo::Reset(SecureClientDemo *cclient_ref, TunnelKeyPair &key_p
 void SecureServerDemo::OnDatagram(const Address &source, u8 *buffer, u32 bytes)
 {
     //cout << "Server: Got packet (" << bytes << " bytes)" << endl;
+	AutoTunnelTLS tls;
 
     Connection *client = connections[source];
 
@@ -203,11 +207,11 @@ void SecureServerDemo::OnDatagram(const Address &source, u8 *buffer, u32 bytes)
     {
 		if (bytes == CAT_C2S_HELLO_BYTES)
         {
-            OnHello(tls_math, tls_csprng, source, buffer);
+            OnHello(tls, source, buffer);
         }
         else if (bytes == CAT_C2S_CHALLENGE_BYTES + CAT_S2C_COOKIE_BYTES)
         {
-            OnChallenge(tls_math, tls_csprng, source, buffer);
+            OnChallenge(tls, source, buffer);
         }
         else
             cout << "Server: Ignoring unrecognized length packet from client (before connection)" << endl;

@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -32,6 +32,7 @@
 #include <cat/crypt/tunnel/KeyAgreementInitiator.hpp>
 #include <cat/crypt/tunnel/KeyAgreementResponder.hpp>
 #include <cat/crypt/cookie/CookieJar.hpp>
+#include <cat/crypt/tunnel/TLS.hpp>
 
 namespace cat {
 
@@ -197,13 +198,15 @@ namespace cat {
 /*
 	Common data needed for handshaking
 */
-class CAT_EXPORT EasyHandshake
+class CAT_EXPORT EasyHandshake : public RefSingleton<EasyHandshake>
 {
+	bool OnInitialize();
+	void OnFinalize();
+
 protected:
 	// Normally these would be created per-thread.
 	// To free memory associated with these objects just delete them.
-	BigTwistedEdwards *tls_math;
-	FortunaOutput *tls_csprng;
+	TunnelTLS *_tls;
 
 public:
 	static const int BITS = 256;
@@ -216,23 +219,17 @@ public:
 	static const int IDENTITY_BYTES = BYTES * 5; // [optional] Packet # 3 in handshake, sent to server, proves identity of client also
 
 public:
-	// Demonstrates how to allocate and free the math and prng objects
-	EasyHandshake();
-	~EasyHandshake();
-
-public:
-	static bool Initialize();
-	static void Shutdown();
-
-public:
 	// Generate a server (public, private) key pair
 	// Connecting clients will need to know the public key in order to connect
 	bool GenerateServerKey(TunnelKeyPair &key_pair);
 
 	// Fills the given buffer with a variable number of random bytes
 	// Returns false on failure
-	bool GenerateRandomNumber(void *out_num, int bytes);
+	void GenerateRandomNumber(void *out_num, int bytes);
+
+	TunnelTLS *GetTLS() { return _tls; }
 };
+
 
 /*
 	Implements the simple case of a server that performs handshakes with clients
@@ -240,11 +237,11 @@ public:
 */
 class CAT_EXPORT ServerEasyHandshake : public EasyHandshake
 {
-	KeyAgreementResponder tun_server;
+	KeyAgreementResponder _tun_server;
+	TunnelTLS *_tls;
 
 public:
 	ServerEasyHandshake();
-	~ServerEasyHandshake();
 
 	// Prepare a cookie jar for hungry consumers
 	void FillCookieJar(CookieJar *jar);
@@ -265,17 +262,18 @@ public:
 								 void *out_public_key /* EasyHandshake::PUBLIC_KEY_BYTES */);
 };
 
+
 /*
 	Implements the simple case of a client that performs handshakes with servers
 	from a single thread.  Note that this implementation is not thread-safe.
 */
 class CAT_EXPORT ClientEasyHandshake : public EasyHandshake
 {
-	KeyAgreementInitiator tun_client;
+	KeyAgreementInitiator _tun_client;
+	TunnelTLS *_tls;
 
 public:
 	ClientEasyHandshake();
-	~ClientEasyHandshake();
 
 	// Provide the public key for the server, acquired through some secure means
 	bool Initialize(TunnelPublicKey &public_key);

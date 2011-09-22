@@ -902,9 +902,8 @@ void ECCTest()
 */
 void HandshakeTest()
 {
-	BigTwistedEdwards *tls_math = KeyAgreementCommon::InstantiateMath(CAT_DEMO_BITS);
-	FortunaOutput *tls_csprng = FortunaFactory::ref()->Create();
-	CAT_ENFORCE(tls_csprng && tls_math);
+	AutoTunnelTLS tls;
+	CAT_ENFORCE(tls.Valid());
 
 	for (int ii = 0; ii < 5; ++ii)
 	{
@@ -915,7 +914,7 @@ void HandshakeTest()
 		TunnelKeyPair key_pair;
 
 		//cout << "Generating server public and private keys..." << endl;
-		if (!key_pair.Generate(tls_math, tls_csprng))
+		if (!key_pair.Generate(tls))
 		{
 			cout << "FAILURE: Unable to generate key pair" << endl;
 			return;
