@@ -188,7 +188,7 @@ void RefObjects::OnFinalize()
 
 void RefObjects::BuryDeadites()
 {
-	if (!_dead_list.Empty()) return;
+	if (_dead_list.Empty()) return;
 
 	// Copy dead list
 	DListForward dead_list;
@@ -274,40 +274,43 @@ bool RefObjects::ThreadFunction(void *param)
 		// Quit when active list is empty
 		if (_active_list.Empty()) break;
 
-		// If active list is not empty and hang count exceeded threshold,
-		if (++hang_counter < HANG_THRESHOLD)
-			Clock::sleep(SLEEP_TIME);
-		else
+		// Find smallest ref count object
+		iter smallest_obj = _active_list;
+		u32 smallest_ref_count = smallest_obj->_ref_count;
+
+		iter ii = _active_list;
+		while (++ii)
 		{
-			// Find smallest ref count object
-			iter smallest_obj = _active_list;
-			u32 smallest_ref_count = smallest_obj->_ref_count;
-
-			iter ii = _active_list;
-			while (++ii)
+			if (ii->_ref_count < smallest_ref_count)
 			{
-				if (ii->_ref_count < smallest_ref_count)
-				{
-					smallest_ref_count = ii->_ref_count;
-					smallest_obj = ii;
-				}
+				smallest_ref_count = ii->_ref_count;
+				smallest_obj = ii;
 			}
-
-			CAT_FATAL("RefObjects") << smallest_obj->GetRefObjectName() << "#" << smallest_obj.GetRef() << " finalizing FORCED with " << smallest_ref_count << " dangling references (smallest found)";
-
-			_active_list.Erase(smallest_obj);
-
-			// If object finalizing requests memory freed,
-			if (smallest_obj->OnFinalize())
-			{
-				CAT_FATAL("RefObjects") << smallest_obj->GetRefObjectName() << "#" << smallest_obj.GetRef() << " freeing memory for forced finalize";
-
-				delete smallest_obj;
-			}
-
-			// Reset hang counter
-			hang_counter = 0;
 		}
+
+		CAT_INANE("RefObjects") << smallest_obj->GetRefObjectName() << "#" << smallest_obj.GetRef() << " finalization delayed with " << smallest_ref_count << " dangling references (smallest found)";
+
+		// If active list is not empty and hang count hasn't exceeded threshold,
+		if (++hang_counter < HANG_THRESHOLD)
+		{
+			Clock::sleep(SLEEP_TIME);
+			continue;
+		}
+
+		CAT_FATAL("RefObjects") << smallest_obj->GetRefObjectName() << "#" << smallest_obj.GetRef() << " finalization FORCED with " << smallest_ref_count << " dangling references (smallest found)";
+
+		_active_list.Erase(smallest_obj);
+
+		// If object finalizing requests memory freed,
+		if (smallest_obj->OnFinalize())
+		{
+			CAT_FATAL("RefObjects") << smallest_obj->GetRefObjectName() << "#" << smallest_obj.GetRef() << " freeing memory for forced finalize";
+
+			delete smallest_obj;
+		}
+
+		// Reset hang counter
+		hang_counter = 0;
 	}
 
 	CAT_INANE("RefObjects") << "...Reaper going to sleep in a quiet field of dead objects";
