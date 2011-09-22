@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -79,6 +79,24 @@ protected:
 public:
 	Thread();
 	CAT_INLINE virtual ~Thread() {}
+
+	/*
+		thread_atexit() framework
+
+		This allows you to specify callbacks to invoke when the Thread terminates.
+		It is useful for cleaning up thread-local-storage (CAT_TLS) of heap-allocated
+		objects on shutdown without adding any explicit cleanup code.
+
+		Simply pass a callback to Thread::AtExit() and it will be queued up for
+		execution in the local storage for that thread.
+
+		For threads that are not implemented with Thread you can still invoke the
+		AtExit callbacks by calling Thread::InvokeAtExit();
+		This is useful for adapting libcat code into your solution.
+	*/
+	typedef Delegate0<void> AtExitCallback;
+	static bool AtExit(const AtExitCallback &cb);
+	static void InvokeAtExit(); // Only need to use this if not a Thread thread
 };
 
 
