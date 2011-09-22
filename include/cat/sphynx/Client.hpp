@@ -101,7 +101,7 @@ class CAT_EXPORT Client : public UDPEndpoint, public Transport
 
 	virtual void OnRecvRouting(const BatchSet &buffers);
 	virtual void OnRecv(const BatchSet &buffers);
-	virtual void OnWorkerTick(u32 now);
+	virtual void OnTick(u32 now);
 
 public:
 	Client();

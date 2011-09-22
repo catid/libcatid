@@ -125,7 +125,7 @@ void DNSClientEndpoint::OnRecvRouting(const BatchSet &buffers)
 		RecvBuffer *buffer = static_cast<RecvBuffer*>( node );
 
 		// Set the receive callback
-		buffer->callback.SetMember<DNSClient, &DNSClientEndpoint::OnRecv>(this);
+		buffer->callback.SetMember<DNSClientEndpoint, &DNSClientEndpoint::OnRecv>(this);
 	}
 
 	m_worker_threads->DeliverBuffers(WQPRIO_HI, _worker_id, buffers);
@@ -140,7 +140,7 @@ void DNSClientEndpoint::OnRecv(const BatchSet &buffers)
 		RecvBuffer *buffer = static_cast<RecvBuffer*>( node );
 
 		SetRemoteAddress(buffer);
-		buffer->callback.SetMember<DNSClient, &DNSClientEndpoint::OnRecv>(this);
+		buffer->callback.SetMember<DNSClientEndpoint, &DNSClientEndpoint::OnRecv>(this);
 
 		// If packet source is not the server, ignore this packet
 		if (_server_addr != buffer->addr)
@@ -259,7 +259,7 @@ bool DNSClientEndpoint::OnInitialize()
 	}
 
 	// Assign to a worker
-	_worker_id = m_worker_threads->AssignTimer(this, WorkerTimerDelegate::FromMember<DNSClient, &DNSClientEndpoint::OnTick>(this));
+	_worker_id = m_worker_threads->AssignTimer(this, WorkerTimerDelegate::FromMember<DNSClientEndpoint, &DNSClientEndpoint::OnTick>(this));
 
 	// Attempt to get server address from operating system
 	if (!GetServerAddr())
@@ -439,7 +439,7 @@ bool DNSClientEndpoint::BindToRandomPort()
 	while (tries--)
 	{
 		// Generate a random port
-		Port port = (u16)_csprng->Generate();
+		Port port = (u16)m_csprng->Generate();
 
 		// If bind succeeded,
 		if (port >= 1024 && Initialize(port, true, request_ip6, require_ip4))
@@ -600,7 +600,7 @@ bool DNSClientEndpoint::GetUnusedID(u16 &unused_id)
 		if (++tries >= INCREMENT_THRESHOLD)
 			++id; // Just use incrementing IDs to insure we exit eventually
 		else
-			id = (u16)_csprng->Generate(); // Generate a random ID
+			id = (u16)m_csprng->Generate(); // Generate a random ID
 
 		// For each pending request,
 		already_used = false;
@@ -934,7 +934,7 @@ bool DNSClient::OnInitialize()
 	// Stop here if not initialized
 	if (!IsInitialized()) return false;
 
-	return RefObjects::Create(CAT_REFOBJECT_FILE_LINE, _endpoint);
+	return RefObjects::Create(CAT_REFOBJECT_FILE_LINE, _endpoint) != 0;
 }
 
 void DNSClient::OnFinalize()

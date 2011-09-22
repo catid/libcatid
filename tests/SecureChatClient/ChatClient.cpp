@@ -28,7 +28,7 @@ public:
 	{
 		CAT_WARN("Client") << "-- CONNECT FAIL ERROR " << GetSphynxErrorString(err);
 	}
-	virtual void OnConnect(SphynxTLS *tls)
+	virtual void OnConnect()
 	{
 		CAT_WARN("Client") << "-- CONNECTED";
 
@@ -44,7 +44,7 @@ public:
 		//u8 test_msg[50000];
 		//WriteReliable(STREAM_UNORDERED, OP_TEST_FRAGMENTS, test_msg, sizeof(test_msg));
 	}
-	virtual void OnMessages(SphynxTLS *tls, IncomingMessage msgs[], u32 count)
+	virtual void OnMessages(IncomingMessage msgs[], u32 count)
 	{
 		for (u32 ii = 0; ii < count; ++ii)
 		{
@@ -88,7 +88,7 @@ public:
 	{
 		CAT_WARN("Client") << "-- DISCONNECTED REASON " << (int)reason;
 	}
-	virtual void OnTick(SphynxTLS *tls, u32 now)
+	virtual void OnCycle(u32 now)
 	{
 		//WARN("Client") << "-- TICK " << now;
 	}
@@ -98,16 +98,20 @@ int main(int argc, char *argv[])
 {
 	CAT_INFO("Client") << "Secure Chat Client 2.0";
 
-	SphynxTLS tls;
-
 	TunnelPublicKey public_key;
 
 	if (!public_key.LoadFile("PublicKey.bin"))
 	{
 		CAT_FATAL("Client") << "Unable to load server public key from disk";
+		return 1;
 	}
 
-	GameClient *client = RefObjects::Acquire<GameClient>(CAT_REFOBJECT_FILE_LINE);
+	GameClient *client;
+	if (!RefObjects::Create(CAT_REFOBJECT_FILE_LINE, client))
+	{
+		CAT_FATAL("Client") << "Unable to create game client object";
+		return 2;
+	}
 
 	// loopback: 127.0.0.1
 	// desktop: 10.1.1.142
@@ -120,7 +124,7 @@ int main(int argc, char *argv[])
 	char *hostname = "127.0.0.1";
 	if (argc >= 2) hostname = argv[1];
 
-	if (!client->Connect(&tls, hostname, 22000, public_key, "Chat"))
+	if (!client->Connect(hostname, 22000, public_key, "Chat"))
 	{
 		CAT_FATAL("Client") << "Unable to connect to server";
 	}
