@@ -56,7 +56,7 @@ bool Client::OnInitialize()
 
 void Client::OnDisconnectComplete()
 {
-	Destroy(CAT_REFOBJECT_FILE_LINE);
+	Destroy(CAT_REFOBJECT_TRACE);
 }
 
 void Client::OnRecvRouting(const BatchSet &buffers)
@@ -664,7 +664,7 @@ void Client::OnInternal(u32 recv_time, BufferStream data, u32 bytes)
 void Client::ConnectFail(SphynxError err)
 {
 	OnConnectFail(err);
-	Destroy(CAT_REFOBJECT_FILE_LINE);
+	Destroy(CAT_REFOBJECT_TRACE);
 }
 
 /*

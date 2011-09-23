@@ -137,7 +137,7 @@ bool ConnexionMap::LookupCheckFlood(Connexion * &connexion, const NetAddr &addr)
 		// If the slot is used and the user address matches,
 		if (conn && conn->_client_addr == addr)
 		{
-			conn->AddRef(CAT_REFOBJECT_FILE_LINE);
+			conn->AddRef(CAT_REFOBJECT_TRACE);
 
 			connexion = conn;
 			return false;
@@ -177,7 +177,7 @@ Connexion *ConnexionMap::Lookup(u32 key)
 
 	if (conn)
 	{
-		conn->AddRef(CAT_REFOBJECT_FILE_LINE);
+		conn->AddRef(CAT_REFOBJECT_TRACE);
 
 		return conn;
 	}
@@ -195,14 +195,14 @@ bool ConnexionMap::Insert(Connexion *conn)
 	Slot *slot = &_map_table[key];
 
 	// Add a reference to the Connexion
-	conn->AddRef(CAT_REFOBJECT_FILE_LINE);
+	conn->AddRef(CAT_REFOBJECT_TRACE);
 
 	AutoWriteLock lock(_table_lock);
 
 	if (IsShutdown())
 	{
 		lock.Release();
-		conn->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
+		conn->ReleaseRef(CAT_REFOBJECT_TRACE);
 		return false;
 	}
 
@@ -213,7 +213,7 @@ bool ConnexionMap::Insert(Connexion *conn)
 		if (slot->conn->_client_addr == conn->_client_addr)
 		{
 			lock.Release();
-			conn->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
+			conn->ReleaseRef(CAT_REFOBJECT_TRACE);
 			return false;
 		}
 
@@ -255,7 +255,7 @@ void ConnexionMap::Remove(Connexion *conn)
 
 	CAT_INFO("ConnexionMap") << "Removing connexion from " << conn->GetAddress().IPToString() << " : " << conn->GetAddress().GetPort() << " id=" << conn->GetKey();
 
-	conn->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
+	conn->ReleaseRef(CAT_REFOBJECT_TRACE);
 
 	AutoWriteLock lock(_table_lock);
 
@@ -304,7 +304,7 @@ void ConnexionMap::ShutdownAll()
 		// If table entry is populated,
 		if (conn)
 		{
-			conn->AddRef(CAT_REFOBJECT_FILE_LINE);
+			conn->AddRef(CAT_REFOBJECT_TRACE);
 			connexions.push_back(conn);
 
 			_map_table[key].conn = 0;
@@ -322,7 +322,7 @@ void ConnexionMap::ShutdownAll()
 	{
 		Connexion *conn = connexions[ii];
 
-		conn->Destroy(CAT_REFOBJECT_FILE_LINE);
-		conn->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
+		conn->Destroy(CAT_REFOBJECT_TRACE);
+		conn->ReleaseRef(CAT_REFOBJECT_TRACE);
 	}
 }

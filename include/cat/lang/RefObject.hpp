@@ -49,9 +49,9 @@
 #endif
 
 #if defined(CAT_TRACE_REFOBJECT)
-#define CAT_REFOBJECT_FILE_LINE CAT_FILE_LINE_STRING
+#define CAT_REFOBJECT_TRACE CAT_FILE_LINE_STRING "@" CAT_FUNCTION
 #else
-#define CAT_REFOBJECT_FILE_LINE 0
+#define CAT_REFOBJECT_TRACE 0
 #endif
 
 namespace cat {
@@ -182,7 +182,7 @@ public:
 	{
 		if (object)
 		{
-			object->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
+			object->ReleaseRef(CAT_REFOBJECT_TRACE);
 			object = 0;
 		}
 	}
@@ -265,7 +265,7 @@ class AutoRelease
 
 public:
 	CAT_INLINE AutoRelease(T *t = 0) throw() { _ref = t; }
-	CAT_INLINE ~AutoRelease() throw() { if (_ref) _ref->ReleaseRef(CAT_REFOBJECT_FILE_LINE); }
+	CAT_INLINE ~AutoRelease() throw() { if (_ref) _ref->ReleaseRef(CAT_REFOBJECT_TRACE); }
 	CAT_INLINE AutoRelease &operator=(T *t) throw() { Reset(t); return *this; }
 
 	CAT_INLINE T *Get() throw() { return _ref; }
@@ -286,7 +286,7 @@ class AutoDestroy
 
 public:
 	CAT_INLINE AutoDestroy(T *t = 0) throw() { _ref = t; }
-	CAT_INLINE ~AutoDestroy() throw() { if (_ref) _ref->Destroy(CAT_REFOBJECT_FILE_LINE); }
+	CAT_INLINE ~AutoDestroy() throw() { if (_ref) _ref->Destroy(CAT_REFOBJECT_TRACE); }
 	CAT_INLINE AutoDestroy &operator=(T *t) throw() { Reset(t); return *this; }
 
 	CAT_INLINE T *Get() throw() { return _ref; }

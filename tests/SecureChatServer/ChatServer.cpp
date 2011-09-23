@@ -148,7 +148,7 @@ Connexion *GameServer::NewConnexion()
 {
 	CAT_WARN("Server") << "-- Allocating a new Connexion";
 
-	return RefObjects::Create<GameConnexion>(CAT_REFOBJECT_FILE_LINE);
+	return RefObjects::Create<GameConnexion>(CAT_REFOBJECT_TRACE);
 }
 
 bool GameServer::AcceptNewConnexion(const NetAddr &src)
@@ -166,7 +166,7 @@ int main()
 	CAT_INFO("Server") << "Secure Chat Server 2.0";
 
 	GameServer *server;
-	if (!RefObjects::Create(CAT_REFOBJECT_FILE_LINE, server))
+	if (!RefObjects::Create(CAT_REFOBJECT_TRACE, server))
 	{
 		CAT_FATAL("Server") << "Unable to acquire server object";
 		return 0;

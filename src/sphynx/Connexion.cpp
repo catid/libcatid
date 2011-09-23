@@ -57,14 +57,14 @@ void Connexion::OnDestroy()
 
 bool Connexion::OnFinalize()
 {
-	if (_parent) _parent->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
+	if (_parent) _parent->ReleaseRef(CAT_REFOBJECT_TRACE);
 
 	return true;
 }
 
 void Connexion::OnDisconnectComplete()
 {
-	Destroy(CAT_REFOBJECT_FILE_LINE);
+	Destroy(CAT_REFOBJECT_TRACE);
 }
 
 void Connexion::OnRecv(const BatchSet &buffers)
@@ -155,7 +155,7 @@ void Connexion::OnRecv(const BatchSet &buffers)
 
 	_parent->ReleaseRecvBuffers(buffers, buffer_count);
 
-	ReleaseRef(CAT_REFOBJECT_FILE_LINE, buffer_count);
+	ReleaseRef(CAT_REFOBJECT_TRACE, buffer_count);
 }
 
 void Connexion::OnTick(u32 now)

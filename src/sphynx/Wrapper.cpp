@@ -52,12 +52,12 @@ void EasySphynxClient::InternalSphynxClient::OnConnectFail(cat::sphynx::SphynxEr
 	_parent->OnConnectFailure(GetSphynxErrorString(err));
 }
 
-void EasySphynxClient::InternalSphynxClient::OnConnect(cat::SphynxTLS *tls)
+void EasySphynxClient::InternalSphynxClient::OnConnect()
 {
 	_parent->OnConnectSuccess();
 }
 
-void EasySphynxClient::InternalSphynxClient::OnMessages(cat::SphynxTLS *tls, cat::sphynx::IncomingMessage msgs[], cat::u32 count)
+void EasySphynxClient::InternalSphynxClient::OnMessages(cat::sphynx::IncomingMessage msgs[], cat::u32 count)
 {
 	_parent->OnMessageArrivals((int*)msgs, count);
 }
@@ -67,7 +67,7 @@ void EasySphynxClient::InternalSphynxClient::OnDisconnectReason(cat::u8 reason)
 
 }
 
-void EasySphynxClient::InternalSphynxClient::OnTick(cat::SphynxTLS *tls, cat::u32 now)
+void EasySphynxClient::InternalSphynxClient::OnCycle(cat::u32 now)
 {
 
 }
@@ -77,30 +77,25 @@ void EasySphynxClient::InternalSphynxClient::OnTick(cat::SphynxTLS *tls, cat::u3
 
 EasySphynxClient::EasySphynxClient()
 {
-	StartLayer();
+	RefObjects::Create(CAT_REFOBJECT_TRACE("EasySphynxClient ctor"), _client);
+	if (_client)
+	{
+		_client->_parent = this;
 
-	_client = RefObjects::Acquire<InternalSphynxClient>(CAT_REFOBJECT_FILE_LINE);
-	_client->_parent = this;
-
-	_client->AddRef(CAT_REFOBJECT_FILE_LINE);
+		_client->AddRef(CAT_REFOBJECT_TRACE("EasySphynxClient ctor"));
+	}
 }
 
 EasySphynxClient::~EasySphynxClient()
 {
-	_client->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
-
-	EndLayer();
+	if (_client)
+		_client->ReleaseRef(CAT_REFOBJECT_TRACE("EasySphynxClient dtor"));
 }
 
 bool EasySphynxClient::Connect(const char *hostname, unsigned short port, const unsigned char *public_key, int public_key_bytes, const char *session_key)
 {
-	SphynxTLS tls;
-
-	if (!tls.Valid()) return false;
-
 	TunnelPublicKey tunnel_public_key(public_key, public_key_bytes);
-
 	if (!tunnel_public_key.Valid()) return false;
 
-	return _client->Connect(&tls, hostname, port, tunnel_public_key, session_key);
+	return _client->Connect(hostname, port, tunnel_public_key, session_key);
 }

@@ -88,7 +88,7 @@ bool WorkerThread::Associate(RefObject *object, WorkerTimerDelegate callback)
 
 	lock.Release();
 
-	object->AddRef(CAT_REFOBJECT_FILE_LINE);
+	object->AddRef(CAT_REFOBJECT_TRACE);
 	return true;
 }
 
@@ -115,7 +115,7 @@ void WorkerThread::TickTimers(u32 now)
 		{
 			//WARN("WorkerThreads") << "Removing shutdown timer " << timer->object;
 
-			timer->object->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
+			timer->object->ReleaseRef(CAT_REFOBJECT_TRACE);
 
 			_timers_count = --timers_count;
 			_timers[ii--] = _timers[timers_count];
@@ -335,7 +335,7 @@ bool WorkerThread::ThreadFunction(void *vmaster)
 	{
 		WorkerTimer *timer = &_timers[ii];
 
-		timer->object->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
+		timer->object->ReleaseRef(CAT_REFOBJECT_TRACE);
 	}
 
 	return true;

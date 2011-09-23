@@ -155,7 +155,7 @@ bool FileTransferSource::TransferFile(u32 worker_id, u8 opcode, const std::strin
 		return false;
 	}
 
-	if (!RefObjects::Create(CAT_REFOBJECT_FILE_LINE, file->reader))
+	if (!RefObjects::Create(CAT_REFOBJECT_TRACE, file->reader))
 	{
 		CAT_WARN("FileTransferSource") << "Out of memory: Unable to allocate PolledFileReader";
 		return false;
@@ -218,7 +218,7 @@ void FileTransferSink::Close()
 {
 	if (_file)
 	{
-		_file->Destroy(CAT_REFOBJECT_FILE_LINE);
+		_file->Destroy(CAT_REFOBJECT_TRACE);
 		_file = 0;
 	}
 }
@@ -258,7 +258,7 @@ bool FileTransferSink::OnFileStart(u32 worker_id, BufferStream msg, u32 bytes)
 		return false;
 	}
 
-	if (!RefObjects::Create(CAT_REFOBJECT_FILE_LINE, _file))
+	if (!RefObjects::Create(CAT_REFOBJECT_TRACE, _file))
 	{
 		CAT_WARN("FileTransferSink") << "Out of memory allocating AsyncFile object";
 		return false;
@@ -307,7 +307,7 @@ void FileTransferSink::OnReadHuge(u32 stream, BufferStream data, u32 size)
 		return;
 	}
 
-	_file->AddRef(CAT_REFOBJECT_FILE_LINE);
+	_file->AddRef(CAT_REFOBJECT_TRACE);
 
 	WriteBuffer *buffer = new WriteBuffer;
 	buffer->worker_id = _worker_id;
