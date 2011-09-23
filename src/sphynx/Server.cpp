@@ -183,9 +183,10 @@ void Server::OnRecv(const BatchSet &buffers)
 	u32 buffer_count = 0;
 
 	// For each buffer received,
-	for (BatchHead *node = buffers.head; node; node = node->batch_next, ++buffer_count)
+	for (BatchHead *node = buffers.head; node; node = node->batch_next)
 	{
 		RecvBuffer *buffer = static_cast<RecvBuffer*>( node );
+		++buffer_count;
 
 		u32 bytes = buffer->data_bytes;
 		u8 *data = GetTrailingBytes(buffer);

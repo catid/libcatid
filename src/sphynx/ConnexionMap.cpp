@@ -117,7 +117,6 @@ bool ConnexionMap::LookupCheckFlood(Connexion * &connexion, const NetAddr &addr)
 {
 	// Hash IP:port:salt to get the hash table key
 	u32 key = map_hash_addr(addr, _ip_salt, _port_salt) & HASH_TABLE_MASK;
-	u32 flood_key = flood_hash_addr(addr, _flood_salt) & HASH_TABLE_MASK;
 
 	AutoReadLock lock(_table_lock);
 
@@ -159,6 +158,9 @@ bool ConnexionMap::LookupCheckFlood(Connexion * &connexion, const NetAddr &addr)
 			}
 		}
 	}
+
+	// Do flood key computation only if address is not in the address map table
+	u32 flood_key = flood_hash_addr(addr, _flood_salt) & HASH_TABLE_MASK;
 
 	connexion = 0;
 	return (_flood_table[flood_key] >= CONNECTION_FLOOD_THRESHOLD);

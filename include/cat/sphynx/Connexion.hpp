@@ -66,8 +66,8 @@ class CAT_EXPORT Connexion : public Transport, public RefObject
 	virtual void OnInternal(u32 recv_time, BufferStream msg, u32 bytes);
 	virtual void OnDisconnectComplete();
 
-	virtual void OnRecv(const BatchSet &buffers);
-	virtual void OnTick(u32 now);
+	void OnRecv(const BatchSet &buffers);
+	void OnTick(u32 now);
 
 public:
 	Connexion();
