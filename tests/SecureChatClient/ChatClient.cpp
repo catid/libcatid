@@ -110,7 +110,7 @@ int main(int argc, char *argv[])
 	static const char *SESSION_KEY = "Chat";
 	if (argc >= 2) hostname = argv[1];
 
-	for (int ii = 0; ii < 4; ++ii)
+	for (int ii = 0; ii < 10; ++ii)
 	{
 		GameClient *client;
 		if (!RefObjects::Create(CAT_REFOBJECT_TRACE, client))
