@@ -121,7 +121,7 @@ void Connexion::OnRecv(const BatchSet &buffers)
 		u8 *data = GetTrailingBytes(buffer);
 		u32 data_bytes = buffer->data_bytes;
 
-		CAT_INFO("Connexion") << "Decrypting " << data_bytes << " bytes";
+		CAT_INFO("Connexion") << "Decrypting " << data_bytes << " bytes in " << this;
 
 		// If the data could be decrypted,
 		if (data_bytes > SPHYNX_OVERHEAD &&

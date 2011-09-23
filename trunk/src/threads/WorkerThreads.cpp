@@ -173,55 +173,82 @@ static CAT_INLINE void ExecuteWorkQueue(const BatchSet &queue)
 		would be file transfer or some other flood of bulk packets that are
 		not so important to handle with low latency.  So the median filter
 		is essentially helping prioritize packets properly.
+
+		Derived from the following truth table:
+		-------------------------------------------------------------------
+		prev	current	next	|	Desired result:
+		------------------------|------------------------------------------
+		A		A		A		|	Store current into prev
+		A		A		B		|	Store current into prev
+		A		B		B		|	Run prev, Store current into prev
+		A		B		A		|	Run current (main case of interest!)
+		A		B		C		|	Run prev, Store current into prev
+		0		A		A		|	Store current into prev (first loop)
+		0		A		B		|	Store current into prev (first loop)
+		In all cases, current becomes next.  If next is null, it halts.
+
+		Translated to the following pseudo-code:
+		if prev = 0						<--- Unrolled first loop
+			Store current into prev		<--- Unrolled first loop
+		else
+			if prev = current
+				Store current into prev
+			else
+				if prev = next
+					Run current
+				else
+					Run prev
+					Store current into prev
+
+		When next becomes null, it just needs to check if it should run them as
+		a batch together (prev = current) or to run current and then the prev.
 	*/
 
-	BatchSet batch;
-	batch.Clear();
+	WorkerBuffer *prev =  static_cast<WorkerBuffer*>( queue.head );
+	WorkerBuffer *current = static_cast<WorkerBuffer*>( prev->batch_next );
 
-	WorkerBuffer *last = static_cast<WorkerBuffer*>( queue.head );
-
-	CAT_FOREVER
+	// If only one element in set,
+	if (!current)
 	{
-		WorkerBuffer *next = static_cast<WorkerBuffer*>( last->batch_next );
+		prev->callback(queue);
+		return;
+	}
 
-		if (!next) break;
+	// Unroll first loop
+	BatchSet batch(prev);
+	WorkerBuffer *next = static_cast<WorkerBuffer*>( current->batch_next );
 
-		WorkerBuffer *batch_head = static_cast<WorkerBuffer*>( batch.head );
-
-		// If batch is not empty or callback has changed,
-		if (batch_head && last->callback != next->callback)
-		{
-			// If batch callback and next callback are the same,
-			if (batch_head->callback == next->callback)
-			{
-				// Run the speckle in between now and keep accumulating to batch
-				last->callback(last);
-			}
-			else
-			{
-				// Otherwise it is time to flush the batch and start anew
-				batch_head->callback(batch);
-
-				// Set new batch to oldest one still unprocessed
-				batch = last;
-			}
-		}
+	// While there is a (current,next) pair remaining to filter,
+	while (next)
+	{
+		if (prev->callback == current->callback)
+			batch.PushBack(current);
 		else
 		{
-			// Push the oldest one still unprocessed onto the batch
-			batch.PushBack(last);
+			if (prev->callback == next->callback)
+				current->callback(current);
+			else
+			{
+				prev->callback(batch);
+				batch = current;
+				prev = current;
+			}
 		}
 
-		last = next;
+		current = next;
+		next = static_cast<WorkerBuffer*>( next->batch_next );
 	}
 
-	// Run final batch
-	if (last)
-	{
-		batch.PushBack(last);
+	CAT_DEBUG_ENFORCE(prev && current);
 
-		last->callback(batch);
-	}
+	// If previous batch includes last one,
+	if (prev->callback == current->callback)
+		batch.PushBack(current);
+	else
+		current->callback(current);
+
+	// Run remaining
+	prev->callback(batch);
 
 #else // CAT_WORKER_THREADS_REORDER_EVENTS
 
