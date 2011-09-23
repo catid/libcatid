@@ -29,9 +29,8 @@
 #ifndef CAT_LOGGING_HPP
 #define CAT_LOGGING_HPP
 
-#include <cat/lang/RefObject.hpp>
 #include <cat/lang/Delegates.hpp>
-#include <cat/lang/Singleton.hpp>
+#include <cat/lang/RefSingleton.hpp>
 #include <string>
 #include <sstream>
 
