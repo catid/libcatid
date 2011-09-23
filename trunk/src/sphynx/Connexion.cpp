@@ -67,6 +67,43 @@ void Connexion::OnDisconnectComplete()
 	Destroy(CAT_REFOBJECT_TRACE);
 }
 
+void Connexion::RetransmitAnswer(RecvBuffer *buffer)
+{
+	// Handle lost s2c answer by retransmitting it
+	// And only do this for the first packet we get
+	u8 *data = GetTrailingBytes(buffer);
+	u32 bytes = buffer->data_bytes;
+
+	if (bytes == C2S_CHALLENGE_LEN && data[0] == C2S_CHALLENGE)
+	{
+		u8 *challenge = data + 1 + 4 + 4;
+
+		// Only need to check that the challenge is the same, since we
+		// have already validated the cookie and protocol magic to get here
+		if (!SecureEqual(_first_challenge, challenge, CHALLENGE_BYTES))
+		{
+			CAT_WARN("Connexion") << "Ignoring challenge: Replay challenge in bad state";
+			return;
+		}
+
+		u8 *pkt = SendBuffer::Acquire(S2C_ANSWER_LEN);
+		if (!pkt)
+		{
+			CAT_WARN("Connexion") << "Ignoring challenge: Unable to allocate post buffer";
+			return;
+		}
+
+		// Construct packet
+		pkt[0] = S2C_ANSWER;
+
+		memcpy(pkt + 1, _cached_answer, ANSWER_BYTES);
+
+		_parent->Write(pkt, S2C_ANSWER_LEN, buffer->GetAddr());
+
+		CAT_INANE("Connexion") << "Replayed lost answer to client challenge";
+	}
+}
+
 void Connexion::OnRecv(const BatchSet &buffers)
 {
 	u32 buffer_count = 0;
@@ -90,44 +127,12 @@ void Connexion::OnRecv(const BatchSet &buffers)
 		if (data_bytes > SPHYNX_OVERHEAD &&
 			_auth_enc.Decrypt(data, data_bytes))
 		{
-			data_bytes -= SPHYNX_OVERHEAD;
-			buffer->data_bytes = data_bytes;
+			buffer->data_bytes = data_bytes - SPHYNX_OVERHEAD;
 			delivery.PushBack(buffer);
 		}
 		else if (buffer_count <= 1 && !_seen_encrypted)
 		{
-			// Handle lost s2c answer by retransmitting it
-			// And only do this for the first packet we get
-			u32 bytes = buffer->data_bytes;
-
-			if (bytes == C2S_CHALLENGE_LEN && data[0] == C2S_CHALLENGE)
-			{
-				u8 *challenge = data + 1 + 4 + 4;
-
-				// Only need to check that the challenge is the same, since we
-				// have already validated the cookie and protocol magic to get here
-				if (!SecureEqual(_first_challenge, challenge, CHALLENGE_BYTES))
-				{
-					CAT_WARN("Connexion") << "Ignoring challenge: Replay challenge in bad state";
-					continue;
-				}
-
-				u8 *pkt = SendBuffer::Acquire(S2C_ANSWER_LEN);
-				if (!pkt)
-				{
-					CAT_WARN("Connexion") << "Ignoring challenge: Unable to allocate post buffer";
-					continue;
-				}
-
-				// Construct packet
-				pkt[0] = S2C_ANSWER;
-
-				memcpy(pkt + 1, _cached_answer, ANSWER_BYTES);
-
-				_parent->Write(pkt, S2C_ANSWER_LEN, buffer->GetAddr());
-
-				CAT_INANE("Connexion") << "Replayed lost answer to client challenge";
-			}
+			RetransmitAnswer(buffer);
 		}
 	}
 
