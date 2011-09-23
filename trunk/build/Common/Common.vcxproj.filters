@@ -84,9 +84,6 @@
     <ClCompile Include="..\..\src\io\Settings.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\io\Logging.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\mem\AlignedAllocator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -138,6 +135,9 @@
     <ClCompile Include="..\..\src\net\Sockets.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\io\Log.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\cat\AllCommon.hpp">
@@ -186,9 +186,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\..\include\cat\io\Settings.hpp">
-      <Filter>Header Files\io</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\include\cat\io\Logging.hpp">
       <Filter>Header Files\io</Filter>
     </ClInclude>
     <ClInclude Include="..\..\include\cat\mem\BufferAllocator.hpp">
@@ -256,6 +253,9 @@
     </ClInclude>
     <ClInclude Include="..\..\include\cat\lang\MergeSort.hpp">
       <Filter>Header Files\lang</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\io\Log.hpp">
+      <Filter>Header Files\io</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
