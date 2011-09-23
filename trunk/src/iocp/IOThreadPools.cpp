@@ -79,7 +79,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreadPool *master, OVERLAPPED_ENTR
 				sendq.tail = buffer;
 				buffer->batch_next = 0;
 
-				udp_endpoint->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
+				udp_endpoint->ReleaseRef(CAT_REFOBJECT_TRACE);
 			}
 			break;
 
@@ -134,7 +134,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreadPool *master, OVERLAPPED_ENTR
 				// Deliver the buffer to the worker threads
 				m_worker_threads->DeliverBuffers(WQPRIO_LO, buffer->worker_id, buffer);
 
-				async_file->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
+				async_file->ReleaseRef(CAT_REFOBJECT_TRACE);
 			}
 			break;
 
@@ -152,7 +152,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreadPool *master, OVERLAPPED_ENTR
 				// Deliver the buffer to the worker threads
 				m_worker_threads->DeliverBuffers(WQPRIO_LO, buffer->worker_id, buffer);
 
-				async_file->ReleaseRef(CAT_REFOBJECT_FILE_LINE);
+				async_file->ReleaseRef(CAT_REFOBJECT_TRACE);
 			}
 			break;
 		}

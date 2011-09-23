@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
 	for (int ii = 0; ii < 4; ++ii)
 	{
 		GameClient *client;
-		if (!RefObjects::Create(CAT_REFOBJECT_FILE_LINE, client))
+		if (!RefObjects::Create(CAT_REFOBJECT_TRACE, client))
 		{
 			CAT_FATAL("Client") << "Unable to create game client object";
 			return 2;

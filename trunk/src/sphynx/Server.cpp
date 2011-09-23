@@ -89,7 +89,7 @@ void Server::OnRecvRouting(const BatchSet &buffers)
 		{
 			// If close signal is received,
 			if (buffer->data_bytes == 0)
-				Destroy(CAT_REFOBJECT_FILE_LINE);
+				Destroy(CAT_REFOBJECT_TRACE);
 
 			if (_conn_map.LookupCheckFlood(conn, buffer->GetAddr()))
 			{
@@ -123,7 +123,7 @@ void Server::OnRecvRouting(const BatchSet &buffers)
 		else if (conn)
 		{
 			// Another packet from the same connexion
-			conn->AddRef(CAT_REFOBJECT_FILE_LINE);
+			conn->AddRef(CAT_REFOBJECT_TRACE);
 			buffer->callback.SetMember<Connexion, &Connexion::OnRecv>(conn);
 		}
 		else
@@ -332,7 +332,7 @@ void Server::OnRecv(const BatchSet &buffers)
 
 				// Add a reference to the server on behalf of the Connexion
 				// When the Connexion dies, it will release this reference
-				AddRef(CAT_REFOBJECT_FILE_LINE);
+				AddRef(CAT_REFOBJECT_TRACE);
 
 				// Assign to a worker
 				conn->_worker_id = m_worker_threads->AssignTimer(conn, WorkerTimerDelegate::FromMember<Connexion, &Connexion::OnTick>(conn));

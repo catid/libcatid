@@ -122,7 +122,7 @@ public:
 			return false;
 		}
 
-		if (!RefObjects::Create(CAT_REFOBJECT_FILE_LINE, _file))
+		if (!RefObjects::Create(CAT_REFOBJECT_TRACE, _file))
 		{
 			CAT_WARN("AsyncFileBench") << "Unable to acquire AsyncFile";
 			return false;
@@ -228,7 +228,7 @@ class WriteTester
 					CAT_WARN("AsyncFileBench") << "File write complete in " << s << " s : " << ms << " ms : " << delta << " us";
 					CAT_WARN("AsyncFileBench") << "File write complete at " << rate << " MBPS";
 
-					_file->Destroy(CAT_REFOBJECT_FILE_LINE);
+					_file->Destroy(CAT_REFOBJECT_TRACE);
 
 					Sleep(1000);
 
@@ -304,7 +304,7 @@ public:
 			return false;
 		}
 
-		if (!RefObjects::Create(CAT_REFOBJECT_FILE_LINE, _file))
+		if (!RefObjects::Create(CAT_REFOBJECT_TRACE, _file))
 		{
 			CAT_WARN("AsyncFileBench") << "Unable to acquire file object";
 			return false;

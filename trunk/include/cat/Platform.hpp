@@ -120,6 +120,10 @@ namespace cat {
 # define CAT_COMPILER_COMPAT_MSVC
 # define CAT_FASTCALL __fastcall
 
+# if _MSC_VER >= 1300
+#  define CAT_FUNCTION __FUNCTION__
+# endif
+
 } // namespace cat
 # include <cstdlib> // Intrinsics
 # include <intrin.h> // Intrinsics
@@ -186,6 +190,9 @@ namespace cat {
 #if !defined(CAT_DLL_IMPORT)
 # define CAT_DLL_IMPORT __declspec(dllimport)
 #endif
+#if !defined(CAT_FUNCTION)
+# define CAT_FUNCTION "???"
+#endif
 
 // GCC-compatible compilers
 #elif defined(CAT_COMPILER_COMPAT_GCC)
@@ -225,6 +232,9 @@ namespace cat {
 #endif
 #if !defined(CAT_DLL_IMPORT)
 # define CAT_DLL_IMPORT __attribute__((dllimport))
+#endif
+#if !defined(CAT_FUNCTION)
+# define CAT_FUNCTION "???"
 #endif
 
 #endif // CAT_COMPILER_COMPAT_*

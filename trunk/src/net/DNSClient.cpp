@@ -736,7 +736,7 @@ bool DNSClientEndpoint::Resolve(const char *hostname, DNSDelegate callback, RefO
 			DNSCallback *cb = new DNSCallback;
 			if (!cb) return false;
 
-			if (holdRef) holdRef->AddRef(CAT_REFOBJECT_FILE_LINE);
+			if (holdRef) holdRef->AddRef(CAT_REFOBJECT_TRACE);
 
 			cb->cb = callback;
 			cb->ref = holdRef;
@@ -776,7 +776,7 @@ bool DNSClientEndpoint::Resolve(const char *hostname, DNSDelegate callback, RefO
 	request->id = id;
 	request->num_responses = 0;
 
-	if (holdRef) holdRef->AddRef(CAT_REFOBJECT_FILE_LINE);
+	if (holdRef) holdRef->AddRef(CAT_REFOBJECT_TRACE);
 
 	// Attempt to perform lookup
 	if (!PerformLookup(request))
@@ -934,7 +934,7 @@ bool DNSClient::OnInitialize()
 	// Stop here if not initialized
 	if (!IsInitialized()) return false;
 
-	return RefObjects::Create(CAT_REFOBJECT_FILE_LINE, _endpoint) != 0;
+	return RefObjects::Create(CAT_REFOBJECT_TRACE, _endpoint) != 0;
 }
 
 void DNSClient::OnFinalize()

@@ -229,7 +229,7 @@ bool RefObjects::ThreadFunction(void *param)
 	// For each remaining active object,
 	for (iter ii = _active_list; ii; ++ii)
 	{
-		ii->Destroy(CAT_REFOBJECT_FILE_LINE);
+		ii->Destroy(CAT_REFOBJECT_TRACE);
 	}
 
 	CAT_INANE("RefObjects") << "Reaper burying any easy dead...";
