@@ -78,8 +78,9 @@ void Connexion::OnRecv(const BatchSet &buffers)
 	for (BatchHead *next, *node = buffers.head; node; node = next)
 	{
 		next = node->batch_next;
-		++buffer_count;
 		RecvBuffer *buffer = static_cast<RecvBuffer*>( node );
+		++buffer_count;
+
 		u8 *data = GetTrailingBytes(buffer);
 		u32 data_bytes = buffer->data_bytes;
 
