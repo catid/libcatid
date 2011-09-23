@@ -28,7 +28,7 @@
 
 #include <cat/io/RagdollFile.hpp>
 #include <cat/parse/BufferTok.hpp>
-#include <cat/io/Logging.hpp>
+#include <cat/io/Log.hpp>
 #include <cat/hash/Murmur.hpp>
 #include <fstream>
 #include <cstring>

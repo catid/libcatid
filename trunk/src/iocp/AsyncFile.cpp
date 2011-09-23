@@ -27,7 +27,7 @@
 */
 
 #include <cat/iocp/AsyncFile.hpp>
-#include <cat/io/Logging.hpp>
+#include <cat/io/Log.hpp>
 #include <cat/io/Settings.hpp>
 using namespace std;
 using namespace cat;

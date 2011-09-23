@@ -29,7 +29,7 @@
 #include <cat/mem/BufferAllocator.hpp>
 #include <cat/mem/LargeAllocator.hpp>
 #include <cat/port/SystemInfo.hpp>
-#include <cat/io/Logging.hpp>
+#include <cat/io/Log.hpp>
 using namespace cat;
 
 BufferAllocator::BufferAllocator(u32 buffer_min_size, u32 buffer_count)

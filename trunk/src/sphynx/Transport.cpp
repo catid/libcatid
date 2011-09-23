@@ -28,7 +28,7 @@
 
 #include <cat/sphynx/Transport.hpp>
 #include <cat/port/EndianNeutral.hpp>
-#include <cat/io/Logging.hpp>
+#include <cat/io/Log.hpp>
 using namespace std;
 using namespace cat;
 using namespace sphynx;

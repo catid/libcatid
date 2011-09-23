@@ -28,7 +28,7 @@
 
 #include <cat/sphynx/FlowControl.hpp>
 #include <cat/time/Clock.hpp>
-#include <cat/io/Logging.hpp>
+#include <cat/io/Log.hpp>
 #include <cat/sphynx/Transport.hpp>
 using namespace cat;
 using namespace sphynx;

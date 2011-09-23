@@ -30,7 +30,7 @@
 #include <cat/io/Buffers.hpp>
 #include <cat/time/Clock.hpp>
 #include <cat/port/SystemInfo.hpp>
-#include <cat/io/Logging.hpp>
+#include <cat/io/Log.hpp>
 #include <cat/io/Settings.hpp>
 using namespace cat;
 

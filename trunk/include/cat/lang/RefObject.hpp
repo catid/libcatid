@@ -41,7 +41,7 @@
 #endif
 
 #if defined(CAT_TRACE_REFOBJECT)
-#include <cat/io/Logging.hpp>
+#include <cat/io/Log.hpp>
 #endif
 
 #if defined(CAT_NO_ATOMIC_ADD) || defined(CAT_NO_ATOMIC_SET)

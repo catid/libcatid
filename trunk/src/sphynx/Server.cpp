@@ -27,7 +27,7 @@
 */
 
 #include <cat/sphynx/Server.hpp>
-#include <cat/io/Logging.hpp>
+#include <cat/io/Log.hpp>
 #include <cat/io/Settings.hpp>
 #include <cat/threads/WorkerThreads.hpp>
 #include <cat/crypt/SecureEqual.hpp>
