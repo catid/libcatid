@@ -27,7 +27,7 @@
 */
 
 #include <cat/iocp/UDPEndpoint.hpp>
-#include <cat/io/Logging.hpp>
+#include <cat/io/Log.hpp>
 #include <cat/io/Settings.hpp>
 #include <cat/io/Buffers.hpp>
 #include <cat/net/UDPRecvAllocator.hpp>

@@ -28,7 +28,7 @@
 
 #include <cat/sphynx/Connexion.hpp>
 #include <cat/sphynx/Server.hpp>
-#include <cat/io/Logging.hpp>
+#include <cat/io/Log.hpp>
 #include <cat/crypt/SecureEqual.hpp>
 using namespace cat;
 using namespace sphynx;

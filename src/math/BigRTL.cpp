@@ -28,7 +28,7 @@
 
 #include <cat/math/BigRTL.hpp>
 #include <cat/mem/AlignedAllocator.hpp>
-#include <cat/io/Logging.hpp>
+#include <cat/io/Log.hpp>
 #include <cstring>
 using namespace cat;
 

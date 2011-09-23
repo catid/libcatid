@@ -27,7 +27,7 @@
 */
 
 #include <cat/io/MappedFile.hpp>
-#include <cat/io/Logging.hpp>
+#include <cat/io/Log.hpp>
 using namespace cat;
 
 #if defined(CAT_OS_LINUX)

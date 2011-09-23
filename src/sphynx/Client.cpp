@@ -28,7 +28,7 @@
 
 #include <cat/sphynx/Client.hpp>
 #include <cat/mem/AlignedAllocator.hpp>
-#include <cat/io/Logging.hpp>
+#include <cat/io/Log.hpp>
 #include <cat/net/DNSClient.hpp>
 #include <cat/io/Settings.hpp>
 #include <cat/parse/BufferStream.hpp>

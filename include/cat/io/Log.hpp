@@ -42,7 +42,7 @@
 namespace cat {
 
 
-class Logging;
+class Log;
 class Recorder;
 class Enforcer;
 
@@ -78,13 +78,14 @@ void CAT_EXPORT FatalStop(const char *message);
 void CAT_EXPORT DefaultLogCallback(EventSeverity severity, const char *source, std::ostringstream &msg);
 
 
-//// Logging
+//// Log
 
-class CAT_EXPORT Logging : public Singleton<Logging>
+class CAT_EXPORT Log : public RefSingleton<Log>, public Thread
 {
 	friend class Recorder;
 
 	bool OnInitialize();
+	void Finalize();
 
 public:
 	typedef Delegate3<void, EventSeverity, const char *, std::ostringstream &> Callback;
@@ -121,7 +122,7 @@ class CAT_EXPORT Recorder
 {
 	CAT_NO_COPY(Recorder);
 
-	friend class Logging;
+	friend class Log;
 
 	EventSeverity _severity;
 	const char *_subsystem;
@@ -145,7 +146,7 @@ public:
 // Instead use:
 //  if (XYZ) { WARN("SS") << "ERROR!"; } else INFO("SS") << "OK!";   <-- good
 #define CAT_RECORD(subsystem, severity) \
-	if (severity >= Logging::ref()->GetThreshold()) Recorder(subsystem, severity)
+	if (severity >= Log::ref()->GetThreshold()) Recorder(subsystem, severity)
 
 #define CAT_INANE(subsystem)	CAT_RECORD(subsystem, cat::LVL_INANE)
 #define CAT_INFO(subsystem)		CAT_RECORD(subsystem, cat::LVL_INFO)

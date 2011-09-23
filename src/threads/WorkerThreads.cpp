@@ -29,7 +29,7 @@
 #include <cat/threads/WorkerThreads.hpp>
 #include <cat/time/Clock.hpp>
 #include <cat/port/SystemInfo.hpp>
-#include <cat/io/Logging.hpp>
+#include <cat/io/Log.hpp>
 using namespace cat;
 
 static const u32 INITIAL_TIMERS_ALLOCATED = 16;

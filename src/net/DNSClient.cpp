@@ -27,7 +27,7 @@
 */
 
 #include <cat/net/DNSClient.hpp>
-#include <cat/io/Logging.hpp>
+#include <cat/io/Log.hpp>
 #include <cat/time/Clock.hpp>
 #include <cat/lang/Strings.hpp>
 #include <cat/port/EndianNeutral.hpp>

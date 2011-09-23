@@ -27,10 +27,10 @@
 */
 
 #include <cat/io/Settings.hpp>
-#include <cat/io/Logging.hpp>
+#include <cat/io/Log.hpp>
 using namespace cat;
 
-static Logging *m_logging = 0;
+static Log *m_logging = 0;
 
 
 //// Settings

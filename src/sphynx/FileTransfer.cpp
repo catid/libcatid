@@ -27,7 +27,7 @@
 */
 
 #include <cat/sphynx/FileTransfer.hpp>
-#include <cat/io/Logging.hpp>
+#include <cat/io/Log.hpp>
 using namespace cat;
 using namespace sphynx;
 

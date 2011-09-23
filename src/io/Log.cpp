@@ -26,7 +26,7 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/io/Logging.hpp>
+#include <cat/io/Log.hpp>
 #include <cat/time/Clock.hpp>
 #include <cstdlib>
 #include <ctime>
@@ -105,7 +105,7 @@ std::string cat::HexDumpString(const void *vdata, u32 bytes)
 
 void cat::FatalStop(const char *message)
 {
-	Logging *log = Logging::ref();
+	Log *log = Log::ref();
 
 	if (log->IsService())
 	{
@@ -127,7 +127,7 @@ void cat::FatalStop(const char *message)
 
 void cat::DefaultLogCallback(EventSeverity severity, const char *source, std::ostringstream &msg)
 {
-	Logging *log = Logging::ref();
+	Log *log = Log::ref();
 
 	if (log->IsService())
 	{
@@ -154,39 +154,38 @@ void cat::DefaultLogCallback(EventSeverity severity, const char *source, std::os
 }
 
 
-//// Logging
+//// Log
 
-CAT_SINGLETON(Logging);
+CAT_REF_SINGLETON(Log);
 
-bool Logging::OnInitialize()
+bool Log::OnInitialize()
 {
 	_callback = Callback::FromFree<&DefaultLogCallback>();
 	_service = false;
-
-#if defined(CAT_DEBUG)
-	_log_threshold = LVL_INANE;
-#else
-	_log_threshold = LVL_INFO;
-#endif
+	_log_threshold = DEFAULT_LOG_LEVEL;
 
 	return true;
 }
 
-void Logging::SetLogCallback(const Callback &cb)
+void Log::Finalize()
+{
+}
+
+void Log::SetLogCallback(const Callback &cb)
 {
 	AutoMutex lock(_lock);
 
 	_callback = cb;
 }
 
-void Logging::LogEvent(Recorder *recorder)
+void Log::LogEvent(Recorder *recorder)
 {
 	AutoMutex lock(_lock);
 
 	_callback(recorder->_severity, recorder->_subsystem, recorder->_msg);
 }
 
-void Logging::EnableServiceMode(const char *service_name)
+void Log::EnableServiceMode(const char *service_name)
 {
 	AutoMutex lock(_lock);
 
@@ -196,7 +195,7 @@ void Logging::EnableServiceMode(const char *service_name)
 #endif
 }
 
-void Logging::WriteServiceLog(EventSeverity severity, const char *line)
+void Log::WriteServiceLog(EventSeverity severity, const char *line)
 {
 #if defined(CAT_OS_WINDOWS)
 	if (_event_source)
@@ -229,7 +228,7 @@ Recorder::Recorder(const char *subsystem, EventSeverity severity)
 
 Recorder::~Recorder()
 {
-	Logging::ref()->LogEvent(this);
+	Log::ref()->LogEvent(this);
 }
 
 

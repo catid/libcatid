@@ -31,7 +31,7 @@
 
 #include <cat/lang/Singleton.hpp>
 #include <cat/lang/LinkedLists.hpp>
-#include <cat/io/Logging.hpp>
+#include <cat/io/Log.hpp>
 
 namespace cat {
 
