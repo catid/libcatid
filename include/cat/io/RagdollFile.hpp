@@ -262,7 +262,7 @@ class CAT_EXPORT HashTable
 
 	CAT_NO_COPY(HashTable);
 
-	static const u32 PREALLOC = 32;
+	static const u32 PREALLOC = 64;
 	static const u32 GROW_THRESH = 2;
 	static const u32 GROW_RATE = 2;
 
