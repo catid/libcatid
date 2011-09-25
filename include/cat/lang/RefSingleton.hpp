@@ -250,6 +250,10 @@ protected:
 	{
 		_final_priority = 0;
 	}
+	CAT_INLINE void FinalizeLast()
+	{
+		_final_priority = 9001; // It's over 9000!
+	}
 
 public:
 	CAT_INLINE virtual ~RefSingleton<T>() {}
