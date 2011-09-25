@@ -30,7 +30,7 @@
 #define CAT_LOGGING_HPP
 
 #include <cat/lang/Delegates.hpp>
-#include <cat/lang/RefSingleton.hpp>
+#include <cat/lang/Singleton.hpp>
 #include <string>
 #include <sstream>
 
@@ -79,12 +79,11 @@ void CAT_EXPORT DefaultLogCallback(EventSeverity severity, const char *source, s
 
 //// Log
 
-class CAT_EXPORT Log : public RefSingleton<Log>, public Thread
+class CAT_EXPORT Log : public Singleton<Log>
 {
 	friend class Recorder;
 
 	bool OnInitialize();
-	void Finalize();
 
 public:
 	typedef Delegate3<void, EventSeverity, const char *, std::ostringstream &> Callback;
@@ -92,13 +91,11 @@ public:
 private:
 	Mutex _lock;
 	Callback _callback;
-
+	int _log_threshold;
 	bool _service;
 #if defined(CAT_OS_WINDOWS)
 	HANDLE _event_source;
 #endif
-
-	int _log_threshold;
 
 	void LogEvent(Recorder *recorder);
 

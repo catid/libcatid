@@ -156,7 +156,7 @@ void cat::DefaultLogCallback(EventSeverity severity, const char *source, std::os
 
 //// Log
 
-CAT_REF_SINGLETON(Log);
+CAT_SINGLETON(Log);
 
 bool Log::OnInitialize()
 {
@@ -165,10 +165,6 @@ bool Log::OnInitialize()
 	_log_threshold = DEFAULT_LOG_LEVEL;
 
 	return true;
-}
-
-void Log::Finalize()
-{
 }
 
 void Log::SetLogCallback(const Callback &cb)
