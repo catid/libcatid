@@ -281,7 +281,7 @@ static CAT_INLINE void ExecuteWorkQueue(const BatchSet &queue)
 #endif // CAT_WORKER_THREADS_REORDER_EVENTS
 }
 
-bool WorkerThread::ThreadFunction(void *vmaster)
+bool WorkerThread::Entrypoint(void *vmaster)
 {
 	WorkerThreads *master = (WorkerThreads*)vmaster;
 

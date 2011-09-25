@@ -190,9 +190,9 @@ public:
 
 
 // In the C file for the object, use this macro:
-#define CAT_SINGLETON(T)				\
-static cat::SingletonImpl<T> m_T_ss;	\
-template<> T *Singleton<T>::ref() { return m_T_ss.GetRef(); }
+#define CAT_SINGLETON(T)					\
+	static cat::SingletonImpl<T> m_T_ss;	\
+	template<> T *Singleton<T>::ref() { return m_T_ss.GetRef(); }
 
 
 // Internal free function

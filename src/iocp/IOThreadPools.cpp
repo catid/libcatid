@@ -257,7 +257,7 @@ void IOThread::UsePreVistaAPI(IOThreadPool *master)
 	}
 }
 
-bool IOThread::ThreadFunction(void *vmaster)
+bool IOThread::Entrypoint(void *vmaster)
 {
 	IOThreadPool *master = reinterpret_cast<IOThreadPool*>( vmaster );
 

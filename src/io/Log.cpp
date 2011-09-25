@@ -33,6 +33,7 @@
 #include <iostream>
 #include <iomanip>
 #include <stdexcept>
+#include <sstream>
 using namespace std;
 using namespace cat;
 
@@ -125,23 +126,21 @@ void cat::FatalStop(const char *message)
 	std::exit(EXIT_FAILURE);
 }
 
-void cat::DefaultLogCallback(EventSeverity severity, const char *source, std::ostringstream &msg)
+void Log::DefaultLogCallback(EventSeverity severity, const char *source, const std::string &msg)
 {
-	Log *log = Log::ref();
-
-	if (log->IsService())
+	if (IsService())
 	{
 		std::ostringstream oss;
-		oss << "<" << source << "> " << msg.str() << endl;
+		oss << "<" << source << "> " << msg << endl;
 
 		std::string result = oss.str();
 
-		log->WriteServiceLog(severity, result.c_str());
+		WriteServiceLog(severity, result.c_str());
 	}
 	else
 	{
 		std::ostringstream oss;
-		oss << "[" << Clock::format("%b %d %H:%M") << "] <" << source << "> " << msg.str() << endl;
+		oss << "[" << Clock::format("%b %d %H:%M") << "] <" << source << "> " << msg << endl;
 
 		std::string result = oss.str();
 
@@ -160,7 +159,7 @@ CAT_SINGLETON(Log);
 
 bool Log::OnInitialize()
 {
-	_callback = Callback::FromFree<&DefaultLogCallback>();
+	_callback = Callback::FromMember<Log, &Log::DefaultLogCallback>(this);
 	_service = false;
 	_log_threshold = DEFAULT_LOG_LEVEL;
 

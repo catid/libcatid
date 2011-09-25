@@ -151,7 +151,7 @@ class CAT_EXPORT FortunaFactory : public RefSingleton<FortunaFactory>
 
 	WaitableFlag _kill_flag;
 
-	bool ThreadFunction(void *param);
+	bool Entrypoint(void *param);
 #endif
 
 protected:

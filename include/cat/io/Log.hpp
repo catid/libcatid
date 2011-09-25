@@ -26,13 +26,12 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_LOGGING_HPP
-#define CAT_LOGGING_HPP
+#ifndef CAT_LOG_HPP
+#define CAT_LOG_HPP
 
 #include <cat/lang/Delegates.hpp>
 #include <cat/lang/Singleton.hpp>
 #include <string>
-#include <sstream>
 
 #if defined(CAT_OS_WINDOWS)
 #include <cat/port/WindowsInclude.hpp>
@@ -74,8 +73,6 @@ std::string CAT_EXPORT HexDumpString(const void *vdata, u32 bytes);
 // Write to console (and debug log in windows) then trigger a breakpoint and exit
 void CAT_EXPORT FatalStop(const char *message);
 
-void CAT_EXPORT DefaultLogCallback(EventSeverity severity, const char *source, std::ostringstream &msg);
-
 
 //// Log
 
@@ -86,7 +83,7 @@ class CAT_EXPORT Log : public Singleton<Log>
 	bool OnInitialize();
 
 public:
-	typedef Delegate3<void, EventSeverity, const char *, std::ostringstream &> Callback;
+	typedef Delegate3<void, EventSeverity, const char *, const std::string &> Callback;
 
 private:
 	Mutex _lock;
@@ -109,6 +106,7 @@ public:
 	void WriteServiceLog(EventSeverity severity, const char *line);
 
 	void SetLogCallback(const Callback &cb);
+	void DefaultLogCallback(EventSeverity severity, const char *source, const std::string &msg);
 };
 
 
@@ -207,4 +205,4 @@ public:
 
 } // namespace cat
 
-#endif // CAT_LOGGING_HPP
+#endif // CAT_LOG_HPP
