@@ -32,7 +32,7 @@
 #include <cat/threads/WorkerThreads.hpp>
 #include <cat/crypt/SecureEqual.hpp>
 #include <cat/crypt/tunnel/Keys.hpp>
-#include <cat/crypt/tunnel/TLS.hpp>
+#include <cat/crypt/tunnel/TunnelTLS.hpp>
 using namespace std;
 using namespace cat;
 using namespace sphynx;

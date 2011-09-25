@@ -32,7 +32,7 @@
 #include <cat/crypt/tunnel/KeyAgreement.hpp>
 #include <cat/crypt/tunnel/AuthenticatedEncryption.hpp>
 #include <cat/crypt/tunnel/Keys.hpp>
-#include <cat/crypt/tunnel/TLS.hpp>
+#include <cat/crypt/tunnel/TunnelTLS.hpp>
 
 namespace cat {
 

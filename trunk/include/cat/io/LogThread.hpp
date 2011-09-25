@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -26,69 +26,71 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_WAITABLE_FLAG_HPP
-#define CAT_WAITABLE_FLAG_HPP
+#ifndef CAT_LOG_THREAD_HPP
+#define CAT_LOG_THREAD_HPP
 
-#include <cat/Platform.hpp>
+#include <cat/lang/RefSingleton.hpp>
+#include <cat/threads/Thread.hpp>
+#include <cat/threads/WaitableFlag.hpp>
+#include <cat/threads/RWLock.hpp>
+#include <cat/lang/LinkedLists.hpp>
 
-#if defined(CAT_OS_WINDOWS)
-# include <cat/port/WindowsInclude.hpp>
-#else // use POSIX thread library otherwise
-# include <pthread.h>
-#endif
+/*
+	LogThread singleton
+
+	The purpose of this object is to greatly reduce the latency caused by
+	the Log subsystem.
+
+	After acquiring the LogThread singleton, a thread will be started that
+	will take care of invoking the Log singleton callback instead of running
+	it immediately.
+*/
 
 namespace cat {
 
 
-/*
-	class WaitableFlag
-
-	Can be set, reset or waited upon.
-
-	Initially unset.
-	Flag is edge-triggered.
-	Successful waiting will reset the flag.
-	Only one thread can wait at a time.
-
-	Designed to synchronize threads:
-		One thread can wait for this flag to be raised by another thread before continuing.
-*/
-class CAT_EXPORT WaitableFlag
+// Log item
+class LogItem : public SListItem
 {
-#if defined(CAT_OS_WINDOWS)
-	HANDLE _event;
-#else
-	bool _valid, _valid_cond, _valid_mutex;
-	volatile u32 _flag;
-	pthread_cond_t _cond;
-	pthread_mutex_t _mutex;
-#endif
-
-	void Cleanup();
+	EventSeverity _severity;
+	const char *_source;
+	std::string _msg;
 
 public:
-	WaitableFlag();
-	CAT_INLINE virtual ~WaitableFlag()
+	LogItem(EventSeverity severity, const char *source, const std::string &msg)
+		: _msg(msg)
 	{
-		Cleanup();
+		_severity = severity;
+		_source = source;
 	}
 
-	CAT_INLINE bool Valid()
-	{
-#if defined(CAT_OS_WINDOWS)
-		return _event != 0;
-#else
-		return _valid;
-#endif
-	}
+	CAT_INLINE EventSeverity GetEventSeverity() { return _severity; }
+	CAT_INLINE const char *GetSource() { return _source; }
+	CAT_INLINE const std::string &GetMessage() { return _msg; }
+};
 
-	bool Set();
 
-	// Returns true if event was signaled during wait interval
-	bool Wait(int milliseconds = -1); // < 0 = wait forever
+// Log thread
+class LogThread : public RefSingleton<LogThread>, public Thread
+{
+	bool OnInitialize();
+	void OnFinalize();
+
+	static const u32 DUMP_INTERVAL = 100;
+	static const u32 MAX_LIST_SIZE = DUMP_INTERVAL * 2; // 2 events per millisecond max
+
+	RWLock _lock;
+	WaitableFlag _die;
+	SList _list;
+	u32 _list_size;
+
+	void Entrypoint(void *param);
+
+public:
+	void Write(EventSeverity severity, const char *source, const std::string &msg);
 };
 
 
 } // namespace cat
 
-#endif // CAT_WAITABLE_FLAG_HPP
+#endif // CAT_LOG_THREAD_HPP

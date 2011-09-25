@@ -32,7 +32,7 @@
 #include <cat/crypt/tunnel/KeyAgreementInitiator.hpp>
 #include <cat/crypt/tunnel/KeyAgreementResponder.hpp>
 #include <cat/crypt/cookie/CookieJar.hpp>
-#include <cat/crypt/tunnel/TLS.hpp>
+#include <cat/crypt/tunnel/TunnelTLS.hpp>
 
 namespace cat {
 

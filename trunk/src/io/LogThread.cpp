@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -26,18 +26,53 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-// Include all libcat Tunnel headers
+#include <cat/io/LogThread.hpp>
+using namespace cat;
 
-#include <cat/AllCrypt.hpp>
+static Log *m_log = 0;
 
-#include <cat/crypt/tunnel/Keys.hpp>
 
-#include <cat/crypt/tunnel/KeyAgreement.hpp>
-#include <cat/crypt/tunnel/KeyAgreementInitiator.hpp>
-#include <cat/crypt/tunnel/KeyAgreementResponder.hpp>
+//// LogThread
 
-#include <cat/crypt/tunnel/AuthenticatedEncryption.hpp>
+CAT_REF_SINGLETON(LogThread);
 
-#include <cat/crypt/tunnel/EasyHandshake.hpp>
+bool LogThread::OnInitialize()
+{
+	Use(m_log);
 
-#include <cat/crypt/tunnel/TunnelTLS.hpp>
+	_list_size = 0;
+
+	return StartThread();
+}
+
+void LogThread::OnFinalize()
+{
+	_die.Set();
+
+	WaitForThread();
+}
+
+void LogThread::Entrypoint(void *param)
+{
+	while (!_die.Wait(100))
+	{
+		if (_list_size > 0)
+		{
+			SList temp;
+
+			_lock.WriteLock();
+
+			temp.Steal(_list);
+			_list_size = 0;
+
+			_lock.WriteUnlock();
+		}
+	}
+}
+
+void LogThread::Write(EventSeverity severity, const char *source, const std::string &msg)
+{
+	LogItem *item = new LogItem(severity, source, msg);
+
+	AutoReadLock lock(_lock);
+}
