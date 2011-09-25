@@ -154,7 +154,7 @@ class CAT_EXPORT IOThread : public Thread
 	void UseVistaAPI(IOThreadPool *master);
 	void UsePreVistaAPI(IOThreadPool *master);
 
-	virtual bool ThreadFunction(void *vmaster);
+	virtual bool Entrypoint(void *vmaster);
 };
 
 

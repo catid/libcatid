@@ -36,7 +36,7 @@ using namespace cat;
 
 #if !defined(CAT_NO_ENTROPY_THREAD)
 
-bool FortunaFactory::ThreadFunction(void *)
+bool FortunaFactory::Entrypoint(void *)
 {
 	// No entropy collection thread for Windows CE
 	// For this platform we just query the CryptoAPI and some other sources

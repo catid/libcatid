@@ -204,7 +204,7 @@ void RefObjects::BuryDeadites()
 	}
 }
 
-bool RefObjects::ThreadFunction(void *param)
+bool RefObjects::Entrypoint(void *param)
 {
 	CAT_INANE("RefObjects") << "Reaper starting...";
 

@@ -38,7 +38,7 @@ unsigned int __stdcall Thread::ThreadWrapper(void *this_object)
 {
 	Thread *thread_object = static_cast<Thread*>( this_object );
 
-	bool success = thread_object->ThreadFunction(thread_object->caller_param);
+	bool success = thread_object->Entrypoint(thread_object->caller_param);
 
 	unsigned int exitCode = success ? 0 : 1;
 
@@ -60,7 +60,7 @@ void *Thread::ThreadWrapper(void *this_object)
 {
 	Thread *thread_object = static_cast<Thread*>( this_object );
 
-	bool success = thread_object->ThreadFunction(thread_object->caller_param);
+	bool success = thread_object->Entrypoint(thread_object->caller_param);
 
 	thread_object->_thread_running = false;
 

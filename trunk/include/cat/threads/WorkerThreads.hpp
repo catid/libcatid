@@ -85,7 +85,7 @@ struct WorkerThreadQueue
 
 class CAT_EXPORT WorkerThread : public Thread
 {
-	virtual bool ThreadFunction(void *master);
+	virtual bool Entrypoint(void *master);
 
 	WaitableFlag _event_flag;
 	volatile bool _kill_flag;

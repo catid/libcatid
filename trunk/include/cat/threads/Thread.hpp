@@ -74,7 +74,7 @@ public:
 	CAT_INLINE bool ThreadRunning() { return _thread_running; }
 
 protected:
-	virtual bool ThreadFunction(void *param) = 0;
+	virtual bool Entrypoint(void *param) = 0;
 
 public:
 	Thread();

@@ -263,9 +263,9 @@ public:
 
 
 // In the C file for the object, use this macro:
-#define CAT_REF_SINGLETON(T)										\
-static cat::RefSingletonImpl<T> m_T_rss;							\
-template<> T *RefSingleton<T>::ref() { return m_T_rss.GetRef(); }
+#define CAT_REF_SINGLETON(T)					\
+	static cat::RefSingletonImpl<T> m_T_rss;	\
+	template<> T *RefSingleton<T>::ref() { return m_T_rss.GetRef(); }
 
 
 // Internal free function

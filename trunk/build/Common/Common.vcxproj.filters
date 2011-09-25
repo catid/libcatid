@@ -138,6 +138,9 @@
     <ClCompile Include="..\..\src\io\Log.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\io\LogThread.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\cat\AllCommon.hpp">
@@ -255,6 +258,9 @@
       <Filter>Header Files\lang</Filter>
     </ClInclude>
     <ClInclude Include="..\..\include\cat\io\Log.hpp">
+      <Filter>Header Files\io</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\io\LogThread.hpp">
       <Filter>Header Files\io</Filter>
     </ClInclude>
   </ItemGroup>

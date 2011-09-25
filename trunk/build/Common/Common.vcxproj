@@ -162,6 +162,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\io\Log.cpp" />
+    <ClCompile Include="..\..\src\io\LogThread.cpp" />
     <ClCompile Include="..\..\src\io\MappedFile.cpp" />
     <ClCompile Include="..\..\src\io\RagdollFile.cpp" />
     <ClCompile Include="..\..\src\io\Settings.cpp" />
@@ -201,6 +202,7 @@
     <ClInclude Include="..\..\include\cat\AllCommon.hpp" />
     <ClInclude Include="..\..\include\cat\Config.hpp" />
     <ClInclude Include="..\..\include\cat\io\Log.hpp" />
+    <ClInclude Include="..\..\include\cat\io\LogThread.hpp" />
     <ClInclude Include="..\..\include\cat\io\MappedFile.hpp" />
     <ClInclude Include="..\..\include\cat\io\RagdollFile.hpp" />
     <ClInclude Include="..\..\include\cat\io\Settings.hpp" />

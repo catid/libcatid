@@ -46,7 +46,7 @@ FIFO::Queue<TestData> *q;
 class ReadJob : public Thread
 {
 public:
-	bool ThreadFunction(void *)
+	bool Entrypoint(void *)
 	{
 		CAT_FOREVER
 		{
@@ -99,7 +99,7 @@ class WriteJob : public Thread
 	WaitableFlag _kill_flag;
 
 public:
-	bool ThreadFunction(void *)
+	bool Entrypoint(void *)
 	{
 		while (!_kill_flag.Wait(0))
 		{
