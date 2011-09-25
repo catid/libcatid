@@ -26,8 +26,8 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_TLS_HPP
-#define CAT_TLS_HPP
+#ifndef CAT_TUNNEL_TLS_HPP
+#define CAT_TUNNEL_TLS_HPP
 
 #include <cat/math/BigTwistedEdwards.hpp>
 #include <cat/crypt/rand/Fortuna.hpp>
@@ -62,4 +62,4 @@ public:
 
 } // namespace cat
 
-#endif // CAT_TLS_HPP
+#endif // CAT_TUNNEL_TLS_HPP

@@ -31,7 +31,7 @@
 
 #include <cat/crypt/tunnel/KeyAgreement.hpp>
 #include <cat/crypt/rand/Fortuna.hpp>
-#include <cat/crypt/tunnel/TLS.hpp>
+#include <cat/crypt/tunnel/TunnelTLS.hpp>
 #include <string>
 
 namespace cat {

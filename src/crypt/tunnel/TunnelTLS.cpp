@@ -26,7 +26,7 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/crypt/tunnel/TLS.hpp>
+#include <cat/crypt/tunnel/TunnelTLS.hpp>
 #include <cat/threads/Thread.hpp>
 using namespace cat;
 

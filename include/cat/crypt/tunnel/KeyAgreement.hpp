@@ -31,7 +31,7 @@
 
 #include <cat/math/BigTwistedEdwards.hpp>
 #include <cat/crypt/rand/Fortuna.hpp>
-#include <cat/crypt/tunnel/TLS.hpp>
+#include <cat/crypt/tunnel/TunnelTLS.hpp>
 
 namespace cat {
 

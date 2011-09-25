@@ -126,32 +126,6 @@ void cat::FatalStop(const char *message)
 	std::exit(EXIT_FAILURE);
 }
 
-void Log::DefaultLogCallback(EventSeverity severity, const char *source, const std::string &msg)
-{
-	if (IsService())
-	{
-		std::ostringstream oss;
-		oss << "<" << source << "> " << msg << endl;
-
-		std::string result = oss.str();
-
-		WriteServiceLog(severity, result.c_str());
-	}
-	else
-	{
-		std::ostringstream oss;
-		oss << "[" << Clock::format("%b %d %H:%M") << "] <" << source << "> " << msg << endl;
-
-		std::string result = oss.str();
-
-		cout << result.c_str();
-
-#if defined(CAT_OS_WINDOWS)
-		OutputDebugStringA(result.c_str());
-#endif
-	}
-}
-
 
 //// Log
 
@@ -175,9 +149,35 @@ void Log::SetLogCallback(const Callback &cb)
 
 void Log::LogEvent(Recorder *recorder)
 {
+	_callback(recorder->_severity, recorder->_subsystem, recorder->_msg);
+}
+
+void Log::DefaultLogCallback(EventSeverity severity, const char *source, const std::string &msg)
+{
 	AutoMutex lock(_lock);
 
-	_callback(recorder->_severity, recorder->_subsystem, recorder->_msg);
+	if (IsService())
+	{
+		std::ostringstream oss;
+		oss << "<" << source << "> " << msg << endl;
+
+		std::string result = oss.str();
+
+		WriteServiceLog(severity, result.c_str());
+	}
+	else
+	{
+		std::ostringstream oss;
+		oss << "[" << Clock::format("%b %d %H:%M") << "] <" << source << "> " << msg << endl;
+
+		std::string result = oss.str();
+
+		cout << result.c_str();
+
+#if defined(CAT_OS_WINDOWS)
+		OutputDebugStringA(result.c_str());
+#endif
+	}
 }
 
 void Log::EnableServiceMode(const char *service_name)

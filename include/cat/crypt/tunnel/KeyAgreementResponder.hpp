@@ -33,7 +33,7 @@
 #include <cat/crypt/tunnel/AuthenticatedEncryption.hpp>
 #include <cat/threads/Atomic.hpp>
 #include <cat/crypt/tunnel/Keys.hpp>
-#include <cat/crypt/tunnel/TLS.hpp>
+#include <cat/crypt/tunnel/TunnelTLS.hpp>
 
 #if defined(CAT_NO_ATOMIC_ADD) || defined(CAT_NO_ATOMIC_SET)
 # include <cat/threads/Mutex.hpp>

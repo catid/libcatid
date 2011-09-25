@@ -197,7 +197,7 @@
     <ClCompile Include="..\..\src\crypt\tunnel\KeyAgreementInitiator.cpp" />
     <ClCompile Include="..\..\src\crypt\tunnel\KeyAgreementResponder.cpp" />
     <ClCompile Include="..\..\src\crypt\tunnel\Keys.cpp" />
-    <ClCompile Include="..\..\src\crypt\tunnel\TLS.cpp" />
+    <ClCompile Include="..\..\src\crypt\tunnel\TunnelTLS.cpp" />
     <ClCompile Include="Precompiled.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
@@ -213,7 +213,7 @@
     <ClInclude Include="..\..\include\cat\crypt\tunnel\KeyAgreementInitiator.hpp" />
     <ClInclude Include="..\..\include\cat\crypt\tunnel\KeyAgreementResponder.hpp" />
     <ClInclude Include="..\..\include\cat\crypt\tunnel\Keys.hpp" />
-    <ClInclude Include="..\..\include\cat\crypt\tunnel\TLS.hpp" />
+    <ClInclude Include="..\..\include\cat\crypt\tunnel\TunnelTLS.hpp" />
     <ClInclude Include="Precompiled.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
