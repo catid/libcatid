@@ -75,7 +75,7 @@ class LogThread : public RefSingleton<LogThread>, public Thread
 	bool OnInitialize();
 	void OnFinalize();
 
-	static const u32 DUMP_INTERVAL = 100;
+	static const u32 DUMP_INTERVAL = 1000;
 	static const u32 MAX_LIST_SIZE = DUMP_INTERVAL * 2; // 2 events per millisecond max
 
 	WaitableFlag _die;
