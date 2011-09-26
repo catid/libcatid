@@ -74,7 +74,7 @@ void LogThread::RunList(int writing_list)
 
 	// Refresh the list size
 	list_size = _list_size[reading_list];
-	if (list_size <= 0) return;
+	CAT_DEBUG_ENFORCE(list_size > 0);
 
 	// Invoke callbacks for each item
 	LogItem *items = _list_ptr[reading_list];
