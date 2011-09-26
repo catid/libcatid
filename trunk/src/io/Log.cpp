@@ -28,12 +28,12 @@
 
 #include <cat/io/Log.hpp>
 #include <cat/time/Clock.hpp>
+#include <cat/io/LogThread.hpp>
 #include <cstdlib>
 #include <ctime>
 #include <iostream>
 #include <iomanip>
 #include <stdexcept>
-#include <sstream>
 using namespace std;
 using namespace cat;
 
@@ -104,28 +104,6 @@ std::string cat::HexDumpString(const void *vdata, u32 bytes)
 	return oss.str();
 }
 
-void cat::FatalStop(const char *message)
-{
-	Log *log = Log::ref();
-
-	if (log->IsService())
-	{
-		log->WriteServiceLog(LVL_FATAL, message);
-	}
-	else
-	{
-		cerr << "Fatal Stop: " << message << endl;
-
-#if defined(CAT_OS_WINDOWS)
-		OutputDebugStringA(message);
-#endif
-	}
-
-	CAT_ARTIFICIAL_BREAKPOINT;
-
-	std::exit(EXIT_FAILURE);
-}
-
 
 //// Log
 
@@ -134,10 +112,44 @@ CAT_SINGLETON(Log);
 bool Log::OnInitialize()
 {
 	_callback = Callback::FromMember<Log, &Log::DefaultLogCallback>(this);
-	_service = false;
+	_inner_cb = Callback::FromMember<Log, &Log::Write>(this);
 	_log_threshold = DEFAULT_LOG_LEVEL;
 
+#if defined(CAT_THREADED_LOGGER)
+	Use<LogThread>();
+#endif
+
 	return true;
+}
+
+void Log::FatalStop(const char *message)
+{
+	CAT_ARTIFICIAL_BREAKPOINT;
+
+	Log::ref()->Write(LVL_FATAL, "FatalStop", message);
+
+	std::exit(EXIT_FAILURE);
+}
+
+void Log::InvokeInnerCallback(EventSeverity severity, const char *source, const std::string &msg)
+{
+	AutoMutex lock(_lock);
+
+	_inner_cb(severity, source, msg);
+}
+
+void Log::SetInnerCallback(const Callback &cb)
+{
+	AutoMutex lock(_lock);
+
+	_inner_cb = cb;
+}
+
+void Log::ResetInnerCallback()
+{
+	AutoMutex lock(_lock);
+
+	_inner_cb = Callback::FromMember<Log, &Log::Write>(this);
 }
 
 void Log::SetLogCallback(const Callback &cb)
@@ -147,45 +159,41 @@ void Log::SetLogCallback(const Callback &cb)
 	_callback = cb;
 }
 
-void Log::LogEvent(Recorder *recorder)
+void Log::Write(EventSeverity severity, const char *source, const std::string &msg)
 {
-	_callback(recorder->_severity, recorder->_subsystem, recorder->_msg);
+	_callback(severity, source, msg);
+}
+
+void Log::DefaultServiceCallback(EventSeverity severity, const char *source, const std::string &msg)
+{
+	std::ostringstream oss;
+	oss << "<" << source << "> " << msg << endl;
+
+	std::string result = oss.str();
+	WriteServiceLog(severity, result.c_str());
 }
 
 void Log::DefaultLogCallback(EventSeverity severity, const char *source, const std::string &msg)
 {
-	AutoMutex lock(_lock);
+	std::ostringstream oss;
+	oss << "[" << Clock::format("%b %d %H:%M") << "] <" << source << "> " << msg << endl;
 
-	if (IsService())
-	{
-		std::ostringstream oss;
-		oss << "<" << source << "> " << msg << endl;
-
-		std::string result = oss.str();
-
-		WriteServiceLog(severity, result.c_str());
-	}
-	else
-	{
-		std::ostringstream oss;
-		oss << "[" << Clock::format("%b %d %H:%M") << "] <" << source << "> " << msg << endl;
-
-		std::string result = oss.str();
-
-		cout << result.c_str();
+	std::string result = oss.str();
+	if (severity > LVL_WARN) cerr << result;
+	else cout << result;
 
 #if defined(CAT_OS_WINDOWS)
-		OutputDebugStringA(result.c_str());
+	OutputDebugStringA(result.c_str());
 #endif
-	}
 }
 
 void Log::EnableServiceMode(const char *service_name)
 {
 	AutoMutex lock(_lock);
 
+	_callback = Callback::FromMember<Log, &Log::DefaultServiceCallback>(this);
+
 #if defined(CAT_OS_WINDOWS)
-	_service = true;
 	_event_source = RegisterEventSourceA(0, service_name);
 #endif
 }
@@ -215,15 +223,16 @@ void Log::WriteServiceLog(EventSeverity severity, const char *line)
 
 //// Recorder
 
-Recorder::Recorder(const char *subsystem, EventSeverity severity)
+Recorder::Recorder(const char *source, EventSeverity severity)
 {
-	_subsystem = subsystem;
+	_source = source;
 	_severity = severity;
 }
 
 Recorder::~Recorder()
 {
-	Log::ref()->LogEvent(this);
+	string msg = _msg.str();
+	Log::ref()->InvokeInnerCallback(_severity, _source, msg);
 }
 
 
@@ -241,6 +250,5 @@ Enforcer::Enforcer(const char *locus)
 Enforcer::~Enforcer()
 {
 	std::string result = oss.str();
-
-	FatalStop(result.c_str());
+	Log::FatalStop(result.c_str());
 }

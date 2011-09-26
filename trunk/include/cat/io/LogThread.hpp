@@ -32,7 +32,6 @@
 #include <cat/lang/RefSingleton.hpp>
 #include <cat/threads/Thread.hpp>
 #include <cat/threads/WaitableFlag.hpp>
-#include <cat/threads/RWLock.hpp>
 #include <cat/lang/LinkedLists.hpp>
 
 /*
@@ -50,23 +49,23 @@ namespace cat {
 
 
 // Log item
-class LogItem : public SListItem
+class LogItem : public DListItem
 {
 	EventSeverity _severity;
 	const char *_source;
 	std::string _msg;
 
 public:
-	LogItem(EventSeverity severity, const char *source, const std::string &msg)
-		: _msg(msg)
+	CAT_INLINE EventSeverity GetSeverity() { return _severity; }
+	CAT_INLINE const char *GetSource() { return _source; }
+	CAT_INLINE const std::string &GetMsg() { return _msg; }
+
+	CAT_INLINE void Set(EventSeverity severity, const char *source, const std::string &msg)
 	{
 		_severity = severity;
 		_source = source;
+		_msg = msg;
 	}
-
-	CAT_INLINE EventSeverity GetEventSeverity() { return _severity; }
-	CAT_INLINE const char *GetSource() { return _source; }
-	CAT_INLINE const std::string &GetMessage() { return _msg; }
 };
 
 
@@ -79,14 +78,13 @@ class LogThread : public RefSingleton<LogThread>, public Thread
 	static const u32 DUMP_INTERVAL = 100;
 	static const u32 MAX_LIST_SIZE = DUMP_INTERVAL * 2; // 2 events per millisecond max
 
-	RWLock _lock;
 	WaitableFlag _die;
-	SList _list;
+	LogItem _list[MAX_LIST_SIZE];
 	u32 _list_size;
 
-	void Entrypoint(void *param);
+	void RunList();
+	bool Entrypoint(void *param);
 
-public:
 	void Write(EventSeverity severity, const char *source, const std::string &msg);
 };
 

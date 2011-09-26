@@ -45,7 +45,7 @@ Mutex &cat::GetRefSingletonMutex()
 
 //// RefSingletonBase
 
-void RefSingletonBase::MergeSort(SList &list)
+void RefSingletonBase::MergeSort(SListForward &list)
 {
 	if (list.Empty()) return;
 
@@ -347,8 +347,8 @@ void RefSingletons::OnFinalize()
 {
 	// Bin-sort active singletons
 	static const int BIN_COUNT = 16;
-	SList bins[BIN_COUNT];
-	SList dregs;
+	SListForward bins[BIN_COUNT];
+	SListForward dregs;
 
 	// For each active singleton,
 	for (iter ii = _active_list; ii; ++ii)

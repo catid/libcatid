@@ -32,6 +32,7 @@
 #include <cat/lang/Delegates.hpp>
 #include <cat/lang/Singleton.hpp>
 #include <string>
+#include <sstream>
 
 #if defined(CAT_OS_WINDOWS)
 #include <cat/port/WindowsInclude.hpp>
@@ -41,6 +42,7 @@ namespace cat {
 
 
 class Log;
+class LogThread;
 class Recorder;
 class Enforcer;
 
@@ -70,15 +72,13 @@ enum EventSeverity
 
 std::string CAT_EXPORT HexDumpString(const void *vdata, u32 bytes);
 
-// Write to console (and debug log in windows) then trigger a breakpoint and exit
-void CAT_EXPORT FatalStop(const char *message);
-
 
 //// Log
 
 class CAT_EXPORT Log : public Singleton<Log>
 {
 	friend class Recorder;
+	friend class LogThread;
 
 	bool OnInitialize();
 
@@ -87,25 +87,32 @@ public:
 
 private:
 	Mutex _lock;
+	Callback _inner_cb;
 	Callback _callback;
 	int _log_threshold;
-	bool _service;
 #if defined(CAT_OS_WINDOWS)
 	HANDLE _event_source;
 #endif
 
-	void LogEvent(Recorder *recorder);
+	void Write(EventSeverity severity, const char *source, const std::string &msg);
+
+	void InvokeInnerCallback(EventSeverity severity, const char *source, const std::string &msg);
+	void SetInnerCallback(const Callback &cb);
+	void ResetInnerCallback();
 
 public:
 	CAT_INLINE void SetThreshold(EventSeverity min_severity) { _log_threshold = min_severity; }
 	CAT_INLINE int GetThreshold() { return _log_threshold; }
 
+	// Write to console (and debug log in windows) then trigger a breakpoint and exit
+	static void FatalStop(const char *message);
+
 	// Service mode
-	CAT_INLINE bool IsService() { return _service; }
 	void EnableServiceMode(const char *service_name);
 	void WriteServiceLog(EventSeverity severity, const char *line);
 
 	void SetLogCallback(const Callback &cb);
+	void DefaultServiceCallback(EventSeverity severity, const char *source, const std::string &msg);
 	void DefaultLogCallback(EventSeverity severity, const char *source, const std::string &msg);
 };
 
@@ -119,11 +126,11 @@ class CAT_EXPORT Recorder
 	friend class Log;
 
 	EventSeverity _severity;
-	const char *_subsystem;
+	const char *_source;
 	std::ostringstream _msg;
 
 public:
-	Recorder(const char *subsystem, EventSeverity severity);
+	Recorder(const char *source, EventSeverity severity);
 	~Recorder();
 
 public:

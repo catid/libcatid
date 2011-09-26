@@ -74,7 +74,7 @@ struct DNSRequest : public DListItem
 	// Our copy of the hostname string
 	char hostname[HOSTNAME_MAXLEN+1];
 	u16 id; // Random request ID
-	SList callbacks;
+	SListForward callbacks;
 
 	// For caching purposes
 	NetAddr responses[DNSCACHE_MAX_RESP];
@@ -93,7 +93,7 @@ class DNSClientEndpoint : public UDPEndpoint
 	u32 _worker_id;
 
 	typedef DList::ForwardIterator<DNSRequest> rqiter;
-	typedef SList::Iterator<DNSCallback> cbiter;
+	typedef SListForward::Iterator<DNSCallback> cbiter;
 
 	Mutex _request_lock;
 	DList _request_list;
