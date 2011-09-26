@@ -91,7 +91,7 @@ class LogThread : public RefSingleton<LogThread>, public Thread
 	u8 _cache_split_b[CAT_DEFAULT_CACHE_LINE_SIZE];
 	LogItem _list_b[MAX_LIST_SIZE];
 
-	void RunList(int writing_list);
+	void RunList();
 	bool Entrypoint(void *param);
 
 	void Write(EventSeverity severity, const char *source, const std::string &msg);
