@@ -105,8 +105,6 @@ void Server::OnRecvRouting(const BatchSet &buffers)
 				{
 					worker_id = conn->GetWorkerID();
 					buffer->callback.SetMember<Connexion, &Connexion::OnRecv>(conn);
-
-					CAT_WARN("BTS-TEST") << "Connexion matched address " << conn << " with worker_id=" << worker_id;
 				}
 				else
 				{
@@ -146,15 +144,11 @@ void Server::OnRecvRouting(const BatchSet &buffers)
 			// Insert at the end of the bin
 			bins[worker_id].tail->batch_next = buffer;
 			bins[worker_id].tail = buffer;
-
-			CAT_WARN("BTS-TEST") << "Insert at end of bin " << worker_id << " bytes=" << buffer->data_bytes;
 		}
 		else
 		{
 			// Start bin
 			bins[worker_id].head = bins[worker_id].tail = buffer;
-
-			CAT_WARN("BTS-TEST") << "Starting bin " << worker_id << " bytes=" << buffer->data_bytes;
 		}
 	}
 
@@ -167,8 +161,6 @@ void Server::OnRecvRouting(const BatchSet &buffers)
 		{
 			// Find next LSB index
 			u32 worker_id = offset + BSF32(v);
-
-			CAT_WARN("BTS-TEST") << "Delivering bin " << worker_id;
 
 			// Deliver all buffers for this worker at once
 			m_worker_threads->DeliverBuffers(WQPRIO_HI, worker_id, bins[worker_id]);
