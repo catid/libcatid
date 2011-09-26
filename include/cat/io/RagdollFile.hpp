@@ -267,8 +267,8 @@ class CAT_EXPORT HashTable
 	static const u32 GROW_RATE = 2;
 
 	u32 _allocated, _used;
-	SList *_buckets;
-	typedef SList::Iterator<HashItem> iter;
+	SListForward *_buckets;
+	typedef SListForward::Iterator<HashItem> iter;
 
 	bool Grow();
 
@@ -283,7 +283,7 @@ public:
 	class CAT_EXPORT Iterator
 	{
 		u32 _remaining;
-		SList *_bucket;
+		SListForward *_bucket;
 		iter _ii;
 
 		void IterateNext();

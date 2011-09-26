@@ -107,17 +107,17 @@ DList DList::Chop(DListItem *item)
 
 //// Forward-iterating singly-linked list
 
-void SList::PushFront(SListItem *item)
+void SListForward::PushFront(SListItem *item)
 {
 	CAT_FSLL_PUSH_FRONT(_head, item, _sl_next);
 }
 
-void SList::InsertAfter(SListItem *item, SListItem *after)
+void SListForward::InsertAfter(SListItem *item, SListItem *after)
 {
 	CAT_FSLL_INSERT_AFTER(_head, item, after, _sl_next);
 }
 
-void SList::EraseAfter(SListItem *item, SListItem *after)
+void SListForward::EraseAfter(SListItem *item, SListItem *after)
 {
 	CAT_FSLL_ERASE_AFTER(_head, item, after, _sl_next);
 }

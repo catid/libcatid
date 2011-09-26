@@ -30,6 +30,8 @@
 #include <cat/io/Log.hpp>
 using namespace cat;
 
+static Log *m_log = 0;
+
 
 //// LogThread
 
@@ -49,27 +51,59 @@ void LogThread::OnFinalize()
 	WaitForThread();
 }
 
-void LogThread::Entrypoint(void *param)
+void LogThread::RunList()
 {
-	while (!_die.Wait(100))
+	if (_list_size <= 0)
+		return;
+
+	AutoMutex lock(m_log->_lock);
+
+	// For each event to write,
+	for (u32 ii = 0; ii < _list_size; ++ii)
 	{
-		if (_list_size > 0)
-		{
-			SList temp;
-
-			_lock.WriteLock();
-
-			temp.Steal(_list);
-			_list_size = 0;
-
-			_lock.WriteUnlock();
-		}
+		LogItem *item = &_list[ii];
+		m_log->_callback(item->GetSeverity(), item->GetSource(), item->GetMsg());
 	}
+
+	_list_size = 0;
+}
+
+bool LogThread::Entrypoint(void *param)
+{
+	// Get Log reference
+	m_log = Log::ref();
+	if (!m_log || !m_log->IsInitialized()) return false;
+
+	// Inject myself into the output flow
+	m_log->SetInnerCallback(Log::Callback::FromMember<LogThread, &LogThread::Write>(this));
+
+	// Pump messages periodically
+	while (!_die.Wait(DUMP_INTERVAL))
+		RunList();
+
+	// Remove myself from the output flow
+	m_log->ResetInnerCallback();
+
+	// Run any that remain
+	RunList();
+
+	return true;
 }
 
 void LogThread::Write(EventSeverity severity, const char *source, const std::string &msg)
 {
-	LogItem *item = new LogItem(severity, source, msg);
+	// If list size is too large already,
+	if (_list_size == MAX_LIST_SIZE-1)
+	{
+		// Indicate overflow by changing source right before overflow occurs
+		source = "LOG OVERFLOW";
+	}
+	else if (_list_size >= MAX_LIST_SIZE)
+	{
+		// Abort after last one
+		return;
+	}
 
-	AutoReadLock lock(_lock);
+	// Insert
+	_list[_list_size++].Set(severity, source, msg);
 }

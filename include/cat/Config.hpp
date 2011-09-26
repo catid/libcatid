@@ -75,6 +75,9 @@ namespace cat {
 // Enable Ragdoll-based files to store empty keys
 #define CAT_RAGDOLL_STORE_EMPTY
 
+// Enable multi-threaded version of the logger, which reduces latency
+#define CAT_THREADED_LOGGER
+
 
 } // namespace cat
 

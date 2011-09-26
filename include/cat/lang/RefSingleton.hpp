@@ -141,7 +141,7 @@ public:
 
 	CAT_INLINE bool IsInitialized() { return _init_success; }
 
-	static void MergeSort(SList &list);
+	static void MergeSort(SListForward &list);
 };
 
 // Internal class
@@ -276,8 +276,8 @@ class CAT_EXPORT RefSingletons : public Singleton<RefSingletons>
 {
 	friend class RefSingletonImplBase;
 
-	SList _active_list;
-	typedef SList::Iterator<RefSingletonBase> iter;
+	SListForward _active_list;
+	typedef SListForward::Iterator<RefSingletonBase> iter;
 
 	static void OnExit();
 

@@ -218,7 +218,7 @@ bool HashTable::Grow()
 	CAT_INANE("HashTable") << "Growing to " << new_size << " buckets";
 
 	// Allocate larger bucket array
-	SList *new_buckets = new SList[new_size];
+	SListForward *new_buckets = new SListForward[new_size];
 	if (!new_buckets) return false;
 
 	// For each bucket,
@@ -256,7 +256,7 @@ HashTable::~HashTable()
 		// For each allocated bucket,
 		for (u32 ii = 0; ii < _allocated; ++ii)
 		{
-			SList &bucket = _buckets[ii];
+			SListForward &bucket = _buckets[ii];
 
 			// If bucket is not empty,
 			if (!bucket.Empty())

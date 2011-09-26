@@ -660,7 +660,7 @@ public:
 */
 class CAT_EXPORT SListItem
 {
-	friend class SList;
+	friend class SListForward;
 	friend class SListIteratorBase;
 
 protected:
@@ -671,7 +671,7 @@ protected:
 // Internal class
 class CAT_EXPORT SListIteratorBase
 {
-	friend class SList;
+	friend class SListForward;
 
 protected:
 	SListItem *_prev, *_item, *_next;
@@ -681,12 +681,12 @@ protected:
 /*
 	Access the linked list through this type.
 */
-class CAT_EXPORT SList
+class CAT_EXPORT SListForward
 {
 	SListItem *_head;
 
 public:
-	CAT_INLINE SList()
+	CAT_INLINE SListForward()
 	{
 		Clear();
 	}
@@ -698,17 +698,17 @@ public:
 	{
 		_head = 0;
 	}
-	CAT_INLINE SList &operator=(SList &list)
+	CAT_INLINE SListForward &operator=(SListForward &list)
 	{
 		_head = list._head;
 		return *this;
 	}
-	CAT_INLINE SList &operator=(SListItem *item)
+	CAT_INLINE SListForward &operator=(SListItem *item)
 	{
 		_head = item;
 		return *this;
 	}
-	CAT_INLINE void Steal(SList &list)
+	CAT_INLINE void Steal(SListForward &list)
 	{
 		_head = list._head;
 		list.Clear();
@@ -730,7 +730,7 @@ public:
 		When iterating forward through the list,
 		use the following mechanism:
 
-		typedef SList::Iterator<MyObject> iter;
+		typedef SListForward::Iterator<MyObject> iter;
 
 		for (iter ii = list; ii; ++ii)
 	*/
@@ -743,7 +743,7 @@ public:
 			_item = 0;
 		}
 
-		CAT_INLINE Iterator(SList &list)
+		CAT_INLINE Iterator(SListForward &list)
 		{
 			SListItem *head = list._head;
 
@@ -751,8 +751,7 @@ public:
 			_item = head;
 			_next = head ? head->_sl_next : 0;
 		}
-
-		CAT_INLINE Iterator &operator=(SList &list)
+		CAT_INLINE Iterator &operator=(SListForward &list)
 		{
 			SListItem *head = list._head;
 
@@ -767,7 +766,6 @@ public:
 		{
 			return static_cast<T*>( _item );
 		}
-
 		CAT_INLINE T *operator->()
 		{
 			return static_cast<T*>( _item );
@@ -786,7 +784,6 @@ public:
 
 			return *this;
 		}
-
 		CAT_INLINE Iterator &operator++(int) // post-increment
 		{
 			return ++*this;
