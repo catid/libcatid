@@ -79,10 +79,18 @@ class LogThread : public RefSingleton<LogThread>, public Thread
 	static const u32 MAX_LIST_SIZE = DUMP_INTERVAL * 2; // 2 events per millisecond max
 
 	WaitableFlag _die;
-	LogItem _list[MAX_LIST_SIZE];
-	u32 _list_size;
 
-	void RunList();
+	volatile int _list_writing;
+	LogItem *_list_ptr[2];
+	u32 _list_size[2];
+
+	u8 _cache_split_a[CAT_DEFAULT_CACHE_LINE_SIZE];
+	LogItem _list_a[MAX_LIST_SIZE];
+
+	u8 _cache_split_b[CAT_DEFAULT_CACHE_LINE_SIZE];
+	LogItem _list_b[MAX_LIST_SIZE];
+
+	void RunList(int writing_list);
 	bool Entrypoint(void *param);
 
 	void Write(EventSeverity severity, const char *source, const std::string &msg);
