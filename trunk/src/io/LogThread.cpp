@@ -39,7 +39,12 @@ CAT_REF_SINGLETON(LogThread);
 
 bool LogThread::OnInitialize()
 {
-	_list_size = 0;
+	_list_writing = 0;
+
+	_list_size[0] = 0;
+	_list_size[1] = 0;
+	_list_ptr[0] = _list_a;
+	_list_ptr[1] = _list_b;
 
 	return StartThread();
 }
@@ -51,21 +56,34 @@ void LogThread::OnFinalize()
 	WaitForThread();
 }
 
-void LogThread::RunList()
+void LogThread::RunList(int writing_list)
 {
-	if (_list_size <= 0)
-		return;
+	// If there are none waiting, abort
+	u32 list_size = _list_size[writing_list];
+	if (list_size <= 0) return;
 
-	AutoMutex lock(m_log->_lock);
+	// Lock and swap the reading/writing lists
+	int reading_list = writing_list;
+	writing_list ^= 1;
 
-	// For each event to write,
-	for (u32 ii = 0; ii < _list_size; ++ii)
-	{
-		LogItem *item = &_list[ii];
-		m_log->_callback(item->GetSeverity(), item->GetSource(), item->GetMsg());
-	}
+	m_log->_lock.Enter();
 
-	_list_size = 0;
+		_list_writing = writing_list;
+
+	m_log->_lock.Leave();
+
+	// Refresh the list size
+	list_size = _list_size[reading_list];
+	if (list_size <= 0) return;
+
+	// Invoke callbacks for each item
+	LogItem *items = _list_ptr[reading_list];
+
+	for (u32 ii = 0; ii < list_size; ++ii)
+		m_log->_callback(items[ii].GetSeverity(), items[ii].GetSource(), items[ii].GetMsg());
+
+	// Reset size to zero
+	_list_size[reading_list] = 0;
 }
 
 bool LogThread::Entrypoint(void *param)
@@ -79,31 +97,40 @@ bool LogThread::Entrypoint(void *param)
 
 	// Pump messages periodically
 	while (!_die.Wait(DUMP_INTERVAL))
-		RunList();
+		RunList(_list_writing);
 
 	// Remove myself from the output flow
 	m_log->ResetInnerCallback();
 
-	// Run any that remain
-	RunList();
+	// Run any that remain, in order
+	u32 list_writing = _list_writing;
+	RunList(list_writing ^ 1);
+	RunList(list_writing);
 
 	return true;
 }
 
 void LogThread::Write(EventSeverity severity, const char *source, const std::string &msg)
 {
+	int list_writing = _list_writing;
+	int list_size = _list_size[list_writing];
+
 	// If list size is too large already,
-	if (_list_size == MAX_LIST_SIZE-1)
+	if (list_size == MAX_LIST_SIZE-1)
 	{
 		// Indicate overflow by changing source right before overflow occurs
 		source = "LOG OVERFLOW";
 	}
-	else if (_list_size >= MAX_LIST_SIZE)
+	else if (list_size >= MAX_LIST_SIZE)
 	{
 		// Abort after last one
 		return;
 	}
 
-	// Insert
-	_list[_list_size++].Set(severity, source, msg);
+	// Append log item to the end
+	LogItem *items = _list_ptr[list_writing];
+	items[list_size++].Set(severity, source, msg);
+
+	// Store list size
+	_list_size[list_writing] = list_size;
 }
