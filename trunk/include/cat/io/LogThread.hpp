@@ -75,11 +75,12 @@ class LogThread : public RefSingleton<LogThread>, public Thread
 	bool OnInitialize();
 	void OnFinalize();
 
-	static const u32 DUMP_INTERVAL = 1000;
-	static const u32 MAX_LIST_SIZE = DUMP_INTERVAL * 2; // 2 events per millisecond max
+	static const u32 DUMP_INTERVAL = 100; // milliseconds
+	static const u32 MAX_LIST_SIZE = DUMP_INTERVAL * 20; // 20 events per millisecond max
 
 	WaitableFlag _die;
 
+	// Double-buffered log item list to reduce contention further
 	volatile int _list_writing;
 	LogItem *_list_ptr[2];
 	u32 _list_size[2];
