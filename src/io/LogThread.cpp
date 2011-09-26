@@ -117,15 +117,13 @@ void LogThread::Write(EventSeverity severity, const char *source, const std::str
 	int list_size = _list_size[list_writing];
 
 	// If list size is too large already,
-	if (list_size == MAX_LIST_SIZE-1)
-	{
-		// Indicate overflow by changing source right before overflow occurs
-		source = "LOG OVERFLOW";
-	}
-	else if (list_size >= MAX_LIST_SIZE)
+	if (list_size >= MAX_LIST_SIZE-1)
 	{
 		// Abort after last one
-		return;
+		if (list_size >= MAX_LIST_SIZE) return;
+
+		// Indicate overflow by changing source right before overflow occurs
+		source = "LOG OVERFLOW";
 	}
 
 	// Append log item to the end
