@@ -32,7 +32,6 @@
 #include <cat/lang/RefSingleton.hpp>
 #include <cat/threads/Thread.hpp>
 #include <cat/threads/WaitableFlag.hpp>
-#include <cat/lang/LinkedLists.hpp>
 
 /*
 	LogThread singleton
@@ -49,7 +48,7 @@ namespace cat {
 
 
 // Log item
-class LogItem : public DListItem
+class LogItem
 {
 	EventSeverity _severity;
 	const char *_source;

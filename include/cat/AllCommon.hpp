@@ -66,6 +66,7 @@
 #include <cat/lang/MergeSort.hpp>
 
 #include <cat/io/Log.hpp>
+#include <cat/io/LogThread.hpp>
 #include <cat/io/MappedFile.hpp>
 #include <cat/io/RagdollFile.hpp>
 #include <cat/io/Settings.hpp>
