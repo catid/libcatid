@@ -27,9 +27,8 @@
 */
 
 #include <cat/io/LogThread.hpp>
+#include <cat/io/Log.hpp>
 using namespace cat;
-
-static Log *m_log = 0;
 
 
 //// LogThread
@@ -38,8 +37,6 @@ CAT_REF_SINGLETON(LogThread);
 
 bool LogThread::OnInitialize()
 {
-	Use(m_log);
-
 	_list_size = 0;
 
 	return StartThread();
