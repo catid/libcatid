@@ -56,8 +56,10 @@ void LogThread::OnFinalize()
 	WaitForThread();
 }
 
-void LogThread::RunList(int writing_list)
+void LogThread::RunList()
 {
+	int writing_list = _list_writing;
+
 	// If there are none waiting, abort
 	u32 list_size = _list_size[writing_list];
 	if (list_size <= 0) return;
@@ -97,15 +99,14 @@ bool LogThread::Entrypoint(void *param)
 
 	// Pump messages periodically
 	while (!_die.Wait(DUMP_INTERVAL))
-		RunList(_list_writing);
+		RunList();
 
 	// Remove myself from the output flow
 	m_log->ResetInnerCallback();
 
-	// Run any that remain, in order
-	u32 list_writing = _list_writing;
-	RunList(list_writing ^ 1);
-	RunList(list_writing);
+	// Run any that remain
+	RunList();
+	RunList();
 
 	return true;
 }
