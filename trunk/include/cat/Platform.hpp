@@ -34,7 +34,7 @@
 namespace cat {
 
 
-// Used to detect if libcat is included
+// Used to detect whether or not libcat is included
 #define CAT_HAS_TOYS
 
 
@@ -552,6 +552,10 @@ union Float32 {
 
 
 //// String and buffer macros ////
+
+} // namespace cat
+#include <string.h>
+namespace cat {
 
 #if defined(CAT_OS_WINDOWS)
 # define CAT_NEWLINE "\r\n"
