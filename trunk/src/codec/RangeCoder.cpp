@@ -94,7 +94,7 @@ void TextStatsCollector::Tally(u8 x)
 bool TextStatsCollector::GenerateMinimalStaticTable(const char *TableName, std::ostream &osout)
 {
     u32 bytes = STATIC_TABLE_BYTES(total);
-    u8 *output = new u8[bytes + 3];
+    u8 *output = new (std::nothrow) u8[bytes + 3];
     if (!output)
     {
         osout << "Out of memory";

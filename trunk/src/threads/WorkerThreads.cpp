@@ -44,11 +44,11 @@ WorkerThread::WorkerThread()
 {
 	_kill_flag = false;
 
-	_timers = new WorkerTimer[INITIAL_TIMERS_ALLOCATED];
+	_timers = new (std::nothrow) WorkerTimer[INITIAL_TIMERS_ALLOCATED];
 	_timers_count = 0;
 	_timers_allocated = INITIAL_TIMERS_ALLOCATED;
 
-	_new_timers = new WorkerTimer[INITIAL_TIMERS_ALLOCATED];
+	_new_timers = new (std::nothrow) WorkerTimer[INITIAL_TIMERS_ALLOCATED];
 	_new_timers_count = 0;
 	_new_timers_allocated = INITIAL_TIMERS_ALLOCATED;
 
@@ -72,7 +72,7 @@ bool WorkerThread::Associate(RefObject *object, WorkerTimerDelegate callback)
 	{
 		u32 new_allocated = new_timers_count * 2;
 
-		WorkerTimer *new_timers = new WorkerTimer[new_allocated];
+		WorkerTimer *new_timers = new (std::nothrow) WorkerTimer[new_allocated];
 		if (!new_timers) return false;
 
 		memcpy(new_timers, _new_timers, _new_timers_count * sizeof(WorkerTimer));
@@ -137,7 +137,7 @@ void WorkerThread::TickTimers(u32 now)
 		{
 			u32 allocated = combined_count * 2;
 
-			WorkerTimer *timers = new WorkerTimer[allocated];
+			WorkerTimer *timers = new (std::nothrow) WorkerTimer[allocated];
 			if (!timers) return;
 
 			memcpy(timers, _timers, _timers_count * sizeof(WorkerTimer));
@@ -385,7 +385,7 @@ bool WorkerThreads::OnInitialize()
 	u32 worker_count = _worker_count;
 
 	// Allocate worker thread objects
-	_workers = new WorkerThread[worker_count];
+	_workers = new (std::nothrow) WorkerThread[worker_count];
 	if (!_workers)
 	{
 		CAT_FATAL("WorkerThreads") << "Out of memory while allocating " << worker_count << " worker thread objects";

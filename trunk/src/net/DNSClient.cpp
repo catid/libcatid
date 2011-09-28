@@ -733,7 +733,7 @@ bool DNSClientEndpoint::Resolve(const char *hostname, DNSDelegate callback, RefO
 	{
 		if (iStrEqual(ii->hostname, hostname))
 		{
-			DNSCallback *cb = new DNSCallback;
+			DNSCallback *cb = new (std::nothrow) DNSCallback;
 			if (!cb) return false;
 
 			if (holdRef) holdRef->AddRef(CAT_REFOBJECT_TRACE);
@@ -757,11 +757,11 @@ bool DNSClientEndpoint::Resolve(const char *hostname, DNSDelegate callback, RefO
 	CAT_INANE("DNSClient") << "Transmitting DNS request with id " << id;
 
 	// Create a new request
-	DNSRequest *request = new DNSRequest;
+	DNSRequest *request = new (std::nothrow) DNSRequest;
 	if (!request) return false;
 
 	// Create a new callback
-	DNSCallback *cb = new DNSCallback;
+	DNSCallback *cb = new (std::nothrow) DNSCallback;
 	if (!cb)
 	{
 		delete request;

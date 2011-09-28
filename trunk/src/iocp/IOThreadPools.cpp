@@ -310,7 +310,7 @@ bool IOThreadPool::Startup(u32 max_worker_count)
 	if (max_worker_count && worker_count > max_worker_count)
 		worker_count = max_worker_count;
 
-	_workers = new IOThread[worker_count];
+	_workers = new (std::nothrow) IOThread[worker_count];
 	if (!_workers)
 	{
 		CAT_FATAL("IOThreadPools") << "Out of memory while allocating " << worker_count << " worker thread objects";
@@ -454,7 +454,7 @@ IOThreadPool *IOThreadPools::AssociatePrivate(IOThreadsAssociator *associator)
 {
 	AutoMutex lock(_lock);
 
-	IOThreadPool *pool = new IOThreadPool;
+	IOThreadPool *pool = new (std::nothrow) IOThreadPool;
 	if (!pool) return false;
 
 	_private_pools.PushFront(pool);

@@ -94,9 +94,9 @@ BigTwistedEdwards *KeyAgreementCommon::InstantiateMath(int bits)
 {
 	switch (bits)
     {
-    case 256: return new BigTwistedEdwards(ECC_REG_OVERHEAD, 256, EDWARD_C_256, EDWARD_D_256, Q_256, GeneratorPoint_256);
-    case 384: return new BigTwistedEdwards(ECC_REG_OVERHEAD, 384, EDWARD_C_384, EDWARD_D_384, Q_384, GeneratorPoint_384);
-    case 512: return new BigTwistedEdwards(ECC_REG_OVERHEAD, 512, EDWARD_C_512, EDWARD_D_512, Q_512, GeneratorPoint_512);
+    case 256: return new (std::nothrow) BigTwistedEdwards(ECC_REG_OVERHEAD, 256, EDWARD_C_256, EDWARD_D_256, Q_256, GeneratorPoint_256);
+    case 384: return new (std::nothrow) BigTwistedEdwards(ECC_REG_OVERHEAD, 384, EDWARD_C_384, EDWARD_D_384, Q_384, GeneratorPoint_384);
+    case 512: return new (std::nothrow) BigTwistedEdwards(ECC_REG_OVERHEAD, 512, EDWARD_C_512, EDWARD_D_512, Q_512, GeneratorPoint_512);
 	default: return 0;
     }
 }

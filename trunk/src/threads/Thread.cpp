@@ -263,7 +263,7 @@ bool Thread::AtExit(const AtExitCallback &cb)
 	// If caller needs to be allocated,
 	if (!caller)
 	{
-		caller = new ThreadAtExitCaller;
+		caller = new (std::nothrow) ThreadAtExitCaller;
 		if (!caller)
 		{
 			CAT_FATAL("Thread") << "Out of memory";

@@ -40,7 +40,7 @@ bool UDPRecvAllocator::OnInitialize()
 	// Grab buffer count
 	int buffer_count = Use<Settings>()->getInt("Net::UDPRecvAllocator.BufferCount", DEFAULT_BUFFER_COUNT, MIN_BUFFER_COUNT, MAX_BUFFER_COUNT);
 
-	_allocator = new BufferAllocator(sizeof(RecvBuffer) + IOTHREADS_BUFFER_READ_BYTES, buffer_count);
+	_allocator = new (std::nothrow) BufferAllocator(sizeof(RecvBuffer) + IOTHREADS_BUFFER_READ_BYTES, buffer_count);
 
 	return _allocator && _allocator->Valid(); 
 }

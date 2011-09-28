@@ -87,7 +87,7 @@ void SecureServerDemo::OnChallenge(TunnelTLS *tls, const Address &source, u8 *bu
     //cout << "Server: Creating a new connection" << endl;
 
     // Create the connection
-    Connection *client = new Connection(source);
+    Connection *client = new (std::nothrow) Connection(source);
 
     u8 answer[CAT_S2C_ANSWER_BYTES];
 
