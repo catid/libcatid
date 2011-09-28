@@ -155,6 +155,15 @@ public:
 #define CAT_OOPS(subsystem)		CAT_RECORD(subsystem, cat::LVL_OOPS)
 #define CAT_FATAL(subsystem)	CAT_RECORD(subsystem, cat::LVL_FATAL)
 
+// If not in debug mode,
+#if !defined(CAT_DEBUG)
+
+// Conditionally compile-out INANE-mode logging
+#undef CAT_INANE
+#define CAT_INANE(subsystem)	while (false) Recorder(subsystem, cat::LVL_INANE)
+
+#endif // CAT_DEBUG
+
 
 //// Enforcer
 
