@@ -78,6 +78,13 @@ namespace cat {
 // Enable multi-threaded version of the logger, which reduces latency
 #define CAT_THREADED_LOGGER
 
+// When not in debug mode, enable/disable levels of logging
+#define CAT_RELEASE_DISABLE_INANE
+//#define CAT_RELEASE_DISABLE_INFO
+//#define CAT_RELEASE_DISABLE_WARN
+//#define CAT_RELEASE_DISABLE_OOPS
+//#define CAT_RELEASE_DISABLE_FATAL
+
 
 } // namespace cat
 
