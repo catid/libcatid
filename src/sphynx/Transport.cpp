@@ -865,7 +865,7 @@ void Transport::OnFragment(TransportTLS *tls, u32 recv_time, u8 *data, u32 bytes
 			else
 			{
 				// Allocate fragment buffer
-				_fragments[stream].buffer = new u8[frag_length];
+				_fragments[stream].buffer = new (std::nothrow) u8[frag_length];
 				if (!_fragments[stream].buffer)
 				{
 					CAT_WARN("Transport") << "Out of memory: Unable to allocate fragment buffer";

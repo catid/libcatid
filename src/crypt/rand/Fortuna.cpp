@@ -218,5 +218,5 @@ FortunaOutput *FortunaFactory::Create()
 	if (!IsInitialized())
 		return 0;
 
-	return new FortunaOutput;
+	return new (std::nothrow) FortunaOutput;
 }

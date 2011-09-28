@@ -218,7 +218,7 @@ bool HashTable::Grow()
 	CAT_INANE("HashTable") << "Growing to " << new_size << " buckets";
 
 	// Allocate larger bucket array
-	SListForward *new_buckets = new SListForward[new_size];
+	SListForward *new_buckets = new (std::nothrow) SListForward[new_size];
 	if (!new_buckets) return false;
 
 	// For each bucket,
@@ -303,7 +303,7 @@ HashItem *HashTable::Create(const KeyAdapter &key)
 	if (!_buckets && !Grow()) return 0;
 
 	// If cannot create an item,
-	HashItem *item = new HashItem(key);
+	HashItem *item = new (std::nothrow) HashItem(key);
 	if (!item) return 0;
 
 	// If time to grow,

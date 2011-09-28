@@ -87,7 +87,7 @@ public:
 	template<class T>
 	static T *Create(const char *file_line, T *&obj)
 	{
-		obj = new T;
+		obj = new (std::nothrow) T;
 
 		if (obj && !RefObjects::ref()->Watch(file_line, obj))
 			obj = 0;
@@ -99,7 +99,7 @@ public:
 	template<class T>
 	static T *Create(const char *file_line)
 	{
-		T *obj = new T;
+		T *obj = new (std::nothrow) T;
 
 		if (obj && !RefObjects::ref()->Watch(file_line, obj))
 			obj = 0;

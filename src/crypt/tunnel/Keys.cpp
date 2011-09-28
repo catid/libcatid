@@ -97,7 +97,8 @@ std::string TunnelKeyPair::SaveBase64()
 
 	u32 pair_bytes = _key_bytes * 3;
 	int encoded_bytes = GetBase64LengthFromBinaryLength(pair_bytes);
-	char *base64_encoded = new char[encoded_bytes + 1];
+	char *base64_encoded = new (std::nothrow) char[encoded_bytes + 1];
+	if (!base64_encoded) return "<out of memory>";
 
 	int bytes = WriteBase64Str(_key_pair, pair_bytes, base64_encoded, encoded_bytes);
 

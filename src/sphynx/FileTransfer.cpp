@@ -148,7 +148,7 @@ void FileTransferSource::StartTransfer(QueuedFile *file, Transport *transport)
 bool FileTransferSource::TransferFile(u32 worker_id, u8 opcode, const std::string &source_path, const std::string &sink_path, Transport *transport, u32 priority)
 {
 	// Build a queued file object
-	QueuedFile *file = new QueuedFile;
+	QueuedFile *file = new (std::nothrow) QueuedFile;
 	if (!file)
 	{
 		CAT_WARN("FileTransferSource") << "Out of memory: Unable to allocate QueuedFile";
@@ -309,7 +309,7 @@ void FileTransferSink::OnReadHuge(u32 stream, BufferStream data, u32 size)
 
 	_file->AddRef(CAT_REFOBJECT_TRACE);
 
-	WriteBuffer *buffer = new WriteBuffer;
+	WriteBuffer *buffer = new (std::nothrow) WriteBuffer;
 	buffer->worker_id = _worker_id;
 	buffer->callback.SetMember<FileTransferSink, &FileTransferSink::OnWrite>(this);
 

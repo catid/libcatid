@@ -287,7 +287,8 @@ static int compare_u32(const void *aPtr,const void *bPtr)
 // Algorithm from Skein test app
 u32 Clock::MeasureClocks(int iterations, void (*FunctionPtr)())
 {
-    u32 *timings = new u32[iterations];
+    u32 *timings = new (std::nothrow) u32[iterations];
+	if (!timings) return 0;
 
     SetHighPriority();
     Clock::sleep(200);

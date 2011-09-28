@@ -43,7 +43,7 @@ TunnelTLS *TunnelTLS::ref()
 	if (!tls)
 	{
 		// Create an instance
-		tls = new TunnelTLS;
+		tls = new (std::nothrow) TunnelTLS;
 		if (!tls)
 		{
 			CAT_FATAL("Tunnel") << "Out of memory";
