@@ -53,7 +53,6 @@ bool Transport::InitializeRandPad(AuthenticatedEncryption &auth_enc)
 
 	_rand_pad_csprng.ReKey(key, 7);
 
-	_rand_pad_iv = 0;
 	_rand_pad_index = 64; // indicate that regeneration is needed
 
 	return true;

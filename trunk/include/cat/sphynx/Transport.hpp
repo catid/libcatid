@@ -378,7 +378,6 @@ class CAT_EXPORT Transport
 	// Random padding state
 	ChaChaOutput _rand_pad_csprng;
 	u8 _rand_pad_source[64];
-	u64 _rand_pad_iv;
 	u32 _rand_pad_index;
 
 	bool InitializeRandPad(AuthenticatedEncryption &auth_enc);
