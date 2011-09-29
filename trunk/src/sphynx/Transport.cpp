@@ -860,7 +860,7 @@ void Transport::OnFragment(TransportTLS *tls, u32 recv_time, u8 *data, u32 bytes
 
 			// If message is huge,
 			if (frag_length == FRAG_HUGE)
-				_fragments[stream].offset = 1;
+				_fragments[stream].offset = 1; // Mark as having seen fragment header
 			else
 			{
 				// Allocate fragment buffer
