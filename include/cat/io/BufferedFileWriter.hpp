@@ -44,6 +44,30 @@ namespace cat {
 static const u32 OPTIMAL_FILE_WRITE_CHUNK_SIZE = 32768;
 static const u32 OPTIMAL_FILE_WRITE_MODE = ASYNCFILE_WRITE | ASYNCFILE_SEQUENTIAL | ASYNCFILE_NOBUFFER;
 
+class BufferedFileWriter : public AsyncFile
+{
+	u8 *_cache;
+	u32 _cache_size, _cache_used;
+	u64 _offset;
+	u64 _file_size;
+
+public:
+	BufferedFileWriter();
+	virtual ~BufferedFileWriter();
+
+	CAT_INLINE u64 Offset() { return _offset; }
+	CAT_INLINE u64 Size() { return _file_size; }
+	CAT_INLINE u64 Remaining()
+	{
+		s64 remaining = (s64)(_file_size - _offset);
+		return remaining > 0 ? remaining : 0;
+	}
+
+	bool Open(const char *file_path, u32 worker_id);
+
+	bool Write(const u8 *buffer, u32 bytes);
+};
+
 
 } // namespace cat
 
