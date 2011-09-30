@@ -91,9 +91,6 @@ bool FileTransferSource::Read(StreamMode stream, u8 *dest, u32 &bytes, Transport
 
 	QueuedFile *active = _active_list[0];
 
-	// TODO: Testing transfer speed
-	memset(dest, 0, bytes);
-/*
 	if (!active->reader->Read(dest, bytes, bytes))
 	{
 		CAT_WARN("FileTransferSource") << "Reached end of data";
@@ -103,7 +100,7 @@ bool FileTransferSource::Read(StreamMode stream, u8 *dest, u32 &bytes, Transport
 		bytes = 0;
 		return false;
 	}
-*/
+
 	return true;
 }
 
@@ -118,10 +115,12 @@ void FileTransferSource::ClearHeap()
 		QueuedFile *file = _heap.top();
 		_heap.pop();
 
+		if (file->reader)
+			file->reader->Destroy(CAT_REFOBJECT_TRACE);
+
 		if (file->msg)
 			OutgoingMessage::Release(file->msg);
 
-		// Free memory
 		delete file;
 	}
 }
@@ -131,7 +130,6 @@ void FileTransferSource::StartTransfer(QueuedFile *file, Transport *transport)
 	// Grab the message and remove its reference from the file object
 	u8 *msg = file->msg;
 	file->msg = 0;
-
 
 	_active_list.push_back(file);
 
@@ -289,13 +287,17 @@ bool FileTransferSink::OnFileStart(u32 worker_id, BufferStream msg, u32 bytes)
 
 void FileTransferSink::OnWrite(const BatchSet &buffers)
 {
+	s32 count = 0;
 	for (BatchHead *next, *head = buffers.head; head; head = next)
 	{
 		WriteBuffer *buffer = (WriteBuffer*)head;
 		next = head->batch_next;
 
 		delete buffer;
+		++count;
 	}
+
+	_file->ReleaseRef(CAT_REFOBJECT_TRACE, count);
 }
 
 void FileTransferSink::OnReadHuge(u32 stream, BufferStream data, u32 size)
@@ -303,7 +305,7 @@ void FileTransferSink::OnReadHuge(u32 stream, BufferStream data, u32 size)
 	if (!_file)
 	{
 		// TODO: Don't waste console time on this
-		//CAT_WARN("FileTransferSink") << "Ignored huge read when no file transfer was expected";
+		CAT_WARN("FileTransferSink") << "Ignored huge read when no file transfer was expected";
 		return;
 	}
 

@@ -510,7 +510,7 @@ void Transport::OnTransportDatagrams(const BatchSet &delivery)
 		s32 bytes = buffer->data_bytes;
 		u32 recv_time = buffer->event_msec;
 
-		// And start peeling out messages from the warm gooey center of the packet
+		// Start peeling out messages from the warm gooey center of the packet
 		u32 ack_id = 0, stream = 0;
 
 		CAT_INANE("Transport") << "Datagram dump " << bytes << ":" << HexDumpString(data, bytes);

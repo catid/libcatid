@@ -403,7 +403,7 @@ void GetHarddiskDump()
 						DISK_PARTITION_INFO *parts = DiskGeometryGetPartition(geometry);
 
 						const u32 GEOMETRY_BYTES = offsetof(DISK_GEOMETRY_EX, Data);
-
+/*
 						// Verify that drive is fixed
 						if (geometry->Geometry.MediaType == FixedMedia)
 						{
@@ -412,7 +412,7 @@ void GetHarddiskDump()
 							CAT_WARN("AsyncFileBench") << " - Cylinders = " << (u64)geometry->Geometry.Cylinders.QuadPart;
 							CAT_WARN("AsyncFileBench") << " - Sectors per track = " << geometry->Geometry.SectorsPerTrack;
 							CAT_WARN("AsyncFileBench") << " - Tracks per cylinder = " << geometry->Geometry.TracksPerCylinder;
-						}
+						}*/
 					}
 				}
 			}
@@ -647,6 +647,12 @@ int RunCRC7Tests()
 	return 0;
 }
 
+void MeasureGetDiskFreeSpace()
+{
+	DWORD sectors_per_cluster, bytes_per_sector, number_of_free_clusters, total_number_of_clusters;
+	GetDiskFreeSpace(0, &sectors_per_cluster, &bytes_per_sector, &number_of_free_clusters, &total_number_of_clusters);
+}
+
 int main(int argc, char **argv)
 {
 	RunCRC7Tests();
@@ -655,12 +661,21 @@ int main(int argc, char **argv)
 	m_clock = Clock::ref();
 	m_large_allocator = LargeAllocator::ref();
 
+	u32 cycles_start = Clock::cycles();
+	DWORD sectors_per_cluster, bytes_per_sector, number_of_free_clusters, total_number_of_clusters;
+	GetDiskFreeSpace(0, &sectors_per_cluster, &bytes_per_sector, &number_of_free_clusters, &total_number_of_clusters);
+	u32 cycles_end = Clock::cycles();
+
+	u32 cycles = Clock::MeasureClocks(1000, &MeasureGetDiskFreeSpace);
+
+	CAT_WARN("AsyncFileBench") << "GetDiskFreeSpace timing: first=" << cycles_end - cycles_start << " avg=" << cycles;
+
 	CAT_WARN("AsyncFileBench") << "Allocation granularity = " << m_system_info->GetAllocationGranularity();
 	CAT_WARN("AsyncFileBench") << "Cache line bytes = " << m_system_info->GetCacheLineBytes();
 	CAT_WARN("AsyncFileBench") << "Page size = " << m_system_info->GetPageSize();
 	CAT_WARN("AsyncFileBench") << "Processor count = " << m_system_info->GetProcessorCount();
+	CAT_WARN("AsyncFileBench") << "Physical max sector size = " << m_system_info->GetMaxSectorSize();
 
-	GetHarddiskDump();
 	GetCdRomDump();
 	
 	WaitableFlag flag;

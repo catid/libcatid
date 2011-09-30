@@ -35,6 +35,7 @@ using namespace cat;
 #if defined(CAT_OS_WINDOWS)
 # include <cat/port/WindowsInclude.hpp>
 # include <cat/math/BitMath.hpp>
+# include <WinIoCtl.h>
 	typedef BOOL (WINAPI* PGetLogicalProcessorInformation)(PSYSTEM_LOGICAL_PROCESSOR_INFORMATION, PDWORD);
 #elif defined(CAT_OS_LINUX) || defined(CAT_OS_AIX) || defined(CAT_OS_SOLARIS) || defined(CAT_OS_IRIX)
 # include <unistd.h>
@@ -217,6 +218,106 @@ static u32 GetAllocationGranularity()
 	return alloc_gran > 0 ? alloc_gran : CAT_DEFAULT_ALLOCATION_GRANULARITY;
 }
 
+static u32 GetMaxSectorSize()
+{
+	u32 sector_size = 0;
+
+#if defined(CAT_OS_WINDOWS)
+
+	/*
+		Sector size is 512 almost everywhere, so this isn't a huge deal
+		but I wanted this to be more future-proof and faster on new disks.
+
+		In Windows, the normal way to get sector size is to call GetDiskFreeSpace(),
+		but this function takes over twice as long as doing it with DeviceIoControl().
+		Also, with Vista+, this is the only way to get *physical* sector sizes since
+		there is an emulation layer for new disks that will fake 512B sector sizes.
+	*/
+
+	OSVERSIONINFOA info;
+	info.dwOSVersionInfoSize = sizeof(info);
+	GetVersionExA(&info);
+
+	// If OS version is Vista+,
+	bool use_physical_sector_size = info.dwMajorVersion >= 6;
+
+	const int MAX_DRIVES = 16;
+	char device_name[20] = "\\\\.\\PhysicalDrive";
+
+	for (int ii = 0; ii < MAX_DRIVES; ++ii)
+	{
+		// Generate device name string
+		if (ii < 10)
+		{
+			device_name[17] = ii + '0';
+			device_name[18] = '\0';
+		}
+		else
+		{
+			device_name[17] = '1';
+			device_name[18] = ii - 10 + '0';
+			device_name[19] = '\0';
+		}
+
+		// Open device
+		HANDLE device = CreateFileA(device_name, 0, FILE_SHARE_READ | FILE_SHARE_WRITE, 0, OPEN_EXISTING, 0, 0);
+		if (device != INVALID_HANDLE_VALUE)
+		{
+			u32 bytes_per_sector = 0;
+
+			u8 buffer[4096];
+			CAT_OBJCLR(buffer);
+			DWORD bytes;
+
+			// If Vista+,
+			if (use_physical_sector_size)
+			{
+				STORAGE_PROPERTY_QUERY query;
+				CAT_OBJCLR(query);
+				query.PropertyId = StorageAccessAlignmentProperty;
+				query.QueryType = PropertyStandardQuery;
+
+				// Read alignment property
+				if (DeviceIoControl(device, IOCTL_STORAGE_QUERY_PROPERTY, &query, sizeof(query), buffer, sizeof(buffer), &bytes, 0))
+				{
+					STORAGE_ACCESS_ALIGNMENT_DESCRIPTOR *descriptor = (STORAGE_ACCESS_ALIGNMENT_DESCRIPTOR*)buffer;
+
+					if (bytes >= sizeof(STORAGE_ACCESS_ALIGNMENT_DESCRIPTOR))
+						bytes_per_sector = descriptor->BytesPerPhysicalSector;
+				}
+			}
+			else
+			{
+				// Read geometry
+				if (DeviceIoControl(device, IOCTL_DISK_GET_DRIVE_GEOMETRY_EX, 0, 0, buffer, sizeof(buffer), &bytes, 0))
+				{
+					DISK_GEOMETRY_EX *geometry = (DISK_GEOMETRY_EX*)buffer;
+
+					if (bytes >= offsetof(DISK_GEOMETRY_EX, Data))
+						bytes_per_sector = geometry->Geometry.BytesPerSector;
+				}
+			}
+
+			// Validate input is a power of two and highest so far
+			if (sector_size < bytes_per_sector &&
+				CAT_IS_POWER_OF_2(bytes_per_sector))
+			{
+				sector_size = bytes_per_sector;
+			}
+
+			CloseHandle(device);
+		}
+	}
+
+#else
+
+	return CAT_DEFAULT_SECTOR_SIZE;
+
+#endif
+
+	return sector_size > 0 ? sector_size : CAT_DEFAULT_SECTOR_SIZE;
+}
+
 
 //// SystemInfo
 
@@ -228,6 +329,7 @@ bool SystemInfo::OnInitialize()
 	_ProcessorCount = ::GetProcessorCount();
 	_PageSize = ::GetPageSize();
 	_AllocationGranularity = ::GetAllocationGranularity();
+	_MaxSectorSize = ::GetMaxSectorSize();
 
 	return true;
 }
