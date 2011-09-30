@@ -32,26 +32,9 @@
 #include <cat/io/Buffers.hpp>
 
 /*
-	This implementation of a polled file reader is designed for maximum
-	throughput.  The access patterns are tuned to work for a wide range
-	of common disk types:
+	BufferedFileWriter
 
-	+ The reads are hinted as sequential access pattern to help the OS.
-	I have noticed this helping ever so slightly.  It cannot hurt anyway.
-
-	+ Each read is not buffered by the OS since that halves the throughput
-	in some cases.  File caching should be implemented by the application
-	to have your cake and eat it too.  Note that this means that the read
-	buffers must be page-aligned, but that is handled internally here.
-
-	+ There are always 2 * (processor count) requests outstanding, and at
-	least 16 even if the processor count is low to allow for very fast
-	RAID arrays of SSDs to perform at their peak.
-	For single mechanical disks, this can be set lower without hurting.
-
-	+ Each read from the disks is 32768 bytes.  It's the magic number.
-	In some cases raising the number will not hurt much.
-	In most cases lowering this number will hurt.
+	Batches data into large buffers sized to be a multiple of the sector size.
 */
 
 namespace cat {

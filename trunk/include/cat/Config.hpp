@@ -55,6 +55,7 @@ namespace cat {
 #define CAT_DEFAULT_CPU_COUNT 1
 #define CAT_DEFAULT_PAGE_SIZE 65536
 #define CAT_DEFAULT_ALLOCATION_GRANULARITY CAT_DEFAULT_PAGE_SIZE
+#define CAT_DEFAULT_SECTOR_SIZE 512
 
 // Enable leak debug mode of the common runtime heap allocator
 //#define CAT_DEBUG_LEAKS

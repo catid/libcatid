@@ -37,6 +37,9 @@ PolledFileReader::PolledFileReader()
 	u32 cache_size = Settings::ref()->getInt("IO.PolledFileReader.ReadAheadCacheSize", 1024*1024*2);
 
 	// Make it a multiple of the page size
+	// NOTE: Actually needs to be sector aligned but if the file is on a CD then the sector size
+	// is usually larger than any of the fixed disks.  The page size is usually larger than the
+	// sector size of any media, so it is safe to use here.
 	cache_size -= cache_size % SystemInfo::ref()->GetPageSize();
 	_cache_size = cache_size;
 
@@ -103,7 +106,7 @@ bool PolledFileReader::Read(u8 *buffer, u32 requested, u32 &bytes_read)
 		u32 front_read = min(front_remaining, requested);
 
 		// Copy from front buffer
-		memcpy(buffer, _cache[_cache_front_index], front_read);
+		memcpy(buffer, _cache[_cache_front_index] + _cache_offset, front_read);
 
 		// Update counters
 		buffer += front_read;

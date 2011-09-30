@@ -50,11 +50,15 @@ class CAT_EXPORT SystemInfo : public Singleton<SystemInfo>
 	// Allocation granularity
 	u32 _AllocationGranularity;
 
+	// Maximum sector size of all fixed disks
+	u32 _MaxSectorSize;
+
 public:
 	CAT_INLINE u32 GetCacheLineBytes() { return _CacheLineBytes; }
 	CAT_INLINE u32 GetProcessorCount() { return _ProcessorCount; }
 	CAT_INLINE u32 GetPageSize() { return _PageSize; }
 	CAT_INLINE u32 GetAllocationGranularity() { return _AllocationGranularity; }
+	CAT_INLINE u32 GetMaxSectorSize() { return _MaxSectorSize; }
 };
 
 
