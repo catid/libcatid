@@ -31,3 +31,21 @@
 #include <cat/io/Settings.hpp>
 #include <cat/mem/LargeAllocator.hpp>
 using namespace cat;
+
+BufferedFileWriter::BufferedFileWriter()
+{
+}
+
+BufferedFileWriter::~BufferedFileWriter()
+{
+}
+
+bool BufferedFileWriter::Open(const char *file_path, u32 worker_id)
+{
+	return true;
+}
+
+bool BufferedFileWriter::Write(const u8 *buffer, u32 bytes)
+{
+	return true;
+}
