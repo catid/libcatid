@@ -26,22 +26,21 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_UDP_RECV_ALLOCATOR_HPP
-#define CAT_UDP_RECV_ALLOCATOR_HPP
+#ifndef CAT_FILE_WRITE_ALLOCATOR_HPP
+#define CAT_FILE_WRITE_ALLOCATOR_HPP
 
 #include <cat/mem/BufferAllocator.hpp>
 
 /*
-	UDP RecvFrom() buffer allocator
+	FileWriteAllocator
 
-	Preallocates buffers large enough to contain a UDP packet with overhead,
-	which will be used when receiving data from remote hosts.
+	Pre-allocates a number of buffers that are disk-sector aligned.
 */
 
 namespace cat {
 
 
-class UDPRecvAllocator : public RefSingleton<UDPRecvAllocator>
+class FileWriteAllocator : public RefSingleton<FileWriteAllocator>
 {
 	static const int MAX_BUFFER_COUNT = 100000;
 	static const int DEFAULT_BUFFER_COUNT = 10000;
@@ -70,4 +69,4 @@ public:
 
 } // namespace cat
 
-#endif // CAT_UDP_RECV_ALLOCATOR_HPP
+#endif // CAT_FILE_WRITE_ALLOCATOR_HPP

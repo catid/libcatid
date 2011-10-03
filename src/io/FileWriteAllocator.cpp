@@ -26,48 +26,28 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_UDP_RECV_ALLOCATOR_HPP
-#define CAT_UDP_RECV_ALLOCATOR_HPP
-
-#include <cat/mem/BufferAllocator.hpp>
-
-/*
-	UDP RecvFrom() buffer allocator
-
-	Preallocates buffers large enough to contain a UDP packet with overhead,
-	which will be used when receiving data from remote hosts.
-*/
-
-namespace cat {
+#include <cat/io/BufferedFileWriter.hpp>
+#include <cat/port/SystemInfo.hpp>
+#include <cat/io/Settings.hpp>
+#include <cat/mem/LargeAllocator.hpp>
+using namespace cat;
 
 
-class UDPRecvAllocator : public RefSingleton<UDPRecvAllocator>
+//// FileWriteAllocator
+
+CAT_REF_SINGLETON(UDPRecvAllocator);
+
+bool UDPRecvAllocator::OnInitialize()
 {
-	static const int MAX_BUFFER_COUNT = 100000;
-	static const int DEFAULT_BUFFER_COUNT = 10000;
-	static const int MIN_BUFFER_COUNT = 1000;
+	// Grab buffer count
+	int buffer_count = Use<Settings>()->getInt("Net::UDPRecvAllocator.BufferCount", DEFAULT_BUFFER_COUNT, MIN_BUFFER_COUNT, MAX_BUFFER_COUNT);
 
-	BufferAllocator *_allocator;
+	_allocator = new (std::nothrow) BufferAllocator(sizeof(RecvBuffer) + IOTHREADS_BUFFER_READ_BYTES, buffer_count);
 
-	bool OnInitialize();
-	void OnFinalize();
+	return _allocator && _allocator->Valid(); 
+}
 
-public:
-	// Attempt to acquire a number of buffers, pre-fixed size
-	// Returns the number of valid buffers it was able to allocate
-	CAT_INLINE u32 AcquireBatch(BatchSet &set, u32 count)
-	{
-		return _allocator->AcquireBatch(set, count);
-	}
-
-	// Release a number of buffers simultaneously
-	CAT_INLINE void ReleaseBatch(const BatchSet &set)
-	{
-		_allocator->ReleaseBatch(set);
-	}
-};
-
-
-} // namespace cat
-
-#endif // CAT_UDP_RECV_ALLOCATOR_HPP
+void UDPRecvAllocator::OnFinalize()
+{
+	if (_allocator) delete _allocator;
+}

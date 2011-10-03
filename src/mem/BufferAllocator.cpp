@@ -38,7 +38,8 @@ BufferAllocator::BufferAllocator(u32 buffer_min_size, u32 buffer_count)
 
 	u32 cacheline_bytes = SystemInfo::ref()->GetCacheLineBytes();
 
-	u32 buffer_bytes = CAT_CEIL(sizeof(BatchHead) + buffer_min_size, cacheline_bytes);
+	const u32 overhead_bytes = sizeof(BatchHead);
+	u32 buffer_bytes = CAT_CEIL(overhead_bytes + buffer_min_size, cacheline_bytes);
 	u32 total_bytes = buffer_count * buffer_bytes;
 	u8 *buffers = (u8*)LargeAllocator::ref()->Acquire(total_bytes);
 
