@@ -263,5 +263,8 @@
     <ClInclude Include="..\..\include\cat\io\LogThread.hpp">
       <Filter>Header Files\io</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\include\cat\lang\MulticastDelegates.hpp">
+      <Filter>Header Files\lang</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

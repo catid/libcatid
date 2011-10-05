@@ -30,6 +30,7 @@
 #define CAT_BUFFERED_FILE_WRITER_HPP
 
 #include <cat/io/Buffers.hpp>
+#include <cat/lang/Delegates.hpp>
 
 /*
 	BufferedFileWriter
@@ -40,32 +41,40 @@
 namespace cat {
 
 
-// See above for rationale of these choices
-static const u32 OPTIMAL_FILE_WRITE_CHUNK_SIZE = 32768;
-static const u32 OPTIMAL_FILE_WRITE_MODE = ASYNCFILE_WRITE | ASYNCFILE_SEQUENTIAL | ASYNCFILE_NOBUFFER;
-
+// Buffered file writer
 class BufferedFileWriter : public AsyncFile
 {
-	u8 *_cache;
-	u32 _cache_size, _cache_used;
-	u64 _offset;
-	u64 _file_size;
+	u32 _worker_id;
+
+	WriteBuffer *_cache;
+
+	u64 _file_offset, _file_size;
+	u32 _cache_bucket_size, _cache_bucket_remaining;
+
+protected:
+	virtual bool OnInitialize();
+	virtual bool OnFinalize();
 
 public:
-	BufferedFileWriter();
-	virtual ~BufferedFileWriter();
+	CAT_INLINE virtual ~BufferedFileWriter() {}
 
-	CAT_INLINE u64 Offset() { return _offset; }
+	CAT_INLINE u64 Offset() { return _file_offset; }
 	CAT_INLINE u64 Size() { return _file_size; }
 	CAT_INLINE u64 Remaining()
 	{
-		s64 remaining = (s64)(_file_size - _offset);
+		s64 remaining = (s64)(_file_size - _file_offset);
 		return remaining > 0 ? remaining : 0;
 	}
 
-	bool Open(const char *file_path, u32 worker_id);
+	// Specify the path to the file and its final size
+	// Provide the worker thread id that will be used for write completion notification
+	bool Open(const char *file_path, u64 file_size, u32 worker_id);
 
+	// Write some more data into the file
 	bool Write(const u8 *buffer, u32 bytes);
+
+	// Be notified when the final write completes
+	typedef Delegate1<void, bool> OnWriteCompleteDelegate;
 };
 
 

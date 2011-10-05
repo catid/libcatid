@@ -26,62 +26,40 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/io/BufferedFileWriter.hpp>
-#include <cat/io/FileWriteAllocator.hpp>
-using namespace cat;
+#ifndef CAT_MULTICAST_DELEGATES_HPP
+#define CAT_MULTICAST_DELEGATES_HPP
 
-static FileWriteAllocator *m_file_write_allocator = 0;
+#include <cat/lang/Delegates.hpp>
+
+/*
+	Multicast Delegate
+
+	Contains several delegates and can invoke all of them when the associated
+	event occurs.
+*/
+
+namespace cat {
 
 
-//// BufferedFileWriter
-
-bool BufferedFileWriter::OnInitialize()
+template<class T>
+class MulticastDelegate
 {
-	Use(m_file_write_allocator);
+	static const int PREALLOC_COUNT = 2;
 
-	return AsyncFile::OnInitialize();
-}
+	T _prealloc[PREALLOC_COUNT];
+	T *_extended;
+	int _count;
 
-bool BufferedFileWriter::OnFinalize()
-{
-	if (_cache) m_file_write_allocator->ReleaseBatch(_cache);
+public:
+	MulticastDelegate();
+	~MulticastDelegate();
 
-	return AsyncFile::OnFinalize();
-}
-
-bool BufferedFileWriter::Open(const char *file_path, u64 file_size, u32 worker_id)
-{
-	// If file could not be opened,
-	if (!AsyncFile::Open(file_path, ASYNCFILE_WRITE | ASYNCFILE_SEQUENTIAL | ASYNCFILE_NOBUFFER))
+	bool AddListener(const T &element)
 	{
-		CAT_WARN("BufferedFileWriter") << "Unable to open " << file_path;
-		return false;
 	}
+};
 
-	u64 rounded_file_size = file_size;
-	u32 cache_bucket_size = m_file_write_allocator->GetBufferBytes();
-	u32 overflow_bytes = rounded_file_size % cache_bucket_size;
 
-	// Round up to next bucket size multiple
-	if (overflow_bytes > 0)
-		rounded_file_size += cache_bucket_size - overflow_bytes;
+} // namespace cat
 
-	// If resizing fails,
-	if (!AsyncFile::SetSize(rounded_file_size))
-	{
-		CAT_WARN("BufferedFileWriter") << "Unable to resize " << file_path;
-		return false;
-	}
-
-	_cache_bucket_size = cache_bucket_size;
-	_file_size = file_size;
-	_file_offset = 0;
-	_worker_id = worker_id;
-
-	return true;
-}
-
-bool BufferedFileWriter::Write(const u8 *buffer, u32 bytes)
-{
-	return true;
-}
+#endif // CAT_MULTICAST_DELEGATES_HPP
