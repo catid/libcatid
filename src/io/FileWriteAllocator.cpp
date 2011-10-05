@@ -26,28 +26,193 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/io/BufferedFileWriter.hpp>
+#include <cat/io/FileWriteAllocator.hpp>
 #include <cat/port/SystemInfo.hpp>
 #include <cat/io/Settings.hpp>
 #include <cat/mem/LargeAllocator.hpp>
 using namespace cat;
 
+static Settings *m_settings = 0;
+static SystemInfo *m_system_info = 0;
+static LargeAllocator *m_large_allocator = 0;
+
 
 //// FileWriteAllocator
 
-CAT_REF_SINGLETON(UDPRecvAllocator);
+CAT_REF_SINGLETON(FileWriteAllocator);
 
-bool UDPRecvAllocator::OnInitialize()
+bool FileWriteAllocator::OnInitialize()
 {
-	// Grab buffer count
-	int buffer_count = Use<Settings>()->getInt("Net::UDPRecvAllocator.BufferCount", DEFAULT_BUFFER_COUNT, MIN_BUFFER_COUNT, MAX_BUFFER_COUNT);
+	Use(m_settings, m_large_allocator, m_system_info);
+	if (!IsInitialized()) return false;
 
-	_allocator = new (std::nothrow) BufferAllocator(sizeof(RecvBuffer) + IOTHREADS_BUFFER_READ_BYTES, buffer_count);
+	// Read settings
+	u32 buffer_count = (u32)m_settings->getInt("IO::FileWriteAllocator.BufferCount", DEFAULT_BUFFER_COUNT, MIN_BUFFER_COUNT, MAX_BUFFER_COUNT);
+	u32 buffer_bytes = (u32)m_settings->getInt("IO::FileWriteAllocator.BufferBytes", DEFAULT_BUFFER_BYTES, MIN_BUFFER_BYTES, MAX_BUFFER_BYTES);
 
-	return _allocator && _allocator->Valid(); 
+	// Enforce that the buffer bytes is at least one sector
+	u32 max_sector_size = m_system_info->GetMaxSectorSize();
+	if (buffer_bytes < max_sector_size)
+		buffer_bytes = max_sector_size;
+
+	// Conform it to be a power of two (assumes that sector sizes are powers of two)
+	if (!CAT_IS_POWER_OF_2(buffer_bytes))
+		buffer_bytes = NextHighestPow2(buffer_bytes);
+
+	// Allocate space for buffers and overhead
+	const u32 overhead_bytes = sizeof(WriteBuffer);
+	u32 total_bytes = (buffer_bytes + overhead_bytes) * buffer_count;
+	u8 *buffers = (u8*)m_large_allocator->Acquire(total_bytes);
+
+	// Store results
+	_buffer_bytes = buffer_bytes;
+	_buffer_count = buffer_count;
+	_buffers = buffers;
+
+	if (!buffers)
+	{
+		CAT_FATAL("FileWriteAllocator") << "Unable to allocate " << buffer_count << " buffers of " << buffer_bytes;
+		return false;
+	}
+
+	// Construct linked list of free nodes
+	u8 *data_buffer = buffers;
+	WriteBuffer *overhead = reinterpret_cast<WriteBuffer*>( data_buffer + buffer_bytes * buffer_count );
+
+	_acquire_head = overhead;
+	_release_head = 0;
+	overhead->data = data_buffer;
+
+	for (u32 ii = 1; ii < buffer_count; ++ii)
+	{
+		WriteBuffer *node = overhead + 1;
+
+		data_buffer += buffer_bytes;
+		overhead->data = data_buffer;
+		overhead->batch_next = node;
+		overhead = node;
+	}
+
+	overhead->batch_next = 0;
+
+	CAT_INFO("FileWriteAllocator") << "Allocated and marked " << buffer_count << " buffers of " << buffer_bytes;
+
+	return true;
 }
 
-void UDPRecvAllocator::OnFinalize()
+void FileWriteAllocator::OnFinalize()
 {
-	if (_allocator) delete _allocator;
+	m_large_allocator->Release(_buffers);
+}
+
+u32 FileWriteAllocator::AcquireBatch(BatchSet &set, u32 count, u32 bytes)
+{
+	u32 ii = 0;
+
+	_acquire_lock.Enter();
+
+	// Select up to count items from the list
+	BatchHead *last = _acquire_head;
+
+	set.head = last;
+
+	if (last)
+	{
+		CAT_FOREVER
+		{
+			BatchHead *next = last->batch_next;
+
+			// If we are done,
+			if (++ii >= count)
+			{
+				_acquire_head = next;
+				_acquire_lock.Leave();
+
+				set.tail = last;
+				last->batch_next = 0;
+				return ii;
+			}
+
+			// If the list ran out,
+			if (!next) break;
+
+			last = next;
+		}
+	}
+
+	// End up here if the acquire list was empty or is empty now
+
+	// If it looks like the release list has more,
+	if (_release_head)
+	{
+		// Escalate lock and steal from release list
+		_release_lock.Enter();
+		BatchHead *next = _release_head;
+		_release_head = 0;
+		_release_lock.Leave();
+
+		if (next)
+		{
+			// Link acquire list to release list
+			// Handle the case where the acquire list was empty
+			if (last) last->batch_next = next;
+			else set.head = next;
+
+			last = next;
+
+			CAT_FOREVER
+			{
+				next = last->batch_next;
+
+				// If we are done,
+				if (++ii >= count)
+				{
+					_acquire_head = next;
+					_acquire_lock.Leave();
+
+					set.tail = last;
+					last->batch_next = 0;
+					return ii;
+				}
+
+				// If the list ran out,
+				if (!next) break;
+
+				last = next;
+			}
+		}
+	}
+
+	_acquire_head = 0;
+	_acquire_lock.Leave();
+
+	set.tail = last;
+
+	if (last)
+	{
+		//last->batch_next = 0;
+		CAT_DEBUG_ENFORCE(!last->batch_next);
+	}
+
+	return ii;
+}
+
+void FileWriteAllocator::ReleaseBatch(const BatchSet &set)
+{
+	if (!set.head) return;
+
+#if defined(CAT_DEBUG)
+	BatchHead *node;
+	for (node = set.head; node->batch_next; node = node->batch_next);
+
+	if (node != set.tail)
+	{
+		CAT_FATAL("FileWriteAllocator") << "ERROR: ReleaseBatch detected an error in input";
+	}
+#endif // CAT_DEBUG
+
+	_release_lock.Enter();
+	set.tail->batch_next = _release_head;
+	_release_head = set.head;
+	_release_lock.Leave();
 }

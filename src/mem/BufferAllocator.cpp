@@ -32,16 +32,23 @@
 #include <cat/io/Log.hpp>
 using namespace cat;
 
+static LargeAllocator *m_large_allocator = 0;
+
+
+//// BufferAllocator
+
 BufferAllocator::BufferAllocator(u32 buffer_min_size, u32 buffer_count)
 {
 	if (buffer_count < 4) buffer_count = 4;
+
+	m_large_allocator = LargeAllocator::ref();
 
 	u32 cacheline_bytes = SystemInfo::ref()->GetCacheLineBytes();
 
 	const u32 overhead_bytes = sizeof(BatchHead);
 	u32 buffer_bytes = CAT_CEIL(overhead_bytes + buffer_min_size, cacheline_bytes);
 	u32 total_bytes = buffer_count * buffer_bytes;
-	u8 *buffers = (u8*)LargeAllocator::ref()->Acquire(total_bytes);
+	u8 *buffers = (u8*)m_large_allocator->Acquire(total_bytes);
 
 	_buffer_bytes = buffer_bytes;
 	_buffer_count = buffer_count;
@@ -77,7 +84,7 @@ BufferAllocator::~BufferAllocator()
 {
 	CAT_INFO("BufferAllocator") << "Releasing buffers";
 
-	LargeAllocator::ref()->Release(_buffers);
+	m_large_allocator->Release(_buffers);
 }
 
 u32 BufferAllocator::AcquireBatch(BatchSet &set, u32 count, u32 bytes)
@@ -175,15 +182,17 @@ u32 BufferAllocator::AcquireBatch(BatchSet &set, u32 count, u32 bytes)
 void BufferAllocator::ReleaseBatch(const BatchSet &set)
 {
 	if (!set.head) return;
-/*
+
+#if defined(CAT_DEBUG)
 	BatchHead *node;
 	for (node = set.head; node->batch_next; node = node->batch_next);
 
 	if (node != set.tail)
 	{
-		CAT_FATAL("BufferAllocator") << "FOUND IT: ReleaseBatch detected an error in input";
+		CAT_FATAL("BufferAllocator") << "ERROR: ReleaseBatch detected an error in input";
 	}
-*/
+#endif // CAT_DEBUG
+
 	_release_lock.Enter();
 	set.tail->batch_next = _release_head;
 	_release_head = set.head;
