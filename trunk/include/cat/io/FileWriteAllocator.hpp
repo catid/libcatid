@@ -29,41 +29,59 @@
 #ifndef CAT_FILE_WRITE_ALLOCATOR_HPP
 #define CAT_FILE_WRITE_ALLOCATOR_HPP
 
-#include <cat/mem/BufferAllocator.hpp>
+#include <cat/mem/IAllocator.hpp>
+#include <cat/threads/Mutex.hpp>
 
 /*
 	FileWriteAllocator
 
 	Pre-allocates a number of buffers that are disk-sector aligned.
+
+	The first few allocated pages are for WriteBuffer objects,
+	followed by the actual buffers, which are all the same size.
+	Use FileWriteAllocator::ref()->GetBufferBytes() to query the
+	size of the buffers.
 */
 
 namespace cat {
 
 
-class FileWriteAllocator : public RefSingleton<FileWriteAllocator>
+class FileWriteAllocator : public RefSingleton<FileWriteAllocator>, public IAllocator
 {
-	static const int MAX_BUFFER_COUNT = 100000;
-	static const int DEFAULT_BUFFER_COUNT = 10000;
-	static const int MIN_BUFFER_COUNT = 1000;
+	static const int MAX_BUFFER_BYTES = 2097152;
+	static const int DEFAULT_BUFFER_BYTES = 65536; // Apparently some SSDs have this alignment requirement
+	static const int MIN_BUFFER_BYTES = DEFAULT_BUFFER_BYTES;
 
-	BufferAllocator *_allocator;
+	static const int MAX_BUFFER_COUNT = 10000;
+	static const int DEFAULT_BUFFER_COUNT = 200;
+	static const int MIN_BUFFER_COUNT = 10;
 
 	bool OnInitialize();
 	void OnFinalize();
 
+	u32 _buffer_bytes, _buffer_count;
+	u8 *_buffers;
+
+	Mutex _acquire_lock;
+	BatchHead * volatile _acquire_head;
+
+	Mutex _release_lock;
+	BatchHead * volatile _release_head;
+
+	// This interface really doesn't make sense for this allocator
+	void *Acquire(u32 bytes) { return 0; }
+	void *Resize(void *ptr, u32 bytes) { return 0; }
+	void Release(void *buffer) {}
+
 public:
+	CAT_INLINE u32 GetBufferBytes() { return _buffer_bytes; }
+
 	// Attempt to acquire a number of buffers, pre-fixed size
 	// Returns the number of valid buffers it was able to allocate
-	CAT_INLINE u32 AcquireBatch(BatchSet &set, u32 count)
-	{
-		return _allocator->AcquireBatch(set, count);
-	}
+	u32 AcquireBatch(BatchSet &set, u32 count, u32 bytes = 0);
 
 	// Release a number of buffers simultaneously
-	CAT_INLINE void ReleaseBatch(const BatchSet &set)
-	{
-		_allocator->ReleaseBatch(set);
-	}
+	void ReleaseBatch(const BatchSet &set);
 };
 
 
