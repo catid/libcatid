@@ -31,13 +31,18 @@
 using namespace cat;
 
 static FileWriteAllocator *m_file_write_allocator = 0;
+static Settings *m_settings = 0;
 
 
 //// BufferedFileWriter
 
 bool BufferedFileWriter::OnInitialize()
 {
-	Use(m_file_write_allocator);
+	Use(m_file_write_allocator, m_settings);
+
+	_cache_bucket_size = m_file_write_allocator->GetBufferBytes();
+
+	_cache_bucket_count = m_settings->getInt("IO::BufferedFileWriter.BufferCount", DEFAULT_BUFFER_COUNT, MIN_BUFFER_COUNT, MAX_BUFFER_COUNT);
 
 	return AsyncFile::OnInitialize();
 }
@@ -59,12 +64,11 @@ bool BufferedFileWriter::Open(const char *file_path, u64 file_size, u32 worker_i
 	}
 
 	u64 rounded_file_size = file_size;
-	u32 cache_bucket_size = m_file_write_allocator->GetBufferBytes();
-	u32 overflow_bytes = rounded_file_size % cache_bucket_size;
+	u32 overflow_bytes = rounded_file_size % _cache_bucket_size;
 
 	// Round up to next bucket size multiple
 	if (overflow_bytes > 0)
-		rounded_file_size += cache_bucket_size - overflow_bytes;
+		rounded_file_size += _cache_bucket_size - overflow_bytes;
 
 	// If resizing fails,
 	if (!AsyncFile::SetSize(rounded_file_size))
@@ -73,7 +77,6 @@ bool BufferedFileWriter::Open(const char *file_path, u64 file_size, u32 worker_i
 		return false;
 	}
 
-	_cache_bucket_size = cache_bucket_size;
 	_file_size = file_size;
 	_file_offset = 0;
 	_worker_id = worker_id;
@@ -81,7 +84,43 @@ bool BufferedFileWriter::Open(const char *file_path, u64 file_size, u32 worker_i
 	return true;
 }
 
+void BufferedFileWriter::OnWrite(const BatchSet &set)
+{
+
+}
+
+WriteBuffer *BufferedFileWriter::GetBuffer()
+{
+	if (!_cache)
+	{
+		BatchSet cache_set;
+		m_file_write_allocator->AcquireBatch(cache_set, _cache_bucket_count);
+
+		_cache = reinterpret_cast<WriteBuffer*>( cache_set.head );
+	}
+
+	WriteBuffer *buffer = reinterpret_cast<WriteBuffer*>( _cache );
+
+	if (buffer)
+	{
+		_cache = static_cast<BatchHead*>( buffer->batch_next );
+	}
+
+	return buffer;
+}
+
 bool BufferedFileWriter::Write(const u8 *buffer, u32 bytes)
 {
+	_cache->callback = WorkerDelegate::FromMember<BufferedFileWriter, &BufferedFileWriter::OnWrite>(this);
+	_cache->worker_id = _worker_id;
+
+	WriteBuffer *next_buffer = reinterpret_cast<WriteBuffer*>( _cache->batch_next );
+
+	if (!AsyncFile::Write(_cache, _file_offset, _cache->data, _cache_bucket_size))
+	{
+		CAT_WARN("BufferedFileWriter") << "Unable to write a bucket to disk at offset " << _file_offset;
+		return false;
+	}
+
 	return true;
 }
