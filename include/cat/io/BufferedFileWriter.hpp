@@ -44,16 +44,22 @@ namespace cat {
 // Buffered file writer
 class BufferedFileWriter : public AsyncFile
 {
+	static const int MAX_BUFFER_COUNT = 64;
+	static const int DEFAULT_BUFFER_COUNT = 16;
+	static const int MIN_BUFFER_COUNT = 4;
 	u32 _worker_id;
 
 	WriteBuffer *_cache;
 
 	u64 _file_offset, _file_size;
-	u32 _cache_bucket_size, _cache_bucket_remaining;
+	u32 _cache_bucket_size, _cache_bucket_remaining, _cache_bucket_count;
 
 protected:
 	virtual bool OnInitialize();
 	virtual bool OnFinalize();
+
+	void OnWrite(const BatchSet &set);
+	WriteBuffer *GetBuffer();
 
 public:
 	CAT_INLINE virtual ~BufferedFileWriter() {}
