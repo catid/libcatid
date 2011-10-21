@@ -50,14 +50,13 @@ bool FileWriteAllocator::OnInitialize()
 	u32 buffer_count = (u32)m_settings->getInt("IO::FileWriteAllocator.BufferCount", DEFAULT_BUFFER_COUNT, MIN_BUFFER_COUNT, MAX_BUFFER_COUNT);
 	u32 buffer_bytes = (u32)m_settings->getInt("IO::FileWriteAllocator.BufferBytes", DEFAULT_BUFFER_BYTES, MIN_BUFFER_BYTES, MAX_BUFFER_BYTES);
 
-	// Enforce that the buffer bytes is at least one sector
+	// Conform it to be a multiple of the sector size
 	u32 max_sector_size = m_system_info->GetMaxSectorSize();
-	if (buffer_bytes < max_sector_size)
-		buffer_bytes = max_sector_size;
-
-	// Conform it to be a power of two (assumes that sector sizes are powers of two)
-	if (!CAT_IS_POWER_OF_2(buffer_bytes))
-		buffer_bytes = NextHighestPow2(buffer_bytes);
+	if (!CAT_IS_POWER_OF_2(max_sector_size))
+		max_sector_size = NextHighestPow2(max_sector_size);
+	u32 buffer_low_bits = buffer_bytes & (max_sector_size-1);
+	if (buffer_low_bits)
+		buffer_bytes += max_sector_size - buffer_low_bits;
 
 	// Allocate space for buffers and overhead
 	const u32 overhead_bytes = sizeof(WriteBuffer);

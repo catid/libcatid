@@ -51,7 +51,7 @@ class BufferedFileWriter : public AsyncFile
 
 	BatchSet _cache_set;
 	u64 _file_offset, _file_size;
-	u32 _cache_bucket_size, _cache_bucket_remaining, _cache_bucket_count;
+	u32 _cache_bucket_offset, _cache_bucket_size, _cache_bucket_count;
 
 protected:
 	virtual bool OnInitialize();
