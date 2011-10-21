@@ -49,7 +49,7 @@ bool BufferedFileWriter::OnInitialize()
 
 bool BufferedFileWriter::OnFinalize()
 {
-	if (_cache) m_file_write_allocator->ReleaseBatch(_cache);
+	if (_cache_set.head) m_file_write_allocator->ReleaseBatch(_cache_set);
 
 	return AsyncFile::OnFinalize();
 }
@@ -64,10 +64,10 @@ bool BufferedFileWriter::Open(const char *file_path, u64 file_size, u32 worker_i
 	}
 
 	u64 rounded_file_size = file_size;
-	u32 overflow_bytes = rounded_file_size % _cache_bucket_size;
+	u32 overflow_bytes = (u32)file_size & (_cache_bucket_size-1);
 
 	// Round up to next bucket size multiple
-	if (overflow_bytes > 0)
+	if (overflow_bytes)
 		rounded_file_size += _cache_bucket_size - overflow_bytes;
 
 	// If resizing fails,
@@ -86,28 +86,81 @@ bool BufferedFileWriter::Open(const char *file_path, u64 file_size, u32 worker_i
 
 void BufferedFileWriter::OnWrite(const BatchSet &set)
 {
-
+	m_file_write_allocator->ReleaseBatch(set);
 }
 
 bool BufferedFileWriter::Write(const u8 *in_buffer, u32 bytes)
 {
-	u32 remaining = _cache_bucket_remaining;
-	WriteBuffer *out_buffer = reinterpret_cast<WriteBuffer*>( _cache_set.head );
-
+	// While there is data left to write,
 	while (bytes > 0)
 	{
-		u8 *data = GetTrailingBytes(out_buffer);
-		out_buffer->callback = WorkerDelegate::FromMember<BufferedFileWriter, &BufferedFileWriter::OnWrite>(this);
-		out_buffer->worker_id = _worker_id;
+		// Check output buffer
+		WriteBuffer *out_buffer = reinterpret_cast<WriteBuffer*>( _cache_set.head );
 
-		if (!AsyncFile::Write(out_buffer, _file_offset, data, _cache_bucket_size))
+		// If no output buffer exists,
+		if (!out_buffer)
 		{
-			CAT_WARN("BufferedFileWriter") << "Unable to write a bucket to disk at offset " << _file_offset;
-			return false;
+			m_file_write_allocator->AcquireBatch(_cache_set, _cache_bucket_count);
+
+			_cache_bucket_offset = 0;
+			out_buffer = reinterpret_cast<WriteBuffer*>( _cache_set.head );
+
+			if (!out_buffer)
+			{
+				// TODO: Fall back on malloc
+				CAT_WARN("BufferedFileWriter") << "Out of memory";
+				return false;
+			}
 		}
 
-		WriteBuffer *next_out_buffer = reinterpret_cast<WriteBuffer*>( out_buffer->batch_next );
+		// Prepare to copy
+		u8 *data = static_cast<u8*>( out_buffer->data );
+		u32 write_bytes = bytes;
+		u32 remaining = _cache_bucket_size - _cache_bucket_offset;
+		if (write_bytes > remaining)
+			write_bytes = remaining;
 
+		// Copy and consume data bytes
+		memcpy(data + _cache_bucket_offset, in_buffer, write_bytes);
+		bytes -= write_bytes;
+		_cache_bucket_offset += write_bytes;
+
+		// If out of cache space,
+		if (_cache_bucket_offset >= _cache_bucket_size)
+		{
+			// Write buffer
+			out_buffer->callback = WorkerDelegate::FromMember<BufferedFileWriter, &BufferedFileWriter::OnWrite>(this);
+			out_buffer->worker_id = _worker_id;
+
+			if (!AsyncFile::Write(out_buffer, _file_offset, data, _cache_bucket_size))
+			{
+				// TODO: Fail gracefully
+				CAT_WARN("BufferedFileWriter") << "Unable to write a bucket to disk at offset " << _file_offset;
+				return false;
+			}
+
+			// Remove this buffer from the cache set
+			_cache_set.head = out_buffer->batch_next;
+			_cache_bucket_offset = 0;
+			_file_offset += _cache_bucket_size;
+		}
+		// If at the final buffer,
+		else if (_file_size - _file_offset <= _cache_bucket_offset)
+		{
+			// Zero remaining data in the buffer
+			memset(data + _cache_bucket_offset, 0, _cache_bucket_size - _cache_bucket_offset);
+
+			// Write buffer
+			out_buffer->callback = WorkerDelegate::FromMember<BufferedFileWriter, &BufferedFileWriter::OnWrite>(this);
+			out_buffer->worker_id = _worker_id;
+
+			if (!AsyncFile::Write(out_buffer, _file_offset, data, _cache_bucket_size))
+			{
+				// TODO: Fail gracefully
+				CAT_WARN("BufferedFileWriter") << "Unable to write a bucket to disk at offset " << _file_offset;
+				return false;
+			}
+		}
 	}
 
 	return true;
