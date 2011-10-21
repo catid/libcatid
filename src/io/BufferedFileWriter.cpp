@@ -89,37 +89,25 @@ void BufferedFileWriter::OnWrite(const BatchSet &set)
 
 }
 
-WriteBuffer *BufferedFileWriter::GetBuffer()
+bool BufferedFileWriter::Write(const u8 *in_buffer, u32 bytes)
 {
-	if (!_cache)
+	u32 remaining = _cache_bucket_remaining;
+	WriteBuffer *out_buffer = reinterpret_cast<WriteBuffer*>( _cache_set.head );
+
+	while (bytes > 0)
 	{
-		BatchSet cache_set;
-		m_file_write_allocator->AcquireBatch(cache_set, _cache_bucket_count);
+		u8 *data = GetTrailingBytes(out_buffer);
+		out_buffer->callback = WorkerDelegate::FromMember<BufferedFileWriter, &BufferedFileWriter::OnWrite>(this);
+		out_buffer->worker_id = _worker_id;
 
-		_cache = reinterpret_cast<WriteBuffer*>( cache_set.head );
-	}
+		if (!AsyncFile::Write(out_buffer, _file_offset, data, _cache_bucket_size))
+		{
+			CAT_WARN("BufferedFileWriter") << "Unable to write a bucket to disk at offset " << _file_offset;
+			return false;
+		}
 
-	WriteBuffer *buffer = reinterpret_cast<WriteBuffer*>( _cache );
+		WriteBuffer *next_out_buffer = reinterpret_cast<WriteBuffer*>( out_buffer->batch_next );
 
-	if (buffer)
-	{
-		_cache = static_cast<BatchHead*>( buffer->batch_next );
-	}
-
-	return buffer;
-}
-
-bool BufferedFileWriter::Write(const u8 *buffer, u32 bytes)
-{
-	_cache->callback = WorkerDelegate::FromMember<BufferedFileWriter, &BufferedFileWriter::OnWrite>(this);
-	_cache->worker_id = _worker_id;
-
-	WriteBuffer *next_buffer = reinterpret_cast<WriteBuffer*>( _cache->batch_next );
-
-	if (!AsyncFile::Write(_cache, _file_offset, _cache->data, _cache_bucket_size))
-	{
-		CAT_WARN("BufferedFileWriter") << "Unable to write a bucket to disk at offset " << _file_offset;
-		return false;
 	}
 
 	return true;
