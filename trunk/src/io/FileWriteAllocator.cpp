@@ -61,13 +61,8 @@ bool FileWriteAllocator::OnInitialize()
 
 	// Allocate space for buffers and overhead
 	const u32 overhead_bytes = sizeof(WriteBuffer);
-	u32 total_bytes = (buffer_bytes + overhead_bytes) * buffer_count;
+	u32 total_bytes = (buffer_bytes + overhead_bytes) * buffer_count + buffer_bytes; // extra buffer for alignment guarantee
 	u8 *buffers = (u8*)m_large_allocator->Acquire(total_bytes);
-
-	// Store results
-	_buffer_bytes = buffer_bytes;
-	_buffer_count = buffer_count;
-	_buffers = buffers;
 
 	if (!buffers)
 	{
@@ -75,9 +70,19 @@ bool FileWriteAllocator::OnInitialize()
 		return false;
 	}
 
+	// Store results
+	_buffer_bytes = buffer_bytes;
+	_buffer_count = buffer_count;
+	_buffers = buffers;
+
+	// Align start of buffers with buffer bytes
+	u32 buffer_low_bits = (u32)buffers & (buffer_bytes - 1);
+	if (buffer_low_bits)
+		buffers += buffer_bytes - buffer_low_bits;
+
 	// Construct linked list of free nodes
 	u8 *data_buffer = buffers;
-	WriteBuffer *overhead = reinterpret_cast<WriteBuffer*>( data_buffer + buffer_bytes * buffer_count );
+	WriteBuffer *overhead = reinterpret_cast<WriteBuffer*>( buffers + buffer_bytes * buffer_count );
 
 	_acquire_head = overhead;
 	_release_head = 0;
@@ -105,7 +110,7 @@ void FileWriteAllocator::OnFinalize()
 	m_large_allocator->Release(_buffers);
 }
 
-u32 FileWriteAllocator::AcquireBatch(BatchSet &set, u32 count, u32 bytes)
+u32 FileWriteAllocator::AcquireBatch(BatchSet &batch_set, u32 count, u32 bytes)
 {
 	u32 ii = 0;
 
@@ -114,7 +119,7 @@ u32 FileWriteAllocator::AcquireBatch(BatchSet &set, u32 count, u32 bytes)
 	// Select up to count items from the list
 	BatchHead *last = _acquire_head;
 
-	set.head = last;
+	batch_set.head = last;
 
 	if (last)
 	{
@@ -128,7 +133,7 @@ u32 FileWriteAllocator::AcquireBatch(BatchSet &set, u32 count, u32 bytes)
 				_acquire_head = next;
 				_acquire_lock.Leave();
 
-				set.tail = last;
+				batch_set.tail = last;
 				last->batch_next = 0;
 				return ii;
 			}
@@ -156,7 +161,7 @@ u32 FileWriteAllocator::AcquireBatch(BatchSet &set, u32 count, u32 bytes)
 			// Link acquire list to release list
 			// Handle the case where the acquire list was empty
 			if (last) last->batch_next = next;
-			else set.head = next;
+			else batch_set.head = next;
 
 			last = next;
 
@@ -170,7 +175,7 @@ u32 FileWriteAllocator::AcquireBatch(BatchSet &set, u32 count, u32 bytes)
 					_acquire_head = next;
 					_acquire_lock.Leave();
 
-					set.tail = last;
+					batch_set.tail = last;
 					last->batch_next = 0;
 					return ii;
 				}
@@ -186,7 +191,7 @@ u32 FileWriteAllocator::AcquireBatch(BatchSet &set, u32 count, u32 bytes)
 	_acquire_head = 0;
 	_acquire_lock.Leave();
 
-	set.tail = last;
+	batch_set.tail = last;
 
 	if (last)
 	{
@@ -197,22 +202,22 @@ u32 FileWriteAllocator::AcquireBatch(BatchSet &set, u32 count, u32 bytes)
 	return ii;
 }
 
-void FileWriteAllocator::ReleaseBatch(const BatchSet &set)
+void FileWriteAllocator::ReleaseBatch(const BatchSet &batch_set)
 {
-	if (!set.head) return;
+	if (!batch_set.head) return;
 
 #if defined(CAT_DEBUG)
 	BatchHead *node;
-	for (node = set.head; node->batch_next; node = node->batch_next);
+	for (node = batch_set.head; node->batch_next; node = node->batch_next);
 
-	if (node != set.tail)
+	if (node != batch_set.tail)
 	{
 		CAT_FATAL("FileWriteAllocator") << "ERROR: ReleaseBatch detected an error in input";
 	}
 #endif // CAT_DEBUG
 
 	_release_lock.Enter();
-	set.tail->batch_next = _release_head;
-	_release_head = set.head;
+	batch_set.tail->batch_next = _release_head;
+	_release_head = batch_set.head;
 	_release_lock.Leave();
 }
