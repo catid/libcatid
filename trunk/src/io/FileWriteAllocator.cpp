@@ -54,9 +54,9 @@ bool FileWriteAllocator::OnInitialize()
 	u32 max_sector_size = m_system_info->GetMaxSectorSize();
 	if (!CAT_IS_POWER_OF_2(max_sector_size))
 		max_sector_size = NextHighestPow2(max_sector_size);
-	u32 buffer_low_bits = buffer_bytes & (max_sector_size-1);
-	if (buffer_low_bits)
-		buffer_bytes += max_sector_size - buffer_low_bits;
+	u32 sector_low_bits = buffer_bytes & (max_sector_size-1);
+	if (sector_low_bits)
+		buffer_bytes += max_sector_size - sector_low_bits;
 
 	// Allocate space for buffers and overhead
 	const u32 overhead_bytes = sizeof(WriteBuffer);
