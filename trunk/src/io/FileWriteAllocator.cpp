@@ -90,10 +90,10 @@ bool FileWriteAllocator::OnInitialize()
 	for (u32 ii = 1; ii < buffer_count; ++ii)
 	{
 		WriteBuffer *node = overhead + 1;
+		overhead->batch_next = node;
 
 		data_buffer += buffer_bytes;
-		overhead->data = data_buffer;
-		overhead->batch_next = node;
+		node->data = data_buffer;
 		overhead = node;
 	}
 

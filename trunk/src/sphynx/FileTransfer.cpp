@@ -263,7 +263,7 @@ bool FileTransferSink::OnFileStart(u32 worker_id, BufferStream msg, u32 bytes)
 	}
 
 	if (!_file->Open(file_path,
-					 ASYNCFILE_WRITE|ASYNCFILE_SEQUENTIAL|ASYNCFILE_NOBUFFER))
+					 ASYNCFILE_WRITE|ASYNCFILE_SEQUENTIAL|ASYNCFILE_NOBUFFER, worker_id))
 	{
 		CAT_WARN("FileTransferSink") << "Unable to open output file for writing";
 		Close();
@@ -280,24 +280,8 @@ bool FileTransferSink::OnFileStart(u32 worker_id, BufferStream msg, u32 bytes)
 	CAT_WARN("FileTransferSink") << "Accepting file transfer for " << file_path << " of " << file_size << " bytes";
 
 	_worker_id = worker_id;
-	_write_offset = 0;
 
 	return true;
-}
-
-void FileTransferSink::OnWrite(const BatchSet &buffers)
-{
-	s32 count = 0;
-	for (BatchHead *next, *head = buffers.head; head; head = next)
-	{
-		WriteBuffer *buffer = (WriteBuffer*)head;
-		next = head->batch_next;
-
-		delete buffer;
-		++count;
-	}
-
-	_file->ReleaseRef(CAT_REFOBJECT_TRACE, count);
 }
 
 void FileTransferSink::OnReadHuge(u32 stream, BufferStream data, u32 size)
@@ -309,24 +293,9 @@ void FileTransferSink::OnReadHuge(u32 stream, BufferStream data, u32 size)
 		return;
 	}
 
-	_file->AddRef(CAT_REFOBJECT_TRACE);
-
-	WriteBuffer *buffer = new (std::nothrow) WriteBuffer;
-	buffer->worker_id = _worker_id;
-	buffer->callback.SetMember<FileTransferSink, &FileTransferSink::OnWrite>(this);
-
-	if (!buffer)
-	{
-		CAT_WARN("FileTransferSink") << "File transfer part failed: Out of memory to allocate write buffer";
-		return;
-	}
-
-	if (!_file->Write(buffer, _write_offset, data, size))
+	if (!_file->Write(data, size))
 	{
 		CAT_WARN("FileTransferSink") << "Unable to write to output file.  Out of disk space?";
-		delete buffer;
 		Close();
 	}
-
-	_write_offset += size;
 }
