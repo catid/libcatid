@@ -86,8 +86,7 @@ public:
 
 class CAT_EXPORT FileTransferSink
 {
-	AsyncFile *_file;
-	u64 _write_offset;
+	BufferedFileWriter *_file;
 	u32 _worker_id;
 
 	void Close();

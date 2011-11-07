@@ -44,6 +44,8 @@ bool BufferedFileWriter::OnInitialize()
 
 	_cache_bucket_count = m_settings->getInt("IO::BufferedFileWriter.BufferCount", DEFAULT_BUFFER_COUNT, MIN_BUFFER_COUNT, MAX_BUFFER_COUNT);
 
+	_cache_set.Clear();
+
 	return AsyncFile::OnInitialize();
 }
 

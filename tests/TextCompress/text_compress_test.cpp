@@ -22,6 +22,7 @@
 */
 
 #include <cat/AllCodec.hpp>
+#include <cat/AllCrypt.hpp>
 #include <iostream>
 #include <conio.h> // getch()
 #include <fstream>
@@ -1440,14 +1441,14 @@ int main2(void) {
 
 int main(int argc, const char **argv)
 {
-	main2();
+	//main2();
 
 	SystemInfo *sinfo = SystemInfo::ref();
 
 	CAT_INFO("TEST") << sinfo->GetProcessorCount();
 
 	m_clock = Clock::ref();
-
+	/*
 	Settings::ref()->getInt("IOThreads.Test", 1337);
 
 	//Settings::ref()->getInt("level0a");
@@ -1457,7 +1458,7 @@ int main(int argc, const char **argv)
 	Settings::ref()->getInt("level0a.level1.level2a.level3b", 5);
 	Settings::ref()->getInt("level0a.level1.level2b", 6);
 	Settings::ref()->getInt("level0b", 7);
-
+	*/
 #ifndef GENERATING_TABLE
     if (!TextStatsCollector::VerifyTableIntegrity(ChatText))
     {
@@ -1673,9 +1674,51 @@ int main(int argc, const char **argv)
 #endif
     }
 
+	cat::FortunaOutput *prng = cat::FortunaFactory::ref()->Create();
+
+	CAT_FOREVER
+	{
+		const int BYTES = 32;
+		char rbuffer[BYTES];
+		prng->Generate(rbuffer, BYTES);
+
+		cat::RangeDecoder de(rbuffer, BYTES);
+
+		char msg[128];
+		int len = de.Text(msg, sizeof(msg), ChatText);
+
+		for (int ii = 0; ii <= len; ++ii)
+		{
+			char ch = msg[ii];
+
+			if (ch >= 'A' && ch <= 'Z')
+			{
+				ch += 'a' - 'A';
+				msg[ii] = ch;
+			}
+			else if (ch >= 'a' && ch <= 'z')
+			{
+			}
+			else if (ch == ' ' || ch == '\0')
+			{
+				msg[ii] = '\0';
+				len = ii;
+
+				if (len >= 5 && len <= 7)
+				{
+					cout << msg << ".com" << endl;
+				}
+			}
+			else
+			{
+				break;
+			}
+		}
+	}
+
 	//// Huffman tests
 
-	RunHuffmanTests();
+	//RunHuffmanTests();
 
     CAT_INFO("Launcher") << "** Press any key to close.";
 
