@@ -509,6 +509,8 @@ public:
 
 	Good for making the generator harder to analyze from its output.
 
+	Passes all BigCrush tests.
+
 	Catid32L_1: Generator operates at 119 million numbers / second
 */
 typedef CKISSL<u32, SingleBitLFSR32_2, MaxSafeMWC, XORShift32_1, LecuyerLCG32_1> CatidL32_1;
@@ -552,15 +554,88 @@ public:
 /*
 	Period of ~2^^127
 
-	Catid32_1: Generator operates at 250 million numbers / second
+	Fails BigCrush tests:
+		23  ClosePairs mNP2S, t = 5         0.9994
+
+	Catid32_1: Generator operates at 249 million numbers / second
 */
 typedef CKISS<u32, MaxSafeMWC, XORShift32_1, LecuyerLCG32_1> Catid32_1;
 /*
+	Period of ~2^^127
+
+	Fails BigCrush tests:
+
+	Catid32_1a: Generator operates at 228 million numbers / second
+*/
+typedef CKISS<u32, MaximalMWC, XORShift32_1, LecuyerLCG32_1> Catid32_1a;
+/*
+	Period of ~2^^127
+
+	Fails BigCrush tests:
+
+	Catid32_1b: Generator operates at 248 million numbers / second
+*/
+typedef CKISS<u32, MaxSafeMWC, XORShift32_2, LecuyerLCG32_1> Catid32_1b;
+/*
+	Period of ~2^^127
+
+	Fails BigCrush tests:
+
+	Catid32_1c: Generator operates at 259 million numbers / second
+*/
+typedef CKISS<u32, MaxSafeMWC, XORShift32_1, LecuyerLCG32_2> Catid32_1c;
+/*
+	Period of ~2^^127
+
+	Fails BigCrush tests:
+
+	Catid32_1d: Generator operates at 258 million numbers / second
+*/
+typedef CKISS<u32, MaximalMWC, XORShift32_2, LecuyerLCG32_2> Catid32_1d;
+/*
 	Period of ~2^^96
 
-	Catid32_2: Generator operates at 272 million numbers / second
+	Fails BigCrush tests:
+		2  SerialOver, r = 22               eps
+		19  BirthdaySpacings, t = 8       2.0e-130
+		21  BirthdaySpacings, t = 16         eps
+		81  LinearComp, r = 29             1 - eps1
+
+	Catid32_2: Generator operates at 269 million numbers / second
 */
 typedef CKISS<u32, AWC32_1, XORShift32_1, Weyl32_1> Catid32_2;
+/*
+	Period of ~2^^96
+
+	Fails BigCrush tests:
+
+	Catid32_2a: Generator operates at 269 million numbers / second
+*/
+typedef CKISS<u32, AWC32_2, XORShift32_1, Weyl32_1> Catid32_2a;
+/*
+	Period of ~2^^96
+
+	Fails BigCrush tests:
+
+	Catid32_2b: Generator operates at 270 million numbers / second
+*/
+typedef CKISS<u32, AWC32_1, XORShift32_2, Weyl32_1> Catid32_2b;
+/*
+	Period of ~2^^96
+
+	Fails BigCrush tests:
+
+	Catid32_2c: Generator operates at 270 million numbers / second
+*/
+typedef CKISS<u32, AWC32_1, XORShift32_1, Weyl32_2> Catid32_2c;
+/*
+	Period of ~2^^96
+
+	Fails BigCrush tests:
+
+	Catid32_2d: Generator operates at 269 million numbers / second
+*/
+typedef CKISS<u32, AWC32_2, XORShift32_2, Weyl32_2> Catid32_2d;
 
 
 /*
@@ -598,17 +673,95 @@ public:
 /*
 	Period of ~2^^95
 
+	Fails BigCrush tests:
+		77  RandomWalk1 R (L=1000, r=20)    3.4e-4
+
 	Catid32S_1: Generator operates at 293 million numbers / second
 */
 typedef CSmootch<u32, XORShift32_1, MaxSafeMWC> Catid32S_1;
 /*
 	Period of ~2^^95
 
+	Fails BigCrush tests:
+
+	Catid32S_1a: Generator operates at 306 million numbers / second
+*/
+typedef CSmootch<u32, XORShift32_2, MaxSafeMWC> Catid32S_1a;
+/*
+	Period of ~2^^95
+
+	Fails BigCrush tests:
+
+	Catid32S_1b: Generator operates at 306 million numbers / second
+*/
+typedef CSmootch<u32, XORShift32_3, MaxSafeMWC> Catid32S_1b;
+/*
+	Period of ~2^^95
+
+	Fails BigCrush tests:
+
+	Catid32S_1c: Generator operates at 301 million numbers / second
+*/
+typedef CSmootch<u32, XORShift32_1, MaximalMWC> Catid32S_1c;
+/*
+	Period of ~2^^95
+
+	Fails BigCrush tests:
+
+	Catid32S_1d: Generator operates at 306 million numbers / second
+*/
+typedef CSmootch<u32, XORShift32_2, MaximalMWC> Catid32S_1d;
+/*
+	Period of ~2^^95
+
+	Fails BigCrush tests:
+		15  BirthdaySpacings, t = 4          eps
+
 	Catid32S_2: Generator operates at 402 million numbers / second
 */
 typedef CSmootch<u32, MaxSafeMWC, LecuyerLCG32_1> Catid32S_2;
 /*
+	Period of ~2^^95
+
+	Fails BigCrush tests:
+
+	Catid32S_2a: Generator operates at 337 million numbers / second
+*/
+typedef CSmootch<u32, MaxSafeMWC, LecuyerLCG32_2> Catid32S_2a;
+/*
+	Period of ~2^^95
+
+	Fails BigCrush tests:
+
+	Catid32S_2b: Generator operates at 398 million numbers / second
+*/
+typedef CSmootch<u32, MaximalMWC, LecuyerLCG32_1> Catid32S_2b;
+/*
+	Period of ~2^^95
+
+	Fails BigCrush tests:
+
+	Catid32S_2c: Generator operates at 336 million numbers / second
+*/
+typedef CSmootch<u32, MaximalMWC, LecuyerLCG32_2> Catid32S_2c;
+/*
+	Period of ~2^^95
+
+	Fails BigCrush tests:
+
+	Catid32S_2d: Generator operates at 338 million numbers / second
+*/
+typedef CSmootch<u32, MaxSafeMWC, LecuyerLCG32_3> Catid32S_2d;
+/*
 	Period of ~2^^64
+
+	Fails BigCrush tests:
+		2  SerialOver, r = 22               eps
+		19  BirthdaySpacings, t = 8          eps
+		21  BirthdaySpacings, t = 16         eps
+		69  MatrixRank, L=1000, r=26         eps
+		70  MatrixRank, L=5000               eps
+		81  LinearComp, r = 29             1 - eps1
 
 	Catid32S_3: Generator operates at 311 million numbers / second
 */
@@ -616,11 +769,34 @@ typedef CSmootch<u32, XORShift32_1, LecuyerLCG32_1> Catid32S_3;
 /*
 	Period of ~2^^126
 
+	Passes all BigCrush tests.
+
 	Catid32S_4: Generator operates at 279 million numbers / second
 */
 typedef CSmootch<u32, MaxSafeMWC, DJonesMWC1> Catid32S_4;
 /*
+	Period of ~2^^126
+
+	Fails BigCrush tests:
+
+	Catid32S_4a: Generator operates at 275 million numbers / second
+*/
+typedef CSmootch<u32, MaxSafeMWC, MaximalMWC> Catid32S_4a;
+/*
+	Period of ~2^^126
+
+	Fails BigCrush tests:
+
+	Catid32S_4b: Generator operates at 315 million numbers / second
+*/
+typedef CSmootch<u32, MaxSafeMWC, DJonesMWC2> Catid32S_4b;
+/*
 	Period of ~2^^95
+
+	Fails BigCrush tests:
+		2  SerialOver, r = 22               eps
+		17  BirthdaySpacings, t = 7         7.4e-7
+		102  Run of bits, r = 27            1.1e-14
 
 	Catid32S_5: Generator operates at 321 million numbers / second
 */
