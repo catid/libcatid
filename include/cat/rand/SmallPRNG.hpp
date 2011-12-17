@@ -29,7 +29,7 @@
 #ifndef CAT_SMALL_PRNG_HPP
 #define CAT_SMALL_PRNG_HPP
 
-#include "Platform.hpp"
+#include <cat/Platform.hpp>
 
 namespace cat {
 
@@ -202,21 +202,21 @@ typedef MWC<4246477509ULL, 21987643, 1732654> DJonesMWC2;
 		Halts on zero
 		Linear relationship between blocks of b + 1 consecutive bits
 */
-template <typename T, int A, int B, int C>
-class XORShift
+template <int A, int B, int C, u32 X0>
+class XORShift32
 {
-	T _x;
+	u32 _x;
 
 public:
-	CAT_INLINE void Initialize(T seed)
+	CAT_INLINE void Initialize(u32 seed)
 	{
-		_x = seed;
+		_x = X0 ^ seed;
 
 		if (_x == 0)
-			_x = ~(T)0;
+			_x = ~(u32)0;
 	}
 
-	CAT_INLINE void MixSeed(T seed)
+	CAT_INLINE void MixSeed(u32 seed)
 	{
 		Next();
 		_x += seed;
@@ -225,9 +225,43 @@ public:
 			Initialize(seed);
 	}
 
-	CAT_INLINE T Next()
+	CAT_INLINE u32 Next()
 	{
-		register T x = _x;
+		register u32 x = _x;
+		x ^= x << A;
+		x ^= x >> B;
+		x ^= x << C;
+		return (_x = x);
+	}
+};
+
+// 64-bit version:
+template <int A, int B, int C, u64 X0>
+class XORShift64
+{
+	u64 _x;
+
+public:
+	CAT_INLINE void Initialize(u64 seed)
+	{
+		_x = X0 ^ seed;
+
+		if (_x == 0)
+			_x = ~(u64)0;
+	}
+
+	CAT_INLINE void MixSeed(u64 seed)
+	{
+		Next();
+		_x += seed;
+
+		if (_x == 0)
+			Initialize(seed);
+	}
+
+	CAT_INLINE u64 Next()
+	{
+		register u64 x = _x;
 		x ^= x << A;
 		x ^= x >> B;
 		x ^= x << C;
@@ -238,12 +272,13 @@ public:
 /*
 	Chose these at random from the list
 */
-typedef XORShift<u32, 5, 7, 22> XORShift32_1;	// Used in JKISS32 and AsgKISS
-typedef XORShift<u32, 8, 7, 23> XORShift32_2;
-typedef XORShift<u32, 3, 13, 7> XORShift32_3;
-typedef XORShift<u64, 21, 17, 30> XORShift64_1;	// Used in JLKISS64
-typedef XORShift<u64, 17, 23, 29> XORShift64_2;
-typedef XORShift<u64, 16, 21, 35> XORShift64_3;
+typedef XORShift32<5, 7, 22, 0x56A53625> XORShift32_1;
+typedef XORShift32<8, 7, 23, 0x56A53625> XORShift32_2;
+typedef XORShift32<3, 13, 7, 0x56A53625> XORShift32_3;
+typedef XORShift32<5, 7, 22, 234567891> XORShift32_4;	// Used in JKISS32
+typedef XORShift64<21, 17, 30, 0x4A3CE93555573AABULL> XORShift64_1;	// Used in JLKISS64
+typedef XORShift64<17, 23, 29, 0x4A3CE93555573AABULL> XORShift64_2;
+typedef XORShift64<16, 21, 35, 0x4A3CE93555573AABULL> XORShift64_3;
 
 
 /*
@@ -262,7 +297,7 @@ typedef XORShift<u64, 16, 21, 35> XORShift64_3;
 	Issues:
 		Horrible in general
 */
-template <u32 A>
+template <u32 A, u32 X0>
 class WeylGenerator32
 {
 	u32 _x;
@@ -270,7 +305,7 @@ class WeylGenerator32
 public:
 	CAT_INLINE void Initialize(u32 seed)
 	{
-		_x = seed;
+		_x = X0 ^ seed;
 	}
 
 	CAT_INLINE void MixSeed(u32 seed)
@@ -286,7 +321,7 @@ public:
 };
 
 // 64-bit version:
-template <u64 A>
+template <u64 A, u64 X0>
 class WeylGenerator64
 {
 	u64 _x;
@@ -294,7 +329,7 @@ class WeylGenerator64
 public:
 	CAT_INLINE void Initialize(u64 seed)
 	{
-		_x = seed;
+		_x = X0 ^ seed;
 	}
 
 	CAT_INLINE void MixSeed(u64 seed)
@@ -310,14 +345,14 @@ public:
 };
 
 // Close to choice criterion from Brent
-typedef WeylGenerator32<2654435769> Weyl32_1;
-typedef WeylGenerator64<11400714819323198485ULL> Weyl64_1;
+typedef WeylGenerator32<2654435769, 1223235218> Weyl32_1;
+typedef WeylGenerator64<11400714819323198485ULL, 0xFEE9095D248AB2ABULL> Weyl64_1;
 
 /*
 	from "Good Practice in (Pseudo) Random Number Generation for Bioinformatics Applications" (2010)
 	by David Jones
 */
-typedef WeylGenerator32<1411392427> Weyl32_2;
+typedef WeylGenerator32<1411392427, 123456789> Weyl32_2;
 
 
 /*
@@ -332,16 +367,17 @@ typedef WeylGenerator32<1411392427> Weyl32_2;
 		Cannot be seeded without seriously affecting the period
 		Horrible in general
 */
-template <u32 Z0, u32 C0>
+template <u32 Z0, u32 W0>
 class AWC
 {
-	u32 _z, _c;
+	u32 _z, _w, _c;
 
 public:
 	CAT_INLINE void Initialize(u32 seed)
 	{
 		_z = Z0;
-		_c = C0;
+		_w = W0;
+		_c = 0;
 	}
 
 	CAT_INLINE void MixSeed(u32 seed)
@@ -350,10 +386,11 @@ public:
 
 	CAT_INLINE u32 Next()
 	{
-		u32 t = ((_z + _c) & 0x7FFFFFFF) + (_c >> 31);
-		_z = _c;
-		_c = t;
-		return t;
+		u32 t = _z + _w + _c;
+		_z = _w;
+		_c = t >> 31;
+		_w = t & 0x7fffffff;
+		return _w;
 	}
 };
 
@@ -368,6 +405,7 @@ public:
 typedef AWC<3284958323, 2208763121> AWC32_1;
 typedef AWC<433678300, 3220706408> AWC32_2;
 typedef AWC<1034995322, 3764933876> AWC32_3;
+typedef AWC<345678912, 456789123> AWC32_4;		// from JKISS32
 
 
 /*
@@ -563,7 +601,7 @@ typedef CKISS<u32, MaxSafeMWC, XORShift32_1, LecuyerLCG32_1> Catid32_1;
 /*
 	Period of ~2^^127
 
-	Fails BigCrush tests:
+	Passes all BigCrush tests.
 
 	Catid32_1a: Generator operates at 228 million numbers / second
 */
@@ -571,7 +609,7 @@ typedef CKISS<u32, MaximalMWC, XORShift32_1, LecuyerLCG32_1> Catid32_1a;
 /*
 	Period of ~2^^127
 
-	Fails BigCrush tests:
+	Passes all BigCrush tests.
 
 	Catid32_1b: Generator operates at 248 million numbers / second
 */
@@ -579,7 +617,7 @@ typedef CKISS<u32, MaxSafeMWC, XORShift32_2, LecuyerLCG32_1> Catid32_1b;
 /*
 	Period of ~2^^127
 
-	Fails BigCrush tests:
+	Passes all BigCrush tests.
 
 	Catid32_1c: Generator operates at 259 million numbers / second
 */
@@ -587,7 +625,7 @@ typedef CKISS<u32, MaxSafeMWC, XORShift32_1, LecuyerLCG32_2> Catid32_1c;
 /*
 	Period of ~2^^127
 
-	Fails BigCrush tests:
+	Passes all BigCrush tests.
 
 	Catid32_1d: Generator operates at 258 million numbers / second
 */
@@ -596,12 +634,8 @@ typedef CKISS<u32, MaximalMWC, XORShift32_2, LecuyerLCG32_2> Catid32_1d;
 	Period of ~2^^96
 
 	Fails BigCrush tests:
-		2  SerialOver, r = 22               eps
-		19  BirthdaySpacings, t = 8       2.0e-130
-		21  BirthdaySpacings, t = 16         eps
-		81  LinearComp, r = 29             1 - eps1
 
-	Catid32_2: Generator operates at 269 million numbers / second
+	Catid32_2: ?
 */
 typedef CKISS<u32, AWC32_1, XORShift32_1, Weyl32_1> Catid32_2;
 /*
@@ -609,7 +643,7 @@ typedef CKISS<u32, AWC32_1, XORShift32_1, Weyl32_1> Catid32_2;
 
 	Fails BigCrush tests:
 
-	Catid32_2a: Generator operates at 269 million numbers / second
+	Catid32_2a: ?
 */
 typedef CKISS<u32, AWC32_2, XORShift32_1, Weyl32_1> Catid32_2a;
 /*
@@ -617,7 +651,7 @@ typedef CKISS<u32, AWC32_2, XORShift32_1, Weyl32_1> Catid32_2a;
 
 	Fails BigCrush tests:
 
-	Catid32_2b: Generator operates at 270 million numbers / second
+	Catid32_2b: ?
 */
 typedef CKISS<u32, AWC32_1, XORShift32_2, Weyl32_1> Catid32_2b;
 /*
@@ -625,7 +659,7 @@ typedef CKISS<u32, AWC32_1, XORShift32_2, Weyl32_1> Catid32_2b;
 
 	Fails BigCrush tests:
 
-	Catid32_2c: Generator operates at 270 million numbers / second
+	Catid32_2c: ?
 */
 typedef CKISS<u32, AWC32_1, XORShift32_1, Weyl32_2> Catid32_2c;
 /*
@@ -633,9 +667,17 @@ typedef CKISS<u32, AWC32_1, XORShift32_1, Weyl32_2> Catid32_2c;
 
 	Fails BigCrush tests:
 
-	Catid32_2d: Generator operates at 269 million numbers / second
+	Catid32_2d: ?
 */
 typedef CKISS<u32, AWC32_2, XORShift32_2, Weyl32_2> Catid32_2d;
+/*
+	Equivalent to the JKISS32 generator with no multiplies
+
+	Passes all BigCrush tests.
+
+	JKISS32_nomult: ?
+*/
+typedef CKISS<u32, XORShift32_4, AWC32_4, Weyl32_2> JKISS32_nomult;
 
 
 /*
@@ -794,11 +836,8 @@ typedef CSmootch<u32, MaxSafeMWC, DJonesMWC2> Catid32S_4b;
 	Period of ~2^^95
 
 	Fails BigCrush tests:
-		2  SerialOver, r = 22               eps
-		17  BirthdaySpacings, t = 7         7.4e-7
-		102  Run of bits, r = 27            1.1e-14
 
-	Catid32S_5: Generator operates at 321 million numbers / second
+	Catid32S_5: ?
 */
 typedef CSmootch<u32, MaxSafeMWC, AWC32_1> Catid32S_5;
 
