@@ -518,13 +518,13 @@ typedef SingleBitLFSR32<0xD0000001> SingleBitLFSR32_2;
 /*
 	Catid's KISS with LFSR
 
-	Read notes on combining generators for proper usage.
+	Period of combined generators should be about twice as long.
 
 	Always adds in generator 1 result.
 	Uses an LFSR to gate generators 2 and 3.
 */
 template<typename T, class LFSR, class G1, class G2, class G3>
-class CKISSL
+class CAT_EXPORT CKISSL
 {
 	LFSR _lfsr;
 	G1 _g1;
@@ -579,7 +579,7 @@ typedef CKISSL<u32, SingleBitLFSR32_2, MaxSafeMWC, XORShift32_1, LecuyerLCG32_1>
 	Mixes results from all generators.
 */
 template<typename T, class G1, class G2, class G3>
-class CKISS
+class CAT_EXPORT CKISS
 {
 	G1 _g1;
 	G2 _g2;
@@ -685,7 +685,7 @@ typedef CKISS<u32, XORShift32_4, AWC32_4, Weyl32_2> JKISS32_nomult;
 	Mixes just two generators.
 */
 template<typename T, class G1, class G2>
-class CSmootch
+class CAT_EXPORT CSmootch
 {
 	G1 _g1;
 	G2 _g2;
@@ -889,7 +889,7 @@ typedef CSmootch<u32, MaxSafeMWC, DJonesMWC2> Catid32S_4b;
 	Its period is about 2^^126 and passes all BigCrush tests.
 	It is the fastest generator I could find that passes all tests.
 */
-class CatsChoice
+class CAT_EXPORT CatsChoice
 {
 	u64 _x, _y;
 
