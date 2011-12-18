@@ -2,7 +2,7 @@
 	Copyright (c) 2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
-	modification, are permitted provided that the following conditions are met:
+	modification, are permitted provided that the following conditions are :
 
 	* Redistributions of source code must retain the above copyright notice,
 	  this list of conditions and the following disclaimer.
@@ -44,6 +44,25 @@ namespace cat {
 	If you need to achieve a period of 2^^X, then the period of the generators
 	should be at least 2^^(3X).  So, combine MWC with XORS or LCG to make a
 	generator that would be good for 2^^32 output numbers.
+*/
+
+/*
+	Performance measurements:
+
+	Generator CatidL32_1 operates at 153 million numbers / second
+	Generator Catid32_1a operates at 314 million numbers / second
+	Generator Catid32_1b operates at 311 million numbers / second
+	Generator Catid32_1c operates at 306 million numbers / second
+	Generator Catid32_1d operates at 310 million numbers / second
+	Generator Catid32_2 operates at 336 million numbers / second
+	Generator Catid32_2b operates at 346 million numbers / second
+	Generator Catid32_2c operates at 348 million numbers / second
+	Generator JKISS32_nomult operates at 331 million numbers / second
+	Generator Catid32S_1a operates at 329 million numbers / second
+	Generator Catid32S_1d operates at 334 million numbers / second
+	Generator Catid32S_4 operates at 426 million numbers / second
+
+	CatsChoice is an implementation of Catid32S_4
 */
 
 /*
@@ -136,7 +155,7 @@ typedef LCG64<3935559000370003845ULL, 7891234567891234567ULL> LecuyerLCG64_3;
 		Will get stuck if both M and C are zero
 		High bits tend to be less random
 */
-template <u64 A, u32 M0, u32 C0>
+template <u32 A, u32 M0, u32 C0>
 class MWC
 {
 	u32 _m, _c;
@@ -159,7 +178,7 @@ public:
 
 	CAT_INLINE u32 Next()
 	{
-		u64 t = A * _m + _c;
+		u64 t = (u64)A * _m + _c;
 		_m = (u32)t;
 		_c = (u32)(t >> 32);
 		return _m;
@@ -173,8 +192,8 @@ public:
 	MaxSafeMWC period = 9223371654602686463 (prime)
 	MaximalMWC period = 9223371873646018559 = 773 * 1621 * 7360837163623
 */
-typedef MWC<4294967118ULL, 21987643, 1732654> MaxSafeMWC;
-typedef MWC<4294967220ULL, 21987643, 1732654> MaximalMWC;
+typedef MWC<4294967118, 21987643, 1732654> MaxSafeMWC;
+typedef MWC<4294967220, 21987643, 1732654> MaximalMWC;
 /*
 	from "Good Practice in (Pseudo) Random Number Generation for Bioinformatics Applications" (2010)
 	by David Jones
@@ -182,8 +201,8 @@ typedef MWC<4294967220ULL, 21987643, 1732654> MaximalMWC;
 	DJonesMWC1 period = 9222549758923505663 (prime)
 	DJonesMWC2 period = 9119241012177272831 (prime)
 */
-typedef MWC<4294584393ULL, 43219876, 6543217> DJonesMWC1;
-typedef MWC<4246477509ULL, 21987643, 1732654> DJonesMWC2;
+typedef MWC<4294584393, 43219876, 6543217> DJonesMWC1;
+typedef MWC<4246477509, 21987643, 1732654> DJonesMWC2;
 
 
 /*
@@ -398,13 +417,13 @@ public:
 	Factors 3󬊁7�257�641�65537�6700417 cannot be combined with XORShift
 
 	After a short random search I came up with these values:
-		2741480657 yields combined period 2741480657 from (z=3284958323, c=2208763121)
-		1991279629 yields combined period 1991279629 from (z=433678300, c=3220706408)
-		1957051087 yields combined period 1957051087 from (z=1034995322, c=3764933876)
+		(2686646964, 3741327162) period=4202554829 combo period=4202554829
+		(2026632552, 1483949311) period=4150427771 combo period=4150427771
+		(3631468667, 1476107563) period=3635438413 combo period=3635438413
 */
-typedef AWC<3284958323, 2208763121> AWC32_1;
-typedef AWC<433678300, 3220706408> AWC32_2;
-typedef AWC<1034995322, 3764933876> AWC32_3;
+typedef AWC<2686646964, 3741327162> AWC32_1;
+typedef AWC<2026632552, 1483949311> AWC32_2;
+typedef AWC<3631468667, 1476107563> AWC32_3;
 typedef AWC<345678912, 456789123> AWC32_4;		// from JKISS32
 
 
@@ -548,8 +567,6 @@ public:
 	Good for making the generator harder to analyze from its output.
 
 	Passes all BigCrush tests.
-
-	Catid32L_1: Generator operates at 119 million numbers / second
 */
 typedef CKISSL<u32, SingleBitLFSR32_2, MaxSafeMWC, XORShift32_1, LecuyerLCG32_1> CatidL32_1;
 
@@ -594,88 +611,68 @@ public:
 
 	Fails BigCrush tests:
 		23  ClosePairs mNP2S, t = 5         0.9994
-
-	Catid32_1: Generator operates at 249 million numbers / second
 */
 typedef CKISS<u32, MaxSafeMWC, XORShift32_1, LecuyerLCG32_1> Catid32_1;
 /*
 	Period of ~2^^127
 
 	Passes all BigCrush tests.
-
-	Catid32_1a: Generator operates at 228 million numbers / second
 */
 typedef CKISS<u32, MaximalMWC, XORShift32_1, LecuyerLCG32_1> Catid32_1a;
 /*
 	Period of ~2^^127
 
 	Passes all BigCrush tests.
-
-	Catid32_1b: Generator operates at 248 million numbers / second
 */
 typedef CKISS<u32, MaxSafeMWC, XORShift32_2, LecuyerLCG32_1> Catid32_1b;
 /*
 	Period of ~2^^127
 
 	Passes all BigCrush tests.
-
-	Catid32_1c: Generator operates at 259 million numbers / second
 */
 typedef CKISS<u32, MaxSafeMWC, XORShift32_1, LecuyerLCG32_2> Catid32_1c;
 /*
 	Period of ~2^^127
 
 	Passes all BigCrush tests.
-
-	Catid32_1d: Generator operates at 258 million numbers / second
 */
 typedef CKISS<u32, MaximalMWC, XORShift32_2, LecuyerLCG32_2> Catid32_1d;
 /*
 	Period of ~2^^96
 
-	Fails BigCrush tests:
-
-	Catid32_2: ?
+	Passes all BigCrush tests.
 */
-typedef CKISS<u32, AWC32_1, XORShift32_1, Weyl32_1> Catid32_2;
+typedef CKISS<u32, XORShift32_1, AWC32_1, Weyl32_1> Catid32_2;
 /*
 	Period of ~2^^96
 
 	Fails BigCrush tests:
-
-	Catid32_2a: ?
+		50  SampleProd, t = 8               5.2e-4
 */
-typedef CKISS<u32, AWC32_2, XORShift32_1, Weyl32_1> Catid32_2a;
+typedef CKISS<u32, XORShift32_1, AWC32_2, Weyl32_1> Catid32_2a;
+/*
+	Period of ~2^^96
+
+	Passes all BigCrush tests.
+*/
+typedef CKISS<u32, XORShift32_2, AWC32_1, Weyl32_1> Catid32_2b;
+/*
+	Period of ~2^^96
+
+	Passes all BigCrush tests.
+*/
+typedef CKISS<u32, XORShift32_1, AWC32_1, Weyl32_2> Catid32_2c;
 /*
 	Period of ~2^^96
 
 	Fails BigCrush tests:
-
-	Catid32_2b: ?
+		38  Run, r = 0                      6.5e-7
 */
-typedef CKISS<u32, AWC32_1, XORShift32_2, Weyl32_1> Catid32_2b;
-/*
-	Period of ~2^^96
-
-	Fails BigCrush tests:
-
-	Catid32_2c: ?
-*/
-typedef CKISS<u32, AWC32_1, XORShift32_1, Weyl32_2> Catid32_2c;
-/*
-	Period of ~2^^96
-
-	Fails BigCrush tests:
-
-	Catid32_2d: ?
-*/
-typedef CKISS<u32, AWC32_2, XORShift32_2, Weyl32_2> Catid32_2d;
+typedef CKISS<u32, XORShift32_2, AWC32_2, Weyl32_2> Catid32_2d;
 /*
 	Equivalent to the JKISS32 generator with no multiplies
 
 	Passes all BigCrush tests.
-
-	JKISS32_nomult: ?
 */
 typedef CKISS<u32, XORShift32_4, AWC32_4, Weyl32_2> JKISS32_nomult;
 
@@ -717,40 +714,32 @@ public:
 
 	Fails BigCrush tests:
 		77  RandomWalk1 R (L=1000, r=20)    3.4e-4
-
-	Catid32S_1: Generator operates at 293 million numbers / second
 */
 typedef CSmootch<u32, XORShift32_1, MaxSafeMWC> Catid32S_1;
 /*
 	Period of ~2^^95
 
-	Fails BigCrush tests:
-
-	Catid32S_1a: Generator operates at 306 million numbers / second
+	Passes all BigCrush tests.
 */
 typedef CSmootch<u32, XORShift32_2, MaxSafeMWC> Catid32S_1a;
 /*
 	Period of ~2^^95
 
 	Fails BigCrush tests:
-
-	Catid32S_1b: Generator operates at 306 million numbers / second
+		11  CollisionOver, t = 21          6.0e-04
 */
 typedef CSmootch<u32, XORShift32_3, MaxSafeMWC> Catid32S_1b;
 /*
 	Period of ~2^^95
 
 	Fails BigCrush tests:
-
-	Catid32S_1c: Generator operates at 301 million numbers / second
+		14  BirthdaySpacings, t = 3        3.4e-04
 */
 typedef CSmootch<u32, XORShift32_1, MaximalMWC> Catid32S_1c;
 /*
 	Period of ~2^^95
 
-	Fails BigCrush tests:
-
-	Catid32S_1d: Generator operates at 306 million numbers / second
+	Passes all BigCrush tests.
 */
 typedef CSmootch<u32, XORShift32_2, MaximalMWC> Catid32S_1d;
 /*
@@ -758,88 +747,171 @@ typedef CSmootch<u32, XORShift32_2, MaximalMWC> Catid32S_1d;
 
 	Fails BigCrush tests:
 		15  BirthdaySpacings, t = 4          eps
-
-	Catid32S_2: Generator operates at 402 million numbers / second
 */
 typedef CSmootch<u32, MaxSafeMWC, LecuyerLCG32_1> Catid32S_2;
 /*
 	Period of ~2^^95
 
 	Fails BigCrush tests:
-
-	Catid32S_2a: Generator operates at 337 million numbers / second
+		15  BirthdaySpacings, t = 4        2.8e-86
 */
 typedef CSmootch<u32, MaxSafeMWC, LecuyerLCG32_2> Catid32S_2a;
 /*
 	Period of ~2^^95
 
 	Fails BigCrush tests:
-
-	Catid32S_2b: Generator operates at 398 million numbers / second
+		 15  BirthdaySpacings, t = 4          eps
+		 19  BirthdaySpacings, t = 8          eps
 */
 typedef CSmootch<u32, MaximalMWC, LecuyerLCG32_1> Catid32S_2b;
 /*
 	Period of ~2^^95
 
 	Fails BigCrush tests:
-
-	Catid32S_2c: Generator operates at 336 million numbers / second
+		 15  BirthdaySpacings, t = 4          eps
+		 19  BirthdaySpacings, t = 8          eps
 */
 typedef CSmootch<u32, MaximalMWC, LecuyerLCG32_2> Catid32S_2c;
 /*
 	Period of ~2^^95
 
 	Fails BigCrush tests:
-
-	Catid32S_2d: Generator operates at 338 million numbers / second
+		15  BirthdaySpacings, t = 4        1.8e-98
 */
 typedef CSmootch<u32, MaxSafeMWC, LecuyerLCG32_3> Catid32S_2d;
 /*
 	Period of ~2^^64
 
 	Fails BigCrush tests:
-		2  SerialOver, r = 22               eps
+		  2  SerialOver, r = 22               eps
+		 19  BirthdaySpacings, t = 8          eps
+		 21  BirthdaySpacings, t = 16         eps
+		 69  MatrixRank, L=1000, r=26         eps
+		 70  MatrixRank, L=5000               eps
+		 81  LinearComp, r = 29             1 - eps1
+*/
+typedef CSmootch<u32, XORShift32_1, LecuyerLCG32_1> Catid32S_3;
+/*
+	Period of ~2^^64
+
+	Fails BigCrush tests:
+		6  CollisionOver, t = 3            6.0e-4
+		8  CollisionOver, t = 7             eps
+		10  CollisionOver, t = 14          7.9e-71
+		12  CollisionOver, t = 21           8.8e-8
 		19  BirthdaySpacings, t = 8          eps
+		21  BirthdaySpacings, t = 16         eps
+		27  SimpPoker, r = 27              9.1e-13
+		58  AppearanceSpacings, r = 27     1 - eps1
+		69  MatrixRank, L=1000, r=26         eps
+		70  MatrixRank, L=5000               eps
+		81  LinearComp, r = 29             1 - eps1
+		87  LongestHeadRun, r = 27          1.9e-6
+		102  Run of bits, r = 27              eps
+*/
+typedef CSmootch<u32, XORShift32_2, LecuyerLCG32_1> Catid32S_3a;
+/*
+	Period of ~2^^64
+
+	Fails BigCrush tests:
+		2  SerialOver, r = 22               eps
+		19  BirthdaySpacings, t = 8       5.1e-167
 		21  BirthdaySpacings, t = 16         eps
 		69  MatrixRank, L=1000, r=26         eps
 		70  MatrixRank, L=5000               eps
 		81  LinearComp, r = 29             1 - eps1
-
-	Catid32S_3: Generator operates at 311 million numbers / second
 */
-typedef CSmootch<u32, XORShift32_1, LecuyerLCG32_1> Catid32S_3;
+typedef CSmootch<u32, XORShift32_3, LecuyerLCG32_1> Catid32S_3b;
+/*
+	Period of ~2^^64
+
+	Fails BigCrush tests:
+		2  SerialOver, r = 22               eps
+		8  CollisionOver, t = 7             eps
+		10  CollisionOver, t = 14          4.0e-68
+		12  CollisionOver, t = 21           8.8e-8
+		19  BirthdaySpacings, t = 8          eps
+		21  BirthdaySpacings, t = 16         eps
+		27  SimpPoker, r = 27               4.0e-6
+		58  AppearanceSpacings, r = 27     1 - eps1
+		69  MatrixRank, L=1000, r=26         eps
+		70  MatrixRank, L=5000               eps
+		81  LinearComp, r = 29             1 - eps1
+		87  LongestHeadRun, r = 27         1.3e-13
+		102  Run of bits, r = 27              eps
+*/
+typedef CSmootch<u32, XORShift32_2, LecuyerLCG32_2> Catid32S_3c;
+/*
+	Period of ~2^^64
+
+	Fails BigCrush tests:
+		2  SerialOver, r = 22              9.5e-5
+		8  CollisionOver, t = 7             eps
+		10  CollisionOver, t = 14          4.0e-68
+		12  CollisionOver, t = 21           8.8e-8
+		19  BirthdaySpacings, t = 8          eps
+		21  BirthdaySpacings, t = 16         eps
+		27  SimpPoker, r = 27               4.0e-6
+		58  AppearanceSpacings, r = 27     1 - eps1
+		69  MatrixRank, L=1000, r=26         eps
+		70  MatrixRank, L=5000               eps
+		81  LinearComp, r = 29             1 - eps1
+		87  LongestHeadRun, r = 27         6.7e-12
+		102  Run of bits, r = 27              eps
+*/
+typedef CSmootch<u32, XORShift32_2, LecuyerLCG32_3> Catid32S_3d;
 /*
 	Period of ~2^^126
 
 	Passes all BigCrush tests.
-
-	Catid32S_4: Generator operates at 279 million numbers / second
 */
 typedef CSmootch<u32, MaxSafeMWC, DJonesMWC1> Catid32S_4;
 /*
 	Period of ~2^^126
 
 	Fails BigCrush tests:
-
-	Catid32S_4a: Generator operates at 275 million numbers / second
+		76  RandomWalk1 C (L=1000, r=0)     0.9995
 */
 typedef CSmootch<u32, MaxSafeMWC, MaximalMWC> Catid32S_4a;
 /*
 	Period of ~2^^126
 
 	Fails BigCrush tests:
-
-	Catid32S_4b: Generator operates at 315 million numbers / second
+		11  CollisionOver, t = 21          6.7e-05
 */
 typedef CSmootch<u32, MaxSafeMWC, DJonesMWC2> Catid32S_4b;
+
+
 /*
-	Period of ~2^^95
+	This is a unified implementation of my favorite generator
+	that is designed to generate up to 2^^32 numbers per seed.
 
-	Fails BigCrush tests:
-
-	Catid32S_5: ?
+	Its period is about 2^^126 and passes all BigCrush tests.
+	It is the fastest generator I could find that passes all tests.
 */
-typedef CSmootch<u32, MaxSafeMWC, AWC32_1> Catid32S_5;
+class CatsChoice
+{
+	u64 _x, _y;
+
+public:
+	CAT_INLINE void Initialize(u32 seed1, u32 seed2)
+	{
+		_x = 0x1A702E014F813BULL ^ seed1;
+		_y = 0x63D77102937BA4ULL ^ seed2;
+	}
+
+	CAT_INLINE void Initialize(u32 seed)
+	{
+		Initialize(seed, seed);
+	}
+
+	CAT_INLINE u32 Next()
+	{
+		_x = (u64)4294967118 * (u32)_x + (u32)(_x >> 32);
+		_y = (u64)4294584393 * (u32)_y + (u32)(_y >> 32);
+		return (u32)_x + (u32)_y;
+	}
+};
 
 
 } // namespace cat
