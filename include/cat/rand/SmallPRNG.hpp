@@ -898,6 +898,8 @@ public:
 	{
 		_x = 0x1A702E014F813BULL ^ seed1;
 		_y = 0x63D77102937BA4ULL ^ seed2;
+
+		Next(); // Warm up the generator
 	}
 
 	CAT_INLINE void Initialize(u32 seed)
