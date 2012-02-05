@@ -40,6 +40,7 @@
 #include <cat/rand/IRandom.hpp>
 #include <cat/rand/MersenneTwister.hpp>
 #include <cat/rand/StdRand.hpp>
+#include <cat/rand/SmallPRNG.hpp>
 
 #include <cat/hash/Murmur.hpp>
 
