@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2011 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -778,7 +778,7 @@ bool Parser::Read(const char *file_path, File *output_file, bool is_override)
 }
 
 
-//// ragdoll::RagdollFile
+//// ragdoll::File
 
 File::File()
 {

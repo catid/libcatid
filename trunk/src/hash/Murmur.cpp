@@ -31,21 +31,21 @@
 #include <cat/math/BitMath.hpp>
 using namespace cat;
 
-static CAT_INLINE void Seed(const u64 seed, u64 &c1, u64 &c2, u64 &h1, u64 &h2)
+static CAT_INLINE void Seed(const u64 seed, u64 &h1, u64 &h2)
 {
 	h1 = 0x9368e53c2f6af274ULL ^ seed;
 	h2 = 0x586dcd208f7cd3fdULL ^ seed;
-
-	c1 = 0x87c37b91114253d5ULL;
-	c2 = 0x4cf5ad432745937fULL;
 }
 
-static CAT_INLINE void bmix64(u64 &h1, u64 &h2, u64 &k1, u64 &k2, u64 &c1, u64 &c2)
+static const u64 C1 = 0x87c37b91114253d5ULL;
+static const u64 C2 = 0x4cf5ad432745937fULL;
+
+static CAT_INLINE void bmix64(u64 &h1, u64 &h2, u64 &k1, u64 &k2)
 {
 	// First part of key
-	k1 *= c1; 
+	k1 *= C1; 
 	k1  = CAT_ROL64(k1, 31); 
-	k1 *= c2;
+	k1 *= C2;
 	h1 ^= k1;
 
 	h1 = CAT_ROL64(h1, 27);
@@ -53,9 +53,9 @@ static CAT_INLINE void bmix64(u64 &h1, u64 &h2, u64 &k1, u64 &k2, u64 &c1, u64 &
 	h1 = h1 * 5 + 0x52dce729;
 
 	// Second part of key
-	k2 *= c2; 
+	k2 *= C2; 
 	k2  = CAT_ROL64(k2, 33); 
-	k2 *= c1;
+	k2 *= C1;
 	h2 ^= k2;
 
 	h2 = CAT_ROL64(h2, 31);
@@ -74,7 +74,7 @@ static CAT_INLINE u64 fmix64(u64 k)
 	return k;
 }
 
-static CAT_INLINE void Hash(const void *key, const u64 bytes, u64 &c1, u64 &c2, u64 &h1, u64 &h2)
+static CAT_INLINE void Hash(const void *key, const u64 bytes, u64 &h1, u64 &h2)
 {
 	// body
 
@@ -85,7 +85,7 @@ static CAT_INLINE void Hash(const void *key, const u64 bytes, u64 &c1, u64 &c2, 
 	{
 		u64 k1 = getLE(blocks[0]), k2 = getLE(blocks[1]);
 
-		bmix64(h1, h2, k1, k2, c1, c2);
+		bmix64(h1, h2, k1, k2);
 
 		blocks += 2;
 	}
@@ -104,9 +104,9 @@ static CAT_INLINE void Hash(const void *key, const u64 bytes, u64 &c1, u64 &c2, 
 	case 11: k2 ^= u64(tail[10]) << 16;
 	case 10: k2 ^= u64(tail[ 9]) << 8;
 	case  9: k2 ^= u64(tail[ 8]);
-		k2 *= c2;
+		k2 *= C2;
 		k2  = CAT_ROL64(k2, 33);
-		k2 *= c1;
+		k2 *= C1;
 		h2 ^= k2;
 
 	case  8: k1 ^= u64(tail[ 7]) << 56;
@@ -117,9 +117,9 @@ static CAT_INLINE void Hash(const void *key, const u64 bytes, u64 &c1, u64 &c2, 
 	case  3: k1 ^= u64(tail[ 2]) << 16;
 	case  2: k1 ^= u64(tail[ 1]) << 8;
 	case  1: k1 ^= u64(tail[ 0]);
-		k1 *= c1;
+		k1 *= C1;
 		k1  = CAT_ROL64(k1, 31);
-		k1 *= c2;
+		k1 *= C2;
 		h1 ^= k1;
 	};
 }
@@ -145,14 +145,14 @@ static CAT_INLINE void FinalMix(const u64 bytes, u64 &h1, u64 &h2)
 // Incremental hash interface
 MurmurHash::MurmurHash(u64 seed)
 {
-	Seed(seed, _c1, _c2, _h1, _h2);
+	Seed(seed, _h1, _h2);
 
 	_bytes = 0;
 }
 
 void MurmurHash::Add(const void *key, u64 bytes)
 {
-	Hash(key, bytes, _c1, _c2, _h1, _h2);
+	Hash(key, bytes, _h1, _h2);
 
 	_bytes += bytes;
 }
@@ -165,9 +165,9 @@ void MurmurHash::End()
 // One-shot hash interface
 MurmurHash::MurmurHash(const void *key, u64 bytes, u64 seed)
 {
-	Seed(seed, _c1, _c2, _h1, _h2);
+	Seed(seed, _h1, _h2);
 
-	Hash(key, bytes, _c1, _c2, _h1, _h2);
+	Hash(key, bytes, _h1, _h2);
 
 	FinalMix(bytes, _h1, _h2);
 }
