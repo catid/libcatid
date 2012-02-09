@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2011 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2012 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are :
@@ -9,7 +9,7 @@
 	* Redistributions in binary form must reproduce the above copyright notice,
 	  this list of conditions and the following disclaimer in the documentation
 	  and/or other materials provided with the distribution.
-	* Neither the name of LibCat nor the names of its contributors may be used
+	* Neither the name of libperFECt nor the names of its contributors may be used
 	  to endorse or promote products derived from this software without
 	  specific prior written permission.
 
@@ -29,7 +29,7 @@
 #ifndef CAT_SMALL_PRNG_HPP
 #define CAT_SMALL_PRNG_HPP
 
-#include <cat/Platform.hpp>
+#include "Platform.hpp"
 
 namespace cat {
 
@@ -62,7 +62,7 @@ namespace cat {
 	Generator Catid32S_1d operates at 334 million numbers / second
 	Generator Catid32S_4 operates at 426 million numbers / second
 
-	CatsChoice is an implementation of Catid32S_4
+	CatsChoice is an implementation of Catid32S_5, based on Catid32S_4.
 */
 
 /*
@@ -203,6 +203,45 @@ typedef MWC<4294967220, 21987643, 1732654> MaximalMWC;
 */
 typedef MWC<4294584393, 43219876, 6543217> DJonesMWC1;
 typedef MWC<4246477509, 21987643, 1732654> DJonesMWC2;
+/*
+	These are parameters that I generated:
+
+	I want to find the largest few values of A that satisfy
+	this requirements.  Furthermore, I want A to have a minimal
+	number of prime factors; if this is the case, then the
+	output will look random in addition to having a large period.
+
+	So I set out to devise a fast 64-bit primality tester.
+	The best approach I know of for these small sizes is the
+	probabilistic Rabin-Miller primality test.  After a few
+	iterations I can conclude the number is probably prime
+	and then look at the prime factorization of A to select
+	candidates that may go well together.  Wolfram Alpha was
+	used to check that the values are really prime.
+
+	I came up with these results with one big factor:
+
+	-- Candidate 0xffffbe17.  Factors = 3, 1431650141
+	-- Candidate 0xffff4b9f.  Factors = 3, 1431640373
+	-- Candidate 0xffff0207.  Factors = 3, 1431634093
+	-- Candidate 0xfffe1495.  Factors = 3, 1431613831
+	-- Candidate 0xfffd8b79.  Factors = 3, 1431602131
+	-- Candidate 0xfffd6389.  Factors = 3, 1431598723
+	-- Candidate 0xfffd21a7.  Factors = 3, 1431593101
+	-- Candidate 0xfffd1361.  Factors = 3, 1431591883
+	...
+
+	So I guess that 3 is always a factor of A...
+	I then produced CatsChoice-like generators using pairs
+	of these A values and tested them with BigCrush:
+
+		A1 = 0xffffbe17, A2 = 0xffff4b9f <- Failed test 48
+		A1 = 0xffff0207, A2 = 0xfffe1495 <- Passed all tests
+		A1 = 0xfffd8b79, A2 = 0xfffd6389 <- Passed all tests
+		A1 = 0xfffd21a7, A2 = 0xfffd1361 <- Passed all tests (chosen)
+*/
+typedef MWC<0xfffd21a7, 43219876, 6543217> CatMWC1;
+typedef MWC<0xfffd1361, 21987643, 1732654> CatMWC2;
 
 
 /*
@@ -880,6 +919,12 @@ typedef CSmootch<u32, MaxSafeMWC, MaximalMWC> Catid32S_4a;
 		11  CollisionOver, t = 21          6.7e-05
 */
 typedef CSmootch<u32, MaxSafeMWC, DJonesMWC2> Catid32S_4b;
+/*
+	Period of ~2^^126
+
+	Passes all BigCrush tests.
+*/
+typedef CSmootch<u32, CatMWC1, CatMWC2> Catid32S_5;
 
 
 /*
@@ -888,18 +933,42 @@ typedef CSmootch<u32, MaxSafeMWC, DJonesMWC2> Catid32S_4b;
 
 	Its period is about 2^^126 and passes all BigCrush tests.
 	It is the fastest generator I could find that passes all tests.
+
+	Furthermore, the input seeds are hashed to avoid linear
+	relationships between the input seeds and the low bits of
+	the first few outputs.
 */
 class CAT_EXPORT CatsChoice
 {
 	u64 _x, _y;
 
 public:
-	CAT_INLINE void Initialize(u32 seed1, u32 seed2)
+	CAT_INLINE void Initialize(u32 x, u32 y)
 	{
-		_x = 0x1A702E014F813BULL ^ seed1;
-		_y = 0x63D77102937BA4ULL ^ seed2;
+		// Based on the mixing functions of MurmurHash3
+		static const u64 C1 = 0xff51afd7ed558ccdULL;
+		static const u64 C2 = 0xc4ceb9fe1a85ec53ULL;
 
-		Next(); // Warm up the generator
+		x += y;
+		y += x;
+
+		u64 seed_x = 0x9368e53c2f6af274ULL ^ x;
+		u64 seed_y = 0x586dcd208f7cd3fdULL ^ y;
+
+		seed_x *= C1;
+		seed_x ^= seed_x >> 33;
+		seed_x *= C2;
+		seed_x ^= seed_x >> 33;
+
+		seed_y *= C1;
+		seed_y ^= seed_y >> 33;
+		seed_y *= C2;
+		seed_y ^= seed_y >> 33;
+
+		_x = seed_x;
+		_y = seed_y;
+
+		Next();
 	}
 
 	CAT_INLINE void Initialize(u32 seed)
@@ -909,8 +978,8 @@ public:
 
 	CAT_INLINE u32 Next()
 	{
-		_x = (u64)4294967118 * (u32)_x + (u32)(_x >> 32);
-		_y = (u64)4294584393 * (u32)_y + (u32)(_y >> 32);
+		_x = (u64)0xfffd21a7 * (u32)_x + (u32)(_x >> 32);
+		_y = (u64)0xfffd1361 * (u32)_y + (u32)(_y >> 32);
 		return (u32)_x + (u32)_y;
 	}
 };
