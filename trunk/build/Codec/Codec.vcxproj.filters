@@ -30,6 +30,9 @@
     <ClCompile Include="..\..\src\codec\RaptorQ.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\codec\LZ4.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\cat\AllCodec.hpp">
@@ -45,6 +48,9 @@
       <Filter>Header Files\codec</Filter>
     </ClInclude>
     <ClInclude Include="..\..\include\cat\codec\RaptorQ.hpp">
+      <Filter>Header Files\codec</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\codec\LZ4.hpp">
       <Filter>Header Files\codec</Filter>
     </ClInclude>
   </ItemGroup>

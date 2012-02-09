@@ -178,6 +178,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\codec\Huffman.cpp" />
+    <ClCompile Include="..\..\src\codec\LZ4.cpp" />
     <ClCompile Include="..\..\src\codec\RangeCoder.cpp" />
     <ClCompile Include="..\..\src\codec\RaptorQ.cpp" />
     <ClCompile Include="Precompiled.cpp">
@@ -190,6 +191,7 @@
   <ItemGroup>
     <ClInclude Include="..\..\include\cat\AllCodec.hpp" />
     <ClInclude Include="..\..\include\cat\codec\Huffman.hpp" />
+    <ClInclude Include="..\..\include\cat\codec\LZ4.hpp" />
     <ClInclude Include="..\..\include\cat\codec\RangeCoder.hpp" />
     <ClInclude Include="..\..\include\cat\codec\RaptorQ.hpp" />
     <ClInclude Include="Precompiled.hpp" />
