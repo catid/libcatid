@@ -40,17 +40,25 @@ namespace cat {
 
 	CAT_ADD128(r_hi, r_lo, x_hi, x_lo)
 
+		Accumulator is 128-bit, input x(hi:lo) is 128-bit.
+
 		r(hi:lo) += x(hi:lo)
 
 	CAT_PADD128(r_hi, r_lo, x)
+
+		Accumulator is 128-bit, input x is 64-bit.
 
 		r(hi:lo) += (u64)x
 
 	CAT_MUL64(r_hi, r_lo, x, y)
 
+		Product is 128-bit, inputs x,y are 64-bit.
+
 		r(hi:lo) = x * y
 
 	CAT_PMUL64(r_hi, r_lo, x, y)
+
+		Product is 128-bit, inputs x,y are 64-bit.
 
 		Pre-condition: MSB(x) = MSB(y) = 0
 
@@ -60,7 +68,7 @@ namespace cat {
 
 		Implicitly casts arguments to 32-bit numbers.
 
-		result = ( (u64) ( (u32)x ) ) * (u32)y
+		Product is 64-bit, inputs x,y are 32-bit.
 
 		This macro exists because some compilers produce
 		better code when an intrinsic is used for this.
