@@ -200,6 +200,10 @@ void VHash::SetKey(const u8 key[160])
 	swapLE(_l3key[0]);
 	swapLE(_l3key[1]);
 #endif
+
+	// Mask poly key
+	_polykey[0] &= mpoly;
+	_polykey[1] &= mpoly;
 }
 
 u64 VHash::Hash(const void *vdata, int bytes)
