@@ -266,5 +266,11 @@
     <ClInclude Include="..\..\include\cat\rand\SmallPRNG.hpp">
       <Filter>Header Files\rand</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\include\cat\math\BigMath.hpp">
+      <Filter>Header Files\math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\math\Legs.hpp">
+      <Filter>Header Files\math</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

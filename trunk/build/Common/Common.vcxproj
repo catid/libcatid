@@ -212,6 +212,8 @@
     <ClInclude Include="..\..\include\cat\lang\RefSingleton.hpp" />
     <ClInclude Include="..\..\include\cat\lang\Singleton.hpp" />
     <ClInclude Include="..\..\include\cat\lang\LinkedLists.hpp" />
+    <ClInclude Include="..\..\include\cat\math\BigMath.hpp" />
+    <ClInclude Include="..\..\include\cat\math\Legs.hpp" />
     <ClInclude Include="..\..\include\cat\mem\AlignedAllocator.hpp" />
     <ClInclude Include="..\..\include\cat\mem\BufferAllocator.hpp" />
     <ClInclude Include="..\..\include\cat\mem\IAllocator.hpp" />

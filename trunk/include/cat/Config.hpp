@@ -86,6 +86,9 @@ namespace cat {
 //#define CAT_RELEASE_DISABLE_OOPS
 //#define CAT_RELEASE_DISABLE_FATAL
 
+// Define this to enable auditing of data security code
+//#define CAT_AUDIT
+
 
 } // namespace cat
 

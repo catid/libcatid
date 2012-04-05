@@ -33,7 +33,6 @@ using namespace std;
 using namespace cat;
 
 #if defined(CAT_OS_WINDOWS)
-# include <cat/port/WindowsInclude.hpp>
 # include <cat/math/BitMath.hpp>
 # include <WinIoCtl.h>
 	typedef BOOL (WINAPI* PGetLogicalProcessorInformation)(PSYSTEM_LOGICAL_PROCESSOR_INFORMATION, PDWORD);

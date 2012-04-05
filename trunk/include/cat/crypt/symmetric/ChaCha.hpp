@@ -138,8 +138,8 @@ public:
 	// Message with any number of bytes
 	void Crypt(const void *in, void *out, int bytes);
 
-	// Generate 16 words of keystream
-	void GenerateKeyStream(u32 out[16]);
+	// Generate 16 words of keystream, endian-neutral
+	void GenerateNeutralKeyStream(u32 out[16]);
 };
 
 

@@ -37,8 +37,7 @@
 using namespace std;
 using namespace cat;
 
-#if defined(CAT_OS_WINDOWS) || defined(CAT_OS_WINDOWS_CE)
-# include <cat/port/WindowsInclude.hpp>
+#if defined(CAT_OS_WINDOWS)
 # include <process.h>
 #endif
 

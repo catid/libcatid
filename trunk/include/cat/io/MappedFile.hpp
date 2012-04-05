@@ -31,10 +31,6 @@
 
 #include <cat/Platform.hpp>
 
-#if defined(CAT_OS_WINDOWS)
-# include <cat/port/WindowsInclude.hpp>
-#endif
-
 /*
 	Memory-mapped files are a fairly good compromise between performance and flexibility.
 
