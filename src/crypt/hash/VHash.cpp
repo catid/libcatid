@@ -131,7 +131,7 @@ static void PolyStep(u64 &r_hi, u64 &r_lo, const u64 k_hi, const u64 k_lo, const
 
 static u64 Level3Hash(u64 p_hi, u64 p_lo, u64 k_hi, u64 k_lo, u64 len)
 {
-    u64 r_hi, r_lo, t;
+	u64 r_hi, r_lo, t;
 
 	// fully reduce (p1,p2)+(len,0) mod 2^^127-1
 	t = p_hi >> 63;
