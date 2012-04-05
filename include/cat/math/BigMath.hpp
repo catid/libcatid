@@ -35,7 +35,7 @@ namespace cat {
 
 
 /*
-	Optimized 64-bit / 128-bit Arithmetic Macro Library
+	Optimized 128-bit and 64-bit Arithmetic Macro Library
 
 
 	CAT_ADD128(r_hi, r_lo, x_hi, x_lo)
