@@ -9,7 +9,7 @@
 	* Redistributions in binary form must reproduce the above copyright notice,
 	  this list of conditions and the following disclaimer in the documentation
 	  and/or other materials provided with the distribution.
-	* Neither the name of libperFECt nor the names of its contributors may be used
+	* Neither the name of LibCat nor the names of its contributors may be used
 	  to endorse or promote products derived from this software without
 	  specific prior written permission.
 
@@ -29,7 +29,7 @@
 #ifndef CAT_SMALL_PRNG_HPP
 #define CAT_SMALL_PRNG_HPP
 
-#include "Platform.hpp"
+#include <cat/Platform.hpp>
 
 namespace cat {
 
