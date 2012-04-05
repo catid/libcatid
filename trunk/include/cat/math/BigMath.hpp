@@ -163,7 +163,7 @@ namespace cat {
 
 #if defined(CAT_COMPILER_MSVC) // MSVC-32:
 
-# define CAT_MUL32(A, B) __emulu((u32)A, (u32)B) /* slightly faster in ICC */
+# define CAT_MUL32(A, B) __emulu((u32)(A), (u32)(B)) /* slightly faster in ICC */
 
 #endif
 
