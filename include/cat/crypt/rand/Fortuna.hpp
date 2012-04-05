@@ -92,7 +92,6 @@
 
 
 #if defined(CAT_OS_WINDOWS)
-# include <cat/port/WindowsInclude.hpp>
 # include <wincrypt.h>
 #endif
 

@@ -31,9 +31,7 @@
 
 #include <cat/lang/Delegates.hpp>
 
-#if defined(CAT_OS_WINDOWS)
-# include <cat/port/WindowsInclude.hpp>
-#else // use POSIX thread library otherwise
+#if !defined(CAT_OS_WINDOWS)
 # include <pthread.h>
 #endif
 

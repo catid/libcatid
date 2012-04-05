@@ -35,10 +35,6 @@
 #include <cat/lang/LinkedLists.hpp>
 #include <cat/lang/RefSingleton.hpp>
 
-#if defined(CAT_OS_WINDOWS)
-# include <cat/port/WindowsInclude.hpp>
-#endif
-
 namespace cat {
 
 

@@ -34,10 +34,6 @@
 #include <string>
 #include <sstream>
 
-#if defined(CAT_OS_WINDOWS)
-#include <cat/port/WindowsInclude.hpp>
-#endif
-
 namespace cat {
 
 

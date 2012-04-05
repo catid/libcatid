@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2012 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -269,7 +269,7 @@ namespace cat {
 	  defined(_M_X64) || defined(_M_I86) || defined(sun386) || defined(__OS2__)
 # define CAT_ISA_X86
 
-#elif defined(TARGET_CPU_ARM)
+#elif defined(TARGET_CPU_ARM) || defined(__ARMEL__) || defined(__ARM__)
 # define CAT_ISA_ARM
 
 #elif defined(__mips__)
@@ -531,13 +531,21 @@ namespace cat {
 
 #endif
 
+
+//// 128-bit types ////
+
 #if defined(CAT_COMPILER_GCC) && defined(CAT_WORD_64)
+
+# define CAT_HAS_U128
 
 	// GCC also adds 128-bit types :D
 	typedef __uint128_t u128;
 	typedef __int128_t  s128;
 
 #endif
+
+
+//// Floating-point types ////
 
 typedef float f32;
 typedef double f64;
@@ -686,7 +694,6 @@ template<typename T> CAT_INLINE T Bound(const T &minimum, const T &maximum, cons
 
 #undef CAT_ROL32
 #undef CAT_ROR32
-
 #define CAT_ROL32(n, r) _lrotl(n, r)
 #define CAT_ROR32(n, r) _lrotr(n, r)
 
@@ -703,6 +710,7 @@ template<typename T> CAT_INLINE T Bound(const T &minimum, const T &maximum, cons
 #if defined(CAT_WORD_64)
 #pragma intrinsic(__rdtsc)
 #pragma intrinsic(_umul128)
+#pragma intrinsic(__shiftleft128, __shiftright128)
 #pragma intrinsic(_BitScanForward64, _BitScanReverse64, _bittestandset64)
 #pragma intrinsic(_InterlockedCompareExchange128)
 #else
@@ -735,8 +743,14 @@ private: \
 	CAT_INLINE T(const T&) {} \
 	CAT_INLINE T& operator=(const T&) { return *this; }
 
-
 } // namespace cat
+
+
+//// Windows Headers ////
+
+#if defined(CAT_OS_WINDOWS)
+#include <cat/port/WindowsInclude.hpp>
+#endif
 
 
 //// Memory Leaks ////

@@ -84,7 +84,7 @@ bool Transport::RandPadDatagram(SendBuffer *&buffer, u32 &data_bytes)
 		_rand_pad_index = 0;
 
 		// Generate the next keystream
-		_rand_pad_csprng.GenerateKeyStream((u32*)&_rand_pad_source);
+		_rand_pad_csprng.GenerateNeutralKeyStream((u32*)&_rand_pad_source);
 
 		// Convert keystream bytes into exponentially-distributed lengths with mean of 8
 		for (int ii = 0; ii < 64; ii += 2)
@@ -1424,7 +1424,7 @@ bool Transport::PostMTUProbe(u32 mtu)
 
 	// Fill payload with random bytes
 	u8 key_stream[64];
-	_rand_pad_csprng.GenerateKeyStream((u32*)key_stream);
+	_rand_pad_csprng.GenerateNeutralKeyStream((u32*)key_stream);
 	u32 pad_count = data_bytes + 1;
 	u8 *pkt_pad = pkt + 3;
 

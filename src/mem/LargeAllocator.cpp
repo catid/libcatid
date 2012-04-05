@@ -32,10 +32,6 @@
 using namespace std;
 using namespace cat;
 
-#if defined(CAT_OS_WINDOWS)
-#include <cat/port/WindowsInclude.hpp>
-#endif
-
 CAT_SINGLETON(LargeAllocator);
 
 // Allocates memory aligned to a CPU cache-line byte boundary from the heap

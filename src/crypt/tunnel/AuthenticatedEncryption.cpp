@@ -33,6 +33,12 @@
 #include <cat/math/BitMath.hpp>
 using namespace cat;
 
+// Obfuscated key names, collected here for ease of modification and less chance of typos
+#define CAT_KEYNAME_MAC(WHOAMI) ((WHOAMI) ? "dsound.dll" : "opengl32.dll")
+#define CAT_KEYNAME_CIPHER(WHOAMI) ((WHOAMI) ? "Advapi32.dll" : "OpenProcessToken")
+#define CAT_KEYNAME_IV(WHOAMI) ((WHOAMI) ? "RichEd20.Dll" : "KERNEL32.DLL")
+#define CAT_KEYNAME_PROOF(WHOAMI) ((WHOAMI) ? "ddraw.dll" : "shfolder.dll")
+
 bool AuthenticatedEncryption::SetKey(int KeyBytes, Skein *key, bool is_initiator, const char *key_name)
 {
 	_accept_out_of_order = true;
@@ -46,65 +52,52 @@ bool AuthenticatedEncryption::SetKey(int KeyBytes, Skein *key, bool is_initiator
 	key_hash.CrunchString(key_name);
     key_hash.End();
 
-    Skein kdf;
-
 	// MAC keys:
 
-    if (!kdf.SetKey(&key_hash)) return false;
-    if (!kdf.BeginKDF()) return false;
-    kdf.CrunchString(is_initiator ? "dsound.dll" : "opengl32.dll");
-    kdf.End();
-    if (!local_mac_key.SetKey(&kdf)) return false;
+	u8 mac_key[160];
 
-    if (!kdf.SetKey(&key_hash)) return false;
-    if (!kdf.BeginKDF()) return false;
-    kdf.CrunchString(is_initiator ? "opengl32.dll" : "dsound.dll");
-    kdf.End();
-    if (!remote_mac_key.SetKey(&kdf)) return false;
+	if (!GenerateKey(CAT_KEYNAME_MAC(is_initiator), mac_key, sizeof(mac_key)))
+		return false;
+	_local_mac.SetKey(mac_key);
+
+	if (!GenerateKey(CAT_KEYNAME_MAC(!is_initiator), mac_key, sizeof(mac_key)))
+		return false;
+	_remote_mac.SetKey(mac_key);
 
 	// Encryption keys:
 
-    u8 local_key[KeyAgreementCommon::MAX_BYTES];
-    if (!kdf.SetKey(&key_hash)) return false;
-    if (!kdf.BeginKDF()) return false;
-    kdf.CrunchString(is_initiator ? "Advapi32.dll" : "OpenProcessToken");
-    kdf.End();
-    kdf.Generate(local_key, KeyBytes);
-    local_cipher_key.Set(local_key, KeyBytes);
+	u8 cipher_key[KeyAgreementCommon::MAX_BYTES];
+
+	if (!GenerateKey(CAT_KEYNAME_CIPHER(is_initiator), cipher_key, KeyBytes))
+		return false;
+    local_cipher_key.Set(cipher_key, KeyBytes);
 
 #ifdef CAT_AUDIT
 	printf("AUDIT: local_cipher_key ");
 	for (int ii = 0; ii < KeyBytes; ++ii)
 	{
-		printf("%02x", (cat::u8)local_key[ii]);
+		printf("%02x", (cat::u8)cipher_key[ii]);
 	}
 	printf("\n");
 #endif
 
-	u8 remote_key[KeyAgreementCommon::MAX_BYTES];
-	if (!kdf.SetKey(&key_hash)) return false;
-	if (!kdf.BeginKDF()) return false;
-	kdf.CrunchString(is_initiator ? "OpenProcessToken" : "Advapi32.dll");
-	kdf.End();
-	kdf.Generate(remote_key, KeyBytes);
-	remote_cipher_key.Set(remote_key, KeyBytes);
+	if (!GenerateKey(CAT_KEYNAME_CIPHER(!is_initiator), cipher_key, KeyBytes))
+		return false;
+	remote_cipher_key.Set(cipher_key, KeyBytes);
 
 #ifdef CAT_AUDIT
 	printf("AUDIT: remote_cipher_key ");
 	for (int ii = 0; ii < KeyBytes; ++ii)
 	{
-		printf("%02x", (cat::u8)remote_key[ii]);
+		printf("%02x", (cat::u8)cipher_key[ii]);
 	}
 	printf("\n");
 #endif
 
 	// Random IVs:
 
-	if (!kdf.SetKey(&key_hash)) return false;
-	if (!kdf.BeginKDF()) return false;
-	kdf.CrunchString(is_initiator ? "RichEd20.Dll" : "KERNEL32.DLL");
-	kdf.End();
-	kdf.Generate(&local_iv, sizeof(local_iv));
+	if (!GenerateKey(CAT_KEYNAME_IV(is_initiator), &local_iv, sizeof(local_iv)))
+		return false;
 	local_iv = getLE(local_iv);
 
 #ifdef CAT_AUDIT
@@ -116,11 +109,8 @@ bool AuthenticatedEncryption::SetKey(int KeyBytes, Skein *key, bool is_initiator
 	printf("\n");
 #endif
 
-	if (!kdf.SetKey(&key_hash)) return false;
-	if (!kdf.BeginKDF()) return false;
-	kdf.CrunchString(is_initiator ? "KERNEL32.DLL" : "RichEd20.Dll");
-	kdf.End();
-	kdf.Generate(&remote_iv, sizeof(remote_iv));
+	if (!GenerateKey(CAT_KEYNAME_IV(!is_initiator), &remote_iv, sizeof(remote_iv)))
+		return false;
 	remote_iv = getLE(remote_iv);
 
 #ifdef CAT_AUDIT
@@ -153,7 +143,7 @@ bool AuthenticatedEncryption::GenerateProof(u8 *local_proof, int proof_bytes)
     Skein mac;
 
     if (!mac.SetKey(&key_hash) || !mac.BeginMAC()) return false;
-    mac.CrunchString(_is_initiator ? "ddraw.dll" : "shfolder.dll");
+    mac.CrunchString(CAT_KEYNAME_PROOF(_is_initiator));
     mac.End();
 
     mac.Generate(local_proof, proof_bytes);
@@ -168,7 +158,7 @@ bool AuthenticatedEncryption::ValidateProof(const u8 *remote_proof, int proof_by
     Skein mac;
 
     if (!mac.SetKey(&key_hash) || !mac.BeginMAC()) return false;
-    mac.CrunchString(_is_initiator ? "shfolder.dll" : "ddraw.dll");
+    mac.CrunchString(CAT_KEYNAME_PROOF(!_is_initiator));
     mac.End();
 
     u8 expected[KeyAgreementCommon::MAX_BYTES];
@@ -176,10 +166,6 @@ bool AuthenticatedEncryption::ValidateProof(const u8 *remote_proof, int proof_by
 
     return SecureEqual(expected, remote_proof, proof_bytes);
 }
-
-
-
-
 
 bool AuthenticatedEncryption::IsValidIV(u64 iv)
 {
@@ -255,10 +241,6 @@ void AuthenticatedEncryption::AcceptIV(u64 iv)
     }
 }
 
-
-
-
-// Decrypt a packet from the remote host
 bool AuthenticatedEncryption::Decrypt(u8 *buffer, u32 buf_bytes)
 {
     if (buf_bytes < OVERHEAD_BYTES) return false;
@@ -305,47 +287,33 @@ bool AuthenticatedEncryption::Decrypt(u8 *buffer, u32 buf_bytes)
 	printf("AUDIT: Valid IV!\n");
 #endif
 
-    // Decrypt the message and the MAC
+	// Key the cipher with the IV
 	ChaChaOutput remote_cipher;
 	remote_cipher.ReKey(remote_cipher_key, iv);
-    remote_cipher.Crypt(buffer, buffer, buf_bytes - IV_BYTES);
 
-    // Generate the expected MAC given the decrypted message and full IV
-	HMAC_MD5 remote_mac;
-	remote_mac.RekeyFromMD5(&remote_mac_key);
-    remote_mac.BeginMAC();
-	u64 iv_neutral = getLE(iv);
-    remote_mac.Crunch(&iv_neutral, sizeof(iv_neutral));
-    remote_mac.Crunch(buffer, msg_bytes);
-    remote_mac.End();
+	// Generate first block and discard all but first 8 bytes
+	u32 first_block[16];
+	remote_cipher.GenerateNeutralKeyStream(first_block);
 
-    u8 expected[MAC_BYTES];
-    remote_mac.Generate(expected, MAC_BYTES);
+	// Generate VHash of the ciphertext
+	u64 vhash = _remote_mac.Hash(buffer, msg_bytes);
 
-#ifdef CAT_AUDIT
-	printf("AUDIT: Decrypted message MAC ");
-	for (int ii = 0; ii < MAC_BYTES; ++ii)
-	{
-		printf("%02x", (cat::u8)expected[ii]);
-	}
-	printf("\n");
+	// Generate the MAC by encrypting (XORing) VHash with the first 8 bytes of keystream
+	const u64 *vhash_keystream = reinterpret_cast<const u64*>( first_block );
+	const u64 *mac_input = reinterpret_cast<u64*>( overhead );
+	u64 remote_vhash = getLE(*mac_input ^ *vhash_keystream);
 
-	printf("AUDIT: Received message MAC ");
-	for (int ii = 0; ii < MAC_BYTES; ++ii)
-	{
-		printf("%02x", (cat::u8)overhead[ii]);
-	}
-	printf("\n");
-#endif
-
-    // Validate the MAC
-    if (!SecureEqual(expected, overhead, MAC_BYTES))
+	// Validate the MAC
+	if (remote_vhash ^ vhash)
 	{
 #ifdef CAT_AUDIT
 		printf("AUDIT: MAC invalid!\n");
 #endif
-        return false;
+		return false;
 	}
+
+	// Decrypt the message in-place
+    remote_cipher.Crypt(buffer, buffer, msg_bytes);
 
 #ifdef CAT_AUDIT
 	printf("AUDIT: MAC valid!  Message successfully decrypted!\n");
@@ -388,29 +356,33 @@ bool AuthenticatedEncryption::Encrypt(u64 &next_iv, u8 *buffer, u32 buf_bytes)
 	printf("\n");
 #endif
 
-    // Generate a MAC for the message and full IV
-	HMAC_MD5 local_mac;
-	local_mac.RekeyFromMD5(&local_mac_key);
-    local_mac.BeginMAC();
-	u64 iv_neutral = getLE(iv);
-	local_mac.Crunch(&iv_neutral, sizeof(iv_neutral));
-    local_mac.Crunch(buffer, msg_bytes);
-    local_mac.End();
-    local_mac.Generate(overhead, MAC_BYTES);
+	// Key the cipher with the IV
+	ChaChaOutput local_cipher;
+	local_cipher.ReKey(local_cipher_key, iv);
+
+	// Generate first block and discard all but first 8 bytes
+	u32 first_block[16];
+	local_cipher.GenerateNeutralKeyStream(first_block);
+
+    // Encrypt the message and MAC
+    local_cipher.Crypt(buffer, buffer, msg_bytes);
+
+	// Generate VHash of the ciphertext
+	u64 vhash = _local_mac.Hash(buffer, msg_bytes);
+
+	// Generate the MAC by encrypting (XORing) VHash with the first 8 bytes of keystream
+	const u64 *vhash_keystream = reinterpret_cast<const u64*>( first_block );
+	u64 *mac_output = reinterpret_cast<u64*>( overhead );
+	*mac_output = *vhash_keystream ^ getLE(vhash);
 
 #ifdef CAT_AUDIT
-	printf("AUDIT: Encrypting message with MAC ");
+	printf("AUDIT: Encrypted message with MAC ");
 	for (int ii = 0; ii < MAC_BYTES; ++ii)
 	{
 		printf("%02x", (cat::u8)overhead[ii]);
 	}
 	printf("\n");
 #endif
-
-    // Encrypt the message and MAC
-	ChaChaOutput local_cipher;
-	local_cipher.ReKey(local_cipher_key, iv);
-    local_cipher.Crypt(buffer, buffer, msg_bytes + MAC_BYTES);
 
     // Obfuscate the truncated IV
     u32 trunc_iv = IV_MASK & ((u32)iv ^ getLE(*(u32*)overhead) ^ IV_FUZZ);

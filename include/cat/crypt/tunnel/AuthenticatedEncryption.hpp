@@ -31,7 +31,7 @@
 
 #include <cat/crypt/symmetric/ChaCha.hpp>
 #include <cat/crypt/hash/Skein.hpp>
-#include <cat/crypt/hash/HMAC_MD5.hpp>
+#include <cat/crypt/hash/VHash.hpp>
 #include <cat/threads/Mutex.hpp>
 
 namespace cat {
@@ -43,9 +43,9 @@ namespace cat {
     Run after the Key Agreement protocol completes.
     Uses a 1024-bit anti-replay sliding window, suitable for Internet file transfer over UDP.
 
-	Cipher: 12-round ChaCha with 256-bit or 384-bit keys
+	Cipher: ChaCha with 256-bit or 384-bit keys
 	KDF: Key derivation function (Skein)
-	MAC: 64-bit truncated HMAC-MD5
+	MAC: Message authentication code (64-bit VMAC-ChaCha)
 	IV: Initialization vector incrementing by 1 each time
 
     c2sMKey = KDF(k) { "upstream-MAC" }
@@ -55,19 +55,21 @@ namespace cat {
 	c2sIV = KDF(k) { "upstream-IV" }
 	s2cIV = KDF(k) { "downstream-IV" }
 
-	To transmit a message, the client calculates a MAC with the c2sMKey of the IV concatenated with
-	the plaintext message and then appends the 8-byte MAC and low 3 bytes of the IV to the message,
-	which is encrypted using the c2sEKey and the IV.
+	To transmit a message, the client writes the message IV to the last 3 bytes of the output.
+	The first block of encryption keystream is stored temporarily.
+	Then the client uses c2sEKey to encrypt the message.
+	The MAC is produced and XOR'd with the first 8 bytes of keystream and stored to the end.
 
-    c2s Encrypt(c2sEKey) { message || MAC(c2sMKey) { full-iv-us||message } } || Obfuscated { trunc-iv-us }
+    c2s Encrypt(c2sEKey) { message || MAC(c2sMKey) [ENC{message}] } || Obfuscated { trunc-iv-us }
 
         encrypted { MESSAGE(X) MAC(8by) } IV(3by) = 11 bytes overhead at end of packet
 
-	To transmit a message, the server calculates a MAC with the s2cMKey of the IV concatenated with
-	the plaintext message and then appends the 8-byte MAC and low 3 bytes of the IV to the message,
-	which is encrypted using the s2cEKey and the IV.
+	To transmit a message, the server writes the message IV to the first 3 bytes of the output.
+	The first block of encryption keystream is stored temporarily.
+	Then the server uses s2cEKey to encrypt 8 bytes of zeroes and the message.
+	The MAC is produced and XOR'd with the first 8 bytes of keystream and stored to the end.
 
-    s2c Encrypt(s2cEKey) { message || MAC(s2cMKey) { full-iv-ds||message } } || Obfuscated { trunc-iv-ds }
+    s2c Encrypt(s2cEKey) { message || MAC(s2cMKey) [ENC{message}] } || Obfuscated { trunc-iv-ds }
 
         encrypted { MESSAGE(X) MAC(8by) } IV(3by) = 11 bytes overhead at end of packet
 
@@ -88,14 +90,14 @@ class CAT_EXPORT AuthenticatedEncryption
     bool _is_initiator, _accept_out_of_order;
     Skein key_hash;
 
-    HMAC_MD5 local_mac_key, remote_mac_key;
+    VHash _local_mac, _remote_mac;
     ChaChaKey local_cipher_key, remote_cipher_key;
     u64 remote_iv;
 
 	Mutex _local_iv_lock;
 	u64 local_iv;
 
-    // 1024-bit anti-replay sliding window
+    // Anti-replay sliding window
     static const int BITMAP_BITS = 1024;
     static const int BITMAP_WORDS = BITMAP_BITS / 64;
     u64 iv_bitmap[BITMAP_WORDS];
@@ -133,6 +135,7 @@ public:
     bool ValidateProof(const u8 *remote_proof, int proof_bytes);
 
 public:
+	// NOTE: Doesn't break the security guarantee, will still ignore duplicates!
 	void AllowOutOfOrder(bool allowed = true) { _accept_out_of_order = allowed; }
 
 public:
