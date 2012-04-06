@@ -1419,6 +1419,53 @@ void ECCSpeed()
 }
 
 
+void GenerateLottoTicketNumbers()
+{
+	FortunaOutput *output = FortunaFactory::ref()->Create();
+	CAT_ENFORCE(output);
+
+	cout << "Lotto Numbers: ";
+
+	// 1 - 56 x 5 (without replacement)
+	// 1 - 46 x 1 (separate)
+
+	u32 white_balls[5], gold_ball;
+
+	for (int ii = 0; ii < 5; ++ii)
+	{
+		bool retry;
+		u32 number;
+
+		do
+		{
+			retry = false;
+			number = output->GenerateUnbiased(1, 56);
+
+			for (int jj = 0; jj < ii; ++jj)
+			{
+				if (white_balls[jj] == number)
+				{
+					retry = true;
+					break;
+				}
+			}
+		} while (retry);
+
+		white_balls[ii] = number;
+
+		cout << number << " ";
+	}
+
+	gold_ball = output->GenerateUnbiased(1, 46);
+
+	cout << "{ " << gold_ball << " }";
+
+	cout << endl;
+
+	delete output;
+}
+
+
 
 void GeneratePassword()
 {
@@ -1544,6 +1591,12 @@ int main()
 
 	cout << endl << "ChaCha testing and timing:" << endl;
 	TestChaCha();
+
+	GenerateLottoTicketNumbers();
+	GenerateLottoTicketNumbers();
+
+	cout << endl << "Press ENTER to quit." << endl;
+	cin.get();
 
 	return 0;
 }
