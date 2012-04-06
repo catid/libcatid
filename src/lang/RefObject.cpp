@@ -27,6 +27,7 @@
 */
 
 #include <cat/lang/RefObject.hpp>
+#include <cat/time/Clock.hpp>
 using namespace cat;
 
 static RefObjects *m_refobjects = 0;

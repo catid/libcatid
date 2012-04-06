@@ -28,6 +28,7 @@
 
 #include <cat/crypt/hash/VHash.hpp>
 #include <cat/math/BigMath.hpp>
+#include <cat/port/EndianNeutral.hpp>
 using namespace cat;
 
 static const u64 p64 = 0xfffffffffffffeffULL;	// 2^64 - 257 prime

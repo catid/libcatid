@@ -27,6 +27,7 @@
 */
 
 #include <cat/net/UDPRecvAllocator.hpp>
+#include <cat/io/Buffers.hpp>
 #include <cat/io/Settings.hpp>
 using namespace cat;
 

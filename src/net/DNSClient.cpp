@@ -949,8 +949,15 @@ bool DNSClient::Resolve(const char *hostname, DNSDelegate callback, RefObject *h
 	if (!_endpoint)
 	{
 		CAT_WARN("DNSClient") << "Unable to service DNS request: Endpoint unavailable";
+		callback(hostname, 0, 0);
 		return false;
 	}
 
-	return _endpoint->Resolve(hostname, callback, holdRef);
+	if (!_endpoint->Resolve(hostname, callback, holdRef))
+	{
+		callback(hostname, 0, 0);
+		return false;
+	}
+
+	return true;
 }

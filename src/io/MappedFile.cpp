@@ -28,6 +28,7 @@
 
 #include <cat/io/MappedFile.hpp>
 #include <cat/io/Log.hpp>
+#include <cat/port/SystemInfo.hpp>
 using namespace cat;
 
 #if defined(CAT_OS_LINUX)

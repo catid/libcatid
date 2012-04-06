@@ -27,6 +27,7 @@
 */
 
 #include <cat/math/BigTwistedEdwards.hpp>
+#include <cat/io/Log.hpp>
 using namespace cat;
 
 BigTwistedEdwards::BigTwistedEdwards(int regs, int bits, int modulusC, int paramD, const u8 *Q, const u8 *GenPt)

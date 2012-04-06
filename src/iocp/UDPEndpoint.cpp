@@ -280,14 +280,14 @@ bool UDPEndpoint::Write(const BatchSet &buffers, u32 count, const NetAddr &addr)
 	return count == write_count;
 }
 
-CAT_INLINE bool UDPEndpoint::Write(u8 *data, u32 data_bytes, const NetAddr &addr)
+bool UDPEndpoint::Write(u8 *data, u32 data_bytes, const NetAddr &addr)
 {
 	SendBuffer *buffer = SendBuffer::Promote(data);
 	buffer->SetBytes(data_bytes);
 	return Write(buffer, 1, addr);
 }
 
-CAT_INLINE void UDPEndpoint::SetRemoteAddress(RecvBuffer *buffer)
+void UDPEndpoint::SetRemoteAddress(RecvBuffer *buffer)
 {
 	buffer->addr.Wrap(buffer->iointernal.addr);
 }
