@@ -29,7 +29,7 @@
 #include <cat/math/BigRTL.hpp>
 using namespace cat;
 
-#include "CombaMul.cpp"
+#include "CombaMul.inc"
 
 // Unrolled schoolbook method with special attention to carries
 // This 4x4 multiply is (slightly) faster than using Comba method

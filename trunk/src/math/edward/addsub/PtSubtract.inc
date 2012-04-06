@@ -34,7 +34,7 @@ using namespace cat;
 # define PT_FN PtESubtract /* Version that does produce the T coord */
 #else
 # define EXTENDED_T
-# include "PtSubtract.cpp"
+# include "PtSubtract.inc"
 # undef PT_FN
 # define PT_FN PtSubtract /* Version that does not produce the T coord */
 #endif

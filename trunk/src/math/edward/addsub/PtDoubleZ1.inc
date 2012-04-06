@@ -34,7 +34,7 @@ using namespace cat;
 # define PT_FN PtEDoubleZ1 /* Version that does produce the T coord */
 #else
 # define EXTENDED_T
-# include "PtDoubleZ1.cpp"
+# include "PtDoubleZ1.inc"
 # undef PT_FN
 # define PT_FN PtDoubleZ1 /* Version that does not produce the T coord */
 #endif
