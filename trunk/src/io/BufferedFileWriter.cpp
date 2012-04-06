@@ -28,6 +28,7 @@
 
 #include <cat/io/BufferedFileWriter.hpp>
 #include <cat/io/FileWriteAllocator.hpp>
+#include <cat/io/Settings.hpp>
 using namespace cat;
 
 static FileWriteAllocator *m_file_write_allocator = 0;

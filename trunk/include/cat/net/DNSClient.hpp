@@ -39,6 +39,9 @@
 #include <cat/threads/WaitableFlag.hpp>
 #include <cat/lang/Delegates.hpp>
 #include <cat/lang/LinkedLists.hpp>
+#include <cat/net/Sockets.hpp>
+#include <cat/lang/RefObject.hpp>
+#include <cat/io/Buffers.hpp>
 
 namespace cat {
 
@@ -54,6 +57,7 @@ static const int DNSCACHE_TIMEOUT = 60000; // Time until a cached response is dr
 static const int DNS_THREAD_KILL_TIMEOUT = 10000; // 10 seconds
 
 // DNS resolve completion delegate
+// Return true to keep this result in cache
 // bool OnDNSResolveComplete(const char *hostname, const NetAddr *results, int result_count);
 typedef Delegate3<bool, const char *, const NetAddr *, int> DNSDelegate;
 

@@ -31,6 +31,7 @@
 
 #include <cat/mem/IAllocator.hpp>
 #include <cat/threads/Mutex.hpp>
+#include <cat/lang/RefSingleton.hpp>
 
 /*
 	FileWriteAllocator

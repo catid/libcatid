@@ -30,6 +30,7 @@
 #define CAT_MERGE_SORT_HPP
 
 #include <cat/Platform.hpp>
+#include <cat/io/Log.hpp>
 
 /*
 	I took the time to write an optimized Merge Sort for singly-linked lists

@@ -28,6 +28,7 @@
 
 #include <cat/crypt/tunnel/TunnelTLS.hpp>
 #include <cat/threads/Thread.hpp>
+#include <cat/crypt/tunnel/KeyAgreement.hpp>
 using namespace cat;
 
 static CAT_TLS TunnelTLS *m_tls = 0;

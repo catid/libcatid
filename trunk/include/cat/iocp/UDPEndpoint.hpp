@@ -32,6 +32,7 @@
 #include <cat/net/Sockets.hpp>
 #include <cat/lang/RefObject.hpp>
 #include <cat/mem/IAllocator.hpp>
+#include <cat/iocp/IOThreadPools.hpp>
 
 /*
 	To get maximum performance from the UDP sockets, be sure to adjust your
@@ -96,13 +97,13 @@ public:
 	// This function takes approximately 1 ms per ~20 buffers (it is SLOW)
 	bool Write(const BatchSet &buffers, u32 count, const NetAddr &addr);
 
-	CAT_INLINE bool Write(u8 *data, u32 data_bytes, const NetAddr &addr);
+	bool Write(u8 *data, u32 data_bytes, const NetAddr &addr);
 
 	// When done with read buffers, call this function to add them back to the available pool
 	void ReleaseRecvBuffers(BatchSet buffers, u32 count);
 
 protected:
-	CAT_INLINE void SetRemoteAddress(RecvBuffer *buffer);
+	void SetRemoteAddress(RecvBuffer *buffer);
 
 	virtual void OnRecvRouting(const BatchSet &buffers) = 0;
 

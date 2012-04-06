@@ -29,6 +29,7 @@
 #include <cat/crypt/pass/Passwords.hpp>
 #include <cat/crypt/hash/Skein.hpp>
 #include <cat/lang/Strings.hpp>
+#include <cat/crypt/SecureEqual.hpp>
 using namespace cat;
 
 //// PasswordCreator

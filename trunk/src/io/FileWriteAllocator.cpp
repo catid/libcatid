@@ -30,6 +30,8 @@
 #include <cat/port/SystemInfo.hpp>
 #include <cat/io/Settings.hpp>
 #include <cat/mem/LargeAllocator.hpp>
+#include <cat/math/BitMath.hpp>
+#include <cat/io/Buffers.hpp>
 using namespace cat;
 
 static Settings *m_settings = 0;

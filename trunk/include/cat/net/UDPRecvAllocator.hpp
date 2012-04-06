@@ -30,6 +30,7 @@
 #define CAT_UDP_RECV_ALLOCATOR_HPP
 
 #include <cat/mem/BufferAllocator.hpp>
+#include <cat/lang/RefSingleton.hpp>
 
 /*
 	UDP RecvFrom() buffer allocator

@@ -27,6 +27,7 @@
 */
 
 #include <cat/lang/Strings.hpp>
+#include <cat/io/Log.hpp>
 #include <cctype> // tolower
 using namespace cat;
 

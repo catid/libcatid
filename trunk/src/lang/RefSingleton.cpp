@@ -27,6 +27,7 @@
 */
 
 #include <cat/lang/RefSingleton.hpp>
+#include <cat/threads/Thread.hpp>
 using namespace cat;
 
 static RefSingletons *m_ref_singletons = 0;
