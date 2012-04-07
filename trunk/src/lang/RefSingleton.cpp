@@ -326,12 +326,13 @@ void RefSingletonBase::MergeSort(SListForward &list)
 
 //// RefSingletons
 
-void RefSingletons::OnExit()
+void RefSingletons::AtExit()
 {
-	m_ref_singletons->OnFinalize();
-
-	// Invoke any remaining thread-atexit() callbacks for thread of termination
-	Thread::InvokeAtExit();
+	if (m_ref_singletons)
+	{
+		m_ref_singletons->OnFinalize();
+		m_ref_singletons = 0;
+	}
 }
 
 CAT_SINGLETON(RefSingletons);
@@ -340,8 +341,9 @@ bool RefSingletons::OnInitialize()
 {
 	m_ref_singletons = this;
 
-	// Register shutdown callback
-	return 0 == atexit(&RefSingletons::OnExit);
+	std::atexit(&RefSingletons::AtExit);
+
+	return true;
 }
 
 void RefSingletons::OnFinalize()

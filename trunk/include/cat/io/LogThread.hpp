@@ -77,22 +77,23 @@ class LogThread : public RefSingleton<LogThread>, public Thread
 	static const u32 DUMP_INTERVAL = 100; // milliseconds
 	static const u32 MAX_LIST_SIZE = DUMP_INTERVAL * 20; // 20 events per millisecond max
 
-	WaitableFlag _die;
+	WaitableFlag _wakeup;
+	volatile bool _die;			// Thread marked for death on next wakeup
+	volatile u32 _flagged;		// Wakeup has been triggered, to avoid giving semaphore multiple times (optimization)
 
 	// Double-buffered log item list to reduce contention further
 	volatile int _list_writing;
 	LogItem *_list_ptr[2];
 	u32 _list_size[2];
 
-	u8 _cache_split_a[CAT_DEFAULT_CACHE_LINE_SIZE];
-	LogItem _list_a[MAX_LIST_SIZE];
-
-	u8 _cache_split_b[CAT_DEFAULT_CACHE_LINE_SIZE];
-	LogItem _list_b[MAX_LIST_SIZE];
+	LogItem *_list_a, *_list_b;
 
 	void RunList();
 	bool Entrypoint(void *param);
 
+	void Cleanup();
+
+public:
 	void Write(EventSeverity severity, const char *source, const std::string &msg);
 };
 

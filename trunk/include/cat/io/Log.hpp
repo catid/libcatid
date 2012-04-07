@@ -83,18 +83,23 @@ public:
 
 private:
 	Mutex _lock;
-	Callback _inner_cb;
-	Callback _callback;
+	Callback _backend;	// Callback that actually does the output
+	Callback _frontend;	// Hook that might be set to the backend, but could also be used to redirect output
 	int _log_threshold;
 #if defined(CAT_OS_WINDOWS)
 	HANDLE _event_source;
 #endif
 
-	void Write(EventSeverity severity, const char *source, const std::string &msg);
+	void InvokeFrontend(EventSeverity severity, const char *source, const std::string &msg);
+	void InvokeBackend(EventSeverity severity, const char *source, const std::string &msg);
 
-	void InvokeInnerCallback(EventSeverity severity, const char *source, const std::string &msg);
-	void SetInnerCallback(const Callback &cb);
-	void ResetInnerCallback();
+	void SetFrontend(const Callback &cb);
+	void ResetFrontend();
+
+#if defined(CAT_THREADED_LOGGER)
+	void InvokeBackendAndSetupThreaded(EventSeverity severity, const char *source, const std::string &msg);
+#endif
+	void InvokeBackendAndUnlock(EventSeverity severity, const char *source, const std::string &msg);
 
 public:
 	CAT_INLINE void SetThreshold(EventSeverity min_severity) { _log_threshold = min_severity; }
@@ -107,7 +112,7 @@ public:
 	void EnableServiceMode(const char *service_name);
 	void WriteServiceLog(EventSeverity severity, const char *line);
 
-	void SetLogCallback(const Callback &cb);
+	void SetBackend(const Callback &cb);
 	void DefaultServiceCallback(EventSeverity severity, const char *source, const std::string &msg);
 	void DefaultLogCallback(EventSeverity severity, const char *source, const std::string &msg);
 };

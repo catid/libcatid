@@ -36,16 +36,24 @@ using namespace cat;
 
 unsigned int __stdcall Thread::ThreadWrapper(void *this_object)
 {
-	Thread *thread_object = static_cast<Thread*>( this_object );
+	Thread *thread_object = reinterpret_cast<Thread*>( this_object );
 
-	bool success = thread_object->Entrypoint(thread_object->caller_param);
+	bool success = thread_object->Entrypoint(thread_object->_caller_param);
 
 	unsigned int exitCode = success ? 0 : 1;
 
-	thread_object->_thread_running = false;
+	CAT_DEBUG_CHECK_MEMORY();
 
 	// Invoke any thread-atexit() callbacks
-	Thread::InvokeAtExit();
+	thread_object->InvokeAtExit();
+
+	CAT_DEBUG_CHECK_MEMORY();
+
+	CAT_FENCE_COMPILER;
+
+	thread_object->_thread_running = false;
+
+	CAT_FENCE_COMPILER;
 
 	// Using _beginthreadex() and _endthreadex() since _endthread() calls CloseHandle()
 	_endthreadex(exitCode);
@@ -60,12 +68,16 @@ void *Thread::ThreadWrapper(void *this_object)
 {
 	Thread *thread_object = static_cast<Thread*>( this_object );
 
-	bool success = thread_object->Entrypoint(thread_object->caller_param);
+	bool success = thread_object->Entrypoint(thread_object->_caller_param);
+
+	CAT_DEBUG_CHECK_MEMORY();
 
 	thread_object->_thread_running = false;
 
 	// Invoke any thread-atexit() callbacks
-	Thread::InvokeAtExit();
+	thread_object->InvokeAtExit();
+
+	CAT_DEBUG_CHECK_MEMORY();
 
 	return (void*)(success ? 0 : 1);
 }
@@ -78,6 +90,7 @@ void *Thread::ThreadWrapper(void *this_object)
 Thread::Thread()
 {
 	_thread_running = false;
+	_cb_count = 0;
 }
 
 bool Thread::StartThread(void *param)
@@ -85,13 +98,14 @@ bool Thread::StartThread(void *param)
 	if (_thread_running)
 		return false;
 
-	caller_param = param;
+	_caller_param = param;
 	_thread_running = true;
 
 #if defined(CAT_OS_WINDOWS)
 
 	// Using _beginthreadex() and _endthreadex() since _endthread() calls CloseHandle()
-	_thread = (HANDLE)_beginthreadex(0, 0, &Thread::ThreadWrapper, static_cast<void*>( this ), 0, 0);
+	u32 thread_id;
+	_thread = (HANDLE)_beginthreadex(0, 0, &Thread::ThreadWrapper, static_cast<void*>( this ), 0, &thread_id);
 
 	if (!_thread)
 		_thread_running = false;
@@ -190,100 +204,47 @@ bool Thread::WaitForThread(int ms)
 
 //// Thread priority modification
 
-bool cat::SetHighPriority()
+bool cat::SetCurrentThreadPriority(ThreadPrio prio)
 {
 #if defined(CAT_OS_WINDOWS)
-	return 0 != SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
+	int level;
+
+	// Convert to Windows API constant
+	switch (prio)
+	{
+	case P_IDLE:	level = THREAD_PRIORITY_IDLE;	break;
+	case P_LOW:		level = THREAD_PRIORITY_LOWEST;	break;
+	case P_NORMAL:	level = THREAD_PRIORITY_NORMAL;	break;
+	case P_HIGH:	level = THREAD_PRIORITY_ABOVE_NORMAL;	break;
+	case P_HIGHEST:	level = THREAD_PRIORITY_HIGHEST;	break;
+	}
+
+	return 0 != SetThreadPriority(GetCurrentThread(), level);
 #else
 	return false;
 #endif
 }
-
-bool cat::SetNormalPriority()
-{
-#if defined(CAT_OS_WINDOWS)
-	return 0 != SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
-#else
-	return false;
-#endif
-}
-
-
-//// Thread AtExit callbacks
-
-class ThreadAtExitCaller
-{
-	static const int MAX_CALLBACKS = 16;
-
-	int _count;
-	Thread::AtExitCallback _callbacks[MAX_CALLBACKS];
-
-	void Invoke()
-	{
-		// For each callback,
-		for (int ii = 0, count = _count; ii < count; ++ii)
-		{
-			// Invoke it
-			_callbacks[ii]();
-		}
-	}
-
-public:
-	ThreadAtExitCaller()
-	{
-		_count = 0;
-	}
-	~ThreadAtExitCaller()
-	{ 
-		// Invoke callbacks
-		Invoke();
-	}
-
-	bool Register(const Thread::AtExitCallback &cb)
-	{
-		// If no more room,
-		if (_count >= MAX_CALLBACKS)
-		{
-			CAT_FATAL("Thread") << "Too many thread-atexit() callbacks";
-			return false;
-		}
-
-		// Insert at end of callbacks array
-		_callbacks[_count++] = cb;
-		return true;
-	}
-};
-
-static CAT_TLS ThreadAtExitCaller *m_caller = 0;
 
 bool Thread::AtExit(const AtExitCallback &cb)
 {
-	ThreadAtExitCaller *caller = m_caller;
-
-	// If caller needs to be allocated,
-	if (!caller)
+	// If no more room,
+	if (_cb_count >= MAX_CALLBACKS)
 	{
-		caller = new (std::nothrow) ThreadAtExitCaller;
-		if (!caller)
-		{
-			CAT_FATAL("Thread") << "Out of memory";
-			return false;
-		}
-
-		m_caller = caller;
+		CAT_FATAL("Thread") << "Too many thread-atexit() callbacks";
+		return false;
 	}
 
-	// Register callback
-	return caller->Register(cb);
+	// Insert at end of callbacks array
+	_callbacks[_cb_count++] = cb;
+	return true;
 }
 
 void Thread::InvokeAtExit()
 {
-	// If none were added, abort
-	ThreadAtExitCaller *caller = m_caller;
-	if (!caller) return;
-
-	// Invoke thread-atexit() callbacks and free memory for callback list
-	delete caller;
-	m_caller = 0;
+	// For each callback,
+	for (int ii = 0, count = _cb_count; ii < count; ++ii)
+	{
+		// Invoke it
+		_callbacks[ii]();
+	}
 }

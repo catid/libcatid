@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -26,69 +26,47 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <cat/io/Settings.hpp>
-#include <cat/io/Log.hpp>
-using namespace cat;
+#include <cat/crypt/SecureEqual.hpp>
 
-static Log *m_logging = 0;
+namespace cat {
 
-
-//// Settings
-
-CAT_REF_SINGLETON(Settings);
-
-bool Settings::OnInitialize()
+bool SecureEqual(const void *vA, const void *vB, int bytes)
 {
-	AutoWriteLock lock(_lock);
+	const u8 *A = (const u8*)vA;
+	const u8 *B = (const u8*)vB;
+    u64 fail = 0;
 
-	_file = new ragdoll::File;
-	if (!_file) return false;
+    // Accumulate failures, 8 bytes at a time
+    int qwords = bytes >> 3;
 
-	_file->Read(CAT_SETTINGS_FILE);
-	_file->Override(CAT_SETTINGS_OVERRIDE_FILE);
+    if (qwords)
+    {
+        const u64 *A64 = (const u64 *)A;
+        const u64 *B64 = (const u64 *)B;
 
-	lock.Release();
+        for (int ii = 0; ii < qwords; ++ii)
+            fail |= A64[ii] ^ B64[ii];
 
-	// Initialize logging threshold
-	EventSeverity threshold = (EventSeverity)getInt("IO.Log.Threshold", DEFAULT_LOG_LEVEL);
-	Use(m_logging)->SetThreshold(threshold);
+        A = (const u8 *)&A64[qwords];
+        B = (const u8 *)&B64[qwords];
+    }
 
-	return true;
+    // Accumulate failures, bytes at a time
+    bytes &= 7;
+
+    switch (bytes)
+    {
+    case 7: fail |= A[6] ^ B[6];
+    case 6: fail |= A[5] ^ B[5];
+    case 5: fail |= A[4] ^ B[4];
+    case 4: fail |= *(const u32 *)A ^ *(const u32 *)B;
+        break;
+    case 3: fail |= A[2] ^ B[2];
+    case 2: fail |= A[1] ^ B[1];
+    case 1: fail |= A[0] ^ B[0];
+    }
+
+    return fail == 0;
 }
 
-void Settings::OnFinalize()
-{
-	if (getInt("IO.Settings.UnlinkOverride") == 1)
-	{
-		std::remove(CAT_SETTINGS_OVERRIDE_FILE);
-	}
-
-	AutoWriteLock lock(_lock);
-
-	_file->Write(CAT_SETTINGS_FILE);
-
-	delete _file;
-	_file = 0;
-}
-
-int Settings::getInt(const char *name, int default_value)
-{
-	return _file->GetInt(name, default_value, &_lock);
-}
-
-std::string Settings::getStr(const char *name, const char *default_value)
-{
-	std::string value;
-	_file->Get(name, default_value, value, &_lock);
-	return value;
-}
-
-void Settings::setInt(const char *name, int value)
-{
-	_file->SetInt(name, value, &_lock);
-}
-
-void Settings::setStr(const char *name, const char *value)
-{
-	_file->Set(name, value, &_lock);
-}
+} // namespace cat
