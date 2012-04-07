@@ -54,9 +54,6 @@
     <ClCompile Include="..\..\src\crypt\hash\HMAC_MD5.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\crypt\SecureCompare.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\crypt\hash\Skein.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -70,6 +67,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\crypt\hash\VHash.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\crypt\SecureEqual.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

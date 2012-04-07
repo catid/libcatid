@@ -756,13 +756,16 @@ private: \
 //// Memory Leaks ////
 
 #define CAT_DEBUG_LEAKS_DUMP()
+#define CAT_DEBUG_CHECK_MEMORY()
 #if defined(CAT_DEBUG_LEAKS)
 # if defined(CAT_COMPILER_MSVC)
 #  define _CRTDBG_MAP_ALLOC
 #  include <stdlib.h>
 #  include <crtdbg.h>
 #  undef CAT_DEBUG_LEAKS_DUMP
+#  undef CAT_DEBUG_CHECK_MEMORY
 #  define CAT_DEBUG_LEAKS_DUMP() _CrtDumpMemoryLeaks()
+#  define CAT_DEBUG_CHECK_MEMORY() _CrtCheckMemory()
 # endif
 #endif
 

@@ -330,7 +330,7 @@ u32 Clock::MeasureClocks(int iterations, void (*FunctionPtr)())
     u32 *timings = new (std::nothrow) u32[iterations];
 	if (!timings) return 0;
 
-    SetHighPriority();
+    SetCurrentThreadPriority(P_HIGHEST);
     Clock::sleep(200);
 
     u32 dtMin = ~(u32)0;
@@ -378,7 +378,7 @@ u32 Clock::MeasureClocks(int iterations, void (*FunctionPtr)())
         timings[jj] = dt;
     }
 
-    SetNormalPriority();
+	SetCurrentThreadPriority(P_NORMAL);
 
 	u32 median = quick_select(timings, iterations);
 

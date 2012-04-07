@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2011 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2011-2012 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -31,47 +31,13 @@
 #include <cat/crypt/tunnel/KeyAgreement.hpp>
 using namespace cat;
 
-static CAT_TLS TunnelTLS *m_tls = 0;
-
 
 //// TLS
-
-TunnelTLS *TunnelTLS::ref()
-{
-	TunnelTLS *tls = m_tls;
-
-	// If instance is not set,
-	if (!tls)
-	{
-		// Create an instance
-		tls = new (std::nothrow) TunnelTLS;
-		if (!tls)
-		{
-			CAT_FATAL("Tunnel") << "Out of memory";
-			return 0;
-		}
-
-		// Validate it
-		if (!tls->Valid())
-		{
-			CAT_FATAL("Tunnel") << "Unable to acquire Math or CSPRNG object";
-			delete tls;
-			return 0;
-		}
-
-		// Store it as the global copy
-		m_tls = tls;
-	}
-
-	return tls;
-}
 
 TunnelTLS::TunnelTLS()
 {
 	_math = 0;
 	_csprng = 0;
-
-	Initialize();
 }
 
 TunnelTLS::~TunnelTLS()
@@ -79,16 +45,10 @@ TunnelTLS::~TunnelTLS()
 	Finalize();
 }
 
-void TunnelTLS::Release()
-{
-	m_tls = 0;
-	delete this;
-}
-
-bool TunnelTLS::Initialize()
+bool TunnelTLS::Initialize(Thread *thread)
 {
 	// Register for thread-atexit() to clean up this object
-	Thread::AtExit(Thread::AtExitCallback::FromMember<TunnelTLS, &TunnelTLS::Release>(this));
+	thread->AtExit(Thread::AtExitCallback::FromMember<TunnelTLS, &TunnelTLS::Finalize>(this));
 
 	_csprng = FortunaFactory::ref()->Create();
 	if (!_csprng)

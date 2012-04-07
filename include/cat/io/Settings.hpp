@@ -47,7 +47,7 @@ class CAT_EXPORT Settings : public RefSingleton<Settings>
 
 	RWLock _lock;
 
-	ragdoll::File _file;
+	ragdoll::File *_file;
 
 public:
 	int getInt(const char *name, int default_value = 0);

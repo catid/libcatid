@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2011 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2011-2012 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -221,19 +221,22 @@ bool HashTable::Grow()
 	SListForward *new_buckets = new (std::nothrow) SListForward[new_size];
 	if (!new_buckets) return false;
 
-	// For each bucket,
-	u32 mask = new_size - 1;
-	for (u32 jj = 0; jj < old_size; ++jj)
+	if (_buckets)
 	{
-		// For each bucket item,
-		for (iter ii = _buckets[jj]; ii; ++ii)
+		// For each bucket,
+		u32 mask = new_size - 1;
+		for (u32 jj = 0; jj < old_size; ++jj)
 		{
-			new_buckets[ii->Hash() & mask].PushFront(ii);
+			// For each bucket item,
+			for (iter ii = _buckets[jj]; ii; ++ii)
+			{
+				new_buckets[ii->Hash() & mask].PushFront(ii);
+			}
 		}
-	}
 
-	// Free old array
-	if (_buckets) delete []_buckets;
+		// Free old array
+		delete []_buckets;
+	}
 
 	_buckets = new_buckets;
 	_allocated = new_size;

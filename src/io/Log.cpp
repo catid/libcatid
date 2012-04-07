@@ -110,57 +110,83 @@ CAT_SINGLETON(Log);
 
 bool Log::OnInitialize()
 {
-	_callback = Callback::FromMember<Log, &Log::DefaultLogCallback>(this);
-	_inner_cb = Callback::FromMember<Log, &Log::Write>(this);
-	_log_threshold = DEFAULT_LOG_LEVEL;
-
+	_backend = Callback::FromMember<Log, &Log::DefaultLogCallback>(this);
 #if defined(CAT_THREADED_LOGGER)
-	Use<LogThread>();
+	_frontend = Callback::FromMember<Log, &Log::InvokeBackendAndSetupThreaded>(this);
+#else
+	_frontend = Callback::FromMember<Log, &Log::InvokeBackendAndUnlock>(this);
 #endif
+	_log_threshold = DEFAULT_LOG_LEVEL;
 
 	return true;
 }
+
+#if defined(CAT_THREADED_LOGGER)
+
+void Log::InvokeBackendAndSetupThreaded(EventSeverity severity, const char *source, const std::string &msg)
+{
+	// Bypass setup next time
+	_frontend = Callback::FromMember<Log, &Log::InvokeBackendAndUnlock>(this);
+
+	_backend(severity, source, msg);
+
+	_lock.Leave();
+
+	LogThread::ref();
+}
+
+#endif // CAT_THREADED_LOGGER
+
+void Log::InvokeBackendAndUnlock(EventSeverity severity, const char *source, const std::string &msg)
+{
+	_backend(severity, source, msg);
+
+	_lock.Leave();
+}
+
 
 void Log::FatalStop(const char *message)
 {
 	CAT_ARTIFICIAL_BREAKPOINT;
 
-	Log::ref()->Write(LVL_FATAL, "FatalStop", message);
+	Log::ref()->InvokeBackend(LVL_FATAL, "FatalStop", message);
 
 	std::exit(EXIT_FAILURE);
 }
 
-void Log::InvokeInnerCallback(EventSeverity severity, const char *source, const std::string &msg)
+void Log::InvokeFrontend(EventSeverity severity, const char *source, const std::string &msg)
+{
+	_lock.Enter();
+
+	_frontend(severity, source, msg);
+}
+
+void Log::InvokeBackend(EventSeverity severity, const char *source, const std::string &msg)
 {
 	AutoMutex lock(_lock);
 
-	_inner_cb(severity, source, msg);
+	_backend(severity, source, msg);
 }
 
-void Log::SetInnerCallback(const Callback &cb)
+void Log::SetFrontend(const Callback &cb)
 {
 	AutoMutex lock(_lock);
 
-	_inner_cb = cb;
+	_frontend = cb;
 }
 
-void Log::ResetInnerCallback()
+void Log::ResetFrontend()
 {
 	AutoMutex lock(_lock);
 
-	_inner_cb = Callback::FromMember<Log, &Log::Write>(this);
+	_frontend = Callback::FromMember<Log, &Log::InvokeBackendAndUnlock>(this);
 }
 
-void Log::SetLogCallback(const Callback &cb)
+void Log::SetBackend(const Callback &cb)
 {
 	AutoMutex lock(_lock);
 
-	_callback = cb;
-}
-
-void Log::Write(EventSeverity severity, const char *source, const std::string &msg)
-{
-	_callback(severity, source, msg);
+	_backend = cb;
 }
 
 void Log::DefaultServiceCallback(EventSeverity severity, const char *source, const std::string &msg)
@@ -190,7 +216,7 @@ void Log::EnableServiceMode(const char *service_name)
 {
 	AutoMutex lock(_lock);
 
-	_callback = Callback::FromMember<Log, &Log::DefaultServiceCallback>(this);
+	_backend = Callback::FromMember<Log, &Log::DefaultServiceCallback>(this);
 
 #if defined(CAT_OS_WINDOWS)
 	_event_source = RegisterEventSourceA(0, service_name);
@@ -231,7 +257,7 @@ Recorder::Recorder(const char *source, EventSeverity severity)
 Recorder::~Recorder()
 {
 	string msg = _msg.str();
-	Log::ref()->InvokeInnerCallback(_severity, _source, msg);
+	Log::ref()->InvokeFrontend(_severity, _source, msg);
 }
 
 

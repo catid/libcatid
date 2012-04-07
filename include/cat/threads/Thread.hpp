@@ -40,8 +40,16 @@ namespace cat {
 
 //// Thread priority modification
 
-bool SetHighPriority();
-bool SetNormalPriority();
+enum ThreadPrio
+{
+	P_IDLE,
+	P_LOW,
+	P_NORMAL,
+	P_HIGH,
+	P_HIGHEST,
+};
+
+bool SetCurrentThreadPriority(ThreadPrio prio = P_NORMAL);
 
 
 /*
@@ -52,7 +60,7 @@ bool SetNormalPriority();
 class CAT_EXPORT Thread
 {
 protected:
-	void *caller_param;
+	void *_caller_param;
 	volatile bool _thread_running;
 
 #if defined(CAT_OS_WINDOWS)
@@ -90,11 +98,17 @@ public:
 
 		For threads that are not implemented with Thread you can still invoke the
 		AtExit callbacks by calling Thread::InvokeAtExit();
-		This is useful for adapting libcat code into your solution.
 	*/
 	typedef Delegate0<void> AtExitCallback;
-	static bool AtExit(const AtExitCallback &cb);
-	static void InvokeAtExit(); // Only need to use this if not a Thread thread
+
+	bool AtExit(const AtExitCallback &cb);
+	void InvokeAtExit(); // Only need to use this if not a Thread thread
+
+private:
+	static const int MAX_CALLBACKS = 16;
+
+	int _cb_count;
+	AtExitCallback _callbacks[MAX_CALLBACKS];
 };
 
 

@@ -95,11 +95,11 @@ class SingletonImpl
 	bool _init;
 
 public:
-	CAT_INLINE T *GetRef()
+	CAT_INLINE T *GetRef(Mutex &mutex)
 	{
 		if (_init) return &_instance;
 
-		AutoMutex lock(GetSingletonMutex());
+		AutoMutex lock(mutex);
 
 		if (_init) return &_instance;
 
@@ -189,10 +189,13 @@ public:
 };
 
 
-// In the C file for the object, use this macro:
-#define CAT_SINGLETON(T)					\
+// Use this alternative form to specify which Mutex object to use
+#define CAT_SINGLETON_MUTEX(T, M)			\
 	static cat::SingletonImpl<T> m_T_ss;	\
-	template<> T *Singleton<T>::ref() { return m_T_ss.GetRef(); }
+	template<> T *Singleton<T>::ref() { return m_T_ss.GetRef(M); }
+
+// In the C file for the object, use this macro:
+#define CAT_SINGLETON(T)	CAT_SINGLETON_MUTEX(T, GetSingletonMutex())
 
 
 // Internal free function

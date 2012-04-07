@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2011 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2011-2012 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -31,6 +31,7 @@
 
 #include <cat/math/BigTwistedEdwards.hpp>
 #include <cat/crypt/rand/Fortuna.hpp>
+#include <cat/threads/Thread.hpp>
 
 namespace cat {
 
@@ -41,10 +42,6 @@ class TunnelTLS
 	BigTwistedEdwards *_math;
 	FortunaOutput *_csprng;
 
-	// Returns true if initialization succeeds
-	bool Initialize();
-	void Finalize();
-
 public:
 	TunnelTLS();
 	~TunnelTLS();
@@ -53,10 +50,10 @@ public:
 	CAT_INLINE BigTwistedEdwards *Math() { return _math; }
 	CAT_INLINE FortunaOutput *CSPRNG() { return _csprng; }
 
-	// Use these two functions together to manage TLS
-	// in actual thread local storage instead of on the heap
-	static TunnelTLS *ref();
-	void Release();
+	// If thread is specified, will add Release() to the at-exit
+	// callback list so there is no need to invoke it manually.
+	bool Initialize(Thread *thread = 0);
+	void Finalize();
 };
 
 

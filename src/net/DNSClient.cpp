@@ -38,6 +38,10 @@
 #include <fstream>
 using namespace cat;
 
+#if defined(CAT_OS_WINDOWS)
+#include <Iphlpapi.h>
+#endif
+
 static WorkerThreads *m_worker_threads = 0;
 static Settings *m_settings = 0;
 static FortunaOutput *m_csprng = 0;
@@ -285,7 +289,29 @@ bool DNSClientEndpoint::OnFinalize()
 	_cache_list.Clear();
 	_cache_size = 0;
 
-	CAT_ENFORCE(_request_queue_size == 0) << "Request queue not empty during cleanup";
+	if (_request_queue_size > 0)
+	{
+		CAT_WARN("DNSClient") << "Request queue not empty during cleanup";
+
+		// For each pending request,
+		for (rqiter req = _request_list; req; ++req)
+		{
+			// For each requester,
+			for (cbiter ii = req->callbacks; ii; ++ii)
+			{
+				// Invoke the callback (fail result)
+				ii->cb(req->hostname, 0, 0);
+
+				// Release ref if requested
+				RefObject::Release(ii->ref);
+
+				delete ii;
+			}
+
+			_request_list.Erase(req);
+		}
+		_request_queue_size = 0;
+	}
 
 	return UDPEndpoint::OnFinalize();
 }
@@ -295,8 +321,48 @@ bool DNSClientEndpoint::GetServerAddr()
 	// Mark server address as invalid
 	_server_addr.Invalidate();
 
-#if defined(CAT_OS_WINDOWS) || defined(CAT_OS_WINDOWS_CE)
+#if defined(CAT_OS_WINDOWS)
 
+	/*
+		Use IP Helper API instead of registry because the registry solution has bugs.
+		In particular, it stores interfaces that are not active and I couldn't find
+		any obvious way to identify an inactive interface.  This was causing DNS
+		lookup to fail on my laptop because both the first and last interfaces listed
+		in the registry were from an inactive wireless adapter and both had valid-
+		looking DhcpNameServer records.
+	*/
+
+	FIXED_INFO *pFixedInfo = (FIXED_INFO*)malloc(sizeof(FIXED_INFO));
+	ULONG ulOutBufLen = sizeof(FIXED_INFO);
+	DWORD dwRetVal;
+
+	// Find buffer size needed
+	if (GetNetworkParams(pFixedInfo, &ulOutBufLen) == ERROR_BUFFER_OVERFLOW)
+	{
+		if (pFixedInfo) free(pFixedInfo);
+		pFixedInfo = (FIXED_INFO*)malloc(ulOutBufLen);
+	}
+
+	// Grab network params
+	if (dwRetVal = GetNetworkParams(pFixedInfo, &ulOutBufLen) != NO_ERROR)
+	{
+		if (pFixedInfo) free(pFixedInfo);
+	}        
+
+	// For each DNS server string,
+	for (IP_ADDR_STRING *addr = &pFixedInfo->DnsServerList; addr; addr = addr->Next)
+	{
+		// Convert address string to binary address
+		NetAddr netaddr((const char*)addr->IpAddress.String, 53);
+
+		// If address is routable,
+		if (netaddr.IsRoutable())
+		{
+			_server_addr = netaddr;
+		}
+	}
+
+/*	Version for Windows 9x:
 	// Based on approach used in Tiny Asynchronous DNS project by
 	// Sergey Lyubka <valenok@gmail.com>.  I owe you a beer! =)
 	const int SUBKEY_NAME_MAXLEN = 512;
@@ -324,9 +390,11 @@ bool DNSClientEndpoint::GetServerAddr()
 		if (ERROR_SUCCESS == RegOpenKeyA(key, subkey_name, &subkey))
 		{
 			BYTE data[SUBKEY_DATA_MAXLEN];
-			DWORD type, data_len = sizeof(data);
+			DWORD type, data_len;
+			u32 lease_time = 0;
 
 			// Get subkey's DhcpNameServer value
+			data_len = sizeof(data);
 			if (ERROR_SUCCESS == RegQueryValueExA(subkey, "DhcpNameServer", 0, &type, data, &data_len))
 			{
 				// If type is a string,
@@ -353,7 +421,6 @@ bool DNSClientEndpoint::GetServerAddr()
 					// If address is routable,
 					if (addr.IsRoutable())
 					{
-						// Set server address to the last valid one in the enumeration
 						_server_addr = addr;
 					}
 				}
@@ -362,7 +429,7 @@ bool DNSClientEndpoint::GetServerAddr()
 	}
 
 	RegCloseKey(key);
-
+*/
 #else // Unix version:
 
 	const char *DNS_ADDRESS_FILE = "/etc/resolv.conf";
@@ -922,6 +989,7 @@ bool DNSClient::OnInitialize()
 	CAT_ENFORCE(_lock.Valid());
 
 	Use(m_worker_threads, m_settings);
+	Use<IOThreadPools>();
 
 	// Attempt to get a CSPRNG
 	m_csprng = Use<FortunaFactory>()->Create();
@@ -939,7 +1007,11 @@ bool DNSClient::OnInitialize()
 
 void DNSClient::OnFinalize()
 {
-	if (m_csprng) delete m_csprng;
+	if (m_csprng)
+	{
+		delete m_csprng;
+		m_csprng = 0;
+	}
 }
 
 bool DNSClient::Resolve(const char *hostname, DNSDelegate callback, RefObject *holdRef)

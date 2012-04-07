@@ -159,11 +159,11 @@ class RefSingletonImpl : public RefSingletonImplBase
 	bool _init;
 
 public:
-	CAT_INLINE T *GetRef()
+	CAT_INLINE T *GetRef(Mutex &mutex)
 	{
 		if (_init) return &_instance;
 
-		AutoMutex lock(GetRefSingletonMutex());
+		AutoMutex lock(mutex);
 
 		if (_init) return &_instance;
 
@@ -262,10 +262,13 @@ public:
 };
 
 
-// In the C file for the object, use this macro:
-#define CAT_REF_SINGLETON(T)					\
+// Use this alternative form to specify which Mutex object to use
+#define CAT_REF_SINGLETON_MUTEX(T, M)	\
 	static cat::RefSingletonImpl<T> m_T_rss;	\
-	template<> T *RefSingleton<T>::ref() { return m_T_rss.GetRef(); }
+	template<> T *RefSingleton<T>::ref() { return m_T_rss.GetRef(M); }
+
+// In the C file for the object, use this macro:
+#define CAT_REF_SINGLETON(T)	CAT_REF_SINGLETON_MUTEX(T, GetRefSingletonMutex())
 
 
 // Internal free function
@@ -279,8 +282,6 @@ class CAT_EXPORT RefSingletons : public Singleton<RefSingletons>
 	SListForward _active_list;
 	typedef SListForward::Iterator<RefSingletonBase> iter;
 
-	static void OnExit();
-
 	bool OnInitialize();
 	void OnFinalize();
 
@@ -289,6 +290,9 @@ class CAT_EXPORT RefSingletons : public Singleton<RefSingletons>
 	{
 		_active_list.PushFront(obj);
 	}
+
+public:
+	static void AtExit();
 };
 
 // Internal inline member function definition

@@ -296,10 +296,10 @@
     <ClCompile Include="..\..\src\crypt\rand\EntropyWindowsCE.cpp" />
     <ClCompile Include="..\..\src\crypt\rand\Fortuna.cpp" />
     <ClCompile Include="..\..\src\crypt\hash\HMAC_MD5.cpp" />
-    <ClCompile Include="..\..\src\crypt\SecureCompare.cpp" />
     <ClCompile Include="..\..\src\crypt\hash\Skein.cpp" />
     <ClCompile Include="..\..\src\crypt\hash\Skein256.cpp" />
     <ClCompile Include="..\..\src\crypt\hash\Skein512.cpp" />
+    <ClCompile Include="..\..\src\crypt\SecureEqual.cpp" />
     <ClCompile Include="Precompiled.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>

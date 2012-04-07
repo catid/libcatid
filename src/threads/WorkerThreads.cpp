@@ -403,7 +403,7 @@ bool WorkerThreads::OnInitialize()
 		}
 
 		// Try to tie each thread to an ideal processor core to help with scheduling
-		_workers[ii].SetIdealCore(ii);
+		if (worker_count > 2) _workers[ii].SetIdealCore(ii);
 	}
 
 	return true;

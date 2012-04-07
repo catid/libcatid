@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2012 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -336,6 +336,9 @@ bool IOThreadPool::Startup(u32 max_worker_count)
 			CAT_FATAL("IOThreadPools") << "StartThread error " << GetLastError();
 			return false;
 		}
+
+		// Try to tie each thread to an ideal processor core to help with scheduling
+		if (worker_count > 2) _workers[ii].SetIdealCore(ii);
 	}
 
 	return true;
@@ -360,21 +363,37 @@ bool IOThreadPool::Shutdown()
 	}
 
 	const int SHUTDOWN_WAIT_TIMEOUT = 15000; // 15 seconds
+	const int REPOST_TIMEOUT = 50; // 50 milliseconds
 
 	// For each worker thread,
 	for (u32 ii = 0; ii < worker_count; ++ii)
 	{
-		if (!_workers[ii].WaitForThread(SHUTDOWN_WAIT_TIMEOUT))
+		u32 start_time = Clock::msec_fast();
+
+		while (!_workers[ii].WaitForThread(REPOST_TIMEOUT))
 		{
-			CAT_FATAL("IOThreadPools") << "Thread " << ii << "/" << worker_count << " refused to die!  Attempting lethal force...";
-			_workers[ii].AbortThread();
+			if (Clock::msec_fast() - start_time > SHUTDOWN_WAIT_TIMEOUT)
+			{
+				CAT_FATAL("IOThreadPools") << "Thread " << ii << "/" << worker_count << " refused to die!  Attempting lethal force...";
+				_workers[ii].AbortThread();
+				break;
+			}
+			else
+			{
+				// Post a completion event that kills the worker threads
+				if (_io_port && !PostQueuedCompletionStatus(_io_port, 0, 0, 0))
+				{
+					CAT_FATAL("IOThreadPools") << "PostQueuedCompletionStatus error " << GetLastError();
+				}
+			}
 		}
 	}
 
 	// Free worker thread objects
 	if (_workers)
 	{
-		delete []_workers;
+		// TODO: NO IDEA WHY THIS IS CRASHING!  Traced it to cases where thread count > 1
+		//delete []_workers;
 		_workers = 0;
 	}
 
