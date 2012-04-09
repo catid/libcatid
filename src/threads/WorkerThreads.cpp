@@ -339,7 +339,7 @@ bool WorkerThread::Entrypoint(void *vmaster)
 		// If tick interval is up,
 		if ((s32)(now - next_tick) >= 0)
 		{
-			TickTimers(now);
+			TickTimers(_tls, now);
 
 			// Set up next tick
 			next_tick += tick_interval;
