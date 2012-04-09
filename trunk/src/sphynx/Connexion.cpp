@@ -34,6 +34,7 @@ using namespace cat;
 using namespace sphynx;
 
 static Clock *m_clock = 0;
+static TLSInstance<TunnelTLS> m_tunnel_tls;
 
 
 //// Connexion
@@ -104,7 +105,7 @@ void Connexion::RetransmitAnswer(RecvBuffer *buffer)
 	}
 }
 
-void Connexion::OnRecv(const BatchSet &buffers)
+void Connexion::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 {
 	u32 buffer_count = 0;
 
@@ -164,7 +165,7 @@ void Connexion::OnRecv(const BatchSet &buffers)
 	ReleaseRef(CAT_REFOBJECT_TRACE, buffer_count);
 }
 
-void Connexion::OnTick(u32 now)
+void Connexion::OnTick(ThreadLocalStorage &tls, u32 now)
 {
 	// If in graceful disconnect,
 	if (IsDisconnected())

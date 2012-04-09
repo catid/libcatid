@@ -16,6 +16,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
     </Filter>
+    <Filter Include="Header Files\fec">
+      <UniqueIdentifier>{9b9903d8-ccb7-4041-800f-eab72a19f493}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\codec\RangeCoder.cpp">
@@ -27,7 +30,7 @@
     <ClCompile Include="..\..\src\codec\Huffman.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\codec\RaptorQ.cpp">
+    <ClCompile Include="..\..\src\fec\Wirehair.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -44,13 +47,19 @@
     <ClInclude Include="..\..\include\cat\codec\Huffman.hpp">
       <Filter>Header Files\codec</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\cat\codec\RaptorQ.hpp">
-      <Filter>Header Files\codec</Filter>
+    <ClInclude Include="..\..\include\cat\fec\WirehairDetails.hpp">
+      <Filter>Header Files\fec</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\fec\Wirehair.hpp">
+      <Filter>Header Files\fec</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\include\cat\codec\ChatText.stats">
       <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\..\include\cat\fec\WIREHAIR.LICENSE">
+      <Filter>Header Files\fec</Filter>
     </None>
   </ItemGroup>
 </Project>

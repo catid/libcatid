@@ -62,7 +62,7 @@ namespace cat {
 	Generator Catid32S_1d operates at 334 million numbers / second
 	Generator Catid32S_4 operates at 426 million numbers / second
 
-	CatsChoice is an implementation of Catid32S_5, based on Catid32S_4.
+	Abyssinian is an implementation of Catid32S_5, based on Catid32S_4.
 */
 
 /*
@@ -232,7 +232,7 @@ typedef MWC<4246477509, 21987643, 1732654> DJonesMWC2;
 	...
 
 	So I guess that 3 is always a factor of A...
-	I then produced CatsChoice-like generators using pairs
+	I then produced Abyssinian-like generators using pairs
 	of these A values and tested them with BigCrush:
 
 		A1 = 0xffffbe17, A2 = 0xffff4b9f <- Failed test 48
@@ -925,64 +925,6 @@ typedef CSmootch<u32, MaxSafeMWC, DJonesMWC2> Catid32S_4b;
 	Passes all BigCrush tests.
 */
 typedef CSmootch<u32, CatMWC1, CatMWC2> Catid32S_5;
-
-
-/*
-	This is a unified implementation of my favorite generator
-	that is designed to generate up to 2^^32 numbers per seed.
-
-	Its period is about 2^^126 and passes all BigCrush tests.
-	It is the fastest generator I could find that passes all tests.
-
-	Furthermore, the input seeds are hashed to avoid linear
-	relationships between the input seeds and the low bits of
-	the first few outputs.
-*/
-class CAT_EXPORT CatsChoice
-{
-	u64 _x, _y;
-
-public:
-	CAT_INLINE void Initialize(u32 x, u32 y)
-	{
-		// Based on the mixing functions of MurmurHash3
-		static const u64 C1 = 0xff51afd7ed558ccdULL;
-		static const u64 C2 = 0xc4ceb9fe1a85ec53ULL;
-
-		x += y;
-		y += x;
-
-		u64 seed_x = 0x9368e53c2f6af274ULL ^ x;
-		u64 seed_y = 0x586dcd208f7cd3fdULL ^ y;
-
-		seed_x *= C1;
-		seed_x ^= seed_x >> 33;
-		seed_x *= C2;
-		seed_x ^= seed_x >> 33;
-
-		seed_y *= C1;
-		seed_y ^= seed_y >> 33;
-		seed_y *= C2;
-		seed_y ^= seed_y >> 33;
-
-		_x = seed_x;
-		_y = seed_y;
-
-		Next();
-	}
-
-	CAT_INLINE void Initialize(u32 seed)
-	{
-		Initialize(seed, seed);
-	}
-
-	CAT_INLINE u32 Next()
-	{
-		_x = (u64)0xfffd21a7 * (u32)_x + (u32)(_x >> 32);
-		_y = (u64)0xfffd1361 * (u32)_y + (u32)(_y >> 32);
-		return CAT_ROL32((u32)_x, 7) + (u32)_y;
-	}
-};
 
 
 } // namespace cat

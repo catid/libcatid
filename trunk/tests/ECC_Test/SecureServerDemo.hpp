@@ -135,14 +135,14 @@ protected:
     void OnHello(TunnelTLS *tls, const Address &source, u8 *buffer);
     void OnChallenge(TunnelTLS *tls, const Address &source, u8 *buffer);
 
-    void OnSessionMessage(Connection *client, u8 *buffer, u32 bytes);
+    void OnSessionMessage(TunnelTLS *tls, Connection *client, u8 *buffer, u32 bytes);
 
 public:
 	SecureServerDemo();
 	~SecureServerDemo();
 
-    void Reset(SecureClientDemo *client_ref, TunnelKeyPair &key_pair);
-    void OnDatagram(const Address &source, u8 *buffer, u32 bytes);
+    void Reset(TunnelTLS *tls, SecureClientDemo *client_ref, TunnelKeyPair &key_pair);
+    void OnDatagram(TunnelTLS *tls, const Address &source, u8 *buffer, u32 bytes);
 
     Address GetAddress() { return my_addr; }
 };

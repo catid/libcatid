@@ -38,7 +38,7 @@ class ReadTester
 		return Atomic::Add(&m_file_progress, size) == (m_file_total - size);
 	}
 
-	void OnRead(const BatchSet &batch)
+	void OnRead(ThreadLocalStorage &tls, const BatchSet &batch)
 	{
 		for (BatchHead *next, *node = batch.head; node; node = next)
 		{
@@ -203,7 +203,7 @@ class WriteTester
 		return Atomic::Add(&m_file_progress, size) >= (m_file_total - size);
 	}
 
-	void OnWrite(const BatchSet &batch)
+	void OnWrite(ThreadLocalStorage &tls, const BatchSet &batch)
 	{
 		for (BatchHead *next, *node = batch.head; node; node = next)
 		{

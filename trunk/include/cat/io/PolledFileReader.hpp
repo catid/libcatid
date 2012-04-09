@@ -79,8 +79,8 @@ class CAT_EXPORT PolledFileReader : public AsyncFile
 	u64 _offset;			// Next offset for reading from disk
 	ReadBuffer _buffer;		// Read request object for reading from disk
 
-	void OnFirstRead(const BatchSet &buffers);
-	void OnRead(const BatchSet &buffers);
+	void OnFirstRead(ThreadLocalStorage &tls, const BatchSet &buffers);
+	void OnRead(ThreadLocalStorage &tls, const BatchSet &buffers);
 
 public:
 	PolledFileReader();

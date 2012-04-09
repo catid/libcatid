@@ -114,7 +114,7 @@ bool LogThread::Entrypoint(void *param)
 	if (!m_log || !m_log->IsInitialized()) return false;
 
 	// Set thread priority low to encourage the scheduler to batch wakeups across log messages when under load
-	SetCurrentThreadPriority(P_LOW);
+	SetExecPriority(P_LOW);
 
 	// Inject myself into the output flow
 	m_log->SetFrontend(Log::Callback::FromMember<LogThread, &LogThread::Write>(this));

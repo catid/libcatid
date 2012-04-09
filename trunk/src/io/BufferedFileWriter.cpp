@@ -87,7 +87,7 @@ bool BufferedFileWriter::Open(const char *file_path, u64 file_size, u32 worker_i
 	return true;
 }
 
-void BufferedFileWriter::OnWrite(const BatchSet &set)
+void BufferedFileWriter::OnWrite(ThreadLocalStorage &tls, const BatchSet &set)
 {
 	m_file_write_allocator->ReleaseBatch(set);
 }

@@ -47,15 +47,15 @@ class SecureClientDemo
 protected:
     void OnCookie(TunnelTLS *tls, u8 *buffer);
     void OnAnswer(TunnelTLS *tls, u8 *buffer);
-    void OnConnect();
-    void OnSessionMessage(u8 *buffer, u32 bytes);
+    void OnConnect(TunnelTLS *tls);
+    void OnSessionMessage(TunnelTLS *tls, u8 *buffer, u32 bytes);
 
 public:
 	SecureClientDemo();
 
-    void Reset(SecureServerDemo *server_ref, TunnelPublicKey &public_key);
-    void SendHello();
-    void OnDatagram(const Address &source, u8 *buffer, u32 bytes);
+    void Reset(TunnelTLS *tls, SecureServerDemo *server_ref, TunnelPublicKey &public_key);
+    void SendHello(TunnelTLS *tls);
+    void OnDatagram(TunnelTLS *tls, const Address &source, u8 *buffer, u32 bytes);
 
     CAT_INLINE Address GetAddress() { return my_addr; }
 

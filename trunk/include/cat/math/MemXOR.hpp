@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2011-2012 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2012 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -9,8 +9,8 @@
 	* Redistributions in binary form must reproduce the above copyright notice,
 	  this list of conditions and the following disclaimer in the documentation
 	  and/or other materials provided with the distribution.
-	* Neither the name of LibCat nor the names of its contributors may be used
-	  to endorse or promote products derived from this software without
+	* Neither the name of WirehairFEC nor the names of its contributors may be
+	  used to endorse or promote products derived from this software without
 	  specific prior written permission.
 
 	THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
@@ -26,37 +26,24 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_TUNNEL_TLS_HPP
-#define CAT_TUNNEL_TLS_HPP
+#ifndef CAT_MEMXOR_HPP
+#define CAT_MEMXOR_HPP
 
-#include <cat/math/BigTwistedEdwards.hpp>
-#include <cat/crypt/rand/Fortuna.hpp>
-#include <cat/threads/Thread.hpp>
+#include <cat/Platform.hpp>
 
 namespace cat {
 
 
-// Thread-local-storage (TLS) for Tunnel
-class TunnelTLS : public ITLS
-{
-	BigTwistedEdwards *_math;
-	FortunaOutput *_csprng;
+// In-place XOR of voutput buffer by vinput buffer
+void memxor(void *voutput, const void *vinput, int bytes);
 
-public:
-	TunnelTLS();
-	CAT_INLINE virtual ~TunnelTLS() {}
+// XOR of two buffers stored in voutput buffer
+void memxor_set(void *voutput, const void *va, const void *vb, int bytes);
 
-	static const char *GetNameString() { return "TunnelTLS"; }
-
-	CAT_INLINE bool Valid() { return _csprng && _math; }
-	CAT_INLINE BigTwistedEdwards *Math() { return _math; }
-	CAT_INLINE FortunaOutput *CSPRNG() { return _csprng; }
-
-	bool OnInitialize();
-	void OnFinalize();
-};
+// XOR of two buffers XORed into voutput buffer
+void memxor_add(void *voutput, const void *va, const void *vb, int bytes);
 
 
 } // namespace cat
 
-#endif // CAT_TUNNEL_TLS_HPP
+#endif // CAT_MEMXOR_HPP

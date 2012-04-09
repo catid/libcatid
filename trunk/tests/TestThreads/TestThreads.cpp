@@ -18,7 +18,7 @@ public:
 	{
 	}
 
-	void OnEvents(const BatchSet &buffers)
+	void OnEvents(ThreadLocalStorage &tls, const BatchSet &buffers)
 	{
 		for (BatchHead *node = buffers.head; node; node = node->batch_next)
 		{
@@ -214,7 +214,7 @@ void XORTest()
 {
 	Block *blocks = new Block[65536];
 
-	CatsChoice prng;
+	Abyssinian prng;
 	prng.Initialize(m_clock->msec_fast());
 
 	double start, end;

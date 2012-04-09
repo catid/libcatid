@@ -70,7 +70,7 @@ void SecureClientDemo::OnCookie(TunnelTLS *tls, u8 *buffer)
 
     //cout << "Client: Sending challenge to server" << endl;
 
-    server_ref->OnDatagram(my_addr, challenge, sizeof(challenge));
+    server_ref->OnDatagram(tls, my_addr, challenge, sizeof(challenge));
 }
 
 void SecureClientDemo::OnAnswer(TunnelTLS *tls, u8 *buffer)
@@ -88,10 +88,10 @@ void SecureClientDemo::OnAnswer(TunnelTLS *tls, u8 *buffer)
 
 	tun_client.SecureErasePrivateKey();
 
-    OnConnect();
+    OnConnect(tls);
 }
 
-void SecureClientDemo::OnConnect()
+void SecureClientDemo::OnConnect(TunnelTLS *tls)
 {
     //cout << "Client: Connected!  Sending first ping message" << endl;
 
@@ -121,10 +121,10 @@ void SecureClientDemo::OnConnect()
 
     cout << "Client: Message 0 construction time = " << (t2 - t1) << " usec" << endl;
 
-    server_ref->OnDatagram(my_addr, buffer, bytes);
+    server_ref->OnDatagram(tls, my_addr, buffer, bytes);
 }
 
-void SecureClientDemo::OnSessionMessage(u8 *buffer, u32 bytes)
+void SecureClientDemo::OnSessionMessage(TunnelTLS *tls, u8 *buffer, u32 bytes)
 {
     //cout << "Client: Got pong message from server (" << bytes << " bytes)" << endl;
 
@@ -165,15 +165,12 @@ void SecureClientDemo::OnSessionMessage(u8 *buffer, u32 bytes)
 
     cout << "Client: Message " << id << " construction time = " << (t2 - t1) << " usec" << endl;
 
-    server_ref->OnDatagram(my_addr, response, response_bytes);
+    server_ref->OnDatagram(tls, my_addr, response, response_bytes);
 }
 
-void SecureClientDemo::Reset(SecureServerDemo *cserver_ref, TunnelPublicKey &public_key)
+void SecureClientDemo::Reset(TunnelTLS *tls, SecureServerDemo *cserver_ref, TunnelPublicKey &public_key)
 {
     //cout << "Client: Reset!" << endl;
-
-	TunnelTLS *tls = TunnelTLS::ref();
-	CAT_ENFORCE(tls && tls->Valid());
 
     server_ref = cserver_ref;
     server_addr = cserver_ref->GetAddress();
@@ -194,7 +191,7 @@ void SecureClientDemo::Reset(SecureServerDemo *cserver_ref, TunnelPublicKey &pub
     cout << "Client: Initialization time = " << (t2 - t1) << " usec" << endl;
 }
 
-void SecureClientDemo::SendHello()
+void SecureClientDemo::SendHello(TunnelTLS *tls)
 {
     //cout << "Client: Sending hello message" << endl;
 
@@ -202,17 +199,14 @@ void SecureClientDemo::SendHello()
 
     *(u32*)buffer = getLE(0xca7eed);
 
-    server_ref->OnDatagram(my_addr, buffer, sizeof(buffer));
+    server_ref->OnDatagram(tls, my_addr, buffer, sizeof(buffer));
 }
 
-void SecureClientDemo::OnDatagram(const Address &source, u8 *buffer, u32 bytes)
+void SecureClientDemo::OnDatagram(TunnelTLS *tls, const Address &source, u8 *buffer, u32 bytes)
 {
     //cout << "Client: Got packet (" << bytes << " bytes)" << endl;
 
-	TunnelTLS *tls = TunnelTLS::ref();
-	CAT_ENFORCE(tls && tls->Valid());
-
-    if (source != server_addr)
+	if (source != server_addr)
     {
         cout << "Client: Ignoring packet not from server" << endl;
         return;
@@ -226,7 +220,7 @@ void SecureClientDemo::OnDatagram(const Address &source, u8 *buffer, u32 bytes)
 			bytes -= AuthenticatedEncryption::OVERHEAD_BYTES;
             double t2 = m_clock->usec();
             cout << "Client: Decryption overhead time = " << (t2 - t1) << " usec" << endl;
-            OnSessionMessage(buffer, bytes);
+            OnSessionMessage(tls, buffer, bytes);
         }
         else
         {

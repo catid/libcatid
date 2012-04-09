@@ -135,7 +135,7 @@ void DNSClientEndpoint::OnRecvRouting(const BatchSet &buffers)
 	m_worker_threads->DeliverBuffers(WQPRIO_HI, _worker_id, buffers);
 }
 
-void DNSClientEndpoint::OnRecv(const BatchSet &buffers)
+void DNSClientEndpoint::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 {
 	u32 buffer_count = 0;
 	for (BatchHead *node = buffers.head; node; node = node->batch_next)
@@ -222,7 +222,7 @@ void DNSClientEndpoint::OnRecv(const BatchSet &buffers)
 	ReleaseRecvBuffers(buffers, buffer_count);
 }
 
-void DNSClientEndpoint::OnTick(u32 now)
+void DNSClientEndpoint::OnTick(ThreadLocalStorage &tls, u32 now)
 {
 	AutoMutex lock(_request_lock);
 
