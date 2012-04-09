@@ -35,7 +35,7 @@ using namespace std;
 using namespace cat;
 
 static Clock *m_clock = 0;
-static TunnelTLS m_tls;
+static TunnelTLS *m_tls = 0;
 
 // Generate candidate values for c for the ECC.cpp code
 void GenerateCandidatePrimes();
@@ -912,7 +912,7 @@ void HandshakeTest()
 		TunnelKeyPair key_pair;
 
 		//cout << "Generating server public and private keys..." << endl;
-		if (!key_pair.Generate(&m_tls))
+		if (!key_pair.Generate(m_tls))
 		{
 			cout << "FAILURE: Unable to generate key pair" << endl;
 			return;
@@ -945,16 +945,16 @@ void HandshakeTest()
 		SecureServerDemo server;
 		SecureClientDemo client;
 
-		server.Reset(&m_tls, &client, key_pair);
+		server.Reset(m_tls, &client, key_pair);
 
 		TunnelPublicKey public_key(key_pair);
 
-		client.Reset(&m_tls, &server, public_key);
+		client.Reset(m_tls, &server, public_key);
 
 		// Online:
 
 		//cout << "Client wants to connect." << endl;
-		client.SendHello(&m_tls);
+		client.SendHello(m_tls);
 
 		if (client.success)
 		{
@@ -1515,12 +1515,7 @@ int main()
 {
 	m_clock = Clock::ref();
 
-	if (!m_tls.OnInitialize())
-	{
-		CAT_FATAL("main") << "Unable to initialize TunnelTLS in main thread";
-		cin.get();
-		return 1;
-	}
+	SlowTLS::ref()->Find(m_tls);
 
 	GeneratePassword();
 	GeneratePassword();
@@ -1602,8 +1597,6 @@ int main()
 
 	cout << endl << "Press ENTER to quit." << endl;
 	cin.get();
-
-	m_tls.OnFinalize();
 
 	return 0;
 }

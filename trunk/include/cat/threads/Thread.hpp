@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2012 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -86,7 +86,7 @@ public:
 	}
 
 	// Called when TLS object is inserted into the TLS slot
-	CAT_INLINE virtual bool OnInitialize() {}
+	CAT_INLINE virtual bool OnInitialize() { return false; }
 
 	// Called during thread termination
 	CAT_INLINE virtual void OnFinalize() {}
@@ -136,7 +136,7 @@ public:
 		Aptly-named because it is a standard TLS implementation based
 	on operating system thread ID instead of Thread object extension.
 */
-class SlowThreadLocalStorage : public RefSingleton<SlowThreadLocalStorage>
+class SlowTLS : public RefSingleton<SlowTLS>
 {
 	bool OnInitialize();
 	void OnFinalize();
@@ -145,16 +145,30 @@ class SlowThreadLocalStorage : public RefSingleton<SlowThreadLocalStorage>
 
 	class TLSItem : public HashItem
 	{
-		ThreadLocalStorage tls;
-
 	public:
-		//TODO
+		CAT_INLINE TLSItem(const KeyAdapter &key)
+			: HashItem(key)
+		{
+		}
+
+		ThreadLocalStorage tls;
 	};
 
-	HashTable<TLSItem> _map;
+	HashTable<TLSItem> *_map;
 
 public:
 	ThreadLocalStorage *Get();
+
+	// Grab TLS instance of slot
+	template<class T>
+	void Find(T *&slot)
+	{
+		TLSInstance<T> instance;
+
+		ThreadLocalStorage *tls = Get();
+
+		slot = instance.Get(*tls);
+	}
 };
 
 
