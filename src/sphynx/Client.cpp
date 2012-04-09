@@ -454,9 +454,14 @@ bool Client::FinalConnect(const NetAddr &addr)
 	return true;
 }
 
-bool Client::Connect(ThreadLocalStorage &tls, const char *hostname, Port port, TunnelPublicKey &public_key, const char *session_key)
+bool Client::Connect(const char *hostname, Port port, TunnelPublicKey &public_key, const char *session_key, ThreadLocalStorage *tls)
 {
-	if (!InitialConnect(m_tunnel_tls.Get(tls), public_key, session_key))
+	TunnelTLS *tunnel_tls = 0;
+	if (!tls) tls = SlowTLS::ref()->Get();
+	if (tls) tunnel_tls = m_tunnel_tls.Get(*tls);
+	if (!tunnel_tls) return false;
+
+	if (!InitialConnect(tunnel_tls, public_key, session_key))
 	{
 		ConnectFail(ERR_CLIENT_INVALID_KEY);
 		return false;
@@ -473,9 +478,14 @@ bool Client::Connect(ThreadLocalStorage &tls, const char *hostname, Port port, T
 	return true;
 }
 
-bool Client::Connect(ThreadLocalStorage &tls, const NetAddr &addr, TunnelPublicKey &public_key, const char *session_key)
+bool Client::Connect(const NetAddr &addr, TunnelPublicKey &public_key, const char *session_key, ThreadLocalStorage *tls)
 {
-	if (!InitialConnect(m_tunnel_tls.Get(tls), public_key, session_key) ||
+	TunnelTLS *tunnel_tls = 0;
+	if (!tls) tls = SlowTLS::ref()->Get();
+	if (tls) tunnel_tls = m_tunnel_tls.Get(*tls);
+	if (!tunnel_tls) return false;
+
+	if (!InitialConnect(tunnel_tls, public_key, session_key) ||
 		!FinalConnect(addr))
 	{
 		return false;

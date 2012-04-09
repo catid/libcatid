@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2012 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -132,26 +132,41 @@ u32 TLSClaim::Claim(const char *key_name)
 
 //// SlowThreadLocalStorage
 
-CAT_REF_SINGLETON(SlowThreadLocalStorage);
+CAT_REF_SINGLETON(SlowTLS);
 
-bool SlowThreadLocalStorage::OnInitialize()
+bool SlowTLS::OnInitialize()
 {
+	_map = new HashTable<TLSItem>;
+	if (!_map) return false;
+
 	return true;
 }
 
-void SlowThreadLocalStorage::OnFinalize()
+void SlowTLS::OnFinalize()
 {
+	if (_map)
+	{
+		delete _map;
+		_map = 0;
+	}
 }
 
-ThreadLocalStorage *SlowThreadLocalStorage::Get()
+ThreadLocalStorage *SlowTLS::Get()
 {
 	u32 tid = GetThreadID();
-	SanitizedKey skey((const char*)&tid, sizeof(tid));
-	KeyAdapter key(skey);
+	KeyAdapter key((const char*)&tid, sizeof(tid), tid);
 
 	AutoMutex lock(_lock);
 
-	_map.Lookup(key);
+	TLSItem *item = _map->Lookup(key);
+
+	if (!item)
+	{
+		item = _map->Create(key);
+		if (!item) return 0;
+	}
+
+	return &item->tls;
 }
 
 

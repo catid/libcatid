@@ -128,7 +128,7 @@ int main(int argc, char *argv[])
 		// Patrick: 10.15.40.77
 		// stew 2 caws: 80.3.22.26
 
-		if (!client->Connect(tls, hostname, PORT, public_key, SESSION_KEY))
+		if (!client->Connect(hostname, PORT, public_key, SESSION_KEY))
 		{
 			CAT_FATAL("Client") << "Unable to connect to server";
 			return 3;

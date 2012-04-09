@@ -381,9 +381,11 @@ Server::~Server()
 {
 }
 
-bool Server::StartServer(ThreadLocalStorage &tls, Port port, TunnelKeyPair &key_pair, const char *session_key)
+bool Server::StartServer(Port port, TunnelKeyPair &key_pair, const char *session_key, ThreadLocalStorage *tls)
 {
-	TunnelTLS *tunnel_tls = m_tunnel_tls.Get(tls);
+	TunnelTLS *tunnel_tls = 0;
+	if (!tls) tls = SlowTLS::ref()->Get();
+	if (tls) tunnel_tls = m_tunnel_tls.Get(*tls);
 	if (!tunnel_tls) return false;
 
 	// Seed components
@@ -458,9 +460,11 @@ bool Server::PostConnectionError(const NetAddr &dest, SphynxError err)
 	return Write(pkt, S2C_ERROR_LEN, dest);
 }
 
-bool Server::InitializeKey(ThreadLocalStorage &tls, TunnelKeyPair &key_pair, const char *pair_path, const char *public_path)
+bool Server::InitializeKey(TunnelKeyPair &key_pair, const char *pair_path, const char *public_path, ThreadLocalStorage *tls)
 {
-	TunnelTLS *tunnel_tls = m_tunnel_tls.Get(tls);
+	TunnelTLS *tunnel_tls = 0;
+	if (!tls) tls = SlowTLS::ref()->Get();
+	if (tls) tunnel_tls = m_tunnel_tls.Get(*tls);
 	if (!tunnel_tls) return false;
 
 	if (key_pair.LoadFile(pair_path))
