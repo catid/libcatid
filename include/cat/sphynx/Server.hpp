@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2012 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -65,9 +65,9 @@ public:
 
 	CAT_INLINE const char *GetRefObjectName() { return "Server"; }
 
-	static bool InitializeKey(TunnelKeyPair &key_pair, const char *pair_file_path, const char *public_file_path);
+	static bool InitializeKey(TunnelKeyPair &key_pair, const char *pair_file_path, const char *public_file_path, ThreadLocalStorage *tls = 0);
 
-	bool StartServer(Port port, TunnelKeyPair &key_pair, const char *session_key);
+	bool StartServer(Port port, TunnelKeyPair &key_pair, const char *session_key, ThreadLocalStorage *tls = 0);
 
 protected:
 	// Must return a new instance of your Connexion derivation
@@ -84,8 +84,8 @@ protected:
 	//virtual bool OnFinalize();
 
 	virtual void OnRecvRouting(const BatchSet &buffers);
-	virtual void OnRecv(const BatchSet &buffers);
-	virtual void OnTick(u32 now);
+	virtual void OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers);
+	virtual void OnTick(ThreadLocalStorage &tls, u32 now);
 };
 
 

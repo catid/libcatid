@@ -42,330 +42,6 @@ using namespace ragdoll;
 static const char *TAB_STRING = "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t";
 
 
-//// ragdoll::SanitizedKey
-
-static int SanitizeKeyStringCase(const char *key, /*char *sanitized_string,*/ char *case_string)
-{
-	char ch, /* *outs = sanitized_string,*/ *outc = case_string;
-	bool seen_punct = false;
-
-	while ((ch = *key++))
-	{
-		if (ch >= 'A' && ch <= 'Z')
-		{
-			if (seen_punct)
-			{
-				//*outs++ = '.';
-				*outc++ = '.';
-				seen_punct = false;
-			}
-			*outc++ = ch;
-			//*outs++ = ch + 'a' - 'A';
-		}
-		else if (ch >= 'a' && ch <= 'z' ||
-			ch >= '0' && ch <= '9')
-		{
-			if (seen_punct)
-			{
-				//*outs++ = '.';
-				*outc++ = '.';
-				seen_punct = false;
-			}
-			*outc++ = ch;
-			//*outs++ = ch;
-		}
-		else
-		{
-			if (outc != case_string)
-				seen_punct = true;
-		}
-	}
-
-	*outc = '\0';
-	//*outs = '\0';
-
-	return (int)(outc - case_string);
-}
-
-static int SanitizeKeyString(const char *key, char *sanitized_string)
-{
-	char ch, *outs = sanitized_string;
-	bool seen_punct = false;
-
-	while ((ch = *key++))
-	{
-		if (ch >= 'A' && ch <= 'Z')
-		{
-			if (seen_punct)
-			{
-				*outs++ = '.';
-				seen_punct = false;
-			}
-			*outs++ = ch + 'a' - 'A';
-		}
-		else if (ch >= 'a' && ch <= 'z' ||
-			ch >= '0' && ch <= '9')
-		{
-			if (seen_punct)
-			{
-				*outs++ = '.';
-				seen_punct = false;
-			}
-			*outs++ = ch;
-		}
-		else
-		{
-			if (outs != sanitized_string)
-				seen_punct = true;
-		}
-	}
-
-	*outs = '\0';
-
-	return (int)(outs - sanitized_string);
-}
-
-static int SanitizeKeyRangeString(const char *key, int len, char *sanitized_string)
-{
-	char ch, *outs = sanitized_string;
-	bool seen_punct = false;
-
-	while (len-- > 0)
-	{
-		ch = *key++;
-
-		if (ch >= 'A' && ch <= 'Z')
-		{
-			if (seen_punct)
-			{
-				*outs++ = '.';
-				seen_punct = false;
-			}
-			*outs++ = ch + 'a' - 'A';
-		}
-		else if (ch >= 'a' && ch <= 'z' ||
-			ch >= '0' && ch <= '9')
-		{
-			if (seen_punct)
-			{
-				*outs++ = '.';
-				seen_punct = false;
-			}
-			*outs++ = ch;
-		}
-		else
-		{
-			if (outs != sanitized_string)
-				seen_punct = true;
-		}
-	}
-
-	*outs = '\0';
-
-	return (int)(outs - sanitized_string);
-}
-
-SanitizedKey::SanitizedKey(const char *key)
-{
-	_len = SanitizeKeyString(key, _key);
-	_hash = MurmurHash(_key, _len).Get32();
-}
-
-SanitizedKey::SanitizedKey(const char *key, int len)
-{
-	_len = SanitizeKeyRangeString(key, len, _key);
-	_hash = MurmurHash(_key, _len).Get32();
-}
-
-
-//// ragdoll::HashKey
-
-HashKey::HashKey(const KeyAdapter &key)
-{
-	int len = key.Length();
-
-	_key.SetFromRangeString(key.Key(), len);
-	_hash = key.Hash();
-	_len = len;
-}
-
-
-//// ragdoll::HashValue
-
-HashValue::HashValue(const char *value, int len)
-{
-	_value.SetFromRangeString(value, len);
-}
-
-
-//// ragdoll::HashItem
-
-HashItem::HashItem(const KeyAdapter &key)
-	: HashKey(key)
-{
-}
-
-
-//// ragdoll::HashTable
-
-bool HashTable::Grow()
-{
-	// Calculate growth rate
-	u32 old_size = _allocated;
-	u32 new_size = old_size * GROW_RATE;
-	if (new_size < PREALLOC) new_size = PREALLOC;
-
-	CAT_INANE("HashTable") << "Growing to " << new_size << " buckets";
-
-	// Allocate larger bucket array
-	SListForward *new_buckets = new (std::nothrow) SListForward[new_size];
-	if (!new_buckets) return false;
-
-	if (_buckets)
-	{
-		// For each bucket,
-		u32 mask = new_size - 1;
-		for (u32 jj = 0; jj < old_size; ++jj)
-		{
-			// For each bucket item,
-			for (iter ii = _buckets[jj]; ii; ++ii)
-			{
-				new_buckets[ii->Hash() & mask].PushFront(ii);
-			}
-		}
-
-		// Free old array
-		delete []_buckets;
-	}
-
-	_buckets = new_buckets;
-	_allocated = new_size;
-
-	return true;
-}
-
-HashTable::HashTable()
-{
-	_buckets = 0;
-	_allocated = 0;
-	_used = 0;
-}
-
-HashTable::~HashTable()
-{
-	// If any buckets are allocated,
-	if (_buckets)
-	{
-		// For each allocated bucket,
-		for (u32 ii = 0; ii < _allocated; ++ii)
-		{
-			SListForward &bucket = _buckets[ii];
-
-			// If bucket is not empty,
-			if (!bucket.Empty())
-			{
-				// For each item in the bucket,
-				for (iter ii = bucket; ii; ++ii)
-				{
-					// Free item
-					delete ii;
-				}
-			}
-		}
-
-		// Free the array
-		delete []_buckets;
-	}
-}
-
-HashItem *HashTable::Lookup(const KeyAdapter &key)
-{
-	// If nothing allocated,
-	if (!_allocated) return 0;
-
-	// Search used table indices after hash
-	u32 ii = key.Hash() & (_allocated - 1);
-
-	// For each item in the selected bucket,
-	for (iter jj = _buckets[ii]; jj; ++jj)
-	{
-		// If the key matches,
-		if (*jj == key)
-		{
-			// Found it!
-			return jj;
-		}
-	}
-
-	return 0;
-}
-
-HashItem *HashTable::Create(const KeyAdapter &key)
-{
-	// If first allocation fails,
-	if (!_buckets && !Grow()) return 0;
-
-	// If cannot create an item,
-	HashItem *item = new (std::nothrow) HashItem(key);
-	if (!item) return 0;
-
-	// If time to grow,
-	if (_used * GROW_THRESH >= _allocated)
-	{
-		// If grow fails,
-		if (!Grow())
-		{
-			delete item;
-			return 0;
-		}
-	}
-
-	// Insert in bucket corresponding to hash low bits
-	u32 bucket_index = key.Hash() & (_allocated - 1);
-	_buckets[bucket_index].PushFront(item);
-
-	// Increment used count to keep track of when to grow
-	++_used;
-
-	return item;
-}
-
-
-//// ragdoll::HashTable::Iterator
-
-void HashTable::Iterator::IterateNext()
-{
-	if (_ii)
-	{
-		++_ii;
-
-		if (_ii) return;
-	}
-
-	while (_remaining)
-	{
-		--_remaining;
-		++_bucket;
-
-		_ii = *_bucket;
-
-		if (_ii) return;
-	}
-}
-
-HashTable::Iterator::Iterator(HashTable &head)
-{
-	_remaining = head._allocated;
-	_bucket = head._buckets;
-	_ii = *_bucket;
-
-	if (!_ii)
-	{
-		IterateNext();
-	}
-}
-
-
 //// ragdoll::Parser
 
 char *Parser::FindEOL(char *data, char *eof)
@@ -612,7 +288,7 @@ int Parser::ReadTokens(int root_key_len, int root_depth)
 		// Add this path to the hash table
 		SanitizedKey san_key(_root_key, key_len);
 		KeyAdapter key_input(san_key);
-		HashItem *item = _output_file->_table.Lookup(key_input);
+		LineItem *item = _output_file->_table.Lookup(key_input);
 		if (!item)
 		{
 			// Create a new item for this key
@@ -816,7 +492,7 @@ void File::Set(const char *key, const char *value)
 	// Add this path to the hash table
 	SanitizedKey san_key(key);
 	KeyAdapter key_input(san_key);
-	HashItem *item = _table.Lookup(key_input);
+	LineItem *item = _table.Lookup(key_input);
 	if (!item)
 	{
 #if !defined(CAT_RAGDOLL_STORE_EMPTY)
@@ -856,7 +532,7 @@ const char *File::Get(const char *key, const char *defaultValue)
 	// Add this path to the hash table
 	SanitizedKey san_key(key);
 	KeyAdapter key_input(san_key);
-	HashItem *item = _table.Lookup(key_input);
+	LineItem *item = _table.Lookup(key_input);
 	if (item) return item->GetValueStr();
 
 	// If default value is not undefined,
@@ -888,7 +564,7 @@ void File::SetInt(const char *key, int value)
 	// Add this path to the hash table
 	SanitizedKey san_key(key);
 	KeyAdapter key_input(san_key);
-	HashItem *item = _table.Lookup(key_input);
+	LineItem *item = _table.Lookup(key_input);
 	if (!item)
 	{
 #if !defined(CAT_RAGDOLL_STORE_EMPTY)
@@ -928,7 +604,7 @@ int File::GetInt(const char *key, int defaultValue)
 	// Add this path to the hash table
 	SanitizedKey san_key(key);
 	KeyAdapter key_input(san_key);
-	HashItem *item = _table.Lookup(key_input);
+	LineItem *item = _table.Lookup(key_input);
 	if (item) return item->GetValueInt();
 
 	// If default value is not undefined,
@@ -962,7 +638,7 @@ void File::Set(const char *key, const char *value, RWLock *lock)
 	// Add this path to the hash table
 	SanitizedKey san_key(key);
 	KeyAdapter key_input(san_key);
-	HashItem *item = _table.Lookup(key_input);
+	LineItem *item = _table.Lookup(key_input);
 	if (!item)
 	{
 #if !defined(CAT_RAGDOLL_STORE_EMPTY)
@@ -1007,7 +683,7 @@ void File::Get(const char *key, const char *defaultValue, std::string &out_value
 	// Add this path to the hash table
 	SanitizedKey san_key(key);
 	KeyAdapter key_input(san_key);
-	HashItem *item = _table.Lookup(key_input);
+	LineItem *item = _table.Lookup(key_input);
 	if (item)
 	{
 		out_value = item->GetValueStr();
@@ -1052,7 +728,7 @@ void File::SetInt(const char *key, int value, RWLock *lock)
 	// Add this path to the hash table
 	SanitizedKey san_key(key);
 	KeyAdapter key_input(san_key);
-	HashItem *item = _table.Lookup(key_input);
+	LineItem *item = _table.Lookup(key_input);
 	if (!item)
 	{
 #if !defined(CAT_RAGDOLL_STORE_EMPTY)
@@ -1097,7 +773,7 @@ int File::GetInt(const char *key, int defaultValue, RWLock *lock)
 	// Add this path to the hash table
 	SanitizedKey san_key(key);
 	KeyAdapter key_input(san_key);
-	HashItem *item = _table.Lookup(key_input);
+	LineItem *item = _table.Lookup(key_input);
 	if (item)
 	{
 		int value = item->GetValueInt();
@@ -1133,7 +809,7 @@ int File::GetInt(const char *key, int defaultValue, RWLock *lock)
 	return defaultValue;
 }
 
-u32 File::WriteNewKey(const char *case_key, const char *key, int key_len, HashItem *front, HashItem *end)
+u32 File::WriteNewKey(const char *case_key, const char *key, int key_len, LineItem *front, LineItem *end)
 {
 	// Strip off dotted parts until we find it in the hash table
 	for (int jj = key_len - 1; jj > 1; --jj)
@@ -1145,7 +821,7 @@ u32 File::WriteNewKey(const char *case_key, const char *key, int key_len, HashIt
 		u32 hash = MurmurHash(key, jj).Get32();
 
 		// Look up the parent item
-		HashItem *parent = _table.Lookup(KeyAdapter(key, jj, hash));
+		LineItem *parent = _table.Lookup(KeyAdapter(key, jj, hash));
 		if (parent)
 		{
 			// If parent is already enlisted,
@@ -1173,7 +849,7 @@ u32 File::WriteNewKey(const char *case_key, const char *key, int key_len, HashIt
 		else
 		{
 			// Create a hash table entry for this key
-			HashItem *item = _table.Create(KeyAdapter(key, jj, hash));
+			LineItem *item = _table.Create(KeyAdapter(key, jj, hash));
 			if (!item)
 			{
 				CAT_FATAL("Ragdoll") << "Out of memory";
@@ -1213,7 +889,7 @@ u32 File::WriteNewKey(const char *case_key, const char *key, int key_len, HashIt
 	return 0;
 }
 
-static void WriteFinalKeyPart(HashItem *item, ofstream &file)
+static void WriteFinalKeyPart(LineItem *item, ofstream &file)
 {
 	// Cache key
 	const char *key = item->CaseKey();
@@ -1229,7 +905,7 @@ static void WriteFinalKeyPart(HashItem *item, ofstream &file)
 	if (write_count > 0) file.write(key + ii + 1, write_count);
 }
 
-static void WriteItemValue(HashItem *item, ofstream &file)
+static void WriteItemValue(LineItem *item, ofstream &file)
 {
 	const char *value = item->GetValueStr();
 
@@ -1243,7 +919,7 @@ static void WriteItemValue(HashItem *item, ofstream &file)
 	file.write(value, (int)strlen(value));
 }
 
-static void WriteItem(HashItem *item, ofstream &file)
+static void WriteItem(LineItem *item, ofstream &file)
 {
 	// Write a new line
 	file.write("\n", 1);
@@ -1285,10 +961,10 @@ bool File::Write(const char *file_path, bool force)
 	_eof_head = 0;
 
 	// For each new item in the list,
-	for (HashItem *next, *ii = _newest; ii; ii = next)
+	for (LineItem *next, *ii = _newest; ii; ii = next)
 	{
 		// Cache next in list
-		next = ii->_sort_next;
+		ii->_sort_next->Unwrap(next);
 
 		// Write new key list into the mod or eof list
 		_key_depth = 0;
@@ -1304,7 +980,9 @@ bool File::Write(const char *file_path, bool force)
 
 	// Sort the modified items in increasing order and merge the merge-items
 	u32 copy_start = 0;
-	for (HashItem *ii = HashItem::MergeSort(_modded); ii; ii = ii->_sort_next)
+	LineItem *ii;
+	HashItem::MergeSort(_modded)->Unwrap(ii);
+	for (; ii; ii->_sort_next->Unwrap(ii))
 	{
 		u32 key_end_offset = ii->_sort_value;
 		u32 copy_bytes = key_end_offset - copy_start;
@@ -1346,7 +1024,8 @@ bool File::Write(const char *file_path, bool force)
 	}
 
 	// For each EOF item,
-	for (HashItem *ii = _eof_head; ii; ii = ii->_sort_next)
+	_eof_head->Unwrap(ii);
+	for (; ii; ii->_sort_next->Unwrap(ii))
 	{
 		WriteItem(ii, file);
 

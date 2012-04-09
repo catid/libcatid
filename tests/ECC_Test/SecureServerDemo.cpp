@@ -71,7 +71,7 @@ void SecureServerDemo::OnHello(TunnelTLS *tls, const Address &source, u8 *buffer
 
     cout << "Server: Signature generation time = " << (t2 - t1) << " usec" << endl;
 
-    client_ref->OnDatagram(my_addr, response, sizeof(response));
+    client_ref->OnDatagram(tls, my_addr, response, sizeof(response));
 }
 
 void SecureServerDemo::OnChallenge(TunnelTLS *tls, const Address &source, u8 *buffer)
@@ -109,10 +109,10 @@ void SecureServerDemo::OnChallenge(TunnelTLS *tls, const Address &source, u8 *bu
 
     connections[source] = client;
 
-    client_ref->OnDatagram(my_addr, answer, CAT_S2C_ANSWER_BYTES);
+    client_ref->OnDatagram(tls, my_addr, answer, CAT_S2C_ANSWER_BYTES);
 }
 
-void SecureServerDemo::OnSessionMessage(Connection *client, u8 *buffer, u32 bytes)
+void SecureServerDemo::OnSessionMessage(TunnelTLS *tls, Connection *client, u8 *buffer, u32 bytes)
 {
     //cout << "Server: Processing valid message from client (" << bytes << " bytes)" << endl;
 
@@ -147,7 +147,7 @@ void SecureServerDemo::OnSessionMessage(Connection *client, u8 *buffer, u32 byte
 
     //cout << "Server: Sending pong message back to client" << endl;
 
-    client_ref->OnDatagram(my_addr, response, bytes);
+    client_ref->OnDatagram(tls, my_addr, response, bytes);
 }
 
 void SecureServerDemo::Cleanup()
@@ -161,12 +161,9 @@ void SecureServerDemo::Cleanup()
     connections.clear();
 }
 
-void SecureServerDemo::Reset(SecureClientDemo *cclient_ref, TunnelKeyPair &key_pair)
+void SecureServerDemo::Reset(TunnelTLS *tls, SecureClientDemo *cclient_ref, TunnelKeyPair &key_pair)
 {
     //cout << "Server: Reset!" << endl;
-
-	TunnelTLS *tls = TunnelTLS::ref();
-	CAT_ENFORCE(tls && tls->Valid());
 
     client_ref = cclient_ref;
     my_addr = Address(0x11223344, 0x5566);
@@ -181,13 +178,11 @@ void SecureServerDemo::Reset(SecureClientDemo *cclient_ref, TunnelKeyPair &key_p
 	Cleanup();
 }
 
-void SecureServerDemo::OnDatagram(const Address &source, u8 *buffer, u32 bytes)
+void SecureServerDemo::OnDatagram(TunnelTLS *tls, const Address &source, u8 *buffer, u32 bytes)
 {
     //cout << "Server: Got packet (" << bytes << " bytes)" << endl;
-	TunnelTLS *tls = TunnelTLS::ref();
-	CAT_ENFORCE(tls && tls->Valid());
 
-    Connection *client = connections[source];
+	Connection *client = connections[source];
 
     if (client)
     {
@@ -202,7 +197,7 @@ void SecureServerDemo::OnDatagram(const Address &source, u8 *buffer, u32 bytes)
         double t2 = m_clock->usec();
         cout << "Server: Decryption time = " << (t2 - t1) << " usec" << endl;
 
-        OnSessionMessage(client, buffer, bytes);
+        OnSessionMessage(tls, client, buffer, bytes);
     }
     else
     {

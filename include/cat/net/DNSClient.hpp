@@ -131,8 +131,8 @@ public:
 
 protected:
 	void OnRecvRouting(const BatchSet &buffers);
-	void OnRecv(const BatchSet &buffers);
-	void OnTick(u32 now);
+	void OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers);
+	void OnTick(ThreadLocalStorage &tls, u32 now);
 };
 
 

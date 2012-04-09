@@ -37,6 +37,15 @@ namespace cat {
 namespace Atomic {
 
 
+// Insure all loads and stores are flushed before proceeding (implicitly uses CAT_FENCE_COMPILER)
+CAT_INLINE void DataMemoryBarrier();
+
+// Insure all stores are flushed before proceeding (implicitly uses CAT_FENCE_COMPILER)
+CAT_INLINE void StoreMemoryBarrier();
+
+// Insure all loads are flushed before proceeding (implicitly uses CAT_FENCE_COMPILER)
+CAT_INLINE void LoadMemoryBarrier();
+
 // Compare-and-Swap 2x word size (CAS2)
 // On 32-bit architectures, the arguments point to 64-bit values, and must be aligned to 8 byte boundary
 // On 64-bit architectures, the arguments point to 128-bit values, and must be aligned to 16 byte boundary
@@ -64,6 +73,98 @@ CAT_INLINE bool BTR(volatile u32 *x, int bit);
 
 
 } // namespace Atomic
+
+
+// Insure all loads and stores are flushed before proceeding (implicitly uses CAT_FENCE_COMPILER)
+void Atomic::DataMemoryBarrier()
+{
+	CAT_FENCE_COMPILER;
+
+#if defined(CAT_ISA_X86)
+
+# if defined(CAT_COMPILER_MSVC)
+	_mm_mfence();
+# elif defined(CAT_ASM_INTEL) || defined(CAT_ASM_ATT)
+	CAT_ASM_BEGIN "mfence" CAT_ASM_END
+# else
+#  define CAT_NO_STORE_MEMORY_BARRIER
+# endif
+
+
+#elif defined(CAT_ISA_IBM_POWER)
+
+# if defined(CAT_ASM_INTEL) || defined(CAT_ASM_ATT)
+	CAT_ASM_BEGIN "dcs" CAT_ASM_END
+# else
+#  define CAT_NO_STORE_MEMORY_BARRIER
+# endif
+
+
+#elif defined(CAT_ISA_PPC)
+
+# if defined(CAT_ASM_INTEL) || defined(CAT_ASM_ATT)
+	CAT_ASM_BEGIN "sync" CAT_ASM_END
+# else
+#  define CAT_NO_STORE_MEMORY_BARRIER
+# endif
+
+
+#elif defined(CAT_ISA_ARM)
+
+# if defined(CAT_ASM_INTEL) || defined(CAT_ASM_ATT)
+	CAT_ASM_BEGIN "dmb" CAT_ASM_END
+# else
+#  define CAT_NO_STORE_MEMORY_BARRIER
+# endif
+
+#else
+# define CAT_NO_STORE_MEMORY_BARRIER
+#endif
+}
+
+// Insure all stores are flushed before proceeding (implicitly uses CAT_FENCE_COMPILER)
+void Atomic::StoreMemoryBarrier()
+{
+#if !defined(CAT_ISA_X86)
+
+	DataMemoryBarrier();
+
+#else
+
+	CAT_FENCE_COMPILER;
+
+# if defined(CAT_COMPILER_MSVC)
+	_mm_sfence();
+# elif defined(CAT_ASM_INTEL) || defined(CAT_ASM_ATT)
+	CAT_ASM_BEGIN "sfence" CAT_ASM_END
+# else
+#  define CAT_NO_STORE_MEMORY_BARRIER
+# endif
+
+#endif
+}
+
+// Insure all loads are flushed before proceeding (implicitly uses CAT_FENCE_COMPILER)
+void Atomic::LoadMemoryBarrier()
+{
+#if !defined(CAT_ISA_X86)
+
+	DataMemoryBarrier();
+
+#else
+
+	CAT_FENCE_COMPILER;
+
+# if defined(CAT_COMPILER_MSVC)
+	_mm_lfence();
+# elif defined(CAT_ASM_INTEL) || defined(CAT_ASM_ATT)
+	CAT_ASM_BEGIN "lfence" CAT_ASM_END
+# else
+#  define CAT_NO_STORE_MEMORY_BARRIER
+# endif
+
+#endif
+}
 
 
 //// Compare-and-Swap

@@ -141,6 +141,12 @@
     <ClCompile Include="..\..\src\io\LogThread.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\math\MemXOR.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\lang\HashTable.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\cat\AllCommon.hpp">
@@ -271,6 +277,15 @@
     </ClInclude>
     <ClInclude Include="..\..\include\cat\math\Legs.hpp">
       <Filter>Header Files\math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\math\MemXOR.hpp">
+      <Filter>Header Files\math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\lang\HashTable.hpp">
+      <Filter>Header Files\lang</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\rand\AbyssinianPRNG.hpp">
+      <Filter>Header Files\rand</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

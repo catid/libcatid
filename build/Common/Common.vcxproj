@@ -166,11 +166,13 @@
     <ClCompile Include="..\..\src\io\MappedFile.cpp" />
     <ClCompile Include="..\..\src\io\RagdollFile.cpp" />
     <ClCompile Include="..\..\src\io\Settings.cpp" />
+    <ClCompile Include="..\..\src\lang\HashTable.cpp" />
     <ClCompile Include="..\..\src\lang\LinkedLists.cpp" />
     <ClCompile Include="..\..\src\lang\RefObject.cpp" />
     <ClCompile Include="..\..\src\lang\RefSingleton.cpp" />
     <ClCompile Include="..\..\src\lang\Singleton.cpp" />
     <ClCompile Include="..\..\src\math\BitMath.cpp" />
+    <ClCompile Include="..\..\src\math\MemXOR.cpp" />
     <ClCompile Include="..\..\src\mem\AlignedAllocator.cpp" />
     <ClCompile Include="..\..\src\mem\BufferAllocator.cpp" />
     <ClCompile Include="..\..\src\mem\IAllocator.cpp" />
@@ -207,6 +209,7 @@
     <ClInclude Include="..\..\include\cat\io\RagdollFile.hpp" />
     <ClInclude Include="..\..\include\cat\io\Settings.hpp" />
     <ClInclude Include="..\..\include\cat\lang\Delegates.hpp" />
+    <ClInclude Include="..\..\include\cat\lang\HashTable.hpp" />
     <ClInclude Include="..\..\include\cat\lang\MergeSort.hpp" />
     <ClInclude Include="..\..\include\cat\lang\RefObject.hpp" />
     <ClInclude Include="..\..\include\cat\lang\RefSingleton.hpp" />
@@ -214,6 +217,7 @@
     <ClInclude Include="..\..\include\cat\lang\LinkedLists.hpp" />
     <ClInclude Include="..\..\include\cat\math\BigMath.hpp" />
     <ClInclude Include="..\..\include\cat\math\Legs.hpp" />
+    <ClInclude Include="..\..\include\cat\math\MemXOR.hpp" />
     <ClInclude Include="..\..\include\cat\mem\AlignedAllocator.hpp" />
     <ClInclude Include="..\..\include\cat\mem\BufferAllocator.hpp" />
     <ClInclude Include="..\..\include\cat\mem\IAllocator.hpp" />
@@ -226,6 +230,7 @@
     <ClInclude Include="..\..\include\cat\parse\BufferTok.hpp" />
     <ClInclude Include="..\..\include\cat\Platform.hpp" />
     <ClInclude Include="..\..\include\cat\port\SystemInfo.hpp" />
+    <ClInclude Include="..\..\include\cat\rand\AbyssinianPRNG.hpp" />
     <ClInclude Include="..\..\include\cat\rand\SmallPRNG.hpp" />
     <ClInclude Include="..\..\include\cat\threads\Thread.hpp" />
     <ClInclude Include="..\..\include\cat\threads\WaitableFlag.hpp" />

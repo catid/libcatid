@@ -176,11 +176,11 @@ int main()
 
 	TunnelKeyPair key_pair;
 
-	if (!Server::InitializeKey(key_pair, "KeyPair.bin", "PublicKey.bin"))
+	if (!Server::InitializeKey(tls, key_pair, "KeyPair.bin", "PublicKey.bin"))
 	{
 		CAT_FATAL("Server") << "Unable to get key pair";
 	}
-	else if (!server->StartServer(SERVER_PORT, key_pair, "Chat"))
+	else if (!server->StartServer(tls, SERVER_PORT, key_pair, "Chat"))
 	{
 		CAT_FATAL("Server") << "Unable to start server";
 	}

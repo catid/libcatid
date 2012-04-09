@@ -30,6 +30,133 @@
 #include <cat/time/Clock.hpp>
 using namespace cat;
 
+
+//// Thread priority modification
+
+bool cat::SetExecPriority(ThreadPrio prio)
+{
+#if defined(CAT_OS_WINDOWS)
+	int level;
+
+	// Convert to Windows API constant
+	switch (prio)
+	{
+	case P_IDLE:	level = THREAD_PRIORITY_IDLE;	break;
+	case P_LOW:		level = THREAD_PRIORITY_LOWEST;	break;
+	case P_NORMAL:	level = THREAD_PRIORITY_NORMAL;	break;
+	case P_HIGH:	level = THREAD_PRIORITY_ABOVE_NORMAL;	break;
+	case P_HIGHEST:	level = THREAD_PRIORITY_HIGHEST;	break;
+	}
+
+	return 0 != ::SetThreadPriority(::GetCurrentThread(), level);
+#else
+	return false;
+#endif
+}
+
+
+//// GetThreadID
+
+#if !defined(CAT_OS_WINDOWS)
+# include <unistd.h>
+# include <sys/syscall.h>
+# if defined(CAT_OS_LINUX)
+#  include <linux/unistd.h>
+# elif defined(CAT_OS_BSD) || defined(CAT_OS_OSX)
+#  include <bsd/unistd.h>
+# endif
+#endif
+
+u32 cat::GetThreadID()
+{
+#if defined(CAT_OS_WINDOWS)
+
+	return GetCurrentThreadId();
+
+#elif defined(CAT_OS_LINUX) || defined(CAT_OS_BSD) || defined(CAT_OS_OSX)
+
+	s32 thread_id = syscall(__NR_gettid);
+	if (thread_id != -1) return thread_id;
+
+	return getpid();
+
+#else
+
+	return (u32)pthread_self();
+
+#endif
+}
+
+
+//// TLSClaim
+
+CAT_SINGLETON(TLSClaim);
+
+bool TLSClaim::OnInitialize()
+{
+	_next_index = 0;
+	return true;
+}
+
+u32 TLSClaim::Claim(const char *key_name)
+{
+	SanitizedKey skey(key_name);
+	KeyAdapter key(skey);
+
+	AutoMutex lock(_lock);
+
+	HashItem *item = _map.Lookup(key);
+	u32 item_index;
+
+	// If key not found,
+	if (!item)
+	{
+		item = _map.Create(key);
+
+		item_index = _next_index++;
+
+		if (item)
+		{
+			// TODO: Use binary instead of string here when I use this for something performance-critical
+			item->SetValueInt(item_index);
+		}
+	}
+	else
+	{
+		item_index = item->GetValueInt();
+	}
+
+	return item_index;
+}
+
+
+//// SlowThreadLocalStorage
+
+CAT_REF_SINGLETON(SlowThreadLocalStorage);
+
+bool SlowThreadLocalStorage::OnInitialize()
+{
+	return true;
+}
+
+void SlowThreadLocalStorage::OnFinalize()
+{
+}
+
+ThreadLocalStorage *SlowThreadLocalStorage::Get()
+{
+	u32 tid = GetThreadID();
+	SanitizedKey skey((const char*)&tid, sizeof(tid));
+	KeyAdapter key(skey);
+
+	AutoMutex lock(_lock);
+
+	_map.Lookup(key);
+}
+
+
+//// Thread
+
 #if defined(CAT_OS_WINDOWS)
 
 #include <process.h>
@@ -201,30 +328,6 @@ bool Thread::WaitForThread(int ms)
 	return success;
 }
 
-
-//// Thread priority modification
-
-bool cat::SetCurrentThreadPriority(ThreadPrio prio)
-{
-#if defined(CAT_OS_WINDOWS)
-	int level;
-
-	// Convert to Windows API constant
-	switch (prio)
-	{
-	case P_IDLE:	level = THREAD_PRIORITY_IDLE;	break;
-	case P_LOW:		level = THREAD_PRIORITY_LOWEST;	break;
-	case P_NORMAL:	level = THREAD_PRIORITY_NORMAL;	break;
-	case P_HIGH:	level = THREAD_PRIORITY_ABOVE_NORMAL;	break;
-	case P_HIGHEST:	level = THREAD_PRIORITY_HIGHEST;	break;
-	}
-
-	return 0 != SetThreadPriority(GetCurrentThread(), level);
-#else
-	return false;
-#endif
-}
-
 bool Thread::AtExit(const AtExitCallback &cb)
 {
 	// If no more room,
@@ -246,5 +349,16 @@ void Thread::InvokeAtExit()
 	{
 		// Invoke it
 		_callbacks[ii]();
+	}
+
+	// Invoke TLS finalization callbacks
+	for (int ii = 0; ii < MAX_TLS_BINS; ++ii)
+	{
+		ITLS *tls = _tls[ii];
+		if (tls)
+		{
+			tls->OnFinalize();
+			delete tls;
+		}
 	}
 }

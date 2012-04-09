@@ -41,6 +41,7 @@
 #include <cat/rand/MersenneTwister.hpp>
 #include <cat/rand/StdRand.hpp>
 #include <cat/rand/SmallPRNG.hpp>
+#include <cat/rand/AbyssinianPRNG.hpp>
 
 #include <cat/hash/Murmur.hpp>
 
@@ -65,6 +66,7 @@
 #include <cat/lang/RefSingleton.hpp>
 #include <cat/lang/RefObject.hpp>
 #include <cat/lang/MergeSort.hpp>
+#include <cat/lang/HashTable.hpp>
 
 #include <cat/io/Log.hpp>
 #include <cat/io/LogThread.hpp>

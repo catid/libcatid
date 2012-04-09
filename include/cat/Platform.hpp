@@ -125,8 +125,11 @@ namespace cat {
 # endif
 
 } // namespace cat
-# include <cstdlib> // Intrinsics
-# include <intrin.h> // Intrinsics
+
+// Intrinsics:
+# include <cstdlib>
+# include <intrin.h>
+# include <mmintrin.h>
 namespace cat {
 
 //-----------------------------------------------------------------------------
@@ -259,10 +262,14 @@ namespace cat {
 
 //// Instruction Set Architecture ////
 
-#if defined(__powerpc__) || defined(__ppc__) || defined(_POWER) || defined(_M_PPC) || \
+#if defined(__powerpc__) || defined(__ppc__) || defined(_M_PPC) || \
 	defined(_M_MPPC) || defined(__POWERPC) || defined(powerpc) || defined(__ppc64__) || \
 	defined(_PS3) || defined(__PS3__) || defined(SN_TARGET_PS3) || defined(__POWERPC__)
 # define CAT_ISA_PPC
+
+#elif defined(_POWER)
+# define CAT_ISA_PPC
+# define CAT_ISA_IBM_POWER /* Define IBM Power in addition to PowerPC */
 
 #elif defined(__i386__) || defined(i386) || defined(intel) || defined(_M_IX86) || \
 	  defined(__ia64) || defined(__ia64__) || defined(__x86_64) || defined(_M_IA64) || \
@@ -706,6 +713,7 @@ template<typename T> CAT_INLINE T Bound(const T &minimum, const T &maximum, cons
 #pragma intrinsic(_InterlockedExchange)
 #pragma intrinsic(_interlockedbittestandset)
 #pragma intrinsic(_interlockedbittestandreset)
+#pragma intrinsic(_mm_sfence, _mm_lfence, _mm_mfence)
 
 #if defined(CAT_WORD_64)
 #pragma intrinsic(__rdtsc)

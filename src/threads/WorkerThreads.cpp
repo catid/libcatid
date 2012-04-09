@@ -122,7 +122,7 @@ void WorkerThread::TickTimers(u32 now)
 		}
 		else
 		{
-			timer->callback(now);
+			timer->callback(_tls, now);
 		}
 	}
 
@@ -154,7 +154,7 @@ void WorkerThread::TickTimers(u32 now)
 	}
 }
 
-static CAT_INLINE void ExecuteWorkQueue(const BatchSet &queue)
+static CAT_INLINE void ExecuteWorkQueue(ThreadLocalStorage &tls, const BatchSet &queue)
 {
 	// If there is nothing in the queue,
 	if (!queue.head) return;
@@ -210,7 +210,7 @@ static CAT_INLINE void ExecuteWorkQueue(const BatchSet &queue)
 	// If only one element in set,
 	if (!current)
 	{
-		prev->callback(queue);
+		prev->callback(tls, queue);
 		return;
 	}
 
@@ -226,10 +226,10 @@ static CAT_INLINE void ExecuteWorkQueue(const BatchSet &queue)
 		else
 		{
 			if (prev->callback == next->callback)
-				current->callback(current);
+				current->callback(tls, current);
 			else
 			{
-				prev->callback(batch);
+				prev->callback(tls, batch);
 				batch = current;
 				prev = current;
 			}
@@ -245,10 +245,10 @@ static CAT_INLINE void ExecuteWorkQueue(const BatchSet &queue)
 	if (prev->callback == current->callback)
 		batch.PushBack(current);
 	else
-		current->callback(current);
+		current->callback(tls, current);
 
 	// Run remaining
-	prev->callback(batch);
+	prev->callback(tls, batch);
 
 #else // CAT_WORKER_THREADS_REORDER_EVENTS
 
@@ -267,7 +267,7 @@ static CAT_INLINE void ExecuteWorkQueue(const BatchSet &queue)
 			buffers.tail = last;
 			last->batch_next = 0;
 
-			last->callback(buffers);
+			last->callback(tls, buffers);
 
 			if (!next) break;
 
@@ -331,7 +331,7 @@ bool WorkerThread::Entrypoint(void *vmaster)
 					_workqueues[ii].queued.Clear();
 					_workqueues[ii].lock.Leave();
 
-					ExecuteWorkQueue(queue);
+					ExecuteWorkQueue(_tls, queue);
 				} // end if queue seems full
 			} // next priority level
 		} // end if check_events

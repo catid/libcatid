@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2012 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -67,8 +67,8 @@ class CAT_EXPORT Connexion : public Transport, public RefObject
 	virtual void OnDisconnectComplete();
 
 	void RetransmitAnswer(RecvBuffer *buffer);
-	void OnRecv(const BatchSet &buffers);
-	void OnTick(u32 now);
+	void OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers);
+	void OnTick(ThreadLocalStorage &tls, u32 now);
 
 public:
 	Connexion();

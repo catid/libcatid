@@ -179,7 +179,7 @@
   <ItemGroup>
     <ClCompile Include="..\..\src\codec\Huffman.cpp" />
     <ClCompile Include="..\..\src\codec\RangeCoder.cpp" />
-    <ClCompile Include="..\..\src\codec\RaptorQ.cpp" />
+    <ClCompile Include="..\..\src\fec\Wirehair.cpp" />
     <ClCompile Include="Precompiled.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
@@ -191,11 +191,13 @@
     <ClInclude Include="..\..\include\cat\AllCodec.hpp" />
     <ClInclude Include="..\..\include\cat\codec\Huffman.hpp" />
     <ClInclude Include="..\..\include\cat\codec\RangeCoder.hpp" />
-    <ClInclude Include="..\..\include\cat\codec\RaptorQ.hpp" />
+    <ClInclude Include="..\..\include\cat\fec\Wirehair.hpp" />
+    <ClInclude Include="..\..\include\cat\fec\WirehairDetails.hpp" />
     <ClInclude Include="Precompiled.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\include\cat\codec\ChatText.stats" />
+    <None Include="..\..\include\cat\fec\WIREHAIR.LICENSE" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

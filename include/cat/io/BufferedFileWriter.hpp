@@ -57,7 +57,7 @@ protected:
 	virtual bool OnInitialize();
 	virtual bool OnFinalize();
 
-	void OnWrite(const BatchSet &set);
+	void OnWrite(ThreadLocalStorage &tls, const BatchSet &set);
 
 public:
 	CAT_INLINE virtual ~BufferedFileWriter() {}

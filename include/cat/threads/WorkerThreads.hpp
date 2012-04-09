@@ -49,7 +49,7 @@ static const u32 INVALID_WORKER_ID = ~(u32)0;
 
 
 // A buffer specialized for handling by the worker threads
-typedef Delegate1<void, const BatchSet &> WorkerDelegate;
+typedef Delegate2<void, ThreadLocalStorage&, const BatchSet &> WorkerDelegate;
 
 struct WorkerBuffer : public BatchHead
 {
@@ -58,7 +58,7 @@ struct WorkerBuffer : public BatchHead
 
 
 // An element in the timer object array
-typedef Delegate1<void, u32> WorkerTimerDelegate;
+typedef Delegate2<void, ThreadLocalStorage&, u32> WorkerTimerDelegate;
 
 struct WorkerTimer
 {

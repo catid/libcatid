@@ -40,16 +40,8 @@ TunnelTLS::TunnelTLS()
 	_csprng = 0;
 }
 
-TunnelTLS::~TunnelTLS()
+bool TunnelTLS::OnInitialize()
 {
-	Finalize();
-}
-
-bool TunnelTLS::Initialize(Thread *thread)
-{
-	// Register for thread-atexit() to clean up this object
-	thread->AtExit(Thread::AtExitCallback::FromMember<TunnelTLS, &TunnelTLS::Finalize>(this));
-
 	_csprng = FortunaFactory::ref()->Create();
 	if (!_csprng)
 	{
@@ -67,7 +59,7 @@ bool TunnelTLS::Initialize(Thread *thread)
 	return true;
 }
 
-void TunnelTLS::Finalize()
+void TunnelTLS::OnFinalize()
 {
 	if (_csprng)
 	{

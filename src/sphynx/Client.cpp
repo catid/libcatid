@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2012 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -43,6 +43,7 @@ using namespace sphynx;
 static WorkerThreads *m_worker_threads = 0;
 static Settings *m_settings = 0;
 static DNSClient *m_dns_client = 0;
+static TLSInstance<TunnelTLS> m_tunnel_tls;
 
 
 //// Client
@@ -109,7 +110,7 @@ void Client::OnRecvRouting(const BatchSet &buffers)
 		ReleaseRecvBuffers(garbage, garbage_count);
 }
 
-void Client::OnRecv(const BatchSet &buffers)
+void Client::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 {
 	u32 buffer_count = 0;
 	BatchHead *node = buffers.head;
@@ -167,10 +168,10 @@ void Client::OnRecv(const BatchSet &buffers)
 			else if (bytes == S2C_ANSWER_LEN && data[0] == S2C_ANSWER)
 			{
 				Skein key_hash;
-				TunnelTLS *tls = TunnelTLS::ref();
+				TunnelTLS *tunnel_tls = m_tunnel_tls.Get(tls);
 
 				// Process answer from server, ignore invalid
-				if (_key_agreement_initiator.ProcessAnswer(tls, data + 1, ANSWER_BYTES, &key_hash) &&
+				if (_key_agreement_initiator.ProcessAnswer(tunnel_tls, data + 1, ANSWER_BYTES, &key_hash) &&
 					_key_agreement_initiator.KeyEncryption(&key_hash, &_auth_enc, _session_key) &&
 					InitializeTransportSecurity(true, _auth_enc))
 				{
@@ -256,7 +257,7 @@ void Client::OnRecv(const BatchSet &buffers)
 	ReleaseRecvBuffers(buffers, buffer_count);
 }
 
-void Client::OnTick(u32 now)
+void Client::OnTick(ThreadLocalStorage &tls, u32 now)
 {
 	if (!_connected)
 	{
@@ -373,15 +374,13 @@ Client::Client()
 	_worker_id = INVALID_WORKER_ID;
 }
 
-bool Client::InitialConnect(TunnelPublicKey &public_key, const char *session_key)
+bool Client::InitialConnect(TunnelTLS *tls, TunnelPublicKey &public_key, const char *session_key)
 {
 	if (!public_key.Valid())
 	{
 		CAT_WARN("Client") << "Failed to connect: Invalid server public key provided";
 		return false;
 	}
-
-	TunnelTLS *tls = TunnelTLS::ref();
 
 	// Verify public key and initialize crypto library with it
 	if (!_key_agreement_initiator.Initialize(tls, public_key))
@@ -455,9 +454,9 @@ bool Client::FinalConnect(const NetAddr &addr)
 	return true;
 }
 
-bool Client::Connect(const char *hostname, Port port, TunnelPublicKey &public_key, const char *session_key)
+bool Client::Connect(ThreadLocalStorage &tls, const char *hostname, Port port, TunnelPublicKey &public_key, const char *session_key)
 {
-	if (!InitialConnect(public_key, session_key))
+	if (!InitialConnect(m_tunnel_tls.Get(tls), public_key, session_key))
 	{
 		ConnectFail(ERR_CLIENT_INVALID_KEY);
 		return false;
@@ -474,9 +473,9 @@ bool Client::Connect(const char *hostname, Port port, TunnelPublicKey &public_ke
 	return true;
 }
 
-bool Client::Connect(const NetAddr &addr, TunnelPublicKey &public_key, const char *session_key)
+bool Client::Connect(ThreadLocalStorage &tls, const NetAddr &addr, TunnelPublicKey &public_key, const char *session_key)
 {
-	if (!InitialConnect(public_key, session_key) ||
+	if (!InitialConnect(m_tunnel_tls.Get(tls), public_key, session_key) ||
 		!FinalConnect(addr))
 	{
 		return false;

@@ -96,12 +96,12 @@ class CAT_EXPORT Client : public UDPEndpoint, public Transport
 
 	void ConnectFail(SphynxError err);
 
-	bool InitialConnect(TunnelPublicKey &public_key, const char *session_key);
+	bool InitialConnect(TunnelTLS *tls, TunnelPublicKey &public_key, const char *session_key);
 	bool FinalConnect(const NetAddr &addr);
 
 	virtual void OnRecvRouting(const BatchSet &buffers);
-	virtual void OnRecv(const BatchSet &buffers);
-	virtual void OnTick(u32 now);
+	virtual void OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers);
+	virtual void OnTick(ThreadLocalStorage &tls, u32 now);
 
 public:
 	Client();
@@ -110,8 +110,8 @@ public:
 	CAT_INLINE const char *GetRefObjectName() { return "Client"; }
 
 	// Once you call Connect(), the object may be deleted at any time.  If you want to keep a reference to it, AddRef() before calling
-	bool Connect(const char *hostname, Port port, TunnelPublicKey &public_key, const char *session_key);
-	bool Connect(const NetAddr &addr, TunnelPublicKey &public_key, const char *session_key);
+	bool Connect(const char *hostname, Port port, TunnelPublicKey &public_key, const char *session_key, ThreadLocalStorage *tls = 0);
+	bool Connect(const NetAddr &addr, TunnelPublicKey &public_key, const char *session_key, ThreadLocalStorage *tls = 0);
 
 	// Current local time
 	CAT_INLINE u32 getLocalTime() { return _clock->msec(); }

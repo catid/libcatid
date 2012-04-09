@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2010 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2012 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -37,7 +37,7 @@
 
 #include <cat/codec/Huffman.hpp>
 #include <cat/codec/RangeCoder.hpp>
-#include <cat/codec/RaptorQ.hpp>
+#include <cat/fec/Wirehair.hpp>
 
 #if defined(CAT_COMPILER_MSVC) && defined(CAT_BUILD_DLL)
 # pragma warning(pop)

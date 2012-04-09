@@ -32,6 +32,7 @@
 #include <cat/lang/LinkedLists.hpp>
 #include <cat/lang/Strings.hpp>
 #include <cat/lang/MergeSort.hpp>
+#include <cat/lang/HashTable.hpp>
 #include <cat/threads/RWLock.hpp>
 #include <cat/io/MappedFile.hpp>
 #include <string>
@@ -99,133 +100,19 @@ namespace cat {
 namespace ragdoll {
 
 
-class SanitizedKey;
-class KeyAdapter;
-class HashKey;
-class HashValue;
-class HashItem;
-class HashTable;
 class File;
 class Parser;
 
-static const int MAX_CHARS = 256;
+
+static const int MAX_CHARS = MAX_HASH_KEY_CHARS;
 
 
-//// ragdoll::SanitizedKey
+//// ragdoll::LineItem
 
-class CAT_EXPORT SanitizedKey
+class CAT_EXPORT LineItem : public HashItem
 {
-	char _key[MAX_CHARS+1];
-	int _len;
-	u32 _hash;
-
-public:
-	SanitizedKey(const char *key);
-	SanitizedKey(const char *key, int len);
-
-	CAT_INLINE u32 Hash() const { return _hash; }
-	CAT_INLINE const char *Key() const { return _key; }
-	CAT_INLINE int Length() const { return _len; }
-};
-
-
-//// ragdoll::KeyAdapter
-
-class CAT_EXPORT KeyAdapter
-{
-	const char *_key;
-	int _len;
-	u32 _hash;
-
-public:
-	CAT_INLINE KeyAdapter::KeyAdapter(SanitizedKey &key)
-	{
-		_key = key.Key();
-		_len = key.Length();
-		_hash = key.Hash();
-	}
-
-	CAT_INLINE KeyAdapter(const char *key, int len, u32 hash)
-	{
-		_key = key;
-		_len = len;
-		_hash = hash;
-	}
-
-	CAT_INLINE u32 Hash() const { return _hash; }
-	CAT_INLINE const char *Key() const { return _key; }
-	CAT_INLINE int Length() const { return _len; }
-};
-
-
-//// ragdoll::HashKey
-
-class CAT_EXPORT HashKey
-{
-protected:
-	NulTermFixedStr<MAX_CHARS> _key;
-	int _len;
-	u32 _hash;
-
-public:
-	HashKey(const KeyAdapter &key);
-	//CAT_INLINE virtual ~HashKey() {}
-
-	CAT_INLINE const char *Key() { return _key; }
-	CAT_INLINE int Length() { return _len; }
-	CAT_INLINE u32 Hash() { return _hash; }
-
-	CAT_INLINE bool operator==(const KeyAdapter &key)
-	{
-		return _hash == key.Hash() &&
-			   _len == key.Length() &&
-			   memcmp(_key, key.Key(), _len) == 0;
-	}
-};
-
-
-//// ragdoll::HashValue
-
-class CAT_EXPORT HashValue
-{
-protected:
-	NulTermFixedStr<MAX_CHARS> _value;
-
-public:
-	CAT_INLINE HashValue() {}
-	HashValue(const char *key, int len);
-	//CAT_INLINE virtual ~HashValue() {}
-
-	CAT_INLINE void ClearValue() { _value.Clear(); }
-
-	CAT_INLINE int GetValueInt() { return atoi(_value); }
-
-	CAT_INLINE const char *GetValueStr() { return _value; }
-
-	CAT_INLINE void SetValueRangeStr(const char *value, int len)
-	{
-		_value.SetFromRangeString(value, len);
-	}
-
-	CAT_INLINE void SetValueStr(const char *value)
-	{
-		_value.SetFromNulTerminatedString(value);
-	}
-
-	CAT_INLINE void SetValueInt(int ivalue)
-	{
-		_value.SetFromInteger(ivalue);
-	}
-};
-
-
-//// ragdoll::HashItem
-
-class CAT_EXPORT HashItem : public HashKey, public HashValue, public SListItem, public SortableItem<HashItem, u32>
-{
-	friend class HashTable;
-	friend class Parser;
 	friend class File;
+	friend class Parser;
 
 	// Pointer to next modified item in _sort_next
 	// Location of key value in original file stored in _sort_value
@@ -244,8 +131,8 @@ class CAT_EXPORT HashItem : public HashKey, public HashValue, public SListItem, 
 	NulTermFixedStr<MAX_CHARS> _case_key;
 
 public:
-	HashItem(const KeyAdapter &key);
-	//CAT_INLINE virtual ~HashItem() {}
+	CAT_INLINE LineItem(const KeyAdapter &key) : HashItem(key) {}
+	//CAT_INLINE virtual ~SettingsItem() {}
 
 	CAT_INLINE char *CaseKey() { return _case_key; }
 	CAT_INLINE u32 KeyEndOffset() { return _sort_value; }
@@ -254,65 +141,9 @@ public:
 };
 
 
-//// ragdoll::HashTable
+//// ragdoll::SettingsTable
 
-class CAT_EXPORT HashTable
-{
-	friend class Iterator;
-
-	CAT_NO_COPY(HashTable);
-
-	static const u32 PREALLOC = 64;
-	static const u32 GROW_THRESH = 2;
-	static const u32 GROW_RATE = 2;
-
-	u32 _allocated, _used;
-	SListForward *_buckets;
-	typedef SListForward::Iterator<HashItem> iter;
-
-	bool Grow();
-
-public:
-	HashTable();
-	~HashTable();
-
-	HashItem *Lookup(const KeyAdapter &key); // Returns 0 if key not found
-	HashItem *Create(const KeyAdapter &key); // Creates if it does not exist yet
-
-	// Iterator
-	class CAT_EXPORT Iterator
-	{
-		u32 _remaining;
-		SListForward *_bucket;
-		iter _ii;
-
-		void IterateNext();
-
-	public:
-		Iterator(HashTable &head);
-
-		CAT_INLINE operator HashItem *()
-		{
-			return _ii;
-		}
-
-		CAT_INLINE HashItem *operator->()
-		{
-			return _ii;
-		}
-
-		CAT_INLINE Iterator &operator++() // pre-increment
-		{
-			IterateNext();
-			return *this;
-		}
-
-		CAT_INLINE Iterator &operator++(int) // post-increment
-		{
-			return ++*this;
-		}
-	};
-};
+typedef HashTable<LineItem> SettingsTable;
 
 
 //// ragdoll::Parser
@@ -361,19 +192,19 @@ class CAT_EXPORT File
 {
 	friend class ragdoll::Parser;
 
-	typedef DList::ForwardIterator<HashItem> iter;
+	typedef DList::ForwardIterator<LineItem> iter;
 
 	MappedFile _file;	// Memory-mapped data file
 	MappedView _view;	// View of memory-mapped data file
 
-	HashTable _table;	// Hash table containing key-value pairs
-	HashItem *_modded;	// List of keys from the file that have been modified
-	HashItem *_newest;	// List of keys that were not in the file
+	SettingsTable _table;	// Hash table containing key-value pairs
+	LineItem *_modded;	// List of keys from the file that have been modified
+	LineItem *_newest;	// List of keys that were not in the file
 
 	// Recursively write new keys into the newest list
-	HashItem *_eof_head; // List of keys to be written to eof
+	LineItem *_eof_head; // List of keys to be written to eof
 	int _key_depth;
-	u32 WriteNewKey(const char *case_key, const char *key, int key_len, HashItem *front, HashItem *end);
+	u32 WriteNewKey(const char *case_key, const char *key, int key_len, LineItem *front, LineItem *end);
 
 public:
 	File();

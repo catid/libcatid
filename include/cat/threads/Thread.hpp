@@ -30,6 +30,10 @@
 #define CAT_THREAD_HPP
 
 #include <cat/lang/Delegates.hpp>
+#include <cat/lang/Singleton.hpp>
+#include <cat/threads/Mutex.hpp>
+#include <cat/lang/HashTable.hpp>
+#include <cat/lang/RefSingleton.hpp>
 
 #if !defined(CAT_OS_WINDOWS)
 # include <pthread.h>
@@ -49,7 +53,180 @@ enum ThreadPrio
 	P_HIGHEST,
 };
 
-bool SetCurrentThreadPriority(ThreadPrio prio = P_NORMAL);
+bool SetExecPriority(ThreadPrio prio = P_NORMAL);
+
+u32 GetThreadID();
+
+
+//// Thread-Local Storage (TLS) 
+
+static const int MAX_TLS_BINS = 16;
+
+/*
+	ITLS
+
+		Thread-local storage interface base class
+
+	Derive from this class to implement your TLS data
+
+	Derivative classes must define a static member called GetNameString()
+*/
+class CAT_EXPORT ITLS
+{
+	bool _is_initialized;
+
+public:
+	CAT_INLINE ITLS() { _is_initialized = false; }
+	CAT_INLINE virtual ~ITLS() {} // Must define a virtual dtor
+
+	CAT_INLINE bool TryInitialize()
+	{
+		if (!_is_initialized)
+			_is_initialized = OnInitialize();
+	}
+
+	// Called when TLS object is inserted into the TLS slot
+	CAT_INLINE virtual bool OnInitialize() {}
+
+	// Called during thread termination
+	CAT_INLINE virtual void OnFinalize() {}
+
+	// Must override this
+	static CAT_INLINE const char *GetNameString() { return "SetUniqueNameHere"; }
+
+	// Usage: MyTLSDerivativeType *mine; tls->Unwrap(mine);
+	template<class T> CAT_INLINE void Unwrap(T *&to)
+	{
+		to = (this == 0) ? 0 : static_cast<T*>( this );
+	}
+};
+
+
+/*
+	ThreadLocalStorage
+
+		TLS implementation built on top of Thread for portability.
+	Contains slots that must be registered at runtime for use by
+	the TLSClaim singleton.
+
+		I would love to be able to use the TLS built into compilers
+	but it is unreliable on platforms that I care about.
+*/
+class CAT_EXPORT ThreadLocalStorage
+{
+	ITLS *_bins[MAX_TLS_BINS];
+
+public:
+	CAT_INLINE ThreadLocalStorage()
+	{
+		CAT_OBJCLR(_bins);
+	}
+
+	// Pre-condition: index < MAX_BINS
+	CAT_INLINE ITLS *&operator[](u32 index)
+	{
+		return _bins[index];
+	}
+};
+
+
+/*
+	SlowThreadLocalStorage
+
+		Aptly-named because it is a standard TLS implementation based
+	on operating system thread ID instead of Thread object extension.
+*/
+class SlowThreadLocalStorage : public RefSingleton<SlowThreadLocalStorage>
+{
+	bool OnInitialize();
+	void OnFinalize();
+
+	Mutex _lock;
+
+	class TLSItem : public HashItem
+	{
+		ThreadLocalStorage tls;
+
+	public:
+	};
+
+	HashTable<TLSItem> _map;
+
+public:
+	ThreadLocalStorage *Get();
+};
+
+
+/*
+	TLSClaim
+
+		Claim an id number for a TLS slot for a specific purpose at
+	runtime in a thread-safe way.
+*/
+class CAT_EXPORT TLSClaim : public Singleton<TLSClaim>
+{
+	bool OnInitialize();
+
+	Mutex _lock;
+	u32 _next_index;
+
+	HashTableBase _map;
+
+public:
+	// Returns an unsigned bin index from a unique text string
+	// Or an error if return value >= MAX_TLS_BINS
+	u32 Claim(const char *key_name);
+};
+
+
+/*
+	TLSInstance
+*/
+template<class T>
+class TLSInstance
+{
+	static const u32 INVALID = ~(u32)0;
+
+	volatile u32 _index;
+
+public:
+	TLSInstance()
+	{
+		_index = INVALID;
+	}
+
+	T *Get(ThreadLocalStorage &tls)
+	{
+		u32 index = _index;
+		if (index == INVALID)
+		{
+			index = TLSClaim::ref()->Claim(T::GetNameString());
+			_index = index;
+		}
+
+		T *instance;
+		tls[index]->Unwrap(instance);
+
+		if (!instance)
+		{
+			instance = new T;
+			if (instance)
+			{
+				if (instance->OnInitialize())
+				{
+					tls[index] = instance;
+				}
+				else
+				{
+					instance->OnFinalize();
+					delete instance;
+				}
+			}
+		}
+
+		return instance;
+	}
+};
 
 
 /*
@@ -90,8 +267,6 @@ public:
 		thread_atexit() framework
 
 		This allows you to specify callbacks to invoke when the Thread terminates.
-		It is useful for cleaning up thread-local-storage (CAT_TLS) of heap-allocated
-		objects on shutdown without adding any explicit cleanup code.
 
 		Simply pass a callback to Thread::AtExit() and it will be queued up for
 		execution in the local storage for that thread.
@@ -109,6 +284,10 @@ private:
 
 	int _cb_count;
 	AtExitCallback _callbacks[MAX_CALLBACKS];
+
+protected:
+	// Thread itself gets access to the TLS bins - Only modify these from the entrypoint!
+	ThreadLocalStorage _tls;
 };
 
 

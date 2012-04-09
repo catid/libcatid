@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2012 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -39,6 +39,7 @@ using namespace sphynx;
 
 static WorkerThreads *m_worker_threads = 0;
 static Settings *m_settings = 0;
+static TLSInstance<TunnelTLS> m_tunnel_tls;
 
 
 //// Server
@@ -178,7 +179,7 @@ void Server::OnRecvRouting(const BatchSet &buffers)
 		ReleaseRecvBuffers(garbage, garbage_count);
 }
 
-void Server::OnRecv(const BatchSet &buffers)
+void Server::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 {
 	u32 buffer_count = 0;
 
@@ -259,8 +260,8 @@ void Server::OnRecv(const BatchSet &buffers)
 				continue;
 			}
 
-			TunnelTLS *tls = TunnelTLS::ref();
-			if (!tls)
+			TunnelTLS *tunnel_tls = m_tunnel_tls.Get(tls);
+			if (!tunnel_tls)
 			{
 				CAT_FATAL("Server") << "Ignoring challenge: Unable to get TLS object";
 				PostConnectionError(buffer->GetAddr(), ERR_SERVER_ERROR);
@@ -279,7 +280,7 @@ void Server::OnRecv(const BatchSet &buffers)
 				CAT_WARN("Server") << "Ignoring challenge: Unable to allocate post buffer";
 			}
 			// If challenge is invalid,
-			else if (!_key_agreement_responder.ProcessChallenge(tls, challenge, CHALLENGE_BYTES,
+			else if (!_key_agreement_responder.ProcessChallenge(tunnel_tls, challenge, CHALLENGE_BYTES,
 																pkt + 1, ANSWER_BYTES, &key_hash))
 			{
 				CAT_WARN("Server") << "Ignoring challenge: Invalid";
@@ -366,7 +367,7 @@ void Server::OnRecv(const BatchSet &buffers)
 	ReleaseRecvBuffers(buffers, buffer_count);
 }
 
-void Server::OnTick(u32 now)
+void Server::OnTick(ThreadLocalStorage &tls, u32 now)
 {
 	// Not synchronous with OnRecv() callback because offline events are distributed between threads
 }
@@ -380,17 +381,17 @@ Server::~Server()
 {
 }
 
-bool Server::StartServer(Port port, TunnelKeyPair &key_pair, const char *session_key)
+bool Server::StartServer(ThreadLocalStorage &tls, Port port, TunnelKeyPair &key_pair, const char *session_key)
 {
-	TunnelTLS *tls = TunnelTLS::ref();
-	if (!tls) return false;
+	TunnelTLS *tunnel_tls = m_tunnel_tls.Get(tls);
+	if (!tunnel_tls) return false;
 
 	// Seed components
-	_cookie_jar.Initialize(tls->CSPRNG());
-	_conn_map.Initialize(tls->CSPRNG());
+	_cookie_jar.Initialize(tunnel_tls->CSPRNG());
+	_conn_map.Initialize(tunnel_tls->CSPRNG());
 
 	// Initialize key agreement responder
-	if (!_key_agreement_responder.Initialize(tls, key_pair))
+	if (!_key_agreement_responder.Initialize(tunnel_tls, key_pair))
 	{
 		CAT_WARN("Server") << "Failed to initialize: Key pair is invalid";
 		return false;
@@ -457,10 +458,10 @@ bool Server::PostConnectionError(const NetAddr &dest, SphynxError err)
 	return Write(pkt, S2C_ERROR_LEN, dest);
 }
 
-bool Server::InitializeKey(TunnelKeyPair &key_pair, const char *pair_path, const char *public_path)
+bool Server::InitializeKey(ThreadLocalStorage &tls, TunnelKeyPair &key_pair, const char *pair_path, const char *public_path)
 {
-	TunnelTLS *tls = TunnelTLS::ref();
-	if (!tls) return false;
+	TunnelTLS *tunnel_tls = m_tunnel_tls.Get(tls);
+	if (!tunnel_tls) return false;
 
 	if (key_pair.LoadFile(pair_path))
 	{
@@ -468,7 +469,7 @@ bool Server::InitializeKey(TunnelKeyPair &key_pair, const char *pair_path, const
 		return true;
 	}
 
-	if (!key_pair.Generate(tls))
+	if (!key_pair.Generate(tunnel_tls))
 	{
 		CAT_INFO("Server") << "Generating new key pair failed";
 		return false;
