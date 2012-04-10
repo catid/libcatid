@@ -249,7 +249,7 @@ void Client::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 		// Process all datagrams that decrypted properly
 		if (delivery.head)
 		{
-			OnTransportDatagrams(delivery);
+			OnTransportDatagrams(tls, delivery);
 			_last_recv_tsc = Clock::msec_fast();;
 		}
 	}

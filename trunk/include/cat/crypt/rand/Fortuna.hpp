@@ -83,11 +83,13 @@
 #include <cat/lang/RefSingleton.hpp>
 
 
+#if !defined(CAT_NO_ENTROPY_THREAD)
 // Defining CAT_NO_ENTROPY_THREAD will remove dependencies on pthreads and not
 // run a thread to collect more entropy.  This is recommended for low-power targets
 // and other systems where no thread library is available
-#if defined(CAT_OS_WINDOWS_CE)
-# define CAT_NO_ENTROPY_THREAD
+# if defined(CAT_OS_WINDOWS_CE)
+#  define CAT_NO_ENTROPY_THREAD
+# endif
 #endif
 
 

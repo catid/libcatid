@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2012 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -36,7 +36,7 @@ using namespace sphynx;
 static StdAllocator *m_std_allocator = 0;
 static Clock *m_clock = 0;
 
-static CAT_TLS TransportTLS m_transport_tls;
+static TLSInstance<TransportTLS> m_transport_tls;
 
 
 //// Transport Random Padding
@@ -491,12 +491,14 @@ void Transport::TickTransport(u32 now)
 	FlushWrites();
 }
 
-void Transport::OnTransportDatagrams(const BatchSet &delivery)
+void Transport::OnTransportDatagrams(ThreadLocalStorage &tls, const BatchSet &delivery)
 {
 	// Initialize the delivery queue
-	TransportTLS *tls = &m_transport_tls;
-	tls->delivery_queue_depth = 0;
-	tls->free_list_count = 0;
+	TransportTLS *transport_tls = m_transport_tls.Get(tls);
+	CAT_ENFORCE(transport_tls) << "Unable to get thread-local object for Transport layer";
+
+	transport_tls->delivery_queue_depth = 0;
+	transport_tls->free_list_count = 0;
 
 	// Simulate 5% packetloss
 	//if (tls->csprng->GenerateUnbiased(0, 19) == 2)
@@ -536,52 +538,61 @@ void Transport::OnTransportDatagrams(const BatchSet &delivery)
 			// If this message has an ACK-ID attached,
 			if (hdr & I_MASK)
 			{
-				if (bytes < 1)
+				// If length-implicit mode,
+				if ((hdr & R_MASK) == 0)
 				{
-					CAT_WARN("Transport") << "Truncated message ignored (1)";
-					break;
+					// Expand message to fill remaining payload bytes
+					data_bytes = bytes;
 				}
-
-				// Decode variable-length ACK-ID into ack_id and stream:
-				u8 id = *data++;
-				--bytes;
-				stream = id & 3;
-				ack_id = (id >> 2) & 0x1f;
-				u32 counter_bits;
-
-				if (id & C_MASK)
+				else // Reliable:
 				{
 					if (bytes < 1)
 					{
-						CAT_WARN("Transport") << "Truncated message ignored (2)";
+						CAT_WARN("Transport") << "Truncated message ignored (1)";
 						break;
 					}
 
-					id = *data++;
+					// Decode variable-length ACK-ID into ack_id and stream:
+					u8 id = *data++;
 					--bytes;
-					ack_id |= (u32)(id & 0x7f) << 5;
+					stream = id & 3;
+					ack_id = (id >> 2) & 0x1f;
+					u32 counter_bits;
 
 					if (id & C_MASK)
 					{
 						if (bytes < 1)
 						{
-							CAT_WARN("Transport") << "Truncated message ignored (3)";
+							CAT_WARN("Transport") << "Truncated message ignored (2)";
 							break;
 						}
 
 						id = *data++;
 						--bytes;
-						ack_id |= (u32)id << 12;
+						ack_id |= (u32)(id & 0x7f) << 5;
 
-						counter_bits = 20;
+						if (id & C_MASK)
+						{
+							if (bytes < 1)
+							{
+								CAT_WARN("Transport") << "Truncated message ignored (3)";
+								break;
+							}
+
+							id = *data++;
+							--bytes;
+							ack_id |= (u32)id << 12;
+
+							counter_bits = 20;
+						}
+						else
+							counter_bits = 12;
 					}
 					else
-						counter_bits = 12;
-				}
-				else
-					counter_bits = 5;
+						counter_bits = 5;
 
-				ack_id = ReconstructCounter(counter_bits, _next_recv_expected_id[stream], ack_id);
+					ack_id = ReconstructCounter(counter_bits, _next_recv_expected_id[stream], ack_id);
+				}
 			}
 			else if (hdr & R_MASK)
 			{
@@ -610,22 +621,22 @@ void Transport::OnTransportDatagrams(const BatchSet &delivery)
 
 					// Process it immediately
 					if (super_opcode == SOP_FRAG)
-						OnFragment(tls, recv_time, data, data_bytes, stream);
+						OnFragment(transport_tls, recv_time, data, data_bytes, stream);
 					else if (data_bytes > 0)
 					{
 						if (super_opcode == SOP_DATA)
-							QueueDelivery(tls, stream, data, data_bytes, false);
+							QueueDelivery(transport_tls, stream, data, data_bytes, false);
 						else if (super_opcode == SOP_INTERNAL)
 							OnInternal(recv_time, data, data_bytes);
 						else CAT_WARN("Transport") << "Invalid reliable super opcode ignored";
 					}
 					else CAT_WARN("Transport") << "Zero-length reliable message ignored";
 
-					RunReliableReceiveQueue(tls, recv_time, ack_id + 1, stream);
+					RunReliableReceiveQueue(transport_tls, recv_time, ack_id + 1, stream);
 				}
 				else if (diff > 0) // Message is due to arrive
 				{
-					StoreReliableOutOfOrder(tls, recv_time, data, data_bytes, ack_id, stream, (hdr >> SOP_SHIFT) & SOP_MASK);
+					StoreReliableOutOfOrder(transport_tls, recv_time, data, data_bytes, ack_id, stream, (hdr >> SOP_SHIFT) & SOP_MASK);
 				}
 				else
 				{
@@ -641,7 +652,7 @@ void Transport::OnTransportDatagrams(const BatchSet &delivery)
 				u32 super_opcode = (hdr >> SOP_SHIFT) & SOP_MASK;
 
 				if (super_opcode == SOP_DATA)
-					QueueDelivery(tls, stream, data, data_bytes, false);
+					QueueDelivery(transport_tls, stream, data, data_bytes, false);
 				else if (super_opcode == SOP_ACK)
 					OnACK(recv_time, data, data_bytes);
 				else if (super_opcode == SOP_INTERNAL)
@@ -660,7 +671,7 @@ void Transport::OnTransportDatagrams(const BatchSet &delivery)
 	} // end for each buffer
 
 	// Deliver any messages that are queued up
-	DeliverQueued(tls);
+	DeliverQueued(transport_tls);
 
 	// If flush was requested,
 	if (_send_flush_after_processing)
@@ -1973,164 +1984,6 @@ bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s
 	return success;
 }
 
-bool Transport::WriteSendHugeNode(SendHuge *node, u32 now, u32 stream, s32 remaining)
-{
-	bool complete = false;
-
-	u32 max_payload_bytes = _max_payload_bytes;
-	SendCluster cluster = _send_cluster;
-
-	u32 ack_id = _next_send_id[stream];
-	u32 remote_expected = _send_next_remote_expected[stream];
-	u32 ack_id_overhead = 0;
-
-	// If the next ACK-ID is too far ahead of the receiver,
-	if (ack_id - remote_expected >= OUT_OF_ORDER_LIMIT)
-	{
-		CAT_WARN("Transport") << "Next ACK-ID is too far ahead of receiver (huge) for stream " << stream;
-		return false;
-	}
-
-	// Calculate ack_id_overhead
-	if (cluster.ack_id != ack_id || cluster.stream != stream)
-		ack_id_overhead = GetACKIDOverhead(ack_id, remote_expected);
-
-	// If this is the first time it is being sent, add fragment header
-	u16 sent_bytes = node->sent_bytes;
-	u32 frag_overhead = (sent_bytes == 0) ? FRAG_HEADER_BYTES : 0;
-
-	// For each fragment of the message,
-	u32 copy_bytes, total_copied_bytes = 0;
-	s32 send_limit = node->send_bytes;
-	bool read_success;
-	do
-	{
-		// If there is not enough room to write anything,
-		u32 remaining_send_buffer = max_payload_bytes - cluster.bytes;
-		if (remaining_send_buffer < FRAG_THRESHOLD)
-		{
-			// If no more room remaining within bandwidth limit,
-			remaining -= cluster.bytes;
-			if (remaining <= FRAG_THRESHOLD)
-			{
-				break;
-			}
-
-			QueueWriteDatagram(cluster.front, cluster.bytes);
-			cluster.Clear();
-
-			ack_id_overhead = GetACKIDOverhead(ack_id, remote_expected);
-			continue;
-		}
-
-		// Apply send limit
-		u32 overhead = MAX_MESSAGE_HEADER_BYTES + ack_id_overhead + frag_overhead;
-		copy_bytes = remaining_send_buffer - overhead;
-		// Do not limit to bandwidth, just fill up to the next MTU
-		//if (copy_bytes > send_limit) copy_bytes = send_limit;
-		u32 total_bytes = overhead + copy_bytes;
-
-		// Apply retransmit limit
-		u32 retransmit_limit = max_payload_bytes - (MAX_ACK_ID_BYTES - ack_id_overhead);
-		if (total_bytes > retransmit_limit) total_bytes = retransmit_limit;
-		copy_bytes = total_bytes - overhead;
-
-		// If this drops the number of copy bytes to zero, then abort here
-		if (copy_bytes <= 0)
-			break;
-
-		// Acquire a fragment
-		SendFrag *frag;
-		do frag = m_std_allocator->AcquireTrailing<SendFrag>(copy_bytes);
-		while (!frag);
-
-		// Read data into fragment
-		u32 copied = copy_bytes;
-		read_success = node->source->Read((StreamMode)stream, GetTrailingBytes(frag), copied, this);
-
-		// If data source has failed us,
-		if (copied < copy_bytes)
-		{
-			// If no data could be copied,
-			if (copied == 0)
-			{
-				// If end of file,
-				if (!read_success)
-				{
-					// Allow this final transfer of zero bytes to indicate file completion
-					send_limit = 0;
-					complete = true;
-				}
-				else
-				{
-					// Abort transmit for now
-					m_std_allocator->Release(frag);
-					break;
-				}
-			}
-
-			// Update the byte counts to reflect the number actually copied
-			copy_bytes = copied;
-			total_bytes = overhead + copied;
-		}
-
-		// Write common data
-		frag->id = ack_id;
-		frag->ts_firstsend = now;
-		frag->ts_lastsend = now;
-		frag->sop = SOP_FRAG;
-		frag->SetBytes(copy_bytes);
-		frag->full_data = node;
-		frag->offset = sent_bytes;
-
-		// If this node will represent loss,
-		if (cluster.loss_on)
-			frag->loss_on = 0;
-		else
-		{
-			frag->loss_on = 1;
-			cluster.loss_on = 1;
-		}
-
-		node->frag_count++;
-
-		_sent_list[stream].Append(frag);
-
-		// Grow the cluster
-		u8 *pkt = cluster.Grow(total_bytes);
-		if (!pkt)
-		{
-			// Update ack_id_overhead for a blank cluster
-			u32 new_ack_id_overhead = GetACKIDOverhead(ack_id, remote_expected);
-			overhead += new_ack_id_overhead - ack_id_overhead;
-			total_bytes = overhead + copy_bytes;
-			ack_id_overhead = new_ack_id_overhead;
-
-			while (!(pkt = cluster.Grow(total_bytes)));
-		}
-
-		ClusterReliableAppend(stream, ack_id, pkt, ack_id_overhead,
-			frag_overhead, cluster, SOP_FRAG, GetTrailingBytes(frag),
-			copy_bytes, node->GetBytes());
-
-		CAT_INFO("Transport") << "Wrote Huge " << stream << ": bytes=" << copy_bytes << " ack_id=" << ack_id;
-
-		sent_bytes = 1;
-		total_copied_bytes += copy_bytes;
-		send_limit -= copy_bytes;
-
-	} while (send_limit > 0);
-
-	node->sent_bytes = sent_bytes;
-	node->huge_remaining -= total_copied_bytes;
-
-	// Update state
-	_next_send_id[stream] = ack_id;
-	_send_cluster = cluster;
-
-	return complete;
-}
-
 void Transport::WriteQueuedReliable()
 {
 	// Avoid locking to transmit queued if no queued exist
@@ -2226,9 +2079,7 @@ void Transport::WriteQueuedReliable()
 			// Cache next pointer since node may be relinked into sent list
 			next = node->next;
 
-			bool success = (node->GetBytes() == FRAG_HUGE) ?
-				WriteSendHugeNode(static_cast<SendHuge*>( node ), now, stream, remaining) :
-				WriteSendQueueNode(node, now, stream, remaining);
+			bool success = WriteSendQueueNode(node, now, stream, remaining);
 
 			// If node aborted early,
 			if (!success)

@@ -320,11 +320,6 @@ struct SendFrag : OutgoingMessage
 	u16 offset;					// Fragment data offset
 };
 
-struct SendHuge : OutgoingMessage
-{
-	IHugeSource *source;		// Object containing message data
-};
-
 struct SendCluster
 {
 	u8 *front;	// Pointer to front of the send cluster
@@ -372,7 +367,6 @@ struct IncomingMessage
 	BufferStream data;
 	u32 bytes;
 	u32 stream;
-	u8 huge_fragment; // true = part of a huge transfer, last fragment will have bytes = 0
 };
 
 #pragma pack(pop)

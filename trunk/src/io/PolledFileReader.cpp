@@ -35,12 +35,14 @@ using namespace cat;
 PolledFileReader::PolledFileReader()
 {
 	u32 cache_size = Settings::ref()->getInt("IO.PolledFileReader.ReadAheadCacheSize", 1024*1024*2);
+	u32 page_size = SystemInfo::ref()->GetPageSize();
 
 	// Make it a multiple of the page size
 	// NOTE: Actually needs to be sector aligned but if the file is on a CD then the sector size
 	// is usually larger than any of the fixed disks.  The page size is usually larger than the
 	// sector size of any media, so it is safe to use here.
-	cache_size -= cache_size % SystemInfo::ref()->GetPageSize();
+	cache_size -= cache_size % page_size;
+	cache_size += page_size;
 	_cache_size = cache_size;
 
 	// Allocate cache space and split it into two buffers

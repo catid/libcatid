@@ -26,8 +26,8 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_BIGMATH_HPP
-#define CAT_BIGMATH_HPP
+#ifndef CAT_BIG_MATH_HPP
+#define CAT_BIG_MATH_HPP
 
 #include <cat/Platform.hpp>
 
@@ -233,4 +233,4 @@ namespace cat {
 
 } // namespace cat
 
-#endif // CAT_BIGMATH_HPP
+#endif // CAT_BIG_MATH_HPP
