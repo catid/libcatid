@@ -140,7 +140,7 @@ void FileTransferSource::StartTransfer(QueuedFile *file, Transport *transport)
 	}
 
 	// Retry writing the huge message until it succeeds
-	while (!transport->WriteHuge(STREAM_BULK, this));
+	//while (!transport->WriteHuge(STREAM_BULK, this));
 }
 
 bool FileTransferSource::TransferFile(u32 worker_id, u8 opcode, const std::string &source_path, const std::string &sink_path, Transport *transport, u32 priority)

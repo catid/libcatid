@@ -91,7 +91,7 @@ class CAT_EXPORT Client : public UDPEndpoint, public Transport
 	bool OnDNSResolve(const char *hostname, const NetAddr *array, int array_length);
 
 	virtual bool WriteDatagrams(const BatchSet &buffers, u32 count);
-	virtual bool OnInternal(u32 recv_time, BufferStream msg, u32 bytes);
+	virtual void OnInternal(u32 recv_time, BufferStream msg, u32 bytes);
 	virtual void OnDisconnectComplete();
 
 	void ConnectFail(SphynxError err);

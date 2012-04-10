@@ -50,13 +50,6 @@ public:
 			BufferStream msg = msgs[ii].data;
 			u32 bytes = msgs[ii].bytes;
 
-			if (msgs[ii].huge_fragment)
-			{
-				CAT_WARN("Client") << "Huge read stream " << msgs[ii].stream << " of size = " << bytes;
-
-				_fsink.OnReadHuge(msgs[ii].stream, msg, bytes);
-			}
-			else
 			switch (msg[0])
 			{
 			case OP_TEST_FRAGMENTS:
