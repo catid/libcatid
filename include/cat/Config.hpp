@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2012 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -35,6 +35,10 @@ namespace cat {
 // This definition overrides CAT_BUILD_DLL below.  Neuters CAT_EXPORT macro so symbols are
 // neither exported or imported.
 #define CAT_NEUTER_EXPORT
+
+// Define this to greatly weaken the Fortuna implementation, but consume much less CPU.
+// Only disable this if you are serious about security of the implementation at expense of performance.
+#define CAT_NO_ENTROPY_THREAD
 
 // This definition changes the meaning of the CAT_EXPORT macro on Windows.  When defined,
 // the CAT_EXPORT macro will export the associated symbol.  When undefined, it will import it.

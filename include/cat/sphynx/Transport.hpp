@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2012 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -29,6 +29,7 @@
 #ifndef CAT_SPHYNX_TRANSPORT_HPP
 #define CAT_SPHYNX_TRANSPORT_HPP
 
+#include <cat/threads/Thread.hpp>
 #include <cat/threads/Mutex.hpp>
 #include <cat/crypt/tunnel/AuthenticatedEncryption.hpp>
 #include <cat/parse/BufferStream.hpp>
@@ -81,8 +82,18 @@ namespace sphynx {
 				3=ACK (unreliable)
 		C: 1=BHI byte is sent. 0=BHI byte is not sent and is assumed to be 0.
 
-			When the I bit is set, the data part is preceded by an ACK-ID,
-			which is then applied to all following reliable messages.
+			There is an exceptional case:
+
+				When an unreliable (R=0) message has I=1, then an ACK-ID
+				does NOT follow the header.  Instead, the message length
+				is replaced with the remaining payload bytes and the rest
+				of the payload bytes are considered part of the message.
+
+				This mode is useful to avoid sending BHI for OOB types,
+				to reduce the overhead by 1 byte.
+
+			Otherwise, when the I bit is set, the data part is preceded by an,
+			ACK-ID which is then applied to all following reliable messages.
 			This additional size is NOT accounted for in the DATA_BYTES field.
 
 			When the FRAG opcode used for the first time in an ordered stream,
@@ -273,10 +284,19 @@ struct OutOfOrderQueue
 };
 
 
-// Thread local storage container
-struct TransportTLS
+// TLS container
+struct TransportTLS : ITLS
 {
 	static const u32 DELIVERY_QUEUE_DEPTH = 128;
+
+	// Called when TLS object is inserted into the TLS slot
+	CAT_INLINE virtual bool OnInitialize() { return true; }
+
+	// Called during thread termination
+	CAT_INLINE virtual void OnFinalize() {}
+
+	// Must override this
+	static CAT_INLINE const char *GetNameString() { return "TransportTLS"; }
 
 	// Used internally by the Sphynx Transport layer to queue up messages for delivery
 	sphynx::IncomingMessage delivery_queue[DELIVERY_QUEUE_DEPTH];
@@ -318,7 +338,6 @@ class CAT_EXPORT Transport
 
 	static const u32 UDP_HEADER_BYTES = 8;
 
-	static const u16 FRAG_HUGE = 0; // Huge fragment marker
 	static const u32 FRAG_THRESHOLD = 32; // Minimum fragment size; used elsewhere as a kind of "fuzz factor" for edges of packets
 	static const u32 FRAG_HEADER_BYTES = 2;
 
@@ -431,10 +450,6 @@ class CAT_EXPORT Transport
 	// Write one SendQueue node into the send buffer
 	bool WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s32 remaining);
 
-	// Write one SendHuge node into the send buffer
-	// Returns true if requested parts of node are completely moved to sent list
-	bool WriteSendHugeNode(SendHuge *node, u32 now, u32 stream, s32 remaining);
-
 	void WriteQueuedReliable();
 	void Retransmit(u32 stream, OutgoingMessage *node, u32 now); // Does not hold the send lock!
 	void WriteACK();
@@ -473,7 +488,7 @@ public:
 	CAT_INLINE bool WriteDisconnect(u8 reason) { return WriteOOB(IOP_DISCO, &reason, 1, SOP_INTERNAL); }
 
 	void TickTransport(u32 now);
-	void OnTransportDatagrams(const BatchSet &delivery);
+	void OnTransportDatagrams(ThreadLocalStorage &tls, const BatchSet &delivery);
 
 protected:
 	// Maximum transfer unit (MTU) in UDP payload bytes, excluding _udpip_bytes
@@ -484,6 +499,9 @@ protected:
 
 	// Send state: Flow control
 	FlowControl _send_flow;
+
+	// Huge source of upstream/downstream data
+	IHugeSource *_huge_source;
 
 	CAT_INLINE u8 GetDisconnectReason() { return _disconnect_reason; }
 

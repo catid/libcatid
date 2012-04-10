@@ -63,7 +63,7 @@ class CAT_EXPORT Connexion : public Transport, public RefObject
 	AuthenticatedEncryption _auth_enc;
 
 	virtual bool WriteDatagrams(const BatchSet &buffers, u32 count);
-	virtual void OnInternal(u32 recv_time, BufferStream msg, u32 bytes);
+	virtual bool OnInternal(u32 recv_time, BufferStream msg, u32 bytes);
 	virtual void OnDisconnectComplete();
 
 	void RetransmitAnswer(RecvBuffer *buffer);
