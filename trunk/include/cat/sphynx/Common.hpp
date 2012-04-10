@@ -164,13 +164,15 @@ enum SuperOpcode
 // Internal opcodes
 enum InternalOpcode
 {
-	IOP_C2S_MTU_PROBE = 187,	// c2s bb (random padding[MTU]) Large MTU test message
-	IOP_S2C_MTU_SET = 244,		// s2c f4 (mtu[2]) MTU set message
+	IOP_C2S_MTU_PROBE = 0,	// c2s 00 (random padding[MTU]) Large MTU test message
+	IOP_S2C_MTU_SET = 0,	// s2c 00 (mtu[2]) MTU set message
 
-	IOP_C2S_TIME_PING = 17,		// c2s 11 (client timestamp[4]) Time synchronization ping
-	IOP_S2C_TIME_PONG = 138,	// s2c 8a (client timestamp[4]) (server timestamp[4]) Time synchronization pong
+	IOP_C2S_TIME_PING = 1,	// c2s 01 (client timestamp[4]) Time synchronization ping
+	IOP_S2C_TIME_PONG = 1,	// s2c 01 (client timestamp[4]) (server timestamp[4]) Time synchronization pong
 
-	IOP_DISCO = 84				// c2s 54 (reason[1]) Disconnection notification
+	IOP_FILE_PART = 2,		// a2a 02 (ID[3]) (data[MTU]) File part
+
+	IOP_DISCO = 3			// a2a 03 (reason[1]) Disconnection notification
 };
 
 // Internal opcode lengths
@@ -178,6 +180,7 @@ static const u32 IOP_C2S_MTU_TEST_MINLEN = 1 + 200;
 static const u32 IOP_S2C_MTU_SET_LEN = 1 + 2;
 static const u32 IOP_C2S_TIME_PING_LEN = 1 + 4;
 static const u32 IOP_S2C_TIME_PONG_LEN = 1 + 4 + 4 + 4;
+static const u32 IOP_FILE_PART_MINLEN = 1 + 3 + 1;
 static const u32 IOP_DISCO_LEN = 1 + 1;
 
 // MTU discovery guesses
@@ -210,15 +213,16 @@ class IHugeSource
 	friend class Transport;
 
 protected:
-	// Get number of bytes remaining in current transfer
-	virtual u64 GetRemaining(StreamMode stream) = 0;
+	virtual void NextFilePart(Transport *transport, u32 available_bytes) = 0;
+};
 
-	// Read a number of bytes from cache (without blocking!)
-	// May return less than the number requested, which indicates that the cache
-	// has fallen behind demand.  Zero indicates no data was available.
-	// Return true iff all data is sent in the current transfer.
-	// Return true and set bytes = 0 to indicate the start of a new huge transfer.
-	virtual bool Read(StreamMode stream, u8 *dest, u32 &bytes, Transport *transport) = 0;
+// Interface for a huge data sink > MAX_MESSAGE_SIZE
+class IHugeSink
+{
+	friend class Transport;
+
+protected:
+	virtual void OnFilePart(u32 stream, u32 id, u8 *data, u32 bytes) = 0;
 };
 
 #if defined(CAT_PACK_TRANSPORT_STATE_STRUCTURES)

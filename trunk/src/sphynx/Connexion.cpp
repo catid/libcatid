@@ -228,7 +228,7 @@ bool Connexion::WriteDatagrams(const BatchSet &buffers, u32 count)
 
 void Connexion::OnInternal(u32 recv_time, BufferStream data, u32 bytes)
 {
-	switch (data[0])
+	switch (data[0] & 3)
 	{
 	case IOP_C2S_MTU_PROBE:
 		if (bytes >= IOP_C2S_MTU_TEST_MINLEN)

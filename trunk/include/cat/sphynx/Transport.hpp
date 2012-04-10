@@ -431,7 +431,7 @@ class CAT_EXPORT Transport
 	CAT_INLINE void QueueFragFree(TransportTLS *tls, u8 *data);
 
 	// Queue received data for user processing
-	void QueueDelivery(TransportTLS *tls, u32 stream, u8 *data, u32 data_bytes, bool huge_fragment);
+	void QueueDelivery(TransportTLS *tls, u32 stream, u8 *data, u32 data_bytes);
 
 	// Deliver messages to user in one big batch
 	CAT_INLINE void DeliverQueued(TransportTLS *tls);
@@ -473,9 +473,6 @@ public:
 	// msg_bytes: Includes message opcode byte at offset 0
 	bool WriteReliableZeroCopy(StreamMode stream, u8 *msg, u32 msg_bytes, SuperOpcode super_opcode = SOP_DATA);
 
-	// Queue up a huge data transfer
-	bool WriteHuge(StreamMode stream, IHugeSource *source);
-
 	// Flush send buffer after processing the current message from the remote host
 	CAT_INLINE void FlushAfter() { _send_flush_after_processing = true; }
 
@@ -502,6 +499,7 @@ protected:
 
 	// Huge source of upstream/downstream data
 	IHugeSource *_huge_source;
+	IHugeSink *_huge_sink;
 
 	CAT_INLINE u8 GetDisconnectReason() { return _disconnect_reason; }
 

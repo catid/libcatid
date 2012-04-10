@@ -261,22 +261,10 @@ void Transport::FreeSentNode(OutgoingMessage *node)
 		// If no more fragments exist for the full data node,
 		if (!--full_data_node->frag_count)
 		{
-			// If it is a huge message,
-			if (full_data_node->GetBytes() == FRAG_HUGE)
+			// If message has completed sending,
+			if (full_data_node->sent_bytes >= full_data_node->GetBytes())
 			{
-				// If message has completed sending,
-				if (full_data_node->huge_remaining == 0)
-				{
-					m_std_allocator->Release(full_data_node);
-				}
-			}
-			else
-			{
-				// If message has completed sending,
-				if (full_data_node->sent_bytes >= full_data_node->GetBytes())
-				{
-					m_std_allocator->Release(full_data_node);
-				}
+				m_std_allocator->Release(full_data_node);
 			}
 		}
 	}
@@ -292,7 +280,7 @@ CAT_INLINE void Transport::QueueFragFree(TransportTLS *tls, u8 *data)
 	tls->free_list_count = ++count;
 }
 
-void Transport::QueueDelivery(TransportTLS *tls, u32 stream, u8 *data, u32 data_bytes, bool huge_fragment)
+void Transport::QueueDelivery(TransportTLS *tls, u32 stream, u8 *data, u32 data_bytes)
 {
 	u32 depth = tls->delivery_queue_depth;
 
@@ -300,7 +288,6 @@ void Transport::QueueDelivery(TransportTLS *tls, u32 stream, u8 *data, u32 data_
 	msg->stream = (StreamMode)stream;
 	msg->data = data;
 	msg->bytes = data_bytes;
-	msg->huge_fragment = huge_fragment;
 
 	if (++depth < TransportTLS::DELIVERY_QUEUE_DEPTH)
 		tls->delivery_queue_depth = depth;
@@ -625,7 +612,7 @@ void Transport::OnTransportDatagrams(ThreadLocalStorage &tls, const BatchSet &de
 					else if (data_bytes > 0)
 					{
 						if (super_opcode == SOP_DATA)
-							QueueDelivery(transport_tls, stream, data, data_bytes, false);
+							QueueDelivery(transport_tls, stream, data, data_bytes);
 						else if (super_opcode == SOP_INTERNAL)
 							OnInternal(recv_time, data, data_bytes);
 						else CAT_WARN("Transport") << "Invalid reliable super opcode ignored";
@@ -652,7 +639,7 @@ void Transport::OnTransportDatagrams(ThreadLocalStorage &tls, const BatchSet &de
 				u32 super_opcode = (hdr >> SOP_SHIFT) & SOP_MASK;
 
 				if (super_opcode == SOP_DATA)
-					QueueDelivery(transport_tls, stream, data, data_bytes, false);
+					QueueDelivery(transport_tls, stream, data, data_bytes);
 				else if (super_opcode == SOP_ACK)
 					OnACK(recv_time, data, data_bytes);
 				else if (super_opcode == SOP_INTERNAL)
@@ -714,7 +701,7 @@ void Transport::RunReliableReceiveQueue(TransportTLS *tls, u32 recv_time, u32 ac
 			CAT_WARN("Transport") << "Running queued message # " << stream << ":" << next_ack_id;
 
 			if (super_opcode == SOP_DATA)
-				QueueDelivery(tls, stream, old_data, old_data_bytes, false);
+				QueueDelivery(tls, stream, old_data, old_data_bytes);
 			else if (super_opcode == SOP_INTERNAL)
 				OnInternal(recv_time, old_data, old_data_bytes);
 
@@ -801,7 +788,7 @@ void Transport::StoreReliableOutOfOrder(TransportTLS *tls, u32 recv_time, u8 *da
 		else if (data_bytes > 0)
 		{
 			if (super_opcode == SOP_DATA)
-				QueueDelivery(tls, stream, data, data_bytes, false);
+				QueueDelivery(tls, stream, data, data_bytes);
 			else if (super_opcode == SOP_INTERNAL)
 				OnInternal(recv_time, data, data_bytes);
 
@@ -865,48 +852,25 @@ void Transport::OnFragment(TransportTLS *tls, u32 recv_time, u8 *data, u32 bytes
 		}
 		else
 		{
-			frag_length = getLE(*(u16*)(data));
+			frag_length = getLE(*(u16*)(data)) + 1;
 			data += FRAG_HEADER_BYTES;
 			bytes -= FRAG_HEADER_BYTES;
 
-			// If message is huge,
-			if (frag_length == FRAG_HUGE)
-				_fragments[stream].offset = 1; // Mark as having seen fragment header
+			// Allocate fragment buffer
+			_fragments[stream].buffer = new (std::nothrow) u8[frag_length];
+			if (!_fragments[stream].buffer)
+			{
+				CAT_WARN("Transport") << "Out of memory: Unable to allocate fragment buffer";
+				return;
+			}
 			else
 			{
-				// Allocate fragment buffer
-				_fragments[stream].buffer = new (std::nothrow) u8[frag_length];
-				if (!_fragments[stream].buffer)
-				{
-					CAT_WARN("Transport") << "Out of memory: Unable to allocate fragment buffer";
-					return;
-				}
-				else
-				{
-					_fragments[stream].length = frag_length;
-					_fragments[stream].offset = 0;
-				}
+				_fragments[stream].length = frag_length;
+				_fragments[stream].offset = 0;
 			}
 		}
 
 		// Fall-thru to processing data part of fragment message:
-	}
-
-	// If fragment length is huge,
-	if (frag_length == FRAG_HUGE)
-	{
-		// Deliver this buffer
-		QueueDelivery(tls, stream, data, bytes, true);
-
-		// If got final part,
-		if (bytes == 0)
-		{
-			// Reset the stream's fragment offset to prepare for the next fragmented message
-			_fragments[stream].offset = 0;
-			CAT_WARN("Transport") << "Aborted huge fragment transfer in stream " << stream;
-		}
-
-		return;
 	}
 
 	// If there are no data bytes in this fragment,
@@ -939,7 +903,7 @@ void Transport::OnFragment(TransportTLS *tls, u32 recv_time, u8 *data, u32 bytes
 		QueueFragFree(tls, buffer);
 
 		// Deliver this buffer
-		QueueDelivery(tls, stream, buffer, _fragments[stream].length, false);
+		QueueDelivery(tls, stream, buffer, _fragments[stream].length);
 
 		_fragments[stream].length = 0;
 	}
@@ -1076,31 +1040,6 @@ bool Transport::WriteReliableZeroCopy(StreamMode stream, u8 *msg, u32 msg_bytes,
 	return true;
 }
 
-bool Transport::WriteHuge(StreamMode stream, IHugeSource *source)
-{
-	SendHuge *node = m_std_allocator->AcquireObject<SendHuge>();
-	if (!node) return false;
-
-	// Fill the object
-	node->SetBytes(FRAG_HUGE);
-	node->huge_remaining = source->GetRemaining(stream);
-	node->frag_count = 0;
-	node->sop = SOP_DATA;
-	node->send_bytes = 0;
-	node->sent_bytes = 0;
-	node->next = 0;
-	node->source = source;
-
-	// Add to back of send queue
-	_send_queue_lock.Enter();
-	_send_queue[stream].Append(node);
-	_send_queue_lock.Leave();
-
-	CAT_INFO("Transport") << "Appended huge message placeholder to stream " << stream;
-
-	return true;
-}
-
 void Transport::Retransmit(u32 stream, OutgoingMessage *node, u32 now)
 {
 	/*
@@ -1124,12 +1063,7 @@ void Transport::Retransmit(u32 stream, OutgoingMessage *node, u32 now)
 		SendFrag *frag = static_cast<SendFrag*>( node );
 		OutgoingMessage *full_node = frag->full_data;
 		frag_total_bytes = full_node->GetBytes();
-
-		// If the fragment is from a huge message,
-		if (frag_total_bytes == FRAG_HUGE)
-			data = GetTrailingBytes(frag);
-		else
-			data = GetTrailingBytes(full_node) + frag->offset;
+		data = GetTrailingBytes(full_node) + frag->offset;
 
 		// If this is the first fragment of the message,
 		if (frag->offset == 0) frag_overhead = FRAG_HEADER_BYTES;
@@ -1717,28 +1651,12 @@ OutgoingMessage *Transport::DequeueBandwidth(OutgoingMessage *node, s32 availabl
 	// For each node in the list,
 	for (buffer_remaining = available_bytes; buffer_remaining > 0 && node; node = node->next)
 	{
-		if (node->GetBytes() == FRAG_HUGE)
-		{
-			u64 send_remaining = node->huge_remaining;
+		u32 send_remaining = node->GetBytes() - node->sent_bytes;
 
-			// If this node ate the last of the bandwidth,
-			if (send_remaining > buffer_remaining + FRAG_THRESHOLD)
-				node->send_bytes = buffer_remaining;
-			else
-				node->send_bytes = (u32)send_remaining;
-		}
+		if (send_remaining <= buffer_remaining + FRAG_THRESHOLD || buffer_remaining <= FRAG_THRESHOLD)
+			node->send_bytes = send_remaining;
 		else
-		{
-			u32 send_remaining = node->GetBytes() - node->sent_bytes;
-
-			if (send_remaining <= buffer_remaining + FRAG_THRESHOLD ||
-				buffer_remaining <= FRAG_THRESHOLD)
-			{
-				node->send_bytes = send_remaining;
-			}
-			else
-				node->send_bytes = buffer_remaining;
-		}
+			node->send_bytes = buffer_remaining;
 
 		// Add one for average header size (only need a rough estimate)
 		buffer_remaining -= node->send_bytes + 1;
@@ -1818,6 +1736,7 @@ CAT_INLINE void Transport::ClusterReliableAppend(u32 stream, u32 &ack_id, u8 *pk
 	// Write optional fragment header
 	if (frag_overhead)
 	{
+		--frag_total_bytes; // does not affect caller
 		*(u16*)pkt = getLE16(frag_total_bytes);
 		pkt += FRAG_HEADER_BYTES;
 
