@@ -41,6 +41,7 @@
 // TODO: vulnerable to resource starvation attacks?
 // TODO: fix a bug that eats all the buffers when none are available
 // TODO: fix a bug that drops data on the floor when it arrives out of order
+// TODO: add buffer pool for sending
 
 #define CAT_TRANSPORT_RANDOMIZE_LENGTH /* Add extra no-op bytes to the end of each datagram to mask true length */
 
@@ -170,7 +171,7 @@ enum InternalOpcode
 	IOP_C2S_TIME_PING = 1,	// c2s 01 (client timestamp[4]) Time synchronization ping
 	IOP_S2C_TIME_PONG = 1,	// s2c 01 (client timestamp[4]) (server timestamp[4]) Time synchronization pong
 
-	IOP_FILE_PART = 2,		// a2a 02 (ID[3]) (data[MTU]) File part
+	IOP_HUGE = 2,			// a2a 02 (data[MTU]) Huge data
 
 	IOP_DISCO = 3			// a2a 03 (reason[1]) Disconnection notification
 };
@@ -180,7 +181,7 @@ static const u32 IOP_C2S_MTU_TEST_MINLEN = 1 + 200;
 static const u32 IOP_S2C_MTU_SET_LEN = 1 + 2;
 static const u32 IOP_C2S_TIME_PING_LEN = 1 + 4;
 static const u32 IOP_S2C_TIME_PONG_LEN = 1 + 4 + 4 + 4;
-static const u32 IOP_FILE_PART_MINLEN = 1 + 3 + 1;
+static const u32 IOP_HUGE_MINLEN = 1 + 1;
 static const u32 IOP_DISCO_LEN = 1 + 1;
 
 // MTU discovery guesses
@@ -210,20 +211,17 @@ static const u32 COLLISION_INCRINVERSE = 0 - COLLISION_INCREMENTER;
 // Interface for a huge data source > MAX_MESSAGE_SIZE
 class IHugeSource
 {
-	friend class Transport;
-
-protected:
-	virtual void NextFilePart(Transport *transport, u32 available_bytes) = 0;
+public:
+	virtual void NextHuge(s32 &available) = 0;
 };
 
 // Interface for a huge data sink > MAX_MESSAGE_SIZE
 class IHugeSink
 {
-	friend class Transport;
-
-protected:
-	virtual void OnFilePart(u32 stream, u32 id, u8 *data, u32 bytes) = 0;
+public:
+	virtual void OnHuge(u8 *data, u32 bytes) = 0;
 };
+
 
 #if defined(CAT_PACK_TRANSPORT_STATE_STRUCTURES)
 # pragma pack(push)

@@ -659,14 +659,11 @@ void Client::OnInternal(u32 recv_time, BufferStream data, u32 bytes)
 		}
 		break;
 
-	case IOP_FILE_PART:
-		if (bytes >= IOP_FILE_PART_MINLEN)
+	case IOP_HUGE:
+		if (bytes >= IOP_HUGE_MINLEN)
 		{
-			u32 stream = data[0] >> 2;
-			u32 id = ((u32)data[1] << 16) | ((u32)data[2] << 8) | data[3];
-
 			if (_huge_sink)
-				_huge_sink->OnFilePart(stream, id, data + 1 + 3, bytes);
+				_huge_sink->OnHuge(data, bytes);
 		}
 		break;
 

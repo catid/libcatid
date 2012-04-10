@@ -1341,6 +1341,28 @@ u32 Transport::RetransmitLost(u32 now)
 	return loss_count;
 }
 
+bool Transport::PostHugeZeroCopy(u8 *msg, u32 msg_bytes)
+{
+	CAT_DEBUG_ENFORCE(msg_bytes > 0) << "Message bytes cannot be less than 1";
+
+	// Write header byte
+	//	I = 1 (ack-id follows)
+	//	R = 0 (unreliable)
+	//	C = 0 (large packet size)
+	//	SOP = IOP_HUGE
+	// NOTE: When I = 1 and R = 0, this indicates a huge packet that bypasses the serialization
+
+	msg[0] = (u8)((SOP_INTERNAL << SOP_SHIFT) | I_MASK | (1 & BLO_MASK));
+
+	bool success = WriteDatagram(msg, msg_bytes);
+
+	_send_cluster_lock.Enter();
+	_send_flow.OnPacketSend(msg_bytes);
+	_send_cluster_lock.Leave();
+
+	return success;
+}
+
 bool Transport::PostMTUProbe(u32 mtu)
 {
 	CAT_INANE("Transport") << "Posting MTU Probe";

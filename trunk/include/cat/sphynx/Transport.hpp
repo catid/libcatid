@@ -473,6 +473,12 @@ public:
 	// msg_bytes: Includes message opcode byte at offset 0
 	bool WriteReliableZeroCopy(StreamMode stream, u8 *msg, u32 msg_bytes, SuperOpcode super_opcode = SOP_DATA);
 
+	// Queue up a huge message for delivery without copy overhead
+	// msg: Allocate with SendBuffer::Acquire(msg_bytes)
+	// 1 <= msg_bytes <= _max_payload_bytes
+	// The first byte will be overwritten by a header.
+	bool PostHugeZeroCopy(u8 *msg, u32 msg_bytes);
+
 	// Flush send buffer after processing the current message from the remote host
 	CAT_INLINE void FlushAfter() { _send_flush_after_processing = true; }
 
@@ -487,6 +493,8 @@ public:
 	void TickTransport(u32 now);
 	void OnTransportDatagrams(ThreadLocalStorage &tls, const BatchSet &delivery);
 
+	CAT_INLINE u32 GetMaxPayloadBytes() { return _max_payload_bytes; }
+
 protected:
 	// Maximum transfer unit (MTU) in UDP payload bytes, excluding _udpip_bytes
 	u32 _max_payload_bytes;
@@ -497,7 +505,7 @@ protected:
 	// Send state: Flow control
 	FlowControl _send_flow;
 
-	// Huge source of upstream/downstream data
+	// Huge source/sink of upstream/downstream data
 	IHugeSource *_huge_source;
 	IHugeSink *_huge_sink;
 

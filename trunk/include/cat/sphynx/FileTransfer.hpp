@@ -30,6 +30,7 @@
 #define CAT_SPHYNX_FILE_TRANSFER_HPP
 
 #include <cat/sphynx/Transport.hpp>
+#include <cat/fec/Wirehair.hpp>
 #include <vector>
 #include <queue> // priority_queue<>
 
@@ -37,6 +38,54 @@ namespace cat {
 
 
 namespace sphynx {
+
+
+class CAT_EXPORT FECHugeSource : IHugeSource
+{
+	static const u32 OVERHEAD = 1 + 1 + 3; // HDR(1) + IOP_HUGE|STREAM(1) + ID(3)
+	static const u32 CHUNK_TARGET_LEN = 4000000; // 4 MB
+
+protected:
+	Transport *_transport;
+	u32 _data_bytes;
+	u32 _payload_bytes;
+	u32 _worker_id;
+
+	AsyncFile *_file;
+	void *_data_buffers[2];
+	ReadBuffer *_read_buffers[2];
+
+	u32 _dominant_stream;
+	wirehair::Encoder *_encoder[2];
+	u32 _next_id[2];
+
+	void OnWrite(ThreadLocalStorage &tls, const BatchSet &set);
+
+public:
+	FECHugeSource(Transport *transport, u32 worker_id);
+
+	bool Start(const char *file_path);
+
+	void NextHuge(s32 &available);
+};
+
+
+class CAT_EXPORT FECHugeSink : IHugeSink
+{
+	Transport *_transport;
+	u32 _worker_id;
+	AsyncFile *_file;
+	wirehair::Decoder *_decoder[2];
+	WriteBuffer *_write_buffers[2];
+	void *_data_buffers[2];
+
+public:
+	FECHugeSink(Transport *transport);
+
+	bool Start(const char *file_path);
+
+	void OnHuge(u8 *data, u32 bytes);
+};
 
 
 class CAT_EXPORT FileTransferSource : public IHugeSource
@@ -84,7 +133,7 @@ public:
 };
 
 
-class CAT_EXPORT FileTransferSink
+class CAT_EXPORT FileTransferSink : public IHugeSink
 {
 	BufferedFileWriter *_file;
 	u32 _worker_id;

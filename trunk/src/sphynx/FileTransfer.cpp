@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2012 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -30,6 +30,87 @@
 #include <cat/io/Log.hpp>
 using namespace cat;
 using namespace sphynx;
+
+
+//// FECHugeSource
+
+FECHugeSource::FECHugeSource(Transport *transport, u32 worker_id)
+{
+	_transport = transport;
+	_worker_id = worker_id;
+}
+
+bool FECHugeSource::Start(const char *file_path)
+{
+	// Fix payload bytes at the start of the transfer
+	_payload_bytes = _transport->GetMaxPayloadBytes();
+
+	_file = new AsyncFile;
+	CAT_ENFORCE(_file);
+	if (!_file->Open(file_path, ASYNCFILE_READ | ASYNCFILE_SEQUENTIAL | ASYNCFILE_NOBUFFER))
+	{
+		_file->Destroy(CAT_REFOBJECT_TRACE);
+		return false;
+	}
+
+	u32 page_size = SystemInfo::ref()->GetPageSize();
+	CAT_DEBUG_ENFORCE(CAT_IS_POWER_OF_2(page_size));
+
+	_data_bytes = CHUNK_TARGET_LEN - (CHUNK_TARGET_LEN & (page_size - 1)) + page_size;
+
+	u64 file_size = _file->GetSize();
+
+	_read_buffers[0]->worker_id = 0;
+	_read_buffers[0]->callback = WorkerDelegate::FromMember<FECHugeSource, &FECHugeSource::OnWrite>(this);
+
+	return _file->Read(_read_buffers[0], 0, _data_buffers[0], _data_bytes);
+}
+
+void FECHugeSource::OnWrite(ThreadLocalStorage &tls, const BatchSet &set)
+{
+	_encoder[0]->BeginEncode(
+}
+
+void FECHugeSource::NextHuge(s32 &available)
+{
+	u32 stream = _dominant_stream;
+	u32 msg_bytes = _payload_bytes;
+
+	while (available > 0)
+	{
+		u8 *msg = SendBuffer::Acquire(msg_bytes);
+		if (!msg) break;
+
+		u32 id = _next_id[stream]++;
+
+		msg[1] = IOP_HUGE | (stream << 2);
+		msg[2] = (u8)(id >> 16);
+		msg[3] = (u8)(id >> 8);
+		msg[4] = (u8)id;
+
+		_encoder[stream]->Encode(id, msg + 5);
+
+		_transport->PostHugeZeroCopy(msg, msg_bytes);
+
+		available -= msg_bytes;
+	}
+}
+
+
+//// FECHugeSink
+
+FECHugeSink::FECHugeSink(Transport *transport)
+{
+	_transport = transport;
+}
+
+bool FECHugeSink::Start(const char *file_path)
+{
+}
+
+void FECHugeSink::OnHuge(u8 *data, u32 bytes)
+{
+}
 
 
 //// FileTransferSource
