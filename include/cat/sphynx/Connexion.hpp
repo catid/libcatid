@@ -49,7 +49,7 @@ class CAT_EXPORT Connexion : public Transport, public RefObject
 
 	NetAddr _client_addr;
 	u16 _flood_key; // Flood key based on IP address, not necessarily unique
-	u16 _key; // Map hash table index, unique for each active connection
+	u16 _my_id; // Unique connexion id number
 	u32 _worker_id; // Worker thread index
 
 	u8 _first_challenge[64]; // First challenge seen from this client address
@@ -77,7 +77,7 @@ public:
 	CAT_INLINE const char *GetRefObjectName() { return "Connexion"; }
 
 	CAT_INLINE const NetAddr &GetAddress() { return _client_addr; }
-	CAT_INLINE u16 GetKey() { return _key; }
+	CAT_INLINE u16 GetMyID() { return _my_id; }
 	CAT_INLINE u16 GetFloodKey() { return _flood_key; }
 	CAT_INLINE u32 GetWorkerID() { return _worker_id; }
 

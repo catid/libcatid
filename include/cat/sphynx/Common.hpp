@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2012 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -43,6 +43,8 @@
 // TODO: fix a bug that drops data on the floor when it arrives out of order
 // TODO: add buffer pool for sending
 
+#define CAT_SPYHNX_ROAMING_IP /* Add extra 2 byte header to each c2s packet to support roaming ip */
+
 #define CAT_TRANSPORT_RANDOMIZE_LENGTH /* Add extra no-op bytes to the end of each datagram to mask true length */
 
 #if defined(CAT_WORD_32)
@@ -68,12 +70,16 @@ class FlowControl;
 
 
 // Protocol constants
-static const u32 PROTOCOL_MAGIC = 0xC47D0001;
+static const u64 PROTOCOL_MAGIC = 0xffffca7d2012ffffULL;	// Sent at the front of c2s handshake packets
 static const int PUBLIC_KEY_BYTES = 64;
 static const int PRIVATE_KEY_BYTES = 32;
 static const int CHALLENGE_BYTES = PUBLIC_KEY_BYTES;
 static const int ANSWER_BYTES = PUBLIC_KEY_BYTES*2;
+#if defined(CAT_SPYHNX_ROAMING_IP)
+static const int SPHYNX_OVERHEAD = AuthenticatedEncryption::OVERHEAD_BYTES + 2;
+#else
 static const int SPHYNX_OVERHEAD = AuthenticatedEncryption::OVERHEAD_BYTES;
+#endif
 
 // Client constants
 static const int SESSION_KEY_BYTES = 32;
@@ -95,18 +101,18 @@ static const int TS_MIN_SAMPLES = 1; // Minimum number of timestamp samples
 // Handshake types
 enum HandshakeType
 {
-	C2S_HELLO = 85,		// c2s 55 (magic[4]) (server public key[64])
+	C2S_HELLO = 85,		// c2s (magic[8]) 55 (server public key[64])
 	S2C_COOKIE = 24,	// s2c 18 (cookie[4])
-	C2S_CHALLENGE = 9,	// c2s 09 (magic[4]) (cookie[4]) (challenge[64])
+	C2S_CHALLENGE = 9,	// c2s (magic[8]) 09 (cookie[4]) (challenge[64])
 	S2C_ANSWER = 108,	// s2c 6c (data port[2]) (answer[128])
 	S2C_ERROR = 162		// s2c a2 (error code[1])
 };
 
 // Handshake type lengths
-static const u32 C2S_HELLO_LEN = 1 + 4 + PUBLIC_KEY_BYTES;
+static const u32 C2S_HELLO_LEN = sizeof(PROTOCOL_MAGIC) + 1 + PUBLIC_KEY_BYTES;
 static const u32 S2C_COOKIE_LEN = 1 + 4;
-static const u32 C2S_CHALLENGE_LEN = 1 + 4 + 4 + CHALLENGE_BYTES + 1 + 55; // +55 to avoid amplification attacks
-static const u32 S2C_ANSWER_LEN = 1 + ANSWER_BYTES;
+static const u32 S2C_ANSWER_LEN = 1 + ANSWER_BYTES + 2;
+static const u32 C2S_CHALLENGE_LEN = S2C_ANSWER_LEN; // 8 + 1 + 4 + CHALLENGE_BYTES + Padded to avoid amplification attacks
 static const u32 S2C_ERROR_LEN = 1 + 1;
 
 // Handshake errors
