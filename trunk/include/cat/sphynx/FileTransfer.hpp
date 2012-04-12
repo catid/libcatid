@@ -40,6 +40,22 @@ namespace cat {
 namespace sphynx {
 
 
+enum TransferAbortReasons
+{
+	TXERR_FILE_OPEN_FAIL,	// Source unable to open the requested file
+	TXERR_FILE_READ_FAIL,	// Source unable to read part of the requested file
+	TXERR_FEC_FAIL,			// Forward error correction codec reported an error
+};
+
+enum TransferStatusFlags
+{
+	TXFLAG_LOADING,
+	TXFLAG_READY,
+	TXFLAG_SINGLE,	// Exceptional case where FEC cannot be used since the data fits in one datagram
+};
+
+#define CAT_MSS_TO_BLOCK_BYTES(mss) ( (mss) - 1 - 1 - 3 )
+
 class CAT_EXPORT FECHugeSource : IHugeSource
 {
 	static const u32 OVERHEAD = 1 + 1 + 3; // HDR(1) + IOP_HUGE|STREAM(1) + ID(3)
@@ -47,22 +63,46 @@ class CAT_EXPORT FECHugeSource : IHugeSource
 
 protected:
 	Transport *_transport;
-	u32 _data_bytes;
-	u32 _payload_bytes;
+	u32 _read_bytes;
 	u32 _worker_id;
 
+	volatile u32 _abort_reason;	// If non-zero: Abort transfer with this reason
+
 	AsyncFile *_file;
-	void *_data_buffers[2];
-	ReadBuffer *_read_buffers[2];
+	u64 _file_size;
 
-	u32 _dominant_stream;
-	wirehair::Encoder *_encoder[2];
-	u32 _next_id[2];
+	struct Stream
+	{
+		volatile u32 ready_flag;
+		u8 *read_buffer;
+		u8 *compress_buffer;
+		ReadBuffer read_buffer_object;
+		wirehair::Encoder encoder;
+		u32 next_id;
+		u32 mss;
+		u32 compress_bytes;
+		int requested;
+	} *_streams;
 
-	void OnWrite(ThreadLocalStorage &tls, const BatchSet &set);
+	u32 _load_stream;	// Indicates which stream is currently pending on a file read
+	u32 _dom_stream;	// Indicates which stream is dominant on the network
+	u32 _num_streams;	// Number of streams that can be run in parallel
+
+	bool Setup();
+	void Cleanup();
+
+	bool PostPart(u32 stream_id);
+
+	CAT_INLINE bool StartRead(u32 stream, u64 offset, u32 bytes)
+	{
+		return _file->Read(&_streams[stream].read_buffer_object, offset, _streams[stream].read_buffer, bytes);
+	}
+
+	void OnFileRead(ThreadLocalStorage &tls, const BatchSet &set);
 
 public:
 	FECHugeSource(Transport *transport, u32 worker_id);
+	virtual ~FECHugeSource();
 
 	bool Start(const char *file_path);
 

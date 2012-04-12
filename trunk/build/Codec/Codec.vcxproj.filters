@@ -19,6 +19,9 @@
     <Filter Include="Header Files\fec">
       <UniqueIdentifier>{9b9903d8-ccb7-4041-800f-eab72a19f493}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\ext">
+      <UniqueIdentifier>{8bc0609b-1903-4731-a0a7-29eb087c8d68}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\codec\RangeCoder.cpp">
@@ -31,6 +34,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\fec\Wirehair.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\include\ext\lz4\lz4.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -52,6 +58,9 @@
     </ClInclude>
     <ClInclude Include="..\..\include\cat\fec\Wirehair.hpp">
       <Filter>Header Files\fec</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\ext\lz4\lz4.h">
+      <Filter>Header Files\ext</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
