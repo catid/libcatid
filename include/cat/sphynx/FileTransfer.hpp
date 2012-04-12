@@ -56,7 +56,7 @@ enum TransferStatusFlags
 
 #define CAT_MSS_TO_BLOCK_BYTES(mss) ( (mss) - 1 - 1 - 3 )
 
-class CAT_EXPORT FECHugeSource : IHugeSource
+class CAT_EXPORT FECHugeSource : public IHugeSource
 {
 	static const u32 OVERHEAD = 1 + 1 + 3; // HDR(1) + IOP_HUGE|STREAM(1) + ID(3)
 	static const u32 CHUNK_TARGET_LEN = 4000000; // 4 MB
@@ -101,8 +101,10 @@ protected:
 	void OnFileRead(ThreadLocalStorage &tls, const BatchSet &set);
 
 public:
-	FECHugeSource(Transport *transport, u32 worker_id);
+	FECHugeSource();
 	virtual ~FECHugeSource();
+
+	void Initialize(Transport *transport, u32 worker_id);
 
 	bool Start(const char *file_path);
 
@@ -110,7 +112,7 @@ public:
 };
 
 
-class CAT_EXPORT FECHugeSink : IHugeSink
+class CAT_EXPORT FECHugeSink : public IHugeSink
 {
 	Transport *_transport;
 	u32 _worker_id;
@@ -120,77 +122,14 @@ class CAT_EXPORT FECHugeSink : IHugeSink
 	void *_data_buffers[2];
 
 public:
-	FECHugeSink(Transport *transport);
+	FECHugeSink();
+	virtual ~FECHugeSink();
+
+	void Initialize(Transport *transport, u32 worker_id);
 
 	bool Start(const char *file_path);
 
 	void OnHuge(u8 *data, u32 bytes);
-};
-
-
-class CAT_EXPORT FileTransferSource : public IHugeSource
-{
-	static const u32 SIMULTANEOUS_FILES = 3;
-
-	struct QueuedFile
-	{
-		u32 priority; // lower = lower priority
-		PolledFileReader *reader;
-
-		// File announcement message
-		u8 *msg;
-		u32 msg_bytes;
-
-		// Returns true if lhs > rhs for priority
-		CAT_INLINE bool operator()(const QueuedFile *lhs, const QueuedFile *rhs)
-		{
-			return lhs->priority > rhs->priority;
-		}
-	};
-
-	typedef std::priority_queue<QueuedFile*, std::vector<QueuedFile*>, QueuedFile> FileHeap;
-	typedef std::vector<QueuedFile*> FileVector;
-
-	Mutex _lock;
-	FileHeap _heap;
-	FileVector _active_list;
-
-	void ClearHeap();
-	void StartTransfer(QueuedFile *file, Transport *transport);
-
-	void OnTransferDone(Transport *transport);
-
-protected:
-	u64 GetRemaining(StreamMode stream);
-	bool Read(StreamMode stream, u8 *dest, u32 &bytes, Transport *transport);
-
-public:
-	FileTransferSource();
-	~FileTransferSource();
-
-	// Queue up a file transfer
-	bool TransferFile(u32 worker_id, u8 opcode, const std::string &source_path, const std::string &sink_path, Transport *transport, u32 priority = 0);
-};
-
-
-class CAT_EXPORT FileTransferSink : public IHugeSink
-{
-	BufferedFileWriter *_file;
-	u32 _worker_id;
-
-	void Close();
-
-	void OnWrite(const BatchSet &buffers);
-
-public:
-	FileTransferSink();
-	~FileTransferSink();
-
-	// Queue up a file transfer
-	bool OnFileStart(u32 worker_id, BufferStream msg, u32 bytes);
-
-	// Takes over void OnReadHuge(StreamMode stream, BufferStream data, u32 size)
-	void OnReadHuge(u32 stream, BufferStream data, u32 size);
 };
 
 

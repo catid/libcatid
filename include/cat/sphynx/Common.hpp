@@ -43,7 +43,7 @@
 // TODO: fix a bug that drops data on the floor when it arrives out of order
 // TODO: add buffer pool for sending
 
-#define CAT_SPYHNX_ROAMING_IP /* Add extra 2 byte header to each c2s packet to support roaming ip */
+//#define CAT_SPYHNX_ROAMING_IP /* Add extra 2 byte header to each c2s packet to support roaming ip */
 
 #define CAT_TRANSPORT_RANDOMIZE_LENGTH /* Add extra no-op bytes to the end of each datagram to mask true length */
 
@@ -111,7 +111,11 @@ enum HandshakeType
 // Handshake type lengths
 static const u32 C2S_HELLO_LEN = sizeof(PROTOCOL_MAGIC) + 1 + PUBLIC_KEY_BYTES;
 static const u32 S2C_COOKIE_LEN = 1 + 4;
+#if defined(CAT_SPYHNX_ROAMING_IP)
 static const u32 S2C_ANSWER_LEN = 1 + ANSWER_BYTES + 2;
+#else
+static const u32 S2C_ANSWER_LEN = 1 + ANSWER_BYTES;
+#endif
 static const u32 C2S_CHALLENGE_LEN = S2C_ANSWER_LEN; // 8 + 1 + 4 + CHALLENGE_BYTES + Padded to avoid amplification attacks
 static const u32 S2C_ERROR_LEN = 1 + 1;
 

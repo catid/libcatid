@@ -5,8 +5,8 @@ using namespace sphynx;
 
 class GameConnexion : public Connexion
 {
-	FileTransferSource _fsource;
-	FileTransferSink _fsink;
+	FECHugeSource _fsource;
+	FECHugeSink _fsink;
 
 	enum
 	{
@@ -65,12 +65,15 @@ bool GameConnexion::OnFinalize()
 
 void GameConnexion::OnConnect()
 {
+	_huge_sink = &_fsink;
+	_huge_source = &_fsource;
+
 	CAT_WARN("Connexion") << "-- CONNECTED";
 
 	//u8 test_msg[50000];
 	//WriteReliable(STREAM_UNORDERED, OP_TEST_FRAGMENTS, test_msg, sizeof(test_msg));
 
-	u16 key = getLE(GetKey());
+	u16 key = getLE(GetMyID());
 
 	for (sphynx::CollexionIterator<GameConnexion> ii = GetServer<GameServer>()->_collexion; ii; ++ii)
 		ii->WriteReliable(STREAM_1, OP_USER_JOIN, &key, sizeof(key));
@@ -91,14 +94,14 @@ void GameConnexion::OnMessages(IncomingMessage msgs[], u32 count)
 			CAT_WARN("Connexion") << "Successfully received test fragments";
 			break;
 		case OP_FILE_UPLOAD_START:
-			if (_fsink.OnFileStart(GetWorkerID(), msg, bytes))
+/*			if (_fsink.OnFileStart(GetWorkerID(), msg, bytes))
 			{
 				CAT_WARN("Connexion") << "-- File upload from remote peer starting";
 			}
 			else
 			{
 				CAT_WARN("Connexion") << "-- File upload from remote peer NOT ACCEPTED";
-			}
+			}*/
 			break;
 		default:
 			CAT_WARN("Connexion") << "-- Got unknown message with " << bytes << " bytes" << HexDumpString(msg, bytes);
@@ -110,7 +113,7 @@ void GameConnexion::OnDisconnectReason(u8 reason)
 {
 	CAT_WARN("Connexion") << "-- DISCONNECTED REASON " << (int)reason;
 
-	u16 key = getLE(GetKey());
+	u16 key = getLE(GetMyID());
 	for (sphynx::CollexionIterator<GameConnexion> ii = GetServer<GameServer>()->_collexion; ii; ++ii)
 		ii->WriteReliable(STREAM_1, OP_USER_PART, &key, sizeof(key));
 }

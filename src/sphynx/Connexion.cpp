@@ -190,7 +190,7 @@ void Connexion::OnTick(ThreadLocalStorage &tls, u32 now)
 
 Connexion::Connexion()
 {
-	_key = ConnexionMap::INVALID_KEY;
+	_my_id = ConnexionMap::INVALID_KEY;
 	_seen_encrypted = false;
 
 	_worker_id = INVALID_WORKER_ID;

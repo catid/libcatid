@@ -144,21 +144,19 @@ void Client::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 				}
 
 				// Construct challenge
-				pkt[0] = C2S_CHALLENGE;
+				u64 *magic = reinterpret_cast<u64*>( pkt );
+				*magic = getLE(PROTOCOL_MAGIC);
 
-				u32 *magic = reinterpret_cast<u32*>( pkt + 1 );
-				*magic = getLE32(PROTOCOL_MAGIC);
+				pkt[sizeof(PROTOCOL_MAGIC)] = C2S_CHALLENGE;
 
 				u32 *in_cookie = reinterpret_cast<u32*>( data + 1 );
-				u32 *out_cookie = reinterpret_cast<u32*>( pkt + 1 + 4 );
+				u32 *out_cookie = reinterpret_cast<u32*>( pkt + sizeof(PROTOCOL_MAGIC) + 1 );
 				*out_cookie = *in_cookie;
 
-				memcpy(pkt + 1 + 4 + 4, _cached_challenge, CHALLENGE_BYTES);
-
-				pkt[1 + 4 + 4 + CHALLENGE_BYTES] = _roaming_ip ? 1 : 0;
+				memcpy(pkt + sizeof(PROTOCOL_MAGIC) + 1 + 4, _cached_challenge, CHALLENGE_BYTES);
 
 				// Zero the padding
-				int pad_offset = 1 + 4 + 4 + CHALLENGE_BYTES + 1;
+				const int pad_offset = sizeof(PROTOCOL_MAGIC) + 1 + 4 + CHALLENGE_BYTES;
 				memset(pkt + pad_offset, 0, C2S_CHALLENGE_LEN - pad_offset);
 
 				// Attempt to post a pkt
@@ -557,12 +555,12 @@ bool Client::WriteHello()
 	}
 
 	// Construct packet
-	pkt[0] = C2S_HELLO;
+	u64 *magic = reinterpret_cast<u64*>( pkt );
+	*magic = getLE(PROTOCOL_MAGIC);
 
-	u32 *magic = reinterpret_cast<u32*>( pkt + 1 );
-	*magic = getLE32(PROTOCOL_MAGIC);
+	pkt[sizeof(PROTOCOL_MAGIC)] = C2S_HELLO;
 
-	memcpy(pkt + 1 + 4, _server_public_key.GetPublicKey(), PUBLIC_KEY_BYTES);
+	memcpy(pkt + sizeof(PROTOCOL_MAGIC) + 1, _server_public_key.GetPublicKey(), PUBLIC_KEY_BYTES);
 
 	// Attempt to post packet
 	if (!Write(pkt, C2S_HELLO_LEN, _server_addr))

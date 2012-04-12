@@ -9,8 +9,8 @@ using namespace std;
 
 class GameClient : public Client
 {
-	FileTransferSource _fsource;
-	FileTransferSink _fsink;
+	FECHugeSource _fsource;
+	FECHugeSink _fsink;
 
 	enum
 	{
@@ -31,6 +31,9 @@ public:
 	{
 		CAT_WARN("Client") << "-- CONNECTED";
 
+		_huge_source = &_fsource;
+		_huge_sink = &_fsink;
+/*
 		if (_fsource.TransferFile(GetWorkerID(), OP_FILE_UPLOAD_START, "test.tmp", "sink.tmp", this))
 		{
 			CAT_WARN("Client") << "-- File upload starting";
@@ -38,7 +41,7 @@ public:
 		else
 		{
 			CAT_WARN("Client") << "-- File upload FAILED";
-		}
+		}*/
 
 		//u8 test_msg[50000];
 		//WriteReliable(STREAM_UNORDERED, OP_TEST_FRAGMENTS, test_msg, sizeof(test_msg));
@@ -56,14 +59,14 @@ public:
 				CAT_WARN("Client") << "Successfully received test fragments";
 				break;
 			case OP_FILE_UPLOAD_START:
-				if (_fsink.OnFileStart(GetWorkerID(), msg, bytes))
+/*				if (_fsink.OnFileStart(GetWorkerID(), msg, bytes))
 				{
 					CAT_WARN("Client") << "-- File upload from remote peer starting";
 				}
 				else
 				{
 					CAT_WARN("Client") << "-- File upload from remote peer NOT ACCEPTED";
-				}
+				}*/
 				break;
 			case OP_USER_JOIN:
 				CAT_WARN("Client") << "-- User joined: " << getLE(*(u16*)(msg + 1));

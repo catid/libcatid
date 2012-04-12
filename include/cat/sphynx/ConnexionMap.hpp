@@ -50,6 +50,8 @@ public:
 	static const int CONNECTION_FLOOD_THRESHOLD = 10;
 
 private:
+	bool _is_shutdown;
+
 #if defined(CAT_SPYHNX_ROAMING_IP)
 	u32 _flood_salt, _ip_salt, _port_salt;
 
@@ -66,13 +68,11 @@ private:
 		Connexion *conn;
 		u8 collision;
 	};
+
+	Slot _map_table[HASH_TABLE_SIZE];
 #endif // CAT_SPYHNX_ROAMING_IP
 
-	u32 _flood_salt, _ip_salt, _port_salt;
-	bool _is_shutdown;
-
 	RWLock _table_lock;
-	Slot _map_table[HASH_TABLE_SIZE];
 	u8 _flood_table[HASH_TABLE_SIZE];
 
 	u32 _count;
