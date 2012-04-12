@@ -1769,7 +1769,7 @@ CAT_INLINE void Transport::ClusterReliableAppend(u32 stream, u32 &ack_id, u8 *pk
 	memcpy(pkt, copy_src, copy_bytes);
 }
 
-bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s32 remaining)
+bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s32 &remaining)
 {
 	bool success = true;
 	u32 max_payload_bytes = _max_payload_bytes;

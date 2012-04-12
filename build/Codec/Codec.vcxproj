@@ -177,6 +177,7 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\include\ext\lz4\lz4.c" />
     <ClCompile Include="..\..\src\codec\Huffman.cpp" />
     <ClCompile Include="..\..\src\codec\RangeCoder.cpp" />
     <ClCompile Include="..\..\src\fec\Wirehair.cpp" />
@@ -193,6 +194,7 @@
     <ClInclude Include="..\..\include\cat\codec\RangeCoder.hpp" />
     <ClInclude Include="..\..\include\cat\fec\Wirehair.hpp" />
     <ClInclude Include="..\..\include\cat\fec\WirehairDetails.hpp" />
+    <ClInclude Include="..\..\include\ext\lz4\lz4.h" />
     <ClInclude Include="Precompiled.hpp" />
   </ItemGroup>
   <ItemGroup>
