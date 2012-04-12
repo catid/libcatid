@@ -334,33 +334,26 @@ struct SendFrag : OutgoingMessage
 
 struct SendCluster
 {
-	u8 *front;	// Pointer to front of the send cluster
+	static const u32 WORKSPACE_BYTES = MAXIMUM_MTU; // Static number of bytes for cluster workspace
+
+	u8 workspace[WORKSPACE_BYTES];
 	u32 ack_id;	// Next ACK-ID: Used to compress ACK-ID by setting I=0 after the first reliable message
-	u16 bytes;	// Number of bytes written to the send cluster so far
+	u32 bytes;	// Number of bytes written to the send cluster so far
 	u8 stream;	// Active stream
 	u8 loss_on;	// Loss representation flag is set already?  Used to mark just one message as a loss rep
 
 	CAT_INLINE void Clear()
 	{
-		front = 0;
 		bytes = 0;
 		stream = NUM_STREAMS;
 		loss_on = 0;
 	}
 
-	CAT_INLINE u8 *Grow(u32 added)
+	CAT_INLINE u8 *Next(u32 add_bytes)
 	{
-		bytes += added;
-
-		front = SendBuffer::Resize(front, bytes + SPHYNX_OVERHEAD);
-		if (!front)
-		{
-			bytes = 0;
-			stream = NUM_STREAMS;
-			return 0;
-		}
-
-		return front + bytes - added;
+		u8 *pkt = workspace + bytes;
+		bytes += add_bytes;
+		return pkt;
 	}
 };
 

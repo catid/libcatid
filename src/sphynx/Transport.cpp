@@ -29,6 +29,7 @@
 #include <cat/sphynx/Transport.hpp>
 #include <cat/port/EndianNeutral.hpp>
 #include <cat/io/Log.hpp>
+#include <ext/lz4/lz4.h>
 using namespace std;
 using namespace cat;
 using namespace sphynx;
@@ -76,7 +77,7 @@ static const u8 CAT_RAND_PAD_EXP[256] = {
 	0, 0, 0, 0
 };
 
-bool Transport::RandPadDatagram(SendBuffer *&buffer, u32 &data_bytes)
+void Transport::RandPadDatagram(u8 *data, u32 &data_bytes)
 {
 	// If it is time to generate more random length padding numbers,
 	if (_rand_pad_index >= sizeof(_rand_pad_source))
@@ -97,7 +98,7 @@ bool Transport::RandPadDatagram(SendBuffer *&buffer, u32 &data_bytes)
 	if (pad + data_bytes > _max_payload_bytes)
 	{
 		if (data_bytes >= _max_payload_bytes)
-			return true;
+			return;
 
 		pad = _max_payload_bytes - data_bytes;
 	}
@@ -105,28 +106,59 @@ bool Transport::RandPadDatagram(SendBuffer *&buffer, u32 &data_bytes)
 	// If any padding is to be added,
 	if (pad > 0)
 	{
-		// Resize packet to include space for padding
-		u8 *pkt = SendBuffer::Resize(buffer, data_bytes + pad + SPHYNX_OVERHEAD);
-		if (!pkt)
-		{
-			CAT_WARN("Transport") << "Ran out of memory resizing message for rand pad";
-			return false;
-		}
-
-		pkt[data_bytes] = HDR_NOP;
+		data[data_bytes] = HDR_NOP;
 
 		// Write random value to remaining bytes
-		memset(pkt + data_bytes + 1, rval, pad - 1);
+		memset(data + data_bytes + 1, rval, pad - 1);
 
 		// Update parameters
-		buffer = SendBuffer::Promote(pkt);
 		data_bytes += pad;
 	}
-
-	return true;
 }
 
 #endif // CAT_TRANSPORT_RANDOMIZE_LENGTH
+
+void Transport::QueueWriteDatagram(SendCluster &cluster)
+{
+	u8 *workspace = cluster.workspace;
+	u32 bytes = cluster.bytes;
+
+#if defined(CAT_TRANSPORT_RANDOMIZE_LENGTH)
+	RandPadDatagram(workspace, bytes);
+#endif // CAT_TRANSPORT_RANDOMIZE_LENGTH
+
+	u32 pkt_bytes = (bytes + (bytes/255) + 16);
+	if (pkt_bytes < bytes + SPHYNX_OVERHEAD)
+		pkt_bytes = bytes + SPHYNX_OVERHEAD;
+
+	u8 *pkt;
+	do pkt = SendBuffer::Acquire(pkt_bytes);
+	while (!pkt);
+
+	// Attempt packet compression
+	int compress_bytes = LZ4_compress((const char*)workspace, (char*)pkt, bytes);
+
+	// If compression fails,
+	if (compress_bytes <= 0)
+	{
+		memcpy(pkt, workspace, bytes);
+		pkt[bytes] = 0;	// Mark uncompressed
+		compress_bytes = bytes;
+	}
+	else
+	{
+		pkt[compress_bytes] = 1; // Mark compressed
+	}
+
+	SendBuffer *buffer = SendBuffer::Promote(pkt);
+	u32 buffer_bytes = compress_bytes + SPHYNX_OVERHEAD;
+
+	buffer->SetBytes(buffer_bytes);
+
+	_outgoing_datagrams.PushBack(buffer);
+	_outgoing_datagrams_count++;
+	_outgoing_datagrams_bytes += buffer_bytes;
+}
 
 
 //// SendQueue
@@ -357,9 +389,6 @@ Transport::Transport()
 
 Transport::~Transport()
 {
-	// Release memory for send buffer
-	if (_send_cluster.front) SendBuffer::Release(_send_cluster.front);
-
 	// Release memory for outgoing datagrams
 	for (BatchHead *next, *node = _outgoing_datagrams.head; node; node = next)
 	{
@@ -917,7 +946,7 @@ void Transport::OnFragment(TransportTLS *tls, u32 recv_time, u8 *data, u32 bytes
 bool Transport::WriteOOB(u8 msg_opcode, const void *msg_data, u32 msg_bytes, SuperOpcode super_opcode)
 {
 	u32 data_bytes = 1 + msg_bytes;
-	u32 needed = MAX_MESSAGE_HEADER_BYTES + data_bytes + SPHYNX_OVERHEAD;
+	const u32 needed = MAX_MESSAGE_HEADER_BYTES + data_bytes + SPHYNX_OVERHEAD;
 
 	u8 *pkt = SendBuffer::Acquire(needed);
 	if (!pkt)
@@ -942,7 +971,10 @@ bool Transport::WriteOOB(u8 msg_opcode, const void *msg_data, u32 msg_bytes, Sup
 	pkt[offset++] = msg_opcode;
 	memcpy(pkt + offset, msg_data, msg_bytes);
 
-	bool success = WriteDatagram(pkt, offset + msg_bytes);
+	SendBuffer *buffer = SendBuffer::Promote(pkt);
+	buffer->SetBytes(offset + msg_bytes + SPHYNX_OVERHEAD);
+	pkt[offset + msg_bytes] = 0; // Flag not compressed
+	bool success = WriteDatagrams(buffer, 1);
 
 	_send_cluster_lock.Enter();
 	_send_flow.OnPacketSend(_udpip_bytes + needed);
@@ -972,13 +1004,12 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 msg_by
 	// If growing the send buffer cannot contain the new message,
 	if (_send_cluster.bytes + needed > max_payload_bytes)
 	{
-		QueueWriteDatagram(_send_cluster.front, _send_cluster.bytes);
+		QueueWriteDatagram(_send_cluster);
 		_send_cluster.Clear();
 	}
 
 	// Create or grow buffer and write into it
-	u8 *pkt;
-	while (!(pkt = _send_cluster.Grow(needed)));
+	u8 *pkt = _send_cluster.Next(needed);
 
 	// Write header
 	if (data_bytes <= BLO_MASK)
@@ -1089,7 +1120,7 @@ void Transport::Retransmit(u32 stream, OutgoingMessage *node, u32 now)
 	// If the growing send buffer cannot contain the new message,
 	if (cluster.bytes + msg_bytes > _max_payload_bytes)
 	{
-		QueueWriteDatagram(cluster.front, cluster.bytes);
+		QueueWriteDatagram(cluster);
 		cluster.Clear();
 
 		// Recalculate message length
@@ -1098,8 +1129,7 @@ void Transport::Retransmit(u32 stream, OutgoingMessage *node, u32 now)
 	}
 
 	// Create or grow buffer and write into it
-	u8 *pkt;
-	while (!(pkt = cluster.Grow(msg_bytes)));
+	u8 *pkt = cluster.Next(msg_bytes);
 
 	ClusterReliableAppend(stream, ack_id, pkt, ack_id_overhead, frag_overhead,
 		cluster, node->sop, data, copy_bytes, frag_total_bytes);
@@ -1126,7 +1156,7 @@ void Transport::FlushWrites()
 
 	if (_send_cluster.bytes)
 	{
-		QueueWriteDatagram(_send_cluster.front, _send_cluster.bytes);
+		QueueWriteDatagram(_send_cluster);
 		_send_cluster.Clear();
 		++count;
 	}
@@ -1287,13 +1317,12 @@ void Transport::WriteACK()
 	// If the growing send buffer cannot contain the new message,
 	if (_send_cluster.bytes + msg_bytes > max_payload_bytes)
 	{
-		QueueWriteDatagram(_send_cluster.front, _send_cluster.bytes);
+		QueueWriteDatagram(_send_cluster);
 		_send_cluster.Clear();
 	}
 
 	// Create or grow buffer
-	u8 *pkt;
-	while (!(pkt = _send_cluster.Grow(msg_bytes)));
+	u8 *pkt = _send_cluster.Next(msg_bytes);
 
 	memcpy(pkt, packet_copy_source, msg_bytes);
 
@@ -1354,10 +1383,14 @@ bool Transport::PostHugeZeroCopy(u8 *msg, u32 msg_bytes)
 
 	msg[0] = (u8)((SOP_INTERNAL << SOP_SHIFT) | I_MASK | (1 & BLO_MASK));
 
-	bool success = WriteDatagram(msg, msg_bytes);
+	u32 pkt_bytes = msg_bytes + SPHYNX_OVERHEAD;
+	SendBuffer *buffer = SendBuffer::Promote(msg);
+	buffer->SetBytes(pkt_bytes);
+	msg[msg_bytes] = 0; // Flag not compressed
+	bool success = WriteDatagrams(buffer, 1);
 
 	_send_cluster_lock.Enter();
-	_send_flow.OnPacketSend(msg_bytes);
+	_send_flow.OnPacketSend(pkt_bytes);
 	_send_cluster_lock.Leave();
 
 	return success;
@@ -1372,7 +1405,8 @@ bool Transport::PostMTUProbe(u32 mtu)
 
 	u32 payload_bytes = mtu - _udpip_bytes - SPHYNX_OVERHEAD;
 
-	u8 *pkt = SendBuffer::Acquire(payload_bytes + SPHYNX_OVERHEAD);
+	const u32 pkt_bytes = payload_bytes + SPHYNX_OVERHEAD;
+	u8 *pkt = SendBuffer::Acquire(pkt_bytes);
 	if (!pkt)
 	{
 		CAT_WARN("Transport") << "Out of memory error while posting MTU probe";
@@ -1407,7 +1441,10 @@ bool Transport::PostMTUProbe(u32 mtu)
 	if (pad_count > 0)
 		memcpy(pkt_pad, key_stream, pad_count);
 
-	bool success = WriteDatagram(pkt, payload_bytes);
+	SendBuffer *buffer = SendBuffer::Promote(pkt);
+	buffer->SetBytes(pkt_bytes);
+	pkt[payload_bytes] = 0; // Flag not compressed
+	bool success = WriteDatagrams(buffer, 1);
 
 	_send_cluster_lock.Enter();
 	_send_flow.OnPacketSend(mtu);
@@ -1825,7 +1862,7 @@ bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s
 					break;
 				}
 
-				QueueWriteDatagram(cluster.front, cluster.bytes);
+				QueueWriteDatagram(cluster);
 				cluster.Clear();
 
 				remaining_send_buffer = max_payload_bytes;
@@ -1896,7 +1933,7 @@ bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s
 		_sent_list[stream].Append(add_node);
 
 		// Grow the cluster
-		u8 *msg = cluster.Grow(write_bytes);
+		u8 *msg = cluster.Next(write_bytes);
 		if (!msg)
 		{
 			ack_id_overhead = GetACKIDOverhead(ack_id, remote_expected);

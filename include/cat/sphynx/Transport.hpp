@@ -402,24 +402,10 @@ class CAT_EXPORT Transport
 	bool InitializeRandPad(AuthenticatedEncryption &auth_enc);
 
 #if defined(CAT_TRANSPORT_RANDOMIZE_LENGTH)
-	bool RandPadDatagram(SendBuffer *&buffer, u32 &data_bytes);
+	void RandPadDatagram(u8 *data, u32 &data_bytes);
 #endif // CAT_TRANSPORT_RANDOMIZE_LENGTH
 
-	CAT_INLINE void QueueWriteDatagram(u8 *data, u32 data_bytes)
-	{
-		SendBuffer *buffer = SendBuffer::Promote(data);
-
-#if defined(CAT_TRANSPORT_RANDOMIZE_LENGTH)
-		if (!RandPadDatagram(buffer, data_bytes))
-			return;
-#endif // CAT_TRANSPORT_RANDOMIZE_LENGTH
-
-		buffer->SetBytes(data_bytes + SPHYNX_OVERHEAD);
-
-		_outgoing_datagrams.PushBack(buffer);
-		_outgoing_datagrams_count++;
-		_outgoing_datagrams_bytes += data_bytes + SPHYNX_OVERHEAD;
-	}
+	void QueueWriteDatagram(SendCluster &cluster);
 
 	// true = no longer connected
 	u8 _disconnect_countdown; // When it hits zero, will called RequestShutdown() and close the socket
@@ -514,19 +500,6 @@ protected:
 	virtual void OnDisconnectComplete() = 0;
 
 	virtual bool WriteDatagrams(const BatchSet &buffers, u32 count) = 0;
-
-	CAT_INLINE bool WriteDatagram(u8 *single, u32 data_bytes)
-	{
-		SendBuffer *buffer = SendBuffer::Promote(single);
-
-#if defined(CAT_TRANSPORT_RANDOMIZE_LENGTH)
-		if (!RandPadDatagram(buffer, data_bytes))
-			return false;
-#endif // CAT_TRANSPORT_RANDOMIZE_LENGTH
-
-		buffer->SetBytes(data_bytes + SPHYNX_OVERHEAD);
-		return WriteDatagrams(buffer, 1);
-	}
 
 	virtual void OnMessages(IncomingMessage msgs[], u32 count) = 0;
 	virtual void OnInternal(u32 recv_time, BufferStream msg, u32 bytes) = 0; // precondition: bytes > 0
