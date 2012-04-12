@@ -235,12 +235,12 @@ bool ConnexionMap::Insert(Connexion *conn)
 
 	// Mark used
 	slot->conn = conn;
-	conn->_key = key;
+	conn->_my_id = key;
 	conn->_flood_key = flood_key;
 
 	lock.Release();
 
-	CAT_INFO("ConnexionMap") << "Inserted connexion from " << conn->GetAddress().IPToString() << " : " << conn->GetAddress().GetPort() << " id=" << conn->GetKey();
+	CAT_INFO("ConnexionMap") << "Inserted connexion from " << conn->GetAddress().IPToString() << " : " << conn->GetAddress().GetPort() << " id=" << conn->GetMyID();
 
 	// Keeps reference held
 	return true;
@@ -250,12 +250,12 @@ void ConnexionMap::Remove(Connexion *conn)
 {
 	if (!conn) return;
 
-	u32 key = conn->_key;
+	u32 key = conn->GetMyID();
 
 	// If key is invalid,
 	if (key >= HASH_TABLE_SIZE) return;
 
-	CAT_INFO("ConnexionMap") << "Removing connexion from " << conn->GetAddress().IPToString() << " : " << conn->GetAddress().GetPort() << " id=" << conn->GetKey();
+	CAT_INFO("ConnexionMap") << "Removing connexion from " << conn->GetAddress().IPToString() << " : " << conn->GetAddress().GetPort() << " id=" << conn->GetMyID();
 
 	conn->ReleaseRef(CAT_REFOBJECT_TRACE);
 
