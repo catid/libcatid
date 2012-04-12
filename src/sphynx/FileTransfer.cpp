@@ -173,7 +173,7 @@ void FECHugeSource::OnFileRead(ThreadLocalStorage &tls, const BatchSet &set)
 			break;
 		}
 
-		// Compress data (if possible)
+		// Compress data (slow!)
 		u8 *compress_buffer = stream->compress_buffer;
 		int compress_bytes = LZ4_compress((const char*)data, (char*)compress_buffer, bytes);
 		if (!compress_bytes)

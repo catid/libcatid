@@ -55,6 +55,7 @@ class CAT_EXPORT Client : public UDPEndpoint, public Transport
 
 	WaitableFlag _kill_flag;
 
+	bool _roaming_ip;
 	u32 _last_send_msec;
 	NetAddr _server_addr;
 	bool _connected;
@@ -110,8 +111,8 @@ public:
 	CAT_INLINE const char *GetRefObjectName() { return "Client"; }
 
 	// Once you call Connect(), the object may be deleted at any time.  If you want to keep a reference to it, AddRef() before calling
-	bool Connect(const char *hostname, Port port, TunnelPublicKey &public_key, const char *session_key, ThreadLocalStorage *tls = 0);
-	bool Connect(const NetAddr &addr, TunnelPublicKey &public_key, const char *session_key, ThreadLocalStorage *tls = 0);
+	bool Connect(const char *hostname, Port port, TunnelPublicKey &public_key, const char *session_key, bool roaming_ip = false, ThreadLocalStorage *tls = 0);
+	bool Connect(const NetAddr &addr, TunnelPublicKey &public_key, const char *session_key, bool roaming_ip = false, ThreadLocalStorage *tls = 0);
 
 	// Current local time
 	CAT_INLINE u32 getLocalTime() { return _clock->msec(); }

@@ -155,6 +155,11 @@ void Client::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 
 				memcpy(pkt + 1 + 4 + 4, _cached_challenge, CHALLENGE_BYTES);
 
+				pkt[1 + 4 + 4 + CHALLENGE_BYTES] = _roaming_ip ? 1 : 0;
+
+				// Zero the padding
+				memset(pkt + 1 + 4 + 4 + CHALLENGE_BYTES + 1, 0, 55);
+
 				// Attempt to post a pkt
 				if (!Write(pkt, C2S_CHALLENGE_LEN, _server_addr))
 				{
@@ -454,12 +459,14 @@ bool Client::FinalConnect(const NetAddr &addr)
 	return true;
 }
 
-bool Client::Connect(const char *hostname, Port port, TunnelPublicKey &public_key, const char *session_key, ThreadLocalStorage *tls)
+bool Client::Connect(const char *hostname, Port port, TunnelPublicKey &public_key, const char *session_key, bool roaming_ip, ThreadLocalStorage *tls)
 {
 	TunnelTLS *tunnel_tls = 0;
 	if (!tls) tls = SlowTLS::ref()->Get();
 	if (tls) tunnel_tls = m_tunnel_tls.Get(*tls);
 	if (!tunnel_tls) return false;
+
+	_roaming_ip = roaming_ip;
 
 	if (!InitialConnect(tunnel_tls, public_key, session_key))
 	{
@@ -478,12 +485,14 @@ bool Client::Connect(const char *hostname, Port port, TunnelPublicKey &public_ke
 	return true;
 }
 
-bool Client::Connect(const NetAddr &addr, TunnelPublicKey &public_key, const char *session_key, ThreadLocalStorage *tls)
+bool Client::Connect(const NetAddr &addr, TunnelPublicKey &public_key, const char *session_key, bool roaming_ip, ThreadLocalStorage *tls)
 {
 	TunnelTLS *tunnel_tls = 0;
 	if (!tls) tls = SlowTLS::ref()->Get();
 	if (tls) tunnel_tls = m_tunnel_tls.Get(*tls);
 	if (!tunnel_tls) return false;
+
+	_roaming_ip = roaming_ip;
 
 	if (!InitialConnect(tunnel_tls, public_key, session_key) ||
 		!FinalConnect(addr))
