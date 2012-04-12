@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2012 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -33,8 +33,6 @@
 #include <cat/sphynx/Connexion.hpp>
 #include <cat/threads/RWLock.hpp>
 
-// TODO: Implement a generic growing Dictionary<> class
-
 namespace cat {
 
 
@@ -51,13 +49,25 @@ public:
 	static const int MAX_POPULATION = HASH_TABLE_SIZE / 2;
 	static const int CONNECTION_FLOOD_THRESHOLD = 10;
 
+private:
+#if defined(CAT_SPYHNX_ROAMING_IP)
+	u32 _flood_salt, _ip_salt, _port_salt;
+
+	union Slot
+	{
+		Connexion *conn;
+		u16 next_free;
+	};
+#else
+	u32 _flood_salt, _ip_salt, _port_salt;
+
 	struct Slot
 	{
 		Connexion *conn;
 		u8 collision;
 	};
+#endif // CAT_SPYHNX_ROAMING_IP
 
-private:
 	u32 _flood_salt, _ip_salt, _port_salt;
 	bool _is_shutdown;
 

@@ -158,7 +158,8 @@ void Client::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 				pkt[1 + 4 + 4 + CHALLENGE_BYTES] = _roaming_ip ? 1 : 0;
 
 				// Zero the padding
-				memset(pkt + 1 + 4 + 4 + CHALLENGE_BYTES + 1, 0, 55);
+				int pad_offset = 1 + 4 + 4 + CHALLENGE_BYTES + 1;
+				memset(pkt + pad_offset, 0, C2S_CHALLENGE_LEN - pad_offset);
 
 				// Attempt to post a pkt
 				if (!Write(pkt, C2S_CHALLENGE_LEN, _server_addr))

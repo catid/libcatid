@@ -192,19 +192,29 @@ void Server::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 		u32 bytes = buffer->data_bytes;
 		u8 *data = GetTrailingBytes(buffer);
 
+		// If packet is too small,
+		if (bytes < sizeof(PROTOCOL_MAGIC) + 1)
+		{
+			CAT_WARN("Server") << "Ignoring handshake packet: Too short";
+			continue;
+		}
+
+		// If magic does not match,
+		u64 *protocol_magic = reinterpret_cast<u64*>( data );
+		if (*protocol_magic != getLE(PROTOCOL_MAGIC))
+		{
+			CAT_WARN("Server") << "Ignoring handshake packet: Bad magic";
+			continue;
+		}
+
+		// Shift data pointer to type byte
+		data += sizeof(PROTOCOL_MAGIC);
+
 		// Process message by type and length
 		if (bytes == C2S_HELLO_LEN && data[0] == C2S_HELLO)
 		{
-			// If magic does not match,
-			u32 *protocol_magic = reinterpret_cast<u32*>( data + 1 );
-			if (*protocol_magic != getLE(PROTOCOL_MAGIC))
-			{
-				CAT_WARN("Server") << "Ignoring hello: Bad magic";
-				continue;
-			}
-
 			// Verify public key
-			if (!SecureEqual(data + 1 + 4, _public_key.GetPublicKey(), PUBLIC_KEY_BYTES))
+			if (!SecureEqual(data + 1, _public_key.GetPublicKey(), PUBLIC_KEY_BYTES))
 			{
 				CAT_WARN("Server") << "Failing hello: Client public key does not match";
 				PostConnectionError(buffer->GetAddr(), ERR_WRONG_KEY);
@@ -217,16 +227,8 @@ void Server::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 		}
 		else if (bytes == C2S_CHALLENGE_LEN && data[0] == C2S_CHALLENGE)
 		{
-			// If magic does not match,
-			u32 *protocol_magic = reinterpret_cast<u32*>( data + 1 );
-			if (*protocol_magic != getLE(PROTOCOL_MAGIC))
-			{
-				CAT_WARN("Server") << "Ignoring challenge: Bad magic";
-				continue;
-			}
-
 			// If cookie is invalid, ignore packet
-			u32 *cookie = reinterpret_cast<u32*>( data + 1 + 4 );
+			u32 *cookie = reinterpret_cast<u32*>( data + 1 );
 			bool good_cookie = buffer->GetAddr().Is6() ?
 				_cookie_jar.Verify(&buffer->GetAddr(), sizeof(buffer->GetAddr()), *cookie) :
 				_cookie_jar.Verify(buffer->GetAddr().GetIP4(), buffer->GetAddr().GetPort(), *cookie);
@@ -269,7 +271,7 @@ void Server::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 			}
 
 			u8 *pkt = SendBuffer::Acquire(S2C_ANSWER_LEN);
-			u8 *challenge = data + 1 + 4 + 4;
+			u8 *challenge = data + 1 + 4;
 
 			Skein key_hash;
 			AutoDestroy<Connexion> conn;
@@ -361,6 +363,10 @@ void Server::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 			}
 
 			// If execution gets here, the Connexion object will be shutdown
+		}
+		else
+		{
+			CAT_WARN("Server") << "Ignoring handshake packet: Unrecognized type";
 		}
 	}
 
