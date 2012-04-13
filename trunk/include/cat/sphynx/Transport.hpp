@@ -334,7 +334,7 @@ struct TransportTLS : ITLS
 	// Used internally by the Sphynx Transport layer to queue up messages for delivery
 	sphynx::IncomingMessage delivery_queue[DELIVERY_QUEUE_DEPTH];
 	u32 delivery_queue_depth;
-	u8 *free_list[DELIVERY_QUEUE_DEPTH];
+	u8 *free_list[DELIVERY_QUEUE_DEPTH*2]; // Twice as many to handle compressed fragments
 	u32 free_list_count;
 };
 
@@ -372,7 +372,7 @@ class CAT_EXPORT Transport
 	static const u32 UDP_HEADER_BYTES = 8;
 
 	static const u32 FRAG_THRESHOLD = 32; // Minimum fragment size; used elsewhere as a kind of "fuzz factor" for edges of packets
-	static const u32 FRAG_HEADER_BYTES = 2;
+	static const u32 FRAG_HEADER_BYTES = 2 + 2;
 
 	// This is 4 times larger than the encryption out of order limit to match max expectations
 	static const u32 OUT_OF_ORDER_LIMIT = 4096; // Stop acknowledging out of order packets after caching this many
@@ -462,12 +462,12 @@ class CAT_EXPORT Transport
 	// Returns the last node to send or 0 if no nodes remain
 	static OutgoingMessage *DequeueBandwidth(OutgoingMessage *head, s32 available_bytes, s32 &used_bytes);
 
-	static CAT_INLINE void ClusterReliableAppend(u32 stream, u32 &ack_id, u8 *pkt,
+	static CAT_INLINE s32 ClusterReliableAppend(u32 stream, u32 &ack_id, u8 *pkt,
 		u32 &ack_id_overhead, u32 &frag_overhead, SendCluster &cluster, u8 sop,
-		const u8 *copy_src, u32 copy_bytes, u16 frag_total_bytes);
+		const u8 *copy_src, u32 copy_bytes, u16 frag_total_bytes, u16 frag_comp_bytes);
 
 	// Write one SendQueue node into the send buffer
-	bool WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s32 remaining);
+	bool WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s32 &remaining);
 
 	void WriteQueuedReliable();
 	void Retransmit(u32 stream, OutgoingMessage *node, u32 now); // Does not hold the send lock!

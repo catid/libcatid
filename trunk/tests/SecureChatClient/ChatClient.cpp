@@ -58,7 +58,21 @@ public:
 			switch (msg[0])
 			{
 			case OP_TEST_FRAGMENTS:
-				CAT_WARN("Client") << "Successfully received test fragments";
+				if (bytes != 50000 + 1)
+				{
+					CAT_WARN("Client") << "TEST FAIL : Length doesn't match expectation";
+				}
+				else
+				{
+					for (int ii = 1; ii < bytes; ++ii)
+					{
+						if (msg[ii] != 0x55)
+						{
+							CAT_WARN("Client") << "TEST FAIL : Data mismatch =(";
+						}
+					}
+					CAT_WARN("Client") << "Successfully received test fragments";
+				}
 				break;
 			case OP_FILE_UPLOAD_START:
 /*				if (_fsink.OnFileStart(GetWorkerID(), msg, bytes))

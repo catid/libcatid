@@ -244,6 +244,7 @@ struct RecvFrag
 	u8 *buffer; // Buffer for accumulating fragment
 	u16 length; // Number of bytes in fragment buffer
 	u16 offset; // Current write offset in buffer
+	u16 decomp_length;	// Number of bytes after decompression
 };
 
 // Receive state: Receive queue
@@ -271,6 +272,7 @@ struct OutgoingMessage : ResizableBuffer<OutgoingMessage>
 			u32 frag_count;		// Number of fragments remaining to be delivered
 			u32 send_bytes;		// Number of bytes to send this time, calculated in DequeueBandwidth()
 			u16 sent_bytes;		// Number of bytes sent so far in a small fragmented message
+			u16 orig_bytes;		// Number of bytes in decompressed message (only for fragmented messages)
 		};
 
 		// In sent list:

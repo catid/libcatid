@@ -542,11 +542,6 @@ void Transport::OnTransportDatagrams(ThreadLocalStorage &tls, const BatchSet &de
 
 			CAT_INANE("Transport") << " -- Processing subheader " << (int)hdr;
 
-			if (hdr == 188)
-			{
-				int x= 0;
-			}
-
 			// If message length requires another byte to represent,
 			u32 hdr_bytes = 1;
 			if (hdr & C_MASK)
@@ -888,8 +883,15 @@ void Transport::OnFragment(TransportTLS *tls, u32 recv_time, u8 *data, u32 bytes
 		else
 		{
 			frag_length = getLE(*(u16*)(data)) + 1;
+			u16 decomp_length = getLE(*(u16*)(data + 2));
 			data += FRAG_HEADER_BYTES;
 			bytes -= FRAG_HEADER_BYTES;
+
+			// If decompressed length is under fragment length,
+			if (decomp_length < frag_length)
+			{
+				CAT_WARN("Transport") << "Fragment head decompressed length under fragment sum length";
+			}
 
 			// Allocate fragment buffer
 			_fragments[stream].buffer = new (std::nothrow) u8[frag_length];
@@ -901,6 +903,7 @@ void Transport::OnFragment(TransportTLS *tls, u32 recv_time, u8 *data, u32 bytes
 			else
 			{
 				_fragments[stream].length = frag_length;
+				_fragments[stream].decomp_length = decomp_length;
 				_fragments[stream].offset = 0;
 			}
 		}
@@ -920,27 +923,55 @@ void Transport::OnFragment(TransportTLS *tls, u32 recv_time, u8 *data, u32 bytes
 		return;
 	}
 
-	u32 fragment_remaining = _fragments[stream].length - _fragments[stream].offset;
+	u32 fragment_length = _fragments[stream].length;
+	u32 fragment_remaining = fragment_length - _fragments[stream].offset;
 
 	// If the fragment is now complete,
 	if (bytes >= fragment_remaining)
 	{
-		u8 *buffer = _fragments[stream].buffer;
+		// Reset length flag
+		_fragments[stream].length = 0;
 
 		if (bytes > fragment_remaining)
 		{
 			CAT_WARN("Transport") << "Message fragment overflow truncated";
 		}
 
+		// Copy final fragment
+		u8 *buffer = _fragments[stream].buffer;
 		memcpy(buffer + _fragments[stream].offset, data, fragment_remaining);
 
 		// Queue up this buffer for deletion after we are done
 		QueueFragFree(tls, buffer);
 
-		// Deliver this buffer
-		QueueDelivery(tls, stream, buffer, _fragments[stream].length);
+		// If compression was used,
+		u32 fragment_decomp_length = _fragments[stream].decomp_length;
+		if (fragment_decomp_length > fragment_length)
+		{
+			u8 *dest = new (std::nothrow) u8[fragment_decomp_length];
+			if (!dest)
+			{
+				CAT_WARN("Transport") << "Out of memory allocating " << fragment_decomp_length;
+				return;
+			}
 
-		_fragments[stream].length = 0;
+			// Queue up this buffer for deletion after we are done
+			QueueFragFree(tls, dest);
+
+			// If decompression succeeds,
+			int r = LZ4_uncompress((const char*)buffer, (char*)dest, fragment_decomp_length);
+			if (r <= 0)
+			{
+				CAT_WARN("Transport") << "Decompression of fragmented message failed";
+				return;
+			}
+
+			buffer = dest;
+			fragment_length = fragment_decomp_length;
+		}
+
+		// Deliver this buffer
+		QueueDelivery(tls, stream, buffer, fragment_length);
 	}
 	else
 	{
@@ -1093,6 +1124,7 @@ void Transport::Retransmit(u32 stream, OutgoingMessage *node, u32 now)
 	u8 *data;
 	u32 frag_overhead = 0;
 	u16 frag_total_bytes = 0;
+	u16 frag_comp_bytes = 0;
 
 	// If node is a fragment,
 	if (node->sop == SOP_FRAG)
@@ -1100,6 +1132,7 @@ void Transport::Retransmit(u32 stream, OutgoingMessage *node, u32 now)
 		SendFrag *frag = static_cast<SendFrag*>( node );
 		OutgoingMessage *full_node = frag->full_data;
 		frag_total_bytes = full_node->GetBytes();
+		frag_comp_bytes = full_node->orig_bytes;
 		data = GetTrailingBytes(full_node) + frag->offset;
 
 		// If this is the first fragment of the message,
@@ -1138,7 +1171,7 @@ void Transport::Retransmit(u32 stream, OutgoingMessage *node, u32 now)
 	u8 *pkt = cluster.Next(msg_bytes);
 
 	ClusterReliableAppend(stream, ack_id, pkt, ack_id_overhead, frag_overhead,
-		cluster, node->sop, data, copy_bytes, frag_total_bytes);
+		cluster, node->sop, data, copy_bytes, frag_total_bytes, frag_comp_bytes);
 
 	_send_cluster = cluster;
 	_send_cluster_lock.Leave();
@@ -1749,8 +1782,11 @@ static CAT_INLINE u32 GetACKIDOverhead(u32 ack_id, u32 remote_expected)
 	return ack_id_overhead;
 }
 
-CAT_INLINE void Transport::ClusterReliableAppend(u32 stream, u32 &ack_id, u8 *pkt, u32 &ack_id_overhead, u32 &frag_overhead, SendCluster &cluster, u8 sop, const u8 *copy_src, u32 copy_bytes, u16 frag_total_bytes)
+CAT_INLINE s32 Transport::ClusterReliableAppend(u32 stream, u32 &ack_id, u8 *pkt, u32 &ack_id_overhead, u32 &frag_overhead, SendCluster &cluster, u8 sop, const u8 *copy_src, u32 copy_bytes, u16 frag_total_bytes, u16 frag_comp_bytes)
 {
+	// Calculate message bytes
+	s32 message_bytes = frag_overhead + ack_id_overhead + copy_bytes;
+
 	// Write header
 	u32 data_bytes = copy_bytes + frag_overhead;
 	u8 hdr = R_MASK | (sop << SOP_SHIFT);
@@ -1761,12 +1797,14 @@ CAT_INLINE void Transport::ClusterReliableAppend(u32 stream, u32 &ack_id, u8 *pk
 		pkt[0] = (u8)data_bytes | hdr;
 		++pkt;
 		cluster.bytes--; // Turns out we can cut out a byte
+		++message_bytes;
 	}
 	else
 	{
 		pkt[0] = (u8)(data_bytes & BLO_MASK) | C_MASK | hdr;
 		pkt[1] = (u8)(data_bytes >> BHI_SHIFT);
 		pkt += 2;
+		message_bytes += 2;
 	}
 
 	// Write optional ACK-ID
@@ -1803,6 +1841,7 @@ CAT_INLINE void Transport::ClusterReliableAppend(u32 stream, u32 &ack_id, u8 *pk
 	{
 		--frag_total_bytes; // does not affect caller
 		*(u16*)pkt = getLE16(frag_total_bytes);
+		*(u16*)(pkt + 2) = getLE16(frag_comp_bytes);
 		pkt += FRAG_HEADER_BYTES;
 
 		frag_overhead = 0;
@@ -1810,9 +1849,11 @@ CAT_INLINE void Transport::ClusterReliableAppend(u32 stream, u32 &ack_id, u8 *pk
 
 	// Copy data bytes
 	memcpy(pkt, copy_src, copy_bytes);
+
+	return message_bytes;
 }
 
-bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s32 remaining)
+bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s32 &remaining)
 {
 	bool success = true;
 	u32 max_payload_bytes = _max_payload_bytes;
@@ -1833,12 +1874,16 @@ bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s
 	if (cluster.ack_id != ack_id || cluster.stream != stream)
 		ack_id_overhead = GetACKIDOverhead(ack_id, remote_expected);
 
-	// If node is already fragmented then we have sent some data before
-	bool fragmented = node->sent_bytes > 0;
+	u16 sent_bytes = node->sent_bytes;
+	s32 bytes_to_send = node->GetBytes() - sent_bytes;
 
 	// Grab the number of bytes to send from the QoS stuff above
-	u32 bytes_to_send = node->send_bytes;
-	u16 sent_bytes = node->sent_bytes;
+	s32 send_limit = node->send_bytes;
+	if (send_limit) node->send_bytes = 0;
+	else send_limit = remaining;
+
+	// If node is already fragmented then we have sent some data before
+	bool fragmented = sent_bytes > 0;
 
 	// For each fragment of the message,
 	do
@@ -1909,14 +1954,48 @@ bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s
 			do frag = m_std_allocator->AcquireObject<SendFrag>();
 			while (!frag);
 
+			// If node is just now fragmenting for the first time,
+			if (!node->frag_count++)
+			{
+				// Calculate compression output buffer size
+				u32 src_bytes = node->GetBytes();
+				u32 dest_bytes = LZ4_compressBound(src_bytes);
+
+				// Acquire compression output buffer
+				u8 *dest;
+				do dest = new (std::nothrow) u8[dest_bytes];
+				while (!dest);
+
+				// Attempt compression
+				u8 *src_data = GetTrailingBytes(node);
+				int compress_bytes = LZ4_compress((const char*)src_data, (char*)dest, src_bytes);
+				if (compress_bytes > 0)
+				{
+					memcpy(src_data, dest, compress_bytes);
+					node->SetBytes(compress_bytes);
+
+					// Recalculate copy bytes
+					bytes_to_send = compress_bytes;
+					msg_bytes = overhead + bytes_to_send;
+					write_bytes = min(msg_bytes, remaining_send_buffer);
+
+					// Limit size to allow ACK-ID decompression during retransmission
+					u32 retransmit_limit = max_payload_bytes - (MAX_ACK_ID_BYTES - ack_id_overhead);
+					if (write_bytes > retransmit_limit) write_bytes = retransmit_limit;
+
+					data_bytes_to_copy = write_bytes - overhead;
+				}
+
+				node->orig_bytes = (u16)src_bytes;
+
+				delete []dest;
+			}
+
 			// Fill fragment object
 			frag->SetBytes(data_bytes_to_copy);
 			frag->offset = sent_bytes;
 			frag->full_data = node;
 			frag->sop = SOP_FRAG;
-
-			// Increment fragment count on the source node
-			++node->frag_count;
 
 			add_node = static_cast<OutgoingMessage*>( frag );
 		}
@@ -1940,18 +2019,14 @@ bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s
 
 		// Grow the cluster
 		u8 *msg = cluster.Next(write_bytes);
-		if (!msg)
-		{
-			ack_id_overhead = GetACKIDOverhead(ack_id, remote_expected);
-			continue;
-		}
 
 		// Append to cluster
-		ClusterReliableAppend(stream, ack_id, msg, ack_id_overhead, frag_overhead,
+		remaining -= ClusterReliableAppend(stream, ack_id, msg, ack_id_overhead, frag_overhead,
 			cluster, add_node->sop, GetTrailingBytes(node) + sent_bytes,
-			data_bytes_to_copy, node->GetBytes());
+			data_bytes_to_copy, node->GetBytes(), node->orig_bytes);
 
 		sent_bytes += data_bytes_to_copy;
+		remaining -= data_bytes_to_copy;
 		bytes_to_send -= data_bytes_to_copy;
 
 		CAT_FATAL("Transport") << "Wrote " << stream << ": bytes=" << data_bytes_to_copy << " ack_id=" << ack_id;

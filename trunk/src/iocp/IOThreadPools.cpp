@@ -393,7 +393,7 @@ bool IOThreadPool::Shutdown()
 	if (_workers)
 	{
 		// TODO: NO IDEA WHY THIS IS CRASHING!  Traced it to cases where thread count > 1
-		//delete []_workers;
+		delete []_workers;
 		_workers = 0;
 	}
 
