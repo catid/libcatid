@@ -295,16 +295,18 @@ bool AuthenticatedEncryption::Decrypt(u8 *buffer, u32 buf_bytes)
 	u32 first_block[16];
 	remote_cipher.GenerateNeutralKeyStream(first_block);
 
-	// Generate VHash of the ciphertext
-	u64 vhash = _remote_mac.Hash(buffer, msg_bytes);
-
 	// Generate the MAC by encrypting (XORing) VHash with the first 8 bytes of keystream
 	const u64 *vhash_keystream = reinterpret_cast<const u64*>( first_block );
 	const u64 *mac_input = reinterpret_cast<u64*>( overhead );
 	u64 remote_vhash = getLE(*mac_input ^ *vhash_keystream);
+	u32 lsb = remote_vhash & 1;
+
+	// Generate VHash of the ciphertext
+	overhead[0] = (u8)lsb;
+	u64 vhash = _remote_mac.Hash(buffer, msg_bytes + 1) << 1;
 
 	// Validate the MAC
-	if (remote_vhash ^ vhash)
+	if ((remote_vhash ^ vhash) >> 1)
 	{
 #ifdef CAT_AUDIT
 		printf("AUDIT: MAC invalid!\n");
@@ -342,6 +344,7 @@ bool AuthenticatedEncryption::Encrypt(u64 &next_iv, u8 *buffer, u32 buf_bytes)
 {
 	u32 msg_bytes = buf_bytes - OVERHEAD_BYTES;
     u8 *overhead = buffer + buf_bytes - OVERHEAD_BYTES;
+	u32 lsb = overhead[0] & 1;
 
 	// Outgoing IV increments by one each time, and starts one ahead of remotely generated IV
 	u64 iv = next_iv;
@@ -368,7 +371,7 @@ bool AuthenticatedEncryption::Encrypt(u64 &next_iv, u8 *buffer, u32 buf_bytes)
     local_cipher.Crypt(buffer, buffer, msg_bytes);
 
 	// Generate VHash of the ciphertext
-	u64 vhash = _local_mac.Hash(buffer, msg_bytes);
+	u64 vhash = (_local_mac.Hash(buffer, msg_bytes + 1) << 1) | lsb;
 
 	// Generate the MAC by encrypting (XORing) VHash with the first 8 bytes of keystream
 	const u64 *vhash_keystream = reinterpret_cast<const u64*>( first_block );

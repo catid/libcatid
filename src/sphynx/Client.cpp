@@ -35,6 +35,7 @@
 #include <cat/time/Clock.hpp>
 #include <cat/crypt/SecureEqual.hpp>
 #include <cat/hash/Murmur.hpp>
+#include <ext/lz4/lz4.h>
 #include <fstream>
 using namespace std;
 using namespace cat;
@@ -112,6 +113,7 @@ void Client::OnRecvRouting(const BatchSet &buffers)
 
 void Client::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 {
+	u8 compress_buffer[IOTHREADS_BUFFER_READ_BYTES];
 	u32 buffer_count = 0;
 	BatchHead *node = buffers.head;
 
@@ -239,6 +241,23 @@ void Client::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 					 _auth_enc.Decrypt(data, data_bytes))
 			{
 				data_bytes -= SPHYNX_OVERHEAD;
+
+				// If needs to be decompressed,
+				if (data[data_bytes])
+				{
+					// Decompress the buffer
+					int compress_size = LZ4_uncompress_unknownOutputSize((const char*)data, (char*)compress_buffer, data_bytes, sizeof(compress_buffer));
+
+					if (compress_size <= 0)
+					{
+						CAT_WARN("Client") << "Ignored invalid compressed data";
+						continue;
+					}
+
+					// Copy compressed data back into the buffer
+					memcpy(data, compress_buffer, compress_size);
+					data_bytes = compress_size;
+				}
 
 				buffer->data_bytes = data_bytes;
 

@@ -76,6 +76,7 @@ void Server::OnRecvRouting(const BatchSet &buffers)
 
 	Connexion *conn;
 	u32 worker_id;
+	int add_ref_count = 0;
 
 	// For each buffer in the batch,
 	for (BatchHead *next, *node = buffers.head; node; node = next)
@@ -88,6 +89,10 @@ void Server::OnRecvRouting(const BatchSet &buffers)
 		// If source address has changed,
 		if (!prev_buffer || buffer->GetAddr() != prev_buffer->GetAddr())
 		{
+			// If reference counts need to be added,
+			if (add_ref_count) conn->AddRef(CAT_REFOBJECT_TRACE, add_ref_count);
+			add_ref_count = 0;
+
 			// If close signal is received,
 			if (buffer->data_bytes == 0)
 				Destroy(CAT_REFOBJECT_TRACE);
@@ -124,7 +129,7 @@ void Server::OnRecvRouting(const BatchSet &buffers)
 		else if (conn)
 		{
 			// Another packet from the same connexion
-			conn->AddRef(CAT_REFOBJECT_TRACE);
+			++add_ref_count;
 			buffer->callback.SetMember<Connexion, &Connexion::OnRecv>(conn);
 		}
 		else
@@ -152,6 +157,9 @@ void Server::OnRecvRouting(const BatchSet &buffers)
 			bins[worker_id].head = bins[worker_id].tail = buffer;
 		}
 	}
+
+	// If reference counts need to be added,
+	if (add_ref_count) conn->AddRef(CAT_REFOBJECT_TRACE, add_ref_count);
 
 	// For each valid word,
 	for (u32 jj = 0, offset = 0; jj < MAX_VALID_WORDS; ++jj, offset += 32)
@@ -323,7 +331,7 @@ void Server::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 				pkt[0] = S2C_ANSWER;
 
 				// Initialize Connexion object
-				memcpy(conn->_first_challenge, challenge, CHALLENGE_BYTES);
+				conn->_first_challenge_hash = MurmurHash(challenge, CHALLENGE_BYTES).Get64();
 				memcpy(conn->_cached_answer, pkt + 1 + 2, ANSWER_BYTES);
 				conn->_client_addr = buffer->GetAddr();
 				conn->_last_recv_tsc = buffer->event_msec;

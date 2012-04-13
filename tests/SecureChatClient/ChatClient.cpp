@@ -33,6 +33,7 @@ public:
 
 		_huge_source = &_fsource;
 		_huge_sink = &_fsink;
+
 /*
 		if (_fsource.TransferFile(GetWorkerID(), OP_FILE_UPLOAD_START, "test.tmp", "sink.tmp", this))
 		{
@@ -43,8 +44,9 @@ public:
 			CAT_WARN("Client") << "-- File upload FAILED";
 		}*/
 
-		//u8 test_msg[50000];
-		//WriteReliable(STREAM_UNORDERED, OP_TEST_FRAGMENTS, test_msg, sizeof(test_msg));
+		u8 test_msg[50000];
+		memset(test_msg, 0x55, sizeof(test_msg));
+		WriteReliable(STREAM_UNORDERED, OP_TEST_FRAGMENTS, test_msg, sizeof(test_msg));
 	}
 	virtual void OnMessages(IncomingMessage msgs[], u32 count)
 	{

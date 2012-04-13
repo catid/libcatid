@@ -52,7 +52,7 @@ class CAT_EXPORT Connexion : public Transport, public RefObject
 	u16 _my_id; // Unique connexion id number
 	u32 _worker_id; // Worker thread index
 
-	u8 _first_challenge[64]; // First challenge seen from this client address
+	u64 _first_challenge_hash;	// First challenge seen from this client address
 	u8 _cached_answer[128]; // Cached answer to this first challenge, to avoid eating server CPU time
 
 	// Last time a packet was received from this user -- for disconnect timeouts

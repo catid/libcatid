@@ -127,6 +127,7 @@ void Transport::QueueWriteDatagram(SendCluster &cluster)
 	RandPadDatagram(workspace, bytes);
 #endif // CAT_TRANSPORT_RANDOMIZE_LENGTH
 
+	// NOTE: Must be kept in synch with LZ4 overhead!
 	u32 pkt_bytes = (bytes + (bytes/255) + 16);
 	if (pkt_bytes < bytes + SPHYNX_OVERHEAD)
 		pkt_bytes = bytes + SPHYNX_OVERHEAD;
@@ -540,6 +541,11 @@ void Transport::OnTransportDatagrams(ThreadLocalStorage &tls, const BatchSet &de
 			u32 data_bytes = hdr & BLO_MASK;
 
 			CAT_INANE("Transport") << " -- Processing subheader " << (int)hdr;
+
+			if (hdr == 188)
+			{
+				int x= 0;
+			}
 
 			// If message length requires another byte to represent,
 			u32 hdr_bytes = 1;
@@ -1806,7 +1812,7 @@ CAT_INLINE void Transport::ClusterReliableAppend(u32 stream, u32 &ack_id, u8 *pk
 	memcpy(pkt, copy_src, copy_bytes);
 }
 
-bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s32 &remaining)
+bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s32 remaining)
 {
 	bool success = true;
 	u32 max_payload_bytes = _max_payload_bytes;
@@ -1942,7 +1948,7 @@ bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s
 
 		// Append to cluster
 		ClusterReliableAppend(stream, ack_id, msg, ack_id_overhead, frag_overhead,
-			cluster, node->sop, GetTrailingBytes(node) + sent_bytes,
+			cluster, add_node->sop, GetTrailingBytes(node) + sent_bytes,
 			data_bytes_to_copy, node->GetBytes());
 
 		sent_bytes += data_bytes_to_copy;
