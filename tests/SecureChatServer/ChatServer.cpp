@@ -70,8 +70,9 @@ void GameConnexion::OnConnect()
 
 	CAT_WARN("Connexion") << "-- CONNECTED";
 
-	//u8 test_msg[50000];
-	//WriteReliable(STREAM_UNORDERED, OP_TEST_FRAGMENTS, test_msg, sizeof(test_msg));
+	u8 test_msg[50000];
+	memset(test_msg, 0x55, sizeof(test_msg));
+	WriteReliable(STREAM_UNORDERED, OP_TEST_FRAGMENTS, test_msg, sizeof(test_msg));
 
 	u16 key = getLE(GetMyID());
 
@@ -91,7 +92,21 @@ void GameConnexion::OnMessages(IncomingMessage msgs[], u32 count)
 		switch (msg[0])
 		{
 		case OP_TEST_FRAGMENTS:
-			CAT_WARN("Connexion") << "Successfully received test fragments";
+			if (bytes != 50000 + 1)
+			{
+				CAT_WARN("Connexion") << "TEST FAIL : Length doesn't match expectation";
+			}
+			else
+			{
+				for (int ii = 1; ii < bytes; ++ii)
+				{
+					if (msg[ii] != 0x55)
+					{
+						CAT_WARN("Connexion") << "TEST FAIL : Data mismatch =(";
+					}
+				}
+				CAT_WARN("Connexion") << "Successfully received test fragments";
+			}
 			break;
 		case OP_FILE_UPLOAD_START:
 /*			if (_fsink.OnFileStart(GetWorkerID(), msg, bytes))
