@@ -185,6 +185,39 @@ namespace sphynx {
 */
 
 /*
+	Compression
+
+	LZ4 was chosen because it can be configured and used without any code changes.
+	It is an excellent library that I am very thankful for.
+
+		You Rock, Yann Collet!
+
+	LZ4 compression is applied after random padding just before writing datagrams
+	to the wire.  A single byte 0/1 is appended to the message, 1 indicating
+	compression.  This byte is not encrypted but is included when calculating the
+	message authentication code (MAC).  Before encrypting the VHASH for the MAC,
+	this extra bit is written to the lowest bit of the VHASH.  This ensures that
+	the compression bit is both encrypted and verified.
+
+	OOB and zero-copy huge post types are not subjected to compression.  These
+	types are assumed to be either very small and fast, or very large and
+	pre-compressed.
+
+	Compression is attempted for all other normal post types.  If the result is
+	that the compression output is larger than the input, then the message is
+	posted without compression.  As a result, the compression only helps and
+	never hurts the bandwidth usage.
+
+	During decompression, the UDP recv buffer is used as a compression buffer,
+	and a temporary stack buffer receives the decompressed output.
+	The decompressed output is then copied over the compressed input buffer because
+	the UDP recv buffers are all preallocated to a certain size.
+
+	LZ4 overhead calculation is inlined in Transport.cpp!  If the overhead changes
+	be sure to update that!
+*/
+
+/*
 	Thread Safety
 
 	InitializePayloadBytes() and InitializeTransportSecurity() and other
@@ -434,7 +467,7 @@ class CAT_EXPORT Transport
 		const u8 *copy_src, u32 copy_bytes, u16 frag_total_bytes);
 
 	// Write one SendQueue node into the send buffer
-	bool WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s32 &remaining);
+	bool WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s32 remaining);
 
 	void WriteQueuedReliable();
 	void Retransmit(u32 stream, OutgoingMessage *node, u32 now); // Does not hold the send lock!

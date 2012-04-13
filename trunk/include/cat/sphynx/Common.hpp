@@ -268,7 +268,6 @@ struct OutgoingMessage : ResizableBuffer<OutgoingMessage>
 		// In send queue:
 		struct
 		{
-			u64 huge_remaining;	// Number of bytes remaining in a huge transfer
 			u32 frag_count;		// Number of fragments remaining to be delivered
 			u32 send_bytes;		// Number of bytes to send this time, calculated in DequeueBandwidth()
 			u16 sent_bytes;		// Number of bytes sent so far in a small fragmented message

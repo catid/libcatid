@@ -30,6 +30,7 @@
 #include <cat/sphynx/Server.hpp>
 #include <cat/io/Log.hpp>
 #include <cat/crypt/SecureEqual.hpp>
+#include <ext/lz4/lz4.h>
 using namespace cat;
 using namespace sphynx;
 
@@ -77,11 +78,11 @@ void Connexion::RetransmitAnswer(RecvBuffer *buffer)
 
 	if (bytes == C2S_CHALLENGE_LEN && data[0] == C2S_CHALLENGE)
 	{
-		u8 *challenge = data + 1 + 4 + 4;
+		u8 *challenge = data + sizeof(PROTOCOL_MAGIC) + 1 + 4;
 
 		// Only need to check that the challenge is the same, since we
 		// have already validated the cookie and protocol magic to get here
-		if (!SecureEqual(_first_challenge, challenge, CHALLENGE_BYTES))
+		if (_first_challenge_hash == MurmurHash(challenge, CHALLENGE_BYTES).Get64())
 		{
 			CAT_WARN("Connexion") << "Ignoring challenge: Replay challenge in bad state";
 			return;
@@ -107,6 +108,7 @@ void Connexion::RetransmitAnswer(RecvBuffer *buffer)
 
 void Connexion::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 {
+	u8 compress_buffer[IOTHREADS_BUFFER_READ_BYTES];
 	u32 buffer_count = 0;
 
 	BatchSet delivery;
@@ -128,7 +130,27 @@ void Connexion::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 		if (data_bytes > SPHYNX_OVERHEAD &&
 			_auth_enc.Decrypt(data, data_bytes))
 		{
-			buffer->data_bytes = data_bytes - SPHYNX_OVERHEAD;
+			data_bytes -= SPHYNX_OVERHEAD;
+
+			// If needs to be decompressed,
+			if (data[data_bytes])
+			{
+				// Decompress the buffer
+				int compress_size = LZ4_uncompress_unknownOutputSize((const char*)data, (char*)compress_buffer, data_bytes, sizeof(compress_buffer));
+
+				if (compress_size <= 0)
+				{
+					CAT_WARN("Client") << "Ignored invalid compressed data";
+					continue;
+				}
+
+				// Copy compressed data back into the buffer
+				memcpy(data, compress_buffer, compress_size);
+				data_bytes = compress_size;
+			}
+
+			buffer->data_bytes = data_bytes;
+
 			delivery.PushBack(buffer);
 		}
 		else if (buffer_count <= 1 && !_seen_encrypted)

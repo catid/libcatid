@@ -141,6 +141,7 @@ public:
 public:
 	// buf_bytes: Number of bytes in the buffer,
 	//            including OVERHEAD_BYTES at the end of the packet
+	// First byte after message will be a 1 or 0 (for compression bit)
     bool Decrypt(u8 *buffer, u32 buf_bytes);
 
 	// Grab a range of IVs so that locking only needs to be done once
@@ -150,6 +151,7 @@ public:
 	// Then call Encrypt(), incrementing the IV each time.
 	// buf_bytes: Number of bytes in the buffer,
 	//            including OVERHEAD_BYTES at the end of the packet
+	// Preserves the first byte after the message if it is a 1 or 0 (for compression bit)
     bool Encrypt(u64 &iv, u8 *buffer, u32 buf_bytes);
 };
 
