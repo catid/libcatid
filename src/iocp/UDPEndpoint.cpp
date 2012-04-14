@@ -64,6 +64,7 @@ bool UDPEndpoint::OnFinalize()
 UDPEndpoint::UDPEndpoint()
 {
 	_pool = 0;
+	_update_count = 0;
 }
 
 UDPEndpoint::~UDPEndpoint()
