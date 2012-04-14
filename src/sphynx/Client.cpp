@@ -146,20 +146,21 @@ void Client::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 				}
 
 				// Construct challenge
-				u64 *magic = reinterpret_cast<u64*>( pkt );
-				*magic = getLE(PROTOCOL_MAGIC);
-
-				pkt[sizeof(PROTOCOL_MAGIC)] = C2S_CHALLENGE;
+				pkt[0] = C2S_CHALLENGE;
 
 				u32 *in_cookie = reinterpret_cast<u32*>( data + 1 );
-				u32 *out_cookie = reinterpret_cast<u32*>( pkt + sizeof(PROTOCOL_MAGIC) + 1 );
+				u32 *out_cookie = reinterpret_cast<u32*>( pkt + 1 );
 				*out_cookie = *in_cookie;
 
-				memcpy(pkt + sizeof(PROTOCOL_MAGIC) + 1 + 4, _cached_challenge, CHALLENGE_BYTES);
+				memcpy(pkt + 1 + 4, _cached_challenge, CHALLENGE_BYTES);
 
 				// Zero the padding
-				const int pad_offset = sizeof(PROTOCOL_MAGIC) + 1 + 4 + CHALLENGE_BYTES;
-				memset(pkt + pad_offset, 0, C2S_CHALLENGE_LEN - pad_offset);
+				const int pad_offset = 1 + 4 + CHALLENGE_BYTES;
+				memset(pkt + pad_offset, 0, C2S_CHALLENGE_LEN - pad_offset - sizeof(PROTOCOL_MAGIC));
+
+				// Pinch of magic
+				u64 *magic = reinterpret_cast<u64*>( pkt + C2S_CHALLENGE_LEN - sizeof(PROTOCOL_MAGIC) );
+				*magic = getLE(PROTOCOL_MAGIC);
 
 				// Attempt to post a pkt
 				if (!Write(pkt, C2S_CHALLENGE_LEN, _server_addr))
@@ -184,6 +185,12 @@ void Client::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 					_last_recv_tsc = _next_sync_time = _mtu_discovery_time = _clock->msec();
 					_mtu_discovery_attempts = 2;
 					_sync_attempts = 0;
+
+#if defined(CAT_SPHYNX_ROAMING_IP)
+					// Set ID
+					u16 *id = reinterpret_cast<u16*>( data + 1 + ANSWER_BYTES );
+					_my_id = getLE(*id);
+#endif
 
 					WriteTimePing();
 
@@ -237,10 +244,10 @@ void Client::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 				Disconnect(ERR_CLIENT_BROKEN_PIPE);
 				break;
 			}
-			else if (data_bytes > SPHYNX_OVERHEAD &&
+			else if (data_bytes > SPHYNX_S2C_OVERHEAD &&
 					 _auth_enc.Decrypt(data, data_bytes))
 			{
-				data_bytes -= SPHYNX_OVERHEAD;
+				data_bytes -= SPHYNX_S2C_OVERHEAD;
 
 				// If needs to be decompressed,
 				if (data[data_bytes])
@@ -337,7 +344,7 @@ void Client::OnTick(ThreadLocalStorage &tls, u32 now)
 				if ((s32)(now - _mtu_discovery_time) >= MTU_PROBE_INTERVAL)
 				{
 					// If payload bytes already maxed out,
-					if (_max_payload_bytes >= MAXIMUM_MTU - _udpip_bytes - SPHYNX_OVERHEAD ||
+					if (_max_payload_bytes >= MAXIMUM_MTU - _udpip_bytes - SPHYNX_C2S_OVERHEAD ||
 						_mtu_discovery_attempts <= 0)
 					{
 						// Stop posting probes
@@ -353,7 +360,7 @@ void Client::OnTick(ThreadLocalStorage &tls, u32 now)
 							CAT_WARN("Client") << "Unable to detect MTU: Probe post failure";
 						}
 
-						if (_max_payload_bytes < MEDIUM_MTU - _udpip_bytes - SPHYNX_OVERHEAD &&
+						if (_max_payload_bytes < MEDIUM_MTU - _udpip_bytes - SPHYNX_C2S_OVERHEAD &&
 							!PostMTUProbe(MEDIUM_MTU))
 						{
 							CAT_WARN("Client") << "Unable to detect MTU: Probe post failure";
@@ -477,14 +484,12 @@ bool Client::FinalConnect(const NetAddr &addr)
 	return true;
 }
 
-bool Client::Connect(const char *hostname, Port port, TunnelPublicKey &public_key, const char *session_key, bool roaming_ip, ThreadLocalStorage *tls)
+bool Client::Connect(const char *hostname, Port port, TunnelPublicKey &public_key, const char *session_key, ThreadLocalStorage *tls)
 {
 	TunnelTLS *tunnel_tls = 0;
 	if (!tls) tls = SlowTLS::ref()->Get();
 	if (tls) tunnel_tls = m_tunnel_tls.Get(*tls);
 	if (!tunnel_tls) return false;
-
-	_roaming_ip = roaming_ip;
 
 	if (!InitialConnect(tunnel_tls, public_key, session_key))
 	{
@@ -503,14 +508,12 @@ bool Client::Connect(const char *hostname, Port port, TunnelPublicKey &public_ke
 	return true;
 }
 
-bool Client::Connect(const NetAddr &addr, TunnelPublicKey &public_key, const char *session_key, bool roaming_ip, ThreadLocalStorage *tls)
+bool Client::Connect(const NetAddr &addr, TunnelPublicKey &public_key, const char *session_key, ThreadLocalStorage *tls)
 {
 	TunnelTLS *tunnel_tls = 0;
 	if (!tls) tls = SlowTLS::ref()->Get();
 	if (tls) tunnel_tls = m_tunnel_tls.Get(*tls);
 	if (!tunnel_tls) return false;
-
-	_roaming_ip = roaming_ip;
 
 	if (!InitialConnect(tunnel_tls, public_key, session_key) ||
 		!FinalConnect(addr))
@@ -574,12 +577,13 @@ bool Client::WriteHello()
 	}
 
 	// Construct packet
-	u64 *magic = reinterpret_cast<u64*>( pkt );
+	pkt[0] = C2S_HELLO;
+
+	memcpy(pkt + 1, _server_public_key.GetPublicKey(), PUBLIC_KEY_BYTES);
+
+	// Pinch of magic
+	u64 *magic = reinterpret_cast<u64*>( pkt + 1 + PUBLIC_KEY_BYTES );
 	*magic = getLE(PROTOCOL_MAGIC);
-
-	pkt[sizeof(PROTOCOL_MAGIC)] = C2S_HELLO;
-
-	memcpy(pkt + sizeof(PROTOCOL_MAGIC) + 1, _server_public_key.GetPublicKey(), PUBLIC_KEY_BYTES);
 
 	// Attempt to post packet
 	if (!Write(pkt, C2S_HELLO_LEN, _server_addr))
@@ -607,12 +611,14 @@ bool Client::WriteDatagrams(const BatchSet &buffers, u32 count)
 	/*
 		The format of each buffer:
 
-		[TRANSPORT(X)] [ENCRYPTION(11)]
+		[TRANSPORT(X)] [ENCRYPTION(11)] [USERID(2)] <- user id only in roaming ip mode
 
 		The encryption overhead is not filled in yet.
 		Each buffer's data_bytes is the transport layer data length.
 		We need to add the 11 bytes of overhead to this before writing it.
 	*/
+
+	u16 my_id = getLE((u16)_my_id);
 
 	// For each datagram to send,
 	for (BatchHead *node = buffers.head; node; node = node->batch_next)
@@ -622,8 +628,17 @@ bool Client::WriteDatagrams(const BatchSet &buffers, u32 count)
 		u8 *msg_data = GetTrailingBytes(buffer);
 		u32 msg_bytes = buffer->GetBytes();
 
+#if !defined(CAT_SPHYNX_ROAMING_IP)
 		// Encrypt the message
 		_auth_enc.Encrypt(iv, msg_data, msg_bytes);
+#else
+		// Encrypt the message
+		_auth_enc.Encrypt(iv, msg_data, msg_bytes - 2);
+
+		// Write ID to the end of packets
+		u16 *msg_id = reinterpret_cast<u16*>( msg_data + msg_bytes - 2 );
+		*msg_id = my_id;
+#endif // CAT_SPHYNX_ROAMING_IP
 
 		//INFO("Client") << "Transmitting datagram with " << msg_bytes << " data bytes";
 	}
@@ -645,6 +660,11 @@ void Client::OnInternal(u32 recv_time, BufferStream data, u32 bytes)
 		if (bytes == IOP_S2C_MTU_SET_LEN)
 		{
 			u16 max_payload_bytes = getLE(*reinterpret_cast<u16*>( data + 1 ));
+
+#if defined(CAT_SPHYNX_ROAMING_IP)
+			// Subtract 2 off for the extra c2s overhead
+			max_payload_bytes -= 2;
+#endif
 
 			CAT_WARN("Client") << "Got IOP_S2C_MTU_SET.  Max payload bytes = " << max_payload_bytes;
 

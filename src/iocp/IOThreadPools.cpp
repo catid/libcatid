@@ -186,14 +186,14 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreadPool *master, OVERLAPPED_ENTR
 		m_std_allocator->ReleaseBatch(sendq);
 
 		sendq.Clear();
-	}
 
-	// If ref counts need to be updated,
-	while (update_node)
-	{
-		update_node->ReleaseRef(CAT_REFOBJECT_TRACE, update_node->_update_count);
-		update_node->_update_count = 0;
-		update_node = update_node->_update_next;
+		// If ref counts need to be updated, (only if sendq was added to)
+		while (update_node)
+		{
+			update_node->ReleaseRef(CAT_REFOBJECT_TRACE, update_node->_update_count);
+			update_node->_update_count = 0;
+			update_node = update_node->_update_next;
+		}
 	}
 
 	return exit_flag;
