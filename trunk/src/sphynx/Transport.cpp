@@ -947,6 +947,9 @@ void Transport::OnFragment(TransportTLS *tls, u32 recv_time, u8 *data, u32 bytes
 		u8 *buffer = _fragments[stream].buffer;
 		memcpy(buffer + _fragments[stream].offset, data, fragment_remaining);
 
+		// Queue up this buffer for deletion after we are done
+		QueueFragFree(tls, buffer);
+
 		// If compression was used,
 		u32 fragment_decomp_length = _fragments[stream].decomp_length;
 		if (fragment_decomp_length > fragment_length)
@@ -972,9 +975,6 @@ void Transport::OnFragment(TransportTLS *tls, u32 recv_time, u8 *data, u32 bytes
 			buffer = dest;
 			fragment_length = fragment_decomp_length;
 		}
-
-		// Queue up this buffer for deletion after we are done
-		QueueFragFree(tls, buffer);
 
 		// Zero buffer pointer so that it won't be reclaimed on dtor
 		_fragments[stream].buffer = 0;
