@@ -74,7 +74,7 @@ void GameConnexion::OnConnect()
 	Abyssinian prng;
 	prng.Initialize(1);
 	for (int ii = 0; ii < sizeof(test_msg); ++ii)
-		test_msg[ii] = (u8)(prng.Next() % 20);
+		test_msg[ii] = (u8)(prng.Next() % 10);
 	WriteReliable(STREAM_UNORDERED, OP_TEST_FRAGMENTS, test_msg, sizeof(test_msg));
 
 	u16 key = getLE(GetMyID());
@@ -106,7 +106,7 @@ void GameConnexion::OnMessages(IncomingMessage msgs[], u32 count)
 
 				for (int ii = 1; ii < bytes; ++ii)
 				{
-					if (msg[ii] != (u8)(prng.Next() % 20))
+					if (msg[ii] != (u8)(prng.Next() % 10))
 					{
 						CAT_WARN("Connexion") << "TEST FAIL : Data mismatch =(";
 					}

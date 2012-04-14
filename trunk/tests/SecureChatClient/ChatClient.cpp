@@ -48,7 +48,7 @@ public:
 		Abyssinian prng;
 		prng.Initialize(0);
 		for (int ii = 0; ii < sizeof(test_msg); ++ii)
-			test_msg[ii] = (u8)(prng.Next() % 20);
+			test_msg[ii] = (u8)(prng.Next() % 10);
 		WriteReliable(STREAM_UNORDERED, OP_TEST_FRAGMENTS, test_msg, sizeof(test_msg));
 	}
 	virtual void OnMessages(IncomingMessage msgs[], u32 count)
@@ -72,7 +72,7 @@ public:
 
 					for (int ii = 1; ii < bytes; ++ii)
 					{
-						if (msg[ii] != (u8)(prng.Next() % 20))
+						if (msg[ii] != (u8)(prng.Next() % 10))
 						{
 							CAT_WARN("Client") << "TEST FAIL : Data mismatch =(";
 						}
