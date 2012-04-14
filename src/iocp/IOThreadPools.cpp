@@ -389,6 +389,13 @@ bool IOThreadPool::Shutdown()
 		}
 	}
 
+	// If port was created,
+	if (_io_port)
+	{
+		CloseHandle(_io_port);
+		_io_port = 0;
+	}
+
 	// Free worker thread objects
 	if (_workers)
 	{
@@ -398,13 +405,6 @@ bool IOThreadPool::Shutdown()
 	}
 
 	_worker_count = 0;
-
-	// If port was created,
-	if (_io_port)
-	{
-		CloseHandle(_io_port);
-		_io_port = 0;
-	}
 
 	return true;
 }

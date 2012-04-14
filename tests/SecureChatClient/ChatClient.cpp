@@ -155,7 +155,5 @@ int main(int argc, char *argv[])
 		Clock::sleep(100);
 	}
 
-	RefSingletons::AtExit();
-
 	return 0;
 }

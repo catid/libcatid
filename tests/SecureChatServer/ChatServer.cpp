@@ -206,7 +206,5 @@ int main()
 		}
 	}
 
-	RefSingletons::AtExit();
-
 	return 0;
 }
