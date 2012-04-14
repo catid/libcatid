@@ -71,7 +71,8 @@ void GameConnexion::OnConnect()
 	CAT_WARN("Connexion") << "-- CONNECTED";
 
 	u8 test_msg[50000];
-	memset(test_msg, 0x55, sizeof(test_msg));
+	for (int ii = 0; ii < sizeof(test_msg); ++ii)
+		test_msg[ii] = (u8)(ii + 1);
 	WriteReliable(STREAM_UNORDERED, OP_TEST_FRAGMENTS, test_msg, sizeof(test_msg));
 
 	u16 key = getLE(GetMyID());
@@ -100,7 +101,7 @@ void GameConnexion::OnMessages(IncomingMessage msgs[], u32 count)
 			{
 				for (int ii = 1; ii < bytes; ++ii)
 				{
-					if (msg[ii] != 0x55)
+					if (msg[ii] != (u8)ii)
 					{
 						CAT_WARN("Connexion") << "TEST FAIL : Data mismatch =(";
 					}
@@ -204,6 +205,8 @@ int main()
 			Clock::sleep(100);
 		}
 	}
+
+	RefSingletons::AtExit();
 
 	return 0;
 }

@@ -650,6 +650,8 @@ void Transport::OnTransportDatagrams(ThreadLocalStorage &tls, const BatchSet &de
 					else CAT_WARN("Transport") << "Zero-length reliable message ignored";
 
 					RunReliableReceiveQueue(transport_tls, recv_time, ack_id + 1, stream);
+
+					CAT_DEBUG_CHECK_MEMORY();
 				}
 				else if (diff > 0) // Message is due to arrive
 				{
@@ -674,6 +676,8 @@ void Transport::OnTransportDatagrams(ThreadLocalStorage &tls, const BatchSet &de
 					OnACK(recv_time, data, data_bytes);
 				else if (super_opcode == SOP_INTERNAL)
 					OnInternal(recv_time, data, data_bytes);
+
+				CAT_DEBUG_CHECK_MEMORY();
 			}
 			else if (hdr == HDR_NOP)
 			{
@@ -686,6 +690,8 @@ void Transport::OnTransportDatagrams(ThreadLocalStorage &tls, const BatchSet &de
 			data += data_bytes;
 		} // while bytes >= 1
 	} // end for each buffer
+
+	CAT_DEBUG_CHECK_MEMORY();
 
 	// Deliver any messages that are queued up
 	DeliverQueued(transport_tls);
@@ -941,9 +947,6 @@ void Transport::OnFragment(TransportTLS *tls, u32 recv_time, u8 *data, u32 bytes
 		u8 *buffer = _fragments[stream].buffer;
 		memcpy(buffer + _fragments[stream].offset, data, fragment_remaining);
 
-		// Queue up this buffer for deletion after we are done
-		QueueFragFree(tls, buffer);
-
 		// If compression was used,
 		u32 fragment_decomp_length = _fragments[stream].decomp_length;
 		if (fragment_decomp_length > fragment_length)
@@ -970,6 +973,12 @@ void Transport::OnFragment(TransportTLS *tls, u32 recv_time, u8 *data, u32 bytes
 			fragment_length = fragment_decomp_length;
 		}
 
+		// Queue up this buffer for deletion after we are done
+		QueueFragFree(tls, buffer);
+
+		// Zero buffer pointer so that it won't be reclaimed on dtor
+		_fragments[stream].buffer = 0;
+
 		// Deliver this buffer
 		QueueDelivery(tls, stream, buffer, fragment_length);
 	}
@@ -978,6 +987,8 @@ void Transport::OnFragment(TransportTLS *tls, u32 recv_time, u8 *data, u32 bytes
 		memcpy(_fragments[stream].buffer + _fragments[stream].offset, data, bytes);
 		_fragments[stream].offset += bytes;
 	}
+
+	CAT_DEBUG_CHECK_MEMORY();
 }
 
 bool Transport::WriteOOB(u8 msg_opcode, const void *msg_data, u32 msg_bytes, SuperOpcode super_opcode)
@@ -1213,6 +1224,8 @@ void Transport::FlushWrites()
 	// If any datagrams to write,
 	if (outgoing_datagrams.head)
 		WriteDatagrams(outgoing_datagrams, count);
+
+	CAT_DEBUG_CHECK_MEMORY();
 }
 
 void Transport::WriteACK()
@@ -1366,6 +1379,8 @@ void Transport::WriteACK()
 	memcpy(pkt, packet_copy_source, msg_bytes);
 
 	_send_cluster_lock.Leave();
+
+	CAT_DEBUG_CHECK_MEMORY();
 }
 
 u32 Transport::RetransmitLost(u32 now)
@@ -2153,4 +2168,6 @@ void Transport::WriteQueuedReliable()
 	}
 
 	_send_cluster_lock.Leave();
+
+	CAT_DEBUG_CHECK_MEMORY();
 }

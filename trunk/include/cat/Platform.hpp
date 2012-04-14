@@ -773,7 +773,7 @@ private: \
 #  undef CAT_DEBUG_LEAKS_DUMP
 #  undef CAT_DEBUG_CHECK_MEMORY
 #  define CAT_DEBUG_LEAKS_DUMP() _CrtDumpMemoryLeaks()
-#  define CAT_DEBUG_CHECK_MEMORY() _CrtCheckMemory()
+#  define CAT_DEBUG_CHECK_MEMORY() CAT_ENFORCE(_CrtCheckMemory() != 0) << "Memory check failed!";
 # endif
 #endif
 
