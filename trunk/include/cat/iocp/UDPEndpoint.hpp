@@ -77,6 +77,8 @@ class CAT_EXPORT UDPEndpoint : public RefObject, public IOThreadsAssociator, pub
 	volatile u32 _buffers_posted; // Number of buffers posted to the socket waiting for data
 
 	IOThreadPool *_pool;
+	u32 _update_count;
+	UDPEndpoint *_update_next;
 
 	bool PostRead(RecvBuffer *buffer);
 	u32 PostReads(s32 limit, s32 reuse_count = 0, BatchSet set = BatchSet(0, 0));

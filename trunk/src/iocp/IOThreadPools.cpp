@@ -47,6 +47,7 @@ static SystemInfo *m_system_info = 0;
 CAT_INLINE bool IOThread::HandleCompletion(IOThreadPool *master, OVERLAPPED_ENTRY entries[], u32 count, u32 event_msec, BatchSet &sendq, BatchSet &recvq, UDPEndpoint *&prev_recv_endpoint, u32 &recv_count)
 {
 	bool exit_flag = false;
+	UDPEndpoint *update_node = 0;
 
 	// For each entry,
 	for (u32 ii = 0; ii < count; ++ii)
@@ -79,7 +80,15 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreadPool *master, OVERLAPPED_ENTR
 				sendq.tail = buffer;
 				buffer->batch_next = 0;
 
-				udp_endpoint->ReleaseRef(CAT_REFOBJECT_TRACE);
+				// Add to list of references to release
+				if (udp_endpoint->_update_count)
+					udp_endpoint->_update_count++;
+				else
+				{
+					udp_endpoint->_update_next = update_node;
+					update_node = udp_endpoint;
+					udp_endpoint->_update_count = 1;
+				}
 			}
 			break;
 
@@ -177,6 +186,14 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreadPool *master, OVERLAPPED_ENTR
 		m_std_allocator->ReleaseBatch(sendq);
 
 		sendq.Clear();
+	}
+
+	// If ref counts need to be updated,
+	while (update_node)
+	{
+		update_node->ReleaseRef(CAT_REFOBJECT_TRACE, update_node->_update_count);
+		update_node->_update_count = 0;
+		update_node = update_node->_update_next;
 	}
 
 	return exit_flag;
