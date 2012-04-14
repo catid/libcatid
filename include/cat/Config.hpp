@@ -85,7 +85,7 @@ namespace cat {
 #define CAT_RAGDOLL_STORE_EMPTY
 
 // Enable multi-threaded version of the logger, which reduces latency
-//#define CAT_THREADED_LOGGER
+#define CAT_THREADED_LOGGER
 
 // When not in debug mode, enable/disable levels of logging
 #define CAT_RELEASE_DISABLE_INANE
