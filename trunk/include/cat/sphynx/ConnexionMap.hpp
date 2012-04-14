@@ -33,6 +33,23 @@
 #include <cat/sphynx/Connexion.hpp>
 #include <cat/threads/RWLock.hpp>
 
+/*
+	Roaming IP
+
+		Roaming IP is implemented by adding two bytes to the front
+	of each c2s packet.  The extra field is used to uniquely identify
+	the clients rather than using the IP:port.  This is advantageous
+	because even if there is a change-over, any late-arriving packets
+	from the previous IP:port source tuple would get lost.
+
+		Instead of the "sanctity" of source routing being used to raise
+	the bar against forgeries, forgeries become much easier to attempt
+	but they are still foiled by the authenticated encryption layer.
+	Because I really detest even this slight lowering of the security
+	bar, I am making roaming IP compile-time optional so that it can be
+	turned off for desktop-dedicated applications.
+*/
+
 namespace cat {
 
 
@@ -50,17 +67,17 @@ public:
 	static const int CONNECTION_FLOOD_THRESHOLD = 10;
 
 private:
-	bool _is_shutdown;
+	volatile bool _is_shutdown;
 
-#if defined(CAT_SPYHNX_ROAMING_IP)
-	u32 _flood_salt, _ip_salt, _port_salt;
+#if defined(CAT_SPHYNX_ROAMING_IP)
+	static const int MAP_PREALLOC = 64;
+	u32 _flood_salt, _first_free;
 
-	union Slot
-	{
-		Connexion *conn;
-		u16 next_free;
-	};
-#else
+	Connexion **_conn_table;
+	u16 *_free_table;
+	u32 _map_alloc;
+
+#else // IP-based version:
 	u32 _flood_salt, _ip_salt, _port_salt;
 
 	struct Slot
@@ -70,12 +87,12 @@ private:
 	};
 
 	Slot _map_table[HASH_TABLE_SIZE];
-#endif // CAT_SPYHNX_ROAMING_IP
+#endif // CAT_SPHYNX_ROAMING_IP
 
 	RWLock _table_lock;
 	u8 _flood_table[HASH_TABLE_SIZE];
 
-	u32 _count;
+	volatile u32 _count;
 
 public:
 	ConnexionMap();
@@ -87,17 +104,21 @@ public:
 	// Initialize the hash salt
 	void Initialize(FortunaOutput *csprng);
 
+#if defined(CAT_SPHYNX_ROAMING_IP)
+	// Lookup client by id
+	// Returns true if flood guard triggered by address
+	bool LookupCheckFlood(Connexion * &connexion, const NetAddr &addr, u16 id);
+#else
 	// Lookup client by address
 	// Returns true if flood guard triggered
 	bool LookupCheckFlood(Connexion * &connexion, const NetAddr &addr);
+#endif // CAT_SPHYNX_ROAMING_IP
 
 	// Lookup client by key
 	Connexion *Lookup(u32 key);
 
-	// May return false if network address in Connexion is already in the map.
-	// This averts a potential race condition but should never happen during
-	// normal operation, so the Connexion allocation by caller won't be wasted
-	bool Insert(Connexion *conn);
+	// Returns ERR_NO_PROBLEMO if insertion succeeds, else an error code
+	SphynxError Insert(Connexion *conn);
 
 	// Remove Connexion object from the lookup table
 	void Remove(Connexion *conn);

@@ -69,6 +69,8 @@ void Connexion::OnDisconnectComplete()
 	Destroy(CAT_REFOBJECT_TRACE);
 }
 
+#if !defined(CAT_SPHYNX_ROAMING_IP)
+
 void Connexion::RetransmitAnswer(RecvBuffer *buffer)
 {
 	// Handle lost s2c answer by retransmitting it
@@ -106,6 +108,8 @@ void Connexion::RetransmitAnswer(RecvBuffer *buffer)
 	}
 }
 
+#endif // CAT_SPHYNX_ROAMING_IP
+
 void Connexion::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 {
 	u8 compress_buffer[IOTHREADS_BUFFER_READ_BYTES];
@@ -127,10 +131,14 @@ void Connexion::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 		CAT_INFO("Connexion") << "Decrypting " << data_bytes << " bytes in " << this;
 
 		// If the data could be decrypted,
-		if (data_bytes > SPHYNX_OVERHEAD &&
+		if (data_bytes > SPHYNX_C2S_OVERHEAD &&
+#if defined(CAT_SPHYNX_ROAMING_IP)
+			_auth_enc.Decrypt(data, data_bytes - 2))
+#else
 			_auth_enc.Decrypt(data, data_bytes))
+#endif
 		{
-			data_bytes -= SPHYNX_OVERHEAD;
+			data_bytes -= SPHYNX_C2S_OVERHEAD;
 
 			// If needs to be decompressed,
 			if (data[data_bytes])
@@ -153,10 +161,12 @@ void Connexion::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 
 			delivery.PushBack(buffer);
 		}
+#if !defined(CAT_SPHYNX_ROAMING_IP)
 		else if (buffer_count <= 1 && !_seen_encrypted)
 		{
 			RetransmitAnswer(buffer);
 		}
+#endif
 	}
 
 	// Process all datagrams that decrypted properly
@@ -180,6 +190,13 @@ void Connexion::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 		OnTransportDatagrams(tls, delivery);
 		_seen_encrypted = true;
 		_last_recv_tsc = Clock::msec_fast();
+
+#if defined(CAT_SPHYNX_ROAMING_IP)
+		// If client address needs to be updated,
+		RecvBuffer *tail = static_cast<RecvBuffer*>( delivery.tail );
+		if (_client_addr != tail->GetAddr())
+			_client_addr = tail->GetAddr();
+#endif
 	}
 
 	_parent->ReleaseRecvBuffers(buffers, buffer_count);
@@ -239,6 +256,12 @@ bool Connexion::WriteDatagrams(const BatchSet &buffers, u32 count)
 		SendBuffer *buffer = static_cast<SendBuffer*>( node );
 		u8 *msg_data = GetTrailingBytes(buffer);
 		u32 msg_bytes = buffer->GetBytes();
+
+#if defined(CAT_SPHYNX_ROAMING_IP)
+		// Remove extra overhead bytes for s2c stuff
+		msg_bytes -= 2;
+		buffer->SetBytes(msg_bytes);
+#endif
 
 		// Encrypt the message
 		_auth_enc.Encrypt(iv, msg_data, msg_bytes);

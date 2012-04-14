@@ -55,8 +55,9 @@ class CAT_EXPORT Client : public UDPEndpoint, public Transport
 
 	WaitableFlag _kill_flag;
 
-	bool _roaming_ip;
+#if defined(CAT_SPHYNX_ROAMING_IP)
 	u16 _my_id;
+#endif
 
 	u32 _last_send_msec;
 	NetAddr _server_addr;
@@ -113,11 +114,13 @@ public:
 	CAT_INLINE const char *GetRefObjectName() { return "Client"; }
 
 	// Once you call Connect(), the object may be deleted at any time.  If you want to keep a reference to it, AddRef() before calling
-	bool Connect(const char *hostname, Port port, TunnelPublicKey &public_key, const char *session_key, bool roaming_ip = false, ThreadLocalStorage *tls = 0);
-	bool Connect(const NetAddr &addr, TunnelPublicKey &public_key, const char *session_key, bool roaming_ip = false, ThreadLocalStorage *tls = 0);
+	bool Connect(const char *hostname, Port port, TunnelPublicKey &public_key, const char *session_key, ThreadLocalStorage *tls = 0);
+	bool Connect(const NetAddr &addr, TunnelPublicKey &public_key, const char *session_key, ThreadLocalStorage *tls = 0);
 
+#if defined(CAT_SPHYNX_ROAMING_IP)
 	// After connection, will return the user id of the client
 	CAT_INLINE u16 getMyId() { return _my_id; }
+#endif
 
 	// Current local time
 	CAT_INLINE u32 getLocalTime() { return _clock->msec(); }

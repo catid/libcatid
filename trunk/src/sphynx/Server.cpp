@@ -73,6 +73,9 @@ void Server::OnRecvRouting(const BatchSet &buffers)
 	u32 valid[MAX_VALID_WORDS] = { 0 };
 
 	RecvBuffer *prev_buffer = 0;
+#if defined(CAT_SPHYNX_ROAMING_IP)
+	u16 prev_buffer_id = ConnexionMap::INVALID_KEY;
+#endif
 
 	Connexion *conn;
 	u32 worker_id;
@@ -84,20 +87,43 @@ void Server::OnRecvRouting(const BatchSet &buffers)
 		next = node->batch_next;
 		RecvBuffer *buffer = static_cast<RecvBuffer*>( node );
 
+		// If buffer is too short to contain Roaming IP source id field,
+		if (buffer->data_bytes < 2)
+		{
+			// If close signal is received,
+			if (buffer->data_bytes == 0)
+				Destroy(CAT_REFOBJECT_TRACE);
+
+			// Trash it
+			garbage.PushBack(buffer);
+			++garbage_count;
+			continue;
+		}
+
+#if defined(CAT_SPHYNX_ROAMING_IP)
+		// Get source id
+		u16 *pid = reinterpret_cast<u16*>( GetTrailingBytes(buffer) + buffer->data_bytes - 2 );
+		u16 id = getLE(*pid);
+#endif
+
 		SetRemoteAddress(buffer);
 
 		// If source address has changed,
+#if defined(CAT_SPHYNX_ROAMING_IP)
+		if (!prev_buffer || id != prev_buffer_id)
+#else
 		if (!prev_buffer || buffer->GetAddr() != prev_buffer->GetAddr())
+#endif
 		{
 			// If reference counts need to be added,
 			if (add_ref_count) conn->AddRef(CAT_REFOBJECT_TRACE, add_ref_count);
 			add_ref_count = 0;
 
-			// If close signal is received,
-			if (buffer->data_bytes == 0)
-				Destroy(CAT_REFOBJECT_TRACE);
-
+#if defined(CAT_SPHYNX_ROAMING_IP)
+			if (_conn_map.LookupCheckFlood(conn, buffer->GetAddr(), id))
+#else
 			if (_conn_map.LookupCheckFlood(conn, buffer->GetAddr()))
+#endif
 			{
 				// Flood detected on unconnected client, insert into garbage list
 				garbage.PushBack(buffer);
@@ -124,6 +150,9 @@ void Server::OnRecvRouting(const BatchSet &buffers)
 
 				// Compare to this buffer next time
 				prev_buffer = buffer;
+#if defined(CAT_SPHYNX_ROAMING_IP)
+				prev_buffer_id = id;
+#endif
 			}
 		}
 		else if (conn)
@@ -208,15 +237,12 @@ void Server::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 		}
 
 		// If magic does not match,
-		u64 *protocol_magic = reinterpret_cast<u64*>( data );
+		u64 *protocol_magic = reinterpret_cast<u64*>( data + bytes - sizeof(PROTOCOL_MAGIC) );
 		if (*protocol_magic != getLE(PROTOCOL_MAGIC))
 		{
 			CAT_WARN("Server") << "Ignoring handshake packet: Bad magic";
 			continue;
 		}
-
-		// Shift data pointer to type byte
-		data += sizeof(PROTOCOL_MAGIC);
 
 		// Process message by type and length
 		if (bytes == C2S_HELLO_LEN && data[0] == C2S_HELLO)
@@ -330,9 +356,11 @@ void Server::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 				// Finish constructing the answer packet
 				pkt[0] = S2C_ANSWER;
 
+#if !defined(CAT_SPHYNX_ROAMING_IP)
 				// Initialize Connexion object
 				conn->_first_challenge_hash = MurmurHash(challenge, CHALLENGE_BYTES).Get64();
-				memcpy(conn->_cached_answer, pkt + 1 + 2, ANSWER_BYTES);
+				memcpy(conn->_cached_answer, pkt + 1, ANSWER_BYTES);
+#endif
 				conn->_client_addr = buffer->GetAddr();
 				conn->_last_recv_tsc = buffer->event_msec;
 				conn->_parent = this;
@@ -349,24 +377,40 @@ void Server::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 				// Assign to a worker
 				conn->_worker_id = m_worker_threads->AssignTimer(conn, WorkerTimerDelegate::FromMember<Connexion, &Connexion::OnTick>(conn));
 
-				if (!Write(pkt, S2C_ANSWER_LEN, buffer->GetAddr()))
-				{
-					CAT_WARN("Server") << "Ignoring challenge: Unable to post packet";
-				}
+				// Attempt to insert connexion into the map
+				SphynxError err = _conn_map.Insert(conn);
+
 				// If hash key could not be inserted,
-				else if (!_conn_map.Insert(conn))
+				if (err != ERR_NO_PROBLEMO)
 				{
-					CAT_WARN("Server") << "Ignoring challenge: Same client already connected (race condition)";
+					CAT_WARN("Server") << "Ignoring challenge: Connexion map rejected the new connexion";
+
+					pkt[0] = S2C_ERROR;
+					pkt[1] = (u8)err;
+					Write(pkt, S2C_ERROR_LEN, buffer->GetAddr());
 				}
-				// If server is still not shutting down,
-				else if (!IsShutdown())
+				else
 				{
-					CAT_WARN("Server") << "Accepted challenge and posted answer.  Client connected";
+#if defined(CAT_SPHYNX_ROAMING_IP)
+					u16 *user_id = reinterpret_cast<u16*>( pkt + 1 + ANSWER_BYTES );
+					*user_id = getLE((u16)conn->GetMyID());
+#endif
 
-					conn->OnConnect();
+					// If unable to post packet,
+					if (!Write(pkt, S2C_ANSWER_LEN, buffer->GetAddr()))
+					{
+						CAT_WARN("Server") << "Ignoring challenge: Unable to post packet";
+					}
+					// If server is still not shutting down,
+					else if (!IsShutdown())
+					{
+						CAT_WARN("Server") << "Accepted challenge and posted answer.  Client connected";
 
-					// Do not shutdown the object
-					conn.Forget();
+						conn->OnConnect();
+
+						// Do not shutdown the object
+						conn.Forget();
+					}
 				}
 			}
 

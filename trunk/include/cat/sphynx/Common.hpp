@@ -43,7 +43,7 @@
 // TODO: fix a bug that drops data on the floor when it arrives out of order
 // TODO: add buffer pool for sending
 
-//#define CAT_SPYHNX_ROAMING_IP /* Add extra 2 byte header to each c2s packet to support roaming ip */
+#define CAT_SPHYNX_ROAMING_IP /* Add extra 2 byte header to each c2s packet to support roaming ip */
 
 #define CAT_TRANSPORT_RANDOMIZE_LENGTH /* Add extra no-op bytes to the end of each datagram to mask true length */
 
@@ -75,10 +75,14 @@ static const int PUBLIC_KEY_BYTES = 64;
 static const int PRIVATE_KEY_BYTES = 32;
 static const int CHALLENGE_BYTES = PUBLIC_KEY_BYTES;
 static const int ANSWER_BYTES = PUBLIC_KEY_BYTES*2;
-#if defined(CAT_SPYHNX_ROAMING_IP)
-static const int SPHYNX_OVERHEAD = AuthenticatedEncryption::OVERHEAD_BYTES + 2;
+#if defined(CAT_SPHYNX_ROAMING_IP)
+static const int SPHYNX_S2C_OVERHEAD = AuthenticatedEncryption::OVERHEAD_BYTES;
+static const int SPHYNX_C2S_OVERHEAD = AuthenticatedEncryption::OVERHEAD_BYTES + 2;
+static const int SPHYNX_OVERHEAD = SPHYNX_C2S_OVERHEAD; // Use larger one for shared Transport layer
 #else
 static const int SPHYNX_OVERHEAD = AuthenticatedEncryption::OVERHEAD_BYTES;
+static const int SPHYNX_S2C_OVERHEAD = SPHYNX_OVERHEAD;
+static const int SPHYNX_C2S_OVERHEAD = SPHYNX_OVERHEAD;
 #endif
 
 // Client constants
@@ -101,17 +105,17 @@ static const int TS_MIN_SAMPLES = 1; // Minimum number of timestamp samples
 // Handshake types
 enum HandshakeType
 {
-	C2S_HELLO = 85,		// c2s (magic[8]) 55 (server public key[64])
+	C2S_HELLO = 85,		// c2s 55 (server public key[64]) (magic[8])
 	S2C_COOKIE = 24,	// s2c 18 (cookie[4])
-	C2S_CHALLENGE = 9,	// c2s (magic[8]) 09 (cookie[4]) (challenge[64])
+	C2S_CHALLENGE = 9,	// c2s 09 (cookie[4]) (challenge[64]) (magic[8])
 	S2C_ANSWER = 108,	// s2c 6c (data port[2]) (answer[128])
 	S2C_ERROR = 162		// s2c a2 (error code[1])
 };
 
 // Handshake type lengths
-static const u32 C2S_HELLO_LEN = sizeof(PROTOCOL_MAGIC) + 1 + PUBLIC_KEY_BYTES;
+static const u32 C2S_HELLO_LEN = 1 + PUBLIC_KEY_BYTES + sizeof(PROTOCOL_MAGIC);
 static const u32 S2C_COOKIE_LEN = 1 + 4;
-#if defined(CAT_SPYHNX_ROAMING_IP)
+#if defined(CAT_SPHYNX_ROAMING_IP)
 static const u32 S2C_ANSWER_LEN = 1 + ANSWER_BYTES + 2;
 #else
 static const u32 S2C_ANSWER_LEN = 1 + ANSWER_BYTES;
@@ -122,6 +126,8 @@ static const u32 S2C_ERROR_LEN = 1 + 1;
 // Handshake errors
 enum SphynxError
 {
+	ERR_NO_PROBLEMO,	// No error
+
 	ERR_CLIENT_OUT_OF_MEMORY,
 	ERR_CLIENT_INVALID_KEY,
 	ERR_CLIENT_SERVER_ADDR,
@@ -134,7 +140,9 @@ enum SphynxError
 	ERR_TAMPERING = 0xcc,
 	ERR_BLOCKED = 0xb7,
 	ERR_SHUTDOWN = 0x3a,
-	ERR_SERVER_ERROR = 0x1f
+	ERR_SERVER_ERROR = 0x1f,
+	ERR_ALREADY_CONN = 0x29,
+	ERR_FLOOD = 0x8d
 };
 
 // Convert handshake error string to user-readable error message

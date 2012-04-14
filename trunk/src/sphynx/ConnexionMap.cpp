@@ -62,6 +62,8 @@ static CAT_INLINE u32 flood_hash_addr(const NetAddr &addr, u32 salt)
 	return key;
 }
 
+#if !defined(CAT_SPHYNX_ROAMING_IP)
+
 static CAT_INLINE u32 map_hash_addr(const NetAddr &addr, u32 ip_salt, u32 port_salt)
 {
 	u32 key;
@@ -91,12 +93,21 @@ static CAT_INLINE u32 map_hash_addr(const NetAddr &addr, u32 ip_salt, u32 port_s
 	return key;
 }
 
+#endif // !CAT_SPHYNX_ROAMING_IP
+
 
 //// ConnexionMap
 
 ConnexionMap::ConnexionMap()
 {
+#if defined(CAT_SPHYNX_ROAMING_IP)
+	_conn_table = 0;
+	_free_table = 0;
+	_first_free = ConnexionMap::INVALID_KEY;
+	_map_alloc = 0;
+#else
 	CAT_OBJCLR(_map_table);
+#endif
 	CAT_OBJCLR(_flood_table);
 	_is_shutdown = false;
 	_count = 0;
@@ -104,14 +115,50 @@ ConnexionMap::ConnexionMap()
 
 ConnexionMap::~ConnexionMap()
 {
+#if defined(CAT_SPHYNX_ROAMING_IP)
+	if (_conn_table)
+	{
+		delete []_conn_table;
+		_conn_table = 0;
+	}
+
+	if (_free_table)
+	{
+		delete []_free_table;
+		_free_table = 0;
+	}
+#endif
 }
 
 void ConnexionMap::Initialize(FortunaOutput *csprng)
 {
+#if !defined(CAT_SPHYNX_ROAMING_IP)
 	_ip_salt = csprng->Generate();
 	_port_salt = csprng->Generate();
+#endif
 	_flood_salt = csprng->Generate();
 }
+
+#if defined(CAT_SPHYNX_ROAMING_IP)
+
+bool ConnexionMap::LookupCheckFlood(Connexion * &connexion, const NetAddr &addr, u16 id)
+{
+	connexion = Lookup(id);
+
+	// If id is not found,
+	if (!connexion)
+	{
+		// Do flood key computation only if address is not in the address map table
+		u32 flood_key = flood_hash_addr(addr, _flood_salt) & HASH_TABLE_MASK;
+
+		// If flood threshold breached,
+		return (_flood_table[flood_key] >= CONNECTION_FLOOD_THRESHOLD);
+	}
+
+	return false;
+}
+
+#else
 
 bool ConnexionMap::LookupCheckFlood(Connexion * &connexion, const NetAddr &addr)
 {
@@ -166,29 +213,36 @@ bool ConnexionMap::LookupCheckFlood(Connexion * &connexion, const NetAddr &addr)
 	return (_flood_table[flood_key] >= CONNECTION_FLOOD_THRESHOLD);
 }
 
+#endif // CAT_SPHYNX_ROAMING_IP
+
 Connexion *ConnexionMap::Lookup(u32 key)
 {
-	if (key >= HASH_TABLE_SIZE) return 0;
+	if (key >= _map_alloc) return 0;
 
 	AutoReadLock lock(_table_lock);
 
 	if (IsShutdown())
 		return 0;
 
+#if defined(CAT_SPHYNX_ROAMING_IP)
+	Connexion *conn = _conn_table[key];
+#else
 	Connexion *conn = _map_table[key].conn;
+#endif
 
 	if (conn)
 	{
 		conn->AddRef(CAT_REFOBJECT_TRACE);
-
 		return conn;
 	}
 
 	return 0;
 }
 
-bool ConnexionMap::Insert(Connexion *conn)
+SphynxError ConnexionMap::Insert(Connexion *conn)
 {
+#if !defined(CAT_SPHYNX_ROAMING_IP)
+
 	// Hash IP:port:salt to get the hash table key
 	u32 key = map_hash_addr(conn->_client_addr, _ip_salt, _port_salt) & HASH_TABLE_MASK;
 	u32 flood_key = flood_hash_addr(conn->_client_addr, _flood_salt) & HASH_TABLE_MASK;
@@ -205,7 +259,7 @@ bool ConnexionMap::Insert(Connexion *conn)
 	{
 		lock.Release();
 		conn->ReleaseRef(CAT_REFOBJECT_TRACE);
-		return false;
+		return ERR_SHUTDOWN;
 	}
 
 	// While collision keys are marked used,
@@ -216,7 +270,7 @@ bool ConnexionMap::Insert(Connexion *conn)
 		{
 			lock.Release();
 			conn->ReleaseRef(CAT_REFOBJECT_TRACE);
-			return false;
+			return ERR_ALREADY_CONN;
 		}
 
 		// Set flag for collision
@@ -240,10 +294,110 @@ bool ConnexionMap::Insert(Connexion *conn)
 
 	lock.Release();
 
+#else // Roaming IP version:
+
+	// Hash IP:port:salt to get the hash table key
+	u32 flood_key = flood_hash_addr(conn->_client_addr, _flood_salt) & HASH_TABLE_MASK;
+
+	// Add a reference to the Connexion
+	conn->AddRef(CAT_REFOBJECT_TRACE);
+
+	AutoWriteLock lock(_table_lock);
+
+	if (IsShutdown())
+	{
+		lock.Release();
+		conn->ReleaseRef(CAT_REFOBJECT_TRACE);
+		return ERR_SHUTDOWN;
+	}
+
+	// If flood count is above threshold,
+	if (_flood_table[flood_key] > CONNECTION_FLOOD_THRESHOLD)
+	{
+		lock.Release();
+		CAT_INFO("ConnexionMap") << "Ignored connexion flood from " << conn->GetAddress().IPToString() << " : " << conn->GetAddress().GetPort();
+		conn->ReleaseRef(CAT_REFOBJECT_TRACE);
+		return ERR_FLOOD;
+	}
+
+	// If no free slots,
+	u16 slot_id = _first_free;
+	if (slot_id == ConnexionMap::INVALID_KEY)
+	{
+		// If out of room,
+		if (_map_alloc >= MAX_POPULATION)
+		{
+			lock.Release();
+			CAT_INFO("ConnexionMap") << "Cannot accept new connexion from " << conn->GetAddress().IPToString() << " : " << conn->GetAddress().GetPort();
+			conn->ReleaseRef(CAT_REFOBJECT_TRACE);
+			return ERR_SERVER_FULL;
+		}
+
+		// Expand!
+
+		u32 old_alloc = _map_alloc;
+		u32 new_alloc = old_alloc * 2;
+		if (new_alloc > MAX_POPULATION) new_alloc = MAX_POPULATION;
+		else if (new_alloc < MAP_PREALLOC) new_alloc = MAP_PREALLOC;
+
+		// Allocate tables
+		Connexion **conn_table;
+		do conn_table = new (std::nothrow) Connexion*[new_alloc];
+		while (!conn_table);
+
+		u16 *free_table;
+		do free_table = new (std::nothrow) u16[new_alloc];
+		while (!free_table);
+
+		// Copy old data over
+		if (_conn_table) memcpy(conn_table, _conn_table, sizeof(Connexion*) * old_alloc);
+
+		// Clear the new connexion pointers
+		memset(conn_table + old_alloc, 0, sizeof(Connexion*) * (new_alloc - old_alloc));
+
+		// Release old tables
+		delete []_conn_table;
+		delete []_free_table;
+
+		// Replace old table
+		_map_alloc = new_alloc;
+		_conn_table = conn_table;
+		_free_table = free_table;
+
+		// Initialize free list
+		_first_free = old_alloc + 1;
+		for (u32 ii = old_alloc + 1; ii < new_alloc - 1; ++ii)
+			_free_table[ii] = (u16)(ii + 1);
+		_free_table[new_alloc - 1] = ConnexionMap::INVALID_KEY;
+
+		// Use the first free slot for the new slot
+		slot_id = old_alloc;
+	}
+
+	// Set connexion pointer for the slot
+	_conn_table[slot_id] = conn;
+
+	// Advance first free index
+	_first_free = _free_table[slot_id];
+
+	// Increment population count
+	_count++;
+
+	// Increment flood count
+	_flood_table[flood_key]++;
+
+	// Set map properties in connexion object
+	conn->_my_id = slot_id;
+	conn->_flood_key = flood_key;
+
+	lock.Release();
+
+#endif // CAT_SPHYNX_ROAMING_IP
+
 	CAT_INFO("ConnexionMap") << "Inserted connexion from " << conn->GetAddress().IPToString() << " : " << conn->GetAddress().GetPort() << " id=" << conn->GetMyID();
 
 	// Keeps reference held
-	return true;
+	return ERR_NO_PROBLEMO;
 }
 
 void ConnexionMap::Remove(Connexion *conn)
@@ -260,6 +414,8 @@ void ConnexionMap::Remove(Connexion *conn)
 	conn->ReleaseRef(CAT_REFOBJECT_TRACE);
 
 	AutoWriteLock lock(_table_lock);
+
+#if !defined(CAT_SPHYNX_ROAMING_IP)
 
 	// Remove connexion
 	_map_table[key].conn = 0;
@@ -283,6 +439,14 @@ void ConnexionMap::Remove(Connexion *conn)
 		} while (!_map_table[key].conn);
 	}
 
+#else
+
+	_conn_table[key] = 0;
+	_free_table[key] = _first_free;
+	_first_free = key;
+
+#endif // CAT_SPHYNX_ROAMING_IP
+
 	_count--;
 
 	_flood_table[conn->_flood_key]--;
@@ -297,6 +461,8 @@ void ConnexionMap::ShutdownAll()
 	AutoWriteLock lock(_table_lock);
 
 	_is_shutdown = true;
+
+#if !defined(CAT_SPHYNX_ROAMING_IP)
 
 	// For each hash table bin,
 	for (int key = 0; key < HASH_TABLE_SIZE; ++key)
@@ -314,6 +480,25 @@ void ConnexionMap::ShutdownAll()
 
 		_map_table[key].collision = false;
 	}
+
+#else
+
+	// For each bin,
+	for (u32 key = 0; key < _map_alloc; ++key)
+	{
+		Connexion *conn = _conn_table[key];
+
+		// If table entry is populated,
+		if (conn)
+		{
+			conn->AddRef(CAT_REFOBJECT_TRACE);
+			connexions.push_back(conn);
+
+			_conn_table[key] = 0;
+		}
+	}
+
+#endif // CAT_SPHYNX_ROAMING_IP
 
 	_count = 0;
 
