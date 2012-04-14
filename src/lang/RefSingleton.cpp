@@ -333,6 +333,8 @@ void RefSingletons::AtExit()
 		m_ref_singletons->OnFinalize();
 		m_ref_singletons = 0;
 	}
+
+	CAT_DEBUG_LEAKS_DUMP();
 }
 
 CAT_SINGLETON(RefSingletons);
