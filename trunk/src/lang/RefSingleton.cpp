@@ -341,7 +341,7 @@ CAT_SINGLETON(RefSingletons);
 
 bool RefSingletons::OnInitialize()
 {
-	CAT_DEBUG_SET();
+	CAT_DEBUG_MEM_FLAGS();
 
 	m_ref_singletons = this;
 

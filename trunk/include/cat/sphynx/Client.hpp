@@ -94,7 +94,7 @@ class CAT_EXPORT Client : public UDPEndpoint, public Transport
 	// Return false to remove resolve from cache
 	bool OnDNSResolve(const char *hostname, const NetAddr *array, int array_length);
 
-	virtual bool WriteDatagrams(const BatchSet &buffers, u32 count);
+	virtual s32 WriteDatagrams(const BatchSet &buffers, u32 count);
 	virtual void OnInternal(u32 recv_time, BufferStream msg, u32 bytes);
 	virtual void OnDisconnectComplete();
 

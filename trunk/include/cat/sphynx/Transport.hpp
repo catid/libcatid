@@ -425,7 +425,7 @@ class CAT_EXPORT Transport
 	// Queue of outgoing datagrams for batched output
 	// Protected by _send_cluster_lock
 	BatchSet _outgoing_datagrams;
-	u32 _outgoing_datagrams_count, _outgoing_datagrams_bytes;
+	u32 _outgoing_datagrams_count;
 
 	// Random padding state
 	ChaChaOutput _rand_pad_csprng;
@@ -462,14 +462,16 @@ class CAT_EXPORT Transport
 	// Returns the last node to send or 0 if no nodes remain
 	static OutgoingMessage *DequeueBandwidth(OutgoingMessage *head, s32 available_bytes, s32 &used_bytes);
 
-	static CAT_INLINE s32 ClusterReliableAppend(u32 stream, u32 &ack_id, u8 *pkt,
+	static CAT_INLINE void ClusterReliableAppend(u32 stream, u32 &ack_id, u8 *pkt,
 		u32 &ack_id_overhead, u32 &frag_overhead, SendCluster &cluster, u8 sop,
 		const u8 *copy_src, u32 copy_bytes, u16 frag_total_bytes, u16 frag_comp_bytes);
 
 	// Write one SendQueue node into the send buffer
 	bool WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s32 &remaining);
 
-	void WriteQueuedReliable();
+	// Returns true if send cluster is still locked
+	bool WriteQueuedReliable();
+
 	void Retransmit(u32 stream, OutgoingMessage *node, u32 now); // Does not hold the send lock!
 	void WriteACK();
 	void OnACK(u32 recv_time, u8 *data, u32 data_bytes);
@@ -532,7 +534,8 @@ protected:
 
 	virtual void OnDisconnectComplete() = 0;
 
-	virtual bool WriteDatagrams(const BatchSet &buffers, u32 count) = 0;
+	// Return the number of bytes written across all datagrams or 0 for error
+	virtual s32 WriteDatagrams(const BatchSet &buffers, u32 count) = 0;
 
 	virtual void OnMessages(IncomingMessage msgs[], u32 count) = 0;
 	virtual void OnInternal(u32 recv_time, BufferStream msg, u32 bytes) = 0; // precondition: bytes > 0
