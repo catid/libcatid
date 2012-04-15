@@ -341,6 +341,8 @@ CAT_SINGLETON(RefSingletons);
 
 bool RefSingletons::OnInitialize()
 {
+	CAT_DEBUG_SET();
+
 	m_ref_singletons = this;
 
 	std::atexit(&RefSingletons::AtExit);
