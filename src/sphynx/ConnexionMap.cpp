@@ -217,7 +217,11 @@ bool ConnexionMap::LookupCheckFlood(Connexion * &connexion, const NetAddr &addr)
 
 Connexion *ConnexionMap::Lookup(u32 key)
 {
+#if defined(CAT_SPHYNX_ROAMING_IP)
 	if (key >= _map_alloc) return 0;
+#else
+	if (key >= HASH_TABLE_SIZE) return 0;
+#endif
 
 	AutoReadLock lock(_table_lock);
 
@@ -365,8 +369,8 @@ SphynxError ConnexionMap::Insert(Connexion *conn)
 		_free_table = free_table;
 
 		// Initialize free list
-		_first_free = old_alloc + 1;
-		for (u32 ii = old_alloc + 1; ii < new_alloc - 1; ++ii)
+		_first_free = old_alloc;
+		for (u32 ii = old_alloc; ii < new_alloc - 1; ++ii)
 			_free_table[ii] = (u16)(ii + 1);
 		_free_table[new_alloc - 1] = ConnexionMap::INVALID_KEY;
 
