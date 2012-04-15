@@ -618,7 +618,9 @@ bool Client::WriteDatagrams(const BatchSet &buffers, u32 count)
 		We need to add the 11 bytes of overhead to this before writing it.
 	*/
 
+#if defined(CAT_SPHYNX_ROAMING_IP)
 	u16 my_id = getLE((u16)_my_id);
+#endif
 
 	// For each datagram to send,
 	for (BatchHead *node = buffers.head; node; node = node->batch_next)
