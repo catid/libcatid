@@ -276,6 +276,8 @@ const char *cat::sphynx::GetSphynxErrorString(SphynxError err)
 	case ERR_WRONG_KEY:				return "Wrong key";
 	case ERR_SERVER_FULL:			return "Server full";
 	case ERR_TAMPERING:				return "Tampering detected";
+	case ERR_ALREADY_CONN:			return "Already connected";
+	case ERR_FLOOD:					return "Flood detected";
 	case ERR_BLOCKED:				return "Blocked";
 	case ERR_SHUTDOWN:				return "Server shutdown";
 	case ERR_SERVER_ERROR:			return "Server error";

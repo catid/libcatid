@@ -278,8 +278,13 @@ void Connexion::OnInternal(u32 recv_time, BufferStream data, u32 bytes)
 	case IOP_C2S_MTU_PROBE:
 		if (bytes >= IOP_C2S_MTU_TEST_MINLEN)
 		{
+#if defined(CAT_SPHYNX_ROAMING_IP)
+			// The byte count does not include the 2 byte header and 2 byte user id
+			bytes += 2 + 2;
+#else
 			// The byte count does not include the 2 byte header
 			bytes += 2;
+#endif
 
 			CAT_WARN("Server") << "Got IOP_C2S_MTU_PROBE.  Max payload bytes = " << bytes;
 
