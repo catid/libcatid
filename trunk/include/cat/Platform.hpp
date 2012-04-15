@@ -763,6 +763,7 @@ private: \
 
 //// Memory Leaks ////
 
+#define CAT_DEBUG_SET()
 #define CAT_DEBUG_LEAKS_DUMP()
 #define CAT_DEBUG_CHECK_MEMORY()
 #if defined(CAT_DEBUG_LEAKS)
@@ -770,9 +771,11 @@ private: \
 #  define _CRTDBG_MAP_ALLOC
 #  include <stdlib.h>
 #  include <crtdbg.h>
+#  undef CAT_DEBUG_SET
 #  undef CAT_DEBUG_LEAKS_DUMP
 #  undef CAT_DEBUG_CHECK_MEMORY
-#  define CAT_DEBUG_LEAKS_DUMP() _CrtDumpMemoryLeaks()
+#  define CAT_DEBUG_SET() _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_CHECK_EVERY_128_DF | _CRTDBG_CHECK_CRT_DF | _CRTDBG_DELAY_FREE_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+#  define CAT_DEBUG_LEAKS_DUMP() _CrtDumpMemoryLeaks();
 #  define CAT_DEBUG_CHECK_MEMORY() CAT_ENFORCE(_CrtCheckMemory() != 0) << "Memory check failed!";
 # endif
 #endif

@@ -286,8 +286,6 @@ void Connexion::OnInternal(u32 recv_time, BufferStream data, u32 bytes)
 			bytes += 2;
 #endif
 
-			CAT_WARN("Server") << "Got IOP_C2S_MTU_PROBE.  Max payload bytes = " << bytes;
-
 			// If new maximum payload is greater than the previous one,
 			if (bytes > _max_payload_bytes)
 			{
@@ -297,6 +295,8 @@ void Connexion::OnInternal(u32 recv_time, BufferStream data, u32 bytes)
 				u16 mtu = getLE((u16)bytes);
 				WriteReliable(STREAM_UNORDERED, IOP_S2C_MTU_SET, &mtu, 2, SOP_INTERNAL);
 			}
+
+			CAT_WARN("Connexion") << "Got IOP_C2S_MTU_PROBE.  Max payload bytes = " << bytes;
 		}
 		break;
 
@@ -309,7 +309,7 @@ void Connexion::OnInternal(u32 recv_time, BufferStream data, u32 bytes)
 
 			WriteOOB(IOP_S2C_TIME_PONG, stamps, sizeof(stamps), SOP_INTERNAL);
 
-			CAT_WARN("Server") << "Got IOP_C2S_TIME_PING.  Stamp = " << *client_timestamp;
+			CAT_WARN("Connexion") << "Got IOP_C2S_TIME_PING.  Stamp = " << *client_timestamp;
 		}
 		break;
 
@@ -324,7 +324,7 @@ void Connexion::OnInternal(u32 recv_time, BufferStream data, u32 bytes)
 	case IOP_DISCO:
 		if (bytes == IOP_DISCO_LEN)
 		{
-			CAT_WARN("Server") << "Got IOP_DISCO reason = " << (int)data[1];
+			CAT_WARN("Connexion") << "Got IOP_DISCO reason = " << (int)data[1];
 
 			Disconnect(data[1]);
 		}

@@ -668,14 +668,14 @@ void Client::OnInternal(u32 recv_time, BufferStream data, u32 bytes)
 			max_payload_bytes -= 2;
 #endif
 
-			CAT_WARN("Client") << "Got IOP_S2C_MTU_SET.  Max payload bytes = " << max_payload_bytes;
-
 			// If new maximum payload is greater than the previous one,
 			if (max_payload_bytes > _max_payload_bytes)
 			{
 				// Set max payload bytes
 				_max_payload_bytes = max_payload_bytes;
 			}
+
+			CAT_WARN("Client") << "Got IOP_S2C_MTU_SET.  Max payload bytes = " << max_payload_bytes;
 		}
 		break;
 

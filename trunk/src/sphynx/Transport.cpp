@@ -1892,12 +1892,11 @@ bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s
 		ack_id_overhead = GetACKIDOverhead(ack_id, remote_expected);
 
 	u16 sent_bytes = node->sent_bytes;
-	s32 bytes_to_send = node->GetBytes() - sent_bytes;
 
 	// Grab the number of bytes to send from the QoS stuff above
 	s32 send_limit = node->send_bytes;
 	if (send_limit) node->send_bytes = 0;
-	else send_limit = remaining;
+	else send_limit = node->GetBytes() - sent_bytes;
 
 	// If node is already fragmented then we have sent some data before
 	bool fragmented = sent_bytes > 0;
@@ -1909,7 +1908,7 @@ bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s
 		u32 frag_overhead = 0;
 
 		// If message would be fragmented,
-		if (MAX_MESSAGE_HEADER_BYTES + ack_id_overhead + bytes_to_send > remaining_send_buffer)
+		if (MAX_MESSAGE_HEADER_BYTES + ack_id_overhead + send_limit > remaining_send_buffer)
 		{
 			// If it is worth fragmentation,
 			if (remaining_send_buffer >= FRAG_THRESHOLD)
@@ -1922,16 +1921,15 @@ bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s
 			}
 			else if (cluster.bytes > 0) // Not worth fragmentation, dump current send buffer
 			{
+				QueueWriteDatagram(cluster);
+				cluster.Clear();
+
 				// If no more room remaining within bandwidth limit,
-				remaining -= cluster.bytes;
-				if (remaining <= FRAG_THRESHOLD)
+				if (remaining <= (s32)FRAG_THRESHOLD)
 				{
 					success = false;
 					break;
 				}
-
-				QueueWriteDatagram(cluster);
-				cluster.Clear();
 
 				remaining_send_buffer = max_payload_bytes;
 				ack_id_overhead = GetACKIDOverhead(ack_id, remote_expected);
@@ -1939,7 +1937,7 @@ bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s
 				if (!fragmented)
 				{
 					// If the message is still fragmented after emptying the send buffer,
-					if (MAX_MESSAGE_HEADER_BYTES + ack_id_overhead + bytes_to_send > remaining_send_buffer)
+					if (MAX_MESSAGE_HEADER_BYTES + ack_id_overhead + send_limit > remaining_send_buffer)
 					{
 						frag_overhead = FRAG_HEADER_BYTES;
 						fragmented = true;
@@ -1955,7 +1953,7 @@ bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s
 
 		// Calculate total bytes to write to the send buffer on this pass
 		u32 overhead = MAX_MESSAGE_HEADER_BYTES + ack_id_overhead + frag_overhead;
-		u32 msg_bytes = overhead + bytes_to_send;
+		u32 msg_bytes = overhead + send_limit;
 		u32 write_bytes = min(msg_bytes, remaining_send_buffer);
 
 		// Limit size to allow ACK-ID decompression during retransmission
@@ -1992,8 +1990,8 @@ bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s
 					node->SetBytes(compress_bytes);
 
 					// Recalculate copy bytes
-					bytes_to_send = compress_bytes;
-					msg_bytes = overhead + bytes_to_send;
+					send_limit = compress_bytes;
+					msg_bytes = overhead + send_limit;
 					write_bytes = min(msg_bytes, remaining_send_buffer);
 
 					// Limit size to allow ACK-ID decompression during retransmission
@@ -2043,12 +2041,11 @@ bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s
 			data_bytes_to_copy, node->GetBytes(), node->orig_bytes);
 
 		sent_bytes += data_bytes_to_copy;
-		remaining -= data_bytes_to_copy;
-		bytes_to_send -= data_bytes_to_copy;
+		send_limit -= data_bytes_to_copy;
 
 		CAT_FATAL("Transport") << "Wrote " << stream << ": bytes=" << data_bytes_to_copy << " ack_id=" << ack_id;
 
-	} while (bytes_to_send > 0); // end while sending message fragments
+	} while (send_limit > 0); // end while sending message fragments
 
 	// If node is fragmented, remember number of bytes sent
 	if (fragmented) node->sent_bytes = sent_bytes;
@@ -2138,9 +2135,6 @@ void Transport::WriteQueuedReliable()
 
 	// Write dequeued messages to the send cluster
 	_send_cluster_lock.Enter();
-
-	// Subtract off the number of bytes already queued up for sending
-	remaining -= _outgoing_datagrams_bytes;
 
 	// For each stream,
 	for (u32 stream = 0; stream < NUM_STREAMS; ++stream)
