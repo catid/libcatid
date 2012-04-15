@@ -604,9 +604,10 @@ bool Client::WriteTimePing()
 	return WriteOOB(IOP_C2S_TIME_PING, &timestamp, 4, SOP_INTERNAL);
 }
 
-bool Client::WriteDatagrams(const BatchSet &buffers, u32 count)
+s32 Client::WriteDatagrams(const BatchSet &buffers, u32 count)
 {
 	u64 iv = _auth_enc.GrabIVRange(count);
+	s32 write_count = 0;
 
 	/*
 		The format of each buffer:
@@ -643,15 +644,17 @@ bool Client::WriteDatagrams(const BatchSet &buffers, u32 count)
 #endif // CAT_SPHYNX_ROAMING_IP
 
 		//INFO("Client") << "Transmitting datagram with " << msg_bytes << " data bytes";
+
+		write_count += msg_bytes;
 	}
 
 	// If write fails,
 	if (!Write(buffers, count, _server_addr))
-		return false;
+		return 0;
 
 	// Update the last send time to make sure we keep the channel occupied
 	_last_send_msec = Clock::msec_fast();
-	return true;
+	return write_count;
 }
 
 void Client::OnInternal(u32 recv_time, BufferStream data, u32 bytes)

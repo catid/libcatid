@@ -235,9 +235,10 @@ Connexion::Connexion()
 	_worker_id = INVALID_WORKER_ID;
 }
 
-bool Connexion::WriteDatagrams(const BatchSet &buffers, u32 count)
+s32 Connexion::WriteDatagrams(const BatchSet &buffers, u32 count)
 {
 	u64 iv = _auth_enc.GrabIVRange(count);
+	s32 write_count = 0;
 
 	/*
 		The format of each buffer:
@@ -265,10 +266,12 @@ bool Connexion::WriteDatagrams(const BatchSet &buffers, u32 count)
 
 		// Encrypt the message
 		_auth_enc.Encrypt(iv, msg_data, msg_bytes);
+
+		write_count += msg_bytes;
 	}
 
 	// Do not need to update a "last send" timestamp here because the client is responsible for sending keep-alives
-	return _parent->Write(buffers, count, _client_addr);
+	return _parent->Write(buffers, count, _client_addr) ? write_count : 0;
 }
 
 void Connexion::OnInternal(u32 recv_time, BufferStream data, u32 bytes)

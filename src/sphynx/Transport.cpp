@@ -158,7 +158,6 @@ void Transport::QueueWriteDatagram(SendCluster &cluster)
 
 	_outgoing_datagrams.PushBack(buffer);
 	_outgoing_datagrams_count++;
-	_outgoing_datagrams_bytes += buffer_bytes;
 }
 
 
@@ -387,7 +386,6 @@ Transport::Transport()
 
 	_outgoing_datagrams.Clear();
 	_outgoing_datagrams_count = 0;
-	_outgoing_datagrams_bytes = 0;
 }
 
 Transport::~Transport()
@@ -1024,13 +1022,16 @@ bool Transport::WriteOOB(u8 msg_opcode, const void *msg_data, u32 msg_bytes, Sup
 	SendBuffer *buffer = SendBuffer::Promote(pkt);
 	buffer->SetBytes(offset + msg_bytes + SPHYNX_OVERHEAD);
 	pkt[offset + msg_bytes] = 0; // Flag not compressed
-	bool success = WriteDatagrams(buffer, 1);
 
-	_send_cluster_lock.Enter();
-	_send_flow.OnPacketSend(_udpip_bytes + needed);
-	_send_cluster_lock.Leave();
+	// If writes succeeded,
+	s32 write_count = WriteDatagrams(buffer, 1);
+	if (write_count > 0)
+	{
+		_send_flow.OnPacketSend(_udpip_bytes + write_count);
+		return true;
+	}
 
-	return success;
+	return false;
 }
 
 bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 msg_bytes, SuperOpcode super_opcode)
@@ -1196,13 +1197,16 @@ void Transport::Retransmit(u32 stream, OutgoingMessage *node, u32 now)
 
 void Transport::FlushWrites()
 {
-	WriteQueuedReliable();
+	bool locked = WriteQueuedReliable();
 
 	// If no data to flush (common),
-	if (_send_cluster.bytes == 0 && _outgoing_datagrams_count == 0)
+	if (_send_cluster.bytes == 0 && _outgoing_datagrams.head == 0)
+	{
+		if (locked) _send_cluster_lock.Leave();
 		return;
+	}
 
-	_send_cluster_lock.Enter();
+	if (!locked) _send_cluster_lock.Enter();
 
 	u32 count = _outgoing_datagrams_count;
 
@@ -1216,16 +1220,20 @@ void Transport::FlushWrites()
 	BatchSet outgoing_datagrams = _outgoing_datagrams;
 	_outgoing_datagrams.Clear();
 
-	_send_flow.OnPacketSend(_outgoing_datagrams_bytes + _outgoing_datagrams_count * _udpip_bytes);
-
 	_outgoing_datagrams_count = 0;
-	_outgoing_datagrams_bytes = 0;
 
 	_send_cluster_lock.Leave();
 
 	// If any datagrams to write,
 	if (outgoing_datagrams.head)
-		WriteDatagrams(outgoing_datagrams, count);
+	{
+		// If write succeeds,
+		s32 write_count = WriteDatagrams(outgoing_datagrams, count);
+		if (write_count > 0)
+		{
+			_send_flow.OnPacketSend(write_count);
+		}
+	}
 
 	CAT_DEBUG_CHECK_MEMORY();
 }
@@ -1443,13 +1451,16 @@ bool Transport::PostHugeZeroCopy(u8 *msg, u32 msg_bytes)
 	SendBuffer *buffer = SendBuffer::Promote(msg);
 	buffer->SetBytes(pkt_bytes);
 	msg[msg_bytes] = 0; // Flag not compressed
-	bool success = WriteDatagrams(buffer, 1);
 
-	_send_cluster_lock.Enter();
-	_send_flow.OnPacketSend(pkt_bytes);
-	_send_cluster_lock.Leave();
+	// If writes succeeded,
+	s32 write_count = WriteDatagrams(buffer, 1);
+	if (write_count > 0)
+	{
+		_send_flow.OnPacketSend(_udpip_bytes + write_count);
+		return true;
+	}
 
-	return success;
+	return false;
 }
 
 bool Transport::PostMTUProbe(u32 mtu)
@@ -1500,13 +1511,16 @@ bool Transport::PostMTUProbe(u32 mtu)
 	SendBuffer *buffer = SendBuffer::Promote(pkt);
 	buffer->SetBytes(pkt_bytes);
 	pkt[payload_bytes] = 0; // Flag not compressed
-	bool success = WriteDatagrams(buffer, 1);
 
-	_send_cluster_lock.Enter();
-	_send_flow.OnPacketSend(mtu);
-	_send_cluster_lock.Leave();
+	// If writes succeeded,
+	s32 write_count = WriteDatagrams(buffer, 1);
+	if (write_count > 0)
+	{
+		_send_flow.OnPacketSend(_udpip_bytes + write_count);
+		return true;
+	}
 
-	return success;
+	return false;
 }
 
 CAT_INLINE void Transport::RetransmitNegative(u32 recv_time, u32 stream, u32 last_ack_id, u32 &loss_count)
@@ -1799,11 +1813,8 @@ static CAT_INLINE u32 GetACKIDOverhead(u32 ack_id, u32 remote_expected)
 	return ack_id_overhead;
 }
 
-CAT_INLINE s32 Transport::ClusterReliableAppend(u32 stream, u32 &ack_id, u8 *pkt, u32 &ack_id_overhead, u32 &frag_overhead, SendCluster &cluster, u8 sop, const u8 *copy_src, u32 copy_bytes, u16 frag_total_bytes, u16 frag_comp_bytes)
+CAT_INLINE void Transport::ClusterReliableAppend(u32 stream, u32 &ack_id, u8 *pkt, u32 &ack_id_overhead, u32 &frag_overhead, SendCluster &cluster, u8 sop, const u8 *copy_src, u32 copy_bytes, u16 frag_total_bytes, u16 frag_comp_bytes)
 {
-	// Calculate message bytes
-	s32 message_bytes = frag_overhead + ack_id_overhead + copy_bytes;
-
 	// Write header
 	u32 data_bytes = copy_bytes + frag_overhead;
 	u8 hdr = R_MASK | (sop << SOP_SHIFT);
@@ -1814,14 +1825,12 @@ CAT_INLINE s32 Transport::ClusterReliableAppend(u32 stream, u32 &ack_id, u8 *pkt
 		pkt[0] = (u8)data_bytes | hdr;
 		++pkt;
 		cluster.bytes--; // Turns out we can cut out a byte
-		++message_bytes;
 	}
 	else
 	{
 		pkt[0] = (u8)(data_bytes & BLO_MASK) | C_MASK | hdr;
 		pkt[1] = (u8)(data_bytes >> BHI_SHIFT);
 		pkt += 2;
-		message_bytes += 2;
 	}
 
 	// Write optional ACK-ID
@@ -1866,15 +1875,12 @@ CAT_INLINE s32 Transport::ClusterReliableAppend(u32 stream, u32 &ack_id, u8 *pkt
 
 	// Copy data bytes
 	memcpy(pkt, copy_src, copy_bytes);
-
-	return message_bytes;
 }
 
 bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s32 &remaining)
 {
 	bool success = true;
 	u32 max_payload_bytes = _max_payload_bytes;
-	SendCluster cluster = _send_cluster;
 
 	u32 ack_id = _next_send_id[stream];
 	u32 remote_expected = _send_next_remote_expected[stream];
@@ -1888,15 +1894,13 @@ bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s
 	}
 
 	// Calculate ack_id_overhead
-	if (cluster.ack_id != ack_id || cluster.stream != stream)
+	if (_send_cluster.ack_id != ack_id || _send_cluster.stream != stream)
 		ack_id_overhead = GetACKIDOverhead(ack_id, remote_expected);
 
 	u16 sent_bytes = node->sent_bytes;
 
 	// Grab the number of bytes to send from the QoS stuff above
-	s32 send_limit = node->send_bytes;
-	if (send_limit) node->send_bytes = 0;
-	else send_limit = node->GetBytes() - sent_bytes;
+	s32 send_limit = node->GetBytes() - sent_bytes;
 
 	// If node is already fragmented then we have sent some data before
 	bool fragmented = sent_bytes > 0;
@@ -1904,7 +1908,7 @@ bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s
 	// For each fragment of the message,
 	do
 	{
-		u32 remaining_send_buffer = max_payload_bytes - cluster.bytes;
+		u32 remaining_send_buffer = max_payload_bytes - _send_cluster.bytes;
 		u32 frag_overhead = 0;
 
 		// If message would be fragmented,
@@ -1919,17 +1923,15 @@ bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s
 					fragmented = true;
 				}
 			}
-			else if (cluster.bytes > 0) // Not worth fragmentation, dump current send buffer
+			else if (_send_cluster.bytes > 0) // Not worth fragmentation, dump current send buffer
 			{
-				QueueWriteDatagram(cluster);
-				cluster.Clear();
+				remaining -= _send_cluster.bytes;
+				QueueWriteDatagram(_send_cluster);
+				_send_cluster.Clear();
 
 				// If no more room remaining within bandwidth limit,
-				if (remaining <= (s32)FRAG_THRESHOLD)
-				{
-					success = false;
+				if (remaining <= 0)
 					break;
-				}
 
 				remaining_send_buffer = max_payload_bytes;
 				ack_id_overhead = GetACKIDOverhead(ack_id, remote_expected);
@@ -1974,7 +1976,9 @@ bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s
 			{
 				// Calculate compression output buffer size
 				u32 src_bytes = node->GetBytes();
-				u32 dest_bytes = LZ4_compressBound(src_bytes);
+
+				// Inlined from LZ4 code - Remember to update this if it changes!
+				u32 dest_bytes = (src_bytes + (src_bytes/255) + 16);
 
 				// Acquire compression output buffer
 				u8 *dest;
@@ -2021,51 +2025,58 @@ bool Transport::WriteSendQueueNode(OutgoingMessage *node, u32 now, u32 stream, s
 		add_node->ts_lastsend = now;
 
 		// If this node will represent loss,
-		if (cluster.loss_on)
+		if (_send_cluster.loss_on)
 			add_node->loss_on = 0;
 		else
 		{
 			add_node->loss_on = 1;
-			cluster.loss_on = 1;
+			_send_cluster.loss_on = 1;
 		}
 
 		// Link to the end of the sent list
 		_sent_list[stream].Append(add_node);
 
 		// Grow the cluster
-		u8 *msg = cluster.Next(write_bytes);
+		u8 *msg = _send_cluster.Next(write_bytes);
 
 		// Append to cluster
-		remaining -= ClusterReliableAppend(stream, ack_id, msg, ack_id_overhead, frag_overhead,
-			cluster, add_node->sop, GetTrailingBytes(node) + sent_bytes,
+		ClusterReliableAppend(stream, ack_id, msg, ack_id_overhead, frag_overhead,
+			_send_cluster, add_node->sop, GetTrailingBytes(node) + sent_bytes,
 			data_bytes_to_copy, node->GetBytes(), node->orig_bytes);
 
-		sent_bytes += data_bytes_to_copy;
 		send_limit -= data_bytes_to_copy;
+		sent_bytes += data_bytes_to_copy;
 
 		CAT_FATAL("Transport") << "Wrote " << stream << ": bytes=" << data_bytes_to_copy << " ack_id=" << ack_id;
 
 	} while (send_limit > 0); // end while sending message fragments
 
-	// If node is fragmented, remember number of bytes sent
-	if (fragmented) node->sent_bytes = sent_bytes;
-
 	// Update state
 	_next_send_id[stream] = ack_id;
-	_send_cluster = cluster;
 
-	return success;
+	// If node is fragmented, remember number of bytes sent
+	if (fragmented)
+	{
+		node->sent_bytes = sent_bytes;
+
+		return sent_bytes >= node->GetBytes();
+	}
+	else
+	{
+		return send_limit <= 0;
+	}
 }
 
-void Transport::WriteQueuedReliable()
+bool Transport::WriteQueuedReliable()
 {
 	// Avoid locking to transmit queued if no queued exist
 	int stream;
 	for (stream = 0; stream < NUM_STREAMS; ++stream)
 		if (_send_queue[stream].head || _sending_queue[stream].head)
 			break;
+
 	if (stream >= NUM_STREAMS)
-		return;
+		return false;
 
 	// Use the same ts_firstsend for all messages delivered now, to insure they are clustered on retransmission
 	u32 now = m_clock->msec();
@@ -2074,7 +2085,7 @@ void Transport::WriteQueuedReliable()
 	s32 bandwidth = _send_flow.GetRemainingBytes(now);
 
 	// If there is no more room in the channel,
-	if (bandwidth < 0) return;
+	if (bandwidth < 0) return false;
 
 	// Steal all work from each stream's send queue
 	_send_queue_lock.Enter();
@@ -2163,7 +2174,7 @@ void Transport::WriteQueuedReliable()
 		} while (node != out_tail[stream] && (node = next));
 	}
 
-	_send_cluster_lock.Leave();
-
 	CAT_DEBUG_CHECK_MEMORY();
+
+	return true;
 }
