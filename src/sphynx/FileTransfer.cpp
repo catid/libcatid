@@ -235,7 +235,8 @@ bool FECHugeSource::PostPart(u32 stream_id)
 
 	if (stream->ready_flag == TXFLAG_SINGLE)
 	{
-		//memcpy(msg + 5, )
+		// Just copy the number of bytes remaining
+		memcpy(msg + 5, stream->read_buffer, stream->compress_bytes);
 	}
 	else
 	{
