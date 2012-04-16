@@ -269,8 +269,8 @@ public:
 	// Feed encoder a message
 	Result EncodeFeed(const void *message_in);
 
-	// Encode a block
-	void Encode(u32 id, void *block_out);
+	// Encode a block, returning number of bytes written
+	u32 Encode(u32 id, void *block_out);
 
 
 	//// Decoder Mode
