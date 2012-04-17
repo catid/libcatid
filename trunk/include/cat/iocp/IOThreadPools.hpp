@@ -167,7 +167,6 @@ class CAT_EXPORT IOThreadPool : public DListItem
 
 public:
 	IOThreadPool();
-	virtual ~IOThreadPool();
 
 	CAT_INLINE HANDLE GetIOPort() { return _io_port; }
 

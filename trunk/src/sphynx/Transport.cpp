@@ -70,12 +70,12 @@ void TransportTLS::OnFinalize()
 	}
 }
 
-void Transport::InitializeTLS(TransportTLS *tls)
+void Transport::InitializeTLS(TransportTLS *tls, u32 lock_rv)
 {
 	_ttls = tls;
 
 	// Grab locks
-	u32 lock_index = tls->rand_pad.Next() % TransportTLS::LOCKS_PER_WORKER;
+	u32 lock_index = lock_rv % TransportTLS::LOCKS_PER_WORKER;
 	_send_cluster_lock = &tls->locks[lock_index].send_cluster_lock;
 	_send_queue_lock = &tls->locks[lock_index].send_queue_lock;
 }

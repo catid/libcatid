@@ -31,6 +31,7 @@
 #include <cat/time/Clock.hpp>
 #include <cat/port/SystemInfo.hpp>
 #include <cat/io/Log.hpp>
+#include <cat/io/LogThread.hpp>
 #include <cat/io/Settings.hpp>
 using namespace cat;
 
@@ -40,6 +41,7 @@ static Settings *m_settings = 0;
 static StdAllocator *m_std_allocator = 0;
 static Clock *m_clock = 0;
 static SystemInfo *m_system_info = 0;
+static LogThread *m_log_thread = 0;
 
 
 //// IOThread
@@ -297,11 +299,6 @@ IOThreadPool::IOThreadPool()
 	_workers = 0;
 }
 
-IOThreadPool::~IOThreadPool()
-{
-	Shutdown();
-}
-
 bool IOThreadPool::Startup(u32 max_worker_count)
 {
 	// If startup was previously attempted,
@@ -368,6 +365,8 @@ bool IOThreadPool::Shutdown()
 	// If port was created,
 	if (_io_port)
 	{
+		CAT_INFO("IOThreadPool") << "Shutting down thread pool...";
+
 		// For each worker,
 		for (u32 ii = 0; ii < worker_count; ++ii)
 		{
@@ -413,10 +412,12 @@ bool IOThreadPool::Shutdown()
 		_io_port = 0;
 	}
 
+	// TODO: Figure out where the bug really is
+	m_clock->sleep(100);
+
 	// Free worker thread objects
 	if (_workers)
 	{
-		// TODO: NO IDEA WHY THIS IS CRASHING!  Traced it to cases where thread count > 1
 		delete []_workers;
 		_workers = 0;
 	}
@@ -471,6 +472,7 @@ bool IOThreadPools::OnInitialize()
 	m_io_thread_pools = this;
 
 	Use(m_worker_threads, m_settings, m_std_allocator, m_clock, m_system_info);
+	Use(m_log_thread);
 
 	return IsInitialized() && _shared_pool.Startup();
 }
