@@ -342,6 +342,9 @@ struct TransportTLS : ITLS
 	static const u32 SEND_CLUSTER_LOCK = 0;
 	static const u32 SEND_QUEUE_LOCK = 1;
 	Mutex *locks;
+
+	// Random padding
+	Abyssinian rand_pad;
 };
 
 
@@ -432,13 +435,6 @@ class CAT_EXPORT Transport
 	// Protected by _send_cluster_lock
 	BatchSet _outgoing_datagrams;
 	u32 _outgoing_datagrams_count;
-
-	// Random padding state
-	ChaChaOutput _rand_pad_csprng;
-	u8 _rand_pad_source[64];
-	u32 _rand_pad_index;
-
-	bool InitializeRandPad(AuthenticatedEncryption &auth_enc);
 
 #if defined(CAT_TRANSPORT_RANDOMIZE_LENGTH)
 	void RandPadDatagram(u8 *data, u32 &data_bytes);
