@@ -44,12 +44,17 @@ static TLSInstance<TransportTLS> m_transport_tls;
 
 bool TransportTLS::OnInitialize()
 {
-	locks = new (std::nothrow) Mutex[MUTEX_COUNT];
+	locks = new (std::nothrow) TransportLocks[LOCKS_PER_WORKER];
 	if (!locks) return false;
 
-	for (int ii = 0; ii < MUTEX_COUNT; ++ii)
-		if (!locks[ii].Valid())
+	for (int ii = 0; ii < LOCKS_PER_WORKER; ++ii)
+	{
+		if (!locks[ii].send_cluster_lock.Valid() ||
+			!locks[ii].send_queue_lock.Valid())
+		{
 			return false;
+		}
+	}
 
 	rand_pad.Initialize(Clock::cycles());
 
@@ -63,6 +68,16 @@ void TransportTLS::OnFinalize()
 		delete []locks;
 		locks = 0;
 	}
+}
+
+void Transport::InitializeTLS(TransportTLS *tls)
+{
+	_ttls = tls;
+
+	// Grab locks
+	u32 lock_index = tls->rand_pad.Next() % TransportTLS::LOCKS_PER_WORKER;
+	_send_cluster_lock = &tls->locks[lock_index].send_cluster_lock;
+	_send_queue_lock = &tls->locks[lock_index].send_queue_lock;
 }
 
 
@@ -1044,7 +1059,7 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 msg_by
 		return false;
 	}
 
-	GetSendClusterLock()->Enter();
+	_send_cluster_lock->Enter();
 
 	// If growing the send buffer cannot contain the new message,
 	if (_send_cluster.bytes + needed > max_payload_bytes)
@@ -1070,7 +1085,7 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 msg_by
 	pkt[0] = msg_opcode;
 	memcpy(pkt + 1, msg_data, msg_bytes);
 
-	GetSendClusterLock()->Leave();
+	_send_cluster_lock->Leave();
 
 	CAT_INFO("Transport") << "Wrote unreliable message with " << data_bytes << " bytes";
 
@@ -1107,9 +1122,9 @@ bool Transport::WriteReliableZeroCopy(StreamMode stream, u8 *msg, u32 msg_bytes,
 	node->sent_bytes = 0;
 
 	// Add to back of send queue
-	GetSendQueueLock()->Enter();
+	_send_queue_lock->Enter();
 	_send_queue[stream].Append(node);
-	GetSendQueueLock()->Leave();
+	_send_queue_lock->Leave();
 
 	CAT_INFO("Transport") << "Appended reliable message with " << msg_bytes << " bytes to stream " << stream;
 
@@ -1157,7 +1172,7 @@ void Transport::Retransmit(u32 stream, OutgoingMessage *node, u32 now)
 	u32 hdr_bytes = (data_bytes <= BLO_MASK) ? 1 : 2;
 	u32 ack_id = node->id;
 
-	GetSendClusterLock()->Enter();
+	_send_cluster_lock->Enter();
 	SendCluster cluster = _send_cluster;
 
 	// Calculate ack_id_overhead
@@ -1182,7 +1197,7 @@ void Transport::Retransmit(u32 stream, OutgoingMessage *node, u32 now)
 		cluster, node->sop, data, copy_bytes, frag_total_bytes, frag_comp_bytes);
 
 	_send_cluster = cluster;
-	GetSendClusterLock()->Leave();
+	_send_cluster_lock->Leave();
 
 	node->ts_lastsend = now;
 
@@ -1196,11 +1211,11 @@ void Transport::FlushWrites()
 	// If no data to flush (common),
 	if (_send_cluster.bytes == 0 && _outgoing_datagrams.head == 0)
 	{
-		if (locked) GetSendClusterLock()->Leave();
+		if (locked) _send_cluster_lock->Leave();
 		return;
 	}
 
-	if (!locked) GetSendClusterLock()->Enter();
+	if (!locked) _send_cluster_lock->Enter();
 
 	u32 count = _outgoing_datagrams_count;
 
@@ -1216,7 +1231,7 @@ void Transport::FlushWrites()
 
 	_outgoing_datagrams_count = 0;
 
-	GetSendClusterLock()->Leave();
+	_send_cluster_lock->Leave();
 
 	// If any datagrams to write,
 	if (outgoing_datagrams.head)
@@ -1368,7 +1383,7 @@ void Transport::WriteACK()
 
 	// Now that the packet is constructed, write it into the send cluster
 
-	GetSendClusterLock()->Enter();
+	_send_cluster_lock->Enter();
 
 	// If the growing send buffer cannot contain the new message,
 	if (_send_cluster.bytes + msg_bytes > max_payload_bytes)
@@ -1382,7 +1397,7 @@ void Transport::WriteACK()
 
 	memcpy(pkt, packet_copy_source, msg_bytes);
 
-	GetSendClusterLock()->Leave();
+	_send_cluster_lock->Leave();
 
 	CAT_DEBUG_CHECK_MEMORY();
 }
@@ -2094,10 +2109,10 @@ bool Transport::WriteQueuedReliable()
 	if (bandwidth < 0) return false;
 
 	// Steal all work from each stream's send queue
-	GetSendQueueLock()->Enter();
+	_send_queue_lock->Enter();
 	for (u32 stream = 0; stream < NUM_STREAMS; ++stream)
 		_sending_queue[stream].Steal(_send_queue[stream]);
-	GetSendQueueLock()->Leave();
+	_send_queue_lock->Leave();
 
 	// Generate a list of messages to transmit based on the bandwidth available
 	OutgoingMessage *out_head[NUM_STREAMS], *out_tail[NUM_STREAMS];
@@ -2151,7 +2166,7 @@ bool Transport::WriteQueuedReliable()
 	remaining = bandwidth;
 
 	// Write dequeued messages to the send cluster
-	GetSendClusterLock()->Enter();
+	_send_cluster_lock->Enter();
 
 	// For each stream,
 	for (u32 stream = 0; stream < NUM_STREAMS; ++stream)

@@ -482,7 +482,7 @@ bool Client::FinalConnect(const NetAddr &addr)
 		return false;
 	}
 
-	SetTLS(remote_tls);
+	InitializeTLS(remote_tls);
 
 	// Attempt to post hello message
 	if (!WriteHello())

@@ -316,6 +316,19 @@ struct OutOfOrderQueue
 	CAT_INLINE void FreeMemory();
 };
 
+/*
+	SharedMutexes
+
+		The reason this is done is for scaling.  Ideally we would have
+	one TransportLocks object for each connexion.  However, to reach
+	16,000 connexions this would require 32,000 mutexes.  I am pretty
+	sure that on most operating systems this would hit a limit at some
+	point and fail.
+
+		So, instead, the mutexes are created per-worker.  And so the
+	number of mutexes doesn't increase with the number of connexions.
+	Which locks to use are uniformly, randomly selected.
+*/
 
 // TLS container
 struct TransportTLS : ITLS
@@ -329,19 +342,24 @@ struct TransportTLS : ITLS
 	// Must override this
 	static CAT_INLINE const char *GetNameString() { return "TransportTLS"; }
 
+	// Used internally by the Sphynx Transport layer to queue up messages for delivery
 	static const u32 DELIVERY_QUEUE_DEPTH = 128;
 
-	// Used internally by the Sphynx Transport layer to queue up messages for delivery
 	sphynx::IncomingMessage delivery_queue[DELIVERY_QUEUE_DEPTH];
 	u32 delivery_queue_depth;
 	u8 *free_list[DELIVERY_QUEUE_DEPTH*2]; // Twice as many to handle compressed fragments
 	u32 free_list_count;
 
 	// Mutex locks
-	static const u32 MUTEX_COUNT = 2;
-	static const u32 SEND_CLUSTER_LOCK = 0;
-	static const u32 SEND_QUEUE_LOCK = 1;
-	Mutex *locks;
+	static const u32 LOCKS_PER_WORKER = 16;
+
+	struct TransportLocks
+	{
+		Mutex send_cluster_lock;
+		Mutex send_queue_lock;
+	};
+
+	TransportLocks *locks;
 
 	// Random padding
 	Abyssinian rand_pad;
@@ -390,8 +408,9 @@ class CAT_EXPORT Transport
 	// Transport thread local storage object pointer
 	TransportTLS *_ttls;
 
-	CAT_INLINE Mutex *GetSendClusterLock() { return &_ttls->locks[TransportTLS::SEND_CLUSTER_LOCK]; }
-	CAT_INLINE Mutex *GetSendQueueLock() { return &_ttls->locks[TransportTLS::SEND_QUEUE_LOCK]; }
+	// These are initialized by SetTLS()
+	Mutex *_send_cluster_lock;
+	Mutex *_send_queue_lock;
 
 	// Receive state: Next expected ack id to receive
 	u32 _next_recv_expected_id[NUM_STREAMS];
@@ -485,6 +504,7 @@ public:
 
 	void InitializePayloadBytes(bool ip6);
 	bool InitializeTransportSecurity(bool is_initiator, AuthenticatedEncryption &auth_enc);
+	void InitializeTLS(TransportTLS *tls);
 
 	// Copy data directly to the send buffer, no need to acquire an OutgoingMessage
 	bool WriteOOB(u8 msg_opcode, const void *msg_data = 0, u32 msg_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
@@ -515,8 +535,6 @@ public:
 
 	void TickTransport(u32 now);
 	void OnTransportDatagrams(const BatchSet &delivery);
-
-	CAT_INLINE void SetTLS(TransportTLS *tls) { _ttls = tls; }
 
 	CAT_INLINE u32 GetMaxPayloadBytes() { return _max_payload_bytes; }
 

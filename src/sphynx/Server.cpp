@@ -390,7 +390,7 @@ void Server::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 				}
 				else
 				{
-					conn->SetTLS(remote_tls);
+					conn->InitializeTLS(remote_tls);
 
 					// Assign to a worker
 					if (!m_worker_threads->AssignTimer(worker_id, conn, WorkerTimerDelegate::FromMember<Connexion, &Connexion::OnTick>(conn)))
