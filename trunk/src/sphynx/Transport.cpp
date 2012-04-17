@@ -40,6 +40,30 @@ static Clock *m_clock = 0;
 static TLSInstance<TransportTLS> m_transport_tls;
 
 
+//// Transport TLS
+
+bool TransportTLS::OnInitialize()
+{
+	locks = new (std::nothrow) Mutex[MUTEX_COUNT];
+	if (!locks) return false;
+
+	for (int ii = 0; ii < MUTEX_COUNT; ++ii)
+		if (!locks[ii].Valid())
+			return false;
+
+	return true;
+}
+
+void TransportTLS::OnFinalize()
+{
+	if (locks)
+	{
+		delete []locks;
+		locks = 0;
+	}
+}
+
+
 //// Transport Random Padding
 
 bool Transport::InitializeRandPad(AuthenticatedEncryption &auth_enc)
@@ -306,49 +330,49 @@ void Transport::FreeSentNode(OutgoingMessage *node)
 	m_std_allocator->Release(node);
 }
 
-CAT_INLINE void Transport::QueueFragFree(TransportTLS *tls, u8 *data)
+CAT_INLINE void Transport::QueueFragFree(u8 *data)
 {
 	// Add to the free frag list
-	u32 count = tls->free_list_count;
-	tls->free_list[count] = data;
-	tls->free_list_count = ++count;
+	u32 count = _ttls->free_list_count;
+	_ttls->free_list[count] = data;
+	_ttls->free_list_count = ++count;
 }
 
-void Transport::QueueDelivery(TransportTLS *tls, u32 stream, u8 *data, u32 data_bytes)
+void Transport::QueueDelivery(u32 stream, u8 *data, u32 data_bytes)
 {
-	u32 depth = tls->delivery_queue_depth;
+	u32 depth = _ttls->delivery_queue_depth;
 
-	IncomingMessage *msg = &tls->delivery_queue[depth];
+	IncomingMessage *msg = &_ttls->delivery_queue[depth];
 	msg->stream = (StreamMode)stream;
 	msg->data = data;
 	msg->bytes = data_bytes;
 
 	if (++depth < TransportTLS::DELIVERY_QUEUE_DEPTH)
-		tls->delivery_queue_depth = depth;
+		_ttls->delivery_queue_depth = depth;
 	else
 	{
-		OnMessages(tls->delivery_queue, depth);
-		tls->delivery_queue_depth = 0;
+		OnMessages(_ttls->delivery_queue, depth);
+		_ttls->delivery_queue_depth = 0;
 
 		// Free memory for fragments
-		for (u32 ii = 0, count = tls->free_list_count; ii < count; ++ii)
-			delete []tls->free_list[ii];
-		tls->free_list_count = 0;
+		for (u32 ii = 0, count = _ttls->free_list_count; ii < count; ++ii)
+			delete []_ttls->free_list[ii];
+		_ttls->free_list_count = 0;
 	}
 }
 
-void Transport::DeliverQueued(TransportTLS *tls)
+void Transport::DeliverQueued()
 {
-	u32 depth = tls->delivery_queue_depth;
+	u32 depth = _ttls->delivery_queue_depth;
 	if (depth > 0)
 	{
-		OnMessages(tls->delivery_queue, depth);
-		tls->delivery_queue_depth = 0;
+		OnMessages(_ttls->delivery_queue, depth);
+		_ttls->delivery_queue_depth = 0;
 
 		// Free memory for fragments
-		for (u32 ii = 0, count = tls->free_list_count; ii < count; ++ii)
-			delete []tls->free_list[ii];
-		tls->free_list_count = 0;
+		for (u32 ii = 0, count = _ttls->free_list_count; ii < count; ++ii)
+			delete []_ttls->free_list[ii];
+		_ttls->free_list_count = 0;
 	}
 }
 
@@ -508,14 +532,11 @@ void Transport::TickTransport(u32 now)
 	FlushWrites();
 }
 
-void Transport::OnTransportDatagrams(ThreadLocalStorage &tls, const BatchSet &delivery)
+void Transport::OnTransportDatagrams(const BatchSet &delivery)
 {
 	// Initialize the delivery queue
-	TransportTLS *transport_tls = m_transport_tls.Get(tls);
-	CAT_ENFORCE(transport_tls) << "Unable to get thread-local object for Transport layer";
-
-	transport_tls->delivery_queue_depth = 0;
-	transport_tls->free_list_count = 0;
+	_ttls->delivery_queue_depth = 0;
+	_ttls->free_list_count = 0;
 
 	// Simulate 5% packetloss
 	//if (tls->csprng->GenerateUnbiased(0, 19) == 2)
@@ -638,24 +659,24 @@ void Transport::OnTransportDatagrams(ThreadLocalStorage &tls, const BatchSet &de
 
 					// Process it immediately
 					if (super_opcode == SOP_FRAG)
-						OnFragment(transport_tls, recv_time, data, data_bytes, stream);
+						OnFragment(recv_time, data, data_bytes, stream);
 					else if (data_bytes > 0)
 					{
 						if (super_opcode == SOP_DATA)
-							QueueDelivery(transport_tls, stream, data, data_bytes);
+							QueueDelivery(stream, data, data_bytes);
 						else if (super_opcode == SOP_INTERNAL)
 							OnInternal(recv_time, data, data_bytes);
 						else CAT_WARN("Transport") << "Invalid reliable super opcode ignored";
 					}
 					else CAT_WARN("Transport") << "Zero-length reliable message ignored";
 
-					RunReliableReceiveQueue(transport_tls, recv_time, ack_id + 1, stream);
+					RunReliableReceiveQueue(recv_time, ack_id + 1, stream);
 
 					CAT_DEBUG_CHECK_MEMORY();
 				}
 				else if (diff > 0) // Message is due to arrive
 				{
-					StoreReliableOutOfOrder(transport_tls, recv_time, data, data_bytes, ack_id, stream, (hdr >> SOP_SHIFT) & SOP_MASK);
+					StoreReliableOutOfOrder(recv_time, data, data_bytes, ack_id, stream, (hdr >> SOP_SHIFT) & SOP_MASK);
 				}
 				else
 				{
@@ -671,7 +692,7 @@ void Transport::OnTransportDatagrams(ThreadLocalStorage &tls, const BatchSet &de
 				u32 super_opcode = (hdr >> SOP_SHIFT) & SOP_MASK;
 
 				if (super_opcode == SOP_DATA)
-					QueueDelivery(transport_tls, stream, data, data_bytes);
+					QueueDelivery(stream, data, data_bytes);
 				else if (super_opcode == SOP_ACK)
 					OnACK(recv_time, data, data_bytes);
 				else if (super_opcode == SOP_INTERNAL)
@@ -694,7 +715,7 @@ void Transport::OnTransportDatagrams(ThreadLocalStorage &tls, const BatchSet &de
 	CAT_DEBUG_CHECK_MEMORY();
 
 	// Deliver any messages that are queued up
-	DeliverQueued(transport_tls);
+	DeliverQueued();
 
 	// If flush was requested,
 	if (_send_flush_after_processing)
@@ -704,7 +725,7 @@ void Transport::OnTransportDatagrams(ThreadLocalStorage &tls, const BatchSet &de
 	}
 }
 
-void Transport::RunReliableReceiveQueue(TransportTLS *tls, u32 recv_time, u32 ack_id, u32 stream)
+void Transport::RunReliableReceiveQueue(u32 recv_time, u32 ack_id, u32 stream)
 {
 	RecvQueue *node = _recv_wait[stream].head;
 
@@ -730,14 +751,14 @@ void Transport::RunReliableReceiveQueue(TransportTLS *tls, u32 recv_time, u32 ac
 		if (super_opcode == SOP_FRAG)
 		{
 			// Fragments are always processed in order, and zero data bytes indicates abortion
-			OnFragment(tls, recv_time, old_data, old_data_bytes, stream);
+			OnFragment(recv_time, old_data, old_data_bytes, stream);
 		}
 		else if (old_data_bytes > 0)
 		{
 			CAT_WARN("Transport") << "Running queued message # " << stream << ":" << next_ack_id;
 
 			if (super_opcode == SOP_DATA)
-				QueueDelivery(tls, stream, old_data, old_data_bytes);
+				QueueDelivery(stream, old_data, old_data_bytes);
 			else if (super_opcode == SOP_INTERNAL)
 				OnInternal(recv_time, old_data, old_data_bytes);
 
@@ -761,7 +782,7 @@ void Transport::RunReliableReceiveQueue(TransportTLS *tls, u32 recv_time, u32 ac
 	_got_reliable[stream] = true;
 }
 
-void Transport::StoreReliableOutOfOrder(TransportTLS *tls, u32 recv_time, u8 *data, u32 data_bytes, u32 ack_id, u32 stream, u32 super_opcode)
+void Transport::StoreReliableOutOfOrder(u32 recv_time, u8 *data, u32 data_bytes, u32 ack_id, u32 stream, u32 super_opcode)
 {
 	// If too many out of order arrivals already,
 	u32 count = _recv_wait[stream].size;
@@ -824,7 +845,7 @@ void Transport::StoreReliableOutOfOrder(TransportTLS *tls, u32 recv_time, u8 *da
 		else if (data_bytes > 0)
 		{
 			if (super_opcode == SOP_DATA)
-				QueueDelivery(tls, stream, data, data_bytes);
+				QueueDelivery(stream, data, data_bytes);
 			else if (super_opcode == SOP_INTERNAL)
 				OnInternal(recv_time, data, data_bytes);
 
@@ -871,7 +892,7 @@ void Transport::StoreReliableOutOfOrder(TransportTLS *tls, u32 recv_time, u8 *da
 	_recv_wait[stream].size = count + 1;
 }
 
-void Transport::OnFragment(TransportTLS *tls, u32 recv_time, u8 *data, u32 bytes, u32 stream)
+void Transport::OnFragment(u32 recv_time, u8 *data, u32 bytes, u32 stream)
 {
 	//INFO("Transport") << "OnFragment " << bytes << ":" << HexDumpString(data, bytes);
 
@@ -948,7 +969,7 @@ void Transport::OnFragment(TransportTLS *tls, u32 recv_time, u8 *data, u32 bytes
 		memcpy(buffer + _fragments[stream].offset, data, fragment_remaining);
 
 		// Queue up this buffer for deletion after we are done
-		QueueFragFree(tls, buffer);
+		QueueFragFree(buffer);
 
 		// If compression was used,
 		u32 fragment_decomp_length = _fragments[stream].decomp_length;
@@ -962,7 +983,7 @@ void Transport::OnFragment(TransportTLS *tls, u32 recv_time, u8 *data, u32 bytes
 			}
 
 			// Queue up this buffer for deletion after we are done
-			QueueFragFree(tls, dest);
+			QueueFragFree(dest);
 
 			// If decompression succeeds,
 			int r = LZ4_uncompress((const char*)buffer, (char*)dest, fragment_decomp_length);
@@ -980,7 +1001,7 @@ void Transport::OnFragment(TransportTLS *tls, u32 recv_time, u8 *data, u32 bytes
 		_fragments[stream].buffer = 0;
 
 		// Deliver this buffer
-		QueueDelivery(tls, stream, buffer, fragment_length);
+		QueueDelivery(stream, buffer, fragment_length);
 	}
 	else
 	{
@@ -1050,7 +1071,7 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 msg_by
 		return false;
 	}
 
-	_send_cluster_lock.Enter();
+	GetSendClusterLock()->Enter();
 
 	// If growing the send buffer cannot contain the new message,
 	if (_send_cluster.bytes + needed > max_payload_bytes)
@@ -1076,7 +1097,7 @@ bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 msg_by
 	pkt[0] = msg_opcode;
 	memcpy(pkt + 1, msg_data, msg_bytes);
 
-	_send_cluster_lock.Leave();
+	GetSendClusterLock()->Leave();
 
 	CAT_INFO("Transport") << "Wrote unreliable message with " << data_bytes << " bytes";
 
@@ -1113,9 +1134,9 @@ bool Transport::WriteReliableZeroCopy(StreamMode stream, u8 *msg, u32 msg_bytes,
 	node->sent_bytes = 0;
 
 	// Add to back of send queue
-	_send_queue_lock.Enter();
+	GetSendQueueLock()->Enter();
 	_send_queue[stream].Append(node);
-	_send_queue_lock.Leave();
+	GetSendQueueLock()->Leave();
 
 	CAT_INFO("Transport") << "Appended reliable message with " << msg_bytes << " bytes to stream " << stream;
 
@@ -1163,7 +1184,7 @@ void Transport::Retransmit(u32 stream, OutgoingMessage *node, u32 now)
 	u32 hdr_bytes = (data_bytes <= BLO_MASK) ? 1 : 2;
 	u32 ack_id = node->id;
 
-	_send_cluster_lock.Enter();
+	GetSendClusterLock()->Enter();
 	SendCluster cluster = _send_cluster;
 
 	// Calculate ack_id_overhead
@@ -1188,7 +1209,7 @@ void Transport::Retransmit(u32 stream, OutgoingMessage *node, u32 now)
 		cluster, node->sop, data, copy_bytes, frag_total_bytes, frag_comp_bytes);
 
 	_send_cluster = cluster;
-	_send_cluster_lock.Leave();
+	GetSendClusterLock()->Leave();
 
 	node->ts_lastsend = now;
 
@@ -1202,11 +1223,11 @@ void Transport::FlushWrites()
 	// If no data to flush (common),
 	if (_send_cluster.bytes == 0 && _outgoing_datagrams.head == 0)
 	{
-		if (locked) _send_cluster_lock.Leave();
+		if (locked) GetSendClusterLock()->Leave();
 		return;
 	}
 
-	if (!locked) _send_cluster_lock.Enter();
+	if (!locked) GetSendClusterLock()->Enter();
 
 	u32 count = _outgoing_datagrams_count;
 
@@ -1222,7 +1243,7 @@ void Transport::FlushWrites()
 
 	_outgoing_datagrams_count = 0;
 
-	_send_cluster_lock.Leave();
+	GetSendClusterLock()->Leave();
 
 	// If any datagrams to write,
 	if (outgoing_datagrams.head)
@@ -1374,7 +1395,7 @@ void Transport::WriteACK()
 
 	// Now that the packet is constructed, write it into the send cluster
 
-	_send_cluster_lock.Enter();
+	GetSendClusterLock()->Enter();
 
 	// If the growing send buffer cannot contain the new message,
 	if (_send_cluster.bytes + msg_bytes > max_payload_bytes)
@@ -1388,7 +1409,7 @@ void Transport::WriteACK()
 
 	memcpy(pkt, packet_copy_source, msg_bytes);
 
-	_send_cluster_lock.Leave();
+	GetSendClusterLock()->Leave();
 
 	CAT_DEBUG_CHECK_MEMORY();
 }
@@ -1434,9 +1455,10 @@ u32 Transport::RetransmitLost(u32 now)
 	return loss_count;
 }
 
-bool Transport::PostHugeZeroCopy(u8 *msg, u32 msg_bytes)
+bool Transport::PostHugeZeroCopy(const BatchSet &buffers, u32 count)
 {
-	CAT_DEBUG_ENFORCE(msg_bytes > 0) << "Message bytes cannot be less than 1";
+	if (count <= 0)
+		return false;
 
 	// Write header byte
 	//	I = 1 (ack-id follows)
@@ -1445,18 +1467,26 @@ bool Transport::PostHugeZeroCopy(u8 *msg, u32 msg_bytes)
 	//	SOP = IOP_HUGE
 	// NOTE: When I = 1 and R = 0, this indicates a huge packet that bypasses the serialization
 
-	msg[0] = (u8)((SOP_INTERNAL << SOP_SHIFT) | I_MASK | (1 & BLO_MASK));
+	// For each datagram to send,
+	for (BatchHead *node = buffers.head; node; node = node->batch_next)
+	{
+		// Unwrap the message data
+		SendBuffer *buffer = static_cast<SendBuffer*>( node );
+		u8 *msg = GetTrailingBytes(buffer);
 
-	u32 pkt_bytes = msg_bytes + SPHYNX_OVERHEAD;
-	SendBuffer *buffer = SendBuffer::Promote(msg);
-	buffer->SetBytes(pkt_bytes);
-	msg[msg_bytes] = 0; // Flag not compressed
+		// Add Sphynx overhead to byte count
+		u32 bytes = buffer->GetBytes();
+		buffer->SetBytes(bytes + SPHYNX_OVERHEAD);
+
+		// Flag not compressed
+		msg[bytes] = 0;
+	}
 
 	// If writes succeeded,
-	s32 write_count = WriteDatagrams(buffer, 1);
+	s32 write_count = WriteDatagrams(buffers, count);
 	if (write_count > 0)
 	{
-		_send_flow.OnPacketSend(_udpip_bytes + write_count);
+		_send_flow.OnPacketSend(_udpip_bytes * count + write_count);
 		return true;
 	}
 
@@ -2088,10 +2118,10 @@ bool Transport::WriteQueuedReliable()
 	if (bandwidth < 0) return false;
 
 	// Steal all work from each stream's send queue
-	_send_queue_lock.Enter();
+	GetSendQueueLock()->Enter();
 	for (u32 stream = 0; stream < NUM_STREAMS; ++stream)
 		_sending_queue[stream].Steal(_send_queue[stream]);
-	_send_queue_lock.Leave();
+	GetSendQueueLock()->Leave();
 
 	// Generate a list of messages to transmit based on the bandwidth available
 	OutgoingMessage *out_head[NUM_STREAMS], *out_tail[NUM_STREAMS];
@@ -2145,7 +2175,7 @@ bool Transport::WriteQueuedReliable()
 	remaining = bandwidth;
 
 	// Write dequeued messages to the send cluster
-	_send_cluster_lock.Enter();
+	GetSendClusterLock()->Enter();
 
 	// For each stream,
 	for (u32 stream = 0; stream < NUM_STREAMS; ++stream)

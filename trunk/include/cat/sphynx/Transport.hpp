@@ -323,10 +323,10 @@ struct TransportTLS : ITLS
 	static const u32 DELIVERY_QUEUE_DEPTH = 128;
 
 	// Called when TLS object is inserted into the TLS slot
-	CAT_INLINE virtual bool OnInitialize() { return true; }
+	virtual bool OnInitialize();
 
 	// Called during thread termination
-	CAT_INLINE virtual void OnFinalize() {}
+	virtual void OnFinalize();
 
 	// Must override this
 	static CAT_INLINE const char *GetNameString() { return "TransportTLS"; }
@@ -336,6 +336,12 @@ struct TransportTLS : ITLS
 	u32 delivery_queue_depth;
 	u8 *free_list[DELIVERY_QUEUE_DEPTH*2]; // Twice as many to handle compressed fragments
 	u32 free_list_count;
+
+	// Mutex locks
+	static const u32 MUTEX_COUNT = 2;
+	static const u32 SEND_CLUSTER_LOCK = 0;
+	static const u32 SEND_QUEUE_LOCK = 1;
+	Mutex *locks;
 };
 
 
@@ -378,6 +384,12 @@ class CAT_EXPORT Transport
 	static const u32 OUT_OF_ORDER_LIMIT = 4096; // Stop acknowledging out of order packets after caching this many
 	static const u32 OUT_OF_ORDER_LOOPS = 32; // Max number of loops looking for the insertion point for out of order arrivals
 
+	// Transport thread local storage object pointer
+	TransportTLS *_ttls;
+
+	CAT_INLINE Mutex *GetSendClusterLock() { return &_ttls->locks[TransportTLS::SEND_CLUSTER_LOCK]; }
+	CAT_INLINE Mutex *GetSendQueueLock() { return &_ttls->locks[TransportTLS::SEND_QUEUE_LOCK]; }
+
 	// Receive state: Next expected ack id to receive
 	u32 _next_recv_expected_id[NUM_STREAMS];
 
@@ -389,12 +401,6 @@ class CAT_EXPORT Transport
 
 	// Receive state: Out of order packets waiting for an earlier ACK_ID to be processed
 	OutOfOrderQueue _recv_wait[NUM_STREAMS];
-
-	// Serializes writes to the send buffer
-	Mutex _send_cluster_lock;
-
-	// Serializes changes to the send queue for reliable messages going out
-	Mutex _send_queue_lock;
 
 	// Send state: Next ack id to use
 	u32 _next_send_id[NUM_STREAMS];
@@ -447,16 +453,16 @@ class CAT_EXPORT Transport
 	u32 RetransmitLost(u32 now); // Returns estimated number of lost packets
 
 	// Queue a fragment for freeing
-	CAT_INLINE void QueueFragFree(TransportTLS *tls, u8 *data);
+	CAT_INLINE void QueueFragFree(u8 *data);
 
 	// Queue received data for user processing
-	void QueueDelivery(TransportTLS *tls, u32 stream, u8 *data, u32 data_bytes);
+	void QueueDelivery(u32 stream, u8 *data, u32 data_bytes);
 
 	// Deliver messages to user in one big batch
-	CAT_INLINE void DeliverQueued(TransportTLS *tls);
+	CAT_INLINE void DeliverQueued();
 
-	void RunReliableReceiveQueue(TransportTLS *tls, u32 recv_time, u32 ack_id, u32 stream);
-	void StoreReliableOutOfOrder(TransportTLS *tls, u32 recv_time, u8 *data, u32 bytes, u32 ack_id, u32 stream, u32 super_opcode);
+	void RunReliableReceiveQueue(u32 recv_time, u32 ack_id, u32 stream);
+	void StoreReliableOutOfOrder(u32 recv_time, u8 *data, u32 bytes, u32 ack_id, u32 stream, u32 super_opcode);
 
 	// Starting at a given node, walk the send queue forward until available bytes of bandwidth are expended
 	// Returns the last node to send or 0 if no nodes remain
@@ -475,7 +481,7 @@ class CAT_EXPORT Transport
 	void Retransmit(u32 stream, OutgoingMessage *node, u32 now); // Does not hold the send lock!
 	void WriteACK();
 	void OnACK(u32 recv_time, u8 *data, u32 data_bytes);
-	void OnFragment(TransportTLS *tls, u32 recv_time, u8 *data, u32 bytes, u32 stream);
+	void OnFragment(u32 recv_time, u8 *data, u32 bytes, u32 stream);
 
 public:
 	Transport();
@@ -498,7 +504,7 @@ public:
 	// msg: Allocate with SendBuffer::Acquire(msg_bytes)
 	// 1 <= msg_bytes <= _max_payload_bytes
 	// The first byte will be overwritten by a header.
-	bool PostHugeZeroCopy(u8 *msg, u32 msg_bytes);
+	bool PostHugeZeroCopy(const BatchSet &buffers, u32 count);
 
 	// Flush send buffer after processing the current message from the remote host
 	CAT_INLINE void FlushAfter() { _send_flush_after_processing = true; }
@@ -512,9 +518,14 @@ public:
 	CAT_INLINE bool WriteDisconnect(u8 reason) { return WriteOOB(IOP_DISCO, &reason, 1, SOP_INTERNAL); }
 
 	void TickTransport(u32 now);
-	void OnTransportDatagrams(ThreadLocalStorage &tls, const BatchSet &delivery);
+	void OnTransportDatagrams(const BatchSet &delivery);
+
+	CAT_INLINE void SetTLS(TransportTLS *tls) { _ttls = tls; }
 
 	CAT_INLINE u32 GetMaxPayloadBytes() { return _max_payload_bytes; }
+
+	// Write this to the first byte of a huge zero copy
+	static const u8 HUGE_HEADER_BYTE = (u8)((SOP_INTERNAL << SOP_SHIFT) | I_MASK | (1 & BLO_MASK));
 
 protected:
 	// Maximum transfer unit (MTU) in UDP payload bytes, excluding _udpip_bytes

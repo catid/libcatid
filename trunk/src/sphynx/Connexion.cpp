@@ -187,7 +187,7 @@ void Connexion::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 				delivery.tail = old_head;
 		}
 		*/
-		OnTransportDatagrams(tls, delivery);
+		OnTransportDatagrams(delivery);
 		_seen_encrypted = true;
 		_last_recv_tsc = Clock::msec_fast();
 

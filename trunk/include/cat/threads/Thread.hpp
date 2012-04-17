@@ -167,7 +167,7 @@ public:
 
 		ThreadLocalStorage *tls = Get();
 
-		slot = instance.Get(*tls);
+		slot = instance.Ref(*tls);
 	}
 };
 
@@ -204,13 +204,7 @@ class TLSInstance
 
 	volatile u32 _index;
 
-public:
-	TLSInstance()
-	{
-		_index = INVALID;
-	}
-
-	T *Get(ThreadLocalStorage &tls)
+	u32 GetIndex()
 	{
 		u32 index = _index;
 		if (index == INVALID)
@@ -218,6 +212,18 @@ public:
 			index = TLSClaim::ref()->Claim(T::GetNameString());
 			_index = index;
 		}
+		return index;
+	}
+
+public:
+	TLSInstance()
+	{
+		_index = INVALID;
+	}
+
+	T *Ref(ThreadLocalStorage &tls)
+	{
+		u32 index = GetIndex();
 
 		T *instance;
 		tls[index]->Unwrap(instance);
@@ -228,9 +234,7 @@ public:
 			if (instance)
 			{
 				if (instance->OnInitialize())
-				{
 					tls[index] = instance;
-				}
 				else
 				{
 					instance->OnFinalize();
@@ -238,6 +242,16 @@ public:
 				}
 			}
 		}
+
+		return instance;
+	}
+
+	T *Peek(ThreadLocalStorage &tls)
+	{
+		u32 index = GetIndex();
+
+		T *instance;
+		tls[index]->Unwrap(instance);
 
 		return instance;
 	}
@@ -303,6 +317,9 @@ private:
 protected:
 	// Thread itself gets access to the TLS bins - Only modify these from the entrypoint!
 	ThreadLocalStorage _tls;
+
+public:
+	CAT_INLINE ThreadLocalStorage &GetTLS() { return _tls; }
 };
 
 

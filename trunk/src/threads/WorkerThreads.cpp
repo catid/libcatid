@@ -287,7 +287,6 @@ bool WorkerThread::Entrypoint(void *vmaster)
 
 	u32 tick_interval = master->_tick_interval;
 	u32 next_tick = 0; // Tick right away
-	IWorkerTimer *head = 0, *tail = 0;
 
 	while (!_kill_flag)
 	{

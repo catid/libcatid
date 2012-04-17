@@ -39,11 +39,6 @@
 namespace cat {
 
 
-class IWorkerTimer;
-class WorkerThread;
-class WorkerThreads;
-
-
 static const u32 MAX_WORKER_THREADS = 32;
 static const u32 INVALID_WORKER_ID = ~(u32)0;
 
@@ -131,12 +126,39 @@ class CAT_EXPORT WorkerThreads : public RefSingleton<WorkerThreads>
 
 	u32 _round_robin_worker_id;
 
+	Mutex _tls_lock;
+
 public:
 	CAT_INLINE virtual ~WorkerThreads() {}
 
 	CAT_INLINE u32 GetWorkerCount() { return _worker_count; }
 
 	u32 FindLeastPopulatedWorker();
+
+	template<class T>
+	bool InitializeTLS()
+	{
+		TLSInstance<T> instance;
+
+		AutoMutex lock(_tls_lock);
+
+		// For each worker,
+		for (int ii = 0, worker_count = _worker_count; ii < worker_count; ++ii)
+		{
+			ThreadLocalStorage &tls = _workers[ii].GetTLS();
+
+			// Initialize instance
+			if (!instance.Ref(tls))
+				return false;
+		}
+
+		return true;
+	}
+
+	CAT_INLINE ThreadLocalStorage &GetTLS(u32 worker_id)
+	{
+		return _workers[worker_id].GetTLS();
+	}
 
 	CAT_INLINE void DeliverBuffers(u32 priority, u32 worker_id, const BatchSet &buffers)
 	{
@@ -155,14 +177,9 @@ public:
 		DeliverBuffers(priority, worker_id, buffers);
 	}
 
-	CAT_INLINE u32 AssignTimer(RefObject *object, WorkerTimerDelegate timer)
+	CAT_INLINE bool AssignTimer(u32 worker_id, RefObject *object, WorkerTimerDelegate timer)
 	{
-		u32 worker_id = FindLeastPopulatedWorker();
-
-		if (!_workers[worker_id].Associate(object, timer))
-			return INVALID_WORKER_ID;
-
-		return worker_id;
+		return _workers[worker_id].Associate(object, timer);
 	}
 };
 
