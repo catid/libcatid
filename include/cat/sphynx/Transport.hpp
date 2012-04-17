@@ -504,7 +504,7 @@ public:
 
 	void InitializePayloadBytes(bool ip6);
 	bool InitializeTransportSecurity(bool is_initiator, AuthenticatedEncryption &auth_enc);
-	void InitializeTLS(TransportTLS *tls);
+	void InitializeTLS(TransportTLS *tls, u32 lock_rv);
 
 	// Copy data directly to the send buffer, no need to acquire an OutgoingMessage
 	bool WriteOOB(u8 msg_opcode, const void *msg_data = 0, u32 msg_bytes = 0, SuperOpcode super_opcode = SOP_DATA);

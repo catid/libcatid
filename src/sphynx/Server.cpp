@@ -380,7 +380,8 @@ void Server::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 
 				// Set Transport TLS from worker id
 				TransportTLS *remote_tls = m_transport_tls.Peek(m_worker_threads->GetTLS(worker_id));
-				if (!remote_tls)
+				TransportTLS *local_tls = m_transport_tls.Peek(tls);
+				if (!remote_tls || !local_tls)
 				{
 					CAT_WARN("Server") << "Ignoring challenge: Unable to get TLS";
 
@@ -390,7 +391,8 @@ void Server::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 				}
 				else
 				{
-					conn->InitializeTLS(remote_tls);
+					u32 lock_rv = local_tls->rand_pad.Next();
+					conn->InitializeTLS(remote_tls, lock_rv);
 
 					// Assign to a worker
 					if (!m_worker_threads->AssignTimer(worker_id, conn, WorkerTimerDelegate::FromMember<Connexion, &Connexion::OnTick>(conn)))

@@ -482,7 +482,19 @@ bool Client::FinalConnect(const NetAddr &addr)
 		return false;
 	}
 
-	InitializeTLS(remote_tls);
+	struct 
+	{
+		u16 port;
+		double time;
+		u32 cycles;
+	} entropy_source;
+
+	entropy_source.port = GetPort();
+	entropy_source.time = _clock->usec();
+	entropy_source.cycles = _clock->cycles();
+
+	u32 lock_rv = MurmurHash(&entropy_source, sizeof(entropy_source), 0).Get32();
+	InitializeTLS(remote_tls, lock_rv);
 
 	// Attempt to post hello message
 	if (!WriteHello())
@@ -557,10 +569,12 @@ bool Client::OnDNSResolve(const char *hostname, const NetAddr *addrs, int count)
 			u16 port;
 			int count;
 			double time;
+			u32 cycles;
 		} entropy_source;
 
 		entropy_source.port = GetPort();
 		entropy_source.time = _clock->usec();
+		entropy_source.cycles = _clock->cycles();
 		entropy_source.count = count;
 
 		u32 n = MurmurGenerateUnbiased(&entropy_source, sizeof(entropy_source), 0, count - 1);
