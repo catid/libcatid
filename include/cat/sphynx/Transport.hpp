@@ -320,8 +320,6 @@ struct OutOfOrderQueue
 // TLS container
 struct TransportTLS : ITLS
 {
-	static const u32 DELIVERY_QUEUE_DEPTH = 128;
-
 	// Called when TLS object is inserted into the TLS slot
 	virtual bool OnInitialize();
 
@@ -330,6 +328,8 @@ struct TransportTLS : ITLS
 
 	// Must override this
 	static CAT_INLINE const char *GetNameString() { return "TransportTLS"; }
+
+	static const u32 DELIVERY_QUEUE_DEPTH = 128;
 
 	// Used internally by the Sphynx Transport layer to queue up messages for delivery
 	sphynx::IncomingMessage delivery_queue[DELIVERY_QUEUE_DEPTH];
