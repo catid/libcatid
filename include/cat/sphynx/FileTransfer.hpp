@@ -34,11 +34,52 @@
 #include <vector>
 #include <queue> // priority_queue<>
 
+/*
+	File Transfer Header Format
+
+	<--- LSB      MSB --->
+	0 1 2|3|4|5 6|7|0 1|2 3 4 5 6|7| 0 1 2 3 4 5 6 7 | 0 1 2 3 4 5 6 7 | 0 1 2 3 4 5 6 7
+	-----|-|-|---|-|---|---------|-|-----------------|-----------------|----------------
+	 BLO |I|R|SOP|C|IOP|STREAM_ID|X| A A A A A A A A | B B B B B B B B | C C C C C C C C
+
+	BLO = 1 (arbitrary)
+	I = 1, R = 0 (indicating message takes whole datagram)
+	SOP = INTERNAL
+	C = 0
+	IOP = HUGE
+	STREAM_ID = Which concurrent FEC stream it corresponds to 0..31
+	X = 0:No effect, 1:Part C of ID is implicitly zero and is not sent
+	ID = C | B | A (high to low)
+
+	Block data is appended to the header
+*/
+
+/*
+	File Transfer Protocol
+
+	c2s HOP_ (1) || 
+*/
+
 namespace cat {
 
 
 namespace sphynx {
 
+
+enum TransferOpCodes
+{
+	TOP_PUSH_REQUEST,	// HDR | FileName(X) | FileBytes(8) | BlockBytes(2) | StreamCount(1) | FileChunkSize(4)
+	TOP_PUSH_DENY,		// HDR | Reason(1)
+	TOP_PUSH_GO,		// HDR
+
+	TOP_PULL_REQUEST,	// HDR | FileName(X)
+	TOP_PULL_DENY,		// HDR | Reason(1)
+	TOP_PULL_GO,		// HDR
+
+	TOP_ABORT,			// HDR | Reason(1)
+	TOP_RATE,			// HDR | RateCounter(4)
+	TOP_REQUEST,		// HDR | RequestCount(2)
+};
 
 enum TransferAbortReasons
 {
@@ -54,8 +95,17 @@ enum TransferStatusFlags
 	TXFLAG_SINGLE,	// Exceptional case where FEC cannot be used since the data fits in one datagram
 };
 
-#define CAT_MSS_TO_BLOCK_BYTES(mss) ( (mss) - 1 - 1 - 3 )
+static const u32 FT_STREAM_ID_SHIFT = 2;
+static const u32 FT_STREAM_ID_MASK = 31;
+static const u32 FT_COMPRESS_ID_MASK = 0x80;
+static const u32 FT_MAX_HEADER_BYTES = 1 + 1 + 3;
 
+#define CAT_FT_MSS_TO_BLOCK_BYTES(mss) ( (mss) - FT_MAX_HEADER_BYTES )
+
+
+/*
+	FECHugeSource
+*/
 class CAT_EXPORT FECHugeSource : public IHugeSource
 {
 	static const u32 OVERHEAD = 1 + 1 + 3; // HDR(1) + IOP_HUGE|STREAM(1) + ID(3)
@@ -91,7 +141,7 @@ protected:
 	bool Setup();
 	void Cleanup();
 
-	bool PostPart(u32 stream_id);
+	bool PostPart(u32 stream_id, BatchSet &buffers, u32 &count);
 
 	CAT_INLINE bool StartRead(u32 stream, u64 offset, u32 bytes)
 	{
@@ -108,10 +158,13 @@ public:
 
 	bool Start(const char *file_path);
 
-	void NextHuge(s32 &available);
+	void NextHuge(s32 &available, BatchSet &buffers, u32 &count);
 };
 
 
+/*
+	FECHugeSink
+*/
 class CAT_EXPORT FECHugeSink : public IHugeSink
 {
 	Transport *_transport;

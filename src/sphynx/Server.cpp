@@ -40,6 +40,7 @@ using namespace sphynx;
 static WorkerThreads *m_worker_threads = 0;
 static Settings *m_settings = 0;
 static TLSInstance<TunnelTLS> m_tunnel_tls;
+static TLSInstance<TransportTLS> m_transport_tls;
 
 
 //// Server
@@ -48,7 +49,7 @@ bool Server::OnInitialize()
 {
 	Use(m_worker_threads, m_settings);
 
-	return UDPEndpoint::OnInitialize();
+	return m_worker_threads->InitializeTLS<TransportTLS>() && UDPEndpoint::OnInitialize();
 }
 
 void Server::OnDestroy()
@@ -296,7 +297,7 @@ void Server::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 				continue;
 			}
 
-			TunnelTLS *tunnel_tls = m_tunnel_tls.Get(tls);
+			TunnelTLS *tunnel_tls = m_tunnel_tls.Ref(tls);
 			if (!tunnel_tls)
 			{
 				CAT_FATAL("Server") << "Ignoring challenge: Unable to get TLS object";
@@ -374,42 +375,71 @@ void Server::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 				// When the Connexion dies, it will release this reference
 				AddRef(CAT_REFOBJECT_TRACE);
 
-				// Assign to a worker
-				conn->_worker_id = m_worker_threads->AssignTimer(conn, WorkerTimerDelegate::FromMember<Connexion, &Connexion::OnTick>(conn));
+				// Find least populated worker id
+				u32 worker_id = m_worker_threads->FindLeastPopulatedWorker();
 
-				// Attempt to insert connexion into the map
-				SphynxError err = _conn_map.Insert(conn);
-
-				// If hash key could not be inserted,
-				if (err != ERR_NO_PROBLEMO)
+				// Set Transport TLS from worker id
+				TransportTLS *remote_tls = m_transport_tls.Peek(m_worker_threads->GetTLS(worker_id));
+				if (!remote_tls)
 				{
-					CAT_WARN("Server") << "Ignoring challenge: Connexion map rejected the new connexion";
+					CAT_WARN("Server") << "Ignoring challenge: Unable to get TLS";
 
 					pkt[0] = S2C_ERROR;
-					pkt[1] = (u8)err;
+					pkt[1] = (u8)ERR_SERVER_ERROR;
 					Write(pkt, S2C_ERROR_LEN, buffer->GetAddr());
 				}
 				else
 				{
+					conn->SetTLS(remote_tls);
+
+					// Assign to a worker
+					if (!m_worker_threads->AssignTimer(worker_id, conn, WorkerTimerDelegate::FromMember<Connexion, &Connexion::OnTick>(conn)))
+					{
+						CAT_WARN("Server") << "Ignoring challenge: Unable to assign timer";
+
+						pkt[0] = S2C_ERROR;
+						pkt[1] = (u8)ERR_SERVER_ERROR;
+						Write(pkt, S2C_ERROR_LEN, buffer->GetAddr());
+					}
+					else
+					{
+						conn->_worker_id = worker_id;
+
+						// Attempt to insert connexion into the map
+						SphynxError err = _conn_map.Insert(conn);
+
+						// If hash key could not be inserted,
+						if (err != ERR_NO_PROBLEMO)
+						{
+							CAT_WARN("Server") << "Ignoring challenge: Connexion map rejected the new connexion";
+
+							pkt[0] = S2C_ERROR;
+							pkt[1] = (u8)err;
+							Write(pkt, S2C_ERROR_LEN, buffer->GetAddr());
+						}
+						else
+						{
 #if defined(CAT_SPHYNX_ROAMING_IP)
-					u16 *user_id = reinterpret_cast<u16*>( pkt + 1 + ANSWER_BYTES );
-					*user_id = getLE((u16)conn->GetMyID());
+							u16 *user_id = reinterpret_cast<u16*>( pkt + 1 + ANSWER_BYTES );
+							*user_id = getLE((u16)conn->GetMyID());
 #endif
 
-					// If unable to post packet,
-					if (!Write(pkt, S2C_ANSWER_LEN, buffer->GetAddr()))
-					{
-						CAT_WARN("Server") << "Ignoring challenge: Unable to post packet";
-					}
-					// If server is still not shutting down,
-					else if (!IsShutdown())
-					{
-						CAT_WARN("Server") << "Accepted challenge and posted answer.  Client connected";
+							// If unable to post packet,
+							if (!Write(pkt, S2C_ANSWER_LEN, buffer->GetAddr()))
+							{
+								CAT_WARN("Server") << "Ignoring challenge: Unable to post packet";
+							}
+							// If server is still not shutting down,
+							else if (!IsShutdown())
+							{
+								CAT_WARN("Server") << "Accepted challenge and posted answer.  Client connected";
 
-						conn->OnConnect();
+								conn->OnConnect();
 
-						// Do not shutdown the object
-						conn.Forget();
+								// Do not shutdown the object
+								conn.Forget();
+							}
+						}
 					}
 				}
 			}
@@ -443,7 +473,7 @@ bool Server::StartServer(Port port, TunnelKeyPair &key_pair, const char *session
 {
 	TunnelTLS *tunnel_tls = 0;
 	if (!tls) tls = SlowTLS::ref()->Get();
-	if (tls) tunnel_tls = m_tunnel_tls.Get(*tls);
+	if (tls) tunnel_tls = m_tunnel_tls.Ref(*tls);
 	if (!tunnel_tls) return false;
 
 	// Seed components
@@ -522,7 +552,7 @@ bool Server::InitializeKey(TunnelKeyPair &key_pair, const char *pair_path, const
 {
 	TunnelTLS *tunnel_tls = 0;
 	if (!tls) tls = SlowTLS::ref()->Get();
-	if (tls) tunnel_tls = m_tunnel_tls.Get(*tls);
+	if (tls) tunnel_tls = m_tunnel_tls.Ref(*tls);
 	if (!tunnel_tls) return false;
 
 	if (key_pair.LoadFile(pair_path))

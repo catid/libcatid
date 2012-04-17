@@ -188,7 +188,7 @@ void FECHugeSource::OnFileRead(ThreadLocalStorage &tls, const BatchSet &set)
 		// Fix block bytes at the start of the transfer
 		// Payload loadout = HDR(1) + TYPE|STREAM(1) + ID(3) + DATA
 		u32 mss = _transport->GetMaxPayloadBytes();
-		u32 block_bytes = CAT_MSS_TO_BLOCK_BYTES(mss);
+		u32 block_bytes = CAT_FT_MSS_TO_BLOCK_BYTES(mss);
 
 		// Set up stream state
 		stream->mss = mss;
@@ -217,7 +217,7 @@ void FECHugeSource::OnFileRead(ThreadLocalStorage &tls, const BatchSet &set)
 	}
 }
 
-bool FECHugeSource::PostPart(u32 stream_id)
+bool FECHugeSource::PostPart(u32 stream_id, BatchSet &buffers, u32 &count)
 {
 	Stream *stream = &_streams[stream_id];
 
@@ -226,27 +226,55 @@ bool FECHugeSource::PostPart(u32 stream_id)
 	u8 *msg = SendBuffer::Acquire(mss);
 	if (!msg) return false;
 
-	msg[1] = IOP_HUGE | (stream_id << 2);
+	// Generate header and length
+	u32 hdr = IOP_HUGE | ((stream_id & FT_STREAM_ID_MASK) << FT_STREAM_ID_SHIFT);
 
+	// Attach header
+	msg[0] = Transport::HUGE_HEADER_BYTE;
+
+	// Add compress bit to header
+	u32 hdr_bytes;
 	u32 data_id = stream->next_id++;
-	msg[2] = (u8)(data_id >> 16);
-	msg[3] = (u8)(data_id >> 8);
-	msg[4] = (u8)data_id;
-
-	if (stream->ready_flag == TXFLAG_SINGLE)
+	if (data_id < 65536)
 	{
-		// Just copy the number of bytes remaining
-		memcpy(msg + 5, stream->read_buffer, stream->compress_bytes);
+		hdr |= FT_COMPRESS_ID_MASK;
+		hdr_bytes = 4;
 	}
 	else
 	{
-		stream->encoder.Encode(data_id, msg + 5);
+		msg[4] = (u8)(data_id >> 16);
+		hdr_bytes = 5;
 	}
 
-	return _transport->PostHugeZeroCopy(msg, mss);
+	// Write header
+	msg[1] = hdr;
+	msg[2] = (u8)data_id;
+	msg[3] = (u8)(data_id >> 8);
+
+	// If FEC is bypassed,
+	u32 bytes;
+	if (stream->ready_flag == TXFLAG_SINGLE)
+	{
+		bytes = stream->compress_bytes;
+		memcpy(msg + hdr_bytes, stream->read_buffer, bytes);
+	}
+	else
+	{
+		bytes = stream->encoder.Encode(data_id, msg + hdr_bytes);
+	}
+
+	// Carve out just the part of the buffer we're using
+	SendBuffer *buffer = SendBuffer::Promote(msg);
+	buffer->SetBytes(bytes + hdr_bytes);
+
+	// Add it to the list
+	buffers.PushBack(buffer);
+	++count;
+
+	return true;
 }
 
-void FECHugeSource::NextHuge(s32 &available)
+void FECHugeSource::NextHuge(s32 &available, BatchSet &buffers, u32 &count)
 {
 	// TODO: Send file requests and abortions and stuff here
 
@@ -267,7 +295,7 @@ void FECHugeSource::NextHuge(s32 &available)
 		while (stream->requested > 0)
 		{
 			// Attempt to post a part of this stream
-			if (!PostPart(stream_id))
+			if (!PostPart(stream_id, buffers, count))
 				break;
 
 			// Reduce request count on success
@@ -291,12 +319,12 @@ void FECHugeSource::NextHuge(s32 &available)
 	CAT_FOREVER
 	{
 		// Attempt to post a part of this stream
-		if (!PostPart(dom_stream))
+		if (!PostPart(dom_stream, buffers, count))
 			break;
 
 		// If out of room,
 		if ((available -= stream->mss) <= 0)
-			return;	// Done for now!
+			break;	// Done for now!
 	}
 }
 

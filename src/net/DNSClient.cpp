@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2012 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -263,7 +263,15 @@ bool DNSClientEndpoint::OnInitialize()
 	}
 
 	// Assign to a worker
-	_worker_id = m_worker_threads->AssignTimer(this, WorkerTimerDelegate::FromMember<DNSClientEndpoint, &DNSClientEndpoint::OnTick>(this));
+	u32 worker_id = m_worker_threads->FindLeastPopulatedWorker();
+
+	if (!m_worker_threads->AssignTimer(worker_id, this, WorkerTimerDelegate::FromMember<DNSClientEndpoint, &DNSClientEndpoint::OnTick>(this)))
+	{
+		CAT_WARN("DNSClient") << "Initialization failure: Unable to assign timer";
+		return false;
+	}
+
+	_worker_id = worker_id;
 
 	// Attempt to get server address from operating system
 	if (!GetServerAddr())

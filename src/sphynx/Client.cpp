@@ -45,6 +45,7 @@ static WorkerThreads *m_worker_threads = 0;
 static Settings *m_settings = 0;
 static DNSClient *m_dns_client = 0;
 static TLSInstance<TunnelTLS> m_tunnel_tls;
+static TLSInstance<TransportTLS> m_transport_tls;
 
 
 //// Client
@@ -53,7 +54,7 @@ bool Client::OnInitialize()
 {
 	Use(_clock, m_worker_threads, m_settings, m_dns_client);
 
-	return UDPEndpoint::OnInitialize();
+	return m_worker_threads->InitializeTLS<TransportTLS>() && UDPEndpoint::OnInitialize();
 }
 
 void Client::OnDisconnectComplete()
@@ -175,7 +176,7 @@ void Client::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 			else if (bytes == S2C_ANSWER_LEN && data[0] == S2C_ANSWER)
 			{
 				Skein key_hash;
-				TunnelTLS *tunnel_tls = m_tunnel_tls.Get(tls);
+				TunnelTLS *tunnel_tls = m_tunnel_tls.Ref(tls);
 
 				// Process answer from server, ignore invalid
 				if (_key_agreement_initiator.ProcessAnswer(tunnel_tls, data + 1, ANSWER_BYTES, &key_hash) &&
@@ -279,7 +280,7 @@ void Client::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 		// Process all datagrams that decrypted properly
 		if (delivery.head)
 		{
-			OnTransportDatagrams(tls, delivery);
+			OnTransportDatagrams(delivery);
 			_last_recv_tsc = Clock::msec_fast();;
 		}
 	}
@@ -471,6 +472,18 @@ bool Client::FinalConnect(const NetAddr &addr)
 	_first_hello_post = _last_hello_post = Clock::msec_fast();
 	_hello_post_interval = INITIAL_HELLO_POST_INTERVAL;
 
+	// Assign to a worker
+	u32 worker_id = m_worker_threads->FindLeastPopulatedWorker();
+
+	TransportTLS *remote_tls = m_transport_tls.Peek(m_worker_threads->GetTLS(worker_id));
+	if (!remote_tls)
+	{
+		ConnectFail(ERR_CLIENT_OUT_OF_MEMORY);
+		return false;
+	}
+
+	SetTLS(remote_tls);
+
 	// Attempt to post hello message
 	if (!WriteHello())
 	{
@@ -478,8 +491,13 @@ bool Client::FinalConnect(const NetAddr &addr)
 		return false;
 	}
 
-	// Assign to a worker
-	_worker_id = m_worker_threads->AssignTimer(this, WorkerTimerDelegate::FromMember<Client, &Client::OnTick>(this));
+	if (!m_worker_threads->AssignTimer(worker_id, this, WorkerTimerDelegate::FromMember<Client, &Client::OnTick>(this)))
+	{
+		ConnectFail(ERR_CLIENT_OUT_OF_MEMORY);
+		return false;
+	}
+
+	_worker_id = worker_id;
 
 	return true;
 }
@@ -488,7 +506,7 @@ bool Client::Connect(const char *hostname, Port port, TunnelPublicKey &public_ke
 {
 	TunnelTLS *tunnel_tls = 0;
 	if (!tls) tls = SlowTLS::ref()->Get();
-	if (tls) tunnel_tls = m_tunnel_tls.Get(*tls);
+	if (tls) tunnel_tls = m_tunnel_tls.Ref(*tls);
 	if (!tunnel_tls) return false;
 
 	if (!InitialConnect(tunnel_tls, public_key, session_key))
@@ -512,7 +530,7 @@ bool Client::Connect(const NetAddr &addr, TunnelPublicKey &public_key, const cha
 {
 	TunnelTLS *tunnel_tls = 0;
 	if (!tls) tls = SlowTLS::ref()->Get();
-	if (tls) tunnel_tls = m_tunnel_tls.Get(*tls);
+	if (tls) tunnel_tls = m_tunnel_tls.Ref(*tls);
 	if (!tunnel_tls) return false;
 
 	if (!InitialConnect(tunnel_tls, public_key, session_key) ||
