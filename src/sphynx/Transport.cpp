@@ -51,6 +51,8 @@ bool TransportTLS::OnInitialize()
 		if (!locks[ii].Valid())
 			return false;
 
+	rand_pad.Initialize(Clock::cycles());
+
 	return true;
 }
 
@@ -65,23 +67,6 @@ void TransportTLS::OnFinalize()
 
 
 //// Transport Random Padding
-
-bool Transport::InitializeRandPad(AuthenticatedEncryption &auth_enc)
-{
-	// Key the random length generator
-	u8 material[32];
-	if (!auth_enc.GenerateKey("kernel32.dll", material, sizeof(material)))
-		return false;
-
-	ChaChaKey key;
-	key.Set(material, sizeof(material));
-
-	_rand_pad_csprng.ReKey(key, 7);
-
-	_rand_pad_index = 64; // indicate that regeneration is needed
-
-	return true;
-}
 
 #if defined(CAT_TRANSPORT_RANDOMIZE_LENGTH)
 
@@ -103,41 +88,32 @@ static const u8 CAT_RAND_PAD_EXP[256] = {
 
 void Transport::RandPadDatagram(u8 *data, u32 &data_bytes)
 {
-	// If it is time to generate more random length padding numbers,
-	if (_rand_pad_index >= sizeof(_rand_pad_source))
-	{
-		_rand_pad_index = 0;
-
-		// Generate the next keystream
-		_rand_pad_csprng.GenerateNeutralKeyStream((u32*)&_rand_pad_source);
-
-		// Convert keystream bytes into exponentially-distributed lengths with mean of 8
-		for (int ii = 0; ii < 64; ii += 2)
-			_rand_pad_source[ii] = CAT_RAND_PAD_EXP[_rand_pad_source[ii]];
-	}
-
 	// Determine desired padding
-	u8 pad = _rand_pad_source[_rand_pad_index++];
-	u8 rval = _rand_pad_source[_rand_pad_index++];
+	u32 rv = _ttls->rand_pad.Next();
+	u32 pad = CAT_RAND_PAD_EXP[(u8)rv];
+
+	// If padding would exceed space,
 	if (pad + data_bytes > _max_payload_bytes)
 	{
+		// If no space is available,
 		if (data_bytes >= _max_payload_bytes)
 			return;
 
+		// Fill whatever space is left
 		pad = _max_payload_bytes - data_bytes;
 	}
 
-	// If any padding is to be added,
-	if (pad > 0)
-	{
-		data[data_bytes] = HDR_NOP;
+	// If no padding is to be added, abort
+	if (pad <= 0) return;
 
-		// Write random value to remaining bytes
-		memset(data + data_bytes + 1, rval, pad - 1);
+	// Write NOP at start of padding
+	data[data_bytes] = HDR_NOP;
 
-		// Update parameters
-		data_bytes += pad;
-	}
+	// Write random value to remaining bytes
+	memset(data + data_bytes + 1, (u8)(rv >> 13), pad - 1);
+
+	// Update datagram length
+	data_bytes += pad;
 }
 
 #endif // CAT_TRANSPORT_RANDOMIZE_LENGTH
@@ -476,9 +452,6 @@ bool Transport::InitializeTransportSecurity(bool is_initiator, AuthenticatedEncr
 
 	// Randomize next recv ACK-ID
 	if (!auth_enc.GenerateKey(!is_initiator ? "ws2_32.dll" : "winsock.ocx", _next_recv_expected_id, sizeof(_next_recv_expected_id)))
-		return false;
-
-	if (!InitializeRandPad(auth_enc))
 		return false;
 
 	return true;
@@ -1521,8 +1494,11 @@ bool Transport::PostMTUProbe(u32 mtu)
 	pkt[2] = IOP_C2S_MTU_PROBE;
 
 	// Fill payload with random bytes
-	u8 key_stream[64];
-	_rand_pad_csprng.GenerateNeutralKeyStream((u32*)key_stream);
+	Abyssinian &prng = _ttls->rand_pad;
+	u32 key_stream[16];
+	for (int ii = 0; ii < 16; ++ii)
+		key_stream[ii] = prng.Next();
+
 	u32 pad_count = data_bytes + 1;
 	u8 *pkt_pad = pkt + 3;
 
