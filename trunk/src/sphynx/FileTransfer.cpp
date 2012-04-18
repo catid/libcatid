@@ -34,9 +34,9 @@ using namespace cat;
 using namespace sphynx;
 
 
-//// FECHugeSource
+//// FECHugeEndpoint
 
-FECHugeSource::FECHugeSource()
+FECHugeEndpoint::FECHugeEndpoint()
 {
 	_read_bytes = 0;
 	_file = 0;
@@ -44,18 +44,27 @@ FECHugeSource::FECHugeSource()
 	_streams = 0;
 }
 
-FECHugeSource::~FECHugeSource()
+FECHugeEndpoint::~FECHugeEndpoint()
 {
 	Cleanup();
 }
 
-void FECHugeSource::Initialize(Transport *transport, u32 worker_id)
+void FECHugeEndpoint::Initialize(Transport *transport, u32 worker_id, u8 opcode)
 {
+	// Initialize state
+	_state = TXS_IDLE;
 	_transport = transport;
 	_worker_id = worker_id;
+	_opcode = opcode;
+
+	// Clear callbacks
+	_on_send_request.Invalidate();
+	_on_send_done.Invalidate();
+	_on_recv_request.Invalidate();
+	_on_recv_done.Invalidate();
 }
 
-bool FECHugeSource::Setup()
+bool FECHugeEndpoint::Setup()
 {
 	if (_read_bytes == 0)
 	{
@@ -79,7 +88,7 @@ bool FECHugeSource::Setup()
 		for (u32 ii = 0; ii < _num_streams; ++ii)
 		{
 			streams[ii].read_buffer_object.worker_id = _worker_id;
-			streams[ii].read_buffer_object.callback = WorkerDelegate::FromMember<FECHugeSource, &FECHugeSource::OnFileRead>(this);
+			streams[ii].read_buffer_object.callback = WorkerDelegate::FromMember<FECHugeEndpoint, &FECHugeEndpoint::OnFileRead>(this);
 			streams[ii].requested = 0;
 		}
 	}
@@ -113,7 +122,7 @@ bool FECHugeSource::Setup()
 	return true;
 }
 
-void FECHugeSource::Cleanup()
+void FECHugeEndpoint::Cleanup()
 {
 	if (_streams)
 	{
@@ -125,34 +134,7 @@ void FECHugeSource::Cleanup()
 	}
 }
 
-bool FECHugeSource::Start(const char *file_path)
-{
-	// If file is already open,
-	if (_file) return false;
-
-	// Open new file
-	AsyncFile *file = new AsyncFile;
-	CAT_ENFORCE(file);
-	if (!file->Open(file_path, ASYNCFILE_READ | ASYNCFILE_SEQUENTIAL | ASYNCFILE_NOBUFFER))
-	{
-		file->Destroy(CAT_REFOBJECT_TRACE);
-		return false;
-	}
-	_file = file;
-
-	// Cache file size
-	_file_size = _file->GetSize();
-
-	// Initialize stream indices
-	_load_stream = 0;
-	_dom_stream = 0;
-
-	if (!Setup()) return false;
-
-	return StartRead(0, 0, _file_size <= _read_bytes ? (u32)_file_size : _read_bytes);
-}
-
-void FECHugeSource::OnFileRead(ThreadLocalStorage &tls, const BatchSet &set)
+void FECHugeEndpoint::OnFileRead(ThreadLocalStorage &tls, const BatchSet &set)
 {
 	Stream *stream = &_streams[_load_stream];
 
@@ -199,17 +181,23 @@ void FECHugeSource::OnFileRead(ThreadLocalStorage &tls, const BatchSet &set)
 		wirehair::Result r = stream->encoder.BeginEncode(compress_buffer, bytes, block_bytes);
 		if (r == wirehair::R_WIN)
 		{
-			Atomic::StoreMemoryBarrier();
 			stream->ready_flag = TXFLAG_READY;
-		}
-		else if (r == wirehair::R_TOO_SMALL)
-		{
+
 			Atomic::StoreMemoryBarrier();
+
+			stream->requested = stream->encoder.BlockCount();
+		}
+		else if (r == wirehair::R_TOO_SMALL && bytes <= block_bytes)
+		{
 			stream->ready_flag = TXFLAG_SINGLE;
+
+			Atomic::StoreMemoryBarrier();
+
+			stream->requested = 1;
 		}
 		else
 		{
-			CAT_WARN("FECHugeSource") << "Wirehair encoder failed with error " << wirehair::GetResultString(r);
+			CAT_WARN("FECHugeEndpoint") << "Wirehair encoder failed with error " << wirehair::GetResultString(r);
 			_abort_reason = TXERR_FEC_FAIL;
 		}
 
@@ -217,7 +205,7 @@ void FECHugeSource::OnFileRead(ThreadLocalStorage &tls, const BatchSet &set)
 	}
 }
 
-bool FECHugeSource::PostPart(u32 stream_id, BatchSet &buffers, u32 &count)
+bool FECHugeEndpoint::PostPart(u32 stream_id, BatchSet &buffers, u32 &count)
 {
 	Stream *stream = &_streams[stream_id];
 
@@ -274,7 +262,223 @@ bool FECHugeSource::PostPart(u32 stream_id, BatchSet &buffers, u32 &count)
 	return true;
 }
 
-void FECHugeSource::NextHuge(s32 &available, BatchSet &buffers, u32 &count)
+bool FECHugeEndpoint::PostPushRequest(const char *file_path)
+{
+	int file_name_length = (int)strlen(file_path);
+
+	const u32 msg_bytes = 1 + 1 + file_name_length + 1;
+	u8 *msg = OutgoingMessage::Acquire(msg_bytes);
+	if (!msg) return false;
+
+	msg[0] = _opcode;
+	msg[1] = TOP_PUSH_REQUEST;
+	memcpy(msg + 2, file_path, file_name_length + 1);
+
+	return _transport->WriteReliableZeroCopy(STREAM_1, msg, msg_bytes);
+}
+
+bool FECHugeEndpoint::PostPullRequest(const char *file_path)
+{
+	int file_name_length = (int)strlen(file_path);
+
+	const u32 msg_bytes = 1 + 1 + file_name_length + 1;
+	u8 *msg = OutgoingMessage::Acquire(msg_bytes);
+	if (!msg) return false;
+
+	msg[0] = _opcode;
+	msg[1] = TOP_PULL_REQUEST;
+	memcpy(msg + 2, file_path, file_name_length + 1);
+
+	return _transport->WriteReliableZeroCopy(STREAM_1, msg, msg_bytes);
+}
+
+bool FECHugeEndpoint::PostPullGo(u64 file_bytes, int stream_count)
+{
+	const u32 msg_bytes = 1 + 1 + 8 + 1;
+	u8 *msg = OutgoingMessage::Acquire(msg_bytes);
+	if (!msg) return false;
+
+	msg[0] = _opcode;
+	msg[1] = TOP_PULL_GO;
+	*(u64*)(msg + 2) = getLE(file_bytes);
+	msg[2 + 8] = (u8)stream_count;
+
+	return _transport->WriteReliableZeroCopy(STREAM_1, msg, msg_bytes);
+}
+
+bool FECHugeEndpoint::PostDeny(int reason)
+{
+	const u32 msg_bytes = 1 + 1 + 1;
+	u8 *msg = OutgoingMessage::Acquire(msg_bytes);
+	if (!msg) return false;
+
+	msg[0] = _opcode;
+	msg[1] = TOP_DENY;
+	msg[2] = (u8)reason;
+
+	return _transport->WriteReliableZeroCopy(STREAM_1, msg, msg_bytes);
+}
+
+bool FECHugeEndpoint::PostStart(u64 file_offset, u32 chunk_decompressed_size, u32 chunk_compressed_size, int block_bytes, int stream_id)
+{
+	const u32 msg_bytes = 1 + 1 + 8 + 4 + 4 + 2 + 1;
+	u8 *msg = OutgoingMessage::Acquire(msg_bytes);
+	if (!msg) return false;
+
+	msg[0] = _opcode;
+	msg[1] = TOP_START;
+	*(u64*)(msg + 2) = getLE(file_offset);
+	*(u32*)(msg + 10) = getLE(chunk_decompressed_size);
+	*(u32*)(msg + 14) = getLE(chunk_compressed_size);
+	*(u16*)(msg + 18) = getLE16((u16)block_bytes);
+	msg[20] = (u8)stream_id;
+
+	return _transport->WriteReliableZeroCopy(STREAM_1, msg, msg_bytes);
+}
+
+bool FECHugeEndpoint::PostStartAck(int stream_id)
+{
+	const u32 msg_bytes = 1 + 1 + 1;
+	u8 *msg = OutgoingMessage::Acquire(msg_bytes);
+	if (!msg) return false;
+
+	msg[0] = _opcode;
+	msg[1] = TOP_START_ACK;
+	msg[2] = (u8)stream_id;
+
+	return _transport->WriteReliableZeroCopy(STREAM_1, msg, msg_bytes);
+}
+
+bool FECHugeEndpoint::PostRate(u32 rate_counter)
+{
+	const u32 msg_bytes = 1 + 1 + 4;
+	u8 *msg = OutgoingMessage::Acquire(msg_bytes);
+	if (!msg) return false;
+
+	msg[0] = _opcode;
+	msg[1] = TOP_RATE;
+	*(u32*)(msg + 2) = getLE(rate_counter);
+
+	return _transport->WriteReliableZeroCopy(STREAM_1, msg, msg_bytes);
+}
+
+bool FECHugeEndpoint::PostRequest(int stream_id, int request_count)
+{
+	const u32 msg_bytes = 1 + 1 + 1 + 2;
+	u8 *msg = OutgoingMessage::Acquire(msg_bytes);
+	if (!msg) return false;
+
+	msg[0] = _opcode;
+	msg[1] = TOP_REQUEST;
+	msg[2] = (u8)stream_id;
+	*(u16*)(msg + 3) = getLE16((u16)request_count);
+
+	return _transport->WriteReliableZeroCopy(STREAM_1, msg, msg_bytes);
+}
+
+bool FECHugeEndpoint::PostClose(int reason)
+{
+	const u32 msg_bytes = 1 + 1 + 1;
+	u8 *msg = OutgoingMessage::Acquire(msg_bytes);
+	if (!msg) return false;
+
+	msg[0] = _opcode;
+	msg[1] = TOP_START_ACK;
+	msg[2] = (u8)reason;
+
+	return _transport->WriteReliableZeroCopy(STREAM_1, msg, msg_bytes);
+}
+
+void FECHugeEndpoint::OnPushRequest(const char *file_path)
+{
+}
+
+void FECHugeEndpoint::OnPullRequest(const char *file_path)
+{
+	// If state is not idle,
+	if (_state != TXS_IDLE)
+	{
+		PostDeny(TXERR_BUSY);
+		return;
+	}
+
+	// If request callback is valid,
+	if (_on_send_request.IsValid())
+	{
+		// If pull request is rejected,
+		if (!_on_send_request(file_path))
+		{
+			PostDeny(TXERR_REJECTED);
+			return;
+		}
+	}
+
+	// Open new file
+	AsyncFile *file = new AsyncFile;
+	CAT_ENFORCE(file);
+	if (!file->Open(file_path, ASYNCFILE_READ | ASYNCFILE_SEQUENTIAL | ASYNCFILE_NOBUFFER))
+	{
+		file->Destroy(CAT_REFOBJECT_TRACE);
+
+		PostDeny(TXERR_FILE_OPEN_FAIL);
+		return;
+	}
+	_file = file;
+
+	// Cache file size
+	_file_size = _file->GetSize();
+
+	// Initialize stream indices
+	_load_stream = 0;
+	_dom_stream = 0;
+
+	if (!Setup())
+	{
+
+	}
+
+	// Pushing a file!
+	_state = TXS_PUSHING;
+
+	return StartRead(0, 0, _file_size <= _read_bytes ? (u32)_file_size : _read_bytes);
+}
+
+void FECHugeEndpoint::OnPullGo(u64 file_bytes, int stream_count)
+{
+
+}
+
+void FECHugeEndpoint::OnDeny(int reason)
+{
+
+}
+
+void FECHugeEndpoint::OnStart(u64 file_offset, u32 chunk_decompressed_size, u32 chunk_compressed_size, int block_bytes, int stream_id)
+{
+
+}
+
+void FECHugeEndpoint::OnStartAck(int stream_id)
+{
+
+}
+
+void FECHugeEndpoint::OnRate(u32 rate_counter)
+{
+
+}
+
+void FECHugeEndpoint::OnRequest(int stream_id, int request_count)
+{
+
+}
+
+void FECHugeEndpoint::OnClose(int reason)
+{
+
+}
+
+void FECHugeEndpoint::NextHuge(s32 &available, BatchSet &buffers, u32 &count)
 {
 	// TODO: Send file requests and abortions and stuff here
 
@@ -311,45 +515,153 @@ void FECHugeSource::NextHuge(s32 &available, BatchSet &buffers, u32 &count)
 	u32 dom_stream = _dom_stream;
 	Stream *stream = &_streams[dom_stream];
 
-	// If dominant stream is still loading,
-	if (stream->ready_flag == TXFLAG_LOADING)
-		return; // Done for now!
-
 	// If non-dominant stream is requested,
-	CAT_FOREVER
+	while (stream->requested > 0)
 	{
 		// Attempt to post a part of this stream
 		if (!PostPart(dom_stream, buffers, count))
 			break;
 
+		// Reduce request count on success
+		stream->requested--;
+
 		// If out of room,
 		if ((available -= stream->mss) <= 0)
-			break;	// Done for now!
+			return;	// Done for now!
 	}
 }
 
-
-//// FECHugeSink
-
-FECHugeSink::FECHugeSink()
+void FECHugeEndpoint::OnHuge(u8 *data, u32 bytes)
 {
+
 }
 
-FECHugeSink::~FECHugeSink()
+void FECHugeEndpoint::OnControlMessage(u8 *data, u32 bytes)
 {
+	if (bytes < 2)
+	{
+		CAT_WARN("FECHuge") << "Ignored truncated control message";
+		return;
+	}
+
+	if (data[0] != _opcode)
+	{
+		CAT_WARN("FECHuge") << "Ignored control message with wrong opcode";
+		return;
+	}
+
+	switch (data[1])
+	{
+	// Transmitter requesting to push a file, will cause receiver to issue a pull request
+	case TOP_PUSH_REQUEST:	// HDR | FileName(X)
+		if (bytes >= 2)
+		{
+			const char *file_path = reinterpret_cast<const char*>( data + 2 );
+
+			// Ensure it is null-terminated
+			data[bytes-1] = 0;
+
+			OnPushRequest(file_path);
+		}
+		break;
+
+	// Receiver requesting to pull a file
+	case TOP_PULL_REQUEST:	// HDR | FileName(X)
+		if (bytes >= 2)
+		{
+			const char *file_path = reinterpret_cast<const char*>( data + 2 );
+
+			// Ensure it is null-terminated
+			data[bytes-1] = 0;
+
+			OnPullRequest(file_path);
+		}
+		break;
+
+	// Transmitter indicating start of a file transfer
+	case TOP_PULL_GO:		// HDR | FileBytes(8) | StreamCount(1)
+		if (bytes >= 11)
+		{
+			u64 file_bytes = getLE(*(u64*)(data + 2));
+			int stream_count = (u32)data[10];
+
+			OnPullGo(file_bytes, stream_count);
+		}
+		break;
+
+	// Deny a push or pull request with a reason
+	case TOP_DENY:			// HDR | Reason(1)
+		if (bytes >= 3)
+		{
+			int reason = (u32)data[2];
+
+			OnDeny(reason);
+		}
+		break;
+
+	// Transmitter notifying receiver that a stream is starting
+	case TOP_START:			// HDR | FileOffset(8) | ChunkDecompressedSize(4) | ChunkCompressedSize(4) | BlockBytes(2) | StreamID(1)
+		if (bytes >= 21)
+		{
+			u64 file_offset = getLE(*(u64*)(data + 2));
+			u32 chunk_decompressed_size = getLE(*(u32*)(data + 10));
+			u32 chunk_compressed_size = getLE(*(u32*)(data + 14));
+			int block_bytes = getLE(*(u16*)(data + 18));
+			int stream_id = (u32)data[20];
+
+			OnStart(file_offset, chunk_decompressed_size, chunk_compressed_size, block_bytes, stream_id);
+		}
+		break;
+
+	// Receiver notifying transmitter that it is ready to receive a stream
+	case TOP_START_ACK:		// HDR | StreamID(1)
+		if (bytes >= 3)
+		{
+			int stream_id = (u32)data[2];
+
+			OnStartAck(stream_id);
+		}
+		break;
+
+	// Adjust transmit rate on all streams
+	case TOP_RATE:			// HDR | RateCounter(4)
+		if (bytes >= 6)
+		{
+			u32 rate_counter = getLE(*(u32*)(data + 2));
+
+			OnRate(rate_counter);
+		}
+		break;
+
+	// Request a number of blocks on a stream
+	case TOP_REQUEST:		// HDR | StreamID(1) | RequestCount(2)
+		if (bytes >= 5)
+		{
+			int stream_id = (u32)data[2];
+			int request_count = getLE(*(u16*)(data + 3));
+
+			OnRequest(stream_id, request_count);
+		}
+		break;
+
+	// Close transfer and indicate reason (including success)
+	case TOP_CLOSE:			// HDR | Reason(1)
+		if (bytes >= 3)
+		{
+			int reason = (u32)data[2];
+
+			OnClose(reason);
+		}
+		break;
+	}
 }
 
-void FECHugeSink::Initialize(Transport *transport, u32 worker_id)
+bool FECHugeEndpoint::Request(const char *file_path)
 {
-	_transport = transport;
-	_worker_id = worker_id;
+	return PostPullRequest(file_path);
 }
 
-bool FECHugeSink::Start(const char *file_path)
+bool FECHugeEndpoint::Send(const char *file_path)
 {
-	return true;
-}
-
-void FECHugeSink::OnHuge(u8 *data, u32 bytes)
-{
+	return PostPushRequest(file_path);
 }

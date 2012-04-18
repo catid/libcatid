@@ -1437,17 +1437,85 @@ int main2(void) {
 
 
 
+void TestFilenameCompression(const char *filename)
+{
+	int len = (int)strlen(filename);
+	int pkt_limit = len + 32;
+	char *pkt = new char[pkt_limit];
+	char *decomp_pkt = new char[len + 1];
+
+	double c0 = m_clock->usec();
+
+	RangeEncoder re(pkt, pkt_limit);
+	re.Text(filename, ChatText);
+	re.Finish();
+	int comp_len = re.Used();
+
+	double c1 = m_clock->usec();
+
+	RangeDecoder rd(pkt, comp_len);
+	int count = rd.Text(decomp_pkt, len + 1, ChatText) + 1;
+
+	double c2 = m_clock->usec();
+
+	cout << "Encode time = " << c1 - c0 << " usec" << endl;
+	cout << "Decode time = " << c2 - c1 << " usec" << endl;
+
+	cout << cat::HexDumpString(pkt, comp_len) << endl;
+
+	cout << "'" << filename << "' of " << (len+1) << " bytes compressed to " << comp_len << " bytes, and decompressed to '" << decomp_pkt << "' with " << count << " bytes" << endl;
+}
 
 
 int main(int argc, const char **argv)
 {
+	m_clock = Clock::ref();
+
+	for (int ii = 0; ii < 256; ++ii)
+	{
+		for (int jj = 0; jj < 256; ++jj)
+		{
+			for (int kk = 0; kk < 256; ++kk)
+			{
+				char fn[3];
+				fn[0] = (u8)ii;
+				fn[1] = (u8)jj;
+				fn[2] = (u8)kk;
+				fn[3] = 0;
+
+				char pkt[32];
+
+				RangeEncoder re(pkt, sizeof(pkt));
+				re.Text(fn, ChatText);
+				re.Finish();
+				int comp_len = re.Used();
+
+				if (comp_len > 4 + 2)
+				{
+					TestFilenameCompression(fn);
+				}
+			}
+		}
+	}
+
+	TestFilenameCompression("");
+	TestFilenameCompression("z");
+	TestFilenameCompression("/");
+	TestFilenameCompression(".");
+	TestFilenameCompression("SecureChatServer.exe");
+	TestFilenameCompression("SecureChatClient.exe");
+	TestFilenameCompression("Settings.cfg");
+	TestFilenameCompression("private/KeyPair.bin");
+	TestFilenameCompression("public/PublicKey.bin");
+	TestFilenameCompression("Graphics.lib");
+	TestFilenameCompression("TEST TextCompress.exe");
+
 	//main2();
 
 	SystemInfo *sinfo = SystemInfo::ref();
 
 	CAT_INFO("TEST") << sinfo->GetProcessorCount();
 
-	m_clock = Clock::ref();
 	/*
 	Settings::ref()->getInt("IOThreads.Test", 1337);
 
@@ -1673,7 +1741,7 @@ int main(int argc, const char **argv)
         delete collector;
 #endif
     }
-
+/*
 	cat::FortunaOutput *prng = cat::FortunaFactory::ref()->Create();
 
 	CAT_FOREVER
@@ -1715,7 +1783,7 @@ int main(int argc, const char **argv)
 			}
 		}
 	}
-
+*/
 	//// Huffman tests
 
 	//RunHuffmanTests();

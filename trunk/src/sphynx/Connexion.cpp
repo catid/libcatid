@@ -319,8 +319,8 @@ void Connexion::OnInternal(u32 recv_time, BufferStream data, u32 bytes)
 	case IOP_HUGE:
 		if (bytes >= IOP_HUGE_MINLEN)
 		{
-			if (_huge_sink)
-				_huge_sink->OnHuge(data, bytes);
+			if (_huge_endpoint)
+				_huge_endpoint->OnHuge(data, bytes);
 		}
 		break;
 
