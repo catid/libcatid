@@ -332,7 +332,7 @@ bool TextStatsCollector::VerifyTableIntegrity(const TableFormat *table)
 
 //// RangeEncoder
 
-// Intializing constructor
+// Initializing constructor
 RangeEncoder::RangeEncoder(void *output_i, int limit_i)
 {
     output = (u8*)output_i;
@@ -437,7 +437,7 @@ void RangeEncoder::Text(const char *msg, const TextStatsCollector::TableFormat *
     int len = (int)(msg - backup_msg);
 
     // If the tables failed, fall back to uniform distribution
-    if ((backup_remaining - remaining) > (len * stats->log2total) >> 15)
+    if ((backup_remaining - remaining) >= (len * stats->log2total) >> 15)
     {
         // Restore state
         output = backup_output;
@@ -549,7 +549,7 @@ void RangeEncoder::Finish()
 
 //// RangeDecoder
 
-// Intializing constructor
+// Initializing constructor
 RangeDecoder::RangeDecoder(const void *message, int bytes)
 {
     const u8 *m8 = (const u8*)message;
@@ -564,9 +564,9 @@ RangeDecoder::RangeDecoder(const void *message, int bytes)
 
         u8 *code8 = (u8*)&code;
 
-        switch (bytes)
-        {
 #if defined(CAT_ENDIAN_LITTLE)
+		switch (bytes)
+		{
         case 7: code8[1] = m8[6];
         case 6: code8[2] = m8[5];
         case 5: code8[3] = m8[4];
@@ -575,7 +575,10 @@ RangeDecoder::RangeDecoder(const void *message, int bytes)
         case 3: code8[5] = m8[2];
         case 2: code8[6] = m8[1];
         case 1: code8[7] = m8[0];
+		}
 #elif defined(CAT_ENDIAN_BIG)
+		switch (bytes)
+		{
         case 7: code8[6] = m8[6];
         case 6: code8[5] = m8[5];
         case 5: code8[4] = m8[4];
@@ -584,10 +587,37 @@ RangeDecoder::RangeDecoder(const void *message, int bytes)
         case 3: code8[2] = m8[2];
         case 2: code8[1] = m8[1];
         case 1: code8[0] = m8[0];
+		}
 #else
-#error "Fix this you lazy bastard"
+		if (Endianness::IsLittleEndian())
+		{
+			switch (bytes)
+			{
+			case 7: code8[1] = m8[6];
+			case 6: code8[2] = m8[5];
+			case 5: code8[3] = m8[4];
+			case 4: *(u32*)&code8[4] = getBE(*(u32*)m8);
+				break;
+			case 3: code8[5] = m8[2];
+			case 2: code8[6] = m8[1];
+			case 1: code8[7] = m8[0];
+			}
+		}
+		else
+		{
+			switch (bytes)
+			{
+			case 7: code8[6] = m8[6];
+			case 6: code8[5] = m8[5];
+			case 5: code8[4] = m8[4];
+			case 4: *(u32*)code8 = *(u32*)m8;
+				break;
+			case 3: code8[2] = m8[2];
+			case 2: code8[1] = m8[1];
+			case 1: code8[0] = m8[0];
+			}
+		}
 #endif
-        }
     }
     else
     {
@@ -696,7 +726,6 @@ int RangeDecoder::Text(char *msg, int buffer_size, const TextStatsCollector::Tab
             range *= symbol_range;
             if (!symbol) break;
             *msg++ = (char)stats->index2char[symbol];
-            --buffer_size;
         }
     }
 

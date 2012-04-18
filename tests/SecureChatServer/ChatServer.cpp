@@ -5,12 +5,11 @@ using namespace sphynx;
 
 class GameConnexion : public Connexion
 {
-	FECHugeSource _fsource;
-	FECHugeSink _fsink;
+	FECHugeEndpoint _ft;
 
 	enum
 	{
-		OP_FILE_UPLOAD_START,
+		OP_FTP,
 		OP_TEST_FRAGMENTS,
 		OP_USER_JOIN,
 		OP_USER_PART
@@ -65,8 +64,7 @@ bool GameConnexion::OnFinalize()
 
 void GameConnexion::OnConnect()
 {
-	_huge_sink = &_fsink;
-	_huge_source = &_fsource;
+	_huge_endpoint = &_ft;
 
 	CAT_WARN("Connexion") << "-- CONNECTED";
 
@@ -114,15 +112,8 @@ void GameConnexion::OnMessages(IncomingMessage msgs[], u32 count)
 				CAT_WARN("Connexion") << "Successfully received test fragments";
 			}
 			break;
-		case OP_FILE_UPLOAD_START:
-/*			if (_fsink.OnFileStart(GetWorkerID(), msg, bytes))
-			{
-				CAT_WARN("Connexion") << "-- File upload from remote peer starting";
-			}
-			else
-			{
-				CAT_WARN("Connexion") << "-- File upload from remote peer NOT ACCEPTED";
-			}*/
+		case OP_FTP:
+			_ft.OnControlMessage(msg, bytes);
 			break;
 		default:
 			CAT_WARN("Connexion") << "-- Got unknown message with " << bytes << " bytes" << HexDumpString(msg, bytes);

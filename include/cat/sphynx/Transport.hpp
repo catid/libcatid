@@ -551,9 +551,8 @@ protected:
 	// Send state: Flow control
 	FlowControl _send_flow;
 
-	// Huge source/sink of upstream/downstream data
-	IHugeSource *_huge_source;
-	IHugeSink *_huge_sink;
+	// Huge endpoint of upstream/downstream data
+	IHugeEndpoint *_huge_endpoint;
 
 	CAT_INLINE u8 GetDisconnectReason() { return _disconnect_reason; }
 

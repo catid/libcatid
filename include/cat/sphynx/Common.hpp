@@ -227,16 +227,11 @@ static const u32 COLLISION_INCRINVERSE = 0 - COLLISION_INCREMENTER;
 
 
 // Interface for a huge data source > MAX_MESSAGE_SIZE
-class IHugeSource
+class IHugeEndpoint
 {
 public:
 	virtual void NextHuge(s32 &available, BatchSet &buffers, u32 &count) = 0;
-};
 
-// Interface for a huge data sink > MAX_MESSAGE_SIZE
-class IHugeSink
-{
-public:
 	virtual void OnHuge(u8 *data, u32 bytes) = 0;
 };
 

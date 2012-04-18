@@ -75,7 +75,7 @@ public:
 
     struct TableFormat
     {
-        // MurmurHash2 of remainder, with seed = 0
+        // MurmurHash of remainder, with seed = 0
         u32 hash;
 
         // Total symbols in the table <= 256

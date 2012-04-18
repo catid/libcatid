@@ -9,12 +9,11 @@ using namespace std;
 
 class GameClient : public Client
 {
-	FECHugeSource _fsource;
-	FECHugeSink _fsink;
+	FECHugeEndpoint _ft;
 
 	enum
 	{
-		OP_FILE_UPLOAD_START,
+		OP_FTP,
 		OP_TEST_FRAGMENTS,
 		OP_USER_JOIN,
 		OP_USER_PART
@@ -31,8 +30,7 @@ public:
 	{
 		CAT_WARN("Client") << "-- CONNECTED";
 
-		_huge_source = &_fsource;
-		_huge_sink = &_fsink;
+		_huge_endpoint = &_ft;
 
 /*
 		if (_fsource.TransferFile(GetWorkerID(), OP_FILE_UPLOAD_START, "test.tmp", "sink.tmp", this))
@@ -82,15 +80,8 @@ public:
 
 				}
 				break;
-			case OP_FILE_UPLOAD_START:
-/*				if (_fsink.OnFileStart(GetWorkerID(), msg, bytes))
-				{
-					CAT_WARN("Client") << "-- File upload from remote peer starting";
-				}
-				else
-				{
-					CAT_WARN("Client") << "-- File upload from remote peer NOT ACCEPTED";
-				}*/
+			case OP_FTP:
+				_ft.OnControlMessage(msg, bytes);
 				break;
 			case OP_USER_JOIN:
 				CAT_WARN("Client") << "-- User joined: " << getLE(*(u16*)(msg + 1));
