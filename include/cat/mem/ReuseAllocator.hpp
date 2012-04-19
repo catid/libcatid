@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2011 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2012 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -26,8 +26,8 @@
 	POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAT_BUFFER_ALLOCATOR_HPP
-#define CAT_BUFFER_ALLOCATOR_HPP
+#ifndef CAT_REUSE_ALLOCATOR_HPP
+#define CAT_REUSE_ALLOCATOR_HPP
 
 #include <cat/mem/IAllocator.hpp>
 #include <cat/threads/Mutex.hpp>
@@ -36,11 +36,12 @@ namespace cat {
 
 
 /*
-	The buffer allocator is optimized for allocating memory space of a
-	prescribed size that need to be aligned to the cache line size.
+	The reuse allocator is optimized to react to runtime requirements
+	by keeping previously allocated buffers around for later re-use.
 
-	It preallocates a number of buffers and tries to allocate from this
-	set.  If it runs out of space, it will return zero.
+	These buffers are not aligned and are allocated off the CRT heap.
+
+	All buffers are the same size.
 
 	Allocation and deallocation are thread-safe.  It is optimized to
 	be used for allocating in one thread and deallocating in another,
@@ -49,11 +50,9 @@ namespace cat {
 	into the acquire list.  In any case, the lock time is minimized. 
 */
 
-// Aligned buffer array heap allocator
-class CAT_EXPORT BufferAllocator : public IAllocator
+class CAT_EXPORT ReuseAllocator : public IAllocator
 {
-	u32 _buffer_bytes, _buffer_count;
-	u8 *_buffers;
+	u32 _buffer_bytes;
 
 	Mutex _acquire_lock;
 	BatchHead * volatile _acquire_head;
@@ -62,22 +61,18 @@ class CAT_EXPORT BufferAllocator : public IAllocator
 	BatchHead * volatile _release_head;
 
 	// This interface really doesn't make sense for this allocator
-	void *Acquire(u32 bytes) { return 0; }
-	void *Resize(void *ptr, u32 bytes) { return 0; }
-	void Release(void *buffer) {}
+	CAT_INLINE void *Resize(void *ptr, u32 bytes) { return 0; }
+	CAT_INLINE void Release(void *buffer) {}
+	CAT_INLINE u32 AcquireBatch(BatchSet &set, u32 count, u32 bytes = 0) { return 0; }
 
 public:
-	// Specify the number of bytes needed per buffer, which
-	// will be bumped up to the next CPU cache line size, and
-	// the number of buffers to preallocate
-	BufferAllocator(u32 buffer_min_size, u32 buffer_count);
-	virtual ~BufferAllocator();
+	ReuseAllocator(u32 buffer_bytes);
+	virtual ~ReuseAllocator();
 
-	bool Valid() { return _buffers != 0; }
+	CAT_INLINE bool Valid() { return true; }
 
-	// Attempt to acquire a number of buffers, often pre-fixed size
-	// Returns the number of valid buffers it was able to allocate
-	u32 AcquireBatch(BatchSet &set, u32 count, u32 bytes = 0);
+	// NOTE: Bytes parameter is ignored
+	void *Acquire(u32 bytes = 0);
 
 	// Release a number of buffers simultaneously
 	void ReleaseBatch(const BatchSet &set);

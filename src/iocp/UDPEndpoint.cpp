@@ -37,14 +37,14 @@ using namespace cat;
 
 static UDPRecvAllocator *m_recv_allocator = 0;
 static IOThreadPools *m_io_thread_pools = 0;
-static StdAllocator *m_std_allocator = 0;
+static UDPSendAllocator *m_udp_send_allocator = 0;
 
 
 //// UDPEndpoint
 
 bool UDPEndpoint::OnInitialize()
 {
-	Use(m_io_thread_pools, m_std_allocator, m_recv_allocator);
+	Use(m_io_thread_pools, m_udp_send_allocator, m_recv_allocator);
 
 	return true;
 }
@@ -252,7 +252,7 @@ bool UDPEndpoint::Write(const BatchSet &buffers, u32 count, const NetAddr &addr)
 
 		WSABUF wsabuf;
 		wsabuf.buf = reinterpret_cast<CHAR*>( GetTrailingBytes(buffer) );
-		wsabuf.len = buffer->GetBytes();
+		wsabuf.len = buffer->data_bytes;
 
 		CAT_OBJCLR(buffer->iointernal.ov);
 		buffer->iointernal.io_type = IOTYPE_UDP_SEND;
@@ -268,7 +268,7 @@ bool UDPEndpoint::Write(const BatchSet &buffers, u32 count, const NetAddr &addr)
 		{
 			CAT_WARN("UDPEndpoint") << "WSASendTo error: " << Sockets::GetLastErrorString();
 
-			m_std_allocator->Release(node);
+			m_udp_send_allocator->ReleaseBatch(node);
 			ReleaseRef(CAT_REFOBJECT_TRACE);
 			continue;
 		}
@@ -284,7 +284,7 @@ bool UDPEndpoint::Write(const BatchSet &buffers, u32 count, const NetAddr &addr)
 bool UDPEndpoint::Write(u8 *data, u32 data_bytes, const NetAddr &addr)
 {
 	SendBuffer *buffer = SendBuffer::Promote(data);
-	buffer->SetBytes(data_bytes);
+	buffer->data_bytes = data_bytes;
 	return Write(buffer, 1, addr);
 }
 

@@ -48,6 +48,9 @@
     <ClCompile Include="..\..\src\io\FileWriteAllocator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\net\UDPSendAllocator.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\cat\iocp\UDPEndpoint.hpp">
@@ -79,6 +82,9 @@
     </ClInclude>
     <ClInclude Include="..\..\include\cat\io\FileWriteAllocator.hpp">
       <Filter>Header Files\io</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\net\UDPSendAllocator.hpp">
+      <Filter>Header Files\net</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

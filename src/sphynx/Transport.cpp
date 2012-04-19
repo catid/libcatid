@@ -28,6 +28,7 @@
 
 #include <cat/sphynx/Transport.hpp>
 #include <cat/port/EndianNeutral.hpp>
+#include <cat/net/UDPSendAllocator.hpp>
 #include <cat/io/Log.hpp>
 #include <ext/lz4/lz4.h>
 using namespace std;
@@ -36,7 +37,7 @@ using namespace sphynx;
 
 static StdAllocator *m_std_allocator = 0;
 static Clock *m_clock = 0;
-
+static UDPSendAllocator *m_udp_send_allocator = 0;
 static TLSInstance<TransportTLS> m_transport_tls;
 
 
@@ -44,6 +45,11 @@ static TLSInstance<TransportTLS> m_transport_tls;
 
 bool TransportTLS::OnInitialize()
 {
+	m_std_allocator = StdAllocator::ref();
+	m_udp_send_allocator = UDPSendAllocator::ref();
+	m_clock = Clock::ref();
+	CAT_ENFORCE(m_std_allocator && m_udp_send_allocator && m_clock);
+
 	locks = new (std::nothrow) TransportLocks[LOCKS_PER_WORKER];
 	if (!locks) return false;
 
@@ -148,7 +154,7 @@ void Transport::QueueWriteDatagram(SendCluster &cluster)
 		pkt_bytes = bytes + SPHYNX_OVERHEAD;
 
 	u8 *pkt;
-	do pkt = SendBuffer::Acquire(pkt_bytes);
+	do pkt = m_udp_send_allocator->Acquire(pkt_bytes);
 	while (!pkt);
 
 	// Attempt packet compression
@@ -167,9 +173,7 @@ void Transport::QueueWriteDatagram(SendCluster &cluster)
 	}
 
 	SendBuffer *buffer = SendBuffer::Promote(pkt);
-	u32 buffer_bytes = compress_bytes + SPHYNX_OVERHEAD;
-
-	buffer->SetBytes(buffer_bytes);
+	buffer->data_bytes = compress_bytes + SPHYNX_OVERHEAD;
 
 	_outgoing_datagrams.PushBack(buffer);
 	_outgoing_datagrams_count++;
@@ -372,10 +376,6 @@ void Transport::DeliverQueued()
 
 Transport::Transport()
 {
-	// Acquire standard allocator
-	m_std_allocator = StdAllocator::ref();
-	m_clock = Clock::ref();
-
 	// Receive state
 	CAT_OBJCLR(_got_reliable);
 
@@ -1005,12 +1005,9 @@ bool Transport::WriteOOB(u8 msg_opcode, const void *msg_data, u32 msg_bytes, Sup
 	u32 data_bytes = 1 + msg_bytes;
 	const u32 needed = MAX_MESSAGE_HEADER_BYTES + data_bytes + SPHYNX_OVERHEAD;
 
-	u8 *pkt = SendBuffer::Acquire(needed);
-	if (!pkt)
-	{
-		CAT_WARN("Transport") << "Out of memory for out-of-band message";
-		return false;
-	}
+	u8 *pkt;
+	do pkt = m_udp_send_allocator->Acquire(needed);
+	while (!pkt);
 
 	u32 offset = 1;
 
@@ -1029,7 +1026,7 @@ bool Transport::WriteOOB(u8 msg_opcode, const void *msg_data, u32 msg_bytes, Sup
 	memcpy(pkt + offset, msg_data, msg_bytes);
 
 	SendBuffer *buffer = SendBuffer::Promote(pkt);
-	buffer->SetBytes(offset + msg_bytes + SPHYNX_OVERHEAD);
+	buffer->data_bytes = offset + msg_bytes + SPHYNX_OVERHEAD;
 	pkt[offset + msg_bytes] = 0; // Flag not compressed
 
 	// If writes succeeded,
@@ -1463,8 +1460,8 @@ bool Transport::PostHugeZeroCopy(const BatchSet &buffers, u32 count)
 		u8 *msg = GetTrailingBytes(buffer);
 
 		// Add Sphynx overhead to byte count
-		u32 bytes = buffer->GetBytes();
-		buffer->SetBytes(bytes + SPHYNX_OVERHEAD);
+		u32 bytes = buffer->data_bytes;
+		buffer->data_bytes = bytes + SPHYNX_OVERHEAD;
 
 		// Flag not compressed
 		msg[bytes] = 0;
@@ -1491,7 +1488,7 @@ bool Transport::PostMTUProbe(u32 mtu)
 	u32 payload_bytes = mtu - _udpip_bytes - SPHYNX_OVERHEAD;
 
 	const u32 pkt_bytes = payload_bytes + SPHYNX_OVERHEAD;
-	u8 *pkt = SendBuffer::Acquire(pkt_bytes);
+	u8 *pkt = m_udp_send_allocator->Acquire(pkt_bytes);
 	if (!pkt)
 	{
 		CAT_WARN("Transport") << "Out of memory error while posting MTU probe";
@@ -1530,7 +1527,7 @@ bool Transport::PostMTUProbe(u32 mtu)
 		memcpy(pkt_pad, key_stream, pad_count);
 
 	SendBuffer *buffer = SendBuffer::Promote(pkt);
-	buffer->SetBytes(pkt_bytes);
+	buffer->data_bytes = pkt_bytes;
 	pkt[payload_bytes] = 0; // Flag not compressed
 
 	// If writes succeeded,

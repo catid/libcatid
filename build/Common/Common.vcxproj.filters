@@ -147,6 +147,9 @@
     <ClCompile Include="..\..\src\lang\HashTable.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\mem\ReuseAllocator.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\cat\AllCommon.hpp">
@@ -286,6 +289,9 @@
     </ClInclude>
     <ClInclude Include="..\..\include\cat\rand\AbyssinianPRNG.hpp">
       <Filter>Header Files\rand</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\cat\mem\ReuseAllocator.hpp">
+      <Filter>Header Files\mem</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

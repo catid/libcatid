@@ -117,11 +117,14 @@ enum TransferOpCodes
 
 enum TransferAbortReasons
 {
+	TXERR_NO_PROBLEMO,		// OK
+
 	TXERR_BUSY,				// Source is not idle and cannot service another request
 	TXERR_REJECTED,			// Source rejected the request based on file name
 	TXERR_FILE_OPEN_FAIL,	// Source unable to open the requested file
 	TXERR_FILE_READ_FAIL,	// Source unable to read part of the requested file
 	TXERR_FEC_FAIL,			// Forward error correction codec reported an error
+	TXERR_OUT_OF_MEMORY,	// Source ran out of memory
 
 	TXERR_SHUTDOWN,			// Remote host is shutting down
 };
@@ -150,13 +153,13 @@ public:
 	// Delegate types:
 
 	// Return true to accept the file request (may still fail if file is not accessible)
-	typedef Delegate1<bool, const char */*file name*/> OnSendRequest;
+	typedef Delegate1<bool, const char * /*file name*/> OnSendRequest;
 
 	// Callback when file transfer completes, either with success or failure (check reason parameter)
 	typedef Delegate1<void, int /*reason*/> OnSendDone;
 
 	// Return true to accept the file request (may still fail if file is not accessible)
-	typedef Delegate1<bool, const char */*file name*/> OnRecvRequest;
+	typedef Delegate1<bool, const char * /*file name*/> OnRecvRequest;
 
 	// Callback when file transfer completes, either with success or failure (check reason parameter)
 	typedef Delegate1<void, int /*reason*/> OnRecvDone;
@@ -201,7 +204,7 @@ protected:
 		int requested;
 	} *_streams;
 
-	u32 _load_stream;	// Indicates which stream is currently pending on a file read
+	volatile u32 _load_stream;	// Indicates which stream is currently pending on a file read
 	u32 _dom_stream;	// Indicates which stream is dominant on the network
 	u32 _num_streams;	// Number of streams that can be run in parallel
 
