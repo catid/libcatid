@@ -46,6 +46,7 @@ static WorkerThreads *m_worker_threads = 0;
 static Settings *m_settings = 0;
 static FortunaOutput *m_csprng = 0;
 static DNSClient *m_dns_client = 0;
+static UDPSendAllocator *m_udp_send_allocator = 0;
 
 /*
 	DNS protocol:
@@ -531,7 +532,7 @@ bool DNSClientEndpoint::PostDNSPacket(DNSRequest *req, u32 now)
 	int str_len = (int)strlen(req->hostname);
 	int bytes = DNS_HDRLEN + 1 + str_len + 1 + DNS_QUESTION_FOOTER;
 
-	u8 *pkt = SendBuffer::Acquire(bytes);
+	u8 *pkt = m_udp_send_allocator->Acquire(bytes);
 	if (!pkt) return false;
 
 	u16 *dns_hdr = reinterpret_cast<u16*>( pkt );
@@ -996,7 +997,7 @@ bool DNSClient::OnInitialize()
 
 	CAT_ENFORCE(_lock.Valid());
 
-	Use(m_worker_threads, m_settings);
+	Use(m_worker_threads, m_settings, m_udp_send_allocator);
 	Use<IOThreadPools>();
 
 	// Attempt to get a CSPRNG

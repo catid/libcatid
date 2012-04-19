@@ -38,7 +38,7 @@ using namespace cat;
 static IOThreadPools *m_io_thread_pools = 0;
 static WorkerThreads *m_worker_threads = 0;
 static Settings *m_settings = 0;
-static StdAllocator *m_std_allocator = 0;
+static UDPSendAllocator *m_udp_send_allocator = 0;
 static Clock *m_clock = 0;
 static SystemInfo *m_system_info = 0;
 static LogThread *m_log_thread = 0;
@@ -185,7 +185,7 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreadPool *master, OVERLAPPED_ENTR
 	if (sendq.head)
 	{
 		sendq.tail->batch_next = 0;
-		m_std_allocator->ReleaseBatch(sendq);
+		m_udp_send_allocator->ReleaseBatch(sendq);
 
 		sendq.Clear();
 
@@ -471,7 +471,7 @@ bool IOThreadPools::OnInitialize()
 
 	m_io_thread_pools = this;
 
-	Use(m_worker_threads, m_settings, m_std_allocator, m_clock, m_system_info);
+	Use(m_worker_threads, m_settings, m_udp_send_allocator, m_clock, m_system_info);
 	Use(m_log_thread);
 
 	return IsInitialized() && _shared_pool.Startup();

@@ -29,7 +29,7 @@
 #ifndef CAT_IO_BUFFERS_HPP
 #define CAT_IO_BUFFERS_HPP
 
-#include <cat/mem/ResizableBuffer.hpp>
+#include <cat/net/UDPSendAllocator.hpp>
 #include <cat/threads/WorkerThreads.hpp>
 
 #if defined(CAT_OS_WINDOWS)
@@ -46,10 +46,17 @@ namespace cat {
 
 
 // A buffer specialized for writing to a socket
-struct SendBuffer : public BatchHead, public ResizableBuffer<SendBuffer>
+struct SendBuffer : public UDPSendBatchHead
 {
 	// IO layer specific overhead pimpl
 	IOLayerSendOverhead iointernal;
+
+	u32 data_bytes;
+
+	static CAT_INLINE SendBuffer *Promote(u8 *data)
+	{
+		return reinterpret_cast<SendBuffer*>( data - sizeof(SendBuffer) );
+	}
 };
 
 

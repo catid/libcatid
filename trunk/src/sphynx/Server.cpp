@@ -39,6 +39,7 @@ using namespace sphynx;
 
 static WorkerThreads *m_worker_threads = 0;
 static Settings *m_settings = 0;
+static UDPSendAllocator *m_udp_send_allocator = 0;
 static TLSInstance<TunnelTLS> m_tunnel_tls;
 static TLSInstance<TransportTLS> m_transport_tls;
 
@@ -47,7 +48,7 @@ static TLSInstance<TransportTLS> m_transport_tls;
 
 bool Server::OnInitialize()
 {
-	Use(m_worker_threads, m_settings);
+	Use(m_worker_threads, m_settings, m_udp_send_allocator);
 
 	return m_worker_threads->InitializeTLS<TransportTLS>() && UDPEndpoint::OnInitialize();
 }
@@ -305,7 +306,7 @@ void Server::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 				continue;
 			}
 
-			u8 *pkt = SendBuffer::Acquire(S2C_ANSWER_LEN);
+			u8 *pkt = m_udp_send_allocator->Acquire(S2C_ANSWER_LEN);
 			u8 *challenge = data + 1 + 4;
 
 			Skein key_hash;
@@ -514,7 +515,7 @@ bool Server::StartServer(Port port, TunnelKeyPair &key_pair, const char *session
 
 bool Server::PostConnectionCookie(const NetAddr &dest)
 {
-	u8 *pkt = SendBuffer::Acquire(S2C_COOKIE_LEN);
+	u8 *pkt = m_udp_send_allocator->Acquire(S2C_COOKIE_LEN);
 	if (!pkt)
 	{
 		CAT_WARN("Server") << "Unable to post connection cookie: Unable to allocate post buffer";
@@ -535,7 +536,7 @@ bool Server::PostConnectionCookie(const NetAddr &dest)
 
 bool Server::PostConnectionError(const NetAddr &dest, SphynxError err)
 {
-	u8 *pkt = SendBuffer::Acquire(S2C_ERROR_LEN);
+	u8 *pkt = m_udp_send_allocator->Acquire(S2C_ERROR_LEN);
 	if (!pkt)
 	{
 		CAT_WARN("Server") << "Out of memory: Unable to allocate send buffer";

@@ -34,6 +34,9 @@ using namespace cat;
 using namespace sphynx;
 
 
+static UDPSendAllocator *m_udp_send_allocator = 0;
+
+
 //// FECHugeEndpoint
 
 FECHugeEndpoint::FECHugeEndpoint()
@@ -66,6 +69,9 @@ void FECHugeEndpoint::Initialize(Transport *transport, u32 worker_id, u8 opcode)
 
 bool FECHugeEndpoint::Setup()
 {
+	m_udp_send_allocator = UDPSendAllocator::ref();
+	if (!m_udp_send_allocator) return false;
+
 	if (_read_bytes == 0)
 	{
 		// Lookup page size
@@ -211,7 +217,7 @@ bool FECHugeEndpoint::PostPart(u32 stream_id, BatchSet &buffers, u32 &count)
 
 	const u32 mss = stream->mss;
 
-	u8 *msg = SendBuffer::Acquire(mss);
+	u8 *msg = m_udp_send_allocator->Acquire(mss);
 	if (!msg) return false;
 
 	// Generate header and length
@@ -253,7 +259,7 @@ bool FECHugeEndpoint::PostPart(u32 stream_id, BatchSet &buffers, u32 &count)
 
 	// Carve out just the part of the buffer we're using
 	SendBuffer *buffer = SendBuffer::Promote(msg);
-	buffer->SetBytes(bytes + hdr_bytes);
+	buffer->data_bytes = bytes + hdr_bytes;
 
 	// Add it to the list
 	buffers.PushBack(buffer);
@@ -391,6 +397,29 @@ bool FECHugeEndpoint::PostClose(int reason)
 
 void FECHugeEndpoint::OnPushRequest(const char *file_path)
 {
+	// If state is not idle,
+	if (_state != TXS_IDLE)
+	{
+		PostDeny(TXERR_BUSY);
+		return;
+	}
+
+	// If request callback is valid,
+	if (_on_recv_request.IsValid())
+	{
+		// If pull request is rejected,
+		if (!_on_recv_request(file_path))
+		{
+			PostDeny(TXERR_REJECTED);
+			return;
+		}
+	}
+
+	if (!PostPullRequest(file_path))
+	{
+		PostDeny(TXERR_OUT_OF_MEMORY);
+		return;
+	}
 }
 
 void FECHugeEndpoint::OnPullRequest(const char *file_path)
@@ -423,10 +452,9 @@ void FECHugeEndpoint::OnPullRequest(const char *file_path)
 		PostDeny(TXERR_FILE_OPEN_FAIL);
 		return;
 	}
-	_file = file;
 
 	// Cache file size
-	_file_size = _file->GetSize();
+	_file_size = file->GetSize();
 
 	// Initialize stream indices
 	_load_stream = 0;
@@ -434,13 +462,28 @@ void FECHugeEndpoint::OnPullRequest(const char *file_path)
 
 	if (!Setup())
 	{
+		file->Destroy(CAT_REFOBJECT_TRACE);
 
+		PostDeny(TXERR_OUT_OF_MEMORY);
+		return;
 	}
+
+	_file = file;
 
 	// Pushing a file!
 	_state = TXS_PUSHING;
 
-	return StartRead(0, 0, _file_size <= _read_bytes ? (u32)_file_size : _read_bytes);
+	u32 first_read_bytes = (_file_size <= _read_bytes) ? (u32)_file_size : _read_bytes;
+	if (!StartRead(0, 0, first_read_bytes))
+	{
+		_state = TXS_IDLE;
+
+		file->Destroy(CAT_REFOBJECT_TRACE);
+
+		PostDeny(TXERR_FILE_READ_FAIL);
+
+		return;
+	}
 }
 
 void FECHugeEndpoint::OnPullGo(u64 file_bytes, int stream_count)
@@ -480,10 +523,22 @@ void FECHugeEndpoint::OnClose(int reason)
 
 void FECHugeEndpoint::NextHuge(s32 &available, BatchSet &buffers, u32 &count)
 {
-	// TODO: Send file requests and abortions and stuff here
-
 	// If no space, abort
 	if (available <= 0) return;
+
+	// If abortion requested,
+	if (_abort_reason != TXERR_NO_PROBLEMO)
+	{
+		// NOTE: This will actually be sent late on the next tick
+		PostClose(_abort_reason);
+
+		_state = TXS_IDLE;
+
+		return;
+	}
+
+	// If state is idle, abort
+	if (_state == TXS_IDLE) return;
 
 	// If no streams, abort
 	if (!_streams) return;

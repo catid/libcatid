@@ -44,6 +44,7 @@ using namespace sphynx;
 static WorkerThreads *m_worker_threads = 0;
 static Settings *m_settings = 0;
 static DNSClient *m_dns_client = 0;
+static UDPSendAllocator *m_udp_send_allocator = 0;
 static TLSInstance<TunnelTLS> m_tunnel_tls;
 static TLSInstance<TransportTLS> m_transport_tls;
 
@@ -52,7 +53,7 @@ static TLSInstance<TransportTLS> m_transport_tls;
 
 bool Client::OnInitialize()
 {
-	Use(_clock, m_worker_threads, m_settings, m_dns_client);
+	Use(_clock, m_worker_threads, m_settings, m_dns_client, m_udp_send_allocator);
 
 	return m_worker_threads->InitializeTLS<TransportTLS>() && UDPEndpoint::OnInitialize();
 }
@@ -133,7 +134,7 @@ void Client::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 			}
 			else if (bytes == S2C_COOKIE_LEN && data[0] == S2C_COOKIE)
 			{
-				u8 *pkt = SendBuffer::Acquire(C2S_CHALLENGE_LEN);
+				u8 *pkt = m_udp_send_allocator->Acquire(C2S_CHALLENGE_LEN);
 				if (!pkt)
 				{
 					ConnectFail(ERR_CLIENT_OUT_OF_MEMORY);
@@ -599,7 +600,7 @@ bool Client::WriteHello()
 		return false;
 	}
 
-	u8 *pkt = SendBuffer::Acquire(C2S_HELLO_LEN);
+	u8 *pkt = m_udp_send_allocator->Acquire(C2S_HELLO_LEN);
 
 	// If unable to allocate,
 	if (!pkt)
@@ -661,7 +662,7 @@ s32 Client::WriteDatagrams(const BatchSet &buffers, u32 count)
 		// Unwrap the message data
 		SendBuffer *buffer = static_cast<SendBuffer*>( node );
 		u8 *msg_data = GetTrailingBytes(buffer);
-		u32 msg_bytes = buffer->GetBytes();
+		u32 msg_bytes = buffer->data_bytes;
 
 #if !defined(CAT_SPHYNX_ROAMING_IP)
 		// Encrypt the message

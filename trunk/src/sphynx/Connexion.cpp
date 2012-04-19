@@ -256,12 +256,12 @@ s32 Connexion::WriteDatagrams(const BatchSet &buffers, u32 count)
 		// Unwrap the message data
 		SendBuffer *buffer = static_cast<SendBuffer*>( node );
 		u8 *msg_data = GetTrailingBytes(buffer);
-		u32 msg_bytes = buffer->GetBytes();
+		u32 msg_bytes = buffer->data_bytes;
 
 #if defined(CAT_SPHYNX_ROAMING_IP)
 		// Remove extra overhead bytes for s2c stuff
 		msg_bytes -= 2;
-		buffer->SetBytes(msg_bytes);
+		buffer->data_bytes = msg_bytes;
 #endif
 
 		// Encrypt the message
