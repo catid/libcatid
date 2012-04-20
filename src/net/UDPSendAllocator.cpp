@@ -125,7 +125,7 @@ u8 *UDPSendAllocator::Acquire(u32 trailing_bytes)
 	if (!buffer) return 0;
 
 	// Remember bin index
-	buffer->_udp_send_allocator_bin_index = (u8)bin_index + 1;
+	buffer->_udp_send_allocator_bin_index = (u8)(bin_index + 1);
 	return GetTrailingBytes(buffer);
 }
 
@@ -136,7 +136,6 @@ void UDPSendAllocator::ReleaseBatch(const BatchSet &set)
 
 	// Initialize kill set
 	BatchSet kills;
-	kills.Clear();
 	u32 prev_bin = 0;
 
 	// For each node to release,
