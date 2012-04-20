@@ -39,10 +39,6 @@ CAT_REF_SINGLETON(UDPSendAllocator);
 
 bool UDPSendAllocator::OnInitialize()
 {
-#if defined(CAT_PROFILE_SEND_ALLOCATOR)
-	_time_sum = 0;
-#endif
-
 	// Grab buffer count
 	_num_allocators = Use<Settings>()->getInt("Net::UDPSendAllocator.NumAllocators", DEFAULT_ALLOC_COUNT, MIN_ALLOC_COUNT, MAX_ALLOC_COUNT);
 
