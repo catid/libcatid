@@ -72,10 +72,9 @@ FECHugeEndpoint::~FECHugeEndpoint()
 
 void FECHugeEndpoint::Initialize(Transport *transport, u8 opcode)
 {
-	CAT_WARN("FECHugeEndpoint") << "Initializing";
-
 	// Initialize state
 	_state = TXS_IDLE;
+	_abort_reason = TXERR_NO_PROBLEMO;
 	_transport = transport;
 	_opcode = opcode;
 
@@ -88,8 +87,6 @@ void FECHugeEndpoint::Initialize(Transport *transport, u8 opcode)
 
 bool FECHugeEndpoint::Setup()
 {
-	CAT_WARN("FECHugeEndpoint") << "Setup";
-
 	m_udp_send_allocator = UDPSendAllocator::ref();
 	if (!m_udp_send_allocator) return false;
 
@@ -116,6 +113,7 @@ bool FECHugeEndpoint::Setup()
 		{
 			streams[ii].read_buffer_object.callback = WorkerDelegate::FromMember<FECHugeEndpoint, &FECHugeEndpoint::OnFileRead>(this);
 			streams[ii].requested = 0;
+			streams[ii].read_buffer = 0;
 		}
 	}
 
@@ -164,8 +162,6 @@ void FECHugeEndpoint::Cleanup()
 
 void FECHugeEndpoint::OnFileRead(ThreadLocalStorage &tls, const BatchSet &set)
 {
-	CAT_WARN("FECHugeEndpoint") << "OnFileRead";
-
 	Stream *stream = &_streams[_load_stream];
 
 	// For each buffer in the set,
@@ -177,12 +173,17 @@ void FECHugeEndpoint::OnFileRead(ThreadLocalStorage &tls, const BatchSet &set)
 
 		// If buffer is not expected,
 		if (stream->read_buffer != data)
+		{
+			CAT_WARN("FECHugeEndpoint") << "OnFileRead: Ignoring data from wrong buffer";
 			continue; // Ignore it
+		}
 
 		// If read failed,
 		u32 bytes = buffer->data_bytes;
 		if (bytes == 0)
 		{
+			CAT_WARN("FECHugeEndpoint") << "OnFileRead: File read with length = 0 indicating read failure";
+
 			// Set abort reason, to be delivered on next data request
 			_abort_reason = TXERR_FILE_READ_FAIL;
 			break;
@@ -199,8 +200,8 @@ void FECHugeEndpoint::OnFileRead(ThreadLocalStorage &tls, const BatchSet &set)
 
 		// Fix block bytes at the start of the transfer
 		// Payload loadout = HDR(1) + TYPE|STREAM(1) + ID(3) + DATA
-		u32 mss = _transport->GetMaxPayloadBytes();
-		u32 block_bytes = CAT_FT_MSS_TO_BLOCK_BYTES(mss);
+		int mss = _transport->GetMaxPayloadBytes();
+		int block_bytes = CAT_FT_MSS_TO_BLOCK_BYTES(mss);
 
 		// Set up stream state
 		stream->mss = mss;
@@ -208,17 +209,23 @@ void FECHugeEndpoint::OnFileRead(ThreadLocalStorage &tls, const BatchSet &set)
 		stream->next_id = 0;
 
 		// Initialize the encoder (slow!)
-		wirehair::Result r = stream->encoder.BeginEncode(compress_buffer, bytes, block_bytes);
+		wirehair::Result r = stream->encoder.BeginEncode(compress_buffer, compress_bytes, block_bytes);
 		if (r == wirehair::R_WIN)
 		{
+			const u32 block_count = stream->encoder.BlockCount();
+
+			CAT_WARN("FECHugeEndpoint") << "OnFileRead: Read " << bytes << " bytes, compressed to " << compress_bytes << " block_bytes=" << block_bytes << " and blocks=" << block_count;
+
 			stream->ready_flag = TXFLAG_READY;
 
 			Atomic::StoreMemoryBarrier();
 
-			stream->requested = stream->encoder.BlockCount();
+			stream->requested = block_count;
 		}
-		else if (r == wirehair::R_TOO_SMALL && bytes <= block_bytes)
+		else if (r == wirehair::R_TOO_SMALL && compress_bytes <= block_bytes)
 		{
+			CAT_WARN("FECHugeEndpoint") << "OnFileRead: Read " << bytes << " bytes, compressed to " << compress_bytes << " block_bytes=" << block_bytes << " and single block";
+
 			stream->ready_flag = TXFLAG_SINGLE;
 
 			Atomic::StoreMemoryBarrier();
@@ -433,7 +440,7 @@ bool FECHugeEndpoint::PostClose(int reason)
 	if (!msg) return false;
 
 	msg[0] = _opcode;
-	msg[1] = TOP_START_ACK;
+	msg[1] = TOP_CLOSE;
 	msg[2] = (u8)reason;
 
 	return _transport->WriteReliableZeroCopy(STREAM_1, msg, msg_bytes);
@@ -509,6 +516,7 @@ void FECHugeEndpoint::OnPullRequest(const char *file_path)
 	_file_size = file->GetSize();
 
 	// Initialize stream indices
+	_num_streams = 4;
 	_load_stream = 0;
 	_dom_stream = 0;
 
@@ -526,11 +534,11 @@ void FECHugeEndpoint::OnPullRequest(const char *file_path)
 
 	// Pushing a file!
 	_state = TXS_PUSHING;
+	_abort_reason = TXERR_NO_PROBLEMO;
 
 	CAT_WARN("FECHugeEndpoint") << "OnPullRequest: Starting to read " << file_path;
 
-	u32 first_read_bytes = (_file_size <= _read_bytes) ? (u32)_file_size : _read_bytes;
-	if (!StartRead(0, 0, first_read_bytes))
+	if (!StartRead(0, 0, _read_bytes))
 	{
 		CAT_WARN("FECHugeEndpoint") << "OnPullRequest: Unreadable file " << file_path;
 
@@ -597,7 +605,11 @@ void FECHugeEndpoint::NextHuge(s32 &available, BatchSet &buffers, u32 &count)
 		// NOTE: This will actually be sent late on the next tick
 		PostClose(_abort_reason);
 
+		_abort_reason = TXERR_NO_PROBLEMO;
 		_state = TXS_IDLE;
+
+		if (_file)
+			_file->Destroy(CAT_REFOBJECT_TRACE);
 
 		return;
 	}

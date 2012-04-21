@@ -33,7 +33,7 @@ public:
 		_ft.Initialize(this, OP_FTP);
 		_huge_endpoint = &_ft;
 
-		_ft.Request("test.txt");
+		_ft.Request("ChatServer.cpp");
 
 /*
 		if (_fsource.TransferFile(GetWorkerID(), OP_FILE_UPLOAD_START, "test.tmp", "sink.tmp", this))

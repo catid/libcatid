@@ -2192,6 +2192,10 @@ bool Transport::WriteQueuedReliable()
 		} while (node != out_tail[stream] && (node = next));
 	}
 
+	// If huge endpoint is initialized, grab next huge part
+	if (_huge_endpoint)
+		_huge_endpoint->NextHuge(remaining, _outgoing_datagrams, _outgoing_datagrams_count);
+
 	CAT_DEBUG_CHECK_MEMORY();
 
 	return true;
