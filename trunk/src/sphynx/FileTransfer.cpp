@@ -37,6 +37,24 @@ using namespace sphynx;
 static UDPSendAllocator *m_udp_send_allocator = 0;
 
 
+const char *cat::sphynx::GetTransferAbortReasonString(int reason)
+{
+	switch (reason)
+	{
+	case TXERR_NO_PROBLEMO:		return "OK";
+	case TXERR_BUSY:			return "Source is not idle and cannot service another request";
+	case TXERR_REJECTED:		return "Source rejected the request based on file name";
+	case TXERR_FILE_OPEN_FAIL:	return "Source unable to open the requested file";
+	case TXERR_FILE_READ_FAIL:	return "Source unable to read part of the requested file";
+	case TXERR_FEC_FAIL:		return "Forward error correction codec reported an error";
+	case TXERR_OUT_OF_MEMORY:	return "Source ran out of memory";
+	case TXERR_USER_ABORT:		return "Closed by user";
+	case TXERR_SHUTDOWN:		return "Remote host is shutting down";
+	default:					return "[Unknown]";
+	}
+}
+
+
 //// FECHugeEndpoint
 
 FECHugeEndpoint::FECHugeEndpoint()
@@ -52,12 +70,13 @@ FECHugeEndpoint::~FECHugeEndpoint()
 	Cleanup();
 }
 
-void FECHugeEndpoint::Initialize(Transport *transport, u32 worker_id, u8 opcode)
+void FECHugeEndpoint::Initialize(Transport *transport, u8 opcode)
 {
+	CAT_WARN("FECHugeEndpoint") << "Initializing";
+
 	// Initialize state
 	_state = TXS_IDLE;
 	_transport = transport;
-	_worker_id = worker_id;
 	_opcode = opcode;
 
 	// Clear callbacks
@@ -69,6 +88,8 @@ void FECHugeEndpoint::Initialize(Transport *transport, u32 worker_id, u8 opcode)
 
 bool FECHugeEndpoint::Setup()
 {
+	CAT_WARN("FECHugeEndpoint") << "Setup";
+
 	m_udp_send_allocator = UDPSendAllocator::ref();
 	if (!m_udp_send_allocator) return false;
 
@@ -93,7 +114,6 @@ bool FECHugeEndpoint::Setup()
 		// Initialize buffers
 		for (u32 ii = 0; ii < _num_streams; ++ii)
 		{
-			streams[ii].read_buffer_object.worker_id = _worker_id;
 			streams[ii].read_buffer_object.callback = WorkerDelegate::FromMember<FECHugeEndpoint, &FECHugeEndpoint::OnFileRead>(this);
 			streams[ii].requested = 0;
 		}
@@ -130,6 +150,8 @@ bool FECHugeEndpoint::Setup()
 
 void FECHugeEndpoint::Cleanup()
 {
+	CAT_WARN("FECHugeEndpoint") << "Cleanup";
+
 	if (_streams)
 	{
 		void *read_buffer = _streams[0].read_buffer;
@@ -142,6 +164,8 @@ void FECHugeEndpoint::Cleanup()
 
 void FECHugeEndpoint::OnFileRead(ThreadLocalStorage &tls, const BatchSet &set)
 {
+	CAT_WARN("FECHugeEndpoint") << "OnFileRead";
+
 	Stream *stream = &_streams[_load_stream];
 
 	// For each buffer in the set,
@@ -213,6 +237,8 @@ void FECHugeEndpoint::OnFileRead(ThreadLocalStorage &tls, const BatchSet &set)
 
 bool FECHugeEndpoint::PostPart(u32 stream_id, BatchSet &buffers, u32 &count)
 {
+	CAT_WARN("FECHugeEndpoint") << "PostPart for stream_id=" << stream_id;
+
 	Stream *stream = &_streams[stream_id];
 
 	const u32 mss = stream->mss;
@@ -270,6 +296,8 @@ bool FECHugeEndpoint::PostPart(u32 stream_id, BatchSet &buffers, u32 &count)
 
 bool FECHugeEndpoint::PostPushRequest(const char *file_path)
 {
+	CAT_WARN("FECHugeEndpoint") << "PostPushRequest for file " << file_path;
+
 	int file_name_length = (int)strlen(file_path);
 
 	const u32 msg_bytes = 1 + 1 + file_name_length + 1;
@@ -285,6 +313,8 @@ bool FECHugeEndpoint::PostPushRequest(const char *file_path)
 
 bool FECHugeEndpoint::PostPullRequest(const char *file_path)
 {
+	CAT_WARN("FECHugeEndpoint") << "PostPullRequest for file " << file_path;
+
 	int file_name_length = (int)strlen(file_path);
 
 	const u32 msg_bytes = 1 + 1 + file_name_length + 1;
@@ -300,6 +330,8 @@ bool FECHugeEndpoint::PostPullRequest(const char *file_path)
 
 bool FECHugeEndpoint::PostPullGo(u64 file_bytes, int stream_count)
 {
+	CAT_WARN("FECHugeEndpoint") << "PostPullGo file_bytes=" << file_bytes << " stream_count=" << stream_count;
+
 	const u32 msg_bytes = 1 + 1 + 8 + 1;
 	u8 *msg = OutgoingMessage::Acquire(msg_bytes);
 	if (!msg) return false;
@@ -314,6 +346,8 @@ bool FECHugeEndpoint::PostPullGo(u64 file_bytes, int stream_count)
 
 bool FECHugeEndpoint::PostDeny(int reason)
 {
+	CAT_WARN("FECHugeEndpoint") << "PostDeny for reason " << reason << " : " << GetTransferAbortReasonString(reason);
+
 	const u32 msg_bytes = 1 + 1 + 1;
 	u8 *msg = OutgoingMessage::Acquire(msg_bytes);
 	if (!msg) return false;
@@ -327,6 +361,8 @@ bool FECHugeEndpoint::PostDeny(int reason)
 
 bool FECHugeEndpoint::PostStart(u64 file_offset, u32 chunk_decompressed_size, u32 chunk_compressed_size, int block_bytes, int stream_id)
 {
+	CAT_WARN("FECHugeEndpoint") << "PostStart file_offset=" << file_offset << " chunk_decompressed_size=" << chunk_decompressed_size << " chunk_compressed_size=" << chunk_compressed_size << " block_bytes=" << block_bytes << " stream_id=" << stream_id;
+
 	const u32 msg_bytes = 1 + 1 + 8 + 4 + 4 + 2 + 1;
 	u8 *msg = OutgoingMessage::Acquire(msg_bytes);
 	if (!msg) return false;
@@ -344,6 +380,8 @@ bool FECHugeEndpoint::PostStart(u64 file_offset, u32 chunk_decompressed_size, u3
 
 bool FECHugeEndpoint::PostStartAck(int stream_id)
 {
+	CAT_WARN("FECHugeEndpoint") << "PostStartAck stream_id=" << stream_id;
+
 	const u32 msg_bytes = 1 + 1 + 1;
 	u8 *msg = OutgoingMessage::Acquire(msg_bytes);
 	if (!msg) return false;
@@ -357,6 +395,8 @@ bool FECHugeEndpoint::PostStartAck(int stream_id)
 
 bool FECHugeEndpoint::PostRate(u32 rate_counter)
 {
+	CAT_WARN("FECHugeEndpoint") << "PostRate rate_counter=" << rate_counter;
+
 	const u32 msg_bytes = 1 + 1 + 4;
 	u8 *msg = OutgoingMessage::Acquire(msg_bytes);
 	if (!msg) return false;
@@ -370,6 +410,8 @@ bool FECHugeEndpoint::PostRate(u32 rate_counter)
 
 bool FECHugeEndpoint::PostRequest(int stream_id, int request_count)
 {
+	CAT_WARN("FECHugeEndpoint") << "PostRequest stream id=" << stream_id << " and request_count=" << request_count;
+
 	const u32 msg_bytes = 1 + 1 + 1 + 2;
 	u8 *msg = OutgoingMessage::Acquire(msg_bytes);
 	if (!msg) return false;
@@ -384,6 +426,8 @@ bool FECHugeEndpoint::PostRequest(int stream_id, int request_count)
 
 bool FECHugeEndpoint::PostClose(int reason)
 {
+	CAT_WARN("FECHugeEndpoint") << "PostClose for reason " << reason << " : " << GetTransferAbortReasonString(reason);
+
 	const u32 msg_bytes = 1 + 1 + 1;
 	u8 *msg = OutgoingMessage::Acquire(msg_bytes);
 	if (!msg) return false;
@@ -400,26 +444,27 @@ void FECHugeEndpoint::OnPushRequest(const char *file_path)
 	// If state is not idle,
 	if (_state != TXS_IDLE)
 	{
+		CAT_WARN("FECHugeEndpoint") << "OnPushRequest: Ignoring push request for file " << file_path << " as state is not idle";
 		PostDeny(TXERR_BUSY);
 		return;
 	}
 
-	// If request callback is valid,
-	if (_on_recv_request.IsValid())
+	// If recv request callback rejects the file path,
+	if (_on_recv_request.IsValid() && !_on_recv_request(file_path))
 	{
-		// If pull request is rejected,
-		if (!_on_recv_request(file_path))
-		{
-			PostDeny(TXERR_REJECTED);
-			return;
-		}
+		CAT_WARN("FECHugeEndpoint") << "OnPushRequest: Rejecting push request for file " << file_path << " by callback";
+		PostDeny(TXERR_REJECTED);
+		return;
 	}
 
 	if (!PostPullRequest(file_path))
 	{
+		CAT_WARN("FECHugeEndpoint") << "OnPushRequest: Unable to post pull request";
 		PostDeny(TXERR_OUT_OF_MEMORY);
 		return;
 	}
+
+	CAT_WARN("FECHugeEndpoint") << "OnPushRequest: Accepted push request for file " << file_path;
 }
 
 void FECHugeEndpoint::OnPullRequest(const char *file_path)
@@ -427,26 +472,33 @@ void FECHugeEndpoint::OnPullRequest(const char *file_path)
 	// If state is not idle,
 	if (_state != TXS_IDLE)
 	{
+		CAT_WARN("FECHugeEndpoint") << "OnPullRequest: Ignoring pull request for file " << file_path << " because state is not idle";
 		PostDeny(TXERR_BUSY);
 		return;
 	}
 
-	// If request callback is valid,
-	if (_on_send_request.IsValid())
+	// If send request callback rejects the file path,
+	if (_on_send_request.IsValid() && !_on_send_request(file_path))
 	{
-		// If pull request is rejected,
-		if (!_on_send_request(file_path))
-		{
-			PostDeny(TXERR_REJECTED);
-			return;
-		}
+		CAT_WARN("FECHugeEndpoint") << "OnPullRequest: File " << file_path << " rejected by send request callback";
+		PostDeny(TXERR_REJECTED);
+		return;
 	}
 
 	// Open new file
-	AsyncFile *file = new AsyncFile;
-	CAT_ENFORCE(file);
+	AsyncFile *file;
+	if (!RefObjects::ref()->Create(CAT_REFOBJECT_TRACE, file))
+	{
+		CAT_WARN("FECHugeEndpoint") << "OnPullRequest: Could not create refobject for " << file_path;
+		PostDeny(TXERR_OUT_OF_MEMORY);
+		return;
+	}
+
+	// If file could not be opened,
 	if (!file->Open(file_path, ASYNCFILE_READ | ASYNCFILE_SEQUENTIAL | ASYNCFILE_NOBUFFER))
 	{
+		CAT_WARN("FECHugeEndpoint") << "OnPullRequest: File " << file_path << " could not be opened";
+
 		file->Destroy(CAT_REFOBJECT_TRACE);
 
 		PostDeny(TXERR_FILE_OPEN_FAIL);
@@ -462,6 +514,8 @@ void FECHugeEndpoint::OnPullRequest(const char *file_path)
 
 	if (!Setup())
 	{
+		CAT_WARN("FECHugeEndpoint") << "OnPullRequest: Could not initialize buffers (out of memory) for " << file_path;
+
 		file->Destroy(CAT_REFOBJECT_TRACE);
 
 		PostDeny(TXERR_OUT_OF_MEMORY);
@@ -473,58 +527,69 @@ void FECHugeEndpoint::OnPullRequest(const char *file_path)
 	// Pushing a file!
 	_state = TXS_PUSHING;
 
+	CAT_WARN("FECHugeEndpoint") << "OnPullRequest: Starting to read " << file_path;
+
 	u32 first_read_bytes = (_file_size <= _read_bytes) ? (u32)_file_size : _read_bytes;
 	if (!StartRead(0, 0, first_read_bytes))
 	{
+		CAT_WARN("FECHugeEndpoint") << "OnPullRequest: Unreadable file " << file_path;
+
 		_state = TXS_IDLE;
 
 		file->Destroy(CAT_REFOBJECT_TRACE);
 
 		PostDeny(TXERR_FILE_READ_FAIL);
-
 		return;
 	}
 }
 
 void FECHugeEndpoint::OnPullGo(u64 file_bytes, int stream_count)
 {
+	CAT_WARN("FECHugeEndpoint") << "OnPullGo file_bytes=" << file_bytes << " stream_count=" << stream_count;
+
 
 }
 
 void FECHugeEndpoint::OnDeny(int reason)
 {
-
+	CAT_WARN("FECHugeEndpoint") << "OnDeny for reason " << reason << " : " << GetTransferAbortReasonString(reason);
 }
 
 void FECHugeEndpoint::OnStart(u64 file_offset, u32 chunk_decompressed_size, u32 chunk_compressed_size, int block_bytes, int stream_id)
 {
+	CAT_WARN("FECHugeEndpoint") << "OnStart file_offset=" << file_offset << " chunk_decompressed_size=" << chunk_decompressed_size << " chunk_compressed_size=" << chunk_compressed_size << " block_bytes=" << block_bytes << " stream_id=" << stream_id;
 
 }
 
 void FECHugeEndpoint::OnStartAck(int stream_id)
 {
+	CAT_WARN("FECHugeEndpoint") << "OnStartAck for stream_id=" << stream_id;
 
 }
 
 void FECHugeEndpoint::OnRate(u32 rate_counter)
 {
-
+	CAT_WARN("FECHugeEndpoint") << "OnRate with rate_counter=" << rate_counter;
 }
 
 void FECHugeEndpoint::OnRequest(int stream_id, int request_count)
 {
-
+	CAT_WARN("FECHugeEndpoint") << "OnRequest with stream_id=" << stream_id << " and request_count=" << request_count;
 }
 
 void FECHugeEndpoint::OnClose(int reason)
 {
+	CAT_WARN("FECHugeEndpoint") << "OnClose for reason " << reason << " : " << GetTransferAbortReasonString(reason);
 
+	_abort_reason = reason;
 }
 
 void FECHugeEndpoint::NextHuge(s32 &available, BatchSet &buffers, u32 &count)
 {
 	// If no space, abort
 	if (available <= 0) return;
+
+	CAT_WARN("FECHugeEndpoint") << "NextHuge available=" << available;
 
 	// If abortion requested,
 	if (_abort_reason != TXERR_NO_PROBLEMO)
@@ -588,6 +653,8 @@ void FECHugeEndpoint::NextHuge(s32 &available, BatchSet &buffers, u32 &count)
 
 void FECHugeEndpoint::OnHuge(u8 *data, u32 bytes)
 {
+	CAT_WARN("FECHugeEndpoint") << "OnHuge";
+
 
 }
 
@@ -595,13 +662,13 @@ void FECHugeEndpoint::OnControlMessage(u8 *data, u32 bytes)
 {
 	if (bytes < 2)
 	{
-		CAT_WARN("FECHuge") << "Ignored truncated control message";
+		CAT_WARN("FECHugeEndpoint") << "Ignored truncated control message";
 		return;
 	}
 
 	if (data[0] != _opcode)
 	{
-		CAT_WARN("FECHuge") << "Ignored control message with wrong opcode";
+		CAT_WARN("FECHugeEndpoint") << "Ignored control message with wrong opcode";
 		return;
 	}
 
@@ -713,10 +780,22 @@ void FECHugeEndpoint::OnControlMessage(u8 *data, u32 bytes)
 
 bool FECHugeEndpoint::Request(const char *file_path)
 {
+	if (_state != TXS_IDLE)
+	{
+		CAT_WARN("FECHugeEndpoint") << "File transfer request ignored: Busy";
+		return false;
+	}
+
 	return PostPullRequest(file_path);
 }
 
 bool FECHugeEndpoint::Send(const char *file_path)
 {
+	if (_state != TXS_IDLE)
+	{
+		CAT_WARN("FECHugeEndpoint") << "File transfer send ignored: Busy";
+		return false;
+	}
+
 	return PostPushRequest(file_path);
 }

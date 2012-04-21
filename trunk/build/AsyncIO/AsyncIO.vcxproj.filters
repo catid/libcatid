@@ -33,19 +33,10 @@
     <ClCompile Include="..\..\src\iocp\AsyncFile.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\io\PolledFileReader.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\io\BufferedFileWriter.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\iocp\IOThreadPools.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\net\UDPRecvAllocator.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\io\FileWriteAllocator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\net\UDPSendAllocator.cpp">
@@ -68,20 +59,11 @@
     <ClInclude Include="..\..\include\cat\io\Buffers.hpp">
       <Filter>Header Files\io</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\cat\io\PolledFileReader.hpp">
-      <Filter>Header Files\io</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\include\cat\io\BufferedFileWriter.hpp">
-      <Filter>Header Files\io</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\include\cat\iocp\IOThreadPools.hpp">
       <Filter>Header Files\iocp</Filter>
     </ClInclude>
     <ClInclude Include="..\..\include\cat\net\UDPRecvAllocator.hpp">
       <Filter>Header Files\net</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\include\cat\io\FileWriteAllocator.hpp">
-      <Filter>Header Files\io</Filter>
     </ClInclude>
     <ClInclude Include="..\..\include\cat\net\UDPSendAllocator.hpp">
       <Filter>Header Files\net</Filter>

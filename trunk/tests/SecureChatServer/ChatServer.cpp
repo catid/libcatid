@@ -64,6 +64,7 @@ bool GameConnexion::OnFinalize()
 
 void GameConnexion::OnConnect()
 {
+	_ft.Initialize(this, OP_FTP);
 	_huge_endpoint = &_ft;
 
 	CAT_WARN("Connexion") << "-- CONNECTED";
@@ -73,7 +74,7 @@ void GameConnexion::OnConnect()
 	prng.Initialize(1);
 	for (int ii = 0; ii < (int)sizeof(test_msg); ++ii)
 		test_msg[ii] = (u8)(prng.Next() % 10);
-	WriteReliable(STREAM_2, OP_TEST_FRAGMENTS, test_msg, sizeof(test_msg));
+	//WriteReliable(STREAM_2, OP_TEST_FRAGMENTS, test_msg, sizeof(test_msg));
 
 	u16 key = getLE(GetMyID());
 

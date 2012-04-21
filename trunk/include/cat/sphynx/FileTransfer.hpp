@@ -125,9 +125,11 @@ enum TransferAbortReasons
 	TXERR_FILE_READ_FAIL,	// Source unable to read part of the requested file
 	TXERR_FEC_FAIL,			// Forward error correction codec reported an error
 	TXERR_OUT_OF_MEMORY,	// Source ran out of memory
-
+	TXERR_USER_ABORT,		// Closed by user
 	TXERR_SHUTDOWN,			// Remote host is shutting down
 };
+
+const char *GetTransferAbortReasonString(int reason);
 
 enum TransferStatusFlags
 {
@@ -178,7 +180,6 @@ protected:
 
 	Transport *_transport;
 	u32 _read_bytes;
-	u32 _worker_id;
 	u8 _opcode;
 
 	OnSendRequest _on_send_request;
@@ -251,7 +252,7 @@ public:
 	virtual ~FECHugeEndpoint();
 
 	// Initialize the endpoint
-	void Initialize(Transport *transport, u32 worker_id, u8 opcode);
+	void Initialize(Transport *transport, u8 opcode);
 
 	CAT_INLINE void SetSendCallbacks(const OnSendRequest &on_send_request, const OnSendDone &on_send_done)
 	{
@@ -275,6 +276,9 @@ public:
 	// Start sending the specified file
 	// May fail if a transfer is already in progress
 	bool Send(const char *file_path);
+
+	// Abort an existing file transfer
+	CAT_INLINE void Abort(int reason = TXERR_USER_ABORT) { _abort_reason = reason; }
 };
 
 

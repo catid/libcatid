@@ -95,6 +95,7 @@ u8 *UDPSendAllocator::Acquire(u32 trailing_bytes)
 {
 	u32 buffer_bytes = sizeof(SendBuffer) + trailing_bytes;
 
+#if defined(CAT_UDP_SEND_ALLOCATOR)
 	const u32 MIN_BYTES = REUSE_MINIMUM_SIZE;
 	const u32 MAX_BYTES = sizeof(SendBuffer) + IOTHREADS_BUFFER_READ_BYTES;
 
@@ -123,6 +124,11 @@ u8 *UDPSendAllocator::Acquire(u32 trailing_bytes)
 	// Remember bin index
 	buffer->_udp_send_allocator_bin_index = (u8)(bin_index + 1);
 	return GetTrailingBytes(buffer);
+#else // CAT_UDP_SEND_ALLOCATOR
+	SendBuffer *buffer = reinterpret_cast<SendBuffer*>( new (std::nothrow) u8[buffer_bytes] );
+	if (!buffer) return 0;
+	return GetTrailingBytes(buffer);
+#endif // CAT_UDP_SEND_ALLOCATOR
 }
 
 // Release a number of buffers simultaneously
@@ -139,6 +145,7 @@ void UDPSendAllocator::ReleaseBatch(const BatchSet &set)
 	{
 		next = node->batch_next;
 
+#if defined(CAT_UDP_SEND_ALLOCATOR)
 		// Lookup bin index
 		UDPSendBatchHead *inner_data = reinterpret_cast<UDPSendBatchHead*>( node );
 		u32 bin_index = inner_data->_udp_send_allocator_bin_index;
@@ -163,6 +170,10 @@ void UDPSendAllocator::ReleaseBatch(const BatchSet &set)
 			kills = node;
 			prev_bin = bin_index;
 		}
+#else // CAT_UDP_SEND_ALLOCATOR
+		u8 *pkt = reinterpret_cast<u8*>( node );
+		delete []pkt;
+#endif // CAT_UDP_SEND_ALLOCATOR
 	}
 
 	// If previous bin is non-zero,
