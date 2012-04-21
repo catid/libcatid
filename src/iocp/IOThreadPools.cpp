@@ -142,8 +142,12 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreadPool *master, OVERLAPPED_ENTR
 				buffer->offset = ((u64)buffer->iointernal.ov.OffsetHigh << 32) | buffer->iointernal.ov.Offset;
 				buffer->data_bytes = bytes;
 
-				// Deliver the buffer to the worker threads
-				m_worker_threads->DeliverBuffers(WQPRIO_LO, buffer->worker_id, buffer);
+				// If callback is valid,
+				if (buffer->callback.IsValid())
+				{
+					// Invoke callback inline rather than defer to worker threads for file io
+					buffer->callback(GetTLS(), buffer);
+				}
 
 				async_file->ReleaseRef(CAT_REFOBJECT_TRACE);
 			}
@@ -160,8 +164,12 @@ CAT_INLINE bool IOThread::HandleCompletion(IOThreadPool *master, OVERLAPPED_ENTR
 				buffer->offset = ((u64)buffer->iointernal.ov.OffsetHigh << 32) | buffer->iointernal.ov.Offset;
 				buffer->data_bytes = bytes;
 
-				// Deliver the buffer to the worker threads
-				m_worker_threads->DeliverBuffers(WQPRIO_LO, buffer->worker_id, buffer);
+				// If callback is valid,
+				if (buffer->callback.IsValid())
+				{
+					// Invoke callback inline rather than defer to worker threads for file io
+					buffer->callback(GetTLS(), buffer);
+				}
 
 				async_file->ReleaseRef(CAT_REFOBJECT_TRACE);
 			}

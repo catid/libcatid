@@ -30,7 +30,10 @@ public:
 	{
 		CAT_WARN("Client") << "-- CONNECTED";
 
+		_ft.Initialize(this, OP_FTP);
 		_huge_endpoint = &_ft;
+
+		_ft.Request("test.txt");
 
 /*
 		if (_fsource.TransferFile(GetWorkerID(), OP_FILE_UPLOAD_START, "test.tmp", "sink.tmp", this))
@@ -47,7 +50,7 @@ public:
 		prng.Initialize(0);
 		for (int ii = 0; ii < sizeof(test_msg); ++ii)
 			test_msg[ii] = (u8)(prng.Next() % 10);
-		WriteReliable(STREAM_2, OP_TEST_FRAGMENTS, test_msg, sizeof(test_msg));
+		//WriteReliable(STREAM_2, OP_TEST_FRAGMENTS, test_msg, sizeof(test_msg));
 	}
 	virtual void OnMessages(IncomingMessage msgs[], u32 count)
 	{

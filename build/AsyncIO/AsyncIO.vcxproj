@@ -165,9 +165,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\iocp\AsyncFile.cpp" />
-    <ClCompile Include="..\..\src\io\BufferedFileWriter.cpp" />
-    <ClCompile Include="..\..\src\io\FileWriteAllocator.cpp" />
-    <ClCompile Include="..\..\src\io\PolledFileReader.cpp" />
     <ClCompile Include="..\..\src\iocp\IOThreadPools.cpp" />
     <ClCompile Include="..\..\src\iocp\UDPEndpoint.cpp" />
     <ClCompile Include="..\..\src\net\UDPRecvAllocator.cpp" />
@@ -184,10 +181,7 @@
     <ClInclude Include="..\..\include\cat\iocp\AsyncFile.hpp" />
     <ClInclude Include="..\..\include\cat\iocp\IOThreadPools.hpp" />
     <ClInclude Include="..\..\include\cat\iocp\UDPEndpoint.hpp" />
-    <ClInclude Include="..\..\include\cat\io\BufferedFileWriter.hpp" />
     <ClInclude Include="..\..\include\cat\io\Buffers.hpp" />
-    <ClInclude Include="..\..\include\cat\io\FileWriteAllocator.hpp" />
-    <ClInclude Include="..\..\include\cat\io\PolledFileReader.hpp" />
     <ClInclude Include="..\..\include\cat\net\UDPRecvAllocator.hpp" />
     <ClInclude Include="..\..\include\cat\net\UDPSendAllocator.hpp" />
     <ClInclude Include="Precompiled.hpp" />

@@ -141,7 +141,6 @@ public:
 		for (u32 ii = 0; ii < parallelism; ++ii)
 		{
 			_buffers[ii].callback.SetMember<ReadTester, &ReadTester::OnRead>(this);
-			_buffers[ii].worker_id = 0;
 
 			_data[ii] = (u8*)m_large_allocator->Acquire(m_file_chunk_size);
 
@@ -328,7 +327,6 @@ public:
 		for (u32 ii = 0; ii < parallelism; ++ii)
 		{
 			_buffers[ii].callback.SetMember<WriteTester, &WriteTester::OnWrite>(this);
-			_buffers[ii].worker_id = 0;
 
 			_data[ii] = (u8*)m_large_allocator->Acquire(m_file_chunk_size);
 
