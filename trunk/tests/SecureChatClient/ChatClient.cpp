@@ -103,7 +103,7 @@ public:
 	}
 	virtual void OnCycle(u32 now)
 	{
-		//WARN("Client") << "-- TICK " << now;
+		//CAT_WARN("Client") << "-- TICK " << now;
 	}
 };
 
