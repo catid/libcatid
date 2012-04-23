@@ -415,7 +415,7 @@ void ConnexionMap::Remove(Connexion *conn)
 
 	CAT_INFO("ConnexionMap") << "Removing connexion from " << conn->GetAddress().IPToString() << " : " << conn->GetAddress().GetPort() << " id=" << conn->GetMyID();
 
-	conn->ReleaseRef(CAT_REFOBJECT_TRACE);
+	u32 flood_key = conn->_flood_key;
 
 	AutoWriteLock lock(_table_lock);
 
@@ -452,8 +452,12 @@ void ConnexionMap::Remove(Connexion *conn)
 #endif // CAT_SPHYNX_ROAMING_IP
 
 	_count--;
+	_flood_table[flood_key]--;
 
-	_flood_table[conn->_flood_key]--;
+	lock.Release();
+
+	// Finally release reference so that it can die
+	conn->ReleaseRef(CAT_REFOBJECT_TRACE);
 }
 
 void ConnexionMap::ShutdownAll()
