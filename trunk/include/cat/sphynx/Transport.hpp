@@ -509,21 +509,10 @@ public:
 	bool WriteUnreliable(u8 msg_opcode, const void *msg_data = 0, u32 msg_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
 	bool WriteReliable(StreamMode stream, u8 msg_opcode, const void *msg_data = 0, u32 msg_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
 
-	// Broadcast versions of the above
-	static bool BroadcastUnreliable(BinnedConnexionSubset &subset, u8 msg_opcode, const void *msg_data = 0, u32 msg_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
+	// Broadcast version
 	static bool BroadcastReliable(BinnedConnexionSubset &subset, StreamMode stream, u8 msg_opcode, const void *msg_data = 0, u32 msg_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
 
-	// Helper connexion-criterion versions
-	template<class T>
-	static CAT_INLINE void BroadcastUnreliable(Collexion<T> *conn_list, IConnexionCriterion<T> *criterion, u8 msg_opcode, const void *msg_data = 0, u32 msg_bytes = 0, SuperOpcode super_opcode = SOP_DATA)
-	{
-		BinnedConnexionSubset subset;
-		if (conn_list->BinnedSubsetAcquire(subset, criterion))
-		{
-			Transport::BroadcastUnreliable(subset, msg_opcode, msg_data, msg_bytes, super_opcode);
-			conn_list->SubsetRelease();
-		}
-	}
+	// Helper connexion-criterion version
 	template<class T>
 	static CAT_INLINE void BroadcastReliable(Collexion<T> *conn_list, IConnexionCriterion<T> *criterion, StreamMode stream, u8 msg_opcode, const void *msg_data = 0, u32 msg_bytes = 0, SuperOpcode super_opcode = SOP_DATA)
 	{
@@ -535,17 +524,7 @@ public:
 		}
 	}
 
-	// Helper any-connexion versions
-	template<class T>
-	static CAT_INLINE void BroadcastUnreliable(Collexion<T> *conn_list, u8 msg_opcode, const void *msg_data = 0, u32 msg_bytes = 0, SuperOpcode super_opcode = SOP_DATA)
-	{
-		BinnedConnexionSubset subset;
-		if (conn_list->BinnedSubsetAcquire(subset))
-		{
-			Transport::BroadcastUnreliable(subset, msg_opcode, msg_data, msg_bytes, super_opcode);
-			conn_list->SubsetRelease();
-		}
-	}
+	// Helper any-connexion version
 	template<class T>
 	static CAT_INLINE void BroadcastReliable(Collexion<T> *conn_list, StreamMode stream, u8 msg_opcode, const void *msg_data = 0, u32 msg_bytes = 0, SuperOpcode super_opcode = SOP_DATA)
 	{

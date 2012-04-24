@@ -1101,12 +1101,6 @@ bool Transport::WriteReliable(StreamMode stream, u8 msg_opcode, const void *msg_
 	return WriteReliableZeroCopy(stream, msg, data_bytes, super_opcode);
 }
 
-bool Transport::BroadcastUnreliable(BinnedConnexionSubset &subset, u8 msg_opcode, const void *msg_data, u32 msg_bytes, SuperOpcode super_opcode)
-{
-	// TODO
-	return false;
-}
-
 bool Transport::BroadcastReliable(BinnedConnexionSubset &subset, StreamMode stream, u8 msg_opcode, const void *msg_data, u32 msg_bytes, SuperOpcode super_opcode)
 {
 	if (msg_bytes > MAX_MESSAGE_SIZE)
