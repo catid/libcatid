@@ -21,6 +21,7 @@
   <ItemGroup>
     <ClCompile Include="..\..\src\net\DNSClient.cpp" />
     <ClCompile Include="..\..\src\sphynx\Client.cpp" />
+    <ClCompile Include="..\..\src\sphynx\Collexion.cpp" />
     <ClCompile Include="..\..\src\sphynx\Connexion.cpp" />
     <ClCompile Include="..\..\src\sphynx\ConnexionMap.cpp" />
     <ClCompile Include="..\..\src\sphynx\FileTransfer.cpp" />

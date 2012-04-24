@@ -37,6 +37,7 @@ using namespace sphynx;
 
 static StdAllocator *m_std_allocator = 0;
 static Clock *m_clock = 0;
+static WorkerThreads *m_worker_threads = 0;
 static UDPSendAllocator *m_udp_send_allocator = 0;
 static TLSInstance<TransportTLS> m_transport_tls;
 
@@ -48,8 +49,9 @@ bool TransportTLS::OnInitialize()
 	m_std_allocator = StdAllocator::ref();
 	m_udp_send_allocator = UDPSendAllocator::ref();
 	m_clock = Clock::ref();
-	CAT_ENFORCE(m_std_allocator && m_udp_send_allocator && m_clock);
-
+	m_worker_threads = WorkerThreads::ref();
+	CAT_ENFORCE(m_std_allocator && m_udp_send_allocator && m_clock && m_worker_threads);
+/*
 	locks = new (std::nothrow) TransportLocks[LOCKS_PER_WORKER];
 	if (!locks) return false;
 
@@ -61,7 +63,7 @@ bool TransportTLS::OnInitialize()
 			return false;
 		}
 	}
-
+*/
 	rand_pad.Initialize(Clock::cycles());
 
 	return true;
@@ -69,21 +71,25 @@ bool TransportTLS::OnInitialize()
 
 void TransportTLS::OnFinalize()
 {
-	if (locks)
+/*	if (locks)
 	{
 		delete []locks;
 		locks = 0;
-	}
+	}*/
 }
 
-void Transport::InitializeTLS(TransportTLS *tls, u32 lock_rv)
+void Transport::InitializeTLS(TransportTLS *tls)
 {
 	_ttls = tls;
-
+/*
 	// Grab locks
 	u32 lock_index = lock_rv % TransportTLS::LOCKS_PER_WORKER;
 	_send_cluster_lock = &tls->locks[lock_index].send_cluster_lock;
 	_send_queue_lock = &tls->locks[lock_index].send_queue_lock;
+	*/
+
+	_send_cluster_lock = &tls->locks.send_cluster_lock;
+	_send_queue_lock = &tls->locks.send_queue_lock;
 }
 
 
@@ -1029,15 +1035,9 @@ bool Transport::WriteOOB(u8 msg_opcode, const void *msg_data, u32 msg_bytes, Sup
 	buffer->data_bytes = offset + msg_bytes + SPHYNX_OVERHEAD;
 	pkt[offset + msg_bytes] = 0; // Flag not compressed
 
-	// If writes succeeded,
-	s32 write_count = WriteDatagrams(buffer, 1);
-	if (write_count > 0)
-	{
-		_send_flow.OnPacketSend(_udpip_bytes + write_count);
-		return true;
-	}
-
-	return false;
+	// NOTE: Does not reflect writing datagram in bandwidth usage.
+	// This was the only place that was doing it outside of the assigned worker thread.
+	return WriteDatagrams(buffer, 1) > 0;
 }
 
 bool Transport::WriteUnreliable(u8 msg_opcode, const void *vmsg_data, u32 msg_bytes, SuperOpcode super_opcode)
@@ -1099,6 +1099,80 @@ bool Transport::WriteReliable(StreamMode stream, u8 msg_opcode, const void *msg_
 	memcpy(msg + 1, msg_data, msg_bytes);
 
 	return WriteReliableZeroCopy(stream, msg, data_bytes, super_opcode);
+}
+
+bool Transport::BroadcastUnreliable(BinnedConnexionSubset &subset, u8 msg_opcode, const void *msg_data, u32 msg_bytes, SuperOpcode super_opcode)
+{
+	// TODO
+	return false;
+}
+
+bool Transport::BroadcastReliable(BinnedConnexionSubset &subset, StreamMode stream, u8 msg_opcode, const void *msg_data, u32 msg_bytes, SuperOpcode super_opcode)
+{
+	if (msg_bytes > MAX_MESSAGE_SIZE)
+	{
+		CAT_WARN("Transport") << "Reliable write request too large " << msg_bytes;
+		return false;
+	}
+
+	const u32 data_bytes = 1 + msg_bytes;
+
+	// For each worker,
+	u32 acquire_sum = 0;
+	for (int worker_id = 0, worker_count = subset.WorkerCount(); worker_id < worker_count; ++worker_id)
+	{
+		// Skip empty bins
+		ConnexionSubset &subsubset = subset[worker_id];
+		const int acquire_count = subsubset.Count();
+		if (acquire_count <= 0) continue;
+
+		// Prepare one message for each subset connexion
+		OutgoingMessage *head = 0;
+		for (int msg_id = 0; msg_id < acquire_count; ++msg_id)
+		{
+			// Acquire buffer
+			u8 *msg;
+			do msg = OutgoingMessage::Acquire(data_bytes);
+			while (!msg);
+
+			// Fill data
+			msg[0] = msg_opcode;
+			memcpy(msg + 1, msg_data, msg_bytes);
+
+			// Initialize outgoing message object
+			OutgoingMessage *node = OutgoingMessage::Promote(msg);
+			node->SetBytes(msg_bytes);
+			node->frag_count = 0;
+			node->sop = super_opcode;
+			node->send_bytes = 0;
+			node->sent_bytes = 0;
+
+			// Link to head of list
+			node->next = head;
+			head = node;
+		}
+
+		TransportTLS *tls = m_transport_tls.Peek(m_worker_threads->GetTLS(worker_id));
+
+		tls->locks.send_queue_lock.Enter();
+
+		for (int ii = 0; ii < acquire_count; ++ii)
+		{
+			OutgoingMessage *next = head->next;
+
+			subsubset[ii]->_send_queue[stream].Append(head);
+
+			head = next;
+		}
+
+		tls->locks.send_queue_lock.Leave();
+
+		acquire_sum += acquire_count;
+	}
+
+	CAT_INFO("Transport") << "Appended reliable message with " << msg_bytes << " bytes to stream " << stream << " for " << acquire_sum << " connexions";
+
+	return true;
 }
 
 bool Transport::WriteReliableZeroCopy(StreamMode stream, u8 *msg, u32 msg_bytes, SuperOpcode super_opcode)

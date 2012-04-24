@@ -36,6 +36,7 @@
 #include <cat/time/Clock.hpp>
 #include <cat/math/BitMath.hpp>
 #include <cat/sphynx/FlowControl.hpp>
+#include <cat/sphynx/Collexion.hpp>
 
 namespace cat {
 
@@ -350,16 +351,13 @@ struct TransportTLS : ITLS
 	u8 *free_list[DELIVERY_QUEUE_DEPTH*2]; // Twice as many to handle compressed fragments
 	u32 free_list_count;
 
-	// Mutex locks
-	static const u32 LOCKS_PER_WORKER = 16;
-
 	struct TransportLocks
 	{
 		Mutex send_cluster_lock;
 		Mutex send_queue_lock;
 	};
 
-	TransportLocks *locks;
+	TransportLocks locks;
 
 	// Random padding
 	Abyssinian rand_pad;
@@ -504,12 +502,16 @@ public:
 
 	void InitializePayloadBytes(bool ip6);
 	bool InitializeTransportSecurity(bool is_initiator, AuthenticatedEncryption &auth_enc);
-	void InitializeTLS(TransportTLS *tls, u32 lock_rv);
+	void InitializeTLS(TransportTLS *tls);
 
 	// Copy data directly to the send buffer, no need to acquire an OutgoingMessage
 	bool WriteOOB(u8 msg_opcode, const void *msg_data = 0, u32 msg_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
 	bool WriteUnreliable(u8 msg_opcode, const void *msg_data = 0, u32 msg_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
 	bool WriteReliable(StreamMode stream, u8 msg_opcode, const void *msg_data = 0, u32 msg_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
+
+	// Broadcast versions of the above
+	static bool BroadcastUnreliable(BinnedConnexionSubset &subset, u8 msg_opcode, const void *msg_data = 0, u32 msg_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
+	static bool BroadcastReliable(BinnedConnexionSubset &subset, StreamMode stream, u8 msg_opcode, const void *msg_data = 0, u32 msg_bytes = 0, SuperOpcode super_opcode = SOP_DATA);
 
 	// Queue up a reliable message for delivery without copy overhead
 	// msg: Allocate with OutgoingMessage::Acquire(msg_bytes)

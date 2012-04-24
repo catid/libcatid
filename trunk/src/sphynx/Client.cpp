@@ -494,8 +494,8 @@ bool Client::FinalConnect(const NetAddr &addr)
 	entropy_source.time = _clock->usec();
 	entropy_source.cycles = _clock->cycles();
 
-	u32 lock_rv = MurmurHash(&entropy_source, sizeof(entropy_source), 0).Get32();
-	InitializeTLS(remote_tls, lock_rv);
+	//u32 lock_rv = MurmurHash(&entropy_source, sizeof(entropy_source), 0).Get32();
+	InitializeTLS(remote_tls);
 
 	// Attempt to post hello message
 	if (!WriteHello())

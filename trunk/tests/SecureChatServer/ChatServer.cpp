@@ -78,8 +78,10 @@ void GameConnexion::OnConnect()
 
 	u16 key = getLE(GetMyID());
 
-	for (sphynx::CollexionIterator<GameConnexion> ii = GetServer<GameServer>()->_collexion; ii; ++ii)
-		ii->WriteReliable(STREAM_1, OP_USER_JOIN, &key, sizeof(key));
+	BinnedConnexionSubset subset;
+	if (GetServer<GameServer>()->_collexion.BinnedSubsetAcquire(subset))
+		Transport::BroadcastReliable(subset, STREAM_1, OP_USER_JOIN, &key, sizeof(key));
+	GetServer<GameServer>()->_collexion.SubsetRelease();
 
 	GetServer<GameServer>()->_collexion.Insert(this);
 }
@@ -127,8 +129,11 @@ void GameConnexion::OnDisconnectReason(u8 reason)
 	CAT_WARN("Connexion") << "-- DISCONNECTED REASON " << (int)reason;
 
 	u16 key = getLE(GetMyID());
-	for (sphynx::CollexionIterator<GameConnexion> ii = GetServer<GameServer>()->_collexion; ii; ++ii)
-		ii->WriteReliable(STREAM_1, OP_USER_PART, &key, sizeof(key));
+
+	BinnedConnexionSubset subset;
+	if (GetServer<GameServer>()->_collexion.BinnedSubsetAcquire(subset))
+		Transport::BroadcastReliable(subset, STREAM_1, OP_USER_PART, &key, sizeof(key));
+	GetServer<GameServer>()->_collexion.SubsetRelease();
 }
 
 void GameConnexion::OnCycle(u32 now)
