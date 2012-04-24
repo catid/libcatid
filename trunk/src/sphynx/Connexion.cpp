@@ -90,7 +90,7 @@ void Connexion::RetransmitAnswer(RecvBuffer *buffer)
 			return;
 		}
 
-		u8 *pkt = SendBuffer::Acquire(S2C_ANSWER_LEN);
+		u8 *pkt = UDPSendAllocator::ref()->Acquire(S2C_ANSWER_LEN);
 		if (!pkt)
 		{
 			CAT_WARN("Connexion") << "Ignoring challenge: Unable to allocate post buffer";
