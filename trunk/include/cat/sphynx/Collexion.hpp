@@ -679,9 +679,6 @@ int Collexion<T>::SubsetAcquire(ConnexionSubset &subset, IConnexionCriterion<T> 
 
 	AutoMutex lock(_lock);
 
-	// Increment reference count
-	_reference_count++;
-
 	// For each active item,
 	u32 key = _active_head;
 	while (key)
@@ -698,7 +695,14 @@ int Collexion<T>::SubsetAcquire(ConnexionSubset &subset, IConnexionCriterion<T> 
 		key = _table[key - 1].next & NEXT_MASK;
 	}
 
-	return subset.Count();
+	// If nothing was added,
+	int count = subset.Count();
+	if (count <= 0) return 0;
+
+	// Increment reference count
+	_reference_count++;
+
+	return count;
 }
 
 template<class T>
@@ -708,9 +712,6 @@ int Collexion<T>::BinnedSubsetAcquire(BinnedConnexionSubset &subset, IConnexionC
 
 	AutoMutex lock(_lock);
 
-	// Increment reference count
-	_reference_count++;
-
 	// For each active item,
 	u32 key = _active_head;
 	while (key)
@@ -727,7 +728,14 @@ int Collexion<T>::BinnedSubsetAcquire(BinnedConnexionSubset &subset, IConnexionC
 		key = _table[key - 1].next & NEXT_MASK;
 	}
 
-	return subset.Count();
+	// If nothing was added,
+	int count = subset.Count();
+	if (count <= 0) return 0;
+
+	// Increment reference count
+	_reference_count++;
+
+	return count;
 }
 
 template<class T>

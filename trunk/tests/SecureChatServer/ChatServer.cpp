@@ -78,12 +78,11 @@ void GameConnexion::OnConnect()
 
 	u16 key = getLE(GetMyID());
 
-	BinnedConnexionSubset subset;
-	if (GetServer<GameServer>()->_collexion.BinnedSubsetAcquire(subset))
-		Transport::BroadcastReliable(subset, STREAM_1, OP_USER_JOIN, &key, sizeof(key));
-	GetServer<GameServer>()->_collexion.SubsetRelease();
+	Collexion<GameConnexion> *user_list = &GetServer<GameServer>()->_collexion;
 
-	GetServer<GameServer>()->_collexion.Insert(this);
+	Transport::BroadcastReliable(user_list, STREAM_1, OP_USER_JOIN, &key, sizeof(key));
+
+	user_list->Insert(this);
 }
 
 void GameConnexion::OnMessages(IncomingMessage msgs[], u32 count)
@@ -130,10 +129,9 @@ void GameConnexion::OnDisconnectReason(u8 reason)
 
 	u16 key = getLE(GetMyID());
 
-	BinnedConnexionSubset subset;
-	if (GetServer<GameServer>()->_collexion.BinnedSubsetAcquire(subset))
-		Transport::BroadcastReliable(subset, STREAM_1, OP_USER_PART, &key, sizeof(key));
-	GetServer<GameServer>()->_collexion.SubsetRelease();
+	Collexion<GameConnexion> *user_list = &GetServer<GameServer>()->_collexion;
+
+	Transport::BroadcastReliable(user_list, STREAM_1, OP_USER_PART, &key, sizeof(key));
 }
 
 void GameConnexion::OnCycle(u32 now)
