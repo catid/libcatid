@@ -392,8 +392,8 @@ void Server::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 				}
 				else
 				{
-					u32 lock_rv = local_tls->rand_pad.Next();
-					conn->InitializeTLS(remote_tls, lock_rv);
+					//u32 lock_rv = local_tls->rand_pad.Next();
+					conn->InitializeTLS(remote_tls);
 
 					// Assign to a worker
 					if (!m_worker_threads->AssignTimer(worker_id, conn, WorkerTimerDelegate::FromMember<Connexion, &Connexion::OnTick>(conn)))

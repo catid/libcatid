@@ -41,6 +41,9 @@
     <ClCompile Include="..\..\src\sphynx\FileTransfer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\sphynx\Collexion.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Precompiled.hpp">

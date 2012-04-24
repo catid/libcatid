@@ -41,7 +41,6 @@
 // TODO: vulnerable to resource starvation attacks?
 // TODO: fix a bug that eats all the buffers when none are available
 // TODO: fix a bug that drops data on the floor when it arrives out of order
-// TODO: add buffer pool for sending
 
 #define CAT_SPHYNX_ROAMING_IP /* Add extra 2 byte header to each c2s packet to support roaming ip */
 
@@ -67,6 +66,8 @@ class ServerTimer;
 class Client;
 class Transport;
 class FlowControl;
+class ConnexionSubset;
+class BinnedConnexionSubset;
 
 
 // Protocol constants
