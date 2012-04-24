@@ -1115,33 +1115,27 @@ bool Transport::BroadcastReliable(BinnedConnexionSubset &subset, StreamMode stre
 		return false;
 	}
 
-	const u32 data_bytes = 1 + msg_bytes;
-
 	// For each worker,
 	u32 acquire_sum = 0;
 	for (int worker_id = 0, worker_count = subset.WorkerCount(); worker_id < worker_count; ++worker_id)
 	{
 		// Skip empty bins
 		ConnexionSubset &subsubset = subset[worker_id];
-		const int acquire_count = subsubset.Count();
-		if (acquire_count <= 0) continue;
+		const int subset_count = subsubset.Count();
+		if (subset_count <= 0) continue;
 
 		// Prepare one message for each subset connexion
 		OutgoingMessage *head = 0;
-		for (int msg_id = 0; msg_id < acquire_count; ++msg_id)
+		for (int msg_id = 0; msg_id < subset_count; ++msg_id)
 		{
 			// Acquire buffer
 			u8 *msg;
-			do msg = OutgoingMessage::Acquire(data_bytes);
+			do msg = OutgoingMessage::Acquire(1 + msg_bytes);
 			while (!msg);
-
-			// Fill data
-			msg[0] = msg_opcode;
-			memcpy(msg + 1, msg_data, msg_bytes);
 
 			// Initialize outgoing message object
 			OutgoingMessage *node = OutgoingMessage::Promote(msg);
-			node->SetBytes(msg_bytes);
+			node->SetBytes(1 + msg_bytes);
 			node->frag_count = 0;
 			node->sop = super_opcode;
 			node->send_bytes = 0;
@@ -1150,13 +1144,20 @@ bool Transport::BroadcastReliable(BinnedConnexionSubset &subset, StreamMode stre
 			// Link to head of list
 			node->next = head;
 			head = node;
+
+			// Fill data
+			msg[0] = msg_opcode;
+			memcpy(msg + 1, msg_data, msg_bytes);
 		}
 
+		// Lookup send queue lock for this worker id
 		TransportTLS *tls = m_transport_tls.Peek(m_worker_threads->GetTLS(worker_id));
+		Mutex *send_queue_lock = &tls->locks.send_queue_lock;
 
-		tls->locks.send_queue_lock.Enter();
+		send_queue_lock->Enter();
 
-		for (int ii = 0; ii < acquire_count; ++ii)
+		// For each client,
+		for (int ii = 0; ii < subset_count; ++ii)
 		{
 			OutgoingMessage *next = head->next;
 
@@ -1165,9 +1166,9 @@ bool Transport::BroadcastReliable(BinnedConnexionSubset &subset, StreamMode stre
 			head = next;
 		}
 
-		tls->locks.send_queue_lock.Leave();
+		send_queue_lock->Leave();
 
-		acquire_sum += acquire_count;
+		acquire_sum += subset_count;
 	}
 
 	CAT_INFO("Transport") << "Appended reliable message with " << msg_bytes << " bytes to stream " << stream << " for " << acquire_sum << " connexions";
