@@ -148,7 +148,7 @@ void Connexion::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 
 				if (compress_size <= 0)
 				{
-					CAT_WARN("Client") << "Ignored invalid compressed data";
+					CAT_WARN("Client") << "!!!! Ignored invalid compressed data !!!!";
 					continue;
 				}
 

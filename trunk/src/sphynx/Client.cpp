@@ -217,7 +217,7 @@ void Client::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 				}
 				else
 				{
-					CAT_INANE("Client") << "Ignored invalid server answer";
+					CAT_INANE("Client") << "!!!! Ignored invalid server answer !!!!";
 				}
 			}
 			else if (bytes == S2C_ERROR_LEN && data[0] == S2C_ERROR)
@@ -259,7 +259,7 @@ void Client::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 
 					if (compress_size <= 0)
 					{
-						CAT_WARN("Client") << "Ignored invalid compressed data";
+						CAT_WARN("Client") << "!!!! Ignored invalid compressed data !!!!";
 						continue;
 					}
 
@@ -274,7 +274,7 @@ void Client::OnRecv(ThreadLocalStorage &tls, const BatchSet &buffers)
 			}
 			else
 			{
-				CAT_WARN("Client") << "Ignored invalid encrypted data";
+				CAT_WARN("Client") << "!!!! Ignored invalid encrypted data !!!!";
 			}
 		}
 

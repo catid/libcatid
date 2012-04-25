@@ -257,6 +257,8 @@ bool UDPEndpoint::Write(const BatchSet &buffers, u32 count, const NetAddr &addr)
 		CAT_OBJCLR(buffer->iointernal.ov);
 		buffer->iointernal.io_type = IOTYPE_UDP_SEND;
 
+		CAT_WARN("UDPEndpoint") << "Posting datagram: " << cat::HexDumpString(wsabuf.buf, wsabuf.len);
+
 		// Fire off a WSASendTo() and forget about it
 		int result = WSASendTo(GetSocket(), &wsabuf, 1, 0, 0,
 			reinterpret_cast<const sockaddr*>( &out_addr ),

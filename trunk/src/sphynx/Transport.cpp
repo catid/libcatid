@@ -407,6 +407,8 @@ Transport::Transport()
 
 	_outgoing_datagrams.Clear();
 	_outgoing_datagrams_count = 0;
+
+	_huge_endpoint = 0;
 }
 
 Transport::~Transport()

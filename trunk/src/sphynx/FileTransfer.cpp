@@ -250,7 +250,7 @@ bool FECHugeEndpoint::PostPart(u32 stream_id, BatchSet &buffers, u32 &count)
 
 	const u32 mss = stream->mss;
 
-	u8 *msg = m_udp_send_allocator->Acquire(mss);
+	u8 *msg = m_udp_send_allocator->Acquire(mss + SPHYNX_OVERHEAD);
 	if (!msg) return false;
 
 	// Generate header and length
@@ -290,9 +290,12 @@ bool FECHugeEndpoint::PostPart(u32 stream_id, BatchSet &buffers, u32 &count)
 		bytes = stream->encoder.Encode(data_id, msg + hdr_bytes);
 	}
 
+	// Zero compression flag
+	msg[hdr_bytes + bytes] = 0;
+
 	// Carve out just the part of the buffer we're using
 	SendBuffer *buffer = SendBuffer::Promote(msg);
-	buffer->data_bytes = bytes + hdr_bytes;
+	buffer->data_bytes = bytes + hdr_bytes + SPHYNX_OVERHEAD;
 
 	// Add it to the list
 	buffers.PushBack(buffer);
