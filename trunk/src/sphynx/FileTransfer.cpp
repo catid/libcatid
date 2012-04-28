@@ -595,12 +595,36 @@ void FECHugeEndpoint::OnClose(int reason)
 	_abort_reason = reason;
 }
 
-void FECHugeEndpoint::NextHuge(s32 &available, BatchSet &buffers, u32 &count)
+bool FECHugeEndpoint::HasData()
 {
-	// If no space, abort
-	if (available <= 0) return;
+	// If state is not pushing, there is no data to send
+	if (_state != TXS_PUSHING)
+		return false;
 
-	CAT_WARN("FECHugeEndpoint") << "NextHuge available=" << available;
+	// If there is an abort message to send,
+	if (_abort_reason != TXERR_NO_PROBLEMO)
+		return true;
+
+	// For each stream,
+	for (int ii = 0; ii < _num_streams; ++ii)
+	{
+		Stream *stream = &_streams[ii];
+
+		// If any stream has data to send,
+		if (stream->requested > 0)
+			return true;
+	}
+
+	// No data to send
+	return false;
+}
+
+s32 FECHugeEndpoint::NextHuge(s32 available, BatchSet &buffers, u32 &count)
+{
+	s32 used = 0;
+
+	// If no space, abort
+	if (available <= 0) return 0;
 
 	// If abortion requested,
 	if (_abort_reason != TXERR_NO_PROBLEMO)
@@ -614,14 +638,16 @@ void FECHugeEndpoint::NextHuge(s32 &available, BatchSet &buffers, u32 &count)
 		if (_file)
 			_file->Destroy(CAT_REFOBJECT_TRACE);
 
-		return;
+		return 0;
 	}
 
 	// If state is idle, abort
-	if (_state == TXS_IDLE) return;
+	if (_state == TXS_IDLE) return 0;
 
 	// If no streams, abort
-	if (!_streams) return;
+	if (!_streams) return 0;
+
+	CAT_WARN("FECHugeEndpoint") << "NextHuge available=" << available;
 
 	// Send requested streams first
 	for (u32 stream_id = 0; stream_id < _num_streams; ++stream_id)
@@ -641,8 +667,9 @@ void FECHugeEndpoint::NextHuge(s32 &available, BatchSet &buffers, u32 &count)
 			stream->requested--;
 
 			// If out of room,
-			if ((available -= stream->mss) <= 0)
-				return;	// Done for now!
+			used += stream->mss;
+			if (used >= available)
+				return used;	// Done for now!
 		}
 	}
 
@@ -661,9 +688,12 @@ void FECHugeEndpoint::NextHuge(s32 &available, BatchSet &buffers, u32 &count)
 		stream->requested--;
 
 		// If out of room,
-		if ((available -= stream->mss) <= 0)
-			return;	// Done for now!
+		used += stream->mss;
+		if (used >= available)
+			return used;	// Done for now!
 	}
+
+	return used;
 }
 
 void FECHugeEndpoint::OnHuge(u8 *data, u32 bytes)

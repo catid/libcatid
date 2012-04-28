@@ -241,8 +241,12 @@ protected:
 	void OnRequest(int stream_id, int request_count);
 	void OnClose(int reason);
 
+protected:
+	// Returns true if has more data to send
+	bool HasData();
+
 	// Called by Transport layer when more data can be sent
-	void NextHuge(s32 &available, BatchSet &buffers, u32 &count);
+	s32 NextHuge(s32 available, BatchSet &buffers, u32 &count);
 
 	// On IOP_HUGE message arrives
 	void OnHuge(u8 *data, u32 bytes);
