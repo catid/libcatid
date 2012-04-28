@@ -2164,8 +2164,15 @@ bool Transport::WriteQueuedReliable()
 		if (_send_queue[stream].head || _sending_queue[stream].head)
 			break;
 
+	// If no reliable data to send,
 	if (stream >= NUM_STREAMS)
-		return false;
+	{
+		// If no huge data to send either,
+		if (!_huge_endpoint || !_huge_endpoint->HasData())
+		{
+			return false;
+		}
+	}
 
 	// Use the same ts_firstsend for all messages delivered now, to insure they are clustered on retransmission
 	u32 now = m_clock->msec();
@@ -2263,9 +2270,17 @@ bool Transport::WriteQueuedReliable()
 		} while (node != out_tail[stream] && (node = next));
 	}
 
-	// If huge endpoint is initialized, grab next huge part
-	if (_huge_endpoint)
-		_huge_endpoint->NextHuge(remaining, _outgoing_datagrams, _outgoing_datagrams_count);
+	CAT_DEBUG_CHECK_MEMORY();
+
+	// If there is remaining bandwidth,
+	if (remaining > 0)
+	{
+		// If huge endpoint is initialized, grab next huge part
+		if (_huge_endpoint)
+		{
+			_huge_endpoint->NextHuge(remaining, _outgoing_datagrams, _outgoing_datagrams_count);
+		}
+	}
 
 	CAT_DEBUG_CHECK_MEMORY();
 

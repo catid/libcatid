@@ -231,8 +231,14 @@ static const u32 COLLISION_INCRINVERSE = 0 - COLLISION_INCREMENTER;
 class IHugeEndpoint
 {
 public:
-	virtual void NextHuge(s32 &available, BatchSet &buffers, u32 &count) = 0;
+	// Returns true if the huge endpoint has data to send
+	virtual bool HasData() = 0;
 
+	// Insert new data until available bandwidth is exceeded
+	// Returns number of bytes written to buffers
+	virtual s32 NextHuge(s32 available, BatchSet &buffers, u32 &count) = 0;
+
+	// Called when huge data arrives
 	virtual void OnHuge(u8 *data, u32 bytes) = 0;
 };
 
