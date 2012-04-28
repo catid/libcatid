@@ -216,21 +216,21 @@ void FECHugeEndpoint::OnFileRead(ThreadLocalStorage &tls, const BatchSet &set)
 
 			CAT_WARN("FECHugeEndpoint") << "OnFileRead: Read " << bytes << " bytes, compressed to " << compress_bytes << " block_bytes=" << block_bytes << " and blocks=" << block_count;
 
-			stream->ready_flag = TXFLAG_READY;
+			stream->requested = block_count;
 
 			Atomic::StoreMemoryBarrier();
 
-			stream->requested = block_count;
+			stream->ready_flag = TXFLAG_READY;
 		}
 		else if (r == wirehair::R_TOO_SMALL && compress_bytes <= block_bytes)
 		{
 			CAT_WARN("FECHugeEndpoint") << "OnFileRead: Read " << bytes << " bytes, compressed to " << compress_bytes << " block_bytes=" << block_bytes << " and single block";
 
-			stream->ready_flag = TXFLAG_SINGLE;
+			stream->requested = 1;
 
 			Atomic::StoreMemoryBarrier();
 
-			stream->requested = 1;
+			stream->ready_flag = TXFLAG_SINGLE;
 		}
 		else
 		{
@@ -698,9 +698,7 @@ s32 FECHugeEndpoint::NextHuge(s32 available, BatchSet &buffers, u32 &count)
 
 void FECHugeEndpoint::OnHuge(u8 *data, u32 bytes)
 {
-	CAT_WARN("FECHugeEndpoint") << "OnHuge";
-
-
+	CAT_WARN("FECHugeEndpoint") << "OnHuge" << HexDumpString(data, bytes);
 }
 
 void FECHugeEndpoint::OnControlMessage(u8 *data, u32 bytes)

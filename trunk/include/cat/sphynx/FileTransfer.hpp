@@ -133,9 +133,10 @@ const char *GetTransferAbortReasonString(int reason);
 
 enum TransferStatusFlags
 {
-	TXFLAG_LOADING,
-	TXFLAG_READY,
+	TXFLAG_LOADING,	// Waiting on file input completion
+	TXFLAG_READY,	// Ready for more transfers
 	TXFLAG_SINGLE,	// Exceptional case where FEC cannot be used since the data fits in one datagram
+	TXFLAG_STALLED,	// Not transmitting any new data
 };
 
 static const u32 FT_STREAM_ID_SHIFT = 2;
@@ -170,6 +171,7 @@ protected:
 	static const u32 OVERHEAD = 1 + 1 + 3; // HDR(1) + IOP_HUGE|STREAM(1) + ID(3)
 	static const u32 CHUNK_TARGET_LEN = 4000000; // 4 MB
 
+	// State that the object is in, to switch between pushing and pulling
 	enum TransferState
 	{
 		TXS_IDLE,
@@ -178,32 +180,33 @@ protected:
 		TXS_PUSHING,
 	} _state;
 
-	Transport *_transport;
-	u32 _read_bytes;
-	u8 _opcode;
+	Transport *_transport;	// Transport object to use for posting messages
+	u32 _read_bytes;		// Number of bytes to read in each chunk (multiple of page size)
+	u8 _opcode;				// Message opcode to use for reliable messages (to integrate with other user opcodes)
 
 	OnSendRequest _on_send_request;
 	OnSendDone _on_send_done;
 	OnRecvRequest _on_recv_request;
 	OnRecvDone _on_recv_done;
 
-	volatile u32 _abort_reason;	// If non-zero: Abort transfer with this reason
+	volatile u32 _abort_reason;		// If non-zero: Abort transfer with this reason
 
-	AsyncFile *_file;
-	u64 _file_size;
+	AsyncFile *_file;				// AsyncIO file object
+	u64 _file_size;					// Cached file size
 
+	// Interleaved encoder streams
 	struct Stream
 	{
-		volatile u32 ready_flag;
-		u8 *read_buffer;
-		u8 *compress_buffer;
-		ReadBuffer read_buffer_object;
-		wirehair::Encoder encoder;
-		u32 next_id;
-		u32 mss;
-		u32 compress_bytes;
-		int requested;
-	} *_streams;
+		volatile u32 ready_flag;		// Synchronization flag
+		u8 *read_buffer;				// Pointer to buffer receiving raw file data
+		u8 *compress_buffer;			// Pointer to compressed data buffer
+		ReadBuffer read_buffer_object;	// AsyncIO read buffer object
+		wirehair::Encoder encoder;		// FEC encoder object
+		u32 next_id;					// Next ID number to transmit
+		u32 mss;						// Maximum segment size, which is the number of bytes sent per message
+		u32 compress_bytes;				// Number of bytes that the file part compressed to
+		int requested;					// Number of messages requested to send
+	} *_encode_streams;
 
 	volatile u32 _load_stream;	// Indicates which stream is currently pending on a file read
 	u32 _dom_stream;	// Indicates which stream is dominant on the network
