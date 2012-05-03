@@ -5596,24 +5596,42 @@ Result Codec::DecodeFeed(u32 id, const void *block_in)
 			// If just acquired N blocks,
 			if (++_row_count == _block_count)
 			{
-#if defined(CAT_ALL_ORIGINAL)
-				// If all original data,
-				if (_all_original && IsAllOriginalData())
-					return R_WIN;
-#endif
-
-				// Attempt to solve the matrix and generate recovery blocks
-				Result r = SolveMatrix();
-				if (!r) Codec::GenerateRecoveryBlocks();
-				return r;
+				return R_WIN;
 			}
 		} // end if opportunistic peeling succeeded
 
 		return R_MORE_BLOCKS;
 	}
 
-	// Resume GE from this row
-	Result r = ResumeSolveMatrix(id, block_in);
-	if (!r) Codec::GenerateRecoveryBlocks();
+	return R_WIN;
+}
+
+Result Codec::DecodeSolve(u32 id, const void *block_in)
+{
+	// If still waiting for N blocks,
+	if (_row_count < _block_count)
+		return R_MORE_BLOCKS;
+
+	// If just acquired N blocks,
+	Result r;
+	if (_row_count == _block_count)
+	{
+#if defined(CAT_ALL_ORIGINAL)
+		// If all original data,
+		if (_all_original && IsAllOriginalData())
+			return R_WIN;
+#endif
+
+		// Attempt to solve the matrix and generate recovery blocks
+		r = SolveMatrix();
+	}
+	else
+	{
+		// Resume GE from this row
+		r = ResumeSolveMatrix(id, block_in);
+	}
+
+	// On successful decode, generate recovery blocks
+	if (!r) GenerateRecoveryBlocks();
 	return r;
 }

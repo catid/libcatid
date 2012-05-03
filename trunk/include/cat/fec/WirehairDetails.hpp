@@ -281,6 +281,9 @@ public:
 	// Feed decoder a block
 	Result DecodeFeed(u32 id, const void *block_in);
 
+	// Call if DecodeFeed returns R_WIN
+	Result DecodeSolve(u32 id, const void *block_in);
+
 	// Use matrix solution to generate recovery blocks
 	void GenerateRecoveryBlocks();
 

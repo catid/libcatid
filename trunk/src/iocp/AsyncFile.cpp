@@ -1,5 +1,5 @@
 /*
-	Copyright (c) 2009-2011 Christopher A. Taylor.  All rights reserved.
+	Copyright (c) 2009-2012 Christopher A. Taylor.  All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
 	modification, are permitted provided that the following conditions are met:
@@ -70,7 +70,16 @@ bool AsyncFile::Open(const char *file_path, u32 async_file_modes)
 	if (async_file_modes & ASYNCFILE_WRITE)
 	{
 		modes |= GENERIC_WRITE;
+
+		// Open it whether it exists or not
 		creation = OPEN_ALWAYS;
+
+		// If in truncate mode,
+		if (async_file_modes & ASYNCFILE_TRUNC)
+		{
+			// Truncate existing file
+			creation |= TRUNCATE_EXISTING;
+		}
 	}
 
 	if (async_file_modes & ASYNCFILE_RANDOM)

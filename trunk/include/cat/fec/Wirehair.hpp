@@ -160,14 +160,38 @@ public:
 		return Codec::InitializeDecoder(message_bytes, block_bytes);
 	}
 
+	// Multi-threaded optimized version (splits feeding from solving,
+	// so solving can be attempted in a separate thread; note that the
+	// solver can fail and require more blocks)
+
 	// Feed decoder a block
+	// id: Block number, id < BlockCount are same as original message
+	// block_in: Has block_bytes
+	CAT_INLINE Result DecodeFeed(u32 id, const void *block_in)
+	{
+		return Codec::DecodeFeed(id, block_in);
+	}
+
+	// Attempt solution
+	// id: Block number, id < BlockCount are same as original message
+	// block_in: Has block_bytes
+	CAT_INLINE Result DecodeSolve(u32 id, const void *block_in)
+	{
+		Result r = Codec::DecodeSolve(id, block_in);
+		if (!r) r = Codec::ReconstructOutput(_message_out);
+		return r; // Return R_WIN when message has been reconstructed
+	}
+
+	// Single-thread simpler version:
+
+	// Feed decoder a block and try to solve
 	// id: Block number, id < BlockCount are same as original message
 	// block_in: Has block_bytes
 	CAT_INLINE Result Decode(u32 id, const void *block_in)
 	{
-		Result r = Codec::DecodeFeed(id, block_in);
-		if (!r) r = Codec::ReconstructOutput(_message_out);
-		return r; // Return R_WIN when message has been reconstructed
+		Result r = DecodeFeed(id, block_in);
+		if (!r) return DecodeSolve(id, block_in);
+		return r;
 	}
 };
 
